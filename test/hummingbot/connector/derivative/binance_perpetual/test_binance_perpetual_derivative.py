@@ -1015,3 +1015,51 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             "INFO",
             f"Successfully cancelled order {order.client_order_id} according to websocket delta."
         ))
+
+    def test_user_stream_event_listener_raises_cancelled_error(self):
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = asyncio.CancelledError
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
+
+    def test_margin_call_event(self):
+
+        margin_call = {
+            "e": "MARGIN_CALL",
+            "E": 1587727187525,
+            "cw": "3.16812045",
+            "p": [
+                {
+                    "s": "ETHUSDT",
+                    "ps": "LONG",
+                    "pa": "1.327",
+                    "mt": "CROSSED",
+                    "iw": "0",
+                    "mp": "187.17127",
+                    "up": "-1.166074",
+                    "mm": "1.614445"
+                }
+            ]
+        }
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: margin_call)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            "Margin Call: Your position risk is too high, and you are at risk of liquidation. "
+            "Close your positions or add additional margin to your wallet."
+        ))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Margin Required: 1.614445. Negative PnL assets: ETHUSDT: -1.166074, ."
+        ))

@@ -592,22 +592,22 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     await self._update_positions()
         elif event_type == "MARGIN_CALL":
             positions = event_message.get("p", [])
-            total_maint_margin_required = 0
+            total_maint_margin_required = Decimal(0)
             # total_pnl = 0
             negative_pnls_msg = ""
             for position in positions:
-                existing_position = self.get_position(asset['s'], PositionSide[asset['ps']])
+                existing_position = self.get_position(position['s'], PositionSide[position['ps']])
                 if existing_position is not None:
-                    existing_position.update_position(position_side=PositionSide[asset["ps"]],
-                                                      unrealized_pnl=Decimal(asset["up"]),
-                                                      amount=Decimal(asset["pa"]))
-                total_maint_margin_required += position.get("mm", 0)
-                if position.get("up", 0) < 1:
+                    existing_position.update_position(position_side=PositionSide[position["ps"]],
+                                                      unrealized_pnl=Decimal(position["up"]),
+                                                      amount=Decimal(position["pa"]))
+                total_maint_margin_required += Decimal(position.get("mm", "0"))
+                if float(position.get("up", 0)) < 1:
                     negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
             self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
                                   "liquidation. Close your positions or add additional margin to your wallet.")
-            self.logger().info(f"Margin Required: {total_maint_margin_required}. Total Unrealized PnL: "
-                               f"{negative_pnls_msg}. Negative PnL assets: {negative_pnls_msg}.")
+            self.logger().info(f"Margin Required: {total_maint_margin_required}. "
+                               f"Negative PnL assets: {negative_pnls_msg}.")
 
     def tick(self, timestamp: float):
         """
