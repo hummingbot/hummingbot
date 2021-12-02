@@ -1,55 +1,55 @@
-import aiohttp
 import asyncio
-from async_timeout import timeout
-from decimal import Decimal
+import copy
 import json
 import logging
-import pandas as pd
+
+from async_timeout import timeout
+from decimal import Decimal
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    AsyncIterable,
 )
-from libc.stdint cimport int64_t
-import copy
 
+import aiohttp
+from libc.stdint cimport int64_t
+
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
-    TradeType,
-    TradeFee,
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    MarketOrderFailureEvent
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal("0.0")
@@ -196,6 +196,10 @@ cdef class CoinbaseProExchange(ExchangeBase):
     @property
     def in_flight_orders(self) -> Dict[str, CoinbaseProInFlightOrder]:
         return self._in_flight_orders
+
+    @property
+    def user_stream_tracker(self) -> CoinbaseProUserStreamTracker:
+        return self._user_stream_tracker
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -562,7 +566,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                content = event_message.content
+                content = event_message
                 event_type = content.get("type")
                 exchange_order_ids = [content.get("order_id"),
                                       content.get("maker_order_id"),
@@ -583,9 +587,25 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 execute_amount_diff = s_decimal_0
 
                 if event_type == "match":
-                    execute_amount_diff = Decimal(content.get("size", 0.0))
-                    tracked_order.executed_amount_base += execute_amount_diff
-                    tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+                    updated = tracked_order.update_with_trade_update(content)
+                    if updated:
+                        execute_amount_diff = Decimal(content.get("size", 0.0))
+                        self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                           f"{order_type_description} order {tracked_order.client_order_id}")
+                        exchange_order_id = tracked_order.exchange_order_id
+
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                             OrderFilledEvent(
+                                                 self._current_timestamp,
+                                                 tracked_order.client_order_id,
+                                                 tracked_order.trading_pair,
+                                                 tracked_order.trade_type,
+                                                 tracked_order.order_type,
+                                                 execute_price,
+                                                 execute_amount_diff,
+                                                 TradeFee(tracked_order.fee_rate_from_trade_update(content), []),
+                                                 exchange_trade_id=content["trade_id"]
+                                             ))
 
                 if event_type == "change":
                     if content.get("new_size") is not None:
@@ -602,31 +622,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
                     execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
                     tracked_order.executed_amount_base = new_confirmed_amount
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
-
-                if execute_amount_diff > s_decimal_0:
-                    self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {tracked_order.client_order_id}")
-                    exchange_order_id = tracked_order.exchange_order_id
-
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                         OrderFilledEvent(
-                                             self._current_timestamp,
-                                             tracked_order.client_order_id,
-                                             tracked_order.trading_pair,
-                                             tracked_order.trade_type,
-                                             tracked_order.order_type,
-                                             execute_price,
-                                             execute_amount_diff,
-                                             self.c_get_fee(
-                                                 tracked_order.base_asset,
-                                                 tracked_order.quote_asset,
-                                                 tracked_order.order_type,
-                                                 tracked_order.trade_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                             ),
-                                             exchange_trade_id=exchange_order_id
-                                         ))
 
                 if content.get("reason") == "filled":  # Only handles orders with "done" status
                     if tracked_order.trade_type == TradeType.BUY:
@@ -657,6 +652,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
+                    tracked_order.last_state = "filled"
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
                 elif content.get("reason") == "canceled":  # reason == "canceled":
@@ -999,6 +995,21 @@ cdef class CoinbaseProExchange(ExchangeBase):
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
+
+    def start_tracking_order(self,
+                             order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        self.c_start_tracking_order(
+            order_id,
+            trading_pair,
+            order_type,
+            trade_type,
+            price,
+            amount)
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,
