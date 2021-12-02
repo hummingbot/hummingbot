@@ -1,7 +1,6 @@
 import asyncio
 import aiohttp
 import logging
-import nest_asyncio
 from typing import List, Tuple
 import random
 import string
@@ -14,7 +13,7 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
 
-nest_asyncio.apply()
+
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
