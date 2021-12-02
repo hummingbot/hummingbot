@@ -7,6 +7,42 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from './error-handler';
 
+export class NonceLocalStorage extends LocalStorage {
+  public async saveNonce(
+    chain: string,
+    chainId: number,
+    address: string,
+    nonce: number
+  ): Promise<void> {
+    return this.save(chain + '/' + String(chainId) + '/' + address, nonce);
+  }
+
+  public async deleteNonce(
+    chain: string,
+    chainId: number,
+    address: string
+  ): Promise<void> {
+    return this.del(chain + '/' + String(chainId) + '/' + address);
+  }
+
+  public async getNonces(
+    chain: string,
+    chainId: number
+  ): Promise<Record<string, number>> {
+    return this.get((key: string, value: any) => {
+      const splitKey = key.split('/');
+      if (
+        splitKey.length === 3 &&
+        splitKey[0] === chain &&
+        splitKey[1] === String(chainId)
+      ) {
+        return [splitKey[2], parseInt(value)];
+      }
+      return;
+    });
+  }
+}
+
 export class EVMNonceManager {
   #addressToNonce: Record<string, [number, Date]> = {};
 
@@ -14,7 +50,7 @@ export class EVMNonceManager {
   #chainId: number;
   #chainName: string;
   #delay: number;
-  #db: LocalStorage;
+  #db: NonceLocalStorage;
 
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
@@ -28,7 +64,7 @@ export class EVMNonceManager {
     this.#chainName = chainName;
     this.#chainId = chainId;
     this.#delay = delay;
-    this.#db = new LocalStorage(dbPath);
+    this.#db = new NonceLocalStorage(dbPath);
   }
 
   // init can be called many times and generally should always be called
@@ -49,7 +85,7 @@ export class EVMNonceManager {
     }
 
     if (!this.#initialized) {
-      const addressToNonce = await this.#db.getChainNonces(
+      const addressToNonce = await this.#db.getNonces(
         this.#chainName,
         this.#chainId
       );
