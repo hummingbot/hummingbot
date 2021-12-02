@@ -18,7 +18,7 @@ logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 class TestSouthXchangeUserStreamTracker(unittest.TestCase):
     api_key = conf.southxchange_api_key
-    api_secret = conf.southxchange_secret
+    api_secret = conf.southxchange_secret_key
 
     @classmethod
     def setUpClass(cls):

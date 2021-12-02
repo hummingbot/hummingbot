@@ -49,15 +49,14 @@ from hummingbot.model.sql_connection_manager import (
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from test.connector.exchange.southXchange.fixture_southxchange import Fixturesouthxchange
 from unittest import mock
-from test.connector.exchange.southXchange.mock_web_socket_server import MockWebSocketServerFactory
+from test.connector.exchange.southxchange.mock_web_socket_server import MockWebSocketServerFactory
+from test.connector.exchange.southxchange.fixture_southxchange import Fixturesouthxchange
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_KEY = "XXX" if API_MOCK_ENABLED else conf.southxchange_api_key
-API_SECRET = "YYY" if API_MOCK_ENABLED else conf.southxchange_secret
-API_PASSPHRASE = "ZZZ" if API_MOCK_ENABLED else conf.kucoin_passphrase
+API_SECRET = "YYY" if API_MOCK_ENABLED else conf.southxchange_secret_key
 API_BASE_URL = "www.southxchange.com"
 EXCHANGE_ORDER_ID = 20001
 
