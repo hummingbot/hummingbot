@@ -178,6 +178,15 @@ export async function trade(
       maxPriorityFeePerGasBigNumber
     );
 
+    if (tx.hash) {
+      await ethereumish.txStorage.saveTx(
+        ethereumish.chain,
+        ethereumish.chainId,
+        tx.hash,
+        new Date()
+      );
+    }
+
     return {
       network: ConfigManager.config.ETHEREUM_CHAIN,
       timestamp: initTime,

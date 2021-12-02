@@ -240,6 +240,15 @@ export async function approve(
     ethereumish.gasPrice
   );
 
+  if (approval.hash) {
+    await ethereumish.txStorage.saveTx(
+      ethereumish.chain,
+      ethereumish.chainId,
+      approval.hash,
+      new Date()
+    );
+  }
+
   return {
     network: ethereumish.chain,
     timestamp: initTime,
@@ -301,7 +310,17 @@ const toEthereumTransactionResponse = (
 
 // If tx_duration > tx_duration_limit AND current_gas_price > tx_gas_price, assume the transaction will not be included. set txStatus = -1. The client can resend transaction with tx_gas_price == current_gas_price * current_gas_price_mutliplier.
 
-// export function calculateMempoolFuture(txDuration)
+export function willTxSucceed(
+  txDuration: number,
+  txDurationLimit: number,
+  txGasPrice: number,
+  currentGasPrice: number
+): boolean {
+  if (txDuration > txDurationLimit && currentGasPrice > txGasPrice) {
+    return false;
+  }
+  return true;
+}
 
 // local storage
 // chain, chain id, txHash,
@@ -335,6 +354,23 @@ export async function poll(
       txBlock = -1;
       txReceipt = null;
       txStatus = 0;
+
+      const transactions = await ethereumish.txStorage.getTxs(
+        ethereumish.chain,
+        ethereumish.chainId
+      );
+      if (transactions[txData.hash]) {
+        const txStart: Date = transactions[txData.hash];
+        const now = new Date();
+        const txDuration = Math.abs(now.getTime() - txStart.getTime());
+        if (willTxSucceed(txDuration, 60000 * 3, 0, ethereumish.gasPrice)) {
+          txStatus = 2;
+        } else {
+          txStatus = 3;
+        }
+      } else {
+        txStatus = 1;
+      }
     } else {
       // tx has been processed
       txBlock = txReceipt.blockNumber;
