@@ -1,10 +1,12 @@
 import asyncio
 import json
+from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+
+import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -30,6 +32,10 @@ class NdaxUserStreamTrackerTests(TestCase):
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def _authentication_response(self, authenticated: bool) -> str:
         user = {"UserId": 492,
@@ -68,6 +74,6 @@ class NdaxUserStreamTrackerTests(TestCase):
         # Add a dummy message for the websocket to read and include in the "messages" queue
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
 
-        first_received_message = asyncio.get_event_loop().run_until_complete(self.tracker.user_stream.get())
+        first_received_message = self.async_run_with_timeout(self.tracker.user_stream.get())
 
         self.assertEqual('dummyMessage', first_received_message)
