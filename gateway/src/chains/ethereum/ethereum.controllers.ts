@@ -315,6 +315,12 @@ export function willTxSucceed(
   return true;
 }
 
+// txStatus
+// -1: not in the mempool or failed
+// 1: succeeded
+// 2: in the mempool and likely to succeed
+// 3: in the mempool and likely to fail
+// 0: in the mempool but we dont have data to guess its status
 export async function poll(
   ethereumish: Ethereumish,
   req: EthereumPollRequest
@@ -340,6 +346,7 @@ export async function poll(
         ethereumish.chain,
         ethereumish.chainId
       );
+
       if (transactions[txData.hash]) {
         const data: [Date, number] = transactions[txData.hash];
         const now = new Date();
@@ -351,8 +358,6 @@ export async function poll(
         } else {
           txStatus = 3;
         }
-      } else {
-        txStatus = 1;
       }
     } else {
       // tx has been processed

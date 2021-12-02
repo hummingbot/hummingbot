@@ -9,6 +9,7 @@ import {
   approve,
   balances,
   cancel,
+  willTxSucceed,
 } from '../../../src/chains/ethereum/ethereum.controllers';
 import {
   HttpException,
@@ -223,5 +224,19 @@ describe('cancel', () => {
         LOAD_WALLET_ERROR_CODE
       )
     );
+  });
+});
+
+describe('willTxSucceed', () => {
+  it('time limit met and gas price higher than that of the tx', () => {
+    expect(willTxSucceed(100, 10, 10, 100)).toEqual(false);
+  });
+
+  it('time limit met but gas price has not exceeded that of the tx', () => {
+    expect(willTxSucceed(100, 10, 100, 90)).toEqual(true);
+  });
+
+  it('time limit not met', () => {
+    expect(willTxSucceed(10, 100, 100, 90)).toEqual(true);
   });
 });
