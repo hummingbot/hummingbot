@@ -14,6 +14,26 @@ class ConditionalExecutionState(ABC):
     response from strategies to the tick (or c_tick) message.
     The default subclass is RunAlwaysExecutionState
     """
+
+    _closing_time: int = None
+    _time_left: int = None
+
+    @property
+    def time_left(self):
+        return self._time_left
+
+    @time_left.setter
+    def time_left(self, value):
+        self._time_left = value
+
+    @property
+    def closing_time(self):
+        return self._closing_time
+
+    @closing_time.setter
+    def closing_time(self, value):
+        self._closing_time = value
+
     @abstractmethod
     def process_tick(self, strategy: StrategyBase):
         pass
@@ -28,8 +48,8 @@ class RunAlwaysExecutionState(ConditionalExecutionState):
         return "run continuously"
 
     def process_tick(self, timestamp: float, strategy: StrategyBase):
-        if hasattr(strategy, "time_left"):
-            strategy.time_left = None
+        self._closing_time = None
+        self._time_left = None
         strategy.process_tick(timestamp)
 
 
@@ -44,8 +64,8 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
     def __init__(self, start_timestamp: Union[datetime, time], end_timestamp: Union[datetime, time] = None):
         super().__init__()
 
-        self._start_timestamp: datetime = start_timestamp
-        self._end_timestamp: datetime = end_timestamp
+        self._start_timestamp: Union[datetime, time] = start_timestamp
+        self._end_timestamp: Union[datetime, time] = end_timestamp
 
     def __str__(self):
         if type(self._start_timestamp) is datetime:
@@ -62,14 +82,20 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
             # From datetime
             # From datetime to datetime
             if self._end_timestamp is not None:
+
+                self._closing_time = (self._end_time.timestamp() - self._start_time.timestamp()) * 1000
+
                 if self._start_timestamp.timestamp() <= timestamp < self._end_timestamp.timestamp():
+                    self._time_left = max((self._end_time.timestamp() - timestamp) * 1000, 0)
                     strategy.process_tick(timestamp)
                 else:
+                    self._time_left = 0
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
                                             f"and {self._end_timestamp.isoformat(sep=' ')})")
-                    strategy.time_left = 0
             else:
+                self._closing_time = None
+                self._time_left = None
                 if self._start_timestamp.timestamp() <= timestamp:
                     strategy.process_tick(timestamp)
                 else:
@@ -78,11 +104,15 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
         if isinstance(self._start_timestamp, time):
             # Daily between times
             if self._end_timestamp is not None:
+
+                self._closing_time = (datetime.combine(datetime.today(), self._end_timestamp) - datetime.combine(datetime.today(), self._start_timestamp)).total_seconds() * 1000
                 current_time = datetime.fromtimestamp(timestamp).time()
+
                 if self._start_timestamp <= current_time < self._end_timestamp:
+                    self._time_left = max((datetime.combine(datetime.today(), self._end_timestamp) - datetime.combine(datetime.today(), current_time)).total_seconds() * 1000, 0)
                     strategy.process_tick(timestamp)
                 else:
+                    self._time_left = 0
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp} "
                                             f"and {self._end_timestamp})")
-                    strategy.time_left = 0

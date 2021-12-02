@@ -140,8 +140,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._execution_state = execution_state
         self._start_time = start_time
         self._end_time = end_time
-        self._closing_time = None
-        self._time_left = None
         self._min_spread = min_spread
         self._latest_parameter_calculation_vol = s_decimal_zero
         self._reserved_price = s_decimal_zero
@@ -357,14 +355,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_bid = value
 
     @property
-    def time_left(self):
-        return self._time_left
-
-    @time_left.setter
-    def time_left(self, value):
-        self._time_left = value
-
-    @property
     def execution_timeframe(self):
         return self._execution_timeframe
 
@@ -557,8 +547,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                           f"    order_book_intensity_factor(\u0391)= {self._alpha:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
                           f"    volatility= {volatility_pct:.3f}%"])
-            if self._time_left is not None:
-                lines.extend([f"    time until end of trading cycle = {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+            if self._execution_state.time_left is not None:
+                lines.extend([f"    time until end of trading cycle = {str(datetime.timedelta(seconds=float(self._execution_state.time_left)//1e3))}"])
             else:
                 lines.extend([f"    time until end of trading cycle = N/A"])
 
@@ -590,7 +580,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self._hanging_orders_tracker.add_order(order)
                     self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
 
-        self._time_left = self._closing_time
+        self._execution_state.time_left = self._execution_state.closing_time
 
     def start(self, clock: Clock, timestamp: float):
         self.c_start(clock, timestamp)
@@ -648,19 +638,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def process_tick(self, timestamp: float):
         proposal = None
         if self._create_timestamp <= self._current_timestamp:
-            # 1. Determine closing time and time left if applicable
-            self.c_determine_times(timestamp)
-            # 2. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
+            # 1. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
             self.c_calculate_reserved_price_and_optimal_spread()
-            # 3. Check if calculated prices make sense
+            # 2. Check if calculated prices make sense
             if self._optimal_bid > 0 and self._optimal_ask > 0:
-                # 4. Create base order proposals
+                # 3. Create base order proposals
                 proposal = self.c_create_base_proposal()
-                # 5. Apply functions that modify orders amount
+                # 4. Apply functions that modify orders amount
                 self.c_apply_order_amount_eta_transformation(proposal)
-                # 6. Apply functions that modify orders price
+                # 5. Apply functions that modify orders price
                 self.c_apply_order_price_modifiers(proposal)
-                # 7. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
                 self.c_apply_budget_constraint(proposal)
 
                 self.c_cancel_active_orders(proposal)
@@ -745,9 +733,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
         # and from the reserved price calculation we know that gamma's unit is not absolute price
         if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0 and vol != 0:
-            if self._time_left is not None and self._closing_time is not None:
+            if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
                 # Avellaneda-Stoikov for a fixed timespan
-                time_left_fraction = Decimal(str(self._time_left / self._closing_time))
+                time_left_fraction = Decimal(str(self._execution_state.time_left / self._execution_state.closing_time))
 
                 self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
@@ -1333,41 +1321,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._cancel_timestamp <= self._current_timestamp:
             self._cancel_timestamp = min(self._create_timestamp, next_cycle)
 
-    cdef bint c_is_trading_allowed(self):
-        if self._execution_timeframe == "from_date_to_date":
-            # Only within specific dates
-            return self._start_time.timestamp() <= self._current_timestamp <= self._end_time.timestamp()
-        elif self._execution_timeframe == "daily_between_times":
-            # Only within specific times of a day
-            current_time = datetime.datetime.fromtimestamp(self._current_timestamp).time()
-            return self._start_time <= current_time <= self._end_time
-        elif self._execution_timeframe == "infinite":
-            # Infinite - always allowed
-            return True
-        else:
-            # Invalid timeframe value - error
-            raise Exception("Invalid timeframe")
-
-    cdef c_determine_times(self, double timestamp):
-        # Trading is allowed
-        # Determine closing time and time left
-        if self._execution_timeframe == "from_date_to_date":
-            # Timespan between specific dates
-            self._closing_time = (self._end_time.timestamp() - self._start_time.timestamp()) * 1000
-            self._time_left = max((self._end_time.timestamp() - timestamp) * 1000, 0)
-        elif self._execution_timeframe == "daily_between_times":
-            # Timespan between specific times of a day
-            current_time = datetime.datetime.fromtimestamp(timestamp).time()
-            self._closing_time = (datetime.datetime.combine(datetime.datetime.today(), self._end_time) - datetime.datetime.combine(datetime.datetime.today(), self._start_time)).total_seconds() * 1000
-            self._time_left = max((datetime.datetime.combine(datetime.datetime.today(), self._end_time) - datetime.datetime.combine(datetime.datetime.today(), current_time)).total_seconds() * 1000, 0)
-        elif self._execution_timeframe == "infinite":
-            # No timespan restriction
-            self._closing_time = None
-            self._time_left = None
-        else:
-            # Invalid timeframe value - error
-            raise Exception("Invalid timeframe")
-
     def set_timers(self):
         self.c_set_timers()
 
@@ -1411,8 +1364,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                        'inventory_target_pct')])
             df_header.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
 
-        if self._time_left is not None and self._closing_time is not None:
-            time_left_fraction = self._time_left / self._closing_time
+        if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
+            time_left_fraction = self._execution_state.time_left / self._execution_state.closing_time
         else:
             time_left_fraction = None
 
