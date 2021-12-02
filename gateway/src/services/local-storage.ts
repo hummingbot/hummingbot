@@ -5,7 +5,7 @@ export class LocalStorage {
   readonly #dbPath: string;
   #db: LevelDB;
 
-  constructor(dbPath: string = 'gateway.level') {
+  constructor(dbPath: string) {
     this.#dbPath = dbPath;
     this.#db = level(dbPath, { createIfMissing: true });
   }
