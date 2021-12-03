@@ -1,12 +1,27 @@
+import fsp from 'fs/promises';
+import fse from 'fs-extra';
+import path from 'path';
 import { LocalStorage } from '../../src/services/local-storage';
 import 'jest-extended';
 
 describe('Test local-storage', () => {
+  let dbPath: string = '';
+
+  beforeEach(async () => {
+    dbPath = await fsp.mkdtemp(
+      path.join(__dirname, '/local-storage.test.level')
+    );
+  });
+
+  afterEach(async () => {
+    // Delete the temp dir.
+    await fse.remove(dbPath);
+    dbPath = '';
+  });
+
   it('save, get and delete a key value pair in the local db', async () => {
     const testKey = 'abc';
     const testValue = 123;
-
-    const dbPath = '/tmp/local-storage.test.level';
 
     const db = new LocalStorage(dbPath);
 
