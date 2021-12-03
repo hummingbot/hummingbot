@@ -168,7 +168,7 @@ Calls the [\_api_request()](#async-_api_request) function with the relevant para
 | `cancellation_result` | `List[CancellationResult]` | List of `CancellationResult`. `CancellationResult.success` is assigned `True` if the particular order(identified by Client Order ID) is successfully cancelled |
 
 !!! note
-In some cases, where an exchange does not have a cancel all orders endpoint, the we will have to call `_execute_cancel()` for each in-flight order. In the case when the exchange handles a cancellation requests asychronously, it is advisable to use another API request to fetch all **OPEN** orders. Using this return values, cross reference with the submitted cancellation request. Orders that have been successfully cancelled should no longer be reflected as an **OPEN** order and thus should be marked as `CancellationResult.success`.
+In some cases, where an exchange does not have a cancel all orders endpoint, we will have to call `_execute_cancel()` for each in-flight order. In the case when the exchange handles cancellation requests asychronously, it is advisable to use another API request to fetch all **OPEN** orders. Using the returned values, cross reference with the submitted cancellation request. Orders that have been successfully cancelled should no longer be reflected as an **OPEN** order and thus should be marked as `CancellationResult.success`.
 
 #### **_async_** `_execute_cancel()`
 
@@ -283,7 +283,7 @@ Calls the REST API to get order/trade updates for each in-flight order.
 If needed, it will call either [\_process_order_message()](#_process_order_message) or [\_process_trade_message()](#_process_trade_message) or both.
 
 !!! note
-`_process_trade_message()` must be called before `_process_order_message()` for any in-flight orders. Each partial fill should be accompanied by a call to `_process_trade_message()`. This ensures that Hummingbot captures every trade executed on an order.
+`_process_trade_message()` **must** be called before `_process_order_message()` for any in-flight orders. Each partial fill should be accompanied by a call to `_process_trade_message()`. This ensures that Hummingbot captures every trade executed on an order.
 
 **Input Parameter(s):** `None`
 
@@ -350,7 +350,7 @@ Queries the necessary API endpoint and initialize the `TradingRule` object for e
 Calls [\_api_request()](#async-_api_request) and subsequently [`_format_trading_rules()`](#_format_trading_rules)
 
 !!! warning
-For `Derivative` Connectors, it is necessary to retrieve the buy and sell collatoral tokens for the active trading pair. If none is provided, it will default to the quote token of the trading pair.
+For `Derivative` Connectors, it is necessary to retrieve the buy and sell collateral tokens for the active trading pair. If none are provided, they will default to the quote token of the trading pair.
 
 **Input Parameter(s):** `None`
 

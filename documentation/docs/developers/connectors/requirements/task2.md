@@ -4,7 +4,7 @@
 
 The **_UML Diagram_**, given above, illustrates the relations between `UserStreamTracker` and its subsidiary classes.
 
-The `UserStreamTracker` responsibility is to fetch user account data and queues it accordingly to be processed by the `Exchange` class.
+The responsibility of `UserStreamTracker` is to fetch user account data and queue it accordingly to be processed by the `Exchange` class.
 
 `UserStreamTracker` contains subsidiary classes that help maintain the real-time wallet/holdings balance, orders and positions of a user. Namely, the classes required are:
 
@@ -41,8 +41,8 @@ The following details the **required** functions in `UserStreamTrackerDataSource
 
 ### `last_recv_time`
 
-A property attribute that retrieves the timestamp(in ms) of the last user data message received by the WebSocket client.
-Should be updated(using python's `time.time()` or using the message timestamp) everytime a message is received from the WebSocket.<br/>
+A property attribute that retrieves the timestamp (in ms) of the last user data message received by the WebSocket client.
+Should be updated (using python's `time.time()` or using the message timestamp) everytime a message is received from the WebSocket.<br/>
 
 **Input Parameter:** None <br/>
 **Expected Output(s):** `float`
