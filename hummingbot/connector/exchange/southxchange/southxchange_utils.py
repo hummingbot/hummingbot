@@ -215,15 +215,9 @@ class SouthXchangeAPIRequest():
 
     async def safe_wrapper_sx(self, c):
         try:
-            # loop = asyncio.get_running_loop()
-            # asyncio.set_event_loop(loop)
-            # task = loop.create_task(c)
-            # return await task
             with await self._lock2:
-                loop = asyncio.get_running_loop()
-                task = loop.create_task(c)
-                result_taks = loop.run_until_complete(task)
-                return result_taks
+                result = await asyncio.gather(c)
+                return result
         except asyncio.CancelledError:
             raise
         except Exception as e:
