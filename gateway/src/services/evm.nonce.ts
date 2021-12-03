@@ -1,6 +1,6 @@
 import ethers from 'ethers';
 import { logger } from './logger';
-import { dbSaveNonce, dbGetChainNonces } from './local-storage';
+import { LocalStorage } from './local-storage';
 import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
@@ -8,45 +8,34 @@ import {
 } from './error-handler';
 
 export class EVMNonceManager {
-  private _addressToNonce: Record<string, [number, Date]> = {};
+  #addressToNonce: Record<string, [number, Date]> = {};
 
-  private _initialized: boolean = false;
-  private _chainId: number;
-  private _chainName: string;
-  private _delay: number;
+  #initialized: boolean = false;
+  #chainId: number;
+  #chainName: string;
+  #delay: number;
+  #db: LocalStorage;
 
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
 
-  constructor(chainName: string, chainId: number, delay: number) {
-    this._chainName = chainName;
-    this._chainId = chainId;
-    this._delay = delay;
+  constructor(
+    chainName: string,
+    chainId: number,
+    delay: number,
+    dbPath: string = 'gateway.level'
+  ) {
+    this.#chainName = chainName;
+    this.#chainId = chainId;
+    this.#delay = delay;
+    this.#db = new LocalStorage(dbPath);
   }
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
   public async init(provider: ethers.providers.Provider): Promise<void> {
     logger.info('initialize nonce');
-    if (!this._provider) {
-      this._provider = provider;
-    }
-
-    if (!this._initialized) {
-      const addressToNonce = await dbGetChainNonces(
-        this._chainName,
-        this._chainId
-      );
-      logger.info('eth stored nonces');
-
-      for (const [key, value] of Object.entries(addressToNonce)) {
-        logger.info(key + ':' + String(value));
-        this._addressToNonce[key] = [value, new Date()];
-      }
-      this._initialized = true;
-    }
-
-    if (this._delay < 0) {
+    if (this.#delay < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
           'EVMNonceManager.init delay must be greater than or equal to zero.'
@@ -54,13 +43,37 @@ export class EVMNonceManager {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
+
+    if (!this._provider) {
+      this._provider = provider;
+    }
+
+    if (!this.#initialized) {
+      const addressToNonce = await this.#db.getChainNonces(
+        this.#chainName,
+        this.#chainId
+      );
+
+      for (const [key, value] of Object.entries(addressToNonce)) {
+        logger.info(key + ':' + String(value));
+        this.#addressToNonce[key] = [value, new Date()];
+      }
+
+      await Promise.all(
+        Object.keys(this.#addressToNonce).map(async (address) => {
+          await this.mergeNonceFromEVMNode(address);
+        })
+      );
+
+      this.#initialized = true;
+    }
   }
 
   async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
-    if (this._provider !== null && this._delay !== null) {
+    if (this._provider !== null) {
       let internalNonce: number;
-      if (this._addressToNonce[ethAddress]) {
-        internalNonce = this._addressToNonce[ethAddress][0];
+      if (this.#addressToNonce[ethAddress]) {
+        internalNonce = this.#addressToNonce[ethAddress][0];
       } else {
         internalNonce = -1;
       }
@@ -70,8 +83,13 @@ export class EVMNonceManager {
       );
 
       const newNonce = Math.max(internalNonce, externalNonce);
-      this._addressToNonce[ethAddress] = [newNonce, new Date()];
-      await dbSaveNonce(this._chainName, this._chainId, ethAddress, newNonce);
+      this.#addressToNonce[ethAddress] = [newNonce, new Date()];
+      await this.#db.saveNonce(
+        this.#chainName,
+        this.#chainId,
+        ethAddress,
+        newNonce
+      );
     } else {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
@@ -86,23 +104,28 @@ export class EVMNonceManager {
   }
 
   async getNonce(ethAddress: string): Promise<number> {
-    if (this._provider !== null && this._delay !== null) {
-      if (this._addressToNonce[ethAddress]) {
-        const timestamp = this._addressToNonce[ethAddress][1];
+    if (this._provider !== null) {
+      if (this.#addressToNonce[ethAddress]) {
+        const timestamp = this.#addressToNonce[ethAddress][1];
         const now = new Date();
         const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
-
-        if (diffInSeconds > this._delay) {
+        if (diffInSeconds > this.#delay) {
           await this.mergeNonceFromEVMNode(ethAddress);
         }
 
-        return this._addressToNonce[ethAddress][0];
+        return this.#addressToNonce[ethAddress][0];
       } else {
         const nonce: number = await this._provider.getTransactionCount(
           ethAddress
         );
-        this._addressToNonce[ethAddress] = [nonce, new Date()];
-        await dbSaveNonce(this._chainName, this._chainId, ethAddress, nonce);
+
+        this.#addressToNonce[ethAddress] = [nonce, new Date()];
+        await this.#db.saveNonce(
+          this.#chainName,
+          this.#chainId,
+          ethAddress,
+          nonce
+        );
         return nonce;
       }
     } else {
@@ -118,15 +141,20 @@ export class EVMNonceManager {
     ethAddress: string,
     txNonce: number | null = null
   ): Promise<void> {
-    if (this._provider !== null && this._delay !== null) {
+    if (this._provider !== null) {
       let newNonce;
       if (txNonce) {
         newNonce = txNonce + 1;
       } else {
         newNonce = (await this.getNonce(ethAddress)) + 1;
       }
-      this._addressToNonce[ethAddress] = [newNonce, new Date()];
-      await dbSaveNonce(this._chainName, this._chainId, ethAddress, newNonce);
+      this.#addressToNonce[ethAddress] = [newNonce, new Date()];
+      await this.#db.saveNonce(
+        this.#chainName,
+        this.#chainId,
+        ethAddress,
+        newNonce
+      );
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
       throw new InitializationError(
