@@ -232,7 +232,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_get_listen_key_succesful_with_user_update_event(self, mock_api, mock_ws):
+    def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self, mock_api, mock_ws):
         url = utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -251,6 +251,29 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg = self.ev_loop.run_until_complete(msg_queue.get())
         self.assertTrue(msg, self._user_update_event)
+
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
+        url = utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "listenKey": self.listen_key
+        }
+        mock_api.post(regex_url, body=ujson.dumps(mock_response))
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+        )
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.assertEqual(0, msg_queue.qsize())
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -326,3 +349,28 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         msg = self.ev_loop.run_until_complete(msg_queue.get())
         self.assertTrue(msg, self._user_update_event)
         self.assertTrue(self._is_logged("DEBUG", "Received PING frame. Sending PONG frame..."))
+
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_handle_pong_frame(self, mock_api, mock_ws):
+        url = utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "listenKey": self.listen_key
+        }
+        mock_api.post(regex_url, body=ujson.dumps(mock_response))
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "", aiohttp.WSMsgType.PONG)
+
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._user_update_event())
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+        )
+
+        msg = self.ev_loop.run_until_complete(msg_queue.get())
+        self.assertTrue(msg, self._user_update_event)
+        self.assertTrue(self._is_logged("DEBUG", "Received PONG frame."))

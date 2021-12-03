@@ -36,7 +36,7 @@ cdef class HuobiOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["ts"] * 1e-3)
+        msg_ts = timestamp or int(msg["tick"]["ts"])
         content = {
             "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
             "update_id": msg_ts,
@@ -52,7 +52,7 @@ cdef class HuobiOrderBook(OrderBook):
                                     metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["ts"] * 1e-3)
+        msg_ts = timestamp or int(msg["ts"])
         content = {
             "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
             "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
@@ -70,7 +70,7 @@ cdef class HuobiOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["ts"] * 1e-3)
+        msg_ts = timestamp or int(msg["tick"]["ts"])
         content = {
             "trading_pair": convert_from_exchange_trading_pair(msg["ch"].split(".")[1]),
             "update_id": msg_ts,
@@ -91,7 +91,7 @@ cdef class HuobiOrderBook(OrderBook):
             "update_id": int(ts),
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
@@ -104,7 +104,7 @@ cdef class HuobiOrderBook(OrderBook):
             "update_id": int(ts),
             "bids": msg["b"],
             "asks": msg["a"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
@@ -117,7 +117,7 @@ cdef class HuobiOrderBook(OrderBook):
             "update_id": ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
@@ -131,7 +131,7 @@ cdef class HuobiOrderBook(OrderBook):
             "update_id": ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
@@ -147,7 +147,7 @@ cdef class HuobiOrderBook(OrderBook):
             "update_id": ts,
             "price": data["price"],
             "amount": data["amount"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
