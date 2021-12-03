@@ -38,6 +38,7 @@ dependencies:
     - cython==3.0a7
     - cytoolz==0.11.0
     - diff-cover==5.1.2
+    - docker==5.0.3
     - dydx-python==0.11.3
     - dydx-v3-python==1.0.10
     - eth-abi==2.1.1
