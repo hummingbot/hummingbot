@@ -3,10 +3,13 @@ import asyncio
 import aiohttp
 import ssl
 import json
+import shutil
+import ruamel.yaml
 import pandas as pd
+from os import listdir, path
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot import cert_path
+from hummingbot import cert_path, root_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from typing import Dict, Any, TYPE_CHECKING
@@ -20,7 +23,9 @@ class GatewayCommand:
                 option: str = None,
                 key: str = None,
                 value: str = None):
-        if option == "list-configs":
+        if option == "create":
+            safe_ensure_future(self.create_gateway())
+        elif option == "list-configs":
             safe_ensure_future(self.show_gateway_connections())
         elif option == "update":
             safe_ensure_future(self.update_gateway(key, value))
@@ -62,6 +67,105 @@ class GatewayCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
+
+    async def _create_gateway(self):
+        gateway_conf_path = path.join(root_path(), "gateway/conf")
+        certificate_path = cert_path()
+        log_path = path.join(root_path(), "logs")
+        gateway_docker_name = "coinalpha/gateway-v2"
+        gateway_container_name = "gateway-v2_container"
+
+        if len(listdir(gateway_conf_path)) > 1:
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            clear_gateway = await self.app.prompt(prompt="Gateway configurations detected. Would you like to erase? (Yes/No) >>> ")
+            if clear_gateway is not None and clear_gateway in ["Y", "y", "Yes", "yes"]:
+                self._notify("Erasing existing Gateway configurations...")
+                shutil.move(path.join(gateway_conf_path, "samples"), "/tmp")
+                shutil.rmtree(gateway_conf_path)
+                shutil.move("/tmp/samples", path.join(gateway_conf_path, "samples"))
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+
+        if len(listdir(gateway_conf_path)) == 1:
+            self._notify("Initiating Gateway configurations from sample files...")
+            shutil.copytree(path.join(gateway_conf_path, "samples"), gateway_conf_path, dirs_exist_ok=True)
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            # prompt for questions about infura key
+            use_infura = await self.app.prompt(prompt="Would you like to connect to Ethereum network using Infura? (Yes/No) >>> ")
+            yaml_parser = ruamel.yaml.YAML()
+            ethereum_conf_path = path.join(gateway_conf_path, "ethereum.yml")
+            if use_infura is not None and use_infura in ["Y", "y", "Yes", "yes"]:
+                infura_key = await self.app.prompt(prompt="Enter your Infura API key >>> ")
+                try:
+                    with open(ethereum_conf_path) as stream:
+                        data = yaml_parser.load(stream) or {}
+                        for key in data["networks"]:
+                            data["networks"][key]["nodeApiKey"] = infura_key
+                        with open(ethereum_conf_path, "w+") as outfile:
+                            yaml_parser.dump(data, outfile)
+                except Exception as e:
+                    self.logger().error("Error writing configs: %s" % (str(e),), exc_info=True)
+            else:
+                node_rpc = await self.app.prompt(prompt="Enter node rpc url to use to connect to Ethereum mainnet  >>> ")
+                try:
+                    with open(ethereum_conf_path) as stream:
+                        data = yaml_parser.load(stream) or {}
+                        data["networks"]["mainnet"]["nodeURL"] = node_rpc
+                        with open(ethereum_conf_path, "w+") as outfile:
+                            yaml_parser.dump(data, outfile)
+                except Exception:
+                    self.logger().error("Error updating Ethereum mainnet rpc url.")
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+
+        # remove existing container
+        try:
+            old_container = self._docker_client.containers(all=True,
+                                                           filters={"name": gateway_container_name,
+                                                                    "ancestor": f"{gateway_docker_name}:latest"})
+            if len(old_container) >= 1:
+                self._notify("Removing existing gateway container...")
+                self._docker_client.remove_container(old_container[0]["Id"], force=True)
+        except Exception:
+            pass  # silently ignore exception
+
+        await self._generate_certs()  # create cert if not available
+        self._notify("Pulling Gateway docker image...")
+        await asyncio.sleep(0.5)
+        try:
+            pull_logs = iter(self._docker_client.pull(gateway_docker_name, stream=True, decode=True))
+            while True:
+                try:
+                    self.logger().info(json.dumps(next(pull_logs), indent=4))
+                except StopIteration:
+                    self._notify("Done pulling Gateway docker image.")
+                    break
+        except Exception:
+            self._notify("Error pulling Gateway docker image. Try again.")
+            return
+        self._notify("Creating new Gateway docker container...")
+        container_id = self._docker_client.create_container(image = gateway_docker_name,
+                                                            name = gateway_container_name,
+                                                            ports = [5000],
+                                                            volumes=[gateway_conf_path, certificate_path, log_path],
+                                                            host_config=self._docker_client.create_host_config(
+                                                                port_bindings={5000: 5000},
+                                                                binds={gateway_conf_path: {'bind': '/usr/src/app/conf/',
+                                                                                           'mode': 'rw'},
+                                                                       certificate_path: {'bind': '/usr/src/app/certs/',
+                                                                                          'mode': 'rw'},
+                                                                       log_path: {'bind': '/usr/src/app/logs/',
+                                                                                  'mode': 'rw'}}))
+        self._notify(f"New Gateway docker container id is {container_id['Id']}.")
+
+    async def create_gateway(self):
+        safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
     async def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
