@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+import docker
 from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
 
@@ -114,6 +115,9 @@ class HummingbotApplication(*commands):
         self._gateway_monitor_clock: Optional[Clock] = None
         self._init_gateway_monitor()
         self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
+
+        # docker client instance
+        self._docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
 
     @property
     def strategy_file_name(self) -> str:
