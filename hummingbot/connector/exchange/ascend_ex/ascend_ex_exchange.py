@@ -12,7 +12,7 @@ import asyncio
 import json
 import aiohttp
 import time
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -34,7 +34,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderType,
     TradeType,
-    TradeFee
+    TradeFee,
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
@@ -68,11 +68,14 @@ class AscendExTradingRule(TradingRule):
                  min_notional_size: Decimal,
                  max_notional_size: Decimal,
                  commission_type: AscendExCommissionType,
-                 commission_reserve_rate: Decimal):
-        super().__init__(trading_pair=trading_pair,
-                         min_price_increment=min_price_increment,
-                         min_base_amount_increment=min_base_amount_increment,
-                         min_notional_size=min_notional_size)
+                 commission_reserve_rate: Decimal
+                 ):
+        super().__init__(
+            trading_pair=trading_pair,
+            min_price_increment=min_price_increment,
+            min_base_amount_increment=min_base_amount_increment,
+            min_notional_size=min_notional_size,
+        )
         self.max_notional_size = max_notional_size
         self.commission_type = commission_type
         self.commission_reserve_rate = commission_reserve_rate
@@ -83,10 +86,14 @@ class AscendExExchange(ExchangePyBase):
     AscendExExchange connects with AscendEx exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
+
     API_CALL_TIMEOUT = 10.0
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 10.0
+
+    STOP_TRACKING_ORDER_FAILURE_LIMIT = 3
+    STOP_TRACKING_ORDER_NOT_FOUND_LIMIT = 3
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -118,7 +125,7 @@ class AscendExExchange(ExchangePyBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, AscendExInFlightOrder]
-        self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
+        self._order_not_found_records = defaultdict(lambda: 0)  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, AscendExTradingRule]
         self._status_polling_task = None
         self._user_stream_tracker_task = None
@@ -128,6 +135,8 @@ class AscendExExchange(ExchangePyBase):
         self._account_group = None  # required in order to make post requests
         self._account_uid = None  # required in order to produce deterministic order ids
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+
+        self._order_failure_records = defaultdict(lambda: 0)  # Dict[client_order_id: str, count: int]
 
     @property
     def name(self) -> str:
@@ -599,6 +608,10 @@ class AscendExExchange(ExchangePyBase):
         """
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
+        if order_id in self._order_not_found_records:
+            del self._order_not_found_records[order_id]
+        if order_id in self._order_failure_records:
+            del self._order_failure_records[order_id]
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
@@ -606,10 +619,9 @@ class AscendExExchange(ExchangePyBase):
         the cancellation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
         :param order_id: The internal order id
-        order.last_state to change to CANCELED
         """
         try:
-            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order = self._in_flight_orders.get(order_id, None)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
             if tracked_order.exchange_order_id is None:
@@ -634,7 +646,9 @@ class AscendExExchange(ExchangePyBase):
             raise
         except Exception as e:
             if str(e).find("Order not found") != -1:
-                self.stop_tracking_order(order_id)
+                self._order_not_found_records[order_id] += 1
+                if self._order_not_found_records[order_id] > self.STOP_TRACKING_ORDER_NOT_FOUND_LIMIT:
+                    self.stop_tracking_order(order_id)
                 return
 
             self.logger().network(
@@ -965,7 +979,7 @@ class AscendExExchange(ExchangePyBase):
             self.trigger_order_created_event(tracked_order)
         tracked_order.update_status(order_msg.status)
 
-        if tracked_order.executed_amount_base != Decimal(order_msg.cumFilledQty):
+        if tracked_order.executed_amount_base < Decimal(order_msg.cumFilledQty):
             # Update the relevant order information when there is fill event
             new_filled_amount = Decimal(order_msg.cumFilledQty) - tracked_order.executed_amount_base
             new_fee_paid = Decimal(order_msg.cumFee) - tracked_order.fee_paid
@@ -1000,15 +1014,16 @@ class AscendExExchange(ExchangePyBase):
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
-            self.logger().info(f"Order {client_order_id} has failed according to order status API. "
-                               f"API order response: {order_msg}")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   tracked_order.order_type
-                               ))
-            self.stop_tracking_order(client_order_id)
+            self.logger().info(
+                f"Order {client_order_id} has failed according to order status API. " f"API order response: {order_msg}"
+            )
+            self._order_failure_records[client_order_id] += 1
+            if self._order_failure_records[client_order_id] > self.STOP_TRACKING_ORDER_FAILURE_LIMIT:
+                self.trigger_event(
+                    MarketEvent.OrderFailure,
+                    MarketOrderFailureEvent(self.current_timestamp, client_order_id, tracked_order.order_type),
+                )
+                self.stop_tracking_order(client_order_id)
         elif tracked_order.is_filled:
             event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
             event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
