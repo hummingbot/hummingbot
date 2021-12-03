@@ -61,6 +61,10 @@ debug.log
 .vscode/
 .history/
 
+# emacs files
+\#*\#
+.\#*
+
 # Documentation build dir
 /documentation/site/
 
