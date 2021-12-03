@@ -1,8 +1,6 @@
-version: 1
-configurations:
-  $namespace ssl:
-    configurationPath: invalid-ssl.yml
-    schemaPath: schema-ssl.json
-  $namespace ethereum:
-    configurationPath: ethereum.yml
-    schemaPath: schema-ethereum.json
+$namespace ssl:
+  configurationPath: invalid-ssl.yml
+  schemaPath: ssl-schema.json
+$namespace ethereum:
+  configurationPath: ethereum.yml
+  schemaPath: ethereum-schema.json
