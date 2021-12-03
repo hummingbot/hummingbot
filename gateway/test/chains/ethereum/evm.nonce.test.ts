@@ -27,8 +27,8 @@ describe('unitiated EVMNodeService', () => {
     nonceManager = new EVMNonceManager('ethereum', 43, 0, dbPath);
   });
 
-  afterAll(() => {
-    fse.removeSync(dbPath);
+  afterAll(async () => {
+    await fse.remove(dbPath);
   });
 
   it('mergeNonceFromEVMNode throws error', async () => {
@@ -101,8 +101,8 @@ describe('EVMNodeService', () => {
     await nonceManager.init(provider);
   });
 
-  afterAll(() => {
-    fse.removeSync(dbPath);
+  afterAll(async () => {
+    await fse.remove(dbPath);
   });
 
   const patchGetTransactionCount = () => {
@@ -165,8 +165,8 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
     await nonceManager2.init(provider2);
   });
 
-  afterAll(() => {
-    fse.removeSync(dbPath);
+  afterAll(async () => {
+    await fse.remove(dbPath);
   });
 
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
