@@ -1,7 +1,24 @@
+import fsp from 'fs/promises';
+import fse from 'fs-extra';
+import path from 'path';
 import { EvmTxStorage } from '../../src/services/evm.tx-storage';
 import 'jest-extended';
 
 describe('Test local-storage', () => {
+  let dbPath: string = '';
+
+  beforeEach(async () => {
+    dbPath = await fsp.mkdtemp(
+      path.join(__dirname, '/evm.tx-storage.test.level')
+    );
+  });
+
+  afterEach(async () => {
+    // Delete the temp dir.
+    await fse.remove(dbPath);
+    dbPath = '';
+  });
+
   it('save, get and delete a key value pair in the local db', async () => {
     const testChain1 = 'ethereum';
     const testChain1Id = 423;
@@ -11,7 +28,6 @@ describe('Test local-storage', () => {
     const testChain1Tx2 =
       '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487edddddddddddddddd';
     const testChain1GasPrice2 = 200300;
-    const dbPath = '/tmp/ethereum.tx-storage.test.level';
 
     const db = new EvmTxStorage(dbPath);
 
