@@ -83,7 +83,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
             # From datetime to datetime
             if self._end_timestamp is not None:
 
-                self._closing_time = (self._end_timestamp.timestamp() - self._end_timestamp.timestamp()) * 1000
+                self._closing_time = (self._end_timestamp.timestamp() - self._start_timestamp.timestamp()) * 1000
 
                 if self._start_timestamp.timestamp() <= timestamp < self._end_timestamp.timestamp():
                     self._time_left = max((self._end_timestamp.timestamp() - timestamp) * 1000, 0)
