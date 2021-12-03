@@ -24,7 +24,6 @@ import {
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
-import { ConfigManager } from '../../../services/config-manager';
 import { Ethereumish } from '../../../services/ethereumish.interface';
 import {
   ExpectedTrade,
@@ -74,10 +73,10 @@ export async function price(
     const tradePrice =
       req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
 
-    const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+    const gasLimit = uniswapish.gasLimit;
     const gasPrice = ethereumish.gasPrice;
     return {
-      network: ConfigManager.config.ETHEREUM_CHAIN,
+      network: ethereumish.chain,
       timestamp: initTime,
       latency: latency(initTime, Date.now()),
       base: baseToken.address,
@@ -151,7 +150,7 @@ export async function trade(
     );
 
   const gasPrice = ethereumish.gasPrice;
-  const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+  const gasLimit = uniswapish.gasLimit;
 
   if (req.side === 'BUY') {
     const price = result.trade.executionPrice.invert();
@@ -189,7 +188,7 @@ export async function trade(
     }
 
     return {
-      network: ConfigManager.config.ETHEREUM_CHAIN,
+      network: ethereumish.chain,
       timestamp: initTime,
       latency: latency(initTime, Date.now()),
       base: baseToken.address,
@@ -228,7 +227,7 @@ export async function trade(
       maxPriorityFeePerGasBigNumber
     );
     return {
-      network: ConfigManager.config.ETHEREUM_CHAIN,
+      network: ethereumish.chain,
       timestamp: initTime,
       latency: latency(initTime, Date.now()),
       base: baseToken.address,
