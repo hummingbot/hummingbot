@@ -28,6 +28,7 @@ describe('unitiated EVMNodeService', () => {
   });
 
   afterAll(async () => {
+    await fse.emptyDir(dbPath);
     await fse.remove(dbPath);
   });
 
@@ -102,9 +103,9 @@ describe('EVMNodeService', () => {
   });
 
   afterAll(async () => {
+    await fse.emptyDir(dbPath);
     await fse.remove(dbPath);
   });
-
   const patchGetTransactionCount = () => {
     if (nonceManager._provider) {
       patch(nonceManager._provider, 'getTransactionCount', () => 11);
@@ -166,9 +167,9 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   });
 
   afterAll(async () => {
+    await fse.emptyDir(dbPath);
     await fse.remove(dbPath);
   });
-
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
     if (nonceManager1._provider) {
       patch(nonceManager1._provider, 'getTransactionCount', () => 1);

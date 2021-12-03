@@ -7,16 +7,15 @@ import 'jest-extended';
 describe('Test local-storage', () => {
   let dbPath: string = '';
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     dbPath = await fsp.mkdtemp(
       path.join(__dirname, '/local-storage.test.level')
     );
   });
 
-  afterEach(async () => {
-    // Delete the temp dir.
+  afterAll(async () => {
+    await fse.emptyDir(dbPath);
     await fse.remove(dbPath);
-    dbPath = '';
   });
 
   it('save, get and delete a key value pair in the local db', async () => {
