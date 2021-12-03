@@ -72,7 +72,7 @@ class GatewayCommand:
         gateway_conf_path = path.join(root_path(), "gateway/conf")
         certificate_path = cert_path()
         log_path = path.join(root_path(), "logs")
-        gateway_docker_name = "coinalpha/gateway-v2"
+        gateway_docker_name = "coinalpha/hummingbot"
         gateway_container_name = "gateway-v2_container"
 
         if len(listdir(gateway_conf_path)) > 1:
@@ -124,14 +124,13 @@ class GatewayCommand:
             self.app.hide_input = False
             self.app.change_prompt(prompt=">>> ")
 
-        # remove existing container
+        # remove existing container(s)
         try:
             old_container = self._docker_client.containers(all=True,
-                                                           filters={"name": gateway_container_name,
-                                                                    "ancestor": f"{gateway_docker_name}:latest"})
-            if len(old_container) >= 1:
-                self._notify("Removing existing gateway container...")
-                self._docker_client.remove_container(old_container[0]["Id"], force=True)
+                                                           filters={"name": gateway_container_name})
+            for container in old_container:
+                self._notify(f"Removing existing gateway container with id {container['Id']}...")
+                self._docker_client.remove_container(container["Id"], force=True)
         except Exception:
             pass  # silently ignore exception
 
@@ -139,7 +138,7 @@ class GatewayCommand:
         self._notify("Pulling Gateway docker image...")
         await asyncio.sleep(0.5)
         try:
-            pull_logs = iter(self._docker_client.pull(gateway_docker_name, stream=True, decode=True))
+            pull_logs = iter(self._docker_client.pull(gateway_docker_name, tag="gateway-v2", stream=True, decode=True))
             while True:
                 try:
                     self.logger().info(json.dumps(next(pull_logs), indent=4))
@@ -150,7 +149,7 @@ class GatewayCommand:
             self._notify("Error pulling Gateway docker image. Try again.")
             return
         self._notify("Creating new Gateway docker container...")
-        container_id = self._docker_client.create_container(image = gateway_docker_name,
+        container_id = self._docker_client.create_container(image = f"{gateway_docker_name}:gateway-v2",
                                                             name = gateway_container_name,
                                                             ports = [5000],
                                                             volumes=[gateway_conf_path, certificate_path, log_path],
