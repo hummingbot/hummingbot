@@ -17,7 +17,7 @@ type ConfigurationRoot = {
   [namespaceId: string]: ConfigurationNamespaceDefinition;
 };
 const NamespaceTag: string = '$namespace ';
-const ConfigRootSchemaPath: string = path.join(
+export const ConfigRootSchemaPath: string = path.join(
   __dirname,
   'schema/configuration-root-schema.json'
 );
@@ -290,8 +290,17 @@ export class ConfigManagerV2 {
     // Rebase the file paths in config root if they're relative paths.
     for (const namespaceDefinition of Object.values(namespaceMap)) {
       for (const [key, filePath] of Object.entries(namespaceDefinition)) {
-        if (filePath.charAt(0) !== '/') {
-          namespaceDefinition[key] = path.join(configRootDir, filePath);
+        if (!path.isAbsolute(filePath)) {
+          if (key === 'configurationPath') {
+            namespaceDefinition[key] = path.join(configRootDir, filePath);
+          } else if (key === 'schemaPath') {
+            namespaceDefinition[key] = path.join(
+              path.dirname(ConfigRootSchemaPath),
+              filePath
+            );
+          }
+        } else {
+          throw new Error(`Absolute path not allowed for ${key}.`);
         }
       }
     }
