@@ -13,15 +13,16 @@
             "tokenListType": { "type": "string" },
             "tokenListSource": { "type": "string" }
           },
-          "required": ["chainID", "infuraNodeURL", "tokenListType", "tokenListSource"],
+          "required": ["chainID", "nodeURL", "tokenListType", "tokenListSource"],
           "additionalProperties": false
         }
       },
       "additionalProperties": false
     },
-    "nodeAPIKey": { "type": "string" },
     "nativeCurrencySymbol": { "type": "string" },
-    "network": { "type": "string" }
+    "nodeAPIKey": { "type": "string" },
+    "network": { "type": "string" },
+    "manualGasPrice": { "type": "integer" }
   },
   "additionalProperties": false
 }

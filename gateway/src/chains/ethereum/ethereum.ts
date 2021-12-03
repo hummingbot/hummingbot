@@ -22,33 +22,22 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _metricsLogInterval: number;
 
   private constructor() {
-    let config;
-    switch (EthereumConfig.config.network) {
-      case 'mainnet':
-        config = EthereumConfig.config.mainnet;
-        break;
-      case 'kovan':
-        config = EthereumConfig.config.kovan;
-        break;
-      default:
-        throw new Error('ETHEREUM_CHAIN not valid');
-    }
-
+    const config = EthereumConfig.config.network;
     super(
       'ethereum',
       config.chainID,
       config.nodeURL + EthereumConfig.config.nodeAPIKey,
       config.tokenListSource,
       config.tokenListType,
-      EthereumConfig.config.ethereumGasStation.manualGasPrice
+      EthereumConfig.config.manualGasPrice
     );
-    this._chain = EthereumConfig.config.network;
+    this._chain = EthereumConfig.config.network.name;
     this._nativeTokenSymbol = EthereumConfig.config.nativeCurrencySymbol;
     this._ethGasStationUrl =
-      EthereumConfig.config.ethereumGasStation.gasStationURL +
-      EthereumConfig.config.ethereumGasStation.APIKey;
+      EthereumConfig.ethGasStationConfig.gasStationURL +
+      EthereumConfig.ethGasStationConfig.APIKey;
 
-    this._gasPrice = EthereumConfig.config.ethereumGasStation.manualGasPrice;
+    this._gasPrice = EthereumConfig.config.manualGasPrice;
     this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
@@ -115,17 +104,16 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will
   // continually update the gas price.
   async updateGasPrice(): Promise<void> {
-    if (EthereumConfig.config.ethereumGasStation.enabled) {
+    if (EthereumConfig.ethGasStationConfig.enabled) {
       const { data } = await axios.get(this._ethGasStationUrl);
 
       // divide by 10 to convert it to Gwei
-      this._gasPrice =
-        data[EthereumConfig.config.ethereumGasStation.gasLevel] / 10;
+      this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
       this._gasPriceLastUpdated = new Date();
 
       setTimeout(
         this.updateGasPrice.bind(this),
-        EthereumConfig.config.ethereumGasStation.refreshTime * 1000
+        EthereumConfig.ethGasStationConfig.refreshTime * 1000
       );
     }
   }
@@ -142,11 +130,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'uniswap') {
-      if (EthereumConfig.config.network === 'mainnet') {
-        spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
-      } else {
-        spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
-      }
+      spender = UniswapConfig.config.uniswapV2RouterAddress;
     } else {
       spender = reqSpender;
     }

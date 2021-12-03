@@ -2,7 +2,7 @@
 import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from './ethereum';
 import { EthereumConfig } from './ethereum.config';
-import { ConfigManager } from '../../services/config-manager';
+// import { ConfigManager } from '../../services/config-manager';
 import { verifyEthereumIsAvailable } from './ethereum-middlewares';
 import { asyncHandler } from '../../services/error-handler';
 import {
@@ -48,15 +48,9 @@ export namespace EthereumRoutes {
   router.get(
     '/',
     asyncHandler(async (_req: Request, res: Response) => {
-      let rpcUrl;
-      if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-        rpcUrl = EthereumConfig.config.mainnet.nodeURL;
-      } else {
-        rpcUrl = EthereumConfig.config.kovan.nodeURL;
-      }
-
+      const rpcUrl = EthereumConfig.config.network.nodeURL;
       res.status(200).json({
-        network: ConfigManager.config.ETHEREUM_CHAIN,
+        network: EthereumConfig.config.network,
         rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),

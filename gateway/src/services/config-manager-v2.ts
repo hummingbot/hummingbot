@@ -28,6 +28,8 @@ interface UnpackedConfigNamespace {
 
 const ajv: Ajv = new Ajv();
 
+export const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
+
 export class ConfigurationNamespace {
   /**
    * This class encapsulates a namespace under the configuration tree.

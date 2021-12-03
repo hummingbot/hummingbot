@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { NextFunction, Router, Request, Response } from 'express';
 import { AvalancheConfig } from './avalanche.config';
-import { ConfigManager } from '../../services/config-manager';
 import { asyncHandler } from '../../services/error-handler';
 import { Avalanche } from './avalanche';
 import {
@@ -56,15 +55,9 @@ export namespace AvalancheRoutes {
   router.get(
     '/',
     asyncHandler(async (_req: Request, res: Response) => {
-      let rpcUrl;
-      if (ConfigManager.config.AVALANCHE_CHAIN === 'avalanche') {
-        rpcUrl = AvalancheConfig.config.avalanche.nodeURL;
-      } else {
-        rpcUrl = AvalancheConfig.config.fuji.nodeURL;
-      }
-
+      const rpcUrl = AvalancheConfig.config.network.nodeURL;
       res.status(200).json({
-        network: ConfigManager.config.AVALANCHE_CHAIN,
+        network: AvalancheConfig.config.network.name,
         rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),
