@@ -1,4 +1,4 @@
-import { ConfigManager } from '../../../services/config-manager';
+import { percentRegexp } from '../../../services/config-manager-v2';
 import {
   BigNumber,
   Contract,
@@ -35,23 +35,12 @@ export class Pangolin implements Uniswapish {
   private _ready: boolean = false;
 
   private constructor() {
-    let config;
-    switch (ConfigManager.config.AVALANCHE_CHAIN) {
-      case 'avalanche':
-        config = PangolinConfig.config.avalanche;
-        this.chainId = AvalancheConfig.config.avalanche.chainID;
-        break;
-      case 'fuji':
-        config = PangolinConfig.config.fuji;
-        this.chainId = AvalancheConfig.config.fuji.chainID;
-        break;
-      default:
-        throw new Error('AVALANCHE_CHAIN not valid');
-    }
+    const config = PangolinConfig.config;
+    this.chainId = AvalancheConfig.config.network.chainID;
     this._router = config.routerAddress;
-    this._ttl = ConfigManager.config.PANGOLIN_TTL;
+    this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = ConfigManager.config.PANGOLIN_GAS_LIMIT;
+    this._gasLimit = config.gasLimit;
   }
 
   public static getInstance(): Pangolin {
@@ -101,8 +90,8 @@ export class Pangolin implements Uniswapish {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE;
-    const nd = allowedSlippage.match(ConfigManager.percentRegexp);
+    const allowedSlippage = PangolinConfig.config.allowedSlippage;
+    const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'

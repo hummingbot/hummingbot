@@ -1,6 +1,7 @@
 import { TokenListType } from '../../services/base';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
 export interface NetworkConfig {
+  name: string;
   chainID: number;
   nodeURL: string;
   tokenListType: TokenListType;
@@ -13,95 +14,54 @@ export interface EthereumGasStationConfig {
   APIKey: string;
   gasLevel: string;
   refreshTime: number;
-  manualGasPrice: number;
 }
 
 export interface Config {
-  mainnet: NetworkConfig;
-  kovan: NetworkConfig;
+  network: NetworkConfig;
   nodeAPIKey: string;
   nativeCurrencySymbol: string;
-  network: string;
-  ethereumGasStation: EthereumGasStationConfig;
+  manualGasPrice: number;
 }
 
-ConfigManagerV2.setDefaults('ethereum', {
-  networks: {
-    mainnet: {
-      chainID: 1,
-      nodeURL: 'https://mainnet.infura.io/v3/',
-      tokenListType: 'URL',
-      tokenListSource:
-        'https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link',
-    },
-    kovan: {
-      chainID: 42,
-      nodeURL: 'https://kovan.infura.io/v3/',
-      tokenListType: 'FILE',
-      tokenListSource: 'src/chains/ethereum/erc20_tokens_kovan.json',
-    },
-  },
-  nativeCurrencySymbol: 'ETH',
-  network: 'mainnet',
-});
-
-ConfigManagerV2.setDefaults('ethereum-gas-station', {
-  enabled: true,
-  gasStationURL: 'https://ethgasstation.info/api/ethgasAPI.json?api-key=',
-  gasLevel: 'fast',
-  refreshTime: 60,
-  manualGasPrice: 100,
-});
 export namespace EthereumConfig {
-  export const config: Config = {
-    mainnet: {
-      chainID: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.mainnet.chainID'
-      ),
-      nodeURL: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.mainnet.nodeURL'
-      ),
-      tokenListType: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.mainnet.tokenListType'
-      ),
-      tokenListSource: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.mainnet.tokenListSource'
-      ),
-    },
-    kovan: {
-      chainID: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.kovan.chainID'
-      ),
-      nodeURL: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.kovan.nodeURL'
-      ),
-      tokenListType: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.kovan.tokenListType'
-      ),
-      tokenListSource: ConfigManagerV2.getInstance().get(
-        'ethereum.networks.kovan.tokenListSource'
-      ),
-    },
-    nodeAPIKey: ConfigManagerV2.getInstance().get('ethereum.nodeAPIKey'),
-    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      'ethereum.nativeCurrencySymbol'
+  export const config: Config = getEthereumConfig('ethereum');
+  export const ethGasStationConfig: EthereumGasStationConfig = {
+    enabled: ConfigManagerV2.getInstance().get('ethereumGasStation.enabled'),
+    gasStationURL: ConfigManagerV2.getInstance().get(
+      'ethereumGasStation.gasStationURL'
     ),
-    network: ConfigManagerV2.getInstance().get('ethereum.network'),
-    ethereumGasStation: {
-      enabled: ConfigManagerV2.getInstance().get('ethereumGasStation.enabled'),
-      gasStationURL: ConfigManagerV2.getInstance().get(
-        'ethereumGasStation.gasStationURL'
+    APIKey: ConfigManagerV2.getInstance().get('ethereumGasStation.APIKey'),
+    gasLevel: ConfigManagerV2.getInstance().get('ethereumGasStation.gasLevel'),
+    refreshTime: ConfigManagerV2.getInstance().get(
+      'ethereumGasStation.refreshTime'
+    ),
+  };
+}
+
+export function getEthereumConfig(chainName: string): Config {
+  const network = ConfigManagerV2.getInstance().get(chainName + '.network');
+  return {
+    network: {
+      name: network,
+      chainID: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.chainID'
       ),
-      APIKey: ConfigManagerV2.getInstance().get('ethereumGasStation.APIKey'),
-      gasLevel: ConfigManagerV2.getInstance().get(
-        'ethereumGasStation.gasLevel'
+      nodeURL: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.nodeURL'
       ),
-      refreshTime: ConfigManagerV2.getInstance().get(
-        'ethereumGasStation.refreshTime'
+      tokenListType: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.tokenListType'
       ),
-      manualGasPrice: ConfigManagerV2.getInstance().get(
-        'ethereumGasStation.manualGasPrice'
+      tokenListSource: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.tokenListSource'
       ),
     },
+    nodeAPIKey: ConfigManagerV2.getInstance().get(chainName + '.nodeAPIKey'),
+    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
+      chainName + '.nativeCurrencySymbol'
+    ),
+    manualGasPrice: ConfigManagerV2.getInstance().get(
+      chainName + '.manualGasPrice'
+    ),
   };
 }

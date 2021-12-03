@@ -1,4 +1,3 @@
-import { ConfigManager } from '../../../services/config-manager';
 import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
@@ -23,6 +22,7 @@ import {
   ExpectedTrade,
   Uniswapish,
 } from '../../../services/uniswapish.interface';
+import { percentRegexp } from '../../../services/config-manager-v2';
 export class Uniswap implements Uniswapish {
   private static instance: Uniswap;
   private ethereum: Ethereum = Ethereum.getInstance();
@@ -35,17 +35,11 @@ export class Uniswap implements Uniswapish {
   private _ready: boolean = false;
 
   private constructor() {
-    let config;
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      config = UniswapConfig.config.mainnet;
-      this.chainId = EthereumConfig.config.mainnet.chainID;
-    } else {
-      config = UniswapConfig.config.kovan;
-      this.chainId = EthereumConfig.config.kovan.chainID;
-    }
-    this._ttl = ConfigManager.config.UNISWAP_TTL;
+    const config = UniswapConfig.config;
+    this.chainId = EthereumConfig.config.network.chainID;
+    this._ttl = UniswapConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+    this._gasLimit = UniswapConfig.config.gasLimit;
     this._router = config.uniswapV2RouterAddress;
   }
 
@@ -100,8 +94,8 @@ export class Uniswap implements Uniswapish {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE;
-    const nd = allowedSlippage.match(ConfigManager.percentRegexp);
+    const allowedSlippage = UniswapConfig.config.allowedSlippage;
+    const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'

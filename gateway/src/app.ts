@@ -14,6 +14,7 @@ import {
   NodeError,
   gatewayErrorMiddleware,
 } from './services/error-handler';
+import { ConfigManagerV2 } from './services/config-manager-v2';
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const swaggerDocument = YAML.load('./swagger.yaml');
@@ -117,9 +118,9 @@ app.use(
 );
 
 export const startGateway = async () => {
-  const port = ConfigManager.config.PORT;
+  const port = ConfigManagerV2.getInstance().get('server.port');
   logger.info(`⚡️ Gateway API listening on port ${port}`);
-  if (ConfigManager.config.UNSAFE_DEV_MODE_WITH_HTTP) {
+  if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
 
     // mount swagger api docs
