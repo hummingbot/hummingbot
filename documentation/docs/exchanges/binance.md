@@ -16,6 +16,7 @@ tags:
 * Transaction fees: https://www.binance.com/en/fee/schedule
 * Minimum order size: https://www.binance.com/en/trade-rule
 * Creating API keys: https://www.binance.com/en/support/faq/360002502072
+* Referral link: https://www.binance.com/en/register?ref=FQQNNGCD
 
 ## 👷 Maintenance
 
