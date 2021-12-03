@@ -89,7 +89,7 @@ coverage.xml
 !/gateway/conf/*-example.yml
 !/gateway/conf/samples
 # these are database files create by the level library
-/gateway/*.level
+/**/*.level
 
 # node installs
 /gateway/node_modules/
