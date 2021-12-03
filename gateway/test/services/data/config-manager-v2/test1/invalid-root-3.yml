@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 version: 1
 configurations:
   $namespace ssl:
@@ -6,3 +7,11 @@ configurations:
   $namespace ethereum:
     configurationPath: ethereum.yml
     schemaPath: schema-nonexist.json
+=======
+$namespace ssl:
+  configurationPath: ssl.yml
+  schemaPath: ssl-schema.json
+$namespace ethereum:
+  configurationPath: ethereum.yml
+  schemaPath: schema-nonexist.json
+>>>>>>> f5b133606d139acc12085c81cfc550dd06848579

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 version: 1
 configurations:
   $namespace ssl:
@@ -9,3 +10,14 @@ configurations:
   not a namespace:
     configurationPath: no.yml
     schemaPath: no.json
+=======
+$namespace ssl:
+  configurationPath: ssl.yml
+  schemaPath: ssl-schema.json
+$namespace ethereum:
+  configurationPath: ethereum.yml
+  schemaPath: ethereum-schema.json
+not a namespace:
+  configurationPath: no.yml
+  schemaPath: no.json
+>>>>>>> f5b133606d139acc12085c81cfc550dd06848579

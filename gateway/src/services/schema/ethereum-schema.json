@@ -10,6 +10,7 @@
           "properties": {
             "chainID": { "type": "integer" },
             "nodeURL": { "type": "string" },
+            "nodeApiKey": { "type": "string" },
             "nativeCurrencySymbol": { "type": "string" }
           },
           "required": ["chainID", "nodeURL"],
