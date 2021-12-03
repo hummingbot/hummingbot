@@ -23,7 +23,7 @@ Integrating a new exchange connector requires you to extend from the `OrderBookT
 
 
 !!! note
-    The functions mentioned belove will have to be adequately adjusted based on the data provided by the exchange API. Using `metadata` to include additional information into `content` might be useful if data(i.e. `update_id`, `timestamp`) is not provided by the exchanges API.
+    The functions mentioned below will have to be adequately adjusted based on the data provided by the exchange API. Using `metadata` to include additional information into `content` might be useful if data(i.e. `update_id`, `timestamp`) is not provided by the exchanges API.
 
 The following details are **required** functions to be implemented in `OrderBookTracker`:
 
@@ -35,7 +35,7 @@ This function returns the appropriate exchange name
 
 ### `is_funding_info_initialized`
 
-This function is only needed for **Perpetual** connectors. It returns `True` if the funding information has been successfully been initialized by `OrderBookTrackerDataSource`.
+This function is only needed for **Perpetual** connectors. It returns `True` if the funding information has been successfully initialized by `OrderBookTrackerDataSource`.
 
 **Input Parameter(s):** `None` <br/> **Expected Output(s):** `bool`
 
@@ -83,7 +83,7 @@ Create a new `OrderBook` instance and populate its `bids` and `asks` by applying
 
 ### `get_funding_info`
 
-This function is only needed for **Perpetual** connectors. Returns the FundingInfo of the specified trading pair. If it does not exist, it will query the REST API.
+This function is only needed for **Perpetual** connectors. It returns the FundingInfo of the specified trading pair. If it does not exist, it will schedule a REST API query to make the information available on future function calls.
 
 !!! note
     The FundingInfo for the active trading pair is maintained by the `listen_for_instruments_info` task.
@@ -93,21 +93,21 @@ This function is only needed for **Perpetual** connectors. Returns the FundingIn
 
 ### `listen_for_subscriptions`
 
-Subscribes to all required public channels; namely, orderbook depth, orderbook trades and funding information(only for Perpetual Connectors) and start the listening cycle. Responsible for the adding the messages to corresponding `asyncio.Queue`.
+Subscribes to all required public channels; namely, orderbook depth, orderbook trades and funding information (only for Perpetual Connectors) and starts the listening cycle. Responsible for the adding the messages to corresponding `asyncio.Queue`.
 
 **Input Parameter:** None <br/>
 **Expected Output(s):** None
 
 ### `listen_for_trades`
 
-Retrieves the trade messages from the `_message_queue` and adds it to the `output` queue, to be processed by `OrderBookTracker` (in `_emit_trade_event_loop`). Additionally, parses the incoming message into an `OrderBookMessage`(using `OrderBook.trade_message_from_exchange()`) and appends it into the `output` Queue.
+Retrieves the trade messages from the `_message_queue` and adds them to the `output` queue, to be processed by `OrderBookTracker` (in `_emit_trade_event_loop`). Additionally, parses the incoming message into an `OrderBookMessage`(using `OrderBook.trade_message_from_exchange()`) and appends it into the `output` Queue.
 
 **Input Parameter:** ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` <br/>
 **Expected Output(s):** None
 
 ### `listen_for_order_book_diffs`
 
-Retrieves the orderbook depth messages from the `_message_queue` and adds it to the `output` queue. Additionally, parses the incoming message into an `OrderBookMessage`(using `OrderBook.diff_message_from_exchange()`) and appends it into the `output` Queue.
+Retrieves the orderbook depth messages from the `_message_queue` and adds them to the `output` queue. Additionally, parses the incoming message into an `OrderBookMessage`(using `OrderBook.diff_message_from_exchange()`) and appends it into the `output` Queue.
 
 **Input Parameter:** ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` <br/>
 **Expected Output(s):** None
@@ -117,7 +117,7 @@ Retrieves the orderbook depth messages from the `_message_queue` and adds it to 
 
 ### `listen_for_order_book_snapshots`
 
-Periodically fetches(using the REST API) and parses the response into an `OrderBookMessage` and appends it into the `output` Queue.
+Periodically fetches (using the REST API) and parses the response into an `OrderBookMessage` and appends it into the `output` Queue.
 
 **Input Parameter:** ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` <br/>
 **Expected Output(s):** None
@@ -127,7 +127,7 @@ Periodically fetches(using the REST API) and parses the response into an `OrderB
 
 ### `listen_for_funding_info`
 
-Only needed to for **Perpetual** connectors. Retrieves the symbol update messages from the `_message_queue` and adds it to the `output` queue. Additionally, parses the incoming message and updates the attribute `_funding_info` with an updated `FundingInfo` data object. It should reflect the changes in index price, mark price, next funding timestamp and predicted funding rate.
+Only needed for **Perpetual** connectors. Retrieves the symbol update messages from the `_message_queue` and adds it to the `output` queue. Additionally, parses the incoming messages and updates the attribute `_funding_info` with an updated `FundingInfo` data object. It should reflect the changes in index price, mark price, next funding timestamp and predicted funding rate.
 
 **Input Parameter:** ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` <br/>
 **Expected Output(s):** None
