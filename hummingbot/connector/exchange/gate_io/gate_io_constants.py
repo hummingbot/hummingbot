@@ -18,6 +18,7 @@ ORDER_STATUS_PATH_URL = "spot/orders/{id}"
 USER_ORDERS_PATH_URL = "spot/open_orders"
 TICKER_PATH_URL = "spot/tickers"
 ORDER_BOOK_PATH_URL = "spot/order_book"
+MY_TRADES_PATH_URL = "spot/my_trades"
 
 TRADES_ENDPOINT_NAME = "spot.trades"
 ORDER_SNAPSHOT_ENDPOINT_NAME = "spot.order_book"
@@ -59,5 +60,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
     RateLimit(limit_id=USER_ORDERS_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
     RateLimit(limit_id=TICKER_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
-    RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)])
+    RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
 ]

@@ -60,6 +60,40 @@ The log pane on the right can be shown or hidden in two ways:
 
 ![Hide Log Pane](/assets/img/hide-log-pane.gif)
 
+## Tabs
+
+Users can now open another tab in the left pane of Hummingbot where the log pane is supposed to be upon entering a command associated with the Tabs feature. Users can now switch between the `log pane` and the new tab they have opened simulateneously.
+
+
+!!! note
+    Currently, the feature only works with the `order_book` parameter.
+
+## Opening and Closing
+
+### Opening a tab
+
+Use the tabs by simply inputting a command associated with the tabs feature.
+
+Upon using the `order_book` command and any suffix it will open a tab automatically.
+
+![opening tabs](/assets/img/tab-opening.png)
+
+![showing tab](/assets/img/leftpane.png)
+
+### Closing a tab
+
+Simply click on the `x` at the top right corner or inputting `parameter_name --close`
+
+One option to close the tab is by clicking on the `x` next to `order_book`
+
+![closing tabs](/assets/img/closing-of-tabs.png)
+
+Alternatively, you can remove the new tab by inputting the `order_book --close` command to close the tab
+
+![alternative closing tabs](/assets/img/name-of-parameter.png)
+
+![closed tabs](/assets/img/closed-tabs.png)
+
 
 ## Keyboard shortcuts
 
