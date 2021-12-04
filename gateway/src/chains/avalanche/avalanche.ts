@@ -7,6 +7,7 @@ import { AvalancheConfig } from './avalanche.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
+
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
@@ -60,10 +61,6 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   public get chain(): string {
     return this._chain;
   }
-
-  // public get gasPriceLastDated(): Date | null {
-  //   return this._gasPriceLastUpdated;
-  // }
 
   getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
     return new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
