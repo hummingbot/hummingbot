@@ -180,30 +180,38 @@ class SouthXchangeAPIRequest():
         else:
             url = f"{REST_URL}{path_url}"
             headers = self._southxchange_auth.get_headers()
-
-        client = await self._http_client()
         if method == "get":
-            response = await client.get(url)
+            async with aiohttp.ClientSession() as cliente:
+                async with cliente.get(url) as response:
+                    try:
+                        result = await response.text()
+                        if result is not None and result != "":
+                            parsed_response = json.loads(await response.text())
+                        else:
+                            parsed_response = "ok"
+                    except Exception as e:
+                        raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+                    if response.status != 200 and response.status != 204:
+                        raise IOError(f"Error fetching data from {url} or API call failed. HTTP status is {response.status}. "
+                                      f"Message: {parsed_response}")
+                    return parsed_response
         elif method == "post":
-            response = await client.post(
-                url,
-                headers= headers["header"],
-                data=json.dumps(headers["data"])
-            )
+            async with aiohttp.ClientSession() as cliente:
+                async with cliente.post(url, headers= headers["header"], data=json.dumps(headers["data"])) as response:
+                    try:
+                        result = await response.text()
+                        if result is not None and result != "":
+                            parsed_response = json.loads(await response.text())
+                        else:
+                            parsed_response = "ok"
+                    except Exception as e:
+                        raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+                    if response.status != 200 and response.status != 204:
+                        raise IOError(f"Error fetching data from {url} or API call failed. HTTP status is {response.status}. "
+                                      f"Message: {parsed_response}")
+                    return parsed_response
         else:
             raise NotImplementedError
-        try:
-            result = await response.text()
-            if result is not None and result != "":
-                parsed_response = json.loads(await response.text())
-            else:
-                parsed_response = "ok"
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200 and response.status != 204:
-            raise IOError(f"Error fetching data from {url} or API call failed. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
-        return parsed_response
 
     async def get_websoxket_token(self) -> str:
         resp_result = await self._create_api_request(
