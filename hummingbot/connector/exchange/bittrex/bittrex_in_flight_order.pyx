@@ -1,8 +1,8 @@
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 cdef class BittrexInFlightOrder(InFlightOrderBase):
@@ -25,6 +25,9 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
+
+        self.trade_id_set = set()
+        self.fee_asset = self.quote_asset
 
     @property
     def is_done(self) -> bool:
@@ -63,3 +66,23 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
         return retval
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_udpdate: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["id"]
+        if str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+            return False
+        self.trade_id_set.add(trade_id)
+        trade_amount = abs(Decimal(str(trade_update["quantity"])))
+        trade_price = Decimal(str(trade_update["rate"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+        self.fee_paid += Decimal(str(trade_update["commission"]))
+
+        return True
