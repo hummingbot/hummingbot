@@ -1,3 +1,7 @@
+import fsp from 'fs/promises';
+import fse from 'fs-extra';
+import path from 'path';
+
 import { patch, unpatch } from '../../services/patch';
 import { providers } from 'ethers';
 import { EVMNonceManager } from '../../../src/services/evm.nonce';
@@ -6,7 +10,6 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
-import fs from 'fs';
 
 import 'jest-extended';
 
@@ -17,11 +20,16 @@ afterEach(() => {
 });
 
 describe('unitiated EVMNodeService', () => {
-  const dbPath = '/tmp/evm-nonce1.test.level';
+  let dbPath = '';
   let nonceManager: EVMNonceManager;
-  beforeAll(() => {
-    fs.rmSync(dbPath, { recursive: true, force: true });
+  beforeAll(async () => {
+    dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce1.test.level'));
     nonceManager = new EVMNonceManager('ethereum', 43, 0, dbPath);
+  });
+
+  afterAll(async () => {
+    await fse.emptyDir(dbPath);
+    await fse.remove(dbPath);
   });
 
   it('mergeNonceFromEVMNode throws error', async () => {
@@ -84,9 +92,9 @@ describe('unitiated EVMNodeService', () => {
 
 describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
-  const dbPath = '/tmp/evm-nonce2.test.level';
+  let dbPath = '';
   beforeAll(async () => {
-    fs.rmSync(dbPath, { recursive: true, force: true });
+    dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce2.test.level'));
     nonceManager = new EVMNonceManager('ethereum', 43, 0, dbPath);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
@@ -94,6 +102,10 @@ describe('EVMNodeService', () => {
     await nonceManager.init(provider);
   });
 
+  afterAll(async () => {
+    await fse.emptyDir(dbPath);
+    await fse.remove(dbPath);
+  });
   const patchGetTransactionCount = () => {
     if (nonceManager._provider) {
       patch(nonceManager._provider, 'getTransactionCount', () => 11);
@@ -138,9 +150,9 @@ describe('EVMNodeService', () => {
 describe("EVMNodeService was previously a singleton. Let's prove that it no longer is.", () => {
   let nonceManager1: EVMNonceManager;
   let nonceManager2: EVMNonceManager;
-  const dbPath = '/tmp/evm-nonce3.test.level';
+  let dbPath = '';
   beforeAll(async () => {
-    fs.rmSync(dbPath, { recursive: true, force: true });
+    dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce3.test.level'));
     nonceManager1 = new EVMNonceManager('ethereum', 43, 0, dbPath);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
@@ -154,6 +166,10 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
     await nonceManager2.init(provider2);
   });
 
+  afterAll(async () => {
+    await fse.emptyDir(dbPath);
+    await fse.remove(dbPath);
+  });
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
     if (nonceManager1._provider) {
       patch(nonceManager1._provider, 'getTransactionCount', () => 1);
