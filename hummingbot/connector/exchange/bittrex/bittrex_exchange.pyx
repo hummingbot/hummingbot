@@ -1,37 +1,42 @@
 import asyncio
 import logging
+
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, AsyncIterable
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-import pandas as pd
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
-from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    OrderFilledEvent,
-    TradeType, TradeFee,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.connector.exchange.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
 from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType,
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.loggerß import HummingbotLogger
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -147,6 +152,10 @@ cdef class BittrexExchange(ExchangeBase):
     @property
     def in_flight_orders(self) -> Dict[str, BittrexInFlightOrder]:
         return self._in_flight_orders
+
+    @property
+    def user_stream_tracker(self) -> BittrexUserStreamTracker:
+        return self._user_stream_tracker
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
@@ -510,39 +519,6 @@ cdef class BittrexExchange(ExchangeBase):
                     if tracked_order is None:
                         continue
 
-                    order_type_description = tracked_order.order_type_description
-                    execute_price = Decimal(order["limit"])
-                    executed_amount_diff = s_decimal_0
-
-                    tracked_order.fee_paid = Decimal(order["commission"])
-                    remaining_size = Decimal(order["quantity"]) - Decimal(order["fillQuantity"])
-                    new_confirmed_amount = tracked_order.amount - remaining_size
-                    executed_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += Decimal(executed_amount_diff * execute_price)
-
-                    if executed_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
-                                           f"{order_type_description} order {tracked_order.client_order_id}. - ws")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 executed_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     executed_amount_diff
-                                                 )
-                                             ))
-
                     if order_status == "CLOSED":
                         if order["quantity"] == order["fillQuantity"]:
                             tracked_order.last_state = "done"
@@ -577,7 +553,6 @@ cdef class BittrexExchange(ExchangeBase):
                                                          tracked_order.order_type
                                                      ))
                             self.c_stop_tracking_order(tracked_order.client_order_id)
-                            continue
 
                         else:  # CANCEL
                             self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
@@ -587,6 +562,8 @@ cdef class BittrexExchange(ExchangeBase):
                                                  OrderCancelledEvent(self._current_timestamp,
                                                                      tracked_order.client_order_id))
                             self.c_stop_tracking_order(tracked_order.client_order_id)
+                elif event_type == "execution":
+                    await self._process_execution_event(stream_message)
                 else:
                     # Ignores all other user stream message types
                     continue
@@ -596,6 +573,43 @@ cdef class BittrexExchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def _process_execution_event(self, stream_message: Dict[str, Any]):
+        content = stream_message["content"]
+        events = content["deltas"]
+
+        for execution_event in events:
+            order_id = execution_event["orderId"]
+
+            tracked_order = None
+            for order in self._in_flight_orders.values():
+                exchange_order_id = await order.get_exchange_order_id()
+                if exchange_order_id == order_id:
+                    tracked_order = order
+                    break
+
+            if tracked_order:
+                updated = tracked_order.update_with_trade_update(execution_event)
+
+                if updated:
+                    self.logger().info(f"Filled {Decimal(execution_event['quantity'])} out of "
+                                       f"{tracked_order.amount} of the "
+                                       f"{tracked_order.order_type_description} order "
+                                       f"{tracked_order.client_order_id}. - ws")
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                         OrderFilledEvent(
+                                             self._current_timestamp,
+                                             tracked_order.client_order_id,
+                                             tracked_order.trading_pair,
+                                             tracked_order.trade_type,
+                                             tracked_order.order_type,
+                                             Decimal(execution_event["rate"]),
+                                             Decimal(execution_event["quantity"]),
+                                             TradeFee(0.0,
+                                                      [(tracked_order.fee_asset,
+                                                        Decimal(execution_event["commission"]))]),
+                                             exchange_trade_id=execution_event["id"]
+                                         ))
 
     async def _status_polling_loop(self):
         while True:
