@@ -125,9 +125,13 @@ export const startGateway = async () => {
   if (ConfigManager.config.UNSAFE_DEV_MODE_WITH_HTTP) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
 
+    const YAML = require('yamljs');
+    const swaggerDocumentOld = YAML.load('./swagger.yaml');
+    console.log('original paths', swaggerDocumentOld['paths']);
+
     const swaggerDocument = SwaggerManager.generateSwaggerJson(
       './docs/swagger/swagger.yml',
-      './docs/swagger/types.yml',
+      './docs/swagger/definitions.yml',
       [
         './docs/swagger/main-routes.yml',
         './docs/swagger/eth-routes.yml',

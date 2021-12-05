@@ -40,16 +40,20 @@ export namespace SwaggerManager {
   ): Record<string, any> {
     const main = validate(mainFilePath, validateMainFile);
     const definitions = validate(definitionsFilePath, validateDefinitionsFile);
-    main['defintions'] = definitions['definitions'];
+    main['definitions'] = definitions['definitions'];
 
-    const paths: string[] = [];
+    const paths: Record<string, any> = [];
+
     for (const fp of routesFilePaths) {
       const routes = validate(fp, validateRoutesFile);
-      paths.concat(routes['paths']);
+      for (const key in routes['paths']) {
+        paths[key] = routes['paths'][key];
+      }
     }
 
     main['paths'] = paths;
 
+    // console.log('new paths', paths);
     return main;
   }
 }
