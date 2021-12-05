@@ -15,7 +15,7 @@ import {
   gatewayErrorMiddleware,
 } from './services/error-handler';
 
-import { SwaggerManager } from './services/swagger';
+import { SwaggerManager } from './services/swagger-manager';
 
 const swaggerUi = require('swagger-ui-express');
 
