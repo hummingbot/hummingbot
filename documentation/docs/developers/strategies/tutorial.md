@@ -48,7 +48,7 @@ The **init** file exposes your strategy. Paste the following code into the file 
 ```python
 # Initializing the project
 from .limit_order import LimitOrder
-__all__ = [limit_order]
+__all__ = [LimitOrder]
 ```
 
 Here, the `__all__` field is used to expose the public module `LimitOrder` for use.
