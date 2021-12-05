@@ -36,7 +36,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.loggerß import HummingbotLogger
+from hummingbot.logger import HummingbotLogger
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
