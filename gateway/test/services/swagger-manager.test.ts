@@ -90,3 +90,46 @@ describe('validate', () => {
     ).toThrow();
   });
 });
+
+describe('generateSwaggerJson', () => {
+  afterEach(() => {
+    unpatch();
+  });
+
+  it('return object if validation function returns true', () => {
+    patch(fs, 'readFileSync', (fp: string) => {
+      if (fp === 'main') {
+        return "swagger: two\ninfo: 'nothing'\nhost:  'localhost'\ntags:  []\nschemes: []\nexternalDocs: ''";
+      } else if (fp === 'definitions') {
+        return 'definitions: []';
+      }
+      return 'paths:\n  /eth:\n    get';
+    });
+    expect(
+      SwaggerManager.generateSwaggerJson('main', 'definitions', ['path'])
+    ).toEqual({
+      swagger: 'two',
+      info: 'nothing',
+      host: 'localhost',
+      tags: [],
+      schemes: [],
+      externalDocs: '',
+      definitions: [],
+      paths: { '/eth': 'get' },
+    });
+  });
+
+  it('throw an error if something does not conform to the structure', () => {
+    patch(fs, 'readFileSync', (fp: string) => {
+      if (fp === 'main') {
+        return 'swagger: two\n';
+      } else if (fp === 'definitions') {
+        return 'definitions: []';
+      }
+      return 'paths:\n  /eth:\n    get';
+    });
+    expect(() =>
+      SwaggerManager.generateSwaggerJson('main', 'definitions', ['path'])
+    ).toThrow();
+  });
+});
