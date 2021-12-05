@@ -14,7 +14,7 @@ import inspect
 # function types passed into ConfigVar
 RequiredIf = Callable[[str], Optional[bool]]
 Validator = Callable[[str], Optional[str]]
-Prompt = Union[Callable[[str], Optional[str]], str]
+Prompt = Union[Callable[[str], Optional[str]], Optional[str]]
 OnValidated = Callable
 
 
