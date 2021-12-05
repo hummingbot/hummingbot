@@ -18,8 +18,6 @@ import {
 import { SwaggerManager } from './services/swagger';
 
 const swaggerUi = require('swagger-ui-express');
-// const YAML = require('yamljs');
-// const swaggerDocument = YAML.load('./swagger.yaml');
 
 export const app = express();
 let server: Server;
@@ -124,10 +122,6 @@ export const startGateway = async () => {
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManager.config.UNSAFE_DEV_MODE_WITH_HTTP) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-
-    const YAML = require('yamljs');
-    const swaggerDocumentOld = YAML.load('./swagger.yaml');
-    console.log('original paths', swaggerDocumentOld['paths']);
 
     const swaggerDocument = SwaggerManager.generateSwaggerJson(
       './docs/swagger/swagger.yml',
