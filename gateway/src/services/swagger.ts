@@ -39,10 +39,8 @@ export namespace SwaggerManager {
     routesFilePaths: string[]
   ): Record<string, any> {
     const main = validate(mainFilePath, validateMainFile);
-    const definitions = validate(definitionsFilePath, validateDefinitionsFile);
-    main['definitions'] = definitions['definitions'];
 
-    const paths: Record<string, any> = [];
+    const paths: Record<string, any> = {};
 
     for (const fp of routesFilePaths) {
       const routes = validate(fp, validateRoutesFile);
@@ -53,7 +51,10 @@ export namespace SwaggerManager {
 
     main['paths'] = paths;
 
-    // console.log('new paths', paths);
+    const definitions = validate(definitionsFilePath, validateDefinitionsFile);
+    main['definitions'] = definitions['definitions'];
+
+    console.log('new paths', main['paths']['/eth']);
     return main;
   }
 }
