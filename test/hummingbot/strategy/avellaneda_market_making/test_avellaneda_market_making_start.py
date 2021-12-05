@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 import unittest.mock
 import hummingbot.strategy.avellaneda_market_making.start as strategy_start
@@ -19,6 +20,9 @@ class AvellanedaStartTest(unittest.TestCase):
         assign_config_default(strategy_cmap)
         strategy_cmap.get("exchange").value = "binance"
         strategy_cmap.get("market").value = "balancer"
+        strategy_cmap.get("execution_timeframe").value = "from_date_to_date"
+        strategy_cmap.get("start_time").value = "2021-11-18 15:00:00"
+        strategy_cmap.get("end_time").value = "2021-11-18 16:00:00"
         strategy_cmap.get("order_amount").value = Decimal("1")
         strategy_cmap.get("order_refresh_time").value = 60.
         strategy_cmap.get("hanging_orders_enabled").value = True
@@ -49,9 +53,12 @@ class AvellanedaStartTest(unittest.TestCase):
         self.log_errors.append(message)
 
     @unittest.mock.patch('hummingbot.strategy.avellaneda_market_making.start.HummingbotApplication')
-    def test_parameters_based_on_spread_strategy_creation(self, mock_hbot):
+    def test_parameters_strategy_creation(self, mock_hbot):
         mock_hbot.main_application().strategy_file_name = "test.csv"
         strategy_start.start(self)
+        self.assertEqual(self.strategy.execution_timeframe, "from_date_to_date")
+        self.assertEqual(self.strategy.start_time, datetime.datetime(2021, 11, 18, 15, 0))
+        self.assertEqual(self.strategy.end_time, datetime.datetime(2021, 11, 18, 16, 0))
         self.assertEqual(self.strategy.min_spread, Decimal("2"))
         self.assertEqual(self.strategy.gamma, Decimal("1.11"))
         self.assertEqual(self.strategy.eta, Decimal("3.33"))

@@ -4,7 +4,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_exchange,
-    validate_market_trading_pair, validate_timestamp_iso_string, validate_decimal,
+    validate_market_trading_pair, validate_datetime_iso_string, validate_decimal,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -122,7 +122,7 @@ twap_config_map = {
                   prompt="Please enter the start date and time"
                          " (YYYY-MM-DD HH:MM:SS) >>> ",
                   type_str="str",
-                  validator=validate_timestamp_iso_string,
+                  validator=validate_datetime_iso_string,
                   required_if=lambda: twap_config_map.get("is_time_span_execution").value or twap_config_map.get("is_delayed_start_execution").value,
                   prompt_on_new=True),
     "is_time_span_execution":
@@ -137,7 +137,7 @@ twap_config_map = {
                   prompt="Please enter the end date and time"
                          " (YYYY-MM-DD HH:MM:SS) >>> ",
                   type_str="str",
-                  validator=validate_timestamp_iso_string,
+                  validator=validate_datetime_iso_string,
                   on_validated=set_order_delay_default,
                   required_if=lambda: twap_config_map.get("is_time_span_execution").value,
                   prompt_on_new=True),
