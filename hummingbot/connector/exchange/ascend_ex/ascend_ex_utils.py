@@ -1,7 +1,8 @@
 import random
 import string
+import time
 from typing import Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res, get_tracking_nonce
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -33,9 +34,17 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "/")
 
 
+def _time():
+    """
+    Private function created just to have a method that can be safely patched during unit tests and make tests
+    independent from real time
+    """
+    return time.time()
+
+
 # get timestamp in milliseconds
 def get_ms_timestamp() -> int:
-    return get_tracking_nonce_low_res()
+    return int(_time() * 1e3)
 
 
 def uuid32():

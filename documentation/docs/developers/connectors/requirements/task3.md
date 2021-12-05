@@ -1,14 +1,16 @@
-# Task 3 — Exchange Connector & InFlightOrder
+# Task 3 — Exchange/Derivative Connector & InFlightOrder
 
 ## Overview
 
-In Task 3, we will be required to implement both `InFlightOrder` and `Exchange`/`Derivative` Class. This is because the primary bulk of implementing a new exchange connector is in this task.
+In Task 3, we will be required to implement both `InFlightOrder` and `Exchange`/`Derivative` Class. The primary bulk of implementing a new connector is in this task.
 
-If the exchange is a derivative exchange, the connector must also inherit from the `PerpetualTrading` class. 
+If the exchange is a derivative exchange, the connector must also inherit from the `PerpetualTrading` class.
+
+For examples, refer to [Ndax](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_exchange.py) and [Bybit Perpetual](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/bybit_perpetual/bybit_perpetual_derivative.py)
 
 ### InFlightOrder Class
 
-As seen in the [Exchange Component Overview](/developers/connectors/architecture/#exchange-component-overview), the `Exchange`/`Derivative` class depends on the `InFlightOrder` Class.
+As seen in the [Connector Component Overview](/developers/connectors/architecture/#connector-component-overview), the `Exchange`/`Derivative` class depends on the `InFlightOrder` Class.
 The `InFlightOrder` abstracts an order's details and is primarily used by the `Exchange`/`Derivative` class to manage all active orders.
 
 The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
@@ -16,16 +18,16 @@ The **_InFlightOrder Class Diagram_**, given below, details the critical variabl
 ![InFlightOrderUMLDiagram](/assets/img/in-flight-order-class-diagram.svg)
 
 !!! note
-    The `InFlightOrder` associated with a `Derivative` class includes the `leverage` and `position` attributes.
-    The `position` attribute is set to a [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83)
-    enum **value** (i.e. it should be a string).
+The `InFlightOrder` associated with a `Derivative` class includes the `leverage` and `position` attributes.
+The `position` attribute is set to a [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83)
+enum **value** (i.e. it should be a string).
 
 Below are the functions that need to be implemented in the new `InFlightOrder` class.
 
 | Function(s)                | Input                          | Output          | Description                                                                                                             |
 | -------------------------- | ------------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `is_done`                  | `None`                         | `bool`          | Returns `True` if the order state is completely filled or cancelled.                                                    |
-| `is_failure`               | `None`                         | `bool`          | Returns `True` if placing the order is unsuccessfully.                                                                   |
+| `is_failure`               | `None`                         | `bool`          | Returns `True` if placing the order is unsuccessfully.                                                                  |
 | `is_cancelled`             | `None`                         | `bool`          | Returns `True` if the order state is cancelled.                                                                         |
 | `from_json`                | data: `Dict[str, Any]`         | `InFlightOrder` | Converts the order data from a JSON object to an `InFlightOrder` object.                                                |
 | `update_with_trade_update` | trade_update: `Dict[str, Any]` | `bool`          | Updates the in flight order with trade update from the REST or WebSocket API. Returns `True` if the order gets updated. |
@@ -53,7 +55,7 @@ The **_Exchange/Derivative Class Diagram_**, given below, details the critical v
 ![ExchangeUMLDiagram](/assets/img/exchange-derivative-class.svg)
 
 !!! note
-    The categories of functions shown here broadly cover the necessary functions that need to be implemented in the `Exchange`/`Derivative` class. Feel free to include other utility functions as needed.
+The categories of functions shown here broadly cover the necessary functions that need to be implemented in the `Exchange`/`Derivative` class. Feel free to include other utility functions as needed.
 
 ### (1) Placing Orders
 
@@ -66,12 +68,13 @@ The function that takes the strategy inputs generates a client order ID(used by 
 
 **Input Parameter(s):**
 
-| Parameter(s)   | Type        | Description                                                                               |
-| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `trading_pair` | `str`       | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
-| `price`        | `Decimal`   | Price in which the order will be placed in `Decimal`                                      |
-| `amount`       | `Decimal`   | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`   | `OrderType` | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| Parameter(s)       | Type                                                                                                            | Description                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `trading_pair`     | `str`                                                                                                           | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`            | `Decimal`                                                                                                       | Price in which the order will be placed in `Decimal`                                      |
+| `amount`           | `Decimal`                                                                                                       | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`       | `OrderType`                                                                                                     | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `positions_action` | [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83) | (`Derivative`) Specifies if the order is to open a position or close it                   |
 
 **Expected Output(s):** order_id: `str`
 
@@ -85,40 +88,19 @@ The function that takes the strategy inputs generates a client order ID(used by 
 
 **Input Parameter(s):**
 
-| Parameter(s)   | Type        | Description                                                                               |
-| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `trading_pair` | `str`       | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
-| `price`        | `Decimal`   | Price in which the order will be placed in `Decimal`                                      |
-| `amount`       | `Decimal`   | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`   | `OrderType` | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| Parameter(s)       | Type                                                                                                            | Description                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `trading_pair`     | `str`                                                                                                           | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`            | `Decimal`                                                                                                       | Price in which the order will be placed in `Decimal`                                      |
+| `amount`           | `Decimal`                                                                                                       | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`       | `OrderType`                                                                                                     | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `positions_action` | [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83) | (`Derivative`) Specifies if the order is to open a position or close it                   |
 
 **Expected Output(s):**
 
 | Output(s)  | Type  | Description     |
 | ---------- | ----- | --------------- |
 | `order_id` | `str` | Client Order ID |
-
-<!-- 
-<details>
-  <summary><p style="display:inline"><strong>Input Parameter(s):</strong></p></summary>
-
-
-| Parameter(s)   | Type        | Description                                                                               |
-| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `trading_pair` | `str`       | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
-| `price`        | `Decimal`   | Price in which the order will be placed in `Decimal`                                      |
-| `amount`       | `Decimal`   | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`   | `OrderType` | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
-
-</details>
-
-
-<details>
-  <summary><p style="display:inline"><strong>Expected Output(s):</strong></p></summary> 
-
-</details>
--->
-
 
 #### **_async_** `_create_order()`
 
@@ -127,13 +109,14 @@ This function is responsible for executing the API request to place the order on
 - Verifies that the order satisfies exchange trading rules.
 - Quantize the order amount to ensure that the precision is as required by the exchange.
 - Create a `params` dictionary with the necessary parameters for the desired order.
+- For `Derivative` connectors, it is important to consider the necessary parameters required to create a `PositionAction.CLOSE` order. For an example, see [BybitPerpetualDerivative._create_order](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/bybit_perpetual/bybit_perpetual_derivative.py#L435-L439).
 - Pass the `params` to an `Auth` object to generate the request signature.
 - Begin tracking the order by calling [`start_tracking_order(...)`](#start_tracking_order).
 - Places the order by calling the [`_api_request()`](#async-_api_request) method with the relevant order parameters.
 - Upon successfully placing the order, the tracked order will be updated with the resulting **_exchange order ID_** from the API Response.
 
 !!! note
-    The tracked order is an `InFlightOrder` that is within a dictionary variable(`_in_flight_orders`) in the `Exchange`/`Derivative` class. `InFlightOrder` are Hummingbot's internal records of orders it has placed that remain open in the exchange. When such orders are either filled or canceled, they are removed from the dictionary by calling [stop_tracking_order()](#stop_tracking_order) method, and the relevant event completion flag is passed to the strategy module.
+The tracked order is an `InFlightOrder` that is within a dictionary variable(`_in_flight_orders`) in the `Exchange`/`Derivative` class. `InFlightOrder` are Hummingbot's internal records of orders it has placed that remain open in the exchange. When such orders are either filled or canceled, they are removed from the dictionary by calling [stop_tracking_order()](#stop_tracking_order) method, and the relevant event completion flag is passed to the strategy module.
 
 **Input Parameter(s):**
 
@@ -143,9 +126,9 @@ This function is responsible for executing the API request to place the order on
 | `trading_pair`     | `str`                                                                                                           | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
 | `price`            | `Decimal`                                                                                                       | Price in which the order will be placed in `Decimal`                                      |
 | `amount`           | `Decimal`                                                                                                       | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`       | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78)      | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`)  |
-| `trade_type`       | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69)      | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)           |
-| `positions_action` | [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83) | (`Derivative`) Specifies if the order is to open a position or close it                    |
+| `order_type`       | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78)      | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`       | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69)      | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| `positions_action` | [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83) | (`Derivative`) Specifies if the order is to open a position or close it                   |
 
 **Expected Output(s):**
 
@@ -185,7 +168,7 @@ Calls the [\_api_request()](#async-_api_request) function with the relevant para
 | `cancellation_result` | `List[CancellationResult]` | List of `CancellationResult`. `CancellationResult.success` is assigned `True` if the particular order(identified by Client Order ID) is successfully cancelled |
 
 !!! note
-    In some cases, where an exchange does not have a cancel all orders endpoint, the we will have to call `_execute_cancel()` for each in-flight order.
+In some cases, where an exchange does not have a cancel all orders endpoint, we will have to call `_execute_cancel()` for each in-flight order. In the case when the exchange handles cancellation requests asychronously, it is advisable to use another API request to fetch all **OPEN** orders. Using the returned values, cross reference with the submitted cancellation request. Orders that have been successfully cancelled should no longer be reflected as an **OPEN** order and thus should be marked as `CancellationResult.success`.
 
 #### **_async_** `_execute_cancel()`
 
@@ -223,15 +206,15 @@ Starts tracking an order by simply adding it into `_in_flight_orders` dictionary
 | `trading_pair`      | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
 | `price`             | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
 | `amount`            | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`)  |
-| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)           |
-| `position`          | `str`                                                                                                      | Specifies if the order is to open a position or close it (`"OPEN"`/`"CLOSE"`)              |
-| `leverage`          | `int`                                                                                                      | Specifies the level of leverage for the position                                           |
+| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| `position`          | `str`                                                                                                      | Specifies if the order is to open a position or close it (`"OPEN"`/`"CLOSE"`)             |
+| `leverage`          | `int`                                                                                                      | Specifies the level of leverage for the position                                          |
 
 **Expected Output(s):** `None`
 
 !!! note
-    In most cases, the `exchange_order_id` is only provided after the place order APi request is successfully processed by the exchange. As such, the `exchange_order_id` can be `None` initially. It can be updated later by using the [InFlightOrderBase.update_exchange_order_id()](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/in_flight_order_base.pyx#L77-L79) function.
+In most cases, the `exchange_order_id` is only provided after the place order APi request is successfully processed by the exchange. As such, the `exchange_order_id` can be `None` initially. It can be updated later by using the [InFlightOrderBase.update_exchange_order_id()](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/in_flight_order_base.pyx#L77-L79) function.
 
 #### `stop_tracking_order()`
 
@@ -254,7 +237,7 @@ In perpetual connectors, care should be taken here to keep the `_account_positio
 strategies, updated.
 
 !!! note
-    The `Position.amount` must be negative for short positions.
+The `Position.amount` must be negative for short positions.
 
 Below are the function(s) called from within `_user_stream_event_listener()` when a message is received.
 
@@ -276,7 +259,7 @@ Calling of both [\_update_balances()](#_update_balances) and [\_update_order_sta
 For perpetual connectors, the `_account_positions` dictionary should also be updated here by calling the [`_update_account_positions`](#_update_account_positions) method.
 
 !!! note
-    The `Position.amount` must be negative for short positions.
+The `Position.amount` must be negative for short positions.
 
 `_poll_notifier` is an `asyncio.Event` object that is set in the `tick()` function.
 It is set after every `SHORT_POLL_INTERVAL` or `LONG_POLL_INTERVAL` depending on the `last_recv_time` of the `_user_stream_tracker`.
@@ -300,7 +283,7 @@ Calls the REST API to get order/trade updates for each in-flight order.
 If needed, it will call either [\_process_order_message()](#_process_order_message) or [\_process_trade_message()](#_process_trade_message) or both.
 
 !!! note
-    `_process_trade_message()` must be called before `_process_order_message()` for any in-flight orders. Each partial fill should be accompanied by a call to `_process_trade_message()`. This ensures that Hummingbot captures every trade executed on an order.
+`_process_trade_message()` **must** be called before `_process_order_message()` for any in-flight orders. Each partial fill should be accompanied by a call to `_process_trade_message()`. This ensures that Hummingbot captures every trade executed on an order.
 
 **Input Parameter(s):** `None`
 
@@ -366,6 +349,9 @@ Queries the necessary API endpoint and initialize the `TradingRule` object for e
 
 Calls [\_api_request()](#async-_api_request) and subsequently [`_format_trading_rules()`](#_format_trading_rules)
 
+!!! warning
+For `Derivative` Connectors, it is necessary to retrieve the buy and sell collateral tokens for the active trading pair. If none are provided, they will default to the quote token of the trading pair.
+
 **Input Parameter(s):** `None`
 
 **Expected Output(s):** `None`
@@ -383,7 +369,7 @@ Converts JSON API response into a dictionary of [`TradingRule`](https://github.c
 **Expected Output(s):** `None`
 
 !!! note
-    The trading rules can generally be found in the API endpoint that lists all supported trading pairs/markets.
+The trading rules can generally be found in the API endpoint that lists all supported trading pairs/markets.
 
 #### `get_order_price_quantum()`
 
@@ -424,7 +410,7 @@ Returns an order amount step, a minimum amount increment for a given trading pai
 In addition to the account positions mentioned in [section 3](#3-tracking-orders-balances--positions), the
 `Derivative` class also keeps track of the funding payments and the relevant information pertaining to them.
 The class must detect when funding payments are issued and trigger [`FundingPaymentCompletedEvent`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L222-L228)
-as necessary. The details of how this is achieved depend heavily on the given exchange's API. For instance, the 
+as necessary. The details of how this is achieved depend heavily on the given exchange's API. For instance, the
 [Binance Perpetual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/binance_perpetual/binance_perpetual_derivative.py)
 implements a separate polling loop that uses a REST API endpoint to request the information at the appropriate time (see `_funding_fee_polling_loop`), whereas the
 [dydx Perptual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/dydx_perpetual/dydx_perpetual_derivative.py)
@@ -556,8 +542,8 @@ Use `OrderType.LIMIT_MAKER` to specify you want a trading fee for the maker orde
 | `quote_currency` | `str`                                                                                                      | Quote currency of the order.                                                              |
 | `price`          | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
 | `amount`         | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`     | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`)  |
-| `trade_type`     | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)           |
+| `order_type`     | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`     | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
 
 **Expected Output(s):**
 
@@ -602,6 +588,30 @@ This method may need to be overridden to perform the necessary validations and s
 
 **Expected Output(s):** `None`
 
+### `get_buy_collatoral_token()`
+
+This method retrieves the buy collatoral token of the specified trading pair. It retrieves the information from the `_trading_rules` attribute.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type  | Description                                                 |
+| -------------- | ----- | ----------------------------------------------------------- |
+| `trading_pair` | `str` | Trading pair for which to retrieve the buy collatoral token |
+
+**Expected Output(s):** `str`
+
+### `get_sell_collatoral_token()`
+
+This method retrieves the sell collatoral token of the specified trading pair. It retrieves the information from the `_trading_rules` attribute.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type  | Description                                                  |
+| -------------- | ----- | ------------------------------------------------------------ |
+| `trading_pair` | `str` | Trading pair for which to retrieve the sell collatoral token |
+
+**Expected Output(s):** `str`
+
 ### (8) Class Properties
 
 Below are the property functions of the `Exchange`/`Derivative` class.
@@ -611,7 +621,7 @@ Below are the property functions of the `Exchange`/`Derivative` class.
 | `name`               | `str`                      | Name of the exchange. Used to identify the exchange across Hummingbot.                                                            |
 | `order_books`        | `Dict[str, OrderBook]`     | Dictionary of the `OrderBook` of each active trading pair on the bot. Utilizes the `order_books` property from `OrderBookTracker` |
 | `trading_rules`      | `Dict[str, TradingRule]`   | Returns the `_trading_rule` class variable; a dictionary of the `TradingRule` of each active trading pair on the bot.             |
-| `in_flight_orders`    | `Dict[str, InFlightOrder]` | Dictionary of the all `InFlightOrder` by its client order ID.                                                                     |
+| `in_flight_orders`   | `Dict[str, InFlightOrder]` | Dictionary of the all `InFlightOrder` by its client order ID.                                                                     |
 | `status_dict`        | `Dict[str, bool]`          | A dictionary of statuses of various connector's components. Used by the `ready()` property function.                              |
 | `ready`              | `bool`                     | True when all statuses pass, this might take 5-10 seconds for all the connector's components and services to be ready.            |
 | `limit_orders`       | `List[LimitOrder]`         | Returns a list of `InFlightOrder`.                                                                                                |

@@ -31,7 +31,7 @@ class CryptoComOrderBookTracker(OrderBookTracker):
 
     def __init__(
         self,
-        shared_client: aiohttp.ClientSession,
+        shared_client: Optional[aiohttp.ClientSession] = None,
         throttler: Optional[AsyncThrottler] = None,
         trading_pairs: Optional[List[str]] = None,
     ):

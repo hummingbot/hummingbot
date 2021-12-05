@@ -1,29 +1,31 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 import time
-import pandas as pd
+
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .hitbtc_constants import Constants
 from .hitbtc_active_order_tracker import HitbtcActiveOrderTracker
+from .hitbtc_constants import Constants
 from .hitbtc_order_book import HitbtcOrderBook
-from .hitbtc_websocket import HitbtcWebsocket
 from .hitbtc_utils import (
-    str_date_to_ts,
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
     api_call_with_retries,
     HitbtcAPIError,
+    str_date_to_ts,
+    translate_asset,
 )
+from .hitbtc_websocket import HitbtcWebsocket
 
 
 class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
+    _trading_pair_symbol_map: Dict[str, str] = {}
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -37,12 +39,34 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
+    async def init_trading_pair_symbols(cls, shared_session: Optional[aiohttp.ClientSession] = None):
+        """Initialize _trading_pair_symbol_map class variable
+        """
+
+        symbols: List[Dict[str, Any]] = await api_call_with_retries(
+            "GET",
+            Constants.ENDPOINT["SYMBOL"],
+            shared_client=shared_session)
+        cls._trading_pair_symbol_map = {
+            symbol_data["id"]: (f"{translate_asset(symbol_data['baseCurrency'])}-"
+                                f"{translate_asset(symbol_data['quoteCurrency'])}")
+            for symbol_data in symbols
+        }
+
+    @classmethod
+    async def trading_pair_symbol_map(cls) -> Dict[str, str]:
+        if not cls._trading_pair_symbol_map:
+            await cls.init_trading_pair_symbols()
+
+        return cls._trading_pair_symbol_map
+
+    @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         results = {}
         if len(trading_pairs) > 1:
             tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"])
         for trading_pair in trading_pairs:
-            ex_pair: str = convert_to_exchange_trading_pair(trading_pair)
+            ex_pair: str = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
             if len(trading_pairs) > 1:
                 ticker: Dict[Any] = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
             else:
@@ -52,16 +76,26 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return results
 
     @staticmethod
+    async def exchange_symbol_associated_to_pair(trading_pair: str) -> str:
+        symbol_map = await HitbtcAPIOrderBookDataSource.trading_pair_symbol_map()
+        symbols = [symbol for symbol, pair in symbol_map.items() if pair == trading_pair]
+
+        if symbols:
+            symbol = symbols[0]
+        else:
+            raise ValueError(f"There is no symbol mapping for trading pair {trading_pair}")
+
+        return symbol
+
+    @staticmethod
+    async def trading_pair_associated_to_exchange_symbol(symbol: str) -> str:
+        symbol_map = await HitbtcAPIOrderBookDataSource.trading_pair_symbol_map()
+        return symbol_map[symbol]
+
+    @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        try:
-            symbols: List[Dict[str, Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["SYMBOL"])
-            trading_pairs: List[str] = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
-            # Filter out unmatched pairs so nothing breaks
-            return [sym for sym in trading_pairs if sym is not None]
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for HitBTC trading pairs
-            pass
-        return []
+        symbols_map = await HitbtcAPIOrderBookDataSource.trading_pair_symbol_map()
+        return list(symbols_map.values())
 
     @staticmethod
     async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
@@ -69,7 +103,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         try:
-            ex_pair = convert_to_exchange_trading_pair(trading_pair)
+            ex_pair = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
             orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
                                                                         params={"limit": 150, "symbols": ex_pair})
             return orderbook_response[ex_pair]
@@ -102,7 +136,8 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 for pair in self._trading_pairs:
-                    await ws.subscribe(Constants.WS_SUB["TRADES"], convert_to_exchange_trading_pair(pair))
+                    symbol = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(pair)
+                    await ws.subscribe(Constants.WS_SUB["TRADES"], symbol)
 
                 async for response in ws.on_message():
                     method: str = response.get("method", None)
@@ -111,7 +146,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if trades_data is None or method != Constants.WS_METHODS['TRADES_UPDATE']:
                         continue
 
-                    pair: str = convert_from_exchange_trading_pair(response["params"]["symbol"])
+                    pair: str = await self.trading_pair_associated_to_exchange_symbol(response["params"]["symbol"])
 
                     for trade in trades_data["data"]:
                         trade: Dict[Any] = trade
@@ -145,7 +180,8 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ]
 
                 for pair in self._trading_pairs:
-                    await ws.subscribe(Constants.WS_SUB["ORDERS"], convert_to_exchange_trading_pair(pair))
+                    symbol = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(pair)
+                    await ws.subscribe(Constants.WS_SUB["ORDERS"], symbol)
 
                 async for response in ws.on_message():
                     method: str = response.get("method", None)
@@ -155,7 +191,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         continue
 
                     timestamp: int = str_date_to_ts(order_book_data["timestamp"])
-                    pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
+                    pair: str = await self.trading_pair_associated_to_exchange_symbol(order_book_data["symbol"])
 
                     order_book_msg_cls = (HitbtcOrderBook.diff_message_from_exchange
                                           if method == Constants.WS_METHODS['ORDERS_UPDATE'] else

@@ -1,34 +1,24 @@
 #!/usr/bin/env python
-import aiohttp
 import asyncio
-import time
-
 import logging
 
-from typing import (
-    Optional,
-    AsyncIterable,
-    Dict,
-    Any,
-)
+import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
 
+from typing import Optional
+
+from hummingbot.connector.exchange.huobi.huobi_utils import build_api_factory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 
-HUOBI_API_ENDPOINT = "https://api.huobi.pro"
-HUOBI_WS_ENDPOINT = "wss://api.huobi.pro/ws/v2"
-
-HUOBI_ACCOUNT_UPDATE_TOPIC = "accounts.update#2"
-HUOBI_ORDER_UPDATE_TOPIC = "orders#*"
-
-HUOBI_SUBSCRIBE_TOPICS = {
-    HUOBI_ORDER_UPDATE_TOPIC,
-    HUOBI_ACCOUNT_UPDATE_TOPIC
-}
-
 
 class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
+
+    HEARTBEAT_INTERVAL = 30.0  # seconds
+
     _hausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -38,118 +28,110 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         return cls._hausds_logger
 
-    def __init__(self, huobi_auth: HuobiAuth):
-        self._current_listen_key = None
-        self._current_endpoint = None
-        self._listen_for_user_steam_task = None
-        self._last_recv_time: float = 0
+    def __init__(self, huobi_auth: HuobiAuth, api_factory: Optional[WebAssistantsFactory] = None):
         self._auth: HuobiAuth = huobi_auth
-        self._client_session: aiohttp.ClientSession = None
-        self._websocket_connection: aiohttp.ClientWebSocketResponse = None
+
+        self._api_factory = api_factory or build_api_factory()
+        self._ws_assistant: Optional[WSAssistant] = None
         super().__init__()
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        if self._ws_assistant:
+            return self._ws_assistant.last_recv_time
+        return -1
+
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
 
     async def _authenticate_client(self):
         """
         Sends an Authentication request to Huobi's WebSocket API Server
         """
-        signed_params = self._auth.add_auth_to_params(method="get",
-                                                      path_url="/ws/v2",
-                                                      is_ws=True
-                                                      )
-        auth_request: Dict[str: Any] = {
-            "action": "req",
-            "ch": "auth",
-            "params": {
-                "authType": "api",
-                "accessKey": signed_params["accessKey"],
-                "signatureMethod": signed_params["signatureMethod"],
-                "signatureVersion": signed_params["signatureVersion"],
-                "timestamp": signed_params["timestamp"],
-                "signature": signed_params["signature"]
-            }
-        }
-        await self._websocket_connection.send_json(auth_request)
-        resp: aiohttp.WSMessage = await self._websocket_connection.receive()
-        msg = resp.json()
-        if msg.get("code", 0) == 200:
-            self.logger().info("Successfully authenticated")
+        try:
+            signed_params = self._auth.add_auth_to_params(
+                method="get",
+                path_url="/ws/v2",
+                is_ws=True,
+            )
+            auth_request: WSRequest = WSRequest(
+                {
+                    "action": "req",
+                    "ch": "auth",
+                    "params": {
+                        "authType": "api",
+                        "accessKey": signed_params["accessKey"],
+                        "signatureMethod": signed_params["signatureMethod"],
+                        "signatureVersion": signed_params["signatureVersion"],
+                        "timestamp": signed_params["timestamp"],
+                        "signature": signed_params["signature"],
+                    },
+                }
+            )
+            await self._ws_assistant.send(auth_request)
+            resp: WSResponse = await self._ws_assistant.receive()
+            auth_response = resp.data
+            if auth_response.get("code", 0) != 200:
+                raise ValueError(f"User Stream Authentication Fail! {auth_response}")
+            self.logger().info("Successfully authenticated to user stream...")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error occurred authenticating websocket connection... Error: {str(e)}", exc_info=True)
+            raise
 
     async def _subscribe_topic(self, topic: str):
-        subscribe_request = {
-            "action": "sub",
-            "ch": topic
-        }
-        await self._websocket_connection.send_json(subscribe_request)
-        self._last_recv_time = time.time()
+        try:
+            subscribe_request: WSRequest = WSRequest({"action": "sub", "ch": topic})
+            await self._ws_assistant.send(subscribe_request)
+            resp: WSResponse = await self._ws_assistant.receive()
+            sub_response = resp.data
+            if sub_response.get("code", 0) != 200:
+                raise ValueError(f"Error subscribing to topic: {topic}")
+            self.logger().info(f"Successfully subscribed to {topic}")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(f"Cannot subscribe to user stream topic: {topic}")
+            raise
 
-    async def get_ws_connection(self) -> aiohttp.client._WSRequestContextManager:
-        if self._client_session is None:
-            self._client_session = aiohttp.ClientSession()
-
-        stream_url: str = f"{HUOBI_WS_ENDPOINT}"
-        return self._client_session.ws_connect(stream_url)
-
-    async def _socket_user_stream(self) -> AsyncIterable[str]:
-        """
-        Main iterator that manages the websocket connection.
-        """
-        while True:
-            try:
-                raw_msg = await asyncio.wait_for(self._websocket_connection.receive(), timeout=30)
-                self._last_recv_time = time.time()
-
-                if raw_msg.type != aiohttp.WSMsgType.TEXT:
-                    # since all ws messages from huobi are TEXT, any other type should cause ws to reconnect
-                    return
-
-                message = raw_msg.json()
-
-                # Handle ping messages
-                if message["action"] == "ping":
-                    pong_response = {
-                        "action": "pong",
-                        "data": message["data"]
-                    }
-                    await self._websocket_connection.send_json(pong_response)
-                    continue
-
-                yield message
-            except asyncio.TimeoutError:
-                self.logger().error("Userstream websocket timeout, going to reconnect...")
-                return
+    async def _subscribe_channels(self):
+        try:
+            await self._subscribe_topic(CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC)
+            await self._subscribe_topic(CONSTANTS.HUOBI_ACCOUNT_UPDATE_TOPIC)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error occurred subscribing to private user streams...", exc_info=True)
+            raise
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
                 # Initialize Websocket Connection
-                async with (await self.get_ws_connection()) as ws:
-                    self._websocket_connection = ws
+                self.logger().info(f"Connecting to {CONSTANTS.WS_PRIVATE_URL}")
+                await self._get_ws_assistant()
+                await self._ws_assistant.connect(ws_url=CONSTANTS.WS_PRIVATE_URL, ping_timeout=self.HEARTBEAT_INTERVAL)
 
-                    # Authentication
-                    await self._authenticate_client()
+                await self._authenticate_client()
+                await self._subscribe_channels()
 
-                    # Subscribe to Topic(s)
-                    await self._subscribe_topic(HUOBI_ORDER_UPDATE_TOPIC)
-                    await self._subscribe_topic(HUOBI_ACCOUNT_UPDATE_TOPIC)
-
-                    # Listen to WebSocket Connection
-                    async for message in self._socket_user_stream():
-                        output.put_nowait(message)
+                async for ws_response in self._ws_assistant.iter_messages():
+                    data = ws_response.data
+                    if data["action"] == "ping":
+                        pong_request = WSRequest(payload={"action": "pong", "data": data["data"]})
+                        await self._ws_assistant.send(request=pong_request)
+                        continue
+                    output.put_nowait(data)
 
             except asyncio.CancelledError:
                 raise
-            except IOError as e:
-                self.logger().error(e, exc_info=True)
-            except Exception as e:
-                self.logger().error(f"Unexpected error occurred! {e} {message}", exc_info=True)
+            except Exception:
+                self.logger().error(
+                    "Unexpected error with Huobi WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                )
             finally:
-                if self._websocket_connection is not None:
-                    await self._websocket_connection.close()
-                    self._websocket_connection = None
-                if self._client_session is not None:
-                    await self._client_session.close()
-                    self._client_session = None
+                self._ws_assistant and await self._ws_assistant.disconnect()
+                await self._sleep(30.0)
