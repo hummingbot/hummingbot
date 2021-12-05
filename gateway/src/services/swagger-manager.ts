@@ -54,7 +54,6 @@ export namespace SwaggerManager {
     const definitions = validate(definitionsFilePath, validateDefinitionsFile);
     main['definitions'] = definitions['definitions'];
 
-    console.log('new paths', main['paths']['/eth']);
     return main;
   }
 }
