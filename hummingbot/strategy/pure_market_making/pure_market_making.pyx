@@ -24,7 +24,6 @@ from hummingbot.core.utils import map_df_to_str
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.strategy.utils import order_age
 from .data_types import (
     Proposal,
