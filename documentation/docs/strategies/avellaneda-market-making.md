@@ -10,7 +10,7 @@ tags:
 
 ## 📝 Summary
 
-This strategy implements the market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the `gamma` parameter described in the paper. It also features an order book liquidity estimator calculating the `alpha` and `kappa` parameters automatically. Additionally, the strategy implements the order size adjustment algorithm and its `eta` parameter as described in [Optimal High-Frequency Market Making](http://stanford.edu/class/msande448/2018/Final/Reports/gr5.pdf). The strategy is implemented to be used either in fixed timeframes or to be ran indefinitely.
+This strategy implements a market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the `gamma` parameter described in the paper. It also features an order book liquidity estimator calculating the `alpha` and `kappa` parameters automatically. Additionally, the strategy implements the order size adjustment algorithm and its `eta` parameter as described in [Optimal High-Frequency Market Making](http://stanford.edu/class/msande448/2018/Final/Reports/gr5.pdf). The strategy is implemented to be used either in fixed timeframes or to be ran indefinitely.
 
 ## 🏦 Exchanges supported
 
@@ -70,13 +70,13 @@ Limit prices of orders are also a function of order book liquidity and asset vol
 
 If the strategy is running in a finite timeframe, the closer it is to the end of the trading session, the closer the reserved price will be to the mid price, once the portfolio is in a desired state.
 
-The `risk_factor` or `gamma` also influences calculation of the reserved price and order placement. Generally the higher the value, the more aggressive the strategy will be, and the farther away from the mid price the reserved price will be. Its a unit-less parameter, that can be set to any non-zero value as necessary. Generally it should be higher for assets with lower prices, and lower for assets with higher prices. 
+The `risk_factor` or `gamma` also influence calculation of the reserved price and order placement. Generally the higher the value, the more aggressive the strategy will be, and the farther away from the mid price the reserved price will be. It's a unit-less parameter, that can be set to any non-zero value as necessary. Generally it should be higher for assets with lower prices, and lower for assets with higher prices. 
 
-Given the right market conditions and the right `risk_factor`, it's possible that the optimal spread will be wider than the absolute price of the asset, or that the reserved price will by far away from the mid price, in both cases resulting in the optimal bid price to be lower than or equal to 0. In that case no order will be placed. Neither buy, nor sell. To prevent this from happening, the user should set the `risk_factor` to a lower value.
+Given the right market conditions and the right `risk_factor`, it's possible that the optimal spread will be wider than the absolute price of the asset, or that the reserved price will by far away from the mid price, in both cases resulting in the optimal bid price to be lower than or equal to 0. In that case neiher buy or sell will be placed. To prevent this from happening, users should set the `risk_factor` to a lower value.
 
-If the user chooses to set the `eta` parameter, order sizes will be adjusted to further optimize the strategy behavior in regards to the current and desired portfolio allocation.
+If users choose to set the `eta` parameter, order sizes will be adjusted to further optimize the strategy behavior in regards to the current and desired portfolio allocation.
 
-The user has an option to layer orders on both sides. If more than 1 `order_levels` are chosen, multiple buy and sell limit orders will be created on both sides, with predefined price distances from each other. This price distance between levels is defined as a percentage of the optimal spread calculated by the strategy. The percentage is given as the `level_distances` parameter. Given that optimal spreads tend to be tight, the `level_distances` values should be in general in tens or hundreds of percents.
+Users have an option to layer orders on both sides. If more than 1 `order_levels` are chosen, multiple buy and sell limit orders will be created on both sides, with predefined price distances from each other, with the levels closest to the reserved price being set to the optimal bid and ask prices. This price distance between levels is defined as a percentage of the optimal spread calculated by the strategy. The percentage is given as the `level_distances` parameter. Given that optimal spreads tend to be tight, the `level_distances` values should be in general in tens or hundreds of percents.
 
 
 
@@ -85,7 +85,7 @@ The user has an option to layer orders on both sides. If more than 1 `order_leve
 
 ### Timeframes
 
-The original Avellaneda-Stoikov strategy was designed to be employed for market making on stock markets, which have defined trading hours. Its timeframe was therefore finite. For crypto markets there are no trading hours, the markets trade 24/7. The strategy should therefore be designed to run indefinitely. However in some cases the user may want to run the strategy only between specific dates or only bewteen specific times of a day. For this the strategy offers 3 different modes: `infinite`, `from_date_to_date` and `daily_between_times`. 
+The original Avellaneda-Stoikov strategy was designed to be employed for market making on stock markets, which have defined trading hours. Its timeframe was therefore finite. For crypto markets there are no trading hours, crypto markets trade 24/7. The strategy should therefore be designed to run indefinitely. However in some cases users may want to run the strategy only between specific dates or only bewteen specific times of a day. For this the strategy offers 3 different modes: `infinite`, `from_date_to_date` and `daily_between_times`. 
 
 For the `infinite` timeframe the equations used to calculate the reserved price and the optimal spread are slightly different, because the strategy doesn't have to take into account the time left until the end of a trading session. 
 
@@ -98,11 +98,11 @@ The strategy calculates the reserved price and the optimal spread based on measu
 
 Before any estimates can be given, both estimators need to have their buffers filled. By default the lengths of these buffers are set to be 200 ticks. In case of the `trading_intensity` estimator only order book snapshots different from preceding snapshots count as valid ticks. Therefore the strategy may take longer than 200 seconds (in case of the default length of the buffer) to start placing orders.
 
-The `trading_intensity` estimator is designed to be consistent with the ideas outlined in the Avellaneda-Stoikov paper. The `instant_volatility` estimator defines volatility as a deviation of prices from one tick to another in regards to a zero-change price action.
+The `trading_intensity` estimator is designed to be consistent with ideas outlined in the Avellaneda-Stoikov paper. The `instant_volatility` estimator defines volatility as a deviation of prices from one tick to another in regards to a zero-change price action.
 
 
 ### Minimum Spread
 
-The `minimum_spread` parameter is optional, it has no effect on the calculated reserved price and the optimal spread. It serves as a hard limit below which orders won't be placed, if a user chooses to ensure that buy and sell orders won't be placed too close to each other, which may be detrimental to the market maker's earned fees. The minimum spread is given by the `minimum_spread` parameter as a percentage of the mid price. By default its value is 0, therefore the strategy places orders at optimal bid and ask prices.
+The `minimum_spread` parameter is optional, it has no effect on the calculated reserved price and the optimal spread. It serves as a hard limit below which orders won't be placed, if users  choose to ensure that buy and sell orders won't be placed too close to each other, which may be detrimental to the market maker's earned fees. The minimum spread is given by the `minimum_spread` parameter as a percentage of the mid price. By default its value is 0, therefore the strategy places orders at optimal bid and ask prices.
 
 
