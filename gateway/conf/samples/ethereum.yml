@@ -1,22 +1,16 @@
-# list the Ethereum networks available to gateway
-networks: 
-    # the name of the network
-    mainnet: 
-      # the unique chain id of the network
-      chainID: 1
-      # the node url of the network
-      nodeURL: 'https://mainnet.infura.io/v3/'
-      tokenListType: 'URL'
-      tokenListSource: 'https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link'
-    kovan: 
-      chainID: 42
-      nodeURL: 'https://kovan.infura.io/v3/'
-      tokenListType: 'FILE'
-      tokenListSource: 'src/chains/ethereum/erc20_tokens_kovan.json'
-
-nativeCurrencySymbol: 'ETH'
-nodeAPIKey: '3712b320394b413fb4c42fdadcebdf54'
-network: 'kovan'
-# The default gas price if gateway is unable to access the Ethereum gas station.
-manualGasPrice: 100
-
+networks:
+  mainnet:
+    chainID: 1
+    nodeURL: https://mainnet.infura.io/v3/
+    tokenListType: URL
+    tokenListSource: >-
+      https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
+  kovan:
+    chainID: 42
+    nodeURL: https://kovan.infura.io/v3/
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
+nativeCurrencySymbol: ETH
+nodeAPIKey: 3712b320394b413fb4c42fdadcebdf54
+network: kovan
+manualGasPrice: 110

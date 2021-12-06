@@ -95,6 +95,10 @@ export class ConfigurationNamespace {
     return this.#configurationPath;
   }
 
+  get configuration(): Configuration {
+    return this.#configuration;
+  }
+
   loadConfig() {
     const configCandidate: Configuration = yaml.load(
       fs.readFileSync(this.#configurationPath, 'utf8')
@@ -224,6 +228,18 @@ export class ConfigManagerV2 {
     }
 
     return cursor;
+  }
+
+  get namespaces(): { [key: string]: ConfigurationNamespace } {
+    return this.#namespaces;
+  }
+
+  get allConfigurations(): { [key: string]: Configuration } {
+    const result: { [key: string]: Configuration } = {};
+    for (const [key, value] of Object.entries(this.#namespaces)) {
+      result[key] = value.configuration;
+    }
+    return result;
   }
 
   getNamespace(id: string): ConfigurationNamespace | undefined {
