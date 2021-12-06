@@ -6,8 +6,7 @@
     "gasStationURL": { "type": "string" },
     "APIKey": { "type": "string" },
     "gasLevel": { "type": "string" },
-    "refreshTime": { "type": "integer" },
-    "manualGasPrice": { "type": "integer" }
+    "refreshTime": { "type": "integer" }
   },
   "additionalProperties": false,
   "required": ["enabled"]
