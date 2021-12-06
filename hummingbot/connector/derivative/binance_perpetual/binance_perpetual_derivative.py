@@ -1,48 +1,54 @@
-import aiohttp
 import asyncio
 import hashlib
 import hmac
 import logging
 import time
-
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
-
-from async_timeout import timeout
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
+from typing import Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import urlencode
-from typing import Optional, List, Dict, Any, AsyncIterable
 
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
+import aiohttp
+from async_timeout import timeout
+
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import (
+    BinancePerpetualsInFlightOrder
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
+    BinancePerpetualOrderBookTracker
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
+    BinancePerpetualUserStreamTracker
+)
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.exchange.binance.binance_time import BinanceTime
-from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
-    FundingInfo,
-    OrderType,
-    TradeType,
-    MarketOrderFailureEvent,
-    MarketEvent,
-    OrderCancelledEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    FundingInfo,
     FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent,
-    PositionSide,
-    PositionMode,
+    OrderType,
     PositionAction,
+    PositionMode,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -121,6 +127,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._funding_fee_polling_task = None
         self._last_poll_timestamp = 0
         self._funding_payment_span = [0, 30]
+        self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
     def name(self) -> str:
@@ -153,6 +160,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     @property
     def limit_orders(self):
         return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
@@ -649,13 +660,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
                     tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
                     min_notional = Decimal(filt_dict.get("MIN_NOTIONAL").get("notional"))
+                    collateral_token = rule["marginAsset"]
 
                     return_val.append(
                         TradingRule(trading_pair,
                                     min_order_size=min_order_size,
                                     min_price_increment=Decimal(tick_size),
                                     min_base_amount_increment=Decimal(step_size),
-                                    min_notional_size=Decimal(min_notional)
+                                    min_notional_size=Decimal(min_notional),
+                                    buy_order_collateral_token=collateral_token,
+                                    sell_order_collateral_token=collateral_token,
                                     )
                     )
             except Exception as e:
@@ -1039,6 +1053,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def supported_position_modes(self):
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
 
     async def request(self,
                       path: str,

@@ -1,5 +1,7 @@
 import asyncio
 import json
+from typing import Dict
+
 import pandas as pd
 import re
 import time
@@ -44,8 +46,10 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.quote_asset = "USDT"
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
         self.ex_trading_pair = f"{self.base_asset}{self.quote_asset}"
-        self.non_linear_trading_pair = "BTC-USD"
-        self.non_linear_ex_trading_pair = "BTCUSD"
+        self.non_linear_base = "BTC"
+        self.non_linear_quote = "USD"
+        self.non_linear_trading_pair = f"{self.non_linear_base}-{self.non_linear_quote}"
+        self.non_linear_ex_trading_pair = f"{self.non_linear_base}{self.non_linear_quote}"
         self.domain = "bybit_perpetual_testnet"
 
         self.log_records = []
@@ -107,6 +111,8 @@ class BybitPerpetualDerivativeTests(TestCase):
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
                 min_base_amount_increment=Decimal(str(0.000001)),
+                buy_order_collateral_token=self.non_linear_base,
+                sell_order_collateral_token=self.non_linear_base,
             ),
         }
 
@@ -119,6 +125,51 @@ class BybitPerpetualDerivativeTests(TestCase):
                    "request": request}
 
         return message
+
+    def _get_symbols_mock_response(
+        self,
+        linear: bool = True,
+        min_order_size: float = 1,
+        max_order_size: float = 2,
+        min_price_increment: float = 3,
+        min_base_amount_increment: float = 4,
+    ) -> Dict:
+        base, quote = (
+            (self.base_asset, self.quote_asset)
+            if linear
+            else (self.non_linear_base, self.non_linear_quote)
+        )
+        symbols_mock = {  # irrelevant fields removed
+            "result": [
+                {
+                    "name": f"{base}{quote}",
+                    "alias": f"{base}{quote}",
+                    "status": "Trading",
+                    "base_currency": base,
+                    "quote_currency": quote,
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": min_price_increment,
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": max_order_size,
+                        "min_trading_qty": min_order_size,
+                        "qty_step": min_base_amount_increment,
+                    }
+                },
+            ],
+            "time_now": "1615801223.589808"
+        }
+        return symbols_mock
 
     def test_supported_order_types(self):
         self.assertEqual(2, len(self.connector.supported_order_types()))
@@ -2577,3 +2628,58 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(expected_funding_info.mark_price, funding_info.mark_price)
         self.assertEqual(expected_funding_info.next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
         self.assertEqual(expected_funding_info.rate, funding_info.rate)
+
+    def test_format_trading_rules_linear(self):
+        collateral_token = self.quote_asset
+        min_order_size = 1
+        max_order_size = 2
+        min_price_increment = 3
+        min_base_amount_increment = 4
+        mocked_response = self._get_symbols_mock_response(
+            linear=True,
+            min_order_size=min_order_size,
+            max_order_size=max_order_size,
+            min_price_increment=min_price_increment,
+            min_base_amount_increment=min_base_amount_increment,
+        )
+
+        trading_rules = self.connector._format_trading_rules(mocked_response["result"])
+
+        self.assertEqual(1, len(trading_rules))
+
+        trading_rule = trading_rules[self.trading_pair]
+
+        self.assertEqual(min_order_size, trading_rule.min_order_size)
+        self.assertEqual(max_order_size, trading_rule.max_order_size)
+        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
+        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
+        self.assertEqual(collateral_token, trading_rule.buy_order_collateral_token)
+        self.assertEqual(collateral_token, trading_rule.sell_order_collateral_token)
+
+    def test_format_trading_rules_non_linear(self):
+        collateral_token = self.non_linear_base
+        mocked_response = self._get_symbols_mock_response(linear=False)
+
+        trading_rules = self.connector._format_trading_rules(mocked_response["result"])
+
+        self.assertEqual(1, len(trading_rules))
+
+        trading_rule = trading_rules[self.non_linear_trading_pair]
+
+        self.assertEqual(collateral_token, trading_rule.buy_order_collateral_token)
+        self.assertEqual(collateral_token, trading_rule.sell_order_collateral_token)
+
+    def test_get_buy_and_sell_collateral_tokens(self):
+        self._simulate_trading_rules_initialized()
+
+        linear_buy_collateral_token = self.connector.get_buy_collateral_token(self.trading_pair)
+        linear_sell_collateral_token = self.connector.get_sell_collateral_token(self.trading_pair)
+
+        self.assertEqual(self.quote_asset, linear_buy_collateral_token)
+        self.assertEqual(self.quote_asset, linear_sell_collateral_token)
+
+        non_linear_buy_collateral_token = self.connector.get_buy_collateral_token(self.non_linear_trading_pair)
+        non_linear_sell_collateral_token = self.connector.get_sell_collateral_token(self.non_linear_trading_pair)
+
+        self.assertEqual(self.non_linear_base, non_linear_buy_collateral_token)
+        self.assertEqual(self.non_linear_base, non_linear_sell_collateral_token)

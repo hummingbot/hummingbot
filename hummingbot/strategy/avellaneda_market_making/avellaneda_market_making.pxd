@@ -14,6 +14,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _order_refresh_tolerance_pct
         double _filled_order_delay
         int _order_levels
+        object _level_distances
         object _order_override
         bint _hanging_orders_enabled
         object _hanging_orders_tracker
@@ -37,15 +38,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         double _last_sampling_timestamp
         bint _parameters_based_on_spread
         int _ticks_to_be_ready
-        object _min_spread
-        object _max_spread
-        object _vol_to_spread_multiplier
-        object _volatility_sensibility
-        object _inventory_risk_aversion
+        object _alpha
         object _kappa
         object _gamma
         object _eta
         object _closing_time
+        double _min_spread
         object _time_left
         object _q_adjustment_factor
         object _reserved_price
@@ -53,13 +51,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _optimal_bid
         object _optimal_ask
         object _latest_parameter_calculation_vol
+        object _latest_parameter_calculation_trading_intensity
         str _debug_csv_path
         object _avg_vol
+        object _trading_intensity
         bint _should_wait_order_cancel_confirmation
 
     cdef object c_get_mid_price(self)
-    cdef _create_proposal_based_on_order_override(self)
+    cdef object c_get_order_book_snapshot(self)
     cdef _create_proposal_based_on_order_levels(self)
+    cdef _create_proposal_based_on_order_override(self)
     cdef _create_basic_proposal(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
@@ -77,7 +78,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef double c_get_spread(self)
     cdef c_collect_market_variables(self, double timestamp)
     cdef bint c_is_algorithm_ready(self)
+    cdef bint c_is_algorithm_changed(self)
+    cdef c_measure_order_book_liquidity(self)
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
-    cdef c_recalculate_parameters(self)
     cdef c_did_complete_order(self, object order_completed_event)
