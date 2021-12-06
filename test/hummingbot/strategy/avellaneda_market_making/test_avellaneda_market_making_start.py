@@ -24,14 +24,10 @@ class AvellanedaStartTest(unittest.TestCase):
         strategy_cmap.get("hanging_orders_enabled").value = True
         strategy_cmap.get("hanging_orders_cancel_pct").value = Decimal("1")
         # strategy_cmap.get("hanging_orders_aggregation_type").value = "VOLUME_WEIGHTED"
-        strategy_cmap.get("parameters_based_on_spread").value = True
         strategy_cmap.get("min_spread").value = Decimal("2")
-        strategy_cmap.get("max_spread").value = Decimal("3")
-        strategy_cmap.get("vol_to_spread_multiplier").value = Decimal("1.1")
-        strategy_cmap.get("volatility_sensibility").value = Decimal("2.2")
-        strategy_cmap.get("inventory_risk_aversion").value = Decimal("0.1")
         strategy_cmap.get("risk_factor").value = Decimal("1.11")
-        strategy_cmap.get("order_book_depth_factor").value = Decimal("2.22")
+        strategy_cmap.get("order_levels").value = Decimal("4")
+        strategy_cmap.get("level_distances").value = Decimal("1")
         strategy_cmap.get("order_amount_shape_factor").value = Decimal("3.33")
 
         self.raise_exception_for_market_initialization = False
@@ -56,21 +52,14 @@ class AvellanedaStartTest(unittest.TestCase):
     def test_parameters_based_on_spread_strategy_creation(self, mock_hbot):
         mock_hbot.main_application().strategy_file_name = "test.csv"
         strategy_start.start(self)
-        self.assertEqual(self.strategy.min_spread, Decimal("0.02"))
-        self.assertEqual(self.strategy.max_spread, Decimal("0.03"))
-        self.assertEqual(self.strategy.vol_to_spread_multiplier, Decimal("1.1"))
-        self.assertEqual(self.strategy.volatility_sensibility, Decimal("0.022"))
-        self.assertEqual(self.strategy.inventory_risk_aversion, Decimal("0.1"))
-        self.assertTrue(all(c is None for c in (self.strategy.gamma, self.strategy.kappa, self.strategy.eta)))
-        strategy_cmap.get("parameters_based_on_spread").value = False
-        strategy_start.start(self)
-        self.assertTrue(all(c is None for c in (self.strategy.min_spread, self.strategy.max_spread,
-                                                self.strategy.vol_to_spread_multiplier,
-                                                self.strategy.inventory_risk_aversion,
-                                                self.strategy.volatility_sensibility)))
+        self.assertEqual(self.strategy.min_spread, Decimal("2"))
         self.assertEqual(self.strategy.gamma, Decimal("1.11"))
-        self.assertEqual(self.strategy.kappa, Decimal("2.22"))
         self.assertEqual(self.strategy.eta, Decimal("3.33"))
+        self.assertEqual(self.strategy.order_levels, Decimal("4"))
+        self.assertEqual(self.strategy.level_distances, Decimal("1"))
+        self.assertTrue(all(c is not None for c in (self.strategy.gamma, self.strategy.eta)))
+        strategy_start.start(self)
+        self.assertTrue(all(c is not None for c in (self.strategy.min_spread, self.strategy.gamma)))
 
     def test_strategy_creation_when_something_fails(self):
         self.raise_exception_for_market_initialization = True

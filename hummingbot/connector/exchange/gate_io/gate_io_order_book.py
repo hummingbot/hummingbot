@@ -32,9 +32,9 @@ class GateIoOrderBook(OrderBook):
         :param timestamp: timestamp attached to incoming data
         :return: GateIoOrderBookMessage
         """
-
-        if metadata:
-            msg.update(metadata)
+        extra_data = metadata or {}
+        extra_data["update_id"] = msg["id"]
+        msg.update(extra_data)
 
         return GateIoOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
@@ -68,8 +68,9 @@ class GateIoOrderBook(OrderBook):
         :return: GateIoOrderBookMessage
         """
 
-        if metadata:
-            msg.update(metadata)
+        extra_data = metadata or {}
+        extra_data["update_id"] = msg["u"]
+        msg.update(extra_data)
 
         return GateIoOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,

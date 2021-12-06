@@ -1,31 +1,32 @@
-from decimal import Decimal
-import logging
 import asyncio
-import pandas as pd
-from typing import List, Dict, Tuple
+import logging
+from decimal import Decimal
 from enum import Enum
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from typing import Dict, List, Tuple
+
+import pandas as pd
+
+from hummingbot.connector.budget_checker import OrderCandidate
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
+from hummingbot.connector.derivative.position import Position
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    SellOrderCompletedEvent,
+    TradeType
+)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.event.events import OrderType
-from hummingbot.core.event.events import TradeType
 
-from hummingbot.core.event.events import (
-    PositionAction,
-    PositionMode,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-)
-from hummingbot.connector.derivative.position import Position
-
-from .arb_proposal import ArbProposalSide, ArbProposal
-
+from .arb_proposal import ArbProposal, ArbProposalSide
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -292,39 +293,76 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param proposal: An arbitrage proposal
         :return: True if user has available balance enough for both orders submission.
         """
-        spot_side = proposal.spot_side
-        spot_token = spot_side.market_info.quote_asset if spot_side.is_buy else spot_side.market_info.base_asset
-        spot_avai_bal = spot_side.market_info.market.get_available_balance(spot_token)
-        if spot_side.is_buy:
-            fee = spot_side.market_info.market.get_fee(
-                spot_side.market_info.base_asset,
-                spot_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+        return self.check_spot_budget_constraint(proposal) and self.check_perpetual_budget_constraint(proposal)
+
+    def check_spot_budget_constraint(self, proposal: ArbProposal) -> bool:
+        """
+        Check balance on spot exchange.
+        :param proposal: An arbitrage proposal
+        :return: True if user has available balance enough for both orders submission.
+        """
+        proposal_side = proposal.spot_side
+        order_amount = proposal.order_amount
+        market_info = proposal_side.market_info
+        budget_checker = market_info.market.budget_checker
+        order_candidate = OrderCandidate(
+            trading_pair=market_info.trading_pair,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
+            amount=order_amount,
+            price=proposal_side.order_price,
+        )
+
+        adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate, all_or_none=True)
+
+        if adjusted_candidate_order.amount < order_amount:
+            self.logger().info(
+                f"Cannot arbitrage, {proposal_side.market_info.market.display_name}"
+                f" {adjusted_candidate_order.collateral_token} balance ({adjusted_candidate_order.collateral_amount})"
+                f" is below required to place the order amount {order_amount}."
             )
-            spot_required_bal = (proposal.order_amount * proposal.spot_side.order_price) * (Decimal("1") + fee.percent)
-        else:
-            spot_required_bal = proposal.order_amount
-        if spot_avai_bal < spot_required_bal:
-            self.logger().info(f"Cannot arbitrage, {spot_side.market_info.market.display_name} {spot_token} balance "
-                               f"({spot_avai_bal}) is below required order amount ({spot_required_bal}).")
             return False
-        perp_side = proposal.perp_side
-        if self.perp_positions and abs(self.perp_positions[0].amount) == proposal.order_amount:
+
+        return True
+
+    def check_perpetual_budget_constraint(self, proposal: ArbProposal) -> bool:
+        """
+        Check balance on spot exchange.
+        :param proposal: An arbitrage proposal
+        :return: True if user has available balance enough for both orders submission.
+        """
+        proposal_side = proposal.perp_side
+        order_amount = proposal.order_amount
+        market_info = proposal_side.market_info
+        budget_checker = market_info.market.budget_checker
+
+        position_close = False
+        if self.perp_positions and abs(self.perp_positions[0].amount) == order_amount:
+            perp_side = proposal.perp_side
             cur_perp_pos_is_buy = True if self.perp_positions[0].amount > 0 else False
             if perp_side != cur_perp_pos_is_buy:
-                # For perpetual, the collateral in the existing position should be enough to cover the closing call
-                return True
-        perp_token = perp_side.market_info.quote_asset
-        perp_avai_bal = perp_side.market_info.market.get_available_balance(perp_token)
-        fee = spot_side.market_info.market.get_fee(
-            spot_side.market_info.base_asset,
-            spot_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+                position_close = True
+
+        order_candidate = PerpetualOrderCandidate(
+            trading_pair=market_info.trading_pair,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
+            amount=order_amount,
+            price=proposal_side.order_price,
+            leverage=Decimal(self._perp_leverage),
+            position_close=position_close,
         )
-        pos_size = (proposal.order_amount * proposal.spot_side.order_price)
-        perp_required_bal = (pos_size / self._perp_leverage) + (pos_size * fee.percent)
-        if perp_avai_bal < perp_required_bal:
-            self.logger().info(f"Cannot arbitrage, {perp_side.market_info.market.display_name} {perp_token} balance "
-                               f"({perp_avai_bal}) is below required position amount ({perp_required_bal}).")
+
+        adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate, all_or_none=True)
+
+        if adjusted_candidate_order.amount < order_amount:
+            self.logger().info(
+                f"Cannot arbitrage, {proposal_side.market_info.market.display_name}"
+                f" {adjusted_candidate_order.collateral_token} balance ({adjusted_candidate_order.collateral_amount})"
+                f" is below required to place the order amount {order_amount}."
+            )
             return False
+
         return True
 
     def execute_arb_proposal(self, proposal: ArbProposal):
