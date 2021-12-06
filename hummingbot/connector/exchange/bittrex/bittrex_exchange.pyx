@@ -230,7 +230,6 @@ cdef class BittrexExchange(ExchangeBase):
     def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         cdef:
             list retval = []
-            object min_btc_value = Decimal("0.0005")
 
             object eth_btc_price = Decimal(market_dict["ETH-BTC"]["lastTradeRate"])
             object btc_usd_price = Decimal(market_dict["BTC-USD"]["lastTradeRate"])
@@ -245,26 +244,13 @@ cdef class BittrexExchange(ExchangeBase):
 
                 # skip offline trading pair
                 if market.get("status") != "OFFLINE":
-                    # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
-                    # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
-                    if last_trade_rate != 0:
-                        min_order_value = (
-                            min_btc_value / last_trade_rate if market.get("quoteCurrencySymbol") == "BTC" else
-                            min_btc_value / eth_btc_price / last_trade_rate if market.get("quoteCurrencySymbol") == "ETH" else
-                            min_btc_value * btc_usd_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USD" else
-                            min_btc_value * btc_usdt_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USDT" else
-                            min_btc_value
-                        ) * Decimal("1.01")  # Compensates for possible fluctuations
-                    else:
-                        min_order_value = s_decimal_0
 
                     # Trading Rules info from Bittrex API response
                     retval.append(TradingRule(trading_pair,
                                               min_order_size=Decimal(min_trade_size),
                                               min_price_increment=Decimal(f"1e-{precision}"),
                                               min_base_amount_increment=Decimal(f"1e-{precision}"),
-                                              min_quote_amount_increment=Decimal(f"1e-{precision}"),
-                                              min_order_value=Decimal(min_order_value),
+                                              min_quote_amount_increment=Decimal(f"1e-{precision}")
                                               ))
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                     # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
@@ -284,10 +270,6 @@ cdef class BittrexExchange(ExchangeBase):
             market_list = await self._api_request("GET", path_url=market_path_url)
 
             ticker_list = await self._api_request("GET", path_url=ticker_path_url)
-            # A temp fix, Bittrex refers to CELO as CGLD on their tickers end point, but CELO on markets end point.
-            # I think this will be rectified by Bittrex soon.
-            for item in ticker_list:
-                item["symbol"] = item["symbol"].replace("CGLD-", "CELO-")
             ticker_data = {item["symbol"]: item for item in ticker_list}
 
             result_list = [
@@ -707,9 +689,6 @@ cdef class BittrexExchange(ExchangeBase):
 
         global s_decimal_0
         if quantized_amount < trading_rule.min_order_size:
-            return s_decimal_0
-
-        if quantized_amount < trading_rule.min_order_value:
             return s_decimal_0
 
         return quantized_amount
