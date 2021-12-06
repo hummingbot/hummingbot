@@ -266,6 +266,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 resp = await client.get(ticker_url)
                 resp_json = await resp.json()
+                if "error" in resp_json:
+                    raise ValueError(f"There was an error requesting ticker information {trading_pair} ({resp_json})")
                 ticker = Ticker(*resp_json)
                 last_price = float(ticker.last_price)
             except Exception as ex:
