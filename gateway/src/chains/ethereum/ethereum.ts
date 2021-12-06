@@ -1,23 +1,16 @@
 import abi from '../../services/ethereum.abi.json';
 import axios from 'axios';
 import { logger } from '../../services/logger';
-import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
+import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
-import { TokenValue } from '../../services/base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from './uniswap/uniswap.config';
+import { Ethereumish } from '../../services/ethereumish.interface';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
-
-export interface Ethereumish extends EthereumBase {
-  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
-  getSpender(reqSpender: string): string;
-  nativeTokenSymbol: string;
-  chain: string;
-}
 
 export class Ethereum extends EthereumBase implements Ethereumish {
   private static _instance: Ethereum;
@@ -43,6 +36,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     }
 
     super(
+      'ethereum',
       config.chainId,
       config.rpcUrl + ConfigManager.config.INFURA_KEY,
       config.tokenListSource,
@@ -138,52 +132,10 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     }
   }
 
-  // override getERC20Balance definition to handle MKR edge case
-  async getERC20Balance(
-    wallet: Wallet,
+  getContract(
     tokenAddress: string,
-    decimals: number
-  ): Promise<TokenValue> {
-    // instantiate a contract and pass in provider for read-only access
-    const contract = this.getContract(tokenAddress, this.provider);
-
-    logger.info(
-      'Requesting balance for owner ' +
-        wallet.address +
-        ' for token ' +
-        tokenAddress +
-        '.'
-    );
-    const balance = await contract.balanceOf(wallet.address);
-    logger.info(balance);
-    return { value: balance, decimals: decimals };
-  }
-
-  // override getERC20Allowance
-  async getERC20Allowance(
-    wallet: Wallet,
-    spender: string,
-    tokenAddress: string,
-    decimals: number
-  ): Promise<TokenValue> {
-    // instantiate a contract and pass in provider for read-only access
-    const contract = this.getContract(tokenAddress, this.provider);
-
-    logger.info(
-      'Requesting spender ' +
-        spender +
-        ' allowance for owner ' +
-        wallet.address +
-        ' for token ' +
-        tokenAddress +
-        '.'
-    );
-    const allowance = await contract.allowance(wallet.address, spender);
-    logger.info(allowance);
-    return { value: allowance, decimals: decimals };
-  }
-
-  getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
+    signerOrProvider?: Wallet | Provider
+  ): Contract {
     return tokenAddress === MKR_ADDRESS
       ? new Contract(tokenAddress, abi.MKRAbi, signerOrProvider)
       : new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
@@ -201,55 +153,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       spender = reqSpender;
     }
     return spender;
-  }
-
-  // override approveERC20
-  async approveERC20(
-    wallet: Wallet,
-    spender: string,
-    tokenAddress: string,
-    amount: BigNumber,
-    nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
-  ): Promise<Transaction> {
-    // instantiate a contract and pass in wallet, which act on behalf of that signer
-    const contract = this.getContract(tokenAddress, wallet);
-
-    logger.info(
-      'Calling approve method called for spender ' +
-        spender +
-        ' requesting allowance ' +
-        amount.toString() +
-        ' from owner ' +
-        wallet.address +
-        ' on token ' +
-        tokenAddress +
-        '.'
-    );
-    if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
-    }
-    let response;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      response = await contract.approve(spender, amount, {
-        gasLimit: 100000,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      response = await contract.approve(spender, amount, {
-        gasPrice: this._gasPrice * 1e9,
-        gasLimit: 100000,
-        nonce: nonce,
-      });
-    }
-
-    logger.info(response);
-
-    await this.nonceManager.commitNonce(wallet.address, nonce);
-    return response;
   }
 
   // cancel transaction

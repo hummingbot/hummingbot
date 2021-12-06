@@ -28,7 +28,6 @@ const patchStoredTokenList = () => {
       },
       {
         chainId: 43114,
-
         name: 'Wrapped AVAX',
         symbol: 'WAVAX',
         address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
@@ -60,6 +59,20 @@ const patchGetTokenBySymbol = () => {
   });
 };
 
+const patchGetTokenByAddress = () => {
+  patch(PangolinRoutes.pangolin, 'getTokenByAddress', (address: string) => {
+    return address
+      ? {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        }
+      : undefined;
+  });
+};
+
 const patchGasPrice = () => {
   patch(PangolinRoutes.avalanche, 'gasPrice', () => 100);
 };
@@ -74,6 +87,7 @@ const patchPriceSwapOut = () => {
         executionPrice: {
           invert: jest.fn().mockReturnValue({
             toSignificant: () => 100,
+            toFixed: () => '100',
           }),
         },
       },
@@ -90,6 +104,7 @@ const patchPriceSwapIn = () => {
       trade: {
         executionPrice: {
           toSignificant: () => 100,
+          toFixed: () => '100',
         },
       },
     };
@@ -111,11 +126,22 @@ const patchExecuteTrade = () => {
   });
 };
 
+describe('GET /avalanche/pangolin/', () => {
+  it('should get 200 OK', async () => {
+    await request(app)
+      .get(`/avalanche/pangolin`)
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+});
+
 describe('POST /avalanche/pangolin/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -141,6 +167,7 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
@@ -165,7 +192,20 @@ describe('POST /avalanche/pangolin/price', () => {
   it('should return 500 for unrecognized quote symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
-    patchGetTokenBySymbol();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+    patchGetTokenByAddress();
 
     await request(app)
       .post(`/avalanche/pangolin/price`)
@@ -182,7 +222,20 @@ describe('POST /avalanche/pangolin/price', () => {
   it('should return 500 for unrecognized base symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
-    patchGetTokenBySymbol();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+    patchGetTokenByAddress();
 
     await request(app)
       .post(`/avalanche/pangolin/price`)
@@ -202,6 +255,7 @@ describe('POST /avalanche/pangolin/trade', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -267,6 +321,7 @@ describe('POST /avalanche/pangolin/trade', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
@@ -324,5 +379,143 @@ describe('POST /avalanche/pangolin/trade', () => {
       })
       .set('Accept', 'application/json')
       .expect(404);
+  });
+
+  it('should return 500 when base token is unknown', async () => {
+    patchForSell();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WETH',
+        base: 'BITCOIN',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when quote token is unknown', async () => {
+    patchForSell();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'BITCOIN',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 200 for SELL with limitPrice', async () => {
+    patchForSell();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'SELL',
+        nonce: 21,
+        limitPrice: '999999999999999999999',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for BUY with limitPrice', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        limitPrice: '999999999999999999999',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for SELL with price less than limitPrice', async () => {
+    patchForSell();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'SELL',
+        nonce: 21,
+        limitPrice: '9',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 200 for BUY with price less than limitPrice', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        limitPrice: '9',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
   });
 });

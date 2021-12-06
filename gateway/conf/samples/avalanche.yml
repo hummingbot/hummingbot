@@ -1,0 +1,11 @@
+# list the Avalanche networks available to gateway
+networks:
+  # the name of the network
+  fuji:
+    # the unique chain id of the network
+    chainID: 43113
+    # the node url of the network
+    nodeURL: https://api.avax-test.network/ext/bc/C/rpc
+  mainnet:
+    chainID: 43114
+    nodeURL: https://api.avax.network/ext/bc/C/rpc

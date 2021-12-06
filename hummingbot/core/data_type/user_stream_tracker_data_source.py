@@ -23,3 +23,9 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
     @abstractmethod
     def last_recv_time(self) -> float:
         raise NotImplementedError
+
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)

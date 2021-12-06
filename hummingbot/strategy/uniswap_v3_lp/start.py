@@ -18,7 +18,6 @@ def start(self):
 
     self._initialize_markets([("uniswap_v3", [pair])])
     base, quote = pair.split("-")
-    self.assets = set([base, quote])
 
     market_info = MarketTradingPairTuple(self.markets["uniswap_v3"], pair, base, quote)
     self.market_trading_pair_tuples = [market_info]
