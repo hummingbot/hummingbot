@@ -1,11 +1,11 @@
 import random
 import string
+import time
 from typing import Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
 CENTRALIZED = True
@@ -34,9 +34,17 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "/")
 
 
+def _time():
+    """
+    Private function created just to have a method that can be safely patched during unit tests and make tests
+    independent from real time
+    """
+    return time.time()
+
+
 # get timestamp in milliseconds
 def get_ms_timestamp() -> int:
-    return get_tracking_nonce_low_res()
+    return int(_time() * 1e3)
 
 
 def uuid32():
@@ -51,6 +59,9 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     :param ts: order timestamp in milliseconds
     :return: order id of length 32
     """
+    # NOTE: The derived_order_id function details how AscendEx server generates the exchange_order_id
+    #       Currently, due to how the exchange constructs the exchange_order_id, there is a real possibility of
+    #       duplicate order ids
     return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
 
 
@@ -73,6 +84,10 @@ def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]
 
 
 def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    """
+    Generates the client order id.
+    Note: All AscendEx API interactions, after order creation, utilizes the exchange_order_id instead.
+    """
     side = "B" if is_buy else "S"
     base, quote = trading_pair.split("-")
     return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{get_tracking_nonce()}"

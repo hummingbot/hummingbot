@@ -1,8 +1,6 @@
 from decimal import Decimal
 from typing import List, Dict
 
-import pandas as pd
-
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -56,9 +54,6 @@ class MockExchange(ExchangeBase):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        pass
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
         pass
 
     def c_stop_tracking_order(self, order_id):

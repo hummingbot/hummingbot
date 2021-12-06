@@ -1,0 +1,14 @@
+networks:
+  mainnet:
+    chainID: 1
+    nodeURL: http://localhost:8501/
+  ropsten:
+    chainID: 3
+    nodeURL: http://localhost:8503/
+  kovan:
+    chainID: 42
+    nodeURL: http://localhost:8542/
+  bsc:
+    chainID: 97
+    nodeURL: https://bsc-dataseed.binance.org/
+    nativeCurrencySymbol: BNB

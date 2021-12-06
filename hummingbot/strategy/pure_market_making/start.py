@@ -56,11 +56,10 @@ def start(self):
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self._initialize_wallet(token_trading_pairs=list(set(maker_assets)))
         self._initialize_markets(market_names)
-        self.assets = set(maker_assets)
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
+
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
@@ -76,6 +75,8 @@ def start(self):
             db = HummingbotApplication.main_application().trade_fill_db
             inventory_cost_price_delegate = InventoryCostPriceDelegate(db, trading_pair)
         take_if_crossed = c_map.get("take_if_crossed").value
+
+        should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
         self.strategy = PureMarketMakingStrategy()
@@ -111,6 +112,7 @@ def start(self):
             minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
+            should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
         )
     except Exception as e:
         self._notify(str(e))

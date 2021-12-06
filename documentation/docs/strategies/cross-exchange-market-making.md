@@ -1,239 +1,151 @@
-# Cross Exchange Market Making
+---
+tags:
+- market making
+- ⛏️ liquidity mining strategy
+---
 
-## How it works
+# `cross_exchange_market_making`
 
-Cross exchange market making is described in [Strategies](/strategies/#cross-exchange-market-making), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/cross_exchange_market_making)
 
-!!! warning
-    Updates to strategy — The cross exchange market making strategy has been updated as of v0.15.0 so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy.
+## 📝 Summary
 
-### Schematic
+Also referred to as **liquidity mirroring** or **exchange remarketing**, this strategy allows you to make a market (creates buy and sell orders) on the `maker` exchange, while hedging any filled trades on a second, `taker` exchange. The strategy attempts places maker orders at spreads that are wider than taker orders by a spread equal to `min_profitability`.
 
-The diagrams below illustrate how cross exchange market making works. The transaction involves two exchanges, a **taker exchange** and a **maker exchange**. Hummingbot uses the market levels available on the taker exchange to create the bid and ask orders (act as a market maker) on the maker exchange (_Figure 1_).
+## 🏦 Exchanges supported
 
-<small>
-  <center>
-    ***Figure 1: Hummingbot acts as market maker on maker exchange***
-  </center>
-</small>
+[`spot` exchanges](/exchanges/#spot)
 
-![Figure 1: Hummingbot acts as a market maker on maker exchange](/assets/img/xemm-1.png)
+## 👷 Maintenance
 
-**Buy order**: Hummingbot can sell the asset on the taker exchange for 99 (the best bid available); therefore, it places a buy order on the maker exchange at a lower value of 98.
+* Release added: [0.2.0](/release-notes/0.2.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
-**Sell order**: Hummingbot can buy the asset on the taker exchange for 101 (the best ask available), and therefore makes a sell order on the maker exchange for a higher price of 102.
+## 🛠️ Strategy configs
 
-<small>
-  <center>
-    ***Figure 2: Hummingbot fills an order on the maker exchanges and hedges on
-    the taker exchange***
-  </center>
-</small>
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making_config_map.py)
 
-![Figure 2: Hummingbot fills an order on the maker exchanges and hedges on the taker exchange](/assets/img/xemm-2.png)
 
-If a buyer (_Buyer D_) fills Hummingbot's sell order on the maker exchange (_Figure 2_ ❶), Hummingbot immediately buys the asset on the taker exchange (_Figure 2_ ❷).
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `maker_market`               | string      |             | True        | Enter your maker spot connector |
+| `taker_market`               | string      |             | True        | Enter your taker spot connector |
+| `maker_market_trading_pair`  | string      |             | True        | Enter the token trading pair you would like to trade on `[maker_market]`|
+| `taker_market_trading_pair`  | string      |             | True        | Enter the token trading pair you would like to trade on `[taker_market]`|
+| `min_profitability`          | string      |             | True        | What is the minimum profitability for you to make a trade?|
+| `order_amount`               | decimal     |             | True        | What is the amount of `base_asset` per order?|
+| `adjust_order_enabled`       | bool        | True        | True        | Do you want to enable adjust order?|
+| `active_order_canceling`     | bool        | True        | False       | Do you want to enable active order canceling?|
+| `cancel_order_threshold`     | decimal     | 5           | False       | Do you want to enable active order canceling?|
+| `limit_order_min_expiration` | decimal     | 130         | False       | How often do you want limit orders to expire (in seconds)?|
+| `top_depth_tolerance`        | decimal     | 0           | False       | What is your top depth tolerance? (in `base_asset`)|
+| `anti_hysteresis_duration`   | decimal     | 60          | False       | What is the minimum time interval you want limit orders to be adjusted? (in seconds)|
+| `order_size_taker_volume_factor`| decimal  | 25          | False       | What percentage of hedge-able volume would you like to be traded on the taker market?|
+| `order_size_taker_balance_factor`| decimal | 99.5        | False       | What percentage of asset balance would you like to use for hedging trades on the taker market?|
+| `order_size_portfolio_ratio_limit`| decimal| 16.67       | False       | What ratio of your total portfolio value would you like to trade on the maker and taker markets?|
+| `use_oracle_conversion_rate` | bool        | True        | False       | Do you want to use rate oracle on unmatched trading pairs?|
+| `taker_to_maker_base_conversion_rate`| decimal | 1       | False       | What percentage of asset balance would you like to use for hedging trades on the taker market?|
+| `taker_to_maker_quote_conversion_rate`| decimal | 1      | False       | What percentage of asset balance would you like to use for hedging trades on the maker market?|
 
-The end result: Hummingbot has sold the same asset at $102 (❶) and purchased it for $101 (❷), for a profit of $1.
 
-## Prerequisites
+## 📓 Description
 
-### Inventory
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx)
 
-- For cross-exchange market making, you will need to hold inventory on two exchanges. The bot will make a market (the **maker exchange**) and another where the bot will source liquidity and hedge any filled orders (the **taker exchange**).
-- You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
 
-Initially, we assume that the maker exchange is an Ethereum-based decentralized exchange and that the taker exchange is Binance.
+### Architecture
 
-### Minimum order size
+The cross exchange market making strategy performs market making trades between two markets: it emits limit orders to a less liquid, larger spread market; and emits market orders on a more liquid, smaller spread market whenever the limit orders were hit. This, in effect, sends the liquidity from the more liquid market to the less liquid market.
 
-When placing orders on the maker market and filling orders on the taker market, the order amount should meet the exchange's minimum order size and minimum trade size.
+In Hummingbot code and documentation, we usually refer to the less liquid market as the "maker side" - since the cross exchange market making strategy is providing liquidity there. We then refer to the more liquid market as the "taker side" - since the strategy is taking liquidity there.
 
-You can find more information about this for each [Exchange Connectors](/connectors/#list-of-connectors) under the Miscellaneous section.
+The cross exchange market making strategy's code is divided into two major parts:
 
-### Adjusting orders and maker price calculations
+ 1. Order creation and adjustment
 
-If the user has the following configuration,
+    Periodically creates and adjusts limit orders on the maker side.
+ 
+ 2. Hedging order fills
 
-order_amount: 1 ETH <br/>
-min_profitability: 5 <br/>
+    Performs the opposite, hedging trade on the taker side, whenever a maker order has been filled.
 
-and as per market conditions, we have the following,
+### Order Creation and Adjustment
 
-Sell price on Taker: 100 USDT (on a volume-weighted average basis) <br/>
-Top Bid price on Maker: 90 USDT (existing order on the order book, which is not the user's current order) <br/>
+Here's a high-level view of the logical flow of the order creation and adjustment part. The overall logic of order creation and adjustment is pretty involved, but it can be roughly divided to the **Cancel Order Flow** and the **Create Order Flow**.
 
-If `adjust_order_enabled` is set to `True`:
-The bid price according to min profitability is 95 (100\*(1-0.05)). However, as top bid price is 90, the strategy will place the bid order above the existing top bid at 90.01 USDT.
+The cross exchange market making strategy regularly refreshes the limit orders it has on the maker side market by regularly cancelling old orders (or waiting for existing order to expire), and creating new limit orders. This process ensures the limit orders it has on the maker side are always of the correct and profitable prices.
 
-If `adjust_order_enabled` is set to `False`:
-The bid price according to min profitability is 95 (100\*(1-0.05)). So here the strategy will place the bid order at 95.
+![Figure 1: Order creation and adjustment flow chart](/assets/img/xemm-flowchart-1.svg)
 
-## Basic parameters
+The entry point of this logic flow is the `c_process_market_pair()` function in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
-The following walks through all the steps when running `create` command.
+### Cancel Order Flow
 
-### `maker_market`
+The cancel order flow regularly monitors all active limit orders on the maker side, to ensure they are all valid and profitable over time. If any active limit order becomes invalid (e.g. because the asset balance changed) or becomes unprofitable (due to market price changes), then it should cancel such orders.
 
-The exchange where the bot will place maker orders.
+![Figure 2: Cancel order flow chart](/assets/img/xemm-flowchart-2.svg)
 
-** Prompt: **
+#### Active order cancellation setting
 
-```json
-Enter your maker spot connector
->>>
-```
+The [`active_order_canceling`](/strategies/cross-exchange-market-making/) setting changes how the cancel order flow operates. `active_order_canceling` should be enabled when the maker side is a centralized exchange (e.g. Binance, Coinbase Pro), and it should be disabled when the maker side is a decentralized exchange.
 
-### `taker_market`
+When `active_order_canceling` is enabled, the cross exchange market making strategy would refresh orders by actively cancelling them regularly. This is optimal for centralized exchanges because it allows the strategy to respond quickly when, for example, market prices have significantly changed. This should not be chosen for decentralized exchanges that charge gas for cancelling orders (such as Radar Relay).
 
-The exchange where the bot will place taker orders.
+When `active_order_canceling` is disabled, the cross exchange market making strategy would emit limit orders that automatically expire after a predefined time period. This means the strategy can just wait for them to expire to refresh the maker orders, rather than having to cancel them actively. This is useful for decentralized exchanges because it avoids the potentially very long cancellation delays there, and it also does not cost any gas to wait for order expiration.
 
-** Prompt: **
+It is still possible for the strategy to actively cancel orders with `active_order_canceling` disabled, via the [`cancel_order_threshold`](/strategies/cross-exchange-market-making/) setting. For example, you can set it to -0.05 such that the strategy would still cancel a limit order on a DEX when it's profitability dropped below -5%. This can be used as a safety switch to guard against sudden and large price changes on decentralized exchanges.
 
-```json
-Enter your taker spot connector
->>>
-```
+#### Is hedging profitable?
 
-### `maker_market_trading_pair`
+Assuming active order canceling is enabled, the first check the strategy does with each active maker order is whether it is still profitable or not. The current profitability of an order is calculated assuming the order is filled and hedged on the taker market immediately.
 
-Trading pair for the maker exchange.
+If the profit ratio calculated for the maker order is less than the [`min_profitability`](/strategies/cross-exchange-market-making/) setting, then the order is canceled.
 
-** Prompt: **
+The logic of this check can be found in the function `c_check_if_still_profitable()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
-```json
-Enter the token trading pair you would like to trade on maker market: [maker_market]
->>>
-```
+Otherwise, the strategy will go onto the next check.
 
-### `taker_market_trading_pair`
+#### Is there sufficient account balance?
 
-Trading pair for the taker exchange.
+The next check afterwards checks whether there's enough asset balance left to satisfy the maker order. If there is not enough balance left on the exchange, the order would be cancelled.
 
-** Prompt: **
+The logic of this check can be found in the function `c_check_if_sufficient_balance()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
-```json
-Enter the token trading pair you would like to trade on taker market: [taker_market]
->>>
-```
+Otherwise, the strategy will go onto the next check.
 
-### `min_profitability`
+#### Is the price correct?
 
-Minimum required profitability for Hummingbot to place an order on the maker exchange.
+Asset prices on both the maker side and taker side are always changing, and thus the optimal prices for the limit orders on the maker side would change over time as well.
 
-** Prompt: **
+The cross exchange market making strategy calculates the optimal pricing from the following factors:
 
-```json
-What is the minimum profitability for you to make a trade?
->>>
-```
+ 1. Current market order prices on the taker side.
+ 2. Current order book depth on the maker side.
+ 3. [`top_depth_tolerance`](/strategies/cross-exchange-market-making/) setting, which is applied to the order book depths on maker side.
+ 4. [`min_profitability`](/strategies/cross-exchange-market-making/) setting, which is applied to the market order prices on the taker side.
 
-### `order_amount`
+If the price of the active order is different from the optimal price calculated, then the order would be cancelled. Otherwise, the strategy would allow the order to stay.
 
-An amount expressed in base currency of maximum allowable order size.
+The logic of this check can be found in the function `c_check_if_price_correct()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
-** Prompt: **
+After all the active orders on make side have been checked, the strategy will proceed to the create order flow.
 
-```json
-What is the amount of [base_asset] per order? (minimum [min_amount])
->>>
-```
+### Create Order Flow
 
-### `use_oracle_conversion_rate`
+After going through the cancel order flow, the cross exchange market making strategy would check and re-create any missing limit orders on the maker side.
 
-Rate oracle conversion is used to compute the rate of a certain market pair using a collection of prices from either Binance or Coingecko.
+![Figure 3: Cancel order flow chart](/assets/img/xemm-flowchart-3.svg)
 
-If enabled, the bot will use a real-time conversion rate from the oracle when the trading pair symbols mismatch.
-For example, if markets are set to trade for `LINK-USDT` and `LINK-USDC`, the bot will use the oracle conversion rate between `USDT` and `USDC`.
+The logic inside the create order flow is relatively straightforward. It checks whether there are existing bid and ask orders on the maker side. If any of the orders are missing, it will check whether it is profitable to create one at the moment. If it's profitable to create the missing orders, it will calculate the optimal pricing and size and create those orders.
 
-You can also edit it from `config_global.yml` to change the `rate_oracle_source`.
+The logic of the create order flow can be found in the function `c_check_and_create_new_orders()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
-** Prompt: **
+### Hedging Order Fills
 
-```json
-Do you want to use rate oracle on unmatched trading pairs? (Yes/No)
->>>
-```
+The cross exchange market making strategy would always immediately hedge any order fills from the maker side, regardless of how profitable the hedge is at the moment. The rationale is, it is more useful to minimize unnecessary exposure to further market risks for the users, than to wait speculatively for a profitable moment to hedge the maker order fill - which may never come.
 
-!!! tip
-    For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
+![Figure 4: Hedging order fills flow chart](/assets/img/xemm-flowchart-4.svg)
 
-## Advanced parameters
-
-The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_xemm_[#].yml`).
-
-### `adjust_order_enabled`
-
-If enabled, the strategy will place the order on top of the top bid and ask if it is more profitable to place it there. If disabled, the strategy will ignore the top of the maker order book for price calculations and only place the order based on taker price and min*profitability. Refer to the Adjusting orders and maker price calculations section above. \_Default value: True*
-
-### `active_order_canceling`
-
-If enabled, Hummingbot will cancel orders that become unprofitable based on the `min_profitability` threshold. If disabled, Hummingbot will allow any outstanding orders to expire unless `cancel_order_threshold` is reached.
-
-### `cancel_order_threshold`
-
-This parameter works when `active_order_canceling` is disabled. If the profitability of an order falls below this threshold, Hummingbot will cancel an existing order and place a new one, if possible. This allows the bot to cancel orders when paying gas to cancel (if applicable) is better than incurring the potential loss of the trade.
-
-### `limit_order_min_expiration`
-
-An amount in seconds, which is the minimum duration for any placed limit orders.
-
-### `top_depth_tolerance`
-
-An amount expressed in the base currency is used for getting the top bid and ask, ignoring dust orders on top of the order book.<br/><br/>_Example: If you have a top depth tolerance of `0.01 ETH`, then while calculating the top bid, you exclude orders starting from the top until the sum of orders excluded reaches `0.01 ETH`._
-
-### `anti_hysteresis_duration`
-
-An amount in seconds, which is the minimum amount of time interval between adjusting limit order prices.
-
-### `order_size_taker_volume_factor`
-
-Specifies the percentage of hedge-able volume on the taker side, which will be considered for calculating the market-making price.
-
-### `order_size_taker_balance_factor`
-
-Specifies the percentage of asset balance to be used for hedging the trade on the taker side.
-
-### `order_size_portfolio_ratio_limit`
-
-Specifies the ratio of total portfolio value on both maker and taker markets to calculate the order size if order_amount is not specified.
-
-### `taker_to_maker_base_conversion_rate`
-
-Specifies conversion rate for taker base asset value to maker base asset value.
-
-### `taker_to_maker_quote_conversion_rate`
-
-Specifies conversion rate for taker quote asset value to maker quote asset value.
-
-## Exchange rate conversion
-
-From past versions of Hummingbot, it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Therefore, starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
-
-When you run strategies on multiple exchanges, there may be instances where you need to utilize an exchange rate to convert between assets.
-
-In particular, you may need to convert the value of one stable coin to another when you use different stablecoins in multi-legged strategies like [cross-exchange market making](/strategies/cross-exchange-market-making/).
-
-For example, if you make a market in the WETH/DAI pair on a decentralized exchange, you may want to hedge filled orders using the ETH-USDT pair on Binance. Using exchange rates for USDT and DAI against ETH allows Hummingbot to take into account differences in prices.
-
-```
-maker_market: bamboo_relay
-taker_market: binance
-maker_market_trading_pair: WETH-DAI
-taker_market_trading_pair: ETH-USDT
-taker_to_maker_base_conversion_rate: 1
-taker_to_maker_quote_conversion_rate: 1
-```
-
-By default, taker to maker base conversion rate and taker to maker quote conversion rate value are both `1`.
-
-Our maker base asset is WETH and taker is ETH. 1 WETH is worth 0.99 ETH (1 / 0.99) so we will set the `taker_to_maker_base_conversion_rate` value to 1.01.
-
-While our maker quote asset is DAI, the taker is USDT, and 1 DAI is worth 1.01 USDT (1 / 1.01). Similar to the calculation we did for the base asset. In this case, we will set the `taker_to_maker_quote_conversion_rate` to 0.99.
-
-To configure a parameter value without going through the prompts, input command as `config [ key ] [ value ]`. These can be reconfigured without stopping the bot. However, it will only take effect after restarting the strategy.
-
-```
-config taker_to_maker_base_conversion_rate 1.01
-config taker_to_maker_quote_conversion_rate 0.99
-```
+The logic of the hedging order fill flow can be found in the function `c_did_fill_order()` and `c_check_and_hedge_orders()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).

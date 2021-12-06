@@ -2,6 +2,7 @@ import { Application } from 'express';
 import fs from 'fs';
 import https from 'https';
 import { ConfigManager } from './services/config-manager';
+import { ConfigManagerCertPassphrase } from './services/config-manager-cert-passphrase';
 
 const certPath = ConfigManager.config.CERT_PATH.replace(/\/$/, '');
 
@@ -26,7 +27,7 @@ export const addHttps = (app: Application) => {
       rejectUnauthorized: true,
       // use ca cert created with own key for self-signed
       ca: [caCert],
-      passphrase: ConfigManager.readPassphrase(),
+      passphrase: ConfigManagerCertPassphrase.readPassphrase(),
     },
     app
   );

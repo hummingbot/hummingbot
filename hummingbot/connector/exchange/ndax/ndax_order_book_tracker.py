@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import asyncio
+import aiohttp
 import bisect
 import logging
 import time
@@ -30,10 +31,11 @@ class NdaxOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         throttler: Optional[AsyncThrottler] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
         trading_pairs: Optional[List[str]] = None,
         domain: Optional[str] = None,
     ):
-        super().__init__(NdaxAPIOrderBookDataSource(throttler, trading_pairs, domain), trading_pairs, domain)
+        super().__init__(NdaxAPIOrderBookDataSource(throttler=throttler, shared_client=shared_client, trading_pairs=trading_pairs, domain=domain), trading_pairs, domain)
 
         self._domain = domain
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

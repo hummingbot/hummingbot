@@ -33,7 +33,7 @@ export const patch = (target: any, propertyName: string, mock: any): void => {
 
   if (classHasGetter(target, propertyName)) {
     // special case for getter without setter
-    let targetPrototype = Object.getPrototypeOf(target);
+    const targetPrototype = Object.getPrototypeOf(target);
 
     Object.defineProperty(targetPrototype, propertyName, {
       get: mock,
@@ -66,7 +66,7 @@ export const unpatch = (): void => {
           target[propertyName] = target[key];
         } else {
           // the property is at a lower level in the object, it is likely a getter or setter
-          let targetPrototype = Object.getPrototypeOf(target);
+          const targetPrototype = Object.getPrototypeOf(target);
 
           Object.defineProperty(targetPrototype, propertyName, target[key]);
           Object.setPrototypeOf(target, targetPrototype);
