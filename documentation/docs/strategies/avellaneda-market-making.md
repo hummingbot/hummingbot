@@ -10,7 +10,7 @@ tags:
 
 ## 📝 Summary
 
-This strategy implements a market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the `gamma` parameter described in the paper. It also features an order book liquidity estimator calculating the `alpha` and `kappa` parameters automatically. Additionally, the strategy implements the order size adjustment algorithm and its `eta` parameter as described in [Optimal High-Frequency Market Making](http://stanford.edu/class/msande448/2018/Final/Reports/gr5.pdf). The strategy is implemented to be used either in fixed timeframes or to be ran indefinitely.
+This strategy implements a market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the `gamma` parameter described in the paper. It also features an order book liquidity estimator calculating the `alpha` and `kappa` parameters automatically. Additionally, the strategy implements an order size adjustment algorithm and its `eta` parameter as described in [Optimal High-Frequency Market Making](http://stanford.edu/class/msande448/2018/Final/Reports/gr5.pdf). The strategy is implemented to be used either in fixed timeframes or to be ran indefinitely.
 
 ## 🏦 Exchanges supported
 
@@ -62,17 +62,17 @@ This strategy implements a market making strategy described in the classic paper
 
 ### Architecture
 
-The strategy continuously calculates optimal positioning of a market maker's buy and sell limit orders within an order book, taking into account the current order book liquidity, the asset volatility, the desired portfolio allocation and the trading session timeframe. Orders are being placed symmetrically around a so called reserved price, which may or may not be identical to the mid price. 
+The strategy continuously calculates optimal positioning of a market maker's buy and sell limit orders within an order book, taking into account a current order book liquidity, an asset volatility, a desired portfolio allocation and a trading session timeframe. Orders are being placed symmetrically around a so called reserved price, which may or may not be identical to the asset's mid price. 
 
 The farther the current portfolio is from the desired asset allocation (as defined by the `inventory_target_base_pct` parameter), the farther away is the reserved price from the mid price, skewing probabilites of either buy or sell orders being filled. If the strategy needs an asset to be sold, sell orders will be placed closer to the mid price than buy orders, and vice versa. 
 
-Limit prices of orders are also a function of order book liquidity and asset volatility. The strategy generally tries to place orders as close to the mid price as possible, without them being filled. The less liquid an order book is, the farther away the orders will be placed. Also the more volatile an asset is, the farther away the orders will be placed. 
+Limit prices of orders are also a function of order book liquidity and asset volatility. The strategy generally tries to place orders as close to the mid price as possible, without them being filled. The less liquid an order book is, the farther away orders will be placed. And also the more volatile an asset is, the farther away orders will be placed. 
 
 If the strategy is running in a finite timeframe, the closer it is to the end of the trading session, the closer the reserved price will be to the mid price, once the portfolio is in a desired state.
 
 The `risk_factor` or `gamma` also influence calculation of the reserved price and order placement. Generally the higher the value, the more aggressive the strategy will be, and the farther away from the mid price the reserved price will be. It's a unit-less parameter, that can be set to any non-zero value as necessary. Generally it should be higher for assets with lower prices, and lower for assets with higher prices. 
 
-Given the right market conditions and the right `risk_factor`, it's possible that the optimal spread will be wider than the absolute price of the asset, or that the reserved price will by far away from the mid price, in both cases resulting in the optimal bid price to be lower than or equal to 0. In that case neiher buy or sell will be placed. To prevent this from happening, users should set the `risk_factor` to a lower value.
+Given the right market conditions and the right `risk_factor`, it's possible that the optimal spread will be wider than the absolute price of the asset, or that the reserved price will by far away from the mid price, in both cases resulting in the optimal bid price to be lower than or equal to 0. If this happens neiher buy or sell will be placed. To prevent it from happening, users can set the `risk_factor` to a lower value.
 
 If users choose to set the `eta` parameter, order sizes will be adjusted to further optimize the strategy behavior in regards to the current and desired portfolio allocation.
 
@@ -85,7 +85,7 @@ Users have an option to layer orders on both sides. If more than 1 `order_levels
 
 ### Timeframes
 
-The original Avellaneda-Stoikov strategy was designed to be employed for market making on stock markets, which have defined trading hours. Its timeframe was therefore finite. For crypto markets there are no trading hours, crypto markets trade 24/7. The strategy should therefore be designed to run indefinitely. However in some cases users may want to run the strategy only between specific dates or only bewteen specific times of a day. For this the strategy offers 3 different modes: `infinite`, `from_date_to_date` and `daily_between_times`. 
+The original Avellaneda-Stoikov strategy was designed to be used for market making on stock markets, which have defined trading hours. Its timeframe was therefore finite. On crypto markets there are no trading hours, crypto markets trade 24/7. The strategy should therefore be designed to run indefinitely. However in some cases users may want to run the strategy only between specific dates or only bewteen specific times of a day. For this the strategy offers 3 different modes: `infinite`, `from_date_to_date` and `daily_between_times`. 
 
 For the `infinite` timeframe the equations used to calculate the reserved price and the optimal spread are slightly different, because the strategy doesn't have to take into account the time left until the end of a trading session. 
 
