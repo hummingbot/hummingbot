@@ -100,6 +100,10 @@ cdef class TriangularArbitrageCalculator():
     def cw_arb(self):
         return self._cw_arb
 
+    @property
+    def preprocessor(self):
+        return self._preprocessor
+
     cdef object c_check_profit(self, TriangularArbitrage arb, list market_pairs):
         start_val = self._TEST_TARGET_CURRENCY_AMOUNT
         final_val = s_decimal_0

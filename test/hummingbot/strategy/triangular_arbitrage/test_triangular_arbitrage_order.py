@@ -27,7 +27,7 @@ class TriangularArbitrageOrderTest(unittest.TestCase):
         self.assertTrue(order.is_live())
         self.assertTrue(order.time_activated > order.time_conceived)
 
-    def test_order_cancel(self):
+    def test_order_mark_canceled(self):
         order = Order(self.trading_pair, None, Decimal("100."), Decimal("10."), TradeType.BUY)
         order.mark_active()
         order.mark_canceled()
@@ -35,3 +35,18 @@ class TriangularArbitrageOrderTest(unittest.TestCase):
         self.assertTrue(order.last_cancelled > order.time_conceived)
         self.assertTrue(order.last_cancelled > order.time_activated)
         self.assertTrue(order.is_live())
+
+    def test_order_is_live_uncancelled(self):
+        order = Order(self.trading_pair, None, Decimal("100."), Decimal("10."), TradeType.BUY, OrderState.ACTIVE)
+        self.assertTrue(order.is_live_uncancelled())
+        order = Order(self.trading_pair, None, Decimal("100."), Decimal("10."), TradeType.BUY, OrderState.CANCELED)
+        self.assertFalse(order.is_live_uncancelled())
+
+    def test_order_total(self):
+        order = Order(self.trading_pair, None, Decimal("100."), Decimal("10."), TradeType.BUY, OrderState.ACTIVE)
+        self.assertEqual(order.total, Decimal('1000'))
+
+    def test_update_order_id(self):
+        order = Order(self.trading_pair, None, Decimal("100."), Decimal("10."), TradeType.BUY, OrderState.ACTIVE)
+        order.update_order_id("5")
+        self.assertEqual(order.id, "5")

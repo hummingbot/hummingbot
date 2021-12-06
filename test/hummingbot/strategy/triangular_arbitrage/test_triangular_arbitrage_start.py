@@ -10,8 +10,10 @@ from hummingbot.strategy.triangular_arbitrage.triangular_arbitrage_config_map im
 from test.hummingbot.strategy import assign_config_default
 
 
-def side_effect(exchange, source, target):
-    return (f"{source}-{target}", "forward")
+def side_effect(exchange, trading_pair):
+    if trading_pair == "USDT-ETH":
+        return False
+    return True
 
 
 class TriangularArbitrageStartTest(unittest.TestCase):
@@ -20,6 +22,8 @@ class TriangularArbitrageStartTest(unittest.TestCase):
         self.strategy = None
         self.markets = {"binance": ExchangeBase()}
         self.log_errors = []
+        self.notifications = []
+        self.raise_exception_for_market_initialization = False
         assign_config_default(c_map)
         c_map.get("exchange").value = "binance"
         c_map.get("target_currency").value = 'ETH'
@@ -32,13 +36,14 @@ class TriangularArbitrageStartTest(unittest.TestCase):
         return market_trading_pairs
 
     def _initialize_markets(self, market_names):
-        pass
+        if self.raise_exception_for_market_initialization:
+            raise Exception("Exception for testing")
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
         pass
 
-    def _notify(self, msg):
-        pass
+    def _notify(self, message):
+        self.notifications.append(message)
 
     def logger(self):
         return self
@@ -46,7 +51,10 @@ class TriangularArbitrageStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    @patch('hummingbot.strategy.triangular_arbitrage.start.infer_market_trading_pair')
+    def warning(self, message):
+        self.log_errors.append(message)
+
+    @patch('hummingbot.strategy.triangular_arbitrage.start.validate_trading_pair')
     def test_strategy_creation(self, mock_inference):
         mock_inference.side_effect = side_effect
         strategy_start.start(self)
@@ -54,3 +62,17 @@ class TriangularArbitrageStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.triangular_arbitrage_module.ccw_arb.top.asset, "ETH")
         self.assertEqual(self.strategy.triangular_arbitrage_module.ccw_arb.left.asset, "BTC")
         self.assertEqual(self.strategy.triangular_arbitrage_module.ccw_arb.right.asset, "USDT")
+
+    def test_strategy_creation_no_fetcher(self):
+        strategy_start.start(self)
+        self.assertEqual(len(self.log_errors), 4)
+
+    @patch('hummingbot.strategy.triangular_arbitrage.start.validate_trading_pair')
+    def test_strategy_creation_when_something_fails(self, mock_inference):
+        mock_inference.side_effect = side_effect
+        self.raise_exception_for_market_initialization = True
+        strategy_start.start(self)
+        self.assertEqual(len(self.notifications), 1)
+        self.assertEqual(self.notifications[0], "Exception for testing")
+        self.assertEqual(len(self.log_errors), 1)
+        self.assertEqual(self.log_errors[0], "Error during initialization.")
