@@ -57,6 +57,5 @@ class BitfinexAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged(
             "ERROR",
             f"Error encountered requesting ticker information. The response was: {response} "
-            f"(__new__() missing 9 required positional arguments: 'bid_size', 'ask', 'ask_size', "
-            f"'daily_change', 'daily_change_percent', 'last_price', 'volume', 'high', and 'low')"
+            f"(There was an error requesting ticker information BTC-USDT ({response}))"
         ))
