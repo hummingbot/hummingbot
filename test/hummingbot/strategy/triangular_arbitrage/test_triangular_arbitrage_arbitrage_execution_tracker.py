@@ -1,4 +1,3 @@
-import unittest
 from decimal import Decimal
 
 from hummingbot.core.event.events import TradeType
@@ -30,7 +29,6 @@ class TestArbitrageExecutionTracker(TestOrderBookPreprocessor):
         self.assertFalse(self.execution_tracker.awaiting_hanging_order_completion)
         self.execution_tracker._recovering = True
         self.assertTrue(self.execution_tracker.ready)
-
 
     def test_add_opportunity_cclockwise(self):
         # Raw orderbooks
