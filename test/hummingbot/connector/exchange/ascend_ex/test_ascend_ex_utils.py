@@ -50,12 +50,16 @@ class AscendExUtilsTests(TestCase):
         url = utils.get_ws_url_private(account_id=account_id)
         self.assertEqual(f"wss://ascendex.com/{account_id}/api/pro/v1", url)
 
-    def test_get_ms_timestamp(self):
-        with mock.patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_utils.get_tracking_nonce_low_res') as get_tracking_nonce_low_res_mock:
-            get_tracking_nonce_low_res_mock.return_value = 123456789
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_utils._time")
+    def test_get_ms_timestamp(self, time_mock):
+        time_mock.return_value = 1234567891.23456
 
-            timestamp = utils.get_ms_timestamp()
-            self.assertEqual(123456789, timestamp)
+        timestamp = utils.get_ms_timestamp()
+        self.assertEqual(1234567891234, timestamp)
+        # If requested two times at the same moment it should return the same value (writen this way to ensure
+        # we are not using the nonce any more
+        timestamp = utils.get_ms_timestamp()
+        self.assertEqual(1234567891234, timestamp)
 
     def test_uuid32(self):
         with mock.patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_utils.random.choice') as random_choice_mock:

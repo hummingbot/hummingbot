@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
 from hummingbot.client.ui.interface_utils import start_trade_monitor, format_bytes, start_timer, start_process_monitor
 
 
@@ -30,12 +30,19 @@ class InterfaceUtilsTest(unittest.TestCase):
     def test_start_process_monitor(self, mock_process, mock_sleep):
         mock_process.return_value.num_threads.return_value = 2
         mock_process.return_value.cpu_percent.return_value = 30
-        mock_process.return_value.memory_info.return_value = [0, 1024.]
+
+        memory_info = MagicMock()
+        type(memory_info).vms = PropertyMock(return_value=1024.0)
+        type(memory_info).rss = PropertyMock(return_value=1024.0)
+
+        mock_process.return_value.memory_info.return_value = memory_info
         mock_monitor = MagicMock()
         mock_sleep.side_effect = ExpectedException()
         with self.assertRaises(ExpectedException):
             asyncio.get_event_loop().run_until_complete(start_process_monitor(mock_monitor))
-        self.assertEqual("CPU:    30%, Mem:   512.00 B, Threads:   2, ", mock_monitor.log.call_args_list[0].args[0])
+        self.assertEqual(
+            "CPU:    30%, Mem:   512.00 B (1.00 KB), Threads:   2, ",
+            mock_monitor.log.call_args_list[0].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)

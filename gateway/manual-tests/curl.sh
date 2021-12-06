@@ -68,3 +68,10 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 
 # perform a trade with custom fees
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_uniswap_trade_with_fees.json)" https://localhost:5000/eth/uniswap/trade | jq
+
+
+
+# TEST Avalanche
+
+# get the next nonce you should use for your private key
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/avalanche_nonce.json)" https://localhost:5000/avalanche/nonce | jq

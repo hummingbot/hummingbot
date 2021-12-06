@@ -1,10 +1,10 @@
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
-import os from 'os';
 import path from 'path';
 import {
   ConfigManagerV2,
   ConfigurationNamespace,
+  ConfigRootSchemaPath,
 } from '../../src/services/config-manager-v2';
 
 describe('Configuration manager v2 tests', () => {
@@ -15,9 +15,9 @@ describe('Configuration manager v2 tests', () => {
   let configManager: ConfigManagerV2;
 
   beforeEach(async () => {
-    // Create a temp dir.
+    // Create a temp dir in project
     tempDirPath = await fsp.mkdtemp(
-      path.join(os.tmpdir(), 'config-manager-v2-unit-test')
+      path.join(__dirname, '../../config-manager-v2-unit-test')
     );
     tempDirPath = fse.realpathSync(tempDirPath);
 
@@ -51,6 +51,9 @@ describe('Configuration manager v2 tests', () => {
     }).toThrow();
     expect(() => {
       new ConfigManagerV2(path.join(tempDirPath, 'test1/invalid-root-3.yml'));
+    }).toThrow();
+    expect(() => {
+      new ConfigManagerV2(path.join(tempDirPath, 'test1/invalid-root-4.yml'));
     }).toThrow();
     done();
   });
@@ -138,8 +141,9 @@ describe('Configuration manager v2 tests', () => {
     const sslNamespace: ConfigurationNamespace = configManager.getNamespace(
       'ssl'
     ) as ConfigurationNamespace;
-    expect(sslNamespace.schemaPath).toEqual(
-      path.join(tempDirPath, 'test1/schema-ssl.json')
+    expect(path.basename(sslNamespace.schemaPath)).toEqual('ssl-schema.json');
+    expect(path.dirname(sslNamespace.schemaPath)).toEqual(
+      path.dirname(ConfigRootSchemaPath)
     );
     expect(sslNamespace.configurationPath).toEqual(
       path.join(tempDirPath, 'test1/ssl.yml')

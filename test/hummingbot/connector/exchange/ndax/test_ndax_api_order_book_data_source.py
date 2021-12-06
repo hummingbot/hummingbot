@@ -1,24 +1,24 @@
-import unittest
 import asyncio
+import unittest
+
 from collections import deque
+
+from unittest.mock import AsyncMock, patch
+from typing import (
+    Any,
+    Awaitable,
+    Dict,
+    List,
+)
 
 import ujson
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
-from unittest.mock import patch, AsyncMock
-from typing import (
-    Any,
-    Dict,
-    List,
-)
-
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
-
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry
-from hummingbot.core.data_type.order_book import OrderBook
-
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -56,6 +56,10 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def handle(self, record):
         self.log_records.append(record)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def simulate_trading_pair_ids_initialized(self):
         self.data_source._trading_pair_id_map.update({self.trading_pair: self.instrument_id})
@@ -400,13 +404,13 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_websocket_connection_creation_raises_exception_after_loging(self, mock_ws):
         mock_ws.side_effect = Exception
 
         with self.assertRaises(Exception):
-            asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during ndax WebSocket Connection ()"))

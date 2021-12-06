@@ -177,6 +177,16 @@ export async function trade(
       maxPriorityFeePerGasBigNumber
     );
 
+    if (tx.hash) {
+      await ethereumish.txStorage.saveTx(
+        ethereumish.chain,
+        ethereumish.chainId,
+        tx.hash,
+        new Date(),
+        ethereumish.gasPrice
+      );
+    }
+
     return {
       network: ethereumish.chain,
       timestamp: initTime,
