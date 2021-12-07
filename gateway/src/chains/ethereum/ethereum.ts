@@ -85,7 +85,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       this.metricsLogInterval / 1000 +
       ' seconds.';
     logger.info(metricFormat);
-    logger.http(metricFormat);
+    logger.http(this.requestCount);
     this._requestCount = 0; // reset
   }
 
