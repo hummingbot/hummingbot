@@ -28,7 +28,7 @@ export namespace WalletRoutes {
         req: Request<{}, {}, AddWalletRequest>,
         res: Response<void, {}>
       ) => {
-        addWallet(ethereum, req.body);
+        addWallet(ethereum, avalanche, req.body);
         res.status(200);
       }
     )

@@ -1,5 +1,7 @@
+export type chainName = 'ethereum' | 'avalanche';
+
 export interface AddWalletRequest {
-  chainName: string;
+  chainName: chainName;
   privateKey: string;
 }
 
