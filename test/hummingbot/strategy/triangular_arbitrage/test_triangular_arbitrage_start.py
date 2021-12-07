@@ -15,6 +15,9 @@ def side_effect(exchange, trading_pair):
         return False
     return True
 
+def error_side_effect(exchange, trading_pair):
+    return False
+
 
 class TriangularArbitrageStartTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -63,7 +66,9 @@ class TriangularArbitrageStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.triangular_arbitrage_module.ccw_arb.left.asset, "BTC")
         self.assertEqual(self.strategy.triangular_arbitrage_module.ccw_arb.right.asset, "USDT")
 
-    def test_strategy_creation_no_fetcher(self):
+    @patch('hummingbot.strategy.triangular_arbitrage.start.validate_trading_pair')
+    def test_strategy_creation_no_fetcher(self, mock_inference):
+        mock_inference.side_effect = error_side_effect
         strategy_start.start(self)
         self.assertEqual(len(self.log_errors), 4)
 
