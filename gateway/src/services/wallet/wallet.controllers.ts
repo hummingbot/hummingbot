@@ -43,6 +43,13 @@ export async function removeWallet(req: RemoveWalletRequest): Promise<void> {
   });
 }
 
+export async function getDirectories(source: string): Promise<string[]> {
+  const files = await fse.readdir(source, { withFileTypes: true });
+  return files
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
+}
+
 export async function getWallets(): Promise<GetWalletResponse[]> {
   return [];
 }
