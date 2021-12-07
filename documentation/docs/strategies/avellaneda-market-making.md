@@ -60,37 +60,87 @@ This strategy implements a market making strategy described in the classic paper
 !!! note "Approximation only"
     The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
 
-### Architecture
+### Description
 
-The strategy continuously calculates optimal positioning of a market maker's buy and sell limit orders within an order book, taking into account a current order book liquidity, an asset volatility, a desired portfolio allocation and a trading session timeframe. Orders are being placed symmetrically around a so called reserved price, which may or may not be identical to the asset's mid price. 
+The strategy continuously calculates optimal positioning of a market maker's buy and sell limit orders within an order book, based on the following information:
 
-The farther the current portfolio is from the desired asset allocation (as defined by the `inventory_target_base_pct` parameter), the farther away is the reserved price from the mid price, skewing probabilites of either buy or sell orders being filled. If the strategy needs an asset to be sold, sell orders will be placed closer to the mid price than buy orders, and vice versa. 
+- **Current order book liquidity**
+- **Asset price volatility**
+- **Desired portfolio allocation (target inventory)**
+- **Trading session timeframe**
+- **Risk factor (user choice)**
 
-Limit prices of orders are also a function of order book liquidity and asset volatility. The strategy generally tries to place orders as close to the mid price as possible, without them being filled. The less liquid an order book is, the farther away orders will be placed. And also the more volatile an asset is, the farther away orders will be placed. 
+There is two main values that are calculated by the model, based on the factors mentioned above:
 
-If the strategy is running in a finite timeframe, the closer it is to the end of the trading session, the closer the reserved price will be to the mid price, once the portfolio is in a desired state.
+- **Reserved price**: A price different from the market mid price, that will be used as reference to create orders.
+- **Optimal spread**: The best possible spread from the *reserved price* where the orders will be created.
 
-The `risk_factor` or `gamma` also influence calculation of the reserved price and order placement. Generally the higher the value, the more aggressive the strategy will be, and the farther away from the mid price the reserved price will be. It's a unit-less parameter, that can be set to any non-zero value as necessary. Generally it should be higher for assets with lower prices, and lower for assets with higher prices. 
+#### Reserved Price
+
+The farther the current inventory is from the desired asset allocation (as defined by the `inventory_target_base_pct` parameter), the greater the distance between **reserved price** and the market mid price. The strategy skews the probability of either buy or sell orders being filled, depending on the difference between the current inventory and the `inventory_target_base_pct`. 
+
+For example, If the strategy needs an asset to be sold to reach the `inventory_target_base_pct` value, sell orders will be placed closer to the mid price than buy orders.
+
+#### Optimal Spreads
+
+The **Optimal spread** values (which defines at what price each order will be created) is a function of the **order book liquidity**, **asset price volatility** and **trading session timeframe**. Each factor have an influence on the value calculated:
+
+- Low order book liquidity = Smaller optimal spread value
+- Low price volatility = Smaller optimal spread value
+- Time closer to the end of the trading session = Smaller optimal spread value
+
+#### Risk Factor
+
+The final piece of information that influence both **Reserved price** and **Optimal Spread** values is the `risk_factor` or `gamma`.
+
+This value is defined by the user, and it represents how much inventory risk he is willing to take.
+
+The closer the `risk_factor` is to **zero**, the more symmetrical will be orders will be created, and the **Reserved price** will be pretty much equal to the market mid price.
+
+In that case, the user is taking more inventory risk, because there will be no skew on the orders positions aiming to reach the `inventory_target_base_pct`.
+
+The igher the value, the more aggressive the strategy will be to reach the `inventory_target_base_pct`, increasing the distance between the **Reserved price** and the market mid price.
+
+It's a unit-less parameter, that can be set to any non-zero value as necessary, depending on the inventory risk the user is willing to take. 
+
+> NOTE: The amount of decimal points used on the market price have a considerable influence on the how big the `risk_factor` must be to start having an effect of the **Reserved price** and on the **Optimal Spread**
+> As an example, on a market with 2 decimals (0.01), a `risk_factor = 1` can already have a noticeable effect, while on a market with 4 decimals (0.0001), the `risk_factor` must be at least around 1000 to have any noticeable effect.
+> The only way to find a value for the `risk_factor` is to experiment with different values and see it's effects on the **Reserved price** and the **Optimal spread**.
 
 Given the right market conditions and the right `risk_factor`, it's possible that the optimal spread will be wider than the absolute price of the asset, or that the reserved price will by far away from the mid price, in both cases resulting in the optimal bid price to be lower than or equal to 0. If this happens neiher buy or sell will be placed. To prevent it from happening, users can set the `risk_factor` to a lower value.
 
+#### ETA (Order size adjustment)
+
 If users choose to set the `eta` parameter, order sizes will be adjusted to further optimize the strategy behavior in regards to the current and desired portfolio allocation.
+
+With a value of `eta = 1`, buy and sell orders will have the same size. A different value will create assymetrical order sizes, with the goal to reach the `inventory_target_pct` faster.
+
+#### Order levels
 
 Users have an option to layer orders on both sides. If more than 1 `order_levels` are chosen, multiple buy and sell limit orders will be created on both sides, with predefined price distances from each other, with the levels closest to the reserved price being set to the optimal bid and ask prices. This price distance between levels is defined as a percentage of the optimal spread calculated by the strategy. The percentage is given as the `level_distances` parameter. Given that optimal spreads tend to be tight, the `level_distances` values should be in general in tens or hundreds of percents.
 
-
+### Trading logic flow
 
 ![Figure 1: Strategy flow chart](/assets/img/avellaneda.svg)
 
 
 ### Timeframes
 
-The original Avellaneda-Stoikov strategy was designed to be used for market making on stock markets, which have defined trading hours. Its timeframe was therefore finite. On crypto markets there are no trading hours, crypto markets trade 24/7. The strategy should therefore be designed to run indefinitely. However in some cases users may want to run the strategy only between specific dates or only bewteen specific times of a day. For this the strategy offers 3 different modes: `infinite`, `from_date_to_date` and `daily_between_times`. 
+The original Avellaneda-Stoikov model was designed to be used for market making on stock markets, which have defined trading hours. The assumption was that the market maker wants to end the trading day with the same inventory he started.
+
+Since cryptocurrency markets are open 24/7, there is no "closing time", and the strategy should also be able run indefinitely, based on an infinite timeframe.
+
+> NOTE: Avellaneda-Stoikov also considered the possibility of running the model on an infinite timeframe
+
+The strategy allows three possible timeframes to be used:
+
+- `infinite` - No closing time for the trading session is considered
+- `from_date_to_date` - The strategy will begin trading on the `start_time` (YYYY-MM-DD HH:MM:SS) and stop at the `end_time` (YYYY-MM-DD HH:MM:SS), as one single trading session.
+- `daily_between_times` - The strategy will run as multiple trading sessions, and every day will begin to trade at `start_time` (HH:MM:SS) and stop at `end_time` (HH:MM:SS)
 
 For the `infinite` timeframe the equations used to calculate the reserved price and the optimal spread are slightly different, because the strategy doesn't have to take into account the time left until the end of a trading session. 
 
 Both the `start_time` and the `end_time` parameters are defined to be in the local time of the computer on which the client is running. For the `infinite` timeframe these two parameters have no effect.
-
 
 ### Asset Characteristics Estimation
 
