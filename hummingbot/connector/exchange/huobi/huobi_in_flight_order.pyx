@@ -32,6 +32,8 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
             initial_state  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
         )
 
+        self.trade_id_set = set()
+
     @property
     def is_done(self) -> bool:
         return self.last_state in {"filled", "canceled", "partial-canceled"}
@@ -67,3 +69,27 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
         return retval
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_udpdate: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["tradeId"]
+        if str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+            return False
+        self.trade_id_set.add(trade_id)
+        trade_amount = Decimal(str(trade_update["tradeVolume"]))
+        trade_price = Decimal(str(trade_update["tradePrice"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+        self.fee_paid += Decimal(str(trade_update["transactFee"]))
+        self.fee_asset = trade_update["feeCurrency"].upper()
+
+        if self.is_open:
+            self.last_state = trade_update["orderStatus"]
+
+        return True
