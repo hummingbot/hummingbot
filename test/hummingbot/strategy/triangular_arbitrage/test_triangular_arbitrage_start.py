@@ -15,6 +15,7 @@ def side_effect(exchange, trading_pair):
         return False
     return True
 
+
 def error_side_effect(exchange, trading_pair):
     return False
 
