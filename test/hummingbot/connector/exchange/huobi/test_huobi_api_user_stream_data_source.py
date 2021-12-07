@@ -2,15 +2,15 @@ import asyncio
 import json
 import unittest
 
+from typing import Awaitable, List
+from unittest.mock import AsyncMock, patch
+
 import aiohttp
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
 
-from typing import Awaitable, List
-from unittest.mock import AsyncMock, patch
-
-from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
+from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_utils import build_api_factory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant

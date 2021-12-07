@@ -1,7 +1,7 @@
 import asyncio
 import functools
 from decimal import Decimal
-from typing import Awaitable, Optional, Callable
+from typing import Awaitable, Callable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock
 
