@@ -70,7 +70,8 @@ const toStdout = new winston.transports.Console({
 });
 
 const reportingProxy = new TelemetryTransport({
-  host: 'https://api.coinalpha.com/reporting-proxy-v2',
+  host: 'https://api.coinalpha.com',
+  instanceId: ConfigManager.config.HUMMINGBOT_INSTANCE_ID,
   level: 'http',
 });
 
