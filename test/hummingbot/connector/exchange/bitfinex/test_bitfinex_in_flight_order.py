@@ -149,3 +149,28 @@ class BitfinexInFlightOrderTests(TestCase):
         self.assertEqual(expected_executed_quote_amount, order.executed_amount_quote)
         self.assertEqual(Decimal(trade_event_info["fee"]), order.fee_paid)
         self.assertEqual(trade_event_info["fee_currency"], order.fee_asset)
+
+    def test_fee_currency_is_translated_when_processing_trade_event(self):
+        order = BitfinexInFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10000),
+            amount=Decimal(1)
+        )
+
+        trade_event_info = {
+            "order_id": "EOID1",
+            "trade_id": 1,
+            "amount": 0.1,
+            "price": 10050.0,
+            "fee": 10.0,
+            "fee_currency": "UST",
+        }
+
+        update_result = order.update_with_trade_update(trade_event_info)
+
+        self.assertTrue(update_result)
+        self.assertEqual("USDT", order.fee_asset)
