@@ -12,7 +12,7 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.exchange.bitfinex import (
     OrderStatus,
 )
-from hummingbot.connector.exchange.bitfinex.bitfinex_utils import split_trading_pair
+from hummingbot.connector.exchange.bitfinex.bitfinex_utils import convert_from_exchange_token, split_trading_pair
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
@@ -132,7 +132,7 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         self.executed_amount_base += trade_amount
         self.executed_amount_quote += quote_amount
         self.fee_paid += Decimal(str(trade_update.get("fee")))
-        self.fee_asset = trade_update["fee_currency"]
+        self.fee_asset = convert_from_exchange_token(trade_update["fee_currency"])
 
         if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0:
             self.last_state = OrderStatus.EXECUTED
