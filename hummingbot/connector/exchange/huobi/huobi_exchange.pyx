@@ -42,7 +42,6 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
@@ -167,6 +166,10 @@ cdef class HuobiExchange(ExchangeBase):
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
         }
+
+    @property
+    def user_stream_tracker(self) -> HuobiUserStreamTracker:
+        return self._user_stream_tracker
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         self._in_flight_orders.update({
@@ -597,42 +600,6 @@ cdef class HuobiExchange(ExchangeBase):
                     if tracked_order is None:
                         continue
 
-                    execute_amount_diff = s_decimal_0
-                    # tradePrice is documented by Huobi but not sent.
-                    # However, orderprice isn't applicable to all order_types, so we assume tradePrice will be sent for such orders
-                    execute_price = Decimal(data.get("orderPrice", data.get("tradePrice", "0")))
-                    remaining_amount = Decimal(data.get("remainAmt", data["orderSize"]))
-                    order_type = data["type"]
-
-                    new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
-
-                    execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
-
-                    if execute_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filed {execute_amount_diff} out of {tracked_order.amount} of order "
-                                           f"{order_type.upper()}-{client_order_id}")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     execute_amount_diff,
-                                                 ),
-                                                 exchange_trade_id=order_id
-                                             ))
-
                     if order_status == "filled":
                         tracked_order.last_state = order_status
                         if tracked_order.trade_type is TradeType.BUY:
@@ -666,7 +633,6 @@ cdef class HuobiExchange(ExchangeBase):
                                                      tracked_order.order_type
                                                  ))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
-                        continue
 
                     if order_status == "canceled":
                         tracked_order.last_state = order_status
@@ -677,14 +643,41 @@ cdef class HuobiExchange(ExchangeBase):
                                                                  tracked_order.client_order_id))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
 
-                else:
-                    # Ignore all other user stream message types
-                    continue
+                elif channel == CONSTANTS.HUOBI_TRADE_DETAILS_TOPIC:
+                    self._process_trade_event(data)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().error(f"Unexpected error in user stream listener loop. {e}", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    def _process_trade_event(self, trade_event: Dict[str, Any]):
+        order_id = trade_event["orderId"]
+        client_order_id = trade_event["clientOrderId"]
+        execute_price = Decimal(trade_event["tradePrice"])
+        execute_amount_diff = Decimal(trade_event["tradeVolume"])
+
+        tracked_order = self._in_flight_orders.get(client_order_id, None)
+
+        if tracked_order:
+            updated = tracked_order.update_with_trade_update(trade_event)
+        if updated:
+            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of order "
+                               f"{tracked_order.order_type.name}-{tracked_order.client_order_id}")
+            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                 OrderFilledEvent(
+                                     self._current_timestamp,
+                                     tracked_order.client_order_id,
+                                     tracked_order.trading_pair,
+                                     tracked_order.trade_type,
+                                     tracked_order.order_type,
+                                     execute_price,
+                                     execute_amount_diff,
+                                     TradeFee(0.0,
+                                              [(tracked_order.fee_asset,
+                                                Decimal(trade_event["transactFee"]))]),
+                                     exchange_trade_id=order_id
+                                 ))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -951,6 +944,17 @@ cdef class HuobiExchange(ExchangeBase):
     cdef c_did_timeout_tx(self, str tracking_id):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
+
+    def start_tracking_order(self,
+                             order_id: str,
+                             exchange_order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        """Helper method for testing."""
+        self.c_start_tracking_order(order_id, exchange_order_id, trading_pair, order_type, trade_type, price, amount)
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,

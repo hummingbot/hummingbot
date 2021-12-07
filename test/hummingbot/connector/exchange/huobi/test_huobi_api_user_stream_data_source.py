@@ -192,6 +192,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         self.assertIsNotNone(self.data_source._ws_assistant)
         successful_sub_order_response = {"action": "sub", "code": 200, "ch": "orders#*", "data": {}}
         successful_sub_account_response = {"action": "sub", "code": 200, "ch": "accounts.update#2", "data": {}}
+        successful_sub_trades_response = {"action": "sub", "code": 200, "ch": "trade.clearing#*", "data": {}}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(successful_sub_order_response)
@@ -199,14 +200,23 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(successful_sub_account_response)
         )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message=json.dumps(successful_sub_trades_response)
+        )
 
         result = self.async_run_with_timeout(self.data_source._subscribe_channels())
 
         self.assertIsNone(result)
 
-        self._is_logged("INFO", f"Error subscribing to topic: {CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC}")
+        subscription_requests_sent = self.mocking_assistant.json_messages_sent_through_websocket(
+            ws_connect_mock.return_value)
 
-        self._is_logged("INFO", f"Error subscribing to topic: {CONSTANTS.HUOBI_ACCOUNT_UPDATE_TOPIC}")
+        expected_orders_channel_subscription = {"action": "sub", "ch": "orders#*"}
+        self.assertIn(expected_orders_channel_subscription, subscription_requests_sent)
+        expected_accounts_channel_subscription = {"action": "sub", "ch": "accounts.update#2"}
+        self.assertIn(expected_accounts_channel_subscription, subscription_requests_sent)
+        expected_trades_channel_subscription = {"action": "sub", "ch": "trade.clearing#*"}
+        self.assertIn(expected_trades_channel_subscription, subscription_requests_sent)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source.HuobiAPIUserStreamDataSource._sleep")
@@ -228,6 +238,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
         successful_sub_order_response = {"action": "sub", "code": 200, "ch": "orders#*", "data": {}}
         successful_sub_account_response = {"action": "sub", "code": 200, "ch": "accounts.update#2", "data": {}}
+        successful_sub_trades_response = {"action": "sub", "code": 200, "ch": "trade.clearing#*", "data": {}}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(successful_auth_response)
@@ -237,6 +248,9 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(successful_sub_account_response)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message=json.dumps(successful_sub_trades_response)
         )
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -261,6 +275,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
         successful_sub_order_response = {"action": "sub", "code": 200, "ch": "orders#*", "data": {}}
         successful_sub_account_response = {"action": "sub", "code": 200, "ch": "accounts.update#2", "data": {}}
+        successful_sub_trades_response = {"action": "sub", "code": 200, "ch": "trade.clearing#*", "data": {}}
 
         ping_response = {"action": "ping", "data": {"ts": 1637553193021}}
 
@@ -272,6 +287,9 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(successful_sub_account_response)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message=json.dumps(successful_sub_trades_response)
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(ping_response)
@@ -298,6 +316,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
         successful_sub_order_response = {"action": "sub", "code": 200, "ch": "orders#*", "data": {}}
         successful_sub_account_response = {"action": "sub", "code": 200, "ch": "accounts.update#2", "data": {}}
+        successful_sub_trades_response = {"action": "sub", "code": 200, "ch": "trade.clearing#*", "data": {}}
 
         ping_response = {"action": "ping", "data": {"ts": 1637553193021}}
 
@@ -343,6 +362,9 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(successful_sub_account_response)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message=json.dumps(successful_sub_trades_response)
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message=json.dumps(ping_response)
