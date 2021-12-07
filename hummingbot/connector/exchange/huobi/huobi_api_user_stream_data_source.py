@@ -1,18 +1,17 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-
 from typing import Optional
 
+import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
+
+from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_utils import build_api_factory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 
 
 class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
