@@ -69,9 +69,7 @@ describe('Configuration manager v2 tests', () => {
     expect(configManager.get('ssl.keyPath')).toEqual('gateway.key');
     expect(configManager.get('ssl.passPhrasePath')).toEqual('gateway.passwd');
     expect(configManager.get('ethereum.networks.kovan.chainID')).toEqual(42);
-    expect(
-      configManager.get('ethereum.networks.bsc.nativeCurrencySymbol')
-    ).toEqual('BNB');
+    expect(configManager.get('ethereum.nativeCurrencySymbol')).toEqual('ETH');
     done();
   });
 
@@ -94,10 +92,13 @@ describe('Configuration manager v2 tests', () => {
   it('writing a valid configuration', (done) => {
     const newKeyPath: string = 'new-gateway.key';
     configManager.set('ssl.keyPath', newKeyPath);
-    configManager.set('ethereum.networks.bsc.chainID', 970);
-    configManager.set('ethereum.networks.etc', {
+    configManager.set('ethereum.networks.kovan.chainID', 970);
+    configManager.set('ethereum.networks.mainnet', {
       chainID: 61,
       nodeURL: 'http://localhost:8561',
+      tokenListType: 'URL',
+      tokenListSource:
+        'https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link',
     });
     expect(configManager.get('ssl.keyPath')).toEqual(newKeyPath);
 
@@ -105,12 +106,12 @@ describe('Configuration manager v2 tests', () => {
       path.join(tempDirPath, 'test1/root.yml')
     );
     expect(verifyConfigManager.get('ssl.keyPath')).toEqual(newKeyPath);
-    expect(verifyConfigManager.get('ethereum.networks.bsc.chainID')).toEqual(
+    expect(verifyConfigManager.get('ethereum.networks.kovan.chainID')).toEqual(
       970
     );
-    expect(verifyConfigManager.get('ethereum.networks.etc.chainID')).toEqual(
-      61
-    );
+    expect(
+      verifyConfigManager.get('ethereum.networks.mainnet.chainID')
+    ).toEqual(61);
     done();
   });
 
