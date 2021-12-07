@@ -1,5 +1,6 @@
 import winston from 'winston';
 import https from 'https';
+import querystring from 'querystring';
 
 export type LogCallback = (err: any, res: any) => void;
 
@@ -9,72 +10,93 @@ export type LogCallback = (err: any, res: any) => void;
 // Note: query and stream wouldn't work on this transport.
 export class TelemetryTransport extends winston.transports.Http {
   private logInterval: number;
-  private logBuffer: any[];
+  private errorLogBuffer: string[];
+  private requestCountAggregator: number;
+  private instanceId: string;
 
   constructor(opts: any) {
     super(opts);
 
     this.logInterval = opts.interval || 3600000;
-    this.logBuffer = [];
+    this.instanceId = opts.instanceId || '';
+    this.errorLogBuffer = [];
+    this.requestCountAggregator = 0;
     setInterval(this.sendLogs.bind(this), this.logInterval);
   }
 
-  private processLog(log: any): void {
+  private processData(log: any): void {
     if ('stack' in log)
-      this.logBuffer.push(`${Date.now()} - ${log.message}\n${log.stack}`);
-    else this.logBuffer.push(`${Date.now()} - ${log.message}`);
+      this.errorLogBuffer.push(`${Date.now()} - ${log.message}\n${log.stack}`);
+    else if (log.level === 'http')
+      this.requestCountAggregator += Number(log.message.split('\t')[1]);
   }
 
-  public sendLogs(): void {
-    if (this.logBuffer.length > 0) {
-      this._request(
-        {
-          data: JSON.stringify(this.logBuffer),
-          params: { ddtags: 'type:logs', ddsource: 'gateway' },
-        },
-        (err: any, res: any) => {
-          if (res && res.statusCode !== 200) {
-            err = new Error(`Invalid HTTP Status Code: ${res.statusCode}`);
-          }
+  public responseHandler(err: any, res: any): void {
+    if (res && res.statusCode !== 200) {
+      err = new Error(`Invalid HTTP Status Code: ${res.statusCode}`);
+    }
 
-          if (err) {
-            this.emit('warn', err);
-          } else {
-            this.emit('logged', 'Successfully logged metrics.');
-          }
-        }
-      );
-
-      this.logBuffer = []; // reset buffer
+    if (err) {
+      this.emit('warn', err);
+    } else {
+      this.emit('logged', 'Successfully logged metrics.');
     }
   }
 
-  public log(info: any, callback: LogCallback) {
-    this.processLog(info);
+  public sendLogs(): void {
+    if (this.errorLogBuffer.length > 0) {
+      const logData = {
+        data: JSON.stringify(this.errorLogBuffer),
+        params: {
+          ddtags: `instance_id:${this.instanceId},type:logs`,
+          ddsource: 'gateway',
+        },
+      };
+      this._request(logData, true, this.responseHandler.bind(this));
+    }
+
+    if (this.requestCountAggregator > 0) {
+      const metric = {
+        data: JSON.stringify({
+          instanceId: this.instanceId,
+          requestCount: this.requestCountAggregator,
+        }),
+      };
+      this._request(metric, false, this.responseHandler.bind(this));
+    }
+
+    this.errorLogBuffer = []; // reset error log buffer
+    this.requestCountAggregator = 0; // reset request counter
+  }
+
+  public log(data: any, callback: LogCallback) {
+    this.processData(data);
 
     if (callback) {
       setImmediate(callback);
     }
   }
 
-  public _request(options: any, callback: LogCallback) {
+  public _request(options: any, isLog: boolean, callback: LogCallback) {
     // Prepare options for outgoing HTTP request
-    const headers = { 'content-type': 'application/json' };
+    const headers = {
+      'Content-Type': 'application/json',
+      'Content-Length': options.data.length,
+    };
     const req = https.request({
-      ...options,
       method: 'POST',
       host: this.host,
-      port: 443,
-      path: '',
+      port: this.port,
+      path: isLog
+        ? `/log?${querystring.stringify(options.params)}`
+        : '/request_monitor',
       headers: headers,
-      auth: '',
-      agent: this.agent,
     });
 
     req.on('error', callback);
     req.on('response', (res) =>
       res.on('end', () => callback(null, res)).resume()
     );
-    req.end(Buffer.from(JSON.stringify(options), 'utf8'));
+    req.end(Buffer.from(options.data, 'utf8'));
   }
 }
