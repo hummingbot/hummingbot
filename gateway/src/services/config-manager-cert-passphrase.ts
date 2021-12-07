@@ -40,15 +40,15 @@ export namespace ConfigManagerCertPassphrase {
         );
         bindings._exit(1);
       }
-    } else {
-      logger.error(
-        passphraseFliePath +
-          ' does not exist. It should contain a password and have mode set to user READ_WRITE only.'
-      );
-      bindings._exit(1);
     }
+
     // the compiler does not know that bindings._exit(1) will end the function
     // so we need a return to satisfy the compiler checks
+    logger.error(
+      passphraseFliePath +
+        ' does not exist. It should contain a password and have mode set to user READ_WRITE only.'
+    );
+    bindings._exit(1);
     return;
   }
 }
