@@ -3,9 +3,17 @@ import { ValidateFunction } from 'ajv';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
+import * as migrations from './config-migration/migrations';
 
 type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
+export type Migration = (
+  configRootFullPath: string,
+  configRootTemplateFullPath: string
+) => void;
+type MigrationFunctions = {
+  [key: string]: Migration;
+};
 interface _ConfigurationNamespaceDefinition {
   configurationPath: string;
   schemaPath: string;
@@ -13,17 +21,43 @@ interface _ConfigurationNamespaceDefinition {
 type ConfigurationNamespaceDefinition = _ConfigurationNamespaceDefinition & {
   [key: string]: string;
 };
-type ConfigurationRoot = {
+type ConfigurationNamespaceDefinitions = {
   [namespaceId: string]: ConfigurationNamespaceDefinition;
 };
+interface ConfigurationRoot {
+  version: number;
+  configurations: ConfigurationNamespaceDefinitions;
+}
 const NamespaceTag: string = '$namespace ';
 export const ConfigRootSchemaPath: string = path.join(
   __dirname,
   'schema/configuration-root-schema.json'
 );
+const ConfigTemplatesDir: string = path.join(__dirname, '../templates/');
 interface UnpackedConfigNamespace {
   namespace: ConfigurationNamespace;
   configPath: string;
+}
+
+export function deepCopy(srcObject: any, dstObject: any): any {
+  for (const [key, value] of Object.entries(srcObject)) {
+    if (srcObject[key] instanceof Array) {
+      if (!dstObject[key]) dstObject[key] = [];
+      deepCopy(srcObject[key], dstObject[key]);
+    } else if (srcObject[key] instanceof Object) {
+      if (!dstObject[key]) dstObject[key] = {};
+      deepCopy(srcObject[key], dstObject[key]);
+    } else if (
+      typeof srcObject[key] === typeof dstObject[key] ||
+      !dstObject[key]
+    ) {
+      dstObject[key] = value;
+    }
+  }
+}
+
+export function initiateWithTemplate(templateFile: string, configFile: string) {
+  fs.copyFileSync(templateFile, configFile);
 }
 
 const ajv: Ajv = new Ajv();
@@ -58,13 +92,20 @@ export class ConfigurationNamespace {
   readonly #namespaceId: string;
   readonly #schemaPath: string;
   readonly #configurationPath: string;
+  readonly #templatePath: string;
   readonly #validator: ValidateFunction;
   #configuration: Configuration;
 
-  constructor(id: string, schemaPath: string, configurationPath: string) {
+  constructor(
+    id: string,
+    schemaPath: string,
+    configurationPath: string,
+    templatePath: string
+  ) {
     this.#namespaceId = id;
     this.#schemaPath = schemaPath;
     this.#configurationPath = configurationPath;
+    this.#templatePath = templatePath;
     this.#configuration = {};
     if (!fs.existsSync(schemaPath)) {
       throw new Error(
@@ -76,9 +117,11 @@ export class ConfigurationNamespace {
       JSON.parse(fs.readFileSync(schemaPath).toString())
     );
 
-    if (fs.existsSync(configurationPath)) {
-      this.loadConfig();
+    if (!fs.existsSync(configurationPath)) {
+      // copy from template
+      initiateWithTemplate(this.templatePath, this.configurationPath);
     }
+    this.loadConfig();
   }
 
   get id(): string {
@@ -93,12 +136,28 @@ export class ConfigurationNamespace {
     return this.#configurationPath;
   }
 
+  get templatePath(): string {
+    return this.#templatePath;
+  }
+
   loadConfig() {
     const configCandidate: Configuration = yaml.load(
       fs.readFileSync(this.#configurationPath, 'utf8')
     ) as Configuration;
     if (!this.#validator(configCandidate)) {
-      throw new Error(`Invalid configuration for namespace ${this.id}.`);
+      // merge with template file and try validating again
+      const configTemplateCandidate: Configuration = yaml.load(
+        fs.readFileSync(this.#templatePath, 'utf8')
+      ) as Configuration;
+      deepCopy(configCandidate, configTemplateCandidate);
+      if (!this.#validator(configTemplateCandidate)) {
+        throw new Error(
+          `Configuration for namespace ${this.id} seems to be outdated/broken. Kindly fix manually.`
+        );
+      }
+      this.#configuration = configTemplateCandidate;
+      this.saveConfig();
+      return;
     }
     this.#configuration = configCandidate;
   }
@@ -219,12 +278,14 @@ export class ConfigManagerV2 {
   addNamespace(
     id: string,
     schemaPath: string,
-    configurationPath: string
+    configurationPath: string,
+    templatePath: string
   ): void {
     this.#namespaces[id] = new ConfigurationNamespace(
       id,
       schemaPath,
-      configurationPath
+      configurationPath,
+      templatePath
     );
   }
 
@@ -267,10 +328,34 @@ export class ConfigManagerV2 {
   loadConfigRoot(configRootPath: string) {
     // Load the config root file.
     const configRootFullPath: string = fs.realpathSync(configRootPath);
+    const configRootTemplateFullPath: string = path.join(
+      ConfigTemplatesDir,
+      'root.yml'
+    );
     const configRootDir: string = path.dirname(configRootFullPath);
     const configRoot: ConfigurationRoot = yaml.load(
       fs.readFileSync(configRootFullPath, 'utf8')
     ) as ConfigurationRoot;
+    const configRootTemplate: ConfigurationRoot = yaml.load(
+      fs.readFileSync(configRootTemplateFullPath, 'utf8')
+    ) as ConfigurationRoot;
+
+    // version control to only handle upgrades
+    if (configRootTemplate.version > configRoot.version) {
+      // run migration in order if available
+      for (
+        let num = configRoot.version + 1;
+        num <= configRootTemplate.version;
+        num++
+      ) {
+        if ((migrations as MigrationFunctions)[`updateToVersion${num}`]) {
+          (migrations as MigrationFunctions)[`updateToVersion${num}`](
+            configRootFullPath,
+            configRootTemplateFullPath
+          );
+        }
+      }
+    }
 
     // Validate the config root file.
     const validator: ValidateFunction = ajv.compile(
@@ -281,17 +366,21 @@ export class ConfigManagerV2 {
     }
 
     // Extract the namespace ids.
-    const namespaceMap: ConfigurationRoot = {};
-    for (const namespaceKey of Object.keys(configRoot)) {
+    const namespaceMap: ConfigurationNamespaceDefinitions = {};
+    for (const namespaceKey of Object.keys(configRoot.configurations)) {
       namespaceMap[namespaceKey.slice(NamespaceTag.length)] =
-        configRoot[namespaceKey];
+        configRoot.configurations[namespaceKey];
     }
 
-    // Rebase the file paths in config root if they're relative paths.
+    // Rebase the file paths in config & template roots if they're relative paths.
     for (const namespaceDefinition of Object.values(namespaceMap)) {
       for (const [key, filePath] of Object.entries(namespaceDefinition)) {
         if (!path.isAbsolute(filePath)) {
           if (key === 'configurationPath') {
+            namespaceDefinition['templatePath'] = path.join(
+              ConfigTemplatesDir,
+              filePath
+            );
             namespaceDefinition[key] = path.join(configRootDir, filePath);
           } else if (key === 'schemaPath') {
             namespaceDefinition[key] = path.join(
@@ -312,7 +401,8 @@ export class ConfigManagerV2 {
       this.addNamespace(
         namespaceId,
         namespaceDefinition.schemaPath,
-        namespaceDefinition.configurationPath
+        namespaceDefinition.configurationPath,
+        namespaceDefinition.templatePath
       );
     }
   }

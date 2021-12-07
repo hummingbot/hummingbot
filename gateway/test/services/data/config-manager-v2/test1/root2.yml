@@ -1,4 +1,4 @@
-version: 1
+version: 0
 configurations:
   $namespace ssl:
     configurationPath: ssl.yml
