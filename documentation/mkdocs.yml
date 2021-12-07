@@ -239,7 +239,7 @@ nav:
           - Connector Requirements: developers/connectors/requirements/index.md
           - Task 1 - OrderBookTracker & Data Source: developers/connectors/requirements/task1.md
           - Task 2 - UserStreamTracker & Authentication: developers/connectors/requirements/task2.md
-          - Task 3 - Exchange Connector & InFlightOrder: developers/connectors/requirements/task3.md
+          - Task 3 - Exchange/Derivative Connector & InFlightOrder: developers/connectors/requirements/task3.md
           - Task 4 - Configuration & Additional Functions: developers/connectors/requirements/task4.md
           - Debug and Testing: developers/connectors/requirements/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md

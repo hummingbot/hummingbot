@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import unittest
 import asyncio
 from decimal import Decimal

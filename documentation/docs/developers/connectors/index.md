@@ -10,23 +10,28 @@ Building a new exchange connector requires conforming to the template code to th
 
 The following list some examples/templates that you can refer to when building the connector:
 
+### Spot Connectors
+
+- [Ndax](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/ndax)
 - [Crypto.com](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/crypto_com) 
-- [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/binance) 
-- [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/coinbase_pro) 
-- [Huobi](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/huobi)
-- [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/bittrex)
+
+### Perpetual Connectors
+
+- [Bybit Perpetual](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/derivative/bybit_perpetual)
 
 ## Exchange connector requirements
 
 1. A complete set of exchange connector files as listed [above](https://docs.hummingbot.io/exchanges/).
-2. Unit tests (see existing unit tests [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector) or [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector)):
-  - Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_exchange.py))
-  - Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_order_book_tracker.py))
-  - User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_user_stream_tracker.py))
-  - User authentication module ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_auth.py))
-3. Documentation:
-  - Code commenting (particularly for any code that is materially different from the templates/examples)
-  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/exchanges/binance/))
+2. Unit tests (see existing unit tests [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/hummingbot/connector/exchange/) or [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/hummingbot/connector/derivative)):
+  - Exchange Class ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/hummingbot/connector/exchange/ndax/test_ndax_exchange.py))
+  - Orderbook tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/hummingbot/connector/exchange/ndax/test_ndax_order_book_tracker.py))
+  - Orderbook data source ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/hummingbot/connector/exchange/ndax/test_ndax_api_order_book_data_source.py))
+  - Orderbook message class ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/hummingbot/connector/exchange/ndax/test_ndax_order_book_message.py))
+  - User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/hummingbot/connector/exchange/ndax/test_ndax_user_stream_tracker.py))
+  - User stream data source ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/hummingbot/connector/exchange/ndax/test_ndax_api_user_stream_data_source.py))
+  - User authentication module ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/hummingbot/connector/exchange/ndax/test_ndax_auth.py))
+  - Inflight order class ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/hummingbot/connector/exchange/ndax/test_ndax_in_flight_order.py))
+  - Utils module ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/hummingbot/connector/exchange/ndax/test_ndax_utils.py))
 
 3. Documentation:
   - Code commenting (particularly for any code that is materially different from the templates/examples)
