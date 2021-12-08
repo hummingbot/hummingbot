@@ -263,10 +263,19 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             # https://api-pub.bitfinex.com/v2/ticker/tBTCUSD
             ticker_url: str = join_paths(BITFINEX_REST_URL, f"ticker/{convert_to_exchange_trading_pair(trading_pair)}")
-            resp = await client.get(ticker_url)
-            resp_json = await resp.json()
-            ticker = Ticker(*resp_json)
-            return float(ticker.last_price)
+            try:
+                resp = await client.get(ticker_url)
+                resp_json = await resp.json()
+                if "error" in resp_json:
+                    raise ValueError(f"There was an error requesting ticker information {trading_pair} ({resp_json})")
+                ticker = Ticker(*resp_json)
+                last_price = float(ticker.last_price)
+            except Exception as ex:
+                details = resp_json or resp
+                cls.logger().error(
+                    f"Error encountered requesting ticker information. The response was: {details} ({str(ex)})")
+                last_price = 0.0
+            return last_price
 
     async def get_trading_pairs(self) -> List[str]:
         """
