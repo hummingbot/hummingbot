@@ -98,9 +98,9 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self):
         try:
+            await self._subscribe_topic(CONSTANTS.HUOBI_TRADE_DETAILS_TOPIC)
             await self._subscribe_topic(CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC)
             await self._subscribe_topic(CONSTANTS.HUOBI_ACCOUNT_UPDATE_TOPIC)
-            await self._subscribe_topic(CONSTANTS.HUOBI_TRADE_DETAILS_TOPIC)
         except asyncio.CancelledError:
             raise
         except Exception:
