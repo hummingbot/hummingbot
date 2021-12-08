@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
-
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
-from datetime import datetime
 
-from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 cdef class BeaxyInFlightOrder(InFlightOrderBase):
@@ -32,6 +30,7 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
             initial_state
         )
         self.created_at = created_at
+        self.trade_id_set = set()
 
     @property
     def is_done(self) -> bool:
@@ -85,3 +84,32 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
         retval.fee_paid = Decimal(data['fee_paid'])
         retval.last_state = data['last_state']
         return retval
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_update: the event message received for the order fill (or trade event)
+        In the case of beaxy it is the same order update event
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["timestamp"]
+        if (str(trade_update["order_id"]) != self.exchange_order_id
+                or trade_id in self.trade_id_set
+                or trade_update["trade_size"] is None
+                or trade_update["trade_price"] is None
+                or Decimal(trade_update["filled_size"]) <= self.executed_amount_base):
+            return False
+
+        self.trade_id_set.add(trade_id)
+        trade_amount = Decimal(str(trade_update["trade_size"]))
+        trade_price = Decimal(str(trade_update["trade_price"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+
+        if trade_update["commission"]:
+            self.fee_paid += Decimal(str(trade_update["commission"]))
+            self.fee_asset = trade_update["commission_currency"]
+
+        return True

@@ -2,25 +2,27 @@ import asyncio
 import json
 import logging
 from async_timeout import timeout
-from datetime import datetime, timedelta
 from decimal import Decimal
-from libc.stdint cimport int64_t
+from datetime import datetime, timedelta
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from aiohttp.client_exceptions import ContentTypeError
+from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
+from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
+from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
+from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
+from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
+from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
+from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -36,14 +38,10 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
-
-from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
-from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
-from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
-from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
-from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
-from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
-from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonceß
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -200,6 +198,10 @@ cdef class BeaxyExchange(ExchangeBase):
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
         }
+
+    @property
+    def user_stream_tracker(self) -> BeaxyUserStreamTracker:
+        return self._user_stream_tracker
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -870,80 +872,36 @@ cdef class BeaxyExchange(ExchangeBase):
                         continue
 
                     if not tracked_order.exchange_order_id:
-                        tracked_order.exchange_order_id = exchange_order_id
+                        tracked_order.update_exchange_order_id(exchange_order_id)
 
                     execute_price = s_decimal_0
                     execute_amount_diff = s_decimal_0
 
-                    if order_status == 'partially_filled':
-                        order_filled_size = Decimal(str(order['trade_size']))
-                        execute_price = Decimal(str(order['trade_price']))
+                    updated = tracked_order.update_with_trade_update(order)
 
-                        execute_amount_diff = order_filled_size - tracked_order.executed_amount_base
+                    if updated:
+                        fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
+                        fee_amount = Decimal(order['commission']) or Decimal(0)
 
-                        if execute_amount_diff > s_decimal_0:
+                        self.logger().info(f'Filled {Decimal(order["trade_size"])} out of {tracked_order.amount} of the '
+                                           f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
 
-                            tracked_order.executed_amount_base = order_filled_size
-                            tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                             OrderFilledEvent(
+                                                 self._current_timestamp,
+                                                 tracked_order.client_order_id,
+                                                 tracked_order.trading_pair,
+                                                 tracked_order.trade_type,
+                                                 tracked_order.order_type,
+                                                 Decimal(order["trade_price"]),
+                                                 Decimal(order["trade_size"]),
+                                                 TradeFee(
+                                                     percent=Decimal(0.0),
+                                                     flat_fees=[(fee_asset, fee_amount)]),
+                                                 exchange_trade_id=exchange_order_id
+                                             ))
 
-                            self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
-                                               f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
-
-                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                                 OrderFilledEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.trading_pair,
-                                                     tracked_order.trade_type,
-                                                     tracked_order.order_type,
-                                                     execute_price,
-                                                     execute_amount_diff,
-                                                     self.c_get_fee(
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         tracked_order.order_type,
-                                                         tracked_order.trade_type,
-                                                         execute_price,
-                                                         execute_amount_diff,
-                                                     ),
-                                                     exchange_trade_id=exchange_order_id
-                                                 ))
-
-                    elif order_status == 'completely_filled':
-
-                        new_confirmed_amount = Decimal(str(order['size']))
-                        execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                        execute_price = Decimal(str(order['limit_price'] if order['limit_price'] else order['average_price']))
-
-                        # Emit event if executed amount is greater than 0.
-                        if execute_amount_diff > s_decimal_0:
-
-                            tracked_order.executed_amount_base = execute_amount_diff
-                            tracked_order.executed_amount_quote += execute_amount_diff * execute_price
-
-                            order_type_description = tracked_order.order_type_description
-                            order_filled_event = OrderFilledEvent(
-                                self._current_timestamp,
-                                tracked_order.client_order_id,
-                                tracked_order.trading_pair,
-                                tracked_order.trade_type,
-                                tracked_order.order_type,
-                                execute_price,
-                                execute_amount_diff,
-                                self.c_get_fee(
-                                    tracked_order.base_asset,
-                                    tracked_order.quote_asset,
-                                    tracked_order.order_type,
-                                    tracked_order.trade_type,
-                                    execute_price,
-                                    execute_amount_diff,
-                                ),
-                                exchange_trade_id=exchange_order_id,
-                            )
-                            self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
-                                               f'{order_type_description} order {client_order_id}.')
-                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-
+                    if order_status == 'completely_filled':
                         if tracked_order.trade_type == TradeType.BUY:
                             self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
                                                f'according to Beaxy user stream.')
@@ -1125,6 +1083,16 @@ cdef class BeaxyExchange(ExchangeBase):
         if trading_pair not in order_books:
             raise ValueError(f'No order book exists for "{trading_pair}".')
         return order_books[trading_pair]
+
+    def start_tracking_order(self,
+                             order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        """Helper method for testing."""
+        self.c_start_tracking_order(order_id, trading_pair, order_type, trade_type, price, amount)
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,
