@@ -1,4 +1,3 @@
-import traceback
 from decimal import Decimal
 from typing import (
     Set,
@@ -61,7 +60,7 @@ async def start_trade_monitor(trade_monitor):
 
     while True:
         try:
-            trade_monitor.log(
+            hb.logger().debug(
                 f"Running start_trade_monitor loop: {hb.strategy_task}, {hb.strategy_task.done()}"
                 f" :: hb id = {id(hb)}, main app id = {id(HummingbotApplication.main_application())}"
             )
@@ -69,7 +68,7 @@ async def start_trade_monitor(trade_monitor):
                 if all(market.ready for market in hb.markets.values()):
                     trades: List[TradeFill] = hb._get_trades_from_session(int(hb.init_time * 1e3),
                                                                           config_file_path=hb.strategy_file_name)
-                    trade_monitor.log(f"start_trade_monitor trades: {trades}")
+                    hb.logger().debug(f"start_trade_monitor trades: {trades}")
                     if len(trades) > 0:
                         market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
                         for market, symbol in market_info:
@@ -89,5 +88,5 @@ async def start_trade_monitor(trade_monitor):
                         pnls.clear()
             await _sleep(2)  # sleeping for longer to manage resources
         except Exception:
-            trade_monitor.log(f"start_trade_monitor failed.\n{traceback.format_exc()}")
+            hb.logger().exception("start_trade_monitor failed.")
             raise
