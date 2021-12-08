@@ -22,9 +22,6 @@ class MexcWebSocketAdaptor:
     SUBSCRIPTION_LIST = set([DEAL_CHANNEL_ID, DEPTH_CHANNEL_ID])
 
     _ID_FIELD_NAME = "id"
-    # _METHOD_FIELD_NAME = "method"
-    # _NONCE_FIELD_NAME = "nonce"
-    # _PARAMS_FIELD_NAME = "params"
 
     _logger: Optional[HummingbotLogger] = None
 
