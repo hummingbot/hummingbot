@@ -16,11 +16,11 @@ You can initially try out `hummingbot` in your browser without installing anythi
 ### 💻 Binary (Mac/Windows)
 
 !!! warning
-    Binary releases are no longer maintained. The last available version is 0.44.
+    Binary releases are no longer maintained. The last available version is 0.46.
 
 Download and run the binary installer to install the last available binary release of Hummingbot:
 
-[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.44.0_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.44.0.dmg){ .md-button }
+[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.46.0_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.46.0.dmg){ .md-button }
 
 ### 🐳 Docker
 
