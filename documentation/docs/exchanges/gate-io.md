@@ -16,6 +16,7 @@ tags:
 * Transaction fees: https://www.gate.io/fee
 * Minimum order size: https://support.gate.io/hc/en-us/articles/360000808414-What-is-minimum-order-size-
 * Creating API keys: https://support.gate.io/hc/en-us/articles/900000114363-What-are-APIKey-and-APIV4keys-for-
+* Referral link: https://www.gate.io/signup/5868285
 
 ## 👷 Maintenance
 

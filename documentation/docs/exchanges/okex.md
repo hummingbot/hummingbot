@@ -16,6 +16,7 @@ tags:
 * Transaction fees: https://www.okex.com/fees.html
 * Minimum order size: https://www.okex.com/support/hc/en-us/articles/360059776832-OKEx-to-adjust-minimum-order-amounts-for-some-spot-and-margin-trading-pairs
 * Creating API keys: https://www.okex.com/academy/en/complete-guide-to-okex-api-v5-upgrade
+* Referral link: https://www.okex.com/join/1931920
 
 ## 👷 Maintenance
 
