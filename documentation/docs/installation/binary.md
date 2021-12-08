@@ -26,7 +26,7 @@ When you start Hummingbot for the first time, it will ask for permission to laun
 
 ### Application data files
 
-For the macOS .dmg distribution, the application data files are located in `~/Library/Application\ Support/Hummingbot`
+For the macOS .dmg distribution, the application data files are located in `~/Library/Application\ Support/Hummingbot`.
 
 ## Windows
 
