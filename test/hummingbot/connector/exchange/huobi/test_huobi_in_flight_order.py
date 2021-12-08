@@ -5,7 +5,7 @@ from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFli
 from hummingbot.core.event.events import OrderType, TradeType
 
 
-class BittrexInFlightOrderTests(TestCase):
+class HuobiInFlightOrderTests(TestCase):
 
     def setUp(self):
         super().setUp()
