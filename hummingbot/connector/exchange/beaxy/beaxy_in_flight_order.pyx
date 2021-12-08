@@ -1,12 +1,25 @@
+import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.logger import HummingbotLogger
+
+s_logger = None
 
 
 cdef class BeaxyInFlightOrder(InFlightOrderBase):
+    _logger = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(__name__)
+        return s_logger
+
     def __init__(
         self,
         client_order_id: str,
@@ -98,6 +111,7 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
                 or trade_update["trade_size"] is None
                 or trade_update["trade_price"] is None
                 or Decimal(trade_update["filled_size"]) <= self.executed_amount_base):
+            self.logger().info(f"\n*** Will not update inflight order\ntrade_id={trade_id} - trade_size={trade_update['trade_size']} - trade_price={trade_update['trade_price']} - filled_size={trade_update['filled_size']}\n{self.trade_id_set}")
             return False
 
         self.trade_id_set.add(trade_id)

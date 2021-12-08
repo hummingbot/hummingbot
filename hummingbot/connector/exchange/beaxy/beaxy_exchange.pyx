@@ -41,7 +41,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonceß
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -868,7 +868,7 @@ cdef class BeaxyExchange(ExchangeBase):
                     tracked_order = self._in_flight_orders.get(client_order_id)
 
                     if tracked_order is None:
-                        self.logger().debug(f'Didn`rt find order with id {client_order_id}')
+                        self.logger().debug(f'Didn\'t find order with id {client_order_id}')
                         continue
 
                     if not tracked_order.exchange_order_id:
@@ -881,7 +881,7 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     if updated:
                         fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
-                        fee_amount = Decimal(order['commission']) or Decimal(0)
+                        fee_amount = order['commission'] or "0"
 
                         self.logger().info(f'Filled {Decimal(order["trade_size"])} out of {tracked_order.amount} of the '
                                            f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
@@ -897,7 +897,7 @@ cdef class BeaxyExchange(ExchangeBase):
                                                  Decimal(order["trade_size"]),
                                                  TradeFee(
                                                      percent=Decimal(0.0),
-                                                     flat_fees=[(fee_asset, fee_amount)]),
+                                                     flat_fees=[(fee_asset, Decimal(fee_amount))]),
                                                  exchange_trade_id=exchange_order_id
                                              ))
 

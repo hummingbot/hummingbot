@@ -63,6 +63,7 @@ class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _listen_for_orders(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         async for msg in self.__listen_ws(BeaxyConstants.TradingApi.WS_ORDERS_ENDPOINT):
+            self.logger().info(f"\n***\n{msg}\n***")
             output.put_nowait([BeaxyConstants.UserStream.ORDER_MESSAGE, msg])
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):

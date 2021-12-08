@@ -199,3 +199,68 @@ class BeaxyExchangeTests(TestCase):
         buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
         self.assertEqual(Decimal(40), buy_complete_event.fee_amount)
         self.assertEqual(complete_fill["commission_currency"], buy_complete_event.fee_asset)
+
+    def test_order_fill_event_with_no_fee(self):
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+        order.update_exchange_order_id("EOID1")
+
+        partial_fill = {
+            "order_id": "EOID1",
+            "symbol": "BTCUSDT",
+            "wallet_id": "8576DAF5-E033-46C6-8EFD-385F8A4662F7",
+            "comment": "OID1",
+            "time_in_force": "good_till_cancel",
+            "order_type": "limit",
+            "side": "buy",
+            "order_status": "partially_filled",
+            "size": "1.0",
+            "trade_size": "0.1",
+            "trade_price": "10050.0",
+            "limit_price": "10000",
+            "stop_price": "None",
+            "filled_size": "0.1",
+            "average_price": "10000.0",
+            "open_time": "2021-12-08T13:15:14.779Z",
+            "close_time": "2021-12-08T13:15:14.787Z",
+            "commission": None,
+            "commission_currency": None,
+            "timestamp": "2021-12-08T13:15:14.785Z"
+        }
+
+        message = [BeaxyConstants.UserStream.ORDER_MESSAGE,
+                   {
+                       "stream": "order",
+                       "data": partial_fill,
+                       "type": "update",
+                   }]
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: message)
+
+        self.exchange.user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertEqual(Decimal(0), order.fee_paid)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([(order.quote_asset, Decimal(0))], fill_event.trade_fee.flat_fees)
+        self.assertTrue(self._is_logged(
+            "INFO",
+            f"Filled {Decimal(partial_fill['trade_size'])} out of {order.amount} of the "
+            f"{order.order_type_description} order {order.client_order_id}"
+        ))
+
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
