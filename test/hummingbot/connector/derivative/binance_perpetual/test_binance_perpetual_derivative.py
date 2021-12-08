@@ -14,9 +14,15 @@ from aioresponses.core import aioresponses
 from typing import Any, Awaitable, List, Dict, Optional, Callable
 from unittest.mock import patch, AsyncMock
 
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import PositionMode, OrderType, TradeType, PositionAction, MarketEvent, \
-    OrderFilledEvent, BuyOrderCompletedEvent, SellOrderCompletedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    SellOrderCompletedEvent,
+    TradeType,
+)
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -67,21 +73,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
         super().tearDown()
-
-    def _initialize_event_loggers(self):
-        self.buy_order_completed_logger = EventLogger()
-        self.sell_order_completed_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
-        self.order_filled_logger = EventLogger()
-
-        events_and_loggers = [
-            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
-            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger)]
-
-        for event, logger in events_and_loggers:
-            self.exchange.add_listener(event, logger)
 
     def handle(self, record):
         self.log_records.append(record)
