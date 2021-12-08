@@ -2,7 +2,7 @@
 
 For experienced and technical users, we recommend setting up a cloud instance and installing the Docker version or from source. This enables Hummingbot to run 24/7.
 
-Hummingot Docker instances takes up around 500 MB of storage space and 4 GB for Hummingbot Docker image. We thave ested to install and run Hummingbot on the following machine types:
+Hummingot Docker instances takes up around 500 MB of storage space and 4 GB for Hummingbot Docker image. We have ested to install and run Hummingbot on the following machine types:
 
 | Provider              | Instance Type   | Instance Details      |
 | --------------------- | --------------- | --------------------- |
