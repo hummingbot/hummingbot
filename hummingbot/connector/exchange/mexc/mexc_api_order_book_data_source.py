@@ -145,9 +145,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if status != 200:
                     raise IOError(f"Error fetching MEXC market snapshot for {trading_pair}. "
                                   f"HTTP status is {status}.")
-                # api_data = await response.read()
                 api_data = await response.json()
-                # data: Dict[str, Any] = json.loads(api_data)['data']
                 data = api_data['data']
                 data['ts'] = microseconds()
 
