@@ -42,9 +42,6 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self, throttler: AsyncThrottler, mexc_auth: MexcAuth, trading_pairs: Optional[List[str]] = [],
                  shared_client: Optional[aiohttp.ClientSession] = None):
         self._shared_client = shared_client or self._get_session_instance()
-        # self._current_listen_key = None
-        # self._current_endpoint = None
-        # self._listen_for_user_stram_task = None
         self._last_recv_time: float = 0
         self._auth: MexcAuth = mexc_auth
         self._trading_pairs = trading_pairs
@@ -103,8 +100,6 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error("Unexpected error with WebSocket connection ,Retrying after 30 seconds..." + str(ex),
                                     exc_info=True)
                 await asyncio.sleep(30.0)
-            # finally:
-                # await session.close()
 
     async def _inner_messages(self,
                               ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
@@ -120,5 +115,3 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return
         except ConnectionError:
             return
-        # finally:
-        #     await ws.close()
