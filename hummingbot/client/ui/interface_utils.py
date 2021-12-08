@@ -61,7 +61,7 @@ async def start_trade_monitor(trade_monitor):
     while True:
         try:
             hb.logger().debug(
-                f"Running start_trade_monitor loop: {hb.strategy_task}, {hb.strategy_task.done()}"
+                f"Running start_trade_monitor loop: {hb.strategy_task}"
                 f" :: hb id = {id(hb)}, main app id = {id(HummingbotApplication.main_application())}"
             )
             if hb.strategy_task is not None and not hb.strategy_task.done():
