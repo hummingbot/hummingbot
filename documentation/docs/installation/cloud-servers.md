@@ -14,7 +14,7 @@ These instances are pre-loaded with system files that takes up around 1.2 GB so 
 
 ## More Resources
 
-Read our blog post about running [Hummingbot on different cloud providers](https://www.hummingbot.io/blog/2019-06-cloud-providers/).
+Read our blog post about running [Hummingbot on different cloud providers](https://www.hummingbot.io/blog/2019-06-cloud-providers/)
 
 Provider resources:
 
