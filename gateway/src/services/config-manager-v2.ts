@@ -259,7 +259,7 @@ export class ConfigManagerV2 {
         // copy from template
         fs.copyFileSync(path.join(ConfigTemplatesDir, 'root.yml'), rootPath);
       }
-      ConfigManagerV2._instance = new ConfigManagerV2('./conf/root.yml');
+      ConfigManagerV2._instance = new ConfigManagerV2(rootPath);
     }
     return ConfigManagerV2._instance;
   }
