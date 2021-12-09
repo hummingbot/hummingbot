@@ -111,7 +111,6 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
                 or trade_update["trade_size"] is None
                 or trade_update["trade_price"] is None
                 or Decimal(trade_update["filled_size"]) <= self.executed_amount_base):
-            self.logger().info(f"\n*** Will not update inflight order\ntrade_id={trade_id} - trade_size={trade_update['trade_size']} - trade_price={trade_update['trade_price']} - filled_size={trade_update['filled_size']}\n{self.trade_id_set}")
             return False
 
         self.trade_id_set.add(trade_id)
