@@ -205,6 +205,12 @@ describe('Configuration manager v2 tests', () => {
     expect(allConfigs.ethereum.networks.kovan.chainID).toEqual(42);
     done();
   });
+
+  it('Get instance', (done) => {
+    const configManager = ConfigManagerV2.getInstance();
+    expect(configManager.allConfigurations.telemetry.enabled).toEqual(false);
+    done();
+  });
 });
 
 describe('Sample configurations', () => {
