@@ -197,6 +197,14 @@ describe('Configuration manager v2 tests', () => {
     expect(templateObj.l.n).toEqual([1, 2, 3]);
     done();
   });
+
+  it('Get all configuration', (done) => {
+    const allConfigs = configManager.allConfigurations;
+    expect(allConfigs.ssl.keyPath).toEqual('gateway.key');
+    expect(allConfigs.ssl.passPhrasePath).toEqual('gateway.passwd');
+    expect(allConfigs.ethereum.networks.kovan.chainID).toEqual(42);
+    done();
+  });
 });
 
 describe('Sample configurations', () => {
