@@ -2,7 +2,6 @@ import { logger } from '../../services/logger';
 import { ConfigManager } from '../../services/config-manager';
 import { TokenValue, countDecimals} from '../../services/base';
 import NodeCache from "node-cache";
-// @ts-ignore
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
 import {
@@ -157,12 +156,10 @@ export class Solana {
   // returns Keypair for a private key, which should be encoded in Base58
   getWallet(privateKey: string): Keypair {
     const decoded = bs58.decode(privateKey);
-    if (decoded.length != 32) {
-      throw new Error(`Invalid public key input`);
-    }
     return Keypair.fromSecretKey(decoded);
   }
 
+  async getBalance(wallet: Keypair): Promise<string, TokenValue>
   // returns the SOL balance, convert BigNumber to string
   async getSolBalance(wallet: Keypair): Promise<TokenValue> {
     const lamports = await this.connection.getBalance(wallet.publicKey);
