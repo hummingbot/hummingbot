@@ -73,7 +73,6 @@ kraken_secret_key: null
 crypto_com_api_key: null
 crypto_com_secret_key: null
 
-
 hitbtc_api_key: null
 hitbtc_secret_key: null
 
@@ -115,8 +114,8 @@ ethereum_rpc_ws_url: null
 ethereum_chain_name: MAIN_NET
 ethereum_token_list_url: https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
 
-# bsc_wallet: 
-# bsc_rpc_url: 
+# bsc_wallet:
+# bsc_rpc_url:
 # bsc_rpc_ws_url: null
 # bsc_chain_name: MAIN_NET
 bsc_token_list_url: https://dex.binance.org/api/v1/tokens
@@ -148,6 +147,10 @@ paper_trade_account_balance:
 telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
+
+slack_enabled: false
+slack_token: null
+slack_channel: null
 
 # Error log sharing
 send_error_logs: null
@@ -214,17 +217,15 @@ heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
 
-
-
 # Command Shortcuts
 # Define abbreviations for often used commands
 # or batch grouped commands together
 #
 command_shortcuts:
-- command: spreads
-  help: Set bid and ask spread
-  arguments: ['Bid Spread', 'Ask Spread']
-  output: ['config bid_spread $1', 'config ask_spread $2']
+  - command: spreads
+    help: Set bid and ask spread
+    arguments: ["Bid Spread", "Ask Spread"]
+    output: ["config bid_spread $1", "config ask_spread $2"]
 
 # A source for rate oracle, currently binance or coingecko
 rate_oracle_source:

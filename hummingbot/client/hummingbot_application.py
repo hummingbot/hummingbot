@@ -31,7 +31,8 @@ from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.notifier.telegram_notifier import TelegramNotifier
+# from hummingbot.notifier.telegram_notifier import TelegramNotifier
+from hummingbot.notifier.slack_notifier import SlackNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
@@ -289,13 +290,24 @@ class HummingbotApplication(*commands):
         self.markets_recorder.start()
 
     def _initialize_notifiers(self):
-        if global_config_map.get("telegram_enabled").value:
+        # if global_config_map.get("telegram_enabled").value:
+        #     # TODO: refactor to use single instance
+        #     if not any([isinstance(n, TelegramNotifier) for n in self.notifiers]):
+        #         self.notifiers.append(
+        #             TelegramNotifier(
+        #                 token=global_config_map["telegram_token"].value,
+        #                 chat_id=global_config_map["telegram_chat_id"].value,
+        #                 hb=self,
+        #             )
+        #         )
+        if global_config_map.get("slack_enabled").value:
             # TODO: refactor to use single instance
-            if not any([isinstance(n, TelegramNotifier) for n in self.notifiers]):
+            if not any([isinstance(n, SlackNotifier) for n in self.notifiers]):
+                print(f'notifiers : {self.notifiers}')
                 self.notifiers.append(
-                    TelegramNotifier(
-                        token=global_config_map["telegram_token"].value,
-                        chat_id=global_config_map["telegram_chat_id"].value,
+                    SlackNotifier(
+                        token=global_config_map["slack_token"].value,
+                        channel=global_config_map["slack_channel"].value,
                         hb=self,
                     )
                 )
