@@ -9,6 +9,8 @@ import {
 } from './wallet.requests';
 import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
 
+const walletPath = './conf/wallets';
+
 export async function addWallet(
   ethereum: Ethereum,
   avalanche: Avalanche,
@@ -31,7 +33,7 @@ export async function addWallet(
   }
 
   await fse.writeFile(
-    `./conf/wallets/${req.chainName}/${address}.json`,
+    `${walletPath}/${req.chainName}/${address}.json`,
     encryptedPrivateKey
   );
 }
@@ -50,6 +52,40 @@ export async function getDirectories(source: string): Promise<string[]> {
     .map((dirent) => dirent.name);
 }
 
+export function getLastPath(path: string): string {
+  return path.split('/').slice(-1)[0];
+}
+
+export function dropExtension(path: string): string {
+  return path.substr(0, path.lastIndexOf('.')) || path;
+}
+
+export async function getJsonFiles(source: string): Promise<string[]> {
+  const files = await fse.readdir(source, { withFileTypes: true });
+  return files
+    .filter((f) => f.isFile() && f.name.endsWith('.json'))
+    .map((f) => f.name);
+}
+
 export async function getWallets(): Promise<GetWalletResponse[]> {
-  return [];
+  const walletDirs = await getDirectories(walletPath);
+
+  const responses: GetWalletResponse[] = [];
+  let walletFiles: string[] = [];
+  for (const walletDir of walletDirs) {
+    const files = await getJsonFiles(walletDir);
+    const chain = getLastPath(walletDir);
+    walletFiles = walletFiles.concat(files);
+
+    const response: GetWalletResponse = { chain, walletAddresses: [] };
+
+    for (const walletFile of walletFiles) {
+      const address = dropExtension(getLastPath(walletFile));
+      response.walletAddresses.push(address);
+    }
+
+    responses.push(response);
+  }
+
+  return responses;
 }
