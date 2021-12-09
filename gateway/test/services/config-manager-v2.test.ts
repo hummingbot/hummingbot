@@ -207,7 +207,9 @@ describe('Configuration manager v2 tests', () => {
   });
 
   it('Get instance', (done) => {
-    const configManager = ConfigManagerV2.getInstance();
+    let configManager = ConfigManagerV2.getInstance();
+    expect(configManager.allConfigurations.telemetry.enabled).toEqual(false);
+    configManager = ConfigManagerV2.getInstance();
     expect(configManager.allConfigurations.telemetry.enabled).toEqual(false);
     done();
   });
