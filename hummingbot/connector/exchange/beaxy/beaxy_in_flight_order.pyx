@@ -1,24 +1,12 @@
-import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.logger import HummingbotLogger
-
-s_logger = None
 
 
 cdef class BeaxyInFlightOrder(InFlightOrderBase):
-    _logger = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
 
     def __init__(
         self,
