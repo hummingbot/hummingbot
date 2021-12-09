@@ -34,6 +34,8 @@ export const ConfigRootSchemaPath: string = path.join(
   'schema/configuration-root-schema.json'
 );
 const ConfigTemplatesDir: string = path.join(__dirname, '../templates/');
+const ConfigDir: string = path.join(__dirname, '../../conf/');
+
 interface UnpackedConfigNamespace {
   namespace: ConfigurationNamespace;
   configPath: string;
@@ -252,12 +254,10 @@ export class ConfigManagerV2 {
 
   public static getInstance(): ConfigManagerV2 {
     if (!ConfigManagerV2._instance) {
-      if (!fs.existsSync('./conf/root.yml')) {
+      const rootPath = path.join(ConfigDir, 'root.yml');
+      if (!fs.existsSync(rootPath)) {
         // copy from template
-        fs.copyFileSync(
-          path.join(ConfigTemplatesDir, 'root.yml'),
-          './conf/root.yml'
-        );
+        fs.copyFileSync(path.join(ConfigTemplatesDir, 'root.yml'), rootPath);
       }
       ConfigManagerV2._instance = new ConfigManagerV2('./conf/root.yml');
     }
