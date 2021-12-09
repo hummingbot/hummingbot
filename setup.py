@@ -3,9 +3,9 @@ import os
 import subprocess
 import sys
 
-from os import path
-from setuptools import setup
+from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
+
 from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
@@ -33,66 +33,8 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20211102"
-    packages = [
-        "hummingbot",
-        "hummingbot.client",
-        "hummingbot.client.command",
-        "hummingbot.client.config",
-        "hummingbot.client.ui",
-        "hummingbot.core",
-        "hummingbot.core.data_type",
-        "hummingbot.core.event",
-        "hummingbot.core.management",
-        "hummingbot.core.utils",
-        "hummingbot.core.rate_oracle",
-        "hummingbot.data_feed",
-        "hummingbot.logger",
-        "hummingbot.connector",
-        "hummingbot.connector.connector",
-        "hummingbot.connector.connector.balancer",
-        "hummingbot.connector.connector.terra",
-        "hummingbot.connector.exchange",
-        "hummingbot.connector.exchange.ascend_ex",
-        "hummingbot.connector.exchange.beaxy",
-        "hummingbot.connector.exchange.binance",
-        "hummingbot.connector.exchange.bitfinex",
-        "hummingbot.connector.exchange.bittrex",
-        "hummingbot.connector.exchange.coinbase_pro",
-        "hummingbot.connector.exchange.coinzoom",
-        "hummingbot.connector.exchange.crypto_com",
-        "hummingbot.connector.exchange.dydx",
-        "hummingbot.connector.exchange.gate_io",
-        "hummingbot.connector.exchange.hitbtc",
-        "hummingbot.connector.exchange.huobi",
-        "hummingbot.connector.exchange.k2",
-        "hummingbot.connector.exchange.kraken",
-        "hummingbot.connector.exchange.bitmart",
-        "hummingbot.connector.exchange.crypto_com",
-        "hummingbot.connector.exchange.kucoin",
-        "hummingbot.connector.exchange.liquid",
-        "hummingbot.connector.exchange.loopring",
-        "hummingbot.connector.exchange.ndax",
-        "hummingbot.connector.exchange.okex",
-        "hummingbot.connector.exchange.probit",
-        "hummingbot.connector.derivative",
-        "hummingbot.connector.derivative.binance_perpetual",
-        "hummingbot.connector.derivative.bybit_perpetual",
-        "hummingbot.model",
-        "hummingbot.script",
-        "hummingbot.strategy",
-        "hummingbot.strategy.amm_arb",
-        "hummingbot.strategy.arbitrage",
-        "hummingbot.strategy.cross_exchange_market_making",
-        "hummingbot.strategy.pure_market_making",
-        "hummingbot.strategy.perpetual_market_making",
-        "hummingbot.strategy.aroon_oscillator",
-        "hummingbot.strategy.avellaneda_market_making",
-        "hummingbot.strategy.hedge",
-        "hummingbot.strategy.__utils__",
-        "hummingbot.strategy.__utils__.trailing_indicators",
-        "hummingbot.templates",
-    ]
+    version = "20211201"
+    packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [
             "core/cpp/*",
@@ -143,11 +85,12 @@ def main():
         "requests",
         "rsa",
         "ruamel-yaml",
+        "scipy",
         "signalr-client-aio",
         "simplejson",
         "six",
         "sqlalchemy",
-        "txlocal",
+        "tzlocal",
         "ujson",
         "web3",
         "websockets",
@@ -160,7 +103,7 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if path.exists('test'):
+    if os.path.exists('test'):
         cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):

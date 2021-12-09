@@ -386,6 +386,48 @@ color_config_map = {
                   required_if=lambda: False,
                   validator=validate_color,
                   default="#00FFE5"),
+    "primary-label":
+        ConfigVar(key="primary-label",
+                  prompt="What is the background color for primary label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#5FFFD7"),
+    "secondary-label":
+        ConfigVar(key="secondary-label",
+                  prompt="What is the background color for secondary label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#FFFFFF"),
+    "success-label":
+        ConfigVar(key="success-label",
+                  prompt="What is the background color for success label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#5FFFD7"),
+    "warning-label":
+        ConfigVar(key="warning-label",
+                  prompt="What is the background color for warning label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#FFFF00"),
+    "info-label":
+        ConfigVar(key="info-label",
+                  prompt="What is the background color for info label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#5FD7FF"),
+    "error-label":
+        ConfigVar(key="error-label",
+                  prompt="What is the background color for error label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#FF0000"),
 }
 
 paper_trade_config_map = {

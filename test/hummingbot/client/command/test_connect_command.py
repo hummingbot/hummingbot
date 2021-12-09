@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Awaitable
 from unittest.mock import patch, MagicMock, AsyncMock
 
+from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
@@ -14,6 +15,9 @@ class ConnectCommandTest(unittest.TestCase):
     def setUp(self, _: MagicMock) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
+
+        self.async_run_with_timeout(read_system_configs_from_yml())
+
         self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
@@ -64,26 +68,20 @@ class ConnectCommandTest(unittest.TestCase):
         add_exchange_mock: AsyncMock,
         api_keys_mock: AsyncMock,
         encrypted_file_exists_mock: MagicMock,
-        _: MagicMock
+        _: MagicMock,
     ):
         add_exchange_mock.return_value = None
         exchange = "binance"
         api_key = "someKey"
         api_secret = "someSecret"
-        api_keys_mock.return_value = {
-            "binance_api_key": api_key, "binance_api_secret": api_secret
-        }
+        api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
         encrypted_file_exists_mock.return_value = False
         global_config_map["other_commands_timeout"].value = 30
         self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
         self.async_run_with_timeout(self.app.connect_exchange(exchange))
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(
-                msg=f"\nYou are now connected to {exchange}."
-            )
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg=f"\nYou are now connected to {exchange}."))
         self.assertFalse(self.app.placeholder_mode)
         self.assertFalse(self.app.app.hide_input)
 
@@ -96,23 +94,19 @@ class ConnectCommandTest(unittest.TestCase):
         add_exchange_mock: AsyncMock,
         api_keys_mock: AsyncMock,
         encrypted_file_exists_mock: MagicMock,
-        _: MagicMock
+        _: MagicMock,
     ):
         add_exchange_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         global_config_map["other_commands_timeout"].value = 0.01
         api_key = "someKey"
         api_secret = "someSecret"
-        api_keys_mock.return_value = {
-            "binance_api_key": api_key, "binance_api_secret": api_secret
-        }
+        api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
         encrypted_file_exists_mock.return_value = False
         self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.connect_exchange("binance")
-            )
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connect_exchange("binance"))
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg="\nA network error prevented the connection to complete. See logs for more details."
