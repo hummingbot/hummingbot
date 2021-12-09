@@ -16,7 +16,7 @@ CERT_PASSPHRASE: ''
 # chain environments
 ETHEREUM_CHAIN: mainnet
 AVALANCHE_CHAIN: avalanche
-SOLANA_CHAIN: mainnet-beta
+SOLANA_CLUSTER: mainnet-beta
 
 # Infura
 INFURA_KEY: ''
