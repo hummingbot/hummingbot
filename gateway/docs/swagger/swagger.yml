@@ -1,0 +1,30 @@
+swagger: '2.0'
+
+info:
+  description: 'Gateway allows clients to interoperate with blockchains and DeFi protocols via a REST API. This allows for a language agnostic way to use official SDKs for blockchains.'
+  version: '1.0.0'
+  title: 'gateway'
+  contact:
+    email: 'dev@hummingbot.io'
+  license:
+    name: 'Apache 2.0'
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+
+host: 'localhost:5000'
+
+tags:
+  - name: 'eth'
+    description: 'Ethereum'
+  - name: 'uniswap'
+    description: 'Uniswap'
+  - name: 'avalanche'
+    description: 'Avalanche'
+  - name: 'pangolin'
+    description: 'pangolin'
+
+schemes:
+  - 'http'
+
+externalDocs:
+  description: 'Find out more about gateway'
+  url: 'https://github.com/CoinAlpha/hummingbot'
