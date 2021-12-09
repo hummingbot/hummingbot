@@ -252,11 +252,15 @@ export class ConfigManagerV2 {
 
   public static getInstance(): ConfigManagerV2 {
     if (!ConfigManagerV2._instance) {
+      if (!fs.existsSync('./conf/root.yml')) {
+        // copy from template
+        fs.copyFileSync(
+          path.join(ConfigTemplatesDir, 'root.yml'),
+          './conf/root.yml'
+        );
+      }
       ConfigManagerV2._instance = new ConfigManagerV2('./conf/root.yml');
-      //   path.join(ConfigTemplatesDir, 'root.yml')
-      // );
     }
-
     return ConfigManagerV2._instance;
   }
 
