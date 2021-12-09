@@ -14,6 +14,7 @@ export namespace ConfigManager {
     CERT_PATH: string;
     ETHEREUM_CHAIN: string;
     AVALANCHE_CHAIN: string;
+    SOLANA_CHAIN: string;
     INFURA_KEY: string;
     ETH_GAS_STATION_ENABLE: boolean;
     ETH_GAS_STATION_API_KEY: string;
@@ -27,6 +28,12 @@ export namespace ConfigManager {
     PANGOLIN_ALLOWED_SLIPPAGE: string;
     PANGOLIN_GAS_LIMIT: number;
     PANGOLIN_TTL: number;
+    SOLANA_TRANSACTION_LAMPORTS: number;
+    SOLANA_LAMPORTS_TO_SOL: number;
+    SOLANA_TTL: number;
+    SOLANA_TOKEN_PROGRAM: string;
+    MANGO_GROUP: string;
+    SOLANA_CUSTOM_RPC?: string;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
     ENABLE_TELEMETRY?: boolean;
@@ -74,6 +81,7 @@ export namespace ConfigManager {
       'CERT_PATH' in o &&
       'ETHEREUM_CHAIN' in o &&
       'AVALANCHE_CHAIN' in o &&
+      'SOLANA_CHAIN' in o &&
       'INFURA_KEY' in o &&
       'ETH_GAS_STATION_ENABLE' in o &&
       'ETH_GAS_STATION_API_KEY' in o &&
@@ -88,7 +96,12 @@ export namespace ConfigManager {
       'PANGOLIN_ALLOWED_SLIPPAGE' in o &&
       percentRegexp.test(o['PANGOLIN_ALLOWED_SLIPPAGE']) &&
       'PANGOLIN_GAS_LIMIT' in o &&
-      'PANGOLIN_TTL' in o
+      'PANGOLIN_TTL' in o &&
+      'SOLANA_TRANSACTION_LAMPORTS' in o &&
+      'SOLANA_LAMPORTS_TO_SOL' in o &&
+      'SOLANA_TTL' in o &&
+      'SOLANA_TOKEN_PROGRAM' in o &&
+      'MANGO_GROUP' in o
     );
   }
 

@@ -12,6 +12,14 @@ const stringInsert = (str: string, val: string, index: number) => {
   return val + str;
 };
 
+// counts decimal places of a value
+// from: https://stackoverflow.com/a/17369384
+export const countDecimals = (value: number): number => {
+    if ((value % 1) != 0)
+        return value.toString().split(".")[1].length;
+    return 0;
+};
+
 // convert a BigNumber and the number of decimals into a numeric string.
 // this makes it JavaScript compatible while preserving all the data.
 export const bigNumberWithDecimalToStr = (n: BigNumber, d: number): string => {

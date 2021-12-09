@@ -16,6 +16,7 @@ CERT_PASSPHRASE: ''
 # chain environments
 ETHEREUM_CHAIN: mainnet
 AVALANCHE_CHAIN: avalanche
+SOLANA_CHAIN: mainnet-beta
 
 # Infura
 INFURA_KEY: ''
@@ -39,6 +40,16 @@ UNISWAP_TTL: 300
 PANGOLIN_ALLOWED_SLIPPAGE: '1/100'
 PANGOLIN_GAS_LIMIT: 23012
 PANGOLIN_TTL: 300
+
+# Solana
+SOLANA_CUSTOM_RPC:
+SOLANA_TRANSACTION_LAMPORTS: 5000
+SOLANA_LAMPORTS_TO_SOL: 0.000000001
+SOLANA_TTL: 75  # After 150 slots (0.5s per slot) a transaction is dropped, if not processed
+SOLANA_TOKEN_PROGRAM: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+
+# Mango
+MANGO_GROUP: mainnet.1
 
 # Telemetry
 ENABLE_TELEMETRY: false
