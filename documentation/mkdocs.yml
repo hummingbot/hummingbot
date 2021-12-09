@@ -118,7 +118,6 @@ nav:
     - Home: index.md
     - Installation:
       - Installation: installation/index.md
-      - Binary (Mac/Win): installation/binary.md
       - Docker: installation/docker.md
       - Source: installation/source.md
       - Raspberry Pi: installation/raspberry-pi.md
