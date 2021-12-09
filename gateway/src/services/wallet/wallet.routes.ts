@@ -22,7 +22,7 @@ export namespace WalletRoutes {
   router.use(asyncHandler(verifyEthereumIsAvailable));
 
   router.post(
-    '/wallet/add',
+    'add',
     asyncHandler(
       async (
         req: Request<{}, {}, AddWalletRequest>,
@@ -35,7 +35,7 @@ export namespace WalletRoutes {
   );
 
   router.post(
-    '/wallet/remove',
+    'remove',
     asyncHandler(
       async (
         req: Request<{}, {}, RemoveWalletRequest>,
@@ -48,7 +48,7 @@ export namespace WalletRoutes {
   );
 
   router.get(
-    '/wallets',
+    'get',
     asyncHandler(async (_req, res: Response<GetWalletResponse[], {}>) => {
       const response = await getWallets();
       res.status(200).json(response);
