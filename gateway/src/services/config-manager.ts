@@ -14,7 +14,7 @@ export namespace ConfigManager {
     CERT_PATH: string;
     ETHEREUM_CHAIN: string;
     AVALANCHE_CHAIN: string;
-    SOLANA_CHAIN: string;
+    SOLANA_CLUSTER: string;
     INFURA_KEY: string;
     ETH_GAS_STATION_ENABLE: boolean;
     ETH_GAS_STATION_API_KEY: string;
@@ -81,7 +81,7 @@ export namespace ConfigManager {
       'CERT_PATH' in o &&
       'ETHEREUM_CHAIN' in o &&
       'AVALANCHE_CHAIN' in o &&
-      'SOLANA_CHAIN' in o &&
+      'SOLANA_CLUSTER' in o &&
       'INFURA_KEY' in o &&
       'ETH_GAS_STATION_ENABLE' in o &&
       'ETH_GAS_STATION_API_KEY' in o &&

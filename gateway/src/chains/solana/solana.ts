@@ -2,6 +2,7 @@ import { logger } from '../../services/logger';
 import { ConfigManager } from '../../services/config-manager';
 import { TokenValue, countDecimals} from '../../services/base';
 import NodeCache from "node-cache";
+// @ts-ignore
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
 import {
@@ -14,7 +15,10 @@ import {
   LogsCallback,
   SlotUpdateCallback, TransactionResponse
 } from "@solana/web3.js";
-import {Token as TokenProgram} from "@solana/spl-token";
+import {
+  Token as TokenProgram,
+  AccountInfo as TokenAccount
+} from "@solana/spl-token";
 import {TokenListProvider, TokenInfo} from "@solana/spl-token-registry";
 
 export class Solana {
@@ -33,7 +37,7 @@ export class Solana {
   private readonly _lamportDecimals: number;
   private readonly _nativeTokenSymbol: string;
   private readonly _tokenProgramAddress: PublicKey;
-  private readonly _chainSlug: string;
+  private readonly _cluster: string;
   private readonly _metricsLogInterval: number;
   // there are async values set in the constructor
   private _ready: boolean = false;
@@ -41,10 +45,10 @@ export class Solana {
   private _initPromise: Promise<void> = Promise.resolve();
 
   constructor() {
-    this._chainSlug = ConfigManager.config.SOLANA_CHAIN
+    this._cluster = ConfigManager.config.SOLANA_CLUSTER
 
     if(ConfigManager.config.SOLANA_CUSTOM_RPC == null) {
-      switch (this._chainSlug) {
+      switch (this._cluster) {
         case 'mainnet-beta':
           this.rpcUrl = 'https://mainnet.infura.io/v3/'
           break;
@@ -130,7 +134,7 @@ export class Solana {
   // returns a Tokens for a given list source and list type
   async getTokenList(): Promise<TokenInfo[]> {
     const tokens = await new TokenListProvider().resolve()
-    return tokens.filterByClusterSlug(this._chainSlug).getList()
+    return tokens.filterByClusterSlug(this._cluster).getList()
   }
 
   // returns the price of 1 lamport in SOL
@@ -181,27 +185,27 @@ export class Solana {
     return this.tokenResponseToTokenValue(response.value[0].account.data.parsed['info']['tokenAmount']);
   }
 
-  // returns whether the token account is initialized
+  // returns whether the token account is initialized, given its mint address
   async isTokenAccountInitialized(
     wallet: Keypair,
-    tokenAddress: PublicKey
+    mintAddress: PublicKey
   ): Promise<boolean> {
-    const tokenProgram = new TokenProgram(this._connection, tokenAddress, this._tokenProgramAddress, wallet)
-    try {
-      await tokenProgram.getAccountInfo(tokenAddress)
-    } catch (err: any) {
-      if (err.message === 'Failed to find account' || err.message === 'Invalid account owner')
-        return false
-      else
-        throw err
+    const response = await this.connection.getParsedTokenAccountsByOwner(
+        wallet.publicKey,
+        {programId: this._tokenProgramAddress}
+    )
+    for(let accountInfo of response.value) {
+      if(accountInfo.account.data.parsed['info']['mint'] == mintAddress.toBase58())
+        return true;
     }
-    return true
+    return false;
   }
 
-  // adds token account to signing wallet, to be able to receive tokens
-  async initializeTokenAccount(wallet: Keypair, tokenAddress: PublicKey): Promise<PublicKey> {
+  // Gets token account information, or creates a new token account for given token mint address
+  // if needed, which costs 0.035 SOL
+  async getOrCreateAssociatedTokenAccount(wallet: Keypair, tokenAddress: PublicKey): Promise<TokenAccount> {
     const tokenProgram = new TokenProgram(this._connection, tokenAddress, this._tokenProgramAddress, wallet)
-    return await tokenProgram.createAssociatedTokenAccount(wallet.publicKey)
+    return await tokenProgram.getOrCreateAssociatedAccountInfo(wallet.publicKey)
   }
 
   // returns an ethereum TransactionResponse for a txHash.
@@ -240,8 +244,8 @@ export class Solana {
     this._requestCount = 0; // reset
   }
 
-  public get chainSlug(): string {
-    return this._chainSlug;
+  public get cluster(): string {
+    return this._cluster;
   }
 
   public get nativeTokenSymbol(): string {
