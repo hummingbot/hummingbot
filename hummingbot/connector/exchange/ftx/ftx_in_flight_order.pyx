@@ -1,13 +1,10 @@
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 
-from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.connector.exchange.ftx.ftx_exchange import FtxExchange
 from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee, MarketEvent)
 
-import logging
 
 cdef class FtxInFlightOrder(InFlightOrderBase):
     def __init__(self,
@@ -32,6 +29,8 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         )
         self.created_at = created_at
         self.state = FtxOrderStatus.new
+        self.trade_id_set = set()
+        self.fee_asset = self.quote_asset if order_type == OrderType.MARKET else self.base_asset
 
     def __repr__(self) -> str:
         return f"super().__repr__()" \
@@ -123,3 +122,25 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
     def update_fees(self, new_fee: Decimal):
         self.fee_paid += new_fee
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_update: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["tradeId"]
+        if (str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set):
+            return False
+
+        self.trade_id_set.add(trade_id)
+        trade_amount = Decimal(str(trade_update["size"]))
+        trade_price = Decimal(str(trade_update["price"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+
+        self.fee_paid += Decimal(str(trade_update["fee"]))
+
+        return True
