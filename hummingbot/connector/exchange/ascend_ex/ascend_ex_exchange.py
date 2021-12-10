@@ -94,6 +94,7 @@ class AscendExExchange(ExchangePyBase):
 
     STOP_TRACKING_ORDER_FAILURE_LIMIT = 3
     STOP_TRACKING_ORDER_NOT_FOUND_LIMIT = 3
+    STOP_TRACKING_ORDER_ERROR_LIMIT = 5
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -136,7 +137,7 @@ class AscendExExchange(ExchangePyBase):
         self._account_uid = None  # required in order to produce deterministic order ids
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
-        self._order_failure_records = defaultdict(lambda: 0)  # Dict[client_order_id: str, count: int]
+        self._order_error_records: Dict[str, int] = defaultdict(lambda: 0)
 
     @property
     def name(self) -> str:
@@ -610,8 +611,8 @@ class AscendExExchange(ExchangePyBase):
             del self._in_flight_orders[order_id]
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
-        if order_id in self._order_failure_records:
-            del self._order_failure_records[order_id]
+        if order_id in self._order_error_records:
+            del self._order_error_records[order_id]
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
@@ -706,61 +707,70 @@ class AscendExExchange(ExchangePyBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders: List[AscendExInFlightOrder] = list(self._in_flight_orders.values())
-            for o in tracked_orders:
-                await o.get_exchange_order_id()
-            order_ids: str = ",".join(o.exchange_order_id for o in tracked_orders)
-            params = {"orderId": order_ids}
-            resp = await self._api_request(
-                method="get",
-                path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
-                params=params,
-                is_auth_required=True,
-                force_auth_path_url="order/status"
-            )
-            self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
-            self.logger().debug(f"cash/order/status?orderId={order_ids} response: {resp}")
-            # The data returned from this end point can be either a list or a dict depending on number of orders
-            resp_records: List = []
-            if isinstance(resp["data"], dict):
-                resp_records.append(resp["data"])
-            elif isinstance(resp["data"], list):
-                resp_records = resp["data"]
-            ascend_ex_orders: List[AscendExOrder] = []
+        if len(self._in_flight_orders) == 0:
+            return
+
+        tracked_orders: List[AscendExInFlightOrder] = list(self._in_flight_orders.values())
+
+        active_orders: List[AscendExInFlightOrder] = []
+        for o in tracked_orders:
             try:
-                for order_data in resp_records:
-                    ascend_ex_orders.append(AscendExOrder(
-                        order_data["symbol"],
-                        order_data["price"],
-                        order_data["orderQty"],
-                        order_data["orderType"],
-                        order_data["avgPx"],
-                        order_data["cumFee"],
-                        order_data["cumFilledQty"],
-                        order_data["errorCode"],
-                        order_data["feeAsset"],
-                        order_data["lastExecTime"],
-                        order_data["orderId"],
-                        order_data["seqNum"],
-                        order_data["side"],
-                        order_data["status"],
-                        order_data["stopPrice"],
-                        order_data["execInst"]
-                    ))
-                for order in ascend_ex_orders:
-                    self._process_order_message(order)
-                for hbot_order in tracked_orders:
-                    if hbot_order.exchange_order_id not in (o.orderId for o in ascend_ex_orders):
-                        self.logger().info(f"{hbot_order} is missing from expected response ({resp})")
-            except Exception:
-                self.logger().info(
-                    f"Unexpected error during processing order status. The Ascend Ex Response: {resp}",
-                    exc_info=True
-                )
+                await o.get_exchange_order_id()
+                active_orders.append(o)
+            except asyncio.TimeoutError:
+                self.logger().debug(f"Tracked order {o.client_order_id} does not have an exchange id. "
+                                    f"Attempting fetch in next polling interval.")
+                continue
+
+        order_ids: str = ",".join(o.exchange_order_id for o in tracked_orders)
+        params = {"orderId": order_ids}
+        resp = await self._api_request(
+            method="get",
+            path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
+            params=params,
+            is_auth_required=True,
+            force_auth_path_url="order/status"
+        )
+        self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
+        self.logger().debug(f"cash/order/status?orderId={order_ids} response: {resp}")
+        # The data returned from this end point can be either a list or a dict depending on number of orders
+        resp_records: List = []
+        if isinstance(resp["data"], dict):
+            resp_records.append(resp["data"])
+        elif isinstance(resp["data"], list):
+            resp_records = resp["data"]
+        ascend_ex_orders: List[AscendExOrder] = []
+        try:
+            for order_data in resp_records:
+                ascend_ex_orders.append(AscendExOrder(
+                    order_data["symbol"],
+                    order_data["price"],
+                    order_data["orderQty"],
+                    order_data["orderType"],
+                    order_data["avgPx"],
+                    order_data["cumFee"],
+                    order_data["cumFilledQty"],
+                    order_data["errorCode"],
+                    order_data["feeAsset"],
+                    order_data["lastExecTime"],
+                    order_data["orderId"],
+                    order_data["seqNum"],
+                    order_data["side"],
+                    order_data["status"],
+                    order_data["stopPrice"],
+                    order_data["execInst"]
+                ))
+            for order in ascend_ex_orders:
+                self._process_order_message(order)
+            for hbot_order in tracked_orders:
+                if hbot_order.exchange_order_id not in (o.orderId for o in ascend_ex_orders):
+                    self.logger().info(f"{hbot_order} is missing from expected response ({resp})")
+        except Exception:
+            self.logger().info(
+                f"Unexpected error during processing order status. The Ascend Ex Response: {resp}",
+                exc_info=True
+            )
 
     async def cancel_all(self, timeout_seconds: float):
         """
@@ -1017,8 +1027,8 @@ class AscendExExchange(ExchangePyBase):
             self.logger().info(
                 f"Order {client_order_id} has failed according to order status API. " f"API order response: {order_msg}"
             )
-            self._order_failure_records[client_order_id] += 1
-            if self._order_failure_records[client_order_id] > self.STOP_TRACKING_ORDER_FAILURE_LIMIT:
+            self._order_error_records[client_order_id] += 1
+            if self._order_error_records[client_order_id] > self.STOP_TRACKING_ORDER_FAILURE_LIMIT:
                 self.trigger_event(
                     MarketEvent.OrderFailure,
                     MarketOrderFailureEvent(self.current_timestamp, client_order_id, tracked_order.order_type),
