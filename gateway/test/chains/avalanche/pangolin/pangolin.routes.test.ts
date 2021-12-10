@@ -1,5 +1,4 @@
 import request from 'supertest';
-import { ConfigManager } from '../../../../src/services/config-manager';
 import { patch, unpatch } from '../../../services/patch';
 import { PangolinRoutes } from '../../../../src/chains/avalanche/pangolin/pangolin.routes';
 import { app } from '../../../../src/app';
@@ -111,11 +110,6 @@ const patchPriceSwapIn = () => {
   });
 };
 
-const patchConfig = () => {
-  patch(ConfigManager.config, 'PANGOLIN_GAS_LIMIT', 150688);
-  patch(ConfigManager.config, 'AVALANCHE_CHAIN', 'kovan');
-};
-
 const patchGetNonce = () => {
   patch(PangolinRoutes.avalanche.nonceManager, 'getNonce', () => 21);
 };
@@ -144,7 +138,6 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -170,7 +163,6 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -258,7 +250,6 @@ describe('POST /avalanche/pangolin/trade', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
   };
@@ -324,7 +315,6 @@ describe('POST /avalanche/pangolin/trade', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
   };

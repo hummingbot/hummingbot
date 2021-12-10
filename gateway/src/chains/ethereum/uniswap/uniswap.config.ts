@@ -1,26 +1,31 @@
+import { ConfigManagerV2 } from '../../../services/config-manager-v2';
+
 export namespace UniswapConfig {
   export interface NetworkConfig {
+    allowedSlippage: string;
+    gasLimit: number;
+    ttl: number;
     uniswapV2RouterAddress: string;
     uniswapV3RouterAddress: string;
     uniswapV3NftManagerAddress: string;
   }
 
-  export interface Config {
-    mainnet: NetworkConfig;
-    kovan: NetworkConfig;
-  }
+  const eth_network = ConfigManagerV2.getInstance().get('ethereum.network');
 
-  // contract addresses on mainnet and kovan are the same for Uniswap
-  export const config: Config = {
-    mainnet: {
-      uniswapV2RouterAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-      uniswapV3RouterAddress: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
-    },
-    kovan: {
-      uniswapV2RouterAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-      uniswapV3RouterAddress: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
-    },
+  export const config: NetworkConfig = {
+    allowedSlippage: ConfigManagerV2.getInstance().get(
+      'uniswap.allowedSlippage'
+    ),
+    gasLimit: ConfigManagerV2.getInstance().get('uniswap.gasLimit'),
+    ttl: ConfigManagerV2.getInstance().get('uniswap.ttl'),
+    uniswapV2RouterAddress: ConfigManagerV2.getInstance().get(
+      'uniswap.contractAddresses.' + eth_network + '.uniswapV2RouterAddress'
+    ),
+    uniswapV3RouterAddress: ConfigManagerV2.getInstance().get(
+      'uniswap.contractAddresses.' + eth_network + '.uniswapV3RouterAddress'
+    ),
+    uniswapV3NftManagerAddress: ConfigManagerV2.getInstance().get(
+      'uniswap.contractAddresses.' + eth_network + '.uniswapV3NftManagerAddress'
+    ),
   };
 }

@@ -34,6 +34,8 @@ export const ConfigRootSchemaPath: string = path.join(
   'schema/configuration-root-schema.json'
 );
 const ConfigTemplatesDir: string = path.join(__dirname, '../templates/');
+const ConfigDir: string = path.join(__dirname, '../../conf/');
+
 interface UnpackedConfigNamespace {
   namespace: ConfigurationNamespace;
   configPath: string;
@@ -61,6 +63,8 @@ export function initiateWithTemplate(templateFile: string, configFile: string) {
 }
 
 const ajv: Ajv = new Ajv();
+
+export const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
 
 export class ConfigurationNamespace {
   /**
@@ -134,6 +138,10 @@ export class ConfigurationNamespace {
 
   get configurationPath(): string {
     return this.#configurationPath;
+  }
+
+  get configuration(): Configuration {
+    return this.#configuration;
   }
 
   get templatePath(): string {
@@ -242,6 +250,20 @@ export class ConfigManagerV2 {
    */
   readonly #namespaces: { [key: string]: ConfigurationNamespace };
 
+  private static _instance: ConfigManagerV2;
+
+  public static getInstance(): ConfigManagerV2 {
+    if (!ConfigManagerV2._instance) {
+      const rootPath = path.join(ConfigDir, 'root.yml');
+      if (!fs.existsSync(rootPath)) {
+        // copy from template
+        fs.copyFileSync(path.join(ConfigTemplatesDir, 'root.yml'), rootPath);
+      }
+      ConfigManagerV2._instance = new ConfigManagerV2(rootPath);
+    }
+    return ConfigManagerV2._instance;
+  }
+
   static defaults: ConfigurationDefaults = {};
 
   constructor(configRootPath: string) {
@@ -269,6 +291,18 @@ export class ConfigManagerV2 {
     }
 
     return cursor;
+  }
+
+  get namespaces(): { [key: string]: ConfigurationNamespace } {
+    return this.#namespaces;
+  }
+
+  get allConfigurations(): { [key: string]: Configuration } {
+    const result: { [key: string]: Configuration } = {};
+    for (const [key, value] of Object.entries(this.#namespaces)) {
+      result[key] = value.configuration;
+    }
+    return result;
   }
 
   getNamespace(id: string): ConfigurationNamespace | undefined {

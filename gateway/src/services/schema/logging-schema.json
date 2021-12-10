@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "logPath": { "type": "string" },
-    "logToStdout": { "type": "boolean" }
+    "logToStdOut": { "type": "boolean" }
   },
   "additionalProperties": false,
   "required": ["logPath"]
