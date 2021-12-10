@@ -4,6 +4,5 @@
   "properties": {
     "enabled": { "type": "boolean" }
   },
-  "additionalProperties": false,
   "required": ["enabled"]
 }

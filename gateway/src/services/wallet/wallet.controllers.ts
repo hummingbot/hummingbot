@@ -11,6 +11,13 @@ import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
 
 const walletPath = './conf/wallets';
 
+export async function mkdirIfDoesNotExist(path: string): Promise<void> {
+  const exists = await fse.pathExists(path);
+  if (!exists) {
+    await fse.mkdir(path, { recursive: true });
+  }
+}
+
 export async function addWallet(
   ethereum: Ethereum,
   avalanche: Avalanche,
@@ -18,7 +25,7 @@ export async function addWallet(
 ): Promise<void> {
   const passphrase = ConfigManagerCertPassphrase.readPassphrase();
   if (!passphrase) {
-    throw new Error('');
+    throw new Error('There is no passphrase');
   }
   let address: string;
   let encryptedPrivateKey: string;
@@ -32,10 +39,9 @@ export async function addWallet(
     throw new Error('unrecognized chain name');
   }
 
-  await fse.writeFile(
-    `${walletPath}/${req.chainName}/${address}.json`,
-    encryptedPrivateKey
-  );
+  const path = `${walletPath}/${req.chainName}`;
+  await mkdirIfDoesNotExist(path);
+  await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
 }
 
 // if the file does not exist, this should not fail
@@ -68,14 +74,12 @@ export async function getJsonFiles(source: string): Promise<string[]> {
 }
 
 export async function getWallets(): Promise<GetWalletResponse[]> {
-  const walletDirs = await getDirectories(walletPath);
+  const chains = await getDirectories(walletPath);
 
   const responses: GetWalletResponse[] = [];
-  let walletFiles: string[] = [];
-  for (const walletDir of walletDirs) {
-    const files = await getJsonFiles(walletDir);
-    const chain = getLastPath(walletDir);
-    walletFiles = walletFiles.concat(files);
+
+  for (const chain of chains) {
+    const walletFiles = await getJsonFiles(`${walletPath}/${chain}`);
 
     const response: GetWalletResponse = { chain, walletAddresses: [] };
 

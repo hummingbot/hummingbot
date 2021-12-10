@@ -6,7 +6,6 @@ import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
 import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
 import { PangolinRoutes } from './chains/avalanche/pangolin/pangolin.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
-import { ConfigManager } from './services/config-manager';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
 import {
@@ -15,9 +14,10 @@ import {
   NodeError,
   gatewayErrorMiddleware,
 } from './services/error-handler';
+import { ConfigManagerV2 } from './services/config-manager-v2';
+import { SwaggerManager } from './services/swagger-manager';
+
 const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
-const swaggerDocument = YAML.load('./swagger.yaml');
 
 export const app = express();
 let server: Server;
@@ -42,29 +42,14 @@ app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.get(
-  '/config',
-  (_req: Request, res: Response<ConfigManager.Config, any>) => {
-    res.status(200).json(ConfigManager.config);
-  }
-);
+app.get('/config', (_req: Request, res: Response<any, any>) => {
+  // res.status(200).json(ConfigManager.config);
+  res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
+});
 
 interface ConfigUpdateRequest {
-  APPNAME?: string;
-  PORT?: number;
-  IP_WHITELIST?: string[];
-  HUMMINGBOT_INSTANCE_ID?: string;
-  LOG_PATH?: string;
-  GMT_OFFSET: number;
-  CERT_PATH?: string;
-  ETHEREUM_CHAIN?: string;
-  INFURA_KEY?: string;
-  ETH_GAS_STATION_ENABLE?: boolean;
-  ETH_GAS_STATION_API_KEY?: string;
-  ETH_GAS_STATION_GAS_LEVEL?: string;
-  ETH_GAS_STATION_REFRESH_TIME?: number;
-  ETH_MANUAL_GAS_PRICE?: number;
-  LOG_TO_STDOUT?: boolean;
+  configPath: string;
+  configValue: any;
 }
 
 app.post(
@@ -74,20 +59,26 @@ app.post(
       req: Request<unknown, unknown, ConfigUpdateRequest>,
       res: Response
     ) => {
-      const config = ConfigManager.config;
+      console.log('req.body.configPath ' + req.body.configPath);
+      console.log('req.body.configValue ' + req.body.configValue);
+      ConfigManagerV2.getInstance().set(
+        req.body.configPath,
+        req.body.configValue
+      );
+      // const config = ConfigManager.config;
 
-      for (const [k, v] of Object.entries(req.body)) {
-        // this prevents the client from accidentally turning off HTTPS
-        if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k != 'VERSION' && k in config) {
-          (config as any)[k] = v;
-        }
-      }
+      // for (const [k, v] of Object.entries(req.body)) {
+      //   // this prevents the client from accidentally turning off HTTPS
+      //   if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k != 'VERSION' && k in config) {
+      //     (config as any)[k] = v;
+      //   }
+      // }
 
-      logger.info('Update gateway config file.');
-      ConfigManager.updateConfig(config);
+      // logger.info('Update gateway config file.');
+      // ConfigManager.updateConfig(config);
 
-      logger.info('Reloading gateway config file.');
-      ConfigManager.reloadConfig();
+      // logger.info('Reloading gateway config file.');
+      // ConfigManager.reloadConfig();
 
       logger.info('Reload logger to stdout.');
       updateLoggerToStdout();
@@ -119,10 +110,22 @@ app.use(
 );
 
 export const startGateway = async () => {
-  const port = ConfigManager.config.PORT;
+  const port = ConfigManagerV2.getInstance().get('server.port');
   logger.info(`⚡️ Gateway API listening on port ${port}`);
-  if (ConfigManager.config.UNSAFE_DEV_MODE_WITH_HTTP) {
+  if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
+
+    const swaggerDocument = SwaggerManager.generateSwaggerJson(
+      './docs/swagger/swagger.yml',
+      './docs/swagger/definitions.yml',
+      [
+        './docs/swagger/main-routes.yml',
+        './docs/swagger/eth-routes.yml',
+        './docs/swagger/eth-uniswap-routes.yml',
+        './docs/swagger/avalanche-routes.yml',
+        './docs/swagger/avalanche-pangolin-routes.yml',
+      ]
+    );
 
     // mount swagger api docs
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

@@ -45,8 +45,7 @@
     "level-party": "^5.1.1",
     "swagger-ui-express": "^4.1.6",
     "winston": "^3.3.3",
-    "winston-daily-rotate-file": "^4.5.5",
-    "yamljs": "^0.3.0"
+    "winston-daily-rotate-file": "^4.5.5"
   },
   "devDependencies": {
     "@connectis/diff-test-coverage": "^1.5.1",
