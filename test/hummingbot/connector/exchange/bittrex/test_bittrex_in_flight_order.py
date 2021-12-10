@@ -13,6 +13,38 @@ class BittrexInFlightOrderTests(TestCase):
         self.quote_token = "USDT"
         self.trading_pair = f"{self.base_token}-{self.quote_token}"
 
+    def test_creation_from_json(self):
+        order_info = {
+            "client_order_id": "OID1",
+            "exchange_order_id": "EOID1",
+            "trading_pair": self.trading_pair,
+            "order_type": OrderType.LIMIT.name,
+            "trade_type": TradeType.BUY.name,
+            "price": "1000",
+            "amount": "1",
+            "executed_amount_base": "0.5",
+            "executed_amount_quote": "500",
+            "fee_asset": "USDT",
+            "fee_paid": "5",
+            "last_state": "closed",
+        }
+
+        order = BittrexInFlightOrder.from_json(order_info)
+
+        self.assertEqual(order_info["client_order_id"], order.client_order_id)
+        self.assertEqual(order_info["exchange_order_id"], order.exchange_order_id)
+        self.assertEqual(order_info["trading_pair"], order.trading_pair)
+        self.assertEqual(OrderType.LIMIT, order.order_type)
+        self.assertEqual(TradeType.BUY, order.trade_type)
+        self.assertEqual(Decimal(order_info["price"]), order.price)
+        self.assertEqual(Decimal(order_info["amount"]), order.amount)
+        self.assertEqual(order_info["last_state"], order.last_state)
+        self.assertEqual(Decimal(order_info["executed_amount_base"]), order.executed_amount_base)
+        self.assertEqual(Decimal(order_info["executed_amount_quote"]), order.executed_amount_quote)
+        self.assertEqual(Decimal(order_info["fee_paid"]), order.fee_paid)
+        self.assertEqual(order_info["fee_asset"], order.fee_asset)
+        self.assertEqual(order_info, order.to_json())
+
     def test_update_with_partial_trade_event(self):
         order = BittrexInFlightOrder(
             client_order_id="OID1",

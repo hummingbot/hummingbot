@@ -12,7 +12,13 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, OrderFilledEvent, OrderType, TradeType
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    OrderFilledEvent,
+    OrderType,
+    TradeType,
+)
 
 
 class BittrexExchangeTest(unittest.TestCase):
@@ -250,3 +256,102 @@ class BittrexExchangeTest(unittest.TestCase):
         ))
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+
+    def test_order_fill_event_processed_before_order_complete_event(self):
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        complete_fill = {
+            "id": "1",
+            "marketSymbol": f"{self.base_asset}{self.quote_asset}",
+            "executedAt": "12-03-2021 6:17:16",
+            "quantity": "1",
+            "rate": "10050",
+            "orderId": "EOID1",
+            "commission": "10",
+            "isTaker": False
+        }
+
+        fill_message = {
+            "event_type": "execution",
+            "content": {
+                "accountId": "testAccount",
+                "sequence": "1001",
+                "deltas": [complete_fill]
+            }
+        }
+
+        update_data = {
+            "id": "EOID1",
+            "marketSymbol": f"{self.base_asset}{self.quote_asset}",
+            "direction": "BUY",
+            "type": "LIMIT",
+            "quantity": "1",
+            "limit": "10000",
+            "ceiling": "10000",
+            "timeInForce": "GOOD_TIL_CANCELLED",
+            "clientOrderId": "OID1",
+            "fillQuantity": "1",
+            "commission": "10",
+            "proceeds": "10050",
+            "status": "CLOSED",
+            "createdAt": "12-03-2021 6:17:16",
+            "updatedAt": "12-03-2021 6:17:16",
+            "closedAt": "12-03-2021 6:17:16",
+            "orderToCancel": {
+                "type": "LIMIT",
+                "id": "string (uuid)"
+            }
+        }
+
+        update_message = {
+            "event_type": "order",
+            "content": {
+                "accountId": "testAccount",
+                "sequence": "1001",
+                "delta": update_data
+            }
+        }
+
+        mock_user_stream = AsyncMock()
+        # We simulate the case when the order update arrives before the order fill
+        mock_user_stream.get.side_effect = [update_message, fill_message, asyncio.CancelledError()]
+        self.exchange.user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        try:
+            self.async_run_with_timeout(self.test_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.async_run_with_timeout(order.wait_until_completely_filled())
+
+        self.assertEqual(Decimal("10"), order.fee_paid)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([(order.quote_asset, Decimal(complete_fill["commission"]))], fill_event.trade_fee.flat_fees)
+        self.assertTrue(self._is_logged(
+            "INFO",
+            f"Filled {Decimal(complete_fill['quantity'])} out of {order.amount} of the "
+            f"{order.order_type_description} order {order.client_order_id}. - ws"
+        ))
+
+        self.assertTrue(self._is_logged(
+            "INFO",
+            f"The BUY order {order.client_order_id} has completed according to order delta websocket API."
+        ))
+
+        self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(order.quote_asset, buy_event.fee_asset)
+        self.assertEqual(Decimal(complete_fill["commission"]), buy_event.fee_amount)
