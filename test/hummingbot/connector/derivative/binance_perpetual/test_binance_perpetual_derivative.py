@@ -15,8 +15,16 @@ from typing import Any, Awaitable, List, Dict, Optional, Callable
 from unittest.mock import patch, AsyncMock
 
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import PositionMode, OrderType, TradeType, PositionAction, MarketEvent, \
-    OrderFilledEvent, BuyOrderCompletedEvent, SellOrderCompletedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    SellOrderCompletedEvent,
+    TradeType,
+)
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 

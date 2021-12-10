@@ -5,11 +5,11 @@ from typing import (
     Optional,
 )
 
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
@@ -32,6 +32,9 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
+
+        self.trade_id_set = set()
+        self.fee_asset = self.quote_asset
 
     @property
     def is_done(self) -> bool:
@@ -78,3 +81,30 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
         return retval
+
+    def fee_rate_from_trade_update(self, trade_update: Dict[str, Any]) -> Decimal:
+        maker_fee_rate = Decimal(str(trade_update.get("maker_fee_rate", "0")))
+        taker_fee_rate = Decimal(str(trade_update.get("taker_fee_rate", "0")))
+        fee_rate = max(maker_fee_rate, taker_fee_rate)
+        return fee_rate
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["trade_id"]
+        if (self.exchange_order_id not in [trade_update["maker_order_id"], trade_update["taker_order_id"]]
+                or trade_id in self.trade_id_set):
+            return False
+        self.trade_id_set.add(trade_id)
+        trade_amount = Decimal(str(trade_update["size"]))
+        trade_price = Decimal(str(trade_update["price"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+        fee_rate = self.fee_rate_from_trade_update(trade_update)
+        self.fee_paid += quote_amount * fee_rate
+
+        return True
