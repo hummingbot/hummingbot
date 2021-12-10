@@ -5,7 +5,15 @@ then
 fi
 mkdir -p ../certs
 cd ../certs
-openssl genrsa -des3 -out server_key.pem
+# create CA private key
+openssl genrsa -des3 -out ca_key.pem 2048
+# create CA certificate
+openssl req -x509 -new -nodes -key ca_key.pem -sha256 -days 365 -out ca_cert.pem
+# create server private key
+openssl genrsa -des3 -out server_key.pem 
+# create CSR
 openssl req -new -key server_key.pem -out csr.pem -subj "/C=/ST=/L=/O=/CN=localhost"
-openssl x509 -req -days 9999 -in csr.pem -signkey key.pem -out server_cert.pem
+# create certificate signed by CA
+openssl x509 -req -days 365 -in csr.pem -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial -out server_cert.pem -sha256
 rm csr.pem
+rm ca_cert.srl
