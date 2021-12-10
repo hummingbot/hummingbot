@@ -64,25 +64,17 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         return f"{order_type} {side}"
 
     @classmethod
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        parameters = super()._instance_creation_parameters_from_json(data)
+        creation_timestamp = float(data["created_at"] if "created_at" in data else 0)
+        parameters.insert(-1, creation_timestamp)
+        return parameters
+
+    @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            FtxInFlightOrder retval = FtxInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["trading_pair"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                float(data["created_at"] if "created_at" in data else 0),
-                data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
+        retval = cls._basic_from_json(data)
         retval.state = FtxOrderStatus[retval.last_state]
+        retval.check_filled_condition()
         return retval
 
     def update(self, data: Dict[str, Any]) -> List[Any]:
@@ -100,10 +92,6 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
         diff_base: Decimal = overall_executed_base - old_executed_base
         diff_quote: Decimal = overall_executed_quote - old_executed_quote
-
-        if diff_base > 0:
-            diff_price: Decimal = diff_quote / diff_base
-            events.append((MarketEvent.OrderFilled, diff_base, diff_price, None))
 
         if not self.is_done and new_status == FtxOrderStatus.closed:
             if overall_remaining_size > 0:
@@ -142,5 +130,8 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         self.executed_amount_quote += quote_amount
 
         self.fee_paid += Decimal(str(trade_update["fee"]))
+        self.fee_asset = trade_update["feeCurrency"]
+
+        self.check_filled_condition()
 
         return True
