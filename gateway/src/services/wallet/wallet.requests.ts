@@ -6,7 +6,7 @@ export interface AddWalletRequest {
 }
 
 export interface RemoveWalletRequest {
-  chainName: string;
+  chainName: chainName;
   address: string;
 }
 

@@ -21,37 +21,37 @@ export namespace WalletRoutes {
 
   router.use(asyncHandler(verifyEthereumIsAvailable));
 
+  router.get(
+    '/',
+    asyncHandler(async (_req, res: Response<GetWalletResponse[], {}>) => {
+      const response = await getWallets();
+      res.status(200).json(response);
+    })
+  );
+
   router.post(
-    'add',
+    '/add',
     asyncHandler(
       async (
         req: Request<{}, {}, AddWalletRequest>,
         res: Response<void, {}>
       ) => {
-        addWallet(ethereum, avalanche, req.body);
-        res.status(200);
+        await addWallet(ethereum, avalanche, req.body);
+        res.status(200).json();
       }
     )
   );
 
   router.post(
-    'remove',
+    '/remove',
     asyncHandler(
       async (
         req: Request<{}, {}, RemoveWalletRequest>,
         res: Response<void, {}>
       ) => {
-        removeWallet(req.body);
-        res.status(200);
+        await removeWallet(req.body);
+        res.status(200).json();
       }
     )
-  );
-
-  router.get(
-    'get',
-    asyncHandler(async (_req, res: Response<GetWalletResponse[], {}>) => {
-      const response = await getWallets();
-      res.status(200).json(response);
-    })
   );
 }
