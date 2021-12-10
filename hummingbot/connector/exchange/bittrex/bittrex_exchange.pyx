@@ -487,74 +487,81 @@ cdef class BittrexExchange(ExchangeBase):
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "order":  # Updates track order status
-                    order = content["delta"]
-                    order_status = order["status"]
-                    order_id = order["id"]
-
-                    tracked_order = None
-                    for o in self._in_flight_orders.values():
-                        exchange_order_id = await o.get_exchange_order_id()
-                        if exchange_order_id == order_id:
-                            tracked_order = o
-                            break
-
-                    if tracked_order is None:
-                        continue
-
-                    if order_status == "CLOSED":
-                        if order["quantity"] == order["fillQuantity"]:
-                            tracked_order.last_state = "done"
-                            if tracked_order.trade_type is TradeType.BUY:
-                                self.logger().info(f"The BUY order {tracked_order.client_order_id} has completed "
-                                                   f"according to order delta websocket API.")
-                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                     BuyOrderCompletedEvent(
-                                                         self._current_timestamp,
-                                                         tracked_order.client_order_id,
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         tracked_order.fee_asset or tracked_order.quote_asset,
-                                                         tracked_order.executed_amount_base,
-                                                         tracked_order.executed_amount_quote,
-                                                         tracked_order.fee_paid,
-                                                         tracked_order.order_type
-                                                     ))
-                            elif tracked_order.trade_type is TradeType.SELL:
-                                self.logger().info(f"The SELL order {tracked_order.client_order_id} has completed "
-                                                   f"according to Order Delta WebSocket API.")
-                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                     SellOrderCompletedEvent(
-                                                         self._current_timestamp,
-                                                         tracked_order.client_order_id,
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         tracked_order.fee_asset or tracked_order.quote_asset,
-                                                         tracked_order.executed_amount_base,
-                                                         tracked_order.executed_amount_quote,
-                                                         tracked_order.fee_paid,
-                                                         tracked_order.order_type
-                                                     ))
-                            self.c_stop_tracking_order(tracked_order.client_order_id)
-
-                        else:  # CANCEL
-                            self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
-                                               f"according to Order Delta WebSocket API.")
-                            tracked_order.last_state = "cancelled"
-                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                 OrderCancelledEvent(self._current_timestamp,
-                                                                     tracked_order.client_order_id))
-                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                    safe_ensure_future(self._process_order_update_event(stream_message))
                 elif event_type == "execution":
-                    await self._process_execution_event(stream_message)
-                else:
-                    # Ignores all other user stream message types
-                    continue
+                    safe_ensure_future(self._process_execution_event(stream_message))
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def _process_order_update_event(self, stream_message: Dict[str, Any]):
+        content = stream_message["content"]
+        order = content["delta"]
+        order_status = order["status"]
+        order_id = order["id"]
+        tracked_order: BittrexInFlightOrder = None
+
+        for o in self._in_flight_orders.values():
+            exchange_order_id = await o.get_exchange_order_id()
+            if exchange_order_id == order_id:
+                tracked_order = o
+                break
+
+        if tracked_order and order_status == "CLOSED":
+            if order["quantity"] == order["fillQuantity"]:
+                tracked_order.last_state = "done"
+                event = (self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
+                         if tracked_order.trade_type == TradeType.BUY
+                         else self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG)
+                event_class = (BuyOrderCompletedEvent
+                               if tracked_order.trade_type == TradeType.BUY
+                               else SellOrderCompletedEvent)
+
+                try:
+                    await asyncio.wait_for(tracked_order.wait_until_completely_filled(), timeout=1)
+                except asyncio.TimeoutError:
+                    fee_asset = tracked_order.quote_asset
+                    fee = self.get_fee(
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        tracked_order.order_type,
+                        tracked_order.trade_type,
+                        tracked_order.amount,
+                        tracked_order.price)
+                    fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair,
+                                                         tracked_order.price,
+                                                         tracked_order.amount)
+                else:
+                    fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
+                    fee_amount = tracked_order.fee_paid
+
+                self.logger().info(f"The {tracked_order.trade_type.name} order {tracked_order.client_order_id} "
+                                   f"has completed according to order delta websocket API.")
+                self.c_trigger_event(event,
+                                     event_class(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.base_asset,
+                                         tracked_order.quote_asset,
+                                         fee_asset,
+                                         tracked_order.executed_amount_base,
+                                         tracked_order.executed_amount_quote,
+                                         fee_amount,
+                                         tracked_order.order_type
+                                     ))
+                self.c_stop_tracking_order(tracked_order.client_order_id)
+
+            else:  # CANCEL
+                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                                   f"according to Order Delta WebSocket API.")
+                tracked_order.last_state = "cancelled"
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp,
+                                                         tracked_order.client_order_id))
+                self.c_stop_tracking_order(tracked_order.client_order_id)
 
     async def _process_execution_event(self, stream_message: Dict[str, Any]):
         content = stream_message["content"]
