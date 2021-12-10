@@ -4,7 +4,6 @@ import { logger, updateLoggerToStdout } from '../../src/services/logger';
 
 describe('Test logger', () => {
   it('updateLoggerToStdout works', (done) => {
-    console.log(logger.transports);
     ConfigManagerV2.getInstance().set('logging.logToStdOut', true);
     updateLoggerToStdout();
     const ofTypeConsole = (element: any) =>
