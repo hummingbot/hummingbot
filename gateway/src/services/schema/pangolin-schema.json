@@ -11,11 +11,9 @@
         "^\\w+$": {
           "type": "object",
           "properties": {
-            "uniswapV2RouterAddress": { "type": "string" },
-            "uniswapV3RouterAddress": { "type": "string" },
-            "uniswapV3NftManagerAddress": { "type": "string" }
+            "routerAddress": { "type": "string" }
           },
-          "required": ["uniswapV2RouterAddress", "uniswapV3RouterAddress", "uniswapV3NftManagerAddress"],
+          "required": ["routerAddress"],
           "additionalProperties": false
         }
       },

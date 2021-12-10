@@ -3,3 +3,8 @@ port: 5000
 
 # The IPs allowed to access gateway. localhost is allowed by default.
 ipWhitelist: []
+
+unsafeDevModeWithHTTP: false
+
+
+GMTOffset: +0800
