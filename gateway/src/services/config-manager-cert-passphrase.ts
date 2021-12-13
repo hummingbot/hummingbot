@@ -14,7 +14,7 @@ export namespace ConfigManagerCertPassphrase {
     _exit: process.exit,
   };
 
-  export function readPassphrase(): string | undefined {
+  export const readPassphrase = (): string | undefined => {
     if (fs.existsSync(passphraseFliePath)) {
       const mode = fs.lstatSync(passphraseFliePath).mode;
       // check and make sure the passphrase file is a regular file, and is only accessible by the user.
@@ -50,5 +50,5 @@ export namespace ConfigManagerCertPassphrase {
     );
     bindings._exit(1);
     return;
-  }
+  };
 }

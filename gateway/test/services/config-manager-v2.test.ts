@@ -33,7 +33,7 @@ describe('Configuration manager v2 tests', () => {
 
   afterEach(async () => {
     // Delete the temp dir.
-    await fse.remove(tempDirPath);
+    await fsp.rm(tempDirPath, { force: true, recursive: true });
     tempDirPath = '';
 
     // Delete any default configs.
