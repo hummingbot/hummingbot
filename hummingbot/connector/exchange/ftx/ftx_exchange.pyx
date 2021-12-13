@@ -214,8 +214,11 @@ cdef class FtxExchange(ExchangeBase):
                                else SellOrderCompletedEvent)
 
                 try:
-                    await asyncio.wait_for(tracked_order.wait_until_completely_filled(), timeout=1)
+                    await asyncio.wait_for(tracked_order.wait_until_completely_filled(), timeout=2)
                 except asyncio.TimeoutError:
+                    self.logger().warning(
+                        f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
+                        f"The complete update will be processed with estimated fees.")
                     fee_asset = tracked_order.quote_asset
                     fee = self.get_fee(
                         base,
