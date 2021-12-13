@@ -1,4 +1,4 @@
 {
-  "privateKey": "$ETH_PRIVATE_KEY",
+  "privateKey": "0000000000000000000000000000000000000000000000000000000000000001",
   "chainName": "ethereum"
 }

@@ -15,7 +15,7 @@ describe('Test local-storage', () => {
 
   afterAll(async () => {
     await fse.emptyDir(dbPath);
-    await fse.remove(dbPath);
+    await fsp.rm(dbPath, { force: true, recursive: true });
   });
 
   it('save, get and delete a key value pair in the local db', async () => {

@@ -20,12 +20,18 @@ let avalanche: Avalanche;
 let eth: Ethereum;
 
 beforeAll(async () => {
+  patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
+
   avalanche = Avalanche.getInstance();
   await avalanche.init();
 
   eth = Ethereum.getInstance();
   await eth.init();
 });
+
+beforeEach(() =>
+  patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a')
+);
 
 afterEach(() => unpatch());
 
@@ -68,8 +74,6 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
-
     await addWallet(eth, avalanche, {
       privateKey: onePrivateKey,
       chainName: 'ethereum',
@@ -94,8 +98,6 @@ describe('addWallet and getWallets', () => {
     patch(avalanche, 'encrypt', () => {
       return JSON.stringify(encodedPrivateKey);
     });
-
-    patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
     await addWallet(eth, avalanche, {
       privateKey: onePrivateKey,
@@ -139,8 +141,6 @@ describe('addWallet and getWallets', () => {
     patch(eth, 'encrypt', () => {
       return JSON.stringify(encodedPrivateKey);
     });
-
-    patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
     await addWallet(eth, avalanche, {
       privateKey: onePrivateKey,
