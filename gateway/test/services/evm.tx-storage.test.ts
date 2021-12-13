@@ -1,3 +1,4 @@
+import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
 import path from 'path';
@@ -15,7 +16,7 @@ describe('Test local-storage', () => {
 
   afterAll(async () => {
     await fse.emptyDir(dbPath);
-    await fsp.rm(dbPath, { force: true, recursive: true });
+    fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
   it('save, get and delete a key value pair in the local db', async () => {
