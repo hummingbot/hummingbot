@@ -103,8 +103,6 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
         self.state = new_status
         self.last_state = new_status.name
-        self.executed_amount_base = overall_executed_base
-        self.executed_amount_quote = overall_executed_quote
 
         return events
 
