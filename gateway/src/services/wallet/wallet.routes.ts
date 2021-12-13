@@ -14,6 +14,11 @@ import {
   GetWalletResponse,
 } from './wallet.requests';
 
+import {
+  validateAddWalletRequest,
+  validateRemoveWalletRequest,
+} from './wallet.validators';
+
 export namespace WalletRoutes {
   export const router = Router();
   export const ethereum = Ethereum.getInstance();
@@ -36,6 +41,7 @@ export namespace WalletRoutes {
         req: Request<{}, {}, AddWalletRequest>,
         res: Response<void, {}>
       ) => {
+        validateAddWalletRequest(req.body);
         await addWallet(ethereum, avalanche, req.body);
         res.status(200).json();
       }
@@ -49,6 +55,7 @@ export namespace WalletRoutes {
         req: Request<{}, {}, RemoveWalletRequest>,
         res: Response<void, {}>
       ) => {
+        validateRemoveWalletRequest(req.body);
         await removeWallet(req.body);
         res.status(200).json();
       }
