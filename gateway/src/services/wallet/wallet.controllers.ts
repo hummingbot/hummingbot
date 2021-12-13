@@ -7,7 +7,14 @@ import {
   RemoveWalletRequest,
   GetWalletResponse,
 } from './wallet.requests';
+
 import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
+
+import {
+  HttpException,
+  UNKNOWN_CHAIN_ERROR_CODE,
+  UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
+} from '../error-handler';
 
 const walletPath = './conf/wallets';
 
@@ -36,7 +43,11 @@ export async function addWallet(
     address = avalanche.getWallet(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
   } else {
-    throw new Error('unrecognized chain name');
+    throw new HttpException(
+      500,
+      UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chainName),
+      UNKNOWN_CHAIN_ERROR_CODE
+    );
   }
 
   const path = `${walletPath}/${req.chainName}`;
