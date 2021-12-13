@@ -64,13 +64,12 @@ describe('POST /wallet/add', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    request(app)
+    await request(app)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
         chainName: 'ethereum',
       })
-
       .expect('Content-Type', /json/)
       .expect(200);
   });
@@ -86,7 +85,7 @@ describe('POST /wallet/add', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    request(app)
+    await request(app)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
@@ -97,7 +96,7 @@ describe('POST /wallet/add', () => {
       .expect(200);
   });
 
-  it('return 500 for ill-formed request', async () => {
+  it('return 404 for ill-formed request', async () => {
     patch(avalanche, 'getWallet', () => {
       return {
         address: twoAddress,
@@ -108,12 +107,11 @@ describe('POST /wallet/add', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    request(app)
+    await request(app)
       .post(`/wallet/add`)
       .send({})
-
       .expect('Content-Type', /json/)
-      .expect(200);
+      .expect(404);
   });
 });
 
@@ -129,7 +127,7 @@ describe('DELETE /wallet/remove', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    request(app)
+    await request(app)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
@@ -139,7 +137,7 @@ describe('DELETE /wallet/remove', () => {
       .expect('Content-Type', /json/)
       .expect(200);
 
-    request(app)
+    await request(app)
       .delete(`/wallet/remove`)
       .send({
         address: twoAddress,
@@ -150,12 +148,8 @@ describe('DELETE /wallet/remove', () => {
       .expect(200);
   });
 
-  it('return 500 for ill-formed request', async () => {
-    request(app)
-      .delete(`/wallet/delete`)
-      .send({})
-      .expect('Content-Type', /json/)
-      .expect(200);
+  it('return 404 for ill-formed request', async () => {
+    await request(app).delete(`/wallet/delete`).send({}).expect(404);
   });
 });
 
@@ -171,17 +165,16 @@ describe('GET /wallet', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    request(app)
+    await request(app)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
         chainName: 'ethereum',
       })
-
       .expect('Content-Type', /json/)
       .expect(200);
 
-    request(app)
+    await request(app)
       .get(`/wallet`)
       .expect('Content-Type', /json/)
       .expect(200)
