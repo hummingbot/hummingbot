@@ -48,7 +48,7 @@ export namespace WalletRoutes {
     )
   );
 
-  router.post(
+  router.delete(
     '/remove',
     asyncHandler(
       async (
