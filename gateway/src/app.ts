@@ -59,24 +59,21 @@ app.post(
     ) => {
       console.log('req.body.configPath ' + req.body.configPath);
       console.log('req.body.configValue ' + req.body.configValue);
+      const config = ConfigManagerV2.getInstance().get(req.body.configPath);
+      if (typeof req.body.configValue == 'string')
+        switch (typeof config) {
+          case 'number':
+            req.body.configValue = Number(req.body.configValue);
+            break;
+          case 'boolean':
+            req.body.configValue =
+              req.body.configValue.toLowerCase() === 'true';
+            break;
+        }
       ConfigManagerV2.getInstance().set(
         req.body.configPath,
         req.body.configValue
       );
-      // const config = ConfigManager.config;
-
-      // for (const [k, v] of Object.entries(req.body)) {
-      //   // this prevents the client from accidentally turning off HTTPS
-      //   if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k != 'VERSION' && k in config) {
-      //     (config as any)[k] = v;
-      //   }
-      // }
-
-      // logger.info('Update gateway config file.');
-      // ConfigManager.updateConfig(config);
-
-      // logger.info('Reloading gateway config file.');
-      // ConfigManager.reloadConfig();
 
       logger.info('Reload logger to stdout.');
       updateLoggerToStdout();

@@ -39,9 +39,7 @@ class GatewayConfigUtilsTest(TestCase):
     def test_sear(self):
         result = utils.search_configs(self.config_dict, "a")
         self.assertEqual({"a": 1}, result)
-        result = utils.search_configs(self.config_dict, "A", ignore_case=True)
-        self.assertEqual({"a": 1}, result)
-        result = utils.search_configs(self.config_dict, "A", ignore_case=False)
+        result = utils.search_configs(self.config_dict, "A")
         self.assertEqual(None, result)
         result = utils.search_configs(self.config_dict, "b")
         self.assertEqual({
@@ -77,14 +75,8 @@ class GatewayConfigUtilsTest(TestCase):
                 }
             }
         }, result)
-        result = utils.search_configs(self.config_dict, "b.BC.bCb", ignore_case=True)
-        self.assertEqual({
-            "b": {
-                "bc": {
-                    "bcb": 232
-                }
-            }
-        }, result)
+        result = utils.search_configs(self.config_dict, "b.BC.bCb")
+        self.assertEqual(None, result)
         result = utils.search_configs(self.config_dict, "b.BC.bCb")
         self.assertEqual(None, result)
         result = utils.search_configs(self.config_dict, "d")

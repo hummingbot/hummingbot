@@ -42,13 +42,7 @@ def build_config_namespace_keys(namespace_keys: List[str], config_dict: Dict[str
             build_config_namespace_keys(namespace_keys, v, f"{prefix}{k}.")
 
 
-def find_key_ignore_case(a_dict: Dict[str, Any], key: str) -> Optional[str]:
-    matched_keys = [k for k in a_dict.keys() if k.lower() == key.lower()]
-    if matched_keys:
-        return matched_keys[0]
-
-
-def search_configs(config_dict: Dict[str, Any], namespace_key: str, ignore_case: bool = False) \
+def search_configs(config_dict: Dict[str, Any], namespace_key: str) \
         -> Optional[Dict[str, Any]]:
     """
     Search the config dictionary for a given namespace key and preserve the key hierarchy.
@@ -60,25 +54,16 @@ def search_configs(config_dict: Dict[str, Any], namespace_key: str, ignore_case:
     :param namespace_key: The namespace key to search for
     :return: A dictionary matching the given key, returns None if not found
     """
-    def find_matched_key(a_dict: Dict[str, Any], a_key: str) -> Optional[str]:
-        if not ignore_case and a_key in a_dict:
-            return a_key
-        if ignore_case:
-            return find_key_ignore_case(a_dict, a_key)
     key_parts = namespace_key.split(".")
-    matched_key = find_matched_key(config_dict, key_parts[0])
-    if not matched_key:
+    if not key_parts[0] in config_dict:
         return
-    result: Dict[str, Any] = {matched_key: deepcopy(config_dict[matched_key])}
-    result_val = result[matched_key]
+    result: Dict[str, Any] = {key_parts[0]: deepcopy(config_dict[key_parts[0]])}
+    result_val = result[key_parts[0]]
     for key_part in key_parts[1:]:
-        if not isinstance(result_val, Dict):
+        if not isinstance(result_val, Dict) or key_part not in result_val:
             return
-        matched_key = find_matched_key(result_val, key_part)
-        if not matched_key:
-            return
-        temp = deepcopy(result_val[matched_key])
+        temp = deepcopy(result_val[key_part])
         result_val.clear()
-        result_val[matched_key] = temp
-        result_val = result_val[matched_key]
+        result_val[key_part] = temp
+        result_val = result_val[key_part]
     return result
