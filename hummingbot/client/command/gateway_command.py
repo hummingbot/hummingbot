@@ -3,13 +3,19 @@ import asyncio
 import aiohttp
 import ssl
 import json
-import pandas as pd
+from copy import deepcopy
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.gateway_config_utils import (
+    build_config_namespace_keys,
+    search_configs,
+    build_config_dict_display
+)
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 from hummingbot import cert_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, TYPE_CHECKING, List
+from hummingbot.client.ui.completer import load_completer
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -20,8 +26,8 @@ class GatewayCommand:
                 option: str = None,
                 key: str = None,
                 value: str = None):
-        if option == "list-configs":
-            safe_ensure_future(self.show_gateway_connections())
+        if option == "config":
+            safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
         elif option == "update":
             safe_ensure_future(self.update_gateway(key, value))
         elif option == "generate-certs":
@@ -69,10 +75,6 @@ class GatewayCommand:
     async def update_gateway(self, key, value):
         safe_ensure_future(self._update_gateway(key, value), loop=self.ev_loop)
 
-    async def show_gateway_connections(self):
-        self._notify("\nTesting Gateway connections, please wait...")
-        safe_ensure_future(self._show_gateway_connections(), loop=self.ev_loop)
-
     async def _api_request(self,
                            method: str,
                            path_url: str,
@@ -99,16 +101,22 @@ class GatewayCommand:
         parsed_response = json.loads(await response.text())
         return parsed_response
 
-    async def _http_client(self) -> aiohttp.ClientSession:
+    async def _http_client(self, new_instance: bool = False) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
         """
-        if self._shared_client is None:
+        if new_instance:
             ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
             ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
-            self._shared_client = aiohttp.ClientSession(connector=conn)
-        return self._shared_client
+            return aiohttp.ClientSession(connector=conn)
+        else:
+            if self._shared_client is None:
+                ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
+                ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
+                conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+                self._shared_client = aiohttp.ClientSession(connector=conn)
+            return self._shared_client
 
     async def _update_gateway(self, key, value):
         if key is not None:
@@ -116,7 +124,7 @@ class GatewayCommand:
             all_keys = []
 
         try:
-            config = await self.get_gateway_connections()
+            config = await self.get_gateway_configuration()
             all_keys = sorted(config)
 
         except Exception:
@@ -172,20 +180,19 @@ class GatewayCommand:
                 )
                 self._notify("\nError: Configrations update failed")"""
 
-    async def get_gateway_connections(self):
+    async def get_gateway_configuration(self):
         return await self._api_request("get", "config", {})
 
-    async def _show_gateway_connections(self):
+    async def _show_gateway_configuration(self, key: str):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
-            config = await self.get_gateway_connections()
+            config_dict = await self.get_gateway_configuration()
+            if key is not None:
+                config_dict = search_configs(config_dict, key, ignore_case=True)
             self._notify(f"\nGateway Configurations ({host}:{port}):")
-            self._notify("\nCore parameters:")
-            columns = ["Parameter", "  Value"]
-            data = [[key, config[key]] for key in sorted(config)]
-            df = pd.DataFrame(data=data, columns=columns)
-            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+            lines = []
+            build_config_dict_display(lines, config_dict)
             self._notify("\n".join(lines))
 
         except asyncio.CancelledError:
@@ -198,3 +205,39 @@ class GatewayCommand:
             )
             remote_host = ':'.join([host, port])
             self._notify(f"\nError: Connection to Gateway {remote_host} failed")
+
+    def format_config_dict(self, lines: List[str], config_dict: Dict[str, Any], level: int):
+        prefix: str = "  " * level
+        for k, v in config_dict.items():
+            if isinstance(v, Dict):
+                lines.append(f"{prefix}{k}:")
+                self.format_config_dict(lines, v, level + 1)
+            else:
+                lines.append(f"{prefix}{k}: {v}")
+
+    async def fetch_gateway_config_key_list(self):
+        # pool = concurrent.futures.ThreadPoolExecutor()
+        # result = pool.submit(asyncio.run, self._api_request("get", "config", {}, True)).result()
+        config = await self.get_gateway_configuration()
+        build_config_namespace_keys(self.gateway_config_keys, config)
+        self.app.input_field.completer = load_completer(self)
+
+    def _build_gateway_config_key_list(self, keys: List[str], config_dict: Dict[str, Any], prefix: str):
+        for k, v in config_dict.items():
+            keys.append(f"{prefix}{k}")
+            if isinstance(v, Dict):
+                self._build_gateway_config_key_list(keys, v, f"{prefix}{k}.")
+
+    def _filter_gateway_configs(self, config_dict: Dict[str, Any], key: str) -> Dict[str, Any]:
+        key_parts = key.split(".")
+        result: Dict[str, Any] = {}
+        if key_parts[0] in config_dict:
+            result = {key_parts[0]: config_dict[key_parts[0]]}
+        result_val = result[key_parts[0]]
+        for key_part in key_parts[1:]:
+            if isinstance(result_val, Dict) and key_part in result_val:
+                temp = deepcopy(result_val[key_part])
+                result_val.clear()
+                result_val[key_part] = temp
+                result_val = result_val[key_part]
+        return result
