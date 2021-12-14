@@ -1,4 +1,4 @@
 {
-  "configPath": "telemetry.enable",
-  "configValue": "False"
+  "configPath": "ethereum.manualGasPrice",
+  "configValue": "120"
 }
