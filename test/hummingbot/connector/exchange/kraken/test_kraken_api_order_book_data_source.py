@@ -275,3 +275,17 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         self.assertTrue(isinstance(msg, OrderBookMessage))
         second_trade_price = resp[1][1][0]
         self.assertEqual(msg.content["price"], second_trade_price)
+
+    @aioresponses()
+    def test_listen_for_snapshots(self, mocked_api):
+        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SNAPSHOT_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_depth_mock()
+        mocked_api.get(regex_url, body=json.dumps(resp))
+
+        output_queue = asyncio.Queue()
+
+        self.ev_loop.create_task(self.data_source.listen_for_order_book_snapshots(self.ev_loop, output_queue))
+        ret = self.async_run_with_timeout(coroutine=output_queue.get())
+
+        self.assertTrue(isinstance(ret, OrderBookMessage))
