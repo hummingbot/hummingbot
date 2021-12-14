@@ -1,4 +1,5 @@
 import asyncio
+from collections import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
@@ -25,10 +26,15 @@ class MexcUserStreamTrackerTests(TestCase):
         self.tracker = MexcUserStreamTracker(throttler=throttler, mexc_auth=auth_assistant)
 
         self.mocking_assistant = NetworkMockingAssistant()
+        self.ev_loop = asyncio.get_event_loop()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
@@ -39,6 +45,6 @@ class MexcUserStreamTrackerTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value,
                                                              ujson.dumps({'channel': 'push.personal.order'}))
 
-        first_received_message = asyncio.get_event_loop().run_until_complete(self.tracker.user_stream.get())
+        first_received_message = self.async_run_with_timeout(self.tracker.user_stream.get())
 
         self.assertEqual({'channel': 'push.personal.order'}, first_received_message)

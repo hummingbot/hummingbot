@@ -40,7 +40,7 @@ class MexcWebSocketUnitTests(unittest.TestCase):
         self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
-        self.ev_loop.run_until_complete(self.websocket.disconnect())
+        self.async_run_with_timeout(self.websocket.disconnect())
         self.async_task and self.async_task.cancel()
         super().tearDown()
 

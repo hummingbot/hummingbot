@@ -457,10 +457,13 @@ class MexcExchange(ExchangeBase):
                 except Exception as ex:
                     self.logger().error("_update_order_status error ..." + repr(ex), exc_info=True)
 
+    def _reset_poll_notifier(self):
+        self._poll_notifier = asyncio.Event()
+
     async def _status_polling_loop(self):
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
+                self._reset_poll_notifier()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),

@@ -155,6 +155,12 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def iso_to_timestamp(cls, date: str):
         return dateparse(date).timestamp()
 
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
+
     async def _create_websocket_connection(self) -> MexcWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
@@ -214,7 +220,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection ,Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         msg_queue = self._message_queue[MexcWebSocketAdaptor.DEPTH_CHANNEL_ID]
@@ -248,7 +254,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -265,18 +271,18 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             metadata={"trading_pair": trading_pair})
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                     except asyncio.CancelledError:
                         raise
                     except Exception as ex:
                         self.logger().error("Unexpected error." + repr(ex), exc_info=True)
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception as ex1:
                 self.logger().error("Unexpected error." + repr(ex1), exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)

@@ -1,10 +1,13 @@
 import asyncio
+import functools
 import time
+from collections import Awaitable
+
 import pandas as pd
 
 import ujson
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
@@ -36,6 +39,7 @@ class MexcExchangeTests(TestCase):
         cls.base_asset = "MX"
         cls.quote_asset = "USDT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
@@ -68,6 +72,16 @@ class MexcExchangeTests(TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
+    def _return_calculation_and_set_done_event(self, calculation: Callable, *args, **kwargs):
+        if self.resume_test_event.is_set():
+            raise asyncio.CancelledError
+        self.resume_test_event.set()
+        return calculation(*args, **kwargs)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -131,12 +145,12 @@ class MexcExchangeTests(TestCase):
         # Add a dummy message for the websocket to read and include in the "messages" queue
         self.mocking_assistant.add_websocket_text_message(ws_connect_mock,
                                                           ujson.dumps({'channel': 'push.personal.order'}))
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait())
         self.resume_test_event.clear()
 
         try:
             self.exchange_task.cancel()
-            asyncio.get_event_loop().run_until_complete(self.exchange_task)
+            self.async_run_with_timeout(self.exchange_task)
         except asyncio.CancelledError:
             pass
         except Exception:
@@ -153,20 +167,19 @@ class MexcExchangeTests(TestCase):
             asyncio.CancelledError())
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
 
-        # Yield processor for the exchange to process the new message
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
-
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(self.tracker_task)
+            self.async_run_with_timeout(self.tracker_task)
 
     def test_exchange_logs_unknown_event_message(self):
+        payload = {'channel': 'test'}
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: payload)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        payload = {'channel': 'test'}
-        self.exchange._user_stream_tracker.user_stream.put_nowait(payload)
-
-        # Yield processor for the exchange to process the new message
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertTrue(self._is_logged('DEBUG', f"Unknown event received from the connector ({payload})"))
 
@@ -216,12 +229,15 @@ class MexcExchangeTests(TestCase):
 
         inflight_order = self.exchange.in_flight_orders["sell-MX-USDT-1638156451005305"]
 
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: self.user_stream_data)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-
-        self.exchange._user_stream_tracker.user_stream.put_nowait(self.user_stream_data)
-        # Yield processor for the exchange to process the new message
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual("CANCELED", inflight_order.last_state)
         self.assertTrue(inflight_order.is_cancelled)
@@ -246,14 +262,15 @@ class MexcExchangeTests(TestCase):
                                            order_type=OrderType.LIMIT)
 
         inflight_order = self.exchange.in_flight_orders["sell-MX-USDT-1638156451005305"]
-
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_event_listener())
         stream_data = self.user_stream_data
         stream_data.get("data")["status"] = 5
-        self.exchange._user_stream_tracker.user_stream.put_nowait(stream_data)
-        # Yield processor for the exchange to process the new message
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: stream_data)
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual("PARTIALLY_CANCELED", inflight_order.last_state)
         self.assertTrue(inflight_order.is_failure)
@@ -285,14 +302,16 @@ class MexcExchangeTests(TestCase):
                                            amount=Decimal("6.3008"),
                                            order_type=OrderType.LIMIT)
         inflight_order = self.exchange.in_flight_orders["sell-MX-USDT-1638156451005305"]
-
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_event_listener())
         _user_stream = self.user_stream_data
         _user_stream.get("data")["status"] = 2
-        self.exchange._user_stream_tracker.user_stream.put_nowait(_user_stream)
-        # Yield processor for the exchange to process the new message
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: _user_stream)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual("FILLED", inflight_order.last_state)
         self.assertEqual(Decimal(0), inflight_order.executed_amount_base)
@@ -357,7 +376,7 @@ class MexcExchangeTests(TestCase):
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._update_balances()
         )
-        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+        self.async_run_with_timeout(self.exchange_task)
 
         self.assertEqual(Decimal(str(481.0)), self.exchange.get_balance(self.base_asset))
 
@@ -462,7 +481,7 @@ class MexcExchangeTests(TestCase):
             "")
 
         self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
-        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+        self.async_run_with_timeout(self.exchange_task)
         self.assertEqual(0, len(self.exchange.in_flight_orders))
 
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
@@ -544,13 +563,14 @@ class MexcExchangeTests(TestCase):
                 "detail": None
             }, "")
         self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
-        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+        self.async_run_with_timeout(self.exchange_task)
         self.assertEqual(1, len(self.exchange.in_flight_orders))
 
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._update_balances", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._update_order_status", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
-    def test_status_polling_loop(self, mock_ts, mock_update_order_status, mock_balances):
+    @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._reset_poll_notifier")
+    def test_status_polling_loop(self, _, mock_ts, mock_update_order_status, mock_balances):
         mock_balances.return_value = None
         mock_update_order_status.return_value = None
 
@@ -562,18 +582,16 @@ class MexcExchangeTests(TestCase):
             self.exchange_task = asyncio.get_event_loop().create_task(
                 self.exchange._status_polling_loop()
             )
-
-            # Add small delay to ensure an API request is "called"
-            asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
             self.exchange._poll_notifier.set()
 
-            asyncio.get_event_loop().run_until_complete(asyncio.wait_for(self.exchange_task, 2.0))
+            self.async_run_with_timeout(asyncio.wait_for(self.exchange_task, 2.0))
 
         self.assertEqual(ts, self.exchange._last_poll_timestamp)
 
     @patch("aiohttp.ClientSession.request")
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
-    def test_status_polling_loop_cancels(self, mock_ts, mock_api):
+    @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._reset_poll_notifier")
+    def test_status_polling_loop_cancels(self, _, mock_ts, mock_api):
         mock_api.side_effect = asyncio.CancelledError
 
         ts: float = time.time()
@@ -584,18 +602,17 @@ class MexcExchangeTests(TestCase):
             self.exchange_task = asyncio.get_event_loop().create_task(
                 self.exchange._status_polling_loop()
             )
-            # Add small delay to ensure _poll_notifier is set
-            asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
             self.exchange._poll_notifier.set()
 
-            asyncio.get_event_loop().run_until_complete(self.exchange_task)
+            self.async_run_with_timeout(self.exchange_task)
 
         self.assertEqual(0, self.exchange._last_poll_timestamp)
 
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._update_balances", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._update_order_status", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
-    def test_status_polling_loop_exception_raised(self, mock_ts, mock_update_order_status, mock_balances):
+    @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._reset_poll_notifier")
+    def test_status_polling_loop_exception_raised(self, _, mock_ts, mock_update_order_status, mock_balances):
         mock_balances.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
             Exception("Dummy test error"))
         mock_update_order_status.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
@@ -609,11 +626,9 @@ class MexcExchangeTests(TestCase):
             self.exchange._status_polling_loop()
         )
 
-        # Add small delay to ensure an API request is "called"
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
         self.exchange._poll_notifier.set()
 
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(0, self.exchange._last_poll_timestamp)
         self._is_logged("ERROR", "Unexpected error while in status polling loop. Error: ")
@@ -669,7 +684,7 @@ class MexcExchangeTests(TestCase):
         task = asyncio.get_event_loop().create_task(
             self.exchange._update_trading_rules()
         )
-        asyncio.get_event_loop().run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertTrue(self.trading_pair in self.exchange.trading_rules)
 
@@ -683,7 +698,7 @@ class MexcExchangeTests(TestCase):
         with self.assertRaises(asyncio.TimeoutError):
             self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._trading_rules_polling_loop())
 
-            asyncio.get_event_loop().run_until_complete(
+            self.async_run_with_timeout(
                 asyncio.wait_for(self.exchange_task, 1.0)
             )
 
@@ -697,7 +712,7 @@ class MexcExchangeTests(TestCase):
                 self.exchange._trading_rules_polling_loop()
             )
 
-            asyncio.get_event_loop().run_until_complete(self.exchange_task)
+            self.async_run_with_timeout(self.exchange_task)
 
         self.assertEqual(0, self.exchange._last_poll_timestamp)
 
@@ -711,7 +726,7 @@ class MexcExchangeTests(TestCase):
             self.exchange._trading_rules_polling_loop()
         )
 
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self._is_logged("ERROR", "Unexpected error while fetching trading rules. Error: ")
 
@@ -721,7 +736,7 @@ class MexcExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_api)
         self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
-        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+        result = self.async_run_with_timeout(self.exchange.check_network())
 
         self.assertEqual(NetworkStatus.CONNECTED, result)
 
@@ -731,13 +746,13 @@ class MexcExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_api)
         self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
-        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+        result = self.async_run_with_timeout(self.exchange.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
         mock_response = {}
         self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
-        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+        result = self.async_run_with_timeout(self.exchange.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
@@ -746,7 +761,7 @@ class MexcExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_api)
         self.mocking_assistant.add_http_response(mock_api, 404, mock_response, "")
 
-        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+        result = self.async_run_with_timeout(self.exchange.check_network())
 
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
@@ -812,7 +827,7 @@ class MexcExchangeTests(TestCase):
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
         future = self._simulate_create_order(*order_details)
-        asyncio.get_event_loop().run_until_complete(future)
+        self.async_run_with_timeout(future)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self._is_logged("INFO",
@@ -848,7 +863,7 @@ class MexcExchangeTests(TestCase):
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
         future = self._simulate_create_order(*order_details)
-        asyncio.get_event_loop().run_until_complete(future)
+        self.async_run_with_timeout(future)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self._is_logged("INFO",
@@ -874,14 +889,15 @@ class MexcExchangeTests(TestCase):
                                            price=Decimal("3.1504"),
                                            amount=Decimal("6.3008"),
                                            order_type=OrderType.LIMIT)
-
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_event_listener())
         _user_data = self.user_stream_data
         _user_data.get("data")["status"] = 2
-        self.exchange._user_stream_tracker.user_stream.put_nowait(_user_data)
-        # Yield processor for the exchange to process the new message
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: _user_data)
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         tracked_order: MexcInFlightOrder = self.exchange.in_flight_orders["sell-MX-USDT-1638156451005305"]
@@ -907,7 +923,7 @@ class MexcExchangeTests(TestCase):
             self.exchange.execute_buy(*order_details)
         )
 
-        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+        self.async_run_with_timeout(self.exchange_task)
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
         self._is_logged("NETWORK", "Error submitting buy limit_maker order to Mexc for 1 MX-USDT "
@@ -940,7 +956,7 @@ class MexcExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_cancel)
         self.mocking_assistant.add_http_response(mock_cancel, 200, mock_response, "")
 
-        result = asyncio.new_event_loop().run_until_complete(
+        result = self.async_run_with_timeout(
             self.exchange.execute_cancel(self.trading_pair, order.client_order_id)
         )
         self.assertIsNone(result)
@@ -969,7 +985,7 @@ class MexcExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_post_request)
         self.mocking_assistant.add_http_response(mock_post_request, 200, mock_response, "")
 
-        cancellation_results = asyncio.new_event_loop().run_until_complete(
+        cancellation_results = self.async_run_with_timeout(
             self.exchange.cancel_all(10)
         )
 
@@ -1002,11 +1018,11 @@ class MexcExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_cancel)
         self.mocking_assistant.add_http_response(mock_cancel, 200, mock_response, "")
 
-        asyncio.new_event_loop().run_until_complete(
+        self.async_run_with_timeout(
             self.exchange.execute_cancel(self.trading_pair, order.client_order_id)
         )
 
-        self._is_logged("NETWORK", "Failed to cancel order 0 : MexcAPIError('Order could not be canceled')")
+        self._is_logged("NETWORK", f"Failed to cancel order 0 : MexcAPIError('Order could not be canceled')")
 
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_execute_cancel_cancels(self, mock_cancel):
@@ -1028,7 +1044,7 @@ class MexcExchangeTests(TestCase):
         mock_cancel.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.new_event_loop().run_until_complete(
+            self.async_run_with_timeout(
                 self.exchange.execute_cancel(self.trading_pair, order.client_order_id)
             )
 

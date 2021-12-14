@@ -1,6 +1,6 @@
 import unittest
 import asyncio
-from collections import deque
+from collections import deque, Awaitable
 
 import ujson
 
@@ -62,6 +62,10 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
     @patch("aiohttp.ClientSession.get")
     def test_get_last_traded_prices(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
@@ -71,7 +75,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
              "change_rate": "0.00288555"}]}
         self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
 
-        results = self.ev_loop.run_until_complete(
+        results = self.async_run_with_timeout(
             asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
         results: Dict[str, Any] = results[0]
 
@@ -83,7 +87,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_response = {}
         self.mocking_assistant.add_http_response(mock_api, 100, mock_response)
 
-        result = self.ev_loop.run_until_complete(self.data_source.fetch_trading_pairs())
+        result = self.async_run_with_timeout(self.data_source.fetch_trading_pairs())
         self.assertEqual(0, len(result))
 
     @patch("aiohttp.ClientSession.get")
@@ -94,7 +98,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                                "version": "562370278"}}
         self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
 
-        results = self.ev_loop.run_until_complete(
+        results = self.async_run_with_timeout(
             asyncio.gather(self.data_source.get_snapshot(self.data_source._shared_client, self.trading_pair)))
         result = results[0]
 
@@ -110,8 +114,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant.add_http_response(mock_api, 100, mock_response)
 
         with self.assertRaises(IOError) as context:
-            self.ev_loop.run_until_complete(self.data_source.get_snapshot(self.data_source._shared_client,
-                                                                          self.trading_pair))
+            self.async_run_with_timeout(self.data_source.get_snapshot(self.data_source._shared_client, self.trading_pair))
 
         self.assertEqual(str(context.exception),
                          f'Error fetching MEXC market snapshot for {self.trading_pair.replace("-", "_")}. '
@@ -126,7 +129,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                                "version": "562370278"}}
         self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
 
-        results = self.ev_loop.run_until_complete(
+        results = self.async_run_with_timeout(
             asyncio.gather(self.data_source.get_new_order_book(self.trading_pair)))
         result: OrderBook = results[0]
 
@@ -141,11 +144,11 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
             )
-            self.ev_loop.run_until_complete(self.listening_task)
+            self.async_run_with_timeout(self.listening_task)
 
         self.assertEqual(msg_queue.qsize(), 0)
 
-    @patch("asyncio.sleep")
+    @patch("hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source.MexcAPIOrderBookDataSource._sleep")
     @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_successful(self, mock_api, mock_sleep):
         self.mocking_assistant.configure_http_request_mock(mock_api)
@@ -165,7 +168,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
-            self.ev_loop.run_until_complete(self.listening_task)
+            self.async_run_with_timeout(self.listening_task)
 
         self.assertEqual(msg_queue.qsize(), 1)
 
@@ -180,7 +183,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_subscriptions()
             )
-            self.ev_loop.run_until_complete(self.listening_task)
+            self.async_run_with_timeout(self.listening_task)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
@@ -196,7 +199,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
 
-        first_msg = self.ev_loop.run_until_complete(msg_queue.get())
+        first_msg = self.async_run_with_timeout(msg_queue.get())
         self.assertTrue(first_msg.type == OrderBookMessageType.DIFF)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -204,13 +207,13 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_websocket_connection_creation_raises_exception_after_loging(self, mock_ws):
         mock_ws.side_effect = Exception
 
         with self.assertRaises(Exception):
-            asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
         self.assertTrue(self._is_logged("NETWORK", 'Unexpected error occured connecting to mexc WebSocket API. ()'))
