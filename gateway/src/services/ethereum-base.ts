@@ -154,6 +154,15 @@ export class EthereumBase {
     return new Wallet(privateKey, this._provider);
   }
 
+  encrypt(privateKey: string, password: string): Promise<string> {
+    const wallet = this.getWallet(privateKey);
+    return wallet.encrypt(password);
+  }
+
+  decrypt(encryptedPrivateKey: string, password: string): Promise<Wallet> {
+    return Wallet.fromEncryptedJson(encryptedPrivateKey, password);
+  }
+
   // returns the Native balance, convert BigNumber to string
   async getNativeBalance(wallet: Wallet): Promise<TokenValue> {
     const balance = await wallet.getBalance();
