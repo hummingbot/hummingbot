@@ -136,17 +136,14 @@ class GatewayCommand:
 
         await self._generate_certs()  # create cert if not available
         self._notify("Pulling Gateway docker image...")
-        await asyncio.sleep(0.5)
         try:
-            pull_logs = iter(self._docker_client.pull(gateway_docker_name, tag="gateway-v2", stream=True, decode=True))
-            while True:
-                try:
-                    self.logger().info(json.dumps(next(pull_logs), indent=4))
-                except StopIteration:
-                    self._notify("Done pulling Gateway docker image.")
-                    break
-        except Exception:
+            await asyncio.get_running_loop().run_in_executor(None, self.pull_gateway_docker, gateway_docker_name)
+            self.logger().info("Done pulling Gateway docker image.")
+        except Exception as e:
             self._notify("Error pulling Gateway docker image. Try again.")
+            self.logger().network("Error pulling Gateway docker image. Try again.",
+                                  exc_info=True,
+                                  app_warning_msg=str(e))
             return
         self._notify("Creating new Gateway docker container...")
         container_id = self._docker_client.create_container(image = f"{gateway_docker_name}:gateway-v2",
@@ -162,6 +159,14 @@ class GatewayCommand:
                                                                        log_path: {'bind': '/usr/src/app/logs/',
                                                                                   'mode': 'rw'}}))
         self._notify(f"New Gateway docker container id is {container_id['Id']}.")
+
+    def pull_gateway_docker(self, gateway_docker_name):
+        last_id = ""
+        for pull_log in self._docker_client.pull(gateway_docker_name, tag="gateway-v2", stream=True, decode=True):
+            new_id = pull_log['id']
+            if last_id != new_id:
+                self.logger().info(f"Pull Id: {new_id}, Status: {pull_log['status']}")
+                last_id = new_id
 
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
