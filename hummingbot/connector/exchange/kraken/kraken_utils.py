@@ -211,16 +211,3 @@ KEYS = {
                   validator=lambda v: _api_tier_validator(v),
                   ),
 }
-
-
-class KrakenAPIError(IOError):
-    def __init__(self, error_payload: Dict[str, Any]):
-        super().__init__(str(error_payload))
-        self.error_payload = error_payload
-        self.http_status = error_payload.get('status')
-        if isinstance(error_payload, dict):
-            self.error_message = error_payload.get('error', error_payload).get('message', error_payload)
-            self.error_label = error_payload.get('error', error_payload).get('label', error_payload)
-        else:
-            self.error_message = error_payload
-            self.error_label = error_payload
