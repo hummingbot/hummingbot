@@ -1,4 +1,5 @@
 import asyncio
+from collections import Awaitable
 from unittest import TestCase
 from unittest.mock import patch, AsyncMock
 
@@ -25,6 +26,7 @@ class MexcAPIUserStreamDataSourceTests(TestCase):
         self.oms_id = 1
         self.log_records = []
         self.listening_task = None
+        self.ev_loop = asyncio.get_event_loop()
 
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         auth_assistant = MexcAuth(api_key=self.api_key,
@@ -41,6 +43,10 @@ class MexcAPIUserStreamDataSourceTests(TestCase):
 
     def handle(self, record):
         self.log_records.append(record)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
@@ -61,7 +67,7 @@ class MexcAPIUserStreamDataSourceTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value,
                                                              ujson.dumps({'channel': 'push.personal.order'}))
 
-        first_received_message = asyncio.get_event_loop().run_until_complete(messages.get())
+        first_received_message = self.async_run_with_timeout(messages.get())
         self.assertEqual({'channel': 'push.personal.order'}, first_received_message)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -73,4 +79,4 @@ class MexcAPIUserStreamDataSourceTests(TestCase):
             self.listening_task = asyncio.get_event_loop().create_task(
                 self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
                                                         messages))
-            asyncio.get_event_loop().run_until_complete(self.listening_task)
+            self.async_run_with_timeout(self.listening_task)

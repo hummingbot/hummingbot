@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import unittest
 import asyncio
+from collections import Awaitable
 from decimal import Decimal
 from typing import Any
 from unittest.mock import patch, AsyncMock
@@ -64,6 +65,10 @@ class MexcOrderBookTrackerUnitTest(unittest.TestCase):
         mock_api.return_value.__aenter__.return_value.status = status
         mock_api.return_value.__aenter__.return_value.json = AsyncMock(return_value=json_data)
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
     def simulate_queue_order_book_messages(self, message: MexcOrderBookMessage):
         message_queue = self.tracker._tracking_message_queues[self.trading_pair]
         message_queue.put_nowait(message)
@@ -85,7 +90,7 @@ class MexcOrderBookTrackerUnitTest(unittest.TestCase):
                 self.tracker._track_single_book(self.trading_pair),
                 2.0
             ))
-            self.ev_loop.run_until_complete(self.tracking_task)
+            self.async_run_with_timeout(self.tracking_task)
 
         self.assertEqual(1626788175000000, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
@@ -107,7 +112,7 @@ class MexcOrderBookTrackerUnitTest(unittest.TestCase):
             self.tracker._init_order_books()
         )
 
-        self.ev_loop.run_until_complete(init_order_books_task)
+        self.async_run_with_timeout(init_order_books_task)
 
         self.assertIsInstance(self.tracker.order_books[self.trading_pair], OrderBook)
         self.assertTrue(self.tracker._order_books_initialized.is_set())
@@ -119,7 +124,7 @@ class MexcOrderBookTrackerUnitTest(unittest.TestCase):
         init_order_books_task = self.ev_loop.create_task(
             self.tracker._init_order_books()
         )
-        self.ev_loop.run_until_complete(init_order_books_task)
+        self.async_run_with_timeout(init_order_books_task)
 
         ob = self.tracker.order_books[self.trading_pair]
         ask_price = ob.get_price(True)
