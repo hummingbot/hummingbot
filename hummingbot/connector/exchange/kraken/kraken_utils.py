@@ -11,7 +11,9 @@ from typing import (
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_ws_post_processor import KrakenWSPostProcessor
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 CENTRALIZED = True
@@ -171,6 +173,11 @@ def build_rate_limits_by_tier(tier: KrakenAPITier = KrakenAPITier.STARTER) -> Li
     return rate_limits
 
 
+def build_api_factory() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(ws_post_processors=[KrakenWSPostProcessor()])
+    return api_factory
+
+
 def _api_tier_validator(value: str) -> Optional[str]:
     """
     Determines if input value is a valid API tier
@@ -204,3 +211,16 @@ KEYS = {
                   validator=lambda v: _api_tier_validator(v),
                   ),
 }
+
+
+class KrakenAPIError(IOError):
+    def __init__(self, error_payload: Dict[str, Any]):
+        super().__init__(str(error_payload))
+        self.error_payload = error_payload
+        self.http_status = error_payload.get('status')
+        if isinstance(error_payload, dict):
+            self.error_message = error_payload.get('error', error_payload).get('message', error_payload)
+            self.error_label = error_payload.get('error', error_payload).get('label', error_payload)
+        else:
+            self.error_message = error_payload
+            self.error_label = error_payload

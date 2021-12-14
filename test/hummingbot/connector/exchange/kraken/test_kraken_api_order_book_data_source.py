@@ -11,7 +11,10 @@ from aioresponses import aioresponses
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
-from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
+from hummingbot.connector.exchange.kraken.kraken_utils import (
+    build_rate_limits_by_tier,
+    build_api_factory,
+)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -31,7 +34,8 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
-        self.data_source = KrakenAPIOrderBookDataSource(self.throttler, trading_pairs=[self.trading_pair])
+        self.api_factory = build_api_factory()
+        self.data_source = KrakenAPIOrderBookDataSource(self.throttler, trading_pairs=[self.trading_pair], api_factory=self.api_factory)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -206,9 +210,11 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         resp = self.get_last_traded_prices_mock(last_trade_close=last_traded_price)
         mocked_api.get(regex_url, body=json.dumps(resp))
 
+        client = self.async_run_with_timeout(self.data_source._get_rest_assistant())
+
         ret = self.async_run_with_timeout(
             KrakenAPIOrderBookDataSource.get_last_traded_prices(
-                trading_pairs=[self.trading_pair], throttler=self.throttler
+                trading_pairs=[self.trading_pair], client=client, throttler=self.throttler
             )
         )
 
@@ -241,22 +247,22 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         resp = self.get_public_asset_pair_mock()
         mocked_api.get(regex_url, body=json.dumps(resp))
 
-        resp = self.async_run_with_timeout(KrakenAPIOrderBookDataSource.fetch_trading_pairs())
+        client = self.async_run_with_timeout(self.data_source._get_rest_assistant())
+
+        resp = self.async_run_with_timeout(KrakenAPIOrderBookDataSource.fetch_trading_pairs(client))
 
         self.assertTrue(len(resp) == 1)
         self.assertIn(self.trading_pair, resp)
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_trade_data_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         output_queue = asyncio.Queue()
 
         self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
-        self.mocking_assistant.run_until_all_text_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
         msg = output_queue.get_nowait()
