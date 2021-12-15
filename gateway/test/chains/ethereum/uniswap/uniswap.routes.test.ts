@@ -2,7 +2,6 @@ import express from 'express';
 import { Express } from 'express-serve-static-core';
 import request from 'supertest';
 import { UniswapRoutes } from '../../../../src/chains/ethereum/uniswap/uniswap.routes';
-import { ConfigManager } from '../../../../src/services/config-manager';
 import { patch, unpatch } from '../../../services/patch';
 
 let app: Express;
@@ -124,11 +123,6 @@ const patchPriceSwapIn = () => {
   });
 };
 
-const patchConfig = () => {
-  patch(ConfigManager.config, 'UNISWAP_GAS_LIMIT', 150688);
-  patch(ConfigManager.config, 'ETHEREUM_CHAIN', 'kovan');
-};
-
 const patchGetNonce = () => {
   patch(UniswapRoutes.ethereum.nonceManager, 'getNonce', () => 21);
 };
@@ -148,7 +142,6 @@ describe('POST /eth/uniswap/price', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -175,7 +168,6 @@ describe('POST /eth/uniswap/price', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -323,7 +315,6 @@ describe('POST /eth/uniswap/trade', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
   };
@@ -390,7 +381,6 @@ describe('POST /eth/uniswap/trade', () => {
     patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
-    patchConfig();
     patchGetNonce();
     patchExecuteTrade();
   };

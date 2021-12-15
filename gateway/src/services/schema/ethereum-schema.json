@@ -10,15 +10,24 @@
           "properties": {
             "chainID": { "type": "integer" },
             "nodeURL": { "type": "string" },
-            "nodeApiKey": { "type": "string" },
-            "nativeCurrencySymbol": { "type": "string" }
+            "tokenListType": { "type": "string" },
+            "tokenListSource": { "type": "string" }
           },
-          "required": ["chainID", "nodeURL"],
+          "required": [
+            "chainID",
+            "nodeURL",
+            "tokenListType",
+            "tokenListSource"
+          ],
           "additionalProperties": false
         }
       },
       "additionalProperties": false
-    }
+    },
+    "nativeCurrencySymbol": { "type": "string" },
+    "nodeAPIKey": { "type": "string" },
+    "network": { "type": "string" },
+    "manualGasPrice": { "type": "integer" }
   },
   "additionalProperties": false
 }

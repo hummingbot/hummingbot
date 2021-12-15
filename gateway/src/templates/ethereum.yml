@@ -1,13 +1,16 @@
-# list the Ethereum networks available to gateway
 networks:
-  # the name of the network
   mainnet:
-    # the unique chain id of the network
     chainID: 1
-    # the node url of the network
-    nodeURL: http://localhost:8501/
+    nodeURL: https://mainnet.infura.io/v3/
+    tokenListType: URL
+    tokenListSource: >-
+      https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
   kovan:
     chainID: 42
     nodeURL: https://kovan.infura.io/v3/
-    # an optional API key for the node, like Infura
-    nodeApiKey: xyz123zir012312340123asdfne
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
+nativeCurrencySymbol: ETH
+nodeAPIKey: 3712b320394b413fb4c42fdadcebdf54
+network: kovan
+manualGasPrice: 110

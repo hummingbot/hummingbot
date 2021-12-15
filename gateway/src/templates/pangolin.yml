@@ -8,3 +8,9 @@ gasLimit: 23012
 # how long a trade is valid in seconds. After time passes pangolin will not
 # perform the trade, but the gas will still be spent.
 ttl: 300
+
+contractAddresses:
+  fuji:
+      routerAddress: '0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106'
+  avalanche:
+      routerAddress: '0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106'
