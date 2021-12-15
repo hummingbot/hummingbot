@@ -1,0 +1,190 @@
+import request from 'supertest';
+import { app } from '../../../src/app';
+import { patch, unpatch } from '../../services/patch';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
+import { Avalanche } from '../../../src/chains/avalanche/avalanche';
+import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import { GetWalletResponse } from '../../../src/services/wallet/wallet.requests';
+
+let avalanche: Avalanche;
+let eth: Ethereum;
+
+beforeAll(async () => {
+  patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
+
+  avalanche = Avalanche.getInstance();
+  await avalanche.init();
+
+  eth = Ethereum.getInstance();
+  await eth.init();
+});
+
+beforeEach(() =>
+  patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a')
+);
+
+afterEach(() => unpatch());
+
+const twoAddress = '0x2b5ad5c4795c026514f8317c7a215e218dccd6cf';
+
+const twoPrivateKey =
+  '0000000000000000000000000000000000000000000000000000000000000002';
+
+// encoding of twoPrivateKey with the password 'a'
+const encodedPrivateKey = {
+  address: '2b5ad5c4795c026514f8317c7a215e218dccd6cf',
+  id: '116e3405-ea6c-40ba-93c0-6a835ad2ea99',
+  version: 3,
+  Crypto: {
+    cipher: 'aes-128-ctr',
+    cipherparams: { iv: 'dccf7a5f7d66bc6a61cf4fda422dcd55' },
+    ciphertext:
+      'ce561ad92c6a507a9399f51d64951b763f01b4956f15fd298ceb7a1174d0394a',
+    kdf: 'scrypt',
+    kdfparams: {
+      salt: 'a88d99c6d01150af02861ebb1ace3b633a33b2a20561fe188a0c260a84d1ba99',
+      n: 131072,
+      dklen: 32,
+      p: 1,
+      r: 8,
+    },
+    mac: '684b0111ed08611ad993c76b4524d5dcda18b26cb930251983c36f40160eba8f',
+  },
+};
+
+describe('POST /wallet/add', () => {
+  it('return 200 for well formed ethereum request', async () => {
+    patch(eth, 'getWallet', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(eth, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(app)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chainName: 'ethereum',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('return 200 for well formed avalanche request', async () => {
+    patch(avalanche, 'getWallet', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(avalanche, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(app)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chainName: 'avalanche',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('return 404 for ill-formed request', async () => {
+    patch(avalanche, 'getWallet', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(avalanche, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(app)
+      .post(`/wallet/add`)
+      .send({})
+      .expect('Content-Type', /json/)
+      .expect(404);
+  });
+});
+
+describe('DELETE /wallet/remove', () => {
+  it('return 200 for well formed ethereum request', async () => {
+    patch(eth, 'getWallet', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(eth, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(app)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chainName: 'ethereum',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    await request(app)
+      .delete(`/wallet/remove`)
+      .send({
+        address: twoAddress,
+        chainName: 'ethereum',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('return 404 for ill-formed request', async () => {
+    await request(app).delete(`/wallet/delete`).send({}).expect(404);
+  });
+});
+
+describe('GET /wallet', () => {
+  it('return 200 for well formed ethereum request', async () => {
+    patch(eth, 'getWallet', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(eth, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(app)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chainName: 'ethereum',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    await request(app)
+      .get(`/wallet`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => {
+        const wallets: GetWalletResponse[] = res.body;
+        const addresses: string[][] = wallets
+          .filter((wallet) => wallet.chain === 'ethereum')
+          .map((wallet) => wallet.walletAddresses);
+
+        expect(addresses[0]).toContain(twoAddress);
+      });
+  });
+});

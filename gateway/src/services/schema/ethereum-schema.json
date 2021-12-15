@@ -13,7 +13,12 @@
             "tokenListType": { "type": "string" },
             "tokenListSource": { "type": "string" }
           },
-          "required": ["chainID", "nodeURL", "tokenListType", "tokenListSource"],
+          "required": [
+            "chainID",
+            "nodeURL",
+            "tokenListType",
+            "tokenListSource"
+          ],
           "additionalProperties": false
         }
       },

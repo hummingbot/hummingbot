@@ -14,7 +14,7 @@ export namespace ConfigManagerCertPassphrase {
     _exit: process.exit,
   };
 
-  export function readPassphrase(): string | undefined {
+  export const readPassphrase = (): string | undefined => {
     if (fs.existsSync(passphraseFliePath)) {
       const mode = fs.lstatSync(passphraseFliePath).mode;
       // check and make sure the passphrase file is a regular file, and is only accessible by the user.
@@ -40,15 +40,15 @@ export namespace ConfigManagerCertPassphrase {
         );
         bindings._exit(1);
       }
-    } else {
-      logger.error(
-        passphraseFliePath +
-          ' does not exist. It should contain a password and have mode set to user READ_WRITE only.'
-      );
-      bindings._exit(1);
     }
+
     // the compiler does not know that bindings._exit(1) will end the function
     // so we need a return to satisfy the compiler checks
+    logger.error(
+      passphraseFliePath +
+        ' does not exist. It should contain a password and have mode set to user READ_WRITE only.'
+    );
+    bindings._exit(1);
     return;
-  }
+  };
 }

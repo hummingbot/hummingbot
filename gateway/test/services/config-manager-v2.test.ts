@@ -1,3 +1,4 @@
+import fs from 'fs';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
 import path from 'path';
@@ -33,7 +34,7 @@ describe('Configuration manager v2 tests', () => {
 
   afterEach(async () => {
     // Delete the temp dir.
-    await fse.remove(tempDirPath);
+    fs.rmSync(tempDirPath, { force: true, recursive: true });
     tempDirPath = '';
 
     // Delete any default configs.
