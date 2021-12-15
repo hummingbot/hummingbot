@@ -72,7 +72,7 @@ class GatewayCommand:
         gateway_conf_path = path.join(root_path(), "gateway/conf")
         certificate_path = cert_path()
         log_path = path.join(root_path(), "logs")
-        gateway_docker_name = "coinalpha/hummingbot"
+        docker_repo = "coinalpha/hummingbot"
         gateway_container_name = "gateway-v2_container"
 
         if len(listdir(gateway_conf_path)) > 1:
@@ -137,7 +137,7 @@ class GatewayCommand:
         await self._generate_certs()  # create cert if not available
         self._notify("Pulling Gateway docker image...")
         try:
-            await asyncio.get_running_loop().run_in_executor(None, self.pull_gateway_docker, gateway_docker_name)
+            await asyncio.get_running_loop().run_in_executor(None, self.pull_gateway_docker, docker_repo)
             self.logger().info("Done pulling Gateway docker image.")
         except Exception as e:
             self._notify("Error pulling Gateway docker image. Try again.")
@@ -146,7 +146,7 @@ class GatewayCommand:
                                   app_warning_msg=str(e))
             return
         self._notify("Creating new Gateway docker container...")
-        container_id = self._docker_client.create_container(image = f"{gateway_docker_name}:gateway-v2",
+        container_id = self._docker_client.create_container(image = f"{docker_repo}:gateway-v2",
                                                             name = gateway_container_name,
                                                             ports = [5000],
                                                             volumes=[gateway_conf_path, certificate_path, log_path],
@@ -160,10 +160,10 @@ class GatewayCommand:
                                                                                   'mode': 'rw'}}))
         self._notify(f"New Gateway docker container id is {container_id['Id']}.")
 
-    def pull_gateway_docker(self, gateway_docker_name):
+    def pull_gateway_docker(self, docker_repo):
         last_id = ""
-        for pull_log in self._docker_client.pull(gateway_docker_name, tag="gateway-v2", stream=True, decode=True):
-            new_id = pull_log['id']
+        for pull_log in self._docker_client.pull(docker_repo, tag="gateway-v2", stream=True, decode=True):
+            new_id = pull_log["id"] if pull_log.get("id") else last_id
             if last_id != new_id:
                 self.logger().info(f"Pull Id: {new_id}, Status: {pull_log['status']}")
                 last_id = new_id
