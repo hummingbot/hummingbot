@@ -17,7 +17,7 @@ export class TelemetryTransport extends winston.transports.Http {
   constructor(opts: any) {
     super(opts);
 
-    this.logInterval = opts.interval || 3600000;
+    this.logInterval = 3600000;
     this.instanceId = opts.instanceId || '';
     this.errorLogBuffer = [];
     this.requestCountAggregator = 0;
@@ -58,8 +58,10 @@ export class TelemetryTransport extends winston.transports.Http {
     if (this.requestCountAggregator > 0) {
       const metric = {
         data: JSON.stringify({
-          instanceId: this.instanceId,
-          requestCount: this.requestCountAggregator,
+          name: 'hourly_request_count',
+          source: 'gateway',
+          instance_id: this.instanceId,
+          value: this.requestCountAggregator,
         }),
       };
       this._request(metric, false, this.responseHandler.bind(this));
@@ -89,7 +91,7 @@ export class TelemetryTransport extends winston.transports.Http {
       port: this.port,
       path: isLog
         ? `/log?${querystring.stringify(options.params)}`
-        : '/request_monitor',
+        : '/client_metrics',
       headers: headers,
     });
 
