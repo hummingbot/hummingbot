@@ -44,3 +44,9 @@ You can run the prettifier before committing with:
 ```bash
 yarn run prettier
 ```
+
+## Developement
+
+How to contribute to or extend gateway.
+
+- [How we write unit tests for gateway](./docs/testing.md)
