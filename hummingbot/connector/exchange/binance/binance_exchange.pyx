@@ -327,7 +327,7 @@ cdef class BinanceExchange(ExchangeBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -360,7 +360,7 @@ cdef class BinanceExchange(ExchangeBase):
             list retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = rule.get("symbol")
+                trading_pair = convert_from_exchange_trading_pair(rule.get("symbol"))
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]

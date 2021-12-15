@@ -99,8 +99,8 @@ cdef class GateIoActiveOrderTracker:
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
         cdef:
-            float price
-            float amount
+            object price
+            double amount
             str order_id
             dict order_dict
 

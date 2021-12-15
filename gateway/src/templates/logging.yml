@@ -1,0 +1,6 @@
+# The directory path where logs will be stored.
+logPath: './logs'
+
+# If true, logs will be stored in logPath and printed to stdout. If false, they
+# will only be stored in logPath and not printed to stdout.
+logToStdOut: true

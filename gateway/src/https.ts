@@ -1,21 +1,31 @@
 import { Application } from 'express';
 import fs from 'fs';
 import https from 'https';
-import { ConfigManager } from './services/config-manager';
+// import { ConfigManager } from './services/config-manager';
 import { ConfigManagerCertPassphrase } from './services/config-manager-cert-passphrase';
+import { ConfigManagerV2 } from './services/config-manager-v2';
 
-const certPath = ConfigManager.config.CERT_PATH.replace(/\/$/, '');
+// const certPath = ConfigManager.config.CERT_PATH.replace(/\/$/, '');
 
 export const addHttps = (app: Application) => {
-  const serverKey = fs.readFileSync(certPath.concat('/server_key.pem'), {
-    encoding: 'utf-8',
-  });
-  const serverCert = fs.readFileSync(certPath.concat('/server_cert.pem'), {
-    encoding: 'utf-8',
-  });
-  const caCert = fs.readFileSync(certPath.concat('/ca_cert.pem'), {
-    encoding: 'utf-8',
-  });
+  const serverKey = fs.readFileSync(
+    ConfigManagerV2.getInstance().get('ssl.keyPath'),
+    {
+      encoding: 'utf-8',
+    }
+  );
+  const serverCert = fs.readFileSync(
+    ConfigManagerV2.getInstance().get('ssl.certificatePath'),
+    {
+      encoding: 'utf-8',
+    }
+  );
+  const caCert = fs.readFileSync(
+    ConfigManagerV2.getInstance().get('ssl.caCertificatePath'),
+    {
+      encoding: 'utf-8',
+    }
+  );
 
   return https.createServer(
     {

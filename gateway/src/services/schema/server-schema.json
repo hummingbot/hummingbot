@@ -3,8 +3,10 @@
   "type": "object",
   "properties": {
     "port": { "type": "integer" },
-    "ipWhitelist": { "type": "array" }
+    "ipWhitelist": { "type": "array" },
+    "unsafeDevModeWithHTTP": { "type": "boolean" },
+    "GMTOffset": { "type": "number" }
   },
   "additionalProperties": false,
-  "required": ["port"]
+  "required": ["port", "unsafeDevModeWithHTTP"]
 }

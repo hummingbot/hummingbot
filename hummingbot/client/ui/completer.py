@@ -47,7 +47,8 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["create", "generate-certs", "list-configs", "test-connection", "update"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["create", "generate-certs", "config", "test-connection"], ignore_case=True)
+        self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
@@ -135,7 +136,11 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway ")
+        return text_before_cursor.startswith("gateway ") and not text_before_cursor.startswith("gateway config ")
+
+    def _complete_gateway_config_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway config ")
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
@@ -217,6 +222,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_arguments(document):
             for c in self._gateway_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_config_arguments(document):
+            for c in self._gateway_config_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_derivatives(document):

@@ -1,5 +1,4 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { ConfigManager } from '../../../services/config-manager';
 import { asyncHandler } from '../../../services/error-handler';
 import { price, trade } from '../../ethereum/uniswap/uniswap.controllers';
 
@@ -15,6 +14,7 @@ import {
   validateUniswapTradeRequest,
 } from '../../ethereum/uniswap/uniswap.validators';
 import { Avalanche } from '../avalanche';
+import { AvalancheConfig } from '../avalanche.config';
 import { Pangolin } from './pangolin';
 
 export namespace PangolinRoutes {
@@ -36,7 +36,7 @@ export namespace PangolinRoutes {
 
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
-      network: ConfigManager.config.AVALANCHE_CHAIN,
+      network: AvalancheConfig.config.network.name,
       uniswap_router: pangolin.router,
       connection: true,
       timestamp: Date.now(),

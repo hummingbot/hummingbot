@@ -845,6 +845,9 @@ class NdaxExchange(ExchangeBase):
         for order_status in parsed_status_responses:
             self._process_order_event_message(order_status)
 
+    def _reset_poll_notifier(self):
+        self._poll_notifier = asyncio.Event()
+
     async def _status_polling_loop(self):
         """
         Periodically update user balances and order status via REST API. This serves as a fallback measure for web
@@ -852,7 +855,7 @@ class NdaxExchange(ExchangeBase):
         """
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
+                self._reset_poll_notifier()
                 await self._poll_notifier.wait()
                 start_ts = self.current_timestamp
                 await safe_gather(

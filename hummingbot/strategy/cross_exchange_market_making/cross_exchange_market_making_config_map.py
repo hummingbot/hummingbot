@@ -226,4 +226,13 @@ cross_exchange_market_making_config_map = {
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
+    "slippage_buffer": ConfigVar(
+        key="slippage_buffer",
+        prompt="How much buffer do you want to add to the price to account for slippage for taker orders "
+               "Enter 1 to indicate 1% >>> ",
+        prompt_on_new=True,
+        default=Decimal("5"),
+        type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=True)
+    )
 }

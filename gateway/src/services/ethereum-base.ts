@@ -12,6 +12,7 @@ import fs from 'fs/promises';
 import { TokenListType, TokenValue } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
+import { EvmTxStorage } from './evm.tx-storage';
 
 // information about an Ethereum token
 export interface Token {
@@ -43,6 +44,7 @@ export class EthereumBase {
   public tokenListType: TokenListType;
   public cache: NodeCache;
   private _nonceManager: EVMNonceManager;
+  private _txStorage: EvmTxStorage;
 
   constructor(
     chainName: string,
@@ -62,6 +64,7 @@ export class EthereumBase {
     this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
     this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
+    this._txStorage = new EvmTxStorage('transactions.level');
   }
 
   ready(): boolean {
@@ -130,6 +133,10 @@ export class EthereumBase {
     return this._nonceManager;
   }
 
+  public get txStorage(): EvmTxStorage {
+    return this._txStorage;
+  }
+
   // ethereum token lists are large. instead of reloading each time with
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
@@ -145,6 +152,15 @@ export class EthereumBase {
   // returns Wallet for a private key
   getWallet(privateKey: string): Wallet {
     return new Wallet(privateKey, this._provider);
+  }
+
+  encrypt(privateKey: string, password: string): Promise<string> {
+    const wallet = this.getWallet(privateKey);
+    return wallet.encrypt(password);
+  }
+
+  decrypt(encryptedPrivateKey: string, password: string): Promise<Wallet> {
+    return Wallet.fromEncryptedJson(encryptedPrivateKey, password);
   }
 
   // returns the Native balance, convert BigNumber to string
