@@ -83,7 +83,8 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
 
         self.executed_amount_base += trade_amount
         self.executed_amount_quote += quote_amount
-        self.fee_paid += Decimal(str(trade_update["order_fee"]))
+        # According to Liquid support team they inform fee in a cumulative way
+        self.fee_paid = Decimal(str(trade_update["order_fee"]))
         self.fee_asset = trade_update["funding_currency"]
 
         return True
