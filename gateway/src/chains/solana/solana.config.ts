@@ -19,7 +19,7 @@ export namespace SolanaConfig {
     },
     mainnet_beta: {
       rpcUrl: 'https://mainnet.infura.io/v3/',
-      slug: 'mainnet-beta'
+      slug: 'mainnet-beta',
     },
   };
 }
