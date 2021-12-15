@@ -140,7 +140,8 @@ class LiquidInFlightOrderTests(TestCase):
         self.assertEqual(order.amount, order.executed_amount_base)
         expected_executed_quote_amount += Decimal("0.9") * Decimal(str(complete_event_info["price"]))
         self.assertEqual(expected_executed_quote_amount, order.executed_amount_quote)
-        self.assertEqual(Decimal(trade_event_info["order_fee"]) + Decimal(complete_event_info["order_fee"]),
+        # According to Liquid support team they inform fee in a cumulative way
+        self.assertEqual(Decimal(complete_event_info["order_fee"]),
                          order.fee_paid)
         self.assertEqual(trade_event_info["funding_currency"], order.fee_asset)
 
