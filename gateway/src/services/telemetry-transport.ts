@@ -90,8 +90,8 @@ export class TelemetryTransport extends winston.transports.Http {
       host: this.host,
       port: this.port,
       path: isLog
-        ? `/log?${querystring.stringify(options.params)}`
-        : '/client_metrics',
+        ? `/reporting-proxy-v2/log?${querystring.stringify(options.params)}`
+        : '/reporting-proxy-v2/client_metrics',
       headers: headers,
     });
 
