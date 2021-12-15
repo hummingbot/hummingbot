@@ -41,7 +41,7 @@ class KrakenWebsocket:
     async def connect(self):
         self._ws_assistant = await self._api_factory.get_ws_assistant()
         await self._ws_assistant.connect(
-            ws_url=CONSTANTS.WS_AUTH_URL,
+            ws_url=CONSTANTS.WS_URL,
             ping_timeout=CONSTANTS.PING_TIMEOUT,
             message_timeout=CONSTANTS.MESSAGE_TIMEOUT,
         )
@@ -88,8 +88,6 @@ class KrakenWebsocket:
     async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
         data = data or {}
         payload = {
-            "time": int(time.time()),
-            "channel": channel,
             **data,
         }
 
@@ -101,7 +99,7 @@ class KrakenWebsocket:
         request = WSRequest(payload)
         await self._ws_assistant.send(request)
 
-        return payload["time"]
+        return int(time.time())
 
     async def request(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
         data = data or {}
@@ -109,22 +107,20 @@ class KrakenWebsocket:
 
     async def subscribe(self,
                         channel: str,
-                        current_auth_token: str = None) -> int:
+                        current_auth_token: str = None,
+                        pair: str = None) -> int:
+        ws_params = {
+            "event": "subscribe",
+            "subscription": {
+                "name": channel
+            }
+        }
+
         if current_auth_token is not None:
-            ws_params = {
-                "event": "subscribe",
-                "subscription": {
-                    "name": channel,
-                    "token": current_auth_token
-                }
-            }
-        else:
-            ws_params = {
-                "event": "subscribe",
-                "subscription": {
-                    "name": channel
-                }
-            }
+            ws_params["subscription"]["token"] = current_auth_token
+
+        if pair is not None:
+            ws_params["pair"] = pair
 
         return await self.request(channel, ws_params)
 
