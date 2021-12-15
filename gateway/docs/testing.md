@@ -64,6 +64,25 @@ yarn test:cov
 This will produce a table with absolute numbers, percentages and line numbers that
 are not being tested. These are helpful for knowing where to increment tests.
 
+### Coverage areas
+
+When you run test coverage, you will see a table of information with the following
+concepts:
+
+function coverage: the percentage of declared functions that are tested (this 
+ignores details of how much internal function code is run).
+
+branch coverage: percentage of decision conditions like loop, if/else, while that
+are called.
+
+statement coverage: the percentage of executable statements this includes function calls,
+assignment, branches that are called
+
+line coverage: the percentage of lines of declared code that are called.
+
+uncovered lines: the line numbers of code that is not called
+
+
 ## Jest: describe, it, before, after
 
 The main tools from Jest we use are `describe` and `it`.
