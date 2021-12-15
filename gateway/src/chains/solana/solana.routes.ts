@@ -5,11 +5,7 @@ import { SolanaConfig } from './solana.config';
 import { ConfigManager } from '../../services/config-manager';
 import { verifySolanaIsAvailable } from './solana-middlewares';
 import { asyncHandler } from '../../services/error-handler';
-import {
-  approve,
-  balances,
-  poll,
-} from './solana.controllers';
+import { approve, balances, poll } from './solana.controllers';
 import {
   SolanaBalanceRequest,
   SolanaBalanceResponse,
@@ -37,7 +33,7 @@ export namespace SolanaRoutes {
   router.get(
     '/',
     asyncHandler(async (_req: Request, res: Response) => {
-      let rpcUrl = solana.rpcUrl
+      const rpcUrl = solana.rpcUrl;
 
       res.status(200).json({
         network: ConfigManager.config.ETHEREUM_CHAIN,
@@ -53,7 +49,7 @@ export namespace SolanaRoutes {
     '/balance',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaBalanceRequest>,  // TODO: Implement
+        req: Request<{}, {}, SolanaBalanceRequest>, // TODO: Implement
         res: Response<SolanaBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
@@ -74,7 +70,7 @@ export namespace SolanaRoutes {
         _next: NextFunction
       ) => {
         validateSolanaGetTokenRequest(req.body);
-        res.status(200).json(await token(solana, req.body));  // TODO: Controller
+        res.status(200).json(await token(solana, req.body)); // TODO: Controller
       }
     )
   );
@@ -90,7 +86,7 @@ export namespace SolanaRoutes {
         _next: NextFunction
       ) => {
         validateSolanaPostTokenRequest(req.body);
-        res.status(200).json(await token(solana, req.body));  // TODO: Controller
+        res.status(200).json(await token(solana, req.body)); // TODO: Controller
       }
     )
   );
