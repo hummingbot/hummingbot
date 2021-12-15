@@ -7,6 +7,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import OrderType, PositionAction, TradeFee, TradeType
 
 s_decimal_0 = Decimal("0")
@@ -30,6 +31,7 @@ class OrderUpdate(NamedTuple):
     trading_pair: str
     update_timestamp: int  # milliseconds
     new_state: OrderState
+    trade_id: Optional[str] = None
     fill_price: Optional[Decimal] = None  # If None, defaults to order price
     executed_amount_base: Optional[Decimal] = None
     executed_amount_quote: Optional[Decimal] = None
@@ -43,12 +45,12 @@ class TradeUpdate(NamedTuple):
     client_order_id: str
     exchange_order_id: str
     trading_pair: str
+    fill_timestamp: int
     fill_price: Decimal
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
     fee_asset: str
-    fee_paid: Decimal
-    fill_timestamp: int
+    fee_paid: Optional[Decimal] = None
     trade_fee_percent: Optional[Decimal] = None
 
 
@@ -93,6 +95,8 @@ class InFlightOrder:
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
 
         self.exchange_order_id_update_event = asyncio.Event()
+        if self.exchange_order_id:
+            self.exchange_order_id_update_event.set()
 
     @property
     def attributes(self) -> Tuple[Any]:
@@ -177,6 +181,64 @@ class InFlightOrder:
             return None
         return executed_value / total_base_amount
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "InFlightOrder":
+        """
+        Initialize an InFlightOrder using a JSON object
+        :param data: JSON data
+        :return: Formatted InFlightOrder
+        """
+        retval = InFlightOrder(
+            client_order_id=data["client_order_id"],
+            trading_pair=data["trading_pair"],
+            order_type=getattr(OrderType, data["order_type"]),
+            trade_type=getattr(TradeType, data["trade_type"]),
+            amount=Decimal(data["amount"]),
+            price=Decimal(data["price"]),
+            initial_state=data["last_state"]
+        )
+        retval.executed_amount_base = Decimal(data["executed_amount_base"])
+        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        retval.fee_asset = data["fee_asset"]
+        retval.cumulative_fee_paid = Decimal(data["fee_paid"])
+        return retval
+
+    def to_json(self) -> Dict[str, Any]:
+        """
+        Returns this InFlightOrder as a JSON object.
+        :return: JSON object
+        """
+        return {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "trading_pair": self.trading_pair,
+            "order_type": self.order_type.name,
+            "trade_type": self.trade_type.name,
+            "price": str(self.price),
+            "amount": str(self.amount),
+            "executed_amount_base": str(self.executed_amount_base),
+            "executed_amount_quote": str(self.executed_amount_quote),
+            "fee_asset": self.fee_asset,
+            "fee_paid": str(self.cumulative_fee_paid),
+            "last_state": self.last_state
+        }
+
+    def to_limit_order(self) -> LimitOrder:
+        """
+        Returns this InFlightOrder as a LimitOrder object.
+        :return: LimitOrder object.
+        """
+        return LimitOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            is_buy=self.trade_type is TradeType.BUY,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=self.price,
+            quantity=self.amount,
+            filled_quantity=self.executed_amount_base
+        )
+
     @property
     def latest_trade_fee(self) -> TradeFee:
         trade_fee: TradeFee = (
@@ -186,7 +248,7 @@ class InFlightOrder:
         )
         return trade_fee
 
-    def _update_exchange_order_id(self, exchange_order_id: str):
+    def update_exchange_order_id(self, exchange_order_id: str):
         self.exchange_order_id = exchange_order_id
         self.exchange_order_id_update_event.set()
 
@@ -205,7 +267,7 @@ class InFlightOrder:
             return False
 
         if self.exchange_order_id is None:
-            self._update_exchange_order_id(order_update.exchange_order_id)
+            self.update_exchange_order_id(order_update.exchange_order_id)
 
         updated = False
         prev_order_state: Tuple[Any] = self.attributes
@@ -226,7 +288,7 @@ class InFlightOrder:
 
         if updated:
             self.last_update_timestamp = order_update.update_timestamp
-            if order_update.new_state == OrderState.OPEN:
+            if order_update.new_state in {OrderState.OPEN, OrderState.CANCELLED, OrderState.FAILED}:
                 return True
 
             self.last_filled_price = order_update.fill_price or self.price
@@ -241,8 +303,10 @@ class InFlightOrder:
                 else order_update.cumulative_fee_paid - prev_cumulative_fee_paid
             )
 
-            self.order_fills[self.last_update_timestamp] = TradeUpdate(
-                trade_id=self.last_update_timestamp,
+            # trade_id defaults to update timestamp if not provided
+            trade_id: str = order_update.trade_id or order_update.update_timestamp
+            self.order_fills[trade_id] = TradeUpdate(
+                trade_id=trade_id,
                 client_order_id=order_update.client_order_id,
                 exchange_order_id=order_update.exchange_order_id,
                 trading_pair=order_update.trading_pair,
@@ -274,13 +338,25 @@ class InFlightOrder:
 
         self.executed_amount_base += trade_update.fill_base_amount
         self.executed_amount_quote += trade_update.fill_quote_amount
-        self.cumulative_fee_paid += trade_update.fee_paid
+
         if not self.fee_asset and trade_update.fee_asset:
             self.fee_asset = trade_update.fee_asset
+        if trade_update.trade_fee_percent:
+            self.trade_fee_percent = trade_update.trade_fee_percent
+
+        relevant_fee_amount: Decimal = (
+            trade_update.fill_base_amount
+            if trade_update.fee_asset == self.base_asset
+            else trade_update.fill_quote_amount
+        )
+        fee_paid: Decimal = (
+            trade_update.fee_paid if trade_update.fee_paid else self.trade_fee_percent * relevant_fee_amount
+        )
+        self.cumulative_fee_paid += fee_paid
 
         self.last_filled_price = trade_update.fill_price
         self.last_filled_amount = trade_update.fill_base_amount
-        self.last_fee_paid = trade_update.fee_paid
+        self.last_fee_paid = fee_paid
         self.last_update_timestamp = trade_update.fill_timestamp
         self.order_fills[trade_id] = trade_update
 

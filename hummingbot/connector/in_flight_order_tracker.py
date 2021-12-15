@@ -1,9 +1,10 @@
 import logging
 import asyncio
-import copy
+import time
 
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+from cachetools import TTLCache
 
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.event.events import (
@@ -27,7 +28,23 @@ ifot_logger = None
 
 class InFlightOrderTracker(PubSub):
 
-    STOP_TRACKING_ORDER_ERROR_LIMIT = 5
+    MAX_CACHE_SIZE = 1000
+    CACHED_ORDER_TTL = 30.0  # seconds
+    MARKET_EVENTS = [
+        MarketEvent.BuyOrderCompleted,
+        MarketEvent.SellOrderCompleted,
+        MarketEvent.OrderCancelled,
+        MarketEvent.OrderFilled,
+        MarketEvent.OrderFailure,
+        MarketEvent.BuyOrderCreated,
+        MarketEvent.SellOrderCreated,
+        # MarketEvent.FundingPaymentCompleted,
+        # MarketEvent.RangePositionCreated,
+        # MarketEvent.RangePositionRemoved,
+        # MarketEvent.RangePositionUpdated,
+        # MarketEvent.RangePositionFailure,
+        # MarketEvent.RangePositionInitiated,
+    ]
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -39,7 +56,7 @@ class InFlightOrderTracker(PubSub):
     def __init__(self) -> None:
         """
         Provides utilities for connectors to update in-flight orders and also handle order errors.
-        Also it maintains dead orders to allow for additional updates to occur after the original order is determined to
+        Also it maintains cached orders to allow for additional updates to occur after the original order is determined to
         no longer be active.
         An error constitutes, but is not limited to, the following:
         (1) Order not found on exchange.
@@ -48,53 +65,54 @@ class InFlightOrderTracker(PubSub):
         """
 
         self._in_flight_orders: Dict[str, InFlightOrder] = {}
-        self._dead_orders: Dict[str, InFlightOrder] = {}
+        self._cached_orders: TTLCache = TTLCache(maxsize=self.MAX_CACHE_SIZE, ttl=self.CACHED_ORDER_TTL)
 
         self._order_tracking_task: Optional[asyncio.Task] = None
         self._last_poll_timestamp: int = -1
 
-        self._event_reporter = EventReporter(event_source=self.display_name)
-        self._event_logger = EventLogger(event_source=self.display_name)
+        self._event_reporter = EventReporter(event_source=__name__)
+        self._event_logger = EventLogger(event_source=__name__)
         for event_tag in self.MARKET_EVENTS:
-            self.c_add_listener(event_tag.value, self._event_reporter)
-            self.c_add_listener(event_tag.value, self._event_logger)
+            self.add_listener(event_tag, self._event_reporter)
+            self.add_listener(event_tag, self._event_logger)
 
     @property
-    def active_orders(self) -> List[InFlightOrder]:
+    def active_orders(self) -> Dict[str, InFlightOrder]:
         """
         Returns orders that are actively tracked
         """
-        return list(self._in_flight_orders.values())
+        return self._in_flight_orders
 
-    # TODO: Investigate TTLCache and LRUCache
     @property
-    def dead_orders(self) -> List[str]:
+    def cached_orders(self) -> Dict[str, InFlightOrder]:
         """
         Returns orders that are no longer actively tracked.
         """
-        return list(self._dead_orders.values())
+        return self._cached_orders
+
+    @property
+    def current_timestamp(self) -> int:
+        """
+        Returns current timestamp in milliseconds.
+        """
+        return int(time.time() * 1e3)
 
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
 
     def stop_tracking_order(self, client_order_id: str):
         if client_order_id in self._in_flight_orders:
-            # TODO: Find a better way to "cache" orders.
-            self._dead_orders[client_order_id] = copy.deepcopy(self._in_flight_orders[client_order_id])
+            self._cached_orders[client_order_id] = self._in_flight_orders[client_order_id]
             del self._in_flight_orders[client_order_id]
 
     def fetch_tracked_order(self, client_order_id: str) -> Optional[InFlightOrder]:
         return self._in_flight_orders.get(client_order_id, None)
 
-    def fetch_dead_order(self, client_order_id: str) -> Optional[InFlightOrder]:
-        return self._dead_orders.get(client_order_id, None)
-
-    def remove_dead_order(self, client_order_id: str):
-        if client_order_id in self._dead_orders:
-            del self._dead_orders[client_order_id]
+    def fetch_cached_order(self, client_order_id: str) -> Optional[InFlightOrder]:
+        return self._cached_orders.get(client_order_id, None)
 
     def fetch_order(self, client_order_id: str) -> Optional[InFlightOrder]:
-        return self._in_flight_orders.get(client_order_id, self._dead_orders.get(client_order_id, None))
+        return self._in_flight_orders.get(client_order_id, self._cached_orders.get(client_order_id, None))
 
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
@@ -114,7 +132,11 @@ class InFlightOrderTracker(PubSub):
 
     def _trigger_cancelled_event(self, order: InFlightOrder):
         self.trigger_event(
-            MarketEvent.OrderCancelled, OrderCancelledEvent(self.current_timestamp, order.client_order_id)
+            MarketEvent.OrderCancelled,
+            OrderCancelledEvent(
+                timestamp=self.current_timestamp,
+                order_id=order.client_order_id,
+            ),
         )
 
     def _trigger_completed_event(self, order: InFlightOrder):
@@ -137,22 +159,32 @@ class InFlightOrderTracker(PubSub):
                 order.exchange_order_id,
             ),
         )
-        self.stop_tracking_order(order.client_order_id)
 
     def _trigger_failure_event(self, order: InFlightOrder):
         self.trigger_event(
             MarketEvent.OrderFailure,
-            MarketOrderFailureEvent(self.current_timestamp, order.client_order_id, order.order_type),
+            MarketOrderFailureEvent(
+                timestamp=self.current_timestamp,
+                order_id=order.client_order_id,
+                order_type=order.order_type,
+            ),
         )
-        self.stop_tracking_order(order.client_order_id)
 
     def _trigger_order_creation(self, tracked_order: InFlightOrder, previous_state: OrderState, new_state: OrderState):
         if previous_state == OrderState.PENDING_CREATE and new_state == OrderState.OPEN:
+            self.logger().info(
+                f"Created {tracked_order.order_type.name.upper()} {tracked_order.trade_type.name.upper()} order "
+                f"{tracked_order.client_order_id} for {tracked_order.amount} {tracked_order.trading_pair}."
+            )
             self._trigger_created_event(tracked_order)
 
     def _trigger_order_fills(self, tracked_order: InFlightOrder, prev_executed_amount_base: Decimal):
         if prev_executed_amount_base < tracked_order.executed_amount_base:
-
+            self.logger().info(
+                f"The {tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} "
+                f"amounting to {tracked_order.executed_amount_base}/{tracked_order.amount} "
+                f"{tracked_order.base_asset} has been filled."
+            )
             self.trigger_event(
                 MarketEvent.OrderFilled,
                 OrderFilledEvent(
@@ -168,7 +200,7 @@ class InFlightOrderTracker(PubSub):
                 ),
             )
 
-    def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate]):
+    def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate] = None):
         if tracked_order.is_open:
             return
 
@@ -214,9 +246,7 @@ class InFlightOrderTracker(PubSub):
         if tracked_order:
             previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
 
-            updated: bool = tracked_order.update_with_order_update(trade_update)
+            updated: bool = tracked_order.update_with_trade_update(trade_update)
             if updated:
                 self._trigger_order_fills(tracked_order, previous_executed_amount_base)
-
-                # TODO: Examine possibility of double completion events being triggered
-                # self._trigger_order_completion(tracked_order, trade_update)
+                self._trigger_order_completion(tracked_order, trade_update)
