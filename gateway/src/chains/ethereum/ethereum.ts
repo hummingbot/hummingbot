@@ -3,7 +3,6 @@ import axios from 'axios';
 import { logger } from '../../services/logger';
 import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
-import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from './uniswap/uniswap.config';
@@ -23,33 +22,22 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _metricsLogInterval: number;
 
   private constructor() {
-    let config;
-    switch (ConfigManager.config.ETHEREUM_CHAIN) {
-      case 'mainnet':
-        config = EthereumConfig.config.mainnet;
-        break;
-      case 'kovan':
-        config = EthereumConfig.config.kovan;
-        break;
-      default:
-        throw new Error('ETHEREUM_CHAIN not valid');
-    }
-
+    const config = EthereumConfig.config.network;
     super(
       'ethereum',
-      config.chainId,
-      config.rpcUrl + ConfigManager.config.INFURA_KEY,
+      config.chainID,
+      config.nodeURL + EthereumConfig.config.nodeAPIKey,
       config.tokenListSource,
       config.tokenListType,
-      ConfigManager.config.ETH_MANUAL_GAS_PRICE
+      EthereumConfig.config.manualGasPrice
     );
-    this._chain = ConfigManager.config.ETHEREUM_CHAIN;
-    this._nativeTokenSymbol = 'ETH';
+    this._chain = EthereumConfig.config.network.name;
+    this._nativeTokenSymbol = EthereumConfig.config.nativeCurrencySymbol;
     this._ethGasStationUrl =
-      'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
-      ConfigManager.config.ETH_GAS_STATION_API_KEY;
+      EthereumConfig.ethGasStationConfig.gasStationURL +
+      EthereumConfig.ethGasStationConfig.APIKey;
 
-    this._gasPrice = ConfigManager.config.ETH_MANUAL_GAS_PRICE;
+    this._gasPrice = EthereumConfig.config.manualGasPrice;
     this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
@@ -117,17 +105,16 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will
   // continually update the gas price.
   async updateGasPrice(): Promise<void> {
-    if (ConfigManager.config.ETH_GAS_STATION_ENABLE) {
+    if (EthereumConfig.ethGasStationConfig.enabled) {
       const { data } = await axios.get(this._ethGasStationUrl);
 
       // divide by 10 to convert it to Gwei
-      this._gasPrice =
-        data[ConfigManager.config.ETH_GAS_STATION_GAS_LEVEL] / 10;
+      this._gasPrice = data[EthereumConfig.ethGasStationConfig.gasLevel] / 10;
       this._gasPriceLastUpdated = new Date();
 
       setTimeout(
         this.updateGasPrice.bind(this),
-        ConfigManager.config.ETH_GAS_STATION_REFRESH_TIME * 1000
+        EthereumConfig.ethGasStationConfig.refreshTime * 1000
       );
     }
   }
@@ -144,11 +131,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'uniswap') {
-      if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-        spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
-      } else {
-        spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
-      }
+      spender = UniswapConfig.config.uniswapV2RouterAddress;
     } else {
       spender = reqSpender;
     }

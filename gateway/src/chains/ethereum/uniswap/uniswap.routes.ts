@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Ethereum } from '../ethereum';
 import { Uniswap } from './uniswap';
-import { ConfigManager } from '../../../services/config-manager';
 import { asyncHandler } from '../../../services/error-handler';
 import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
 import { verifyUniswapIsAvailable } from './uniswap-middlewares';
@@ -18,6 +17,7 @@ import {
   validateUniswapPriceRequest,
   validateUniswapTradeRequest,
 } from './uniswap.validators';
+import { EthereumConfig } from '../ethereum.config';
 
 export namespace UniswapRoutes {
   export const router = Router();
@@ -31,7 +31,7 @@ export namespace UniswapRoutes {
 
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
-      network: ConfigManager.config.ETHEREUM_CHAIN,
+      network: EthereumConfig.config.network.name,
       uniswap_router: uniswap.router,
       connection: true,
       timestamp: Date.now(),

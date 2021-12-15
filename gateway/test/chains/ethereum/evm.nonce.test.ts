@@ -1,5 +1,5 @@
+import fs from 'fs';
 import fsp from 'fs/promises';
-import fse from 'fs-extra';
 import path from 'path';
 
 import { patch, unpatch } from '../../services/patch';
@@ -28,8 +28,7 @@ describe('unitiated EVMNodeService', () => {
   });
 
   afterAll(async () => {
-    await fse.emptyDir(dbPath);
-    await fse.remove(dbPath);
+    fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
   it('mergeNonceFromEVMNode throws error', async () => {
@@ -103,8 +102,7 @@ describe('EVMNodeService', () => {
   });
 
   afterAll(async () => {
-    await fse.emptyDir(dbPath);
-    await fse.remove(dbPath);
+    fs.rmSync(dbPath, { force: true, recursive: true });
   });
   const patchGetTransactionCount = () => {
     if (nonceManager._provider) {
@@ -167,8 +165,7 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   });
 
   afterAll(async () => {
-    await fse.emptyDir(dbPath);
-    await fse.remove(dbPath);
+    fs.rmSync(dbPath, { force: true, recursive: true });
   });
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
     if (nonceManager1._provider) {

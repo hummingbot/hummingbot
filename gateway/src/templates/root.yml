@@ -22,7 +22,7 @@ configurations:
 
   $namespace pangolin:
     configurationPath: pangolin.yml
-    schemaPath: uniswap-schema.json
+    schemaPath: pangolin-schema.json
 
   $namespace server:
     configurationPath: server.yml

@@ -4,8 +4,28 @@
   "properties": {
     "allowedSlippage": { "type": "string" },
     "gasLimit": { "type": "integer" },
-    "ttl": { "type": "integer" }
+    "ttl": { "type": "integer" },
+    "contractAddresses": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "uniswapV2RouterAddress": { "type": "string" },
+            "uniswapV3RouterAddress": { "type": "string" },
+            "uniswapV3NftManagerAddress": { "type": "string" }
+          },
+          "required": [
+            "uniswapV2RouterAddress",
+            "uniswapV3RouterAddress",
+            "uniswapV3NftManagerAddress"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false,
-  "required": ["allowedSlippage", "gasLimit", "ttl"]
+  "required": ["allowedSlippage", "gasLimit", "ttl", "contractAddresses"]
 }
