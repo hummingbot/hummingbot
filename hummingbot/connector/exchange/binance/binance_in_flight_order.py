@@ -4,16 +4,14 @@ from typing import (
     Dict
 )
 
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-
-s_decimal_0 = Decimal(0)
 
 
-cdef class BinanceInFlightOrder(InFlightOrderBase):
+class BinanceInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -37,11 +35,11 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
+        return self.last_state in {"FILLED", "CANCELED", "REJECTED", "EXPIRED"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
+        return self.last_state in {"REJECTED", "EXPIRED"}
 
     @property
     def is_cancelled(self) -> bool:
@@ -49,22 +47,7 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            BinanceInFlightOrder retval = BinanceInFlightOrder(
-                client_order_id=data["client_order_id"],
-                exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["trading_pair"],
-                order_type=getattr(OrderType, data["order_type"]),
-                trade_type=getattr(TradeType, data["trade_type"]),
-                price=Decimal(data["price"]),
-                amount=Decimal(data["amount"]),
-                initial_state=data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        return retval
+        return cls._basic_from_json(data)
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         trade_id = execution_report["t"]
