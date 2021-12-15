@@ -761,6 +761,7 @@ cdef class LiquidExchange(ExchangeBase):
                     continue
 
                 execute_amount_diff = Decimal(str(content["filled_quantity"])) - tracked_order.executed_amount_base
+                fee_diff = Decimal(str(content["order_fee"])) - tracked_order.fee_paid
                 updated = tracked_order.update_with_trade_update(content)
 
                 if updated:
@@ -776,7 +777,7 @@ cdef class LiquidExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(content["price"]),
                                              execute_amount_diff,
-                                             TradeFee(0.0, [(tracked_order.fee_asset, Decimal(content["order_fee"]))]),
+                                             TradeFee(0.0, [(tracked_order.fee_asset, fee_diff)]),
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 

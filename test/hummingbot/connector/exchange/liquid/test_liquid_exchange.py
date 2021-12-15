@@ -178,13 +178,15 @@ class LiquidExchangeTests(TestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertEqual(Decimal("40"), order.fee_paid)
+        self.assertEqual(Decimal("30"), order.fee_paid)
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["funding_currency"], Decimal(complete_fill["order_fee"]))],
-                         fill_event.trade_fee.flat_fees)
+        self.assertEqual(
+            [(complete_fill["funding_currency"],
+              Decimal(complete_fill["order_fee"]) - Decimal(partial_fill["order_fee"]))],
+            fill_event.trade_fee.flat_fees)
 
         # Complete events are not produced by fill notifications, only by order updates
         self.assertFalse(self._is_logged(
