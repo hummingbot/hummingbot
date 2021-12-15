@@ -17,7 +17,7 @@ s_decimal_0 = Decimal("0")
 def format_bytes(size):
     for unit in ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]:
         if abs(size) < 1024.0:
-            return f"{size:3.2f} {unit}"
+            return f"{size:.2f} {unit}"
         size /= 1024.0
     return f"{size:.2f} YB"
 
@@ -43,7 +43,9 @@ async def start_process_monitor(process_monitor):
         with hb_process.oneshot():
             threads = hb_process.num_threads()
             process_monitor.log("CPU: {:>5}%, ".format(hb_process.cpu_percent()) +
-                                "Mem: {:>10}, ".format(format_bytes(hb_process.memory_info()[1] / threads)) +
+                                "Mem: {:>10} ({}), ".format(
+                                    format_bytes(hb_process.memory_info().vms / threads),
+                                    format_bytes(hb_process.memory_info().rss)) +
                                 "Threads: {:>3}, ".format(threads)
                                 )
         await _sleep(1)

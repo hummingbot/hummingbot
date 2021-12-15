@@ -71,16 +71,6 @@ class HummingbotApplication(*commands):
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
         self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        command_tabs = self.init_command_tabs()
-        self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
-
-        self.app = HummingbotCLI(
-            input_handler=self._handle_command,
-            bindings=load_key_bindings(self),
-            completer=load_completer(self),
-            command_tabs=command_tabs
-        )
-
         self.markets: Dict[str, ExchangeBase] = {}
         # strategy file name and name get assigned value after import or create command
         self._strategy_file_name: str = None
@@ -115,6 +105,18 @@ class HummingbotApplication(*commands):
         self._gateway_monitor_clock: Optional[Clock] = None
         self._init_gateway_monitor()
         self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
+        # A list of gateway configuration key for auto-complete on gateway config command
+        self.gateway_config_keys: List[str] = []
+        safe_ensure_future(self.fetch_gateway_config_key_list(), loop=self.ev_loop)
+
+        command_tabs = self.init_command_tabs()
+        self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
+        self.app = HummingbotCLI(
+            input_handler=self._handle_command,
+            bindings=load_key_bindings(self),
+            completer=load_completer(self),
+            command_tabs=command_tabs
+        )
 
         # docker client instance
         self._docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
@@ -160,7 +162,7 @@ class HummingbotApplication(*commands):
         if self.app.to_stop_config:
             self.app.to_stop_config = False
 
-        raw_command = raw_command.lower().strip()
+        raw_command = raw_command.strip()
         command_split = raw_command.split()
         try:
             if self.placeholder_mode:

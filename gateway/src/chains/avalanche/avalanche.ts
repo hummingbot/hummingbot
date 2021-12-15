@@ -2,11 +2,11 @@ import abi from '../../services/ethereum.abi.json';
 import { logger } from '../../services/logger';
 import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
-import { ConfigManager } from '../../services/config-manager';
 import { AvalancheConfig } from './avalanche.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
+
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
@@ -14,29 +14,19 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   private _chain: string;
 
   private constructor() {
-    let config;
-    switch (ConfigManager.config.AVALANCHE_CHAIN) {
-      case 'fuji':
-        config = AvalancheConfig.config.fuji;
-        break;
-      case 'avalanche':
-        config = AvalancheConfig.config.avalanche;
-        break;
-      default:
-        throw new Error('AVALANCHE_CHAIN not valid');
-    }
+    const config = AvalancheConfig.config.network;
 
     super(
       'avalanche',
-      config.chainId,
-      config.rpcUrl,
+      config.chainID,
+      config.nodeURL,
       config.tokenListSource,
       config.tokenListType,
-      ConfigManager.config.AVAX_MANUAL_GAS_PRICE
+      AvalancheConfig.config.manualGasPrice
     );
-    this._chain = ConfigManager.config.AVALANCHE_CHAIN;
-    this._nativeTokenSymbol = 'AVAX';
-    this._gasPrice = ConfigManager.config.AVAX_MANUAL_GAS_PRICE;
+    this._chain = AvalancheConfig.config.network.name;
+    this._nativeTokenSymbol = AvalancheConfig.config.nativeCurrencySymbol;
+    this._gasPrice = AvalancheConfig.config.manualGasPrice;
   }
 
   public static getInstance(): Avalanche {
@@ -61,10 +51,6 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     return this._chain;
   }
 
-  // public get gasPriceLastDated(): Date | null {
-  //   return this._gasPriceLastUpdated;
-  // }
-
   getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
     return new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
   }
@@ -72,11 +58,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'pangolin') {
-      if (ConfigManager.config.ETHEREUM_CHAIN === 'avalanche') {
-        spender = PangolinConfig.config.avalanche.routerAddress;
-      } else {
-        spender = PangolinConfig.config.fuji.routerAddress;
-      }
+      spender = PangolinConfig.config.routerAddress;
     } else {
       spender = reqSpender;
     }
