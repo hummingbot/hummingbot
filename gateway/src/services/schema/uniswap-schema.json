@@ -15,7 +15,11 @@
             "uniswapV3RouterAddress": { "type": "string" },
             "uniswapV3NftManagerAddress": { "type": "string" }
           },
-          "required": ["uniswapV2RouterAddress", "uniswapV3RouterAddress", "uniswapV3NftManagerAddress"],
+          "required": [
+            "uniswapV2RouterAddress",
+            "uniswapV3RouterAddress",
+            "uniswapV3NftManagerAddress"
+          ],
           "additionalProperties": false
         }
       },

@@ -11,5 +11,5 @@ class GatewayCommandUnitTest(unittest.TestCase):
         self.assertTrue(certs_files_exist)
 
     def test_attempted_connection_to_gateway(self):
-        safe_ensure_future(GatewayCommand().get_gateway_connections())
+        safe_ensure_future(GatewayCommand().get_gateway_configuration())
         GatewayCommand.gateway("list-configs")
