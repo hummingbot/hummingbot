@@ -3,7 +3,7 @@ import asyncio
 import time
 
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -89,10 +89,6 @@ class InFlightOrderTracker:
         """
         return int(time.time() * 1e3)
 
-    @property
-    def event_logs(self) -> List[Any]:
-        return self._event_logger.event_log
-
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
 
@@ -132,6 +128,7 @@ class InFlightOrderTracker:
             OrderCancelledEvent(
                 timestamp=self.current_timestamp,
                 order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
             ),
         )
 
@@ -139,15 +136,17 @@ class InFlightOrderTracker:
         self._connector.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
-                self.current_timestamp,
-                order.client_order_id,
-                order.trading_pair,
-                order.trade_type,
-                order.order_type,
-                order.last_filled_price,
-                order.last_filled_amount,
-                order.latest_trade_fee,
-                order.exchange_order_id,
+                timestamp=self.current_timestamp,
+                order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                trade_type=order.trade_type,
+                order_type=order.order_type,
+                price=order.last_filled_price,
+                amount=order.last_filled_amount,
+                trade_fee=order.latest_trade_fee,
+                exchange_trade_id=order.last_trade_id,
+                leverage=order.leverage,
+                position=order.position,
             ),
         )
 
