@@ -68,30 +68,6 @@ cdef class BlocktaneOrderBook(OrderBook):
         }, timestamp=timestamp)
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = record["json"] if type(record["json"])==dict else ujson.loads(record["json"])
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["pair"],
-            "update_id": record.timestamp,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
-        }, timestamp=record["timestamp"] * 1e-3)
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = ujson.loads(record["json"])
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["pair"],
-            "update_id": record.timestamp,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
-        }, timestamp=record["timestamp"] * 1e-3)
-
-    @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode("utf-8"))
         if metadata:
@@ -115,21 +91,6 @@ cdef class BlocktaneOrderBook(OrderBook):
             "asks": msg["asks"],
 
         }, timestamp=record.timestamp * 1e-3)
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        msg = record["json"]
-        if metadata:
-            msg.update(metadata)
-        ts = record.timestamp
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["market"],
-            "trade_type": msg["taker_type"],
-            "trade_id": msg["id"],
-            "update_id": ts,
-            "price": msg["price"],
-            "amount": msg["amount"]
-        }, timestamp=ts * 1e-3)  # not sure about this
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
