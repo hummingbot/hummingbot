@@ -151,6 +151,7 @@ telegram_chat_id: null
 slack_enabled: false
 slack_token: null
 slack_channel: null
+slack_verification_token: null 
 
 # Error log sharing
 send_error_logs: null

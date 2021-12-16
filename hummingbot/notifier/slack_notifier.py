@@ -2,16 +2,16 @@
 
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
+from flask import Flask, jsonify, request
 import asyncio
 import logging
 from typing import (
     Any,
     List,
-    # Callable,
     Optional,
-    # Text,
 )
+# from notifier import api
+
 # from telegram.bot import Bot
 # from telegram.parsemode import ParseMode
 # from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
@@ -29,13 +29,16 @@ from typing import (
 import slack
 
 import hummingbot
-import pandas as pd
 from hummingbot.logger import HummingbotLogger
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
+client = slack.WebClient(token=global_config_map.get("slack_token").value)
+verification_token = global_config_map.get("slack_verification_token").value
+
+api = Flask(__name__)
 
 DISABLED_COMMANDS = {
     "connect",             # disabled because telegram can't display secondary prompt
@@ -94,8 +97,21 @@ class SlackNotifier(NotifierBase):
         # for handle in handles:
         #     self._updater.dispatcher.add_handler(handle)
 
+    # @api.route('/test', methods=['GET'])
+    # def test():
+    #     return 'Here'
+
+    @api.route('/slack/start', methods=['POST'])
+    def slack():
+        payload = {'text': 'Welcome! Token didnot match'}
+
+        print('Verification token', verification_token)
+        if request.form['token'] == verification_token:
+            payload = {'text': 'Welcome! Strategy started'}
+
+        return jsonify(payload)
+
     def start(self):
-        print(f'channel name={self._channel} {self._started}')
         if not self._started:
             self._started = True
             # self._updater.start_polling(
@@ -105,8 +121,6 @@ class SlackNotifier(NotifierBase):
             #     read_latency=60,
             # )
             self._send_msg_task = safe_ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
-            print(f'token {self._token}')
-
             self.logger().info("Slack is listening...")
 
     def stop(self) -> None:
@@ -114,36 +128,6 @@ class SlackNotifier(NotifierBase):
         #     self._updater.stop()
         if self._send_msg_task:
             self._send_msg_task.cancel()
-
-    # @authorized_only
-    # def handler(self, bot: Bot, update: Update) -> None:
-    #     safe_ensure_future(self.handler_loop(bot, update), loop=self._ev_loop)
-
-    async def handler_loop(self) -> None:
-        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
-        try:
-            input_text = ('hello').strip()  # update.message.text.strip()
-            output = f"\n[Telegram Input] {input_text}"
-
-            self._hb.app.log(output)
-
-            # if the command does starts with any disabled commands
-            if any([input_text.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
-                self.add_msg_to_queue(f"Command {input_text} is disabled from slack")
-            else:
-                # Set display options to max, so that telegram does not display truncated data
-                pd.set_option('display.max_rows', 500)
-                pd.set_option('display.max_columns', 500)
-                pd.set_option('display.width', 1000)
-
-                await async_scheduler.call_async(self._hb._handle_command, input_text)
-
-                # Reset to normal, so that pandas's default autodetect width still works
-                pd.set_option('display.max_rows', 0)
-                pd.set_option('display.max_columns', 0)
-                pd.set_option('display.width', 0)
-        except Exception as e:
-            self.add_msg_to_queue(str(e))
 
     @staticmethod
     def _divide_chunks(arr: List[Any], n: int = 5):
@@ -167,18 +151,22 @@ class SlackNotifier(NotifierBase):
                 self.logger().error(str(e))
             await asyncio.sleep(1)
 
+    def set_default(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        raise TypeError
+
     async def send_msg_async(self, msg: str, bot = None) -> None:
         """
         Send given markdown message
         """
         bot = slack.WebClient(token=self._token)  # bot or self._updater.bot
 
-        # command options that show up on user's screen
-        # approved_commands = ["start", "stop", "status", "history", "config"]
-        # keyboard = self._divide_chunks(approved_commands)
-        # reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await self._async_call_scheduler.call_async(lambda: bot.chat_postMessage(
+            channel=self._channel,
+            text=msg
+        ))
 
-        # wrapping text in ``` to prevent formatting issues
-        # formatted_msg = f'\n{msg}\n'
 
-        await self._async_call_scheduler.call_async(lambda: bot.chat_postMessage(channel=self._channel, text="hello world"))
+if __name__ == 'hummingbot.notifier.slack_notifier':
+    api.run(port=5000)

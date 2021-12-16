@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
+# from logging import debug
+# import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
+# import threading
 from typing import (
     List,
     Coroutine
 )
-
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
@@ -23,6 +24,7 @@ from hummingbot import (
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
+# from hummingbot.notifier.slack_notifier import run_api
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -68,7 +70,25 @@ async def main():
         await safe_gather(*tasks)
 
 
+# def humming_main():
+#     chdir_to_data_directory()
+#     if login_prompt():
+#         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+#         ev_loop.run_until_complete(main())
+
+
+# def slackServer():
+#     print('hello')
+#     run_api()
+
+
 if __name__ == "__main__":
+    # thread1 = threading.Thread(target=humming_main)
+    # thread2 = threading.Thread(target=run_api)
+
+    # thread1.start()
+    # thread2.start()
+
     chdir_to_data_directory()
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

@@ -256,6 +256,10 @@ main_config_map = {
         ConfigVar(key="slack_channel",
                   prompt="What is your slack channel id? >>> ",
                   required_if=lambda: False),
+    "slack_verification_token":
+        ConfigVar(key="slack_verification_token",
+                  prompt="What is your slack channel id? >>> ",
+                  required_if=lambda: False),
 
     "send_error_logs":
         ConfigVar(key="send_error_logs",
