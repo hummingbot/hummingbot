@@ -5,8 +5,10 @@ from unittest.mock import patch, PropertyMock
 
 import aiohttp
 
-from hummingbot.core.web_assistant.auth import WSAuthBase
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import (
+    WSRequest, WSResponse, RESTRequest
+)
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
@@ -103,7 +105,10 @@ class WSAssistantTest(unittest.TestCase):
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.send")
     def test_ws_assistant_authenticates(self, send_mock):
-        class Auth(WSAuthBase):
+        class Auth(AuthBase):
+            async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+                pass
+
             async def ws_authenticate(self, request: WSRequest) -> WSRequest:
                 request.payload["authenticated"] = True
                 return request
