@@ -83,6 +83,13 @@ class InFlightOrderTracker:
         return self._cached_orders
 
     @property
+    def all_orders(self) -> Dict[str, InFlightOrder]:
+        """
+        Returns both active and cached order.
+        """
+        return {**self.active_orders, **self.cached_orders}
+
+    @property
     def current_timestamp(self) -> int:
         """
         Returns current timestamp in milliseconds.
@@ -103,8 +110,11 @@ class InFlightOrderTracker:
     def fetch_cached_order(self, client_order_id: str) -> Optional[InFlightOrder]:
         return self._cached_orders.get(client_order_id, None)
 
-    def fetch_order(self, client_order_id: str) -> Optional[InFlightOrder]:
-        return self._in_flight_orders.get(client_order_id, self._cached_orders.get(client_order_id, None))
+    def fetch_order(self, client_order_id: Optional[str] = None, exchange_order_id: Optional[str] = None) -> Optional[InFlightOrder]:
+        for c_oid, order in self.all_orders.items():
+            if c_oid == client_order_id or order.exchange_order_id == exchange_order_id:
+                return order
+        return None
 
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated

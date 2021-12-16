@@ -526,6 +526,7 @@ class AscendExExchange(ExchangePyBase):
             }
             self.start_tracking_order(
                 order_id=order_id,
+                exchange_order_id=ascend_ex_utils.gen_exchange_order_id(self._account_uid, order_uuid, timestamp)[0],
                 trading_pair=trading_pair,
                 trade_type=trade_type,
                 price=price,

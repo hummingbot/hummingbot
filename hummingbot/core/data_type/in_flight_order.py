@@ -196,7 +196,7 @@ class InFlightOrder:
             trade_type=getattr(TradeType, data["trade_type"]),
             amount=Decimal(data["amount"]),
             price=Decimal(data["price"]),
-            initial_state=OrderState(data["last_state"])
+            initial_state=OrderState(int(data["last_state"]))
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
