@@ -12,7 +12,7 @@ from hummingbot.core.web_assistant.connections.rest_connection import (
     RESTConnection
 )
 from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod, RESTRequest, RESTResponse
+    RESTMethod, RESTRequest, RESTResponse, WSRequest
 )
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.rest_post_processors import (
@@ -84,6 +84,9 @@ class RESTAssistantTest(unittest.TestCase):
             async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
                 request.headers = auth_header
                 return request
+
+            async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+                pass
 
         connection = RESTConnection(aiohttp.ClientSession())
         assistant = RESTAssistant(connection, auth=AuthDummy())
