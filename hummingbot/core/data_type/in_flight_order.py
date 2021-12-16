@@ -91,6 +91,7 @@ class InFlightOrder:
         self.last_filled_amount: Decimal = s_decimal_0  # in base asset
         self.last_fee_paid: Decimal = s_decimal_0
         self.last_update_timestamp: int = timestamp
+        self.last_trade_id = -1
 
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
 
@@ -305,6 +306,7 @@ class InFlightOrder:
 
             # trade_id defaults to update timestamp if not provided
             trade_id: str = order_update.trade_id or order_update.update_timestamp
+            self.last_trade_id = trade_id
             self.order_fills[trade_id] = TradeUpdate(
                 trade_id=trade_id,
                 client_order_id=order_update.client_order_id,
