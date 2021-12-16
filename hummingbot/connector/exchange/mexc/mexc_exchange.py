@@ -85,6 +85,7 @@ class MexcExchange(ExchangeBase):
     SHORT_POLL_INTERVAL = 5.0
     MORE_SHORT_POLL_INTERVAL = 1.0
     LONG_POLL_INTERVAL = 120.0
+    ORDER_LEN_LIMIT = 20
 
     _logger = None
 
