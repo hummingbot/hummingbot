@@ -67,25 +67,27 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         order_report = execution_report.get("o")
-        execution_type = execution_report.get("x")
+        execution_type = order_report.get("x")
         if execution_type == "NEW" and not self.exchange_order_id_update_event.is_set():
             self.update_exchange_order_id(exchange_id=execution_report.get("i"))
-        trade_id = order_report.get("t")
-        if trade_id in self.trade_id_set:
-            return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(order_report.get("l"))
-        last_commission_amount = Decimal(order_report.get("n", "0"))
-        last_commission_asset = order_report.get("N")
-        last_order_state = order_report.get("X")
-        last_executed_price = Decimal(order_report.get("L"))
-        executed_amount_quote = last_executed_price * last_executed_quantity
-        self.executed_amount_base += last_executed_quantity
-        self.executed_amount_quote += executed_amount_quote
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
+        if execution_type == "TRADE":
+            trade_id = order_report.get("t")
+            if trade_id in self.trade_id_set:
+                return False
+            self.trade_id_set.add(trade_id)
+            last_executed_quantity = Decimal(order_report.get("l"))
+            last_commission_amount = Decimal(order_report.get("n", "0"))
+            last_commission_asset = order_report.get("N")
+            last_order_state = order_report.get("X")
+            last_executed_price = Decimal(order_report.get("L"))
+            executed_amount_quote = last_executed_price * last_executed_quantity
+            self.executed_amount_base += last_executed_quantity
+            self.executed_amount_quote += executed_amount_quote
+            if last_commission_asset is not None:
+                self.fee_asset = last_commission_asset
+            self.fee_paid += last_commission_amount
+            self.last_state = last_order_state
+            return True
 
     def update_with_trade_updates(self, trade_update: Dict[str, Any]):
         trade_id = trade_update.get("id")
