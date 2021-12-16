@@ -19,15 +19,12 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.event_reporter import EventReporter
-from hummingbot.core.pubsub import PubSub
 from hummingbot.logger.logger import HummingbotLogger
 
 ifot_logger = None
 
 
-class InFlightOrderTracker(PubSub):
+class InFlightOrderTracker:
 
     MAX_CACHE_SIZE = 1000
     CACHED_ORDER_TTL = 30.0  # seconds
@@ -70,12 +67,6 @@ class InFlightOrderTracker(PubSub):
 
         self._order_tracking_task: Optional[asyncio.Task] = None
         self._last_poll_timestamp: int = -1
-
-        self._event_reporter = EventReporter(event_source=f"{self._connector.display_name}.{__name__}")
-        self._event_logger = EventLogger(event_source=f"{self._connector.display_name}.{__name__}")
-        for event_tag in self.MARKET_EVENTS:
-            self.add_listener(event_tag, self._event_reporter)
-            self.add_listener(event_tag, self._event_logger)
 
     @property
     def active_orders(self) -> Dict[str, InFlightOrder]:
