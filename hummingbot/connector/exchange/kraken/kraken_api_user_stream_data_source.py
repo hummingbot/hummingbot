@@ -17,9 +17,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
-from hummingbot.connector.exchange.kraken.kraken_utils import (
-    build_api_factory,
-)
 
 from .kraken_websocket import KrakenWebsocket
 
@@ -41,7 +38,7 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._throttler = throttler
         self._kraken_auth: KrakenAuth = kraken_auth
         self._current_auth_token: Optional[str] = None
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory
         self._rest_assistant = None
         self._last_recv_time: float = 0
         super().__init__()
@@ -102,7 +99,9 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     await ws.subscribe("ownTrades", self._current_auth_token)
 
                     async for msg in ws.on_message():
-                        if not(isinstance(msg, dict) and "event" in msg.keys() and msg["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]):
+                        if (("heartbeat" not in msg and
+                             "systemStatus" not in msg and
+                             "subscriptionStatus" not in msg)):
                             output.put_nowait(msg)
 
                     await ws.disconnect()

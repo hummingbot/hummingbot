@@ -4,6 +4,7 @@ import asyncio
 import logging
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional
@@ -12,6 +13,8 @@ import time
 
 import pandas as pd
 import ujson
+import websockets
+from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.async_utils import safe_gather
@@ -27,7 +30,6 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     build_rate_limits_by_tier,
-    build_api_factory,
 )
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 
@@ -51,7 +53,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
         self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory
         self._rest_assistant = None
 
     @classmethod
@@ -66,10 +68,8 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(
-        cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
+        cls, trading_pairs: List[str], client: RESTAssistant, throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
-        api_factory = build_api_factory()
-        client = await api_factory.get_rest_assistant()
         throttler = throttler or cls._get_throttler_instance()
         tasks = [cls._get_last_traded_price(t_pair, client, throttler) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
@@ -152,11 +152,31 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
 
+    async def _inner_messages(self,
+                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
+        try:
+            while True:
+                try:
+                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    if ((msg != "{\"event\":\"heartbeat\"}" and
+                         "\"event\":\"systemStatus\"" not in msg and
+                         "\"event\":\"subscriptionStatus\"" not in msg)):
+                        yield msg
+                except asyncio.TimeoutError:
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+        except asyncio.TimeoutError:
+            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+            return
+        except ConnectionClosed:
+            return
+        finally:
+            await ws.close()
+
     @classmethod
-    async def fetch_trading_pairs(cls, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+    async def fetch_trading_pairs(cls, client: RESTAssistant, throttler: Optional[AsyncThrottler] = None) -> List[str]:
         throttler = throttler or cls._get_throttler_instance()
-        api_factory = build_api_factory()
-        client = await api_factory.get_rest_assistant()
         try:
             async with throttler.execute_task(CONSTANTS.ASSET_PAIRS_PATH_URL):
                 url = f"{CONSTANTS.BASE_URL}{CONSTANTS.ASSET_PAIRS_PATH_URL}"
@@ -191,22 +211,16 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     ws = KrakenWebsocket(api_factory=self._api_factory)
                     await ws.connect()
-
-                    trading_pairs = []
-                    for trading_pair in self._trading_pairs:
-                        trading_pairs += [convert_to_exchange_trading_pair(trading_pair, '/')]
-
-                    await ws.subscribe("trade", pair=trading_pairs)
+                    await ws.subscribe("trade")
 
                     async for msg in ws.on_message():
-                        if not(isinstance(msg, dict) and "event" in msg.keys() and msg["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]):
-                            trades = [
-                                {"pair": convert_from_exchange_trading_pair(msg[-1]), "trade": trade}
-                                for trade in msg[1]
-                            ]
-                            for trade in trades:
-                                trade_msg: OrderBookMessage = KrakenOrderBook.trade_message_from_exchange(trade)
-                                output.put_nowait(trade_msg)
+                        trades = [
+                            {"pair": convert_from_exchange_trading_pair(msg[-1]), "trade": trade}
+                            for trade in msg[1]
+                        ]
+                        for trade in trades:
+                            trade_msg: OrderBookMessage = KrakenOrderBook.trade_message_from_exchange(trade)
+                            output.put_nowait(trade_msg)
                     await ws.disconnect()
             except asyncio.CancelledError:
                 raise
@@ -226,29 +240,23 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with self._throttler.execute_task(CONSTANTS.WS_CONNECTION_LIMIT_ID):
                     ws = KrakenWebsocket(api_factory=self._api_factory)
                     await ws.connect()
-
-                    trading_pairs = []
-                    for trading_pair in self._trading_pairs:
-                        trading_pairs += [convert_to_exchange_trading_pair(trading_pair, '/')]
-
-                    await ws.subscribe("book", pair=trading_pairs)
+                    await ws.subscribe("book")
 
                     async for msg in ws.on_message():
-                        if not(isinstance(msg, dict) and "event" in msg.keys() and msg["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]):
-                            msg_dict = {"trading_pair": convert_from_exchange_trading_pair(msg[-1]),
-                                        "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
-                                        "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
-                            msg_dict["update_id"] = max(
-                                [*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])], default=0.
+                        msg_dict = {"trading_pair": convert_from_exchange_trading_pair(msg[-1]),
+                                    "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
+                                    "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
+                        msg_dict["update_id"] = max(
+                            [*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])], default=0.
+                        )
+                        if "as" in msg[1] and "bs" in msg[1]:
+                            order_book_message: OrderBookMessage = (
+                                KrakenOrderBook.snapshot_ws_message_from_exchange(msg_dict, time.time())
                             )
-                            if "as" in msg[1] and "bs" in msg[1]:
-                                order_book_message: OrderBookMessage = (
-                                    KrakenOrderBook.snapshot_ws_message_from_exchange(msg_dict, time.time())
-                                )
-                            else:
-                                order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
-                                    msg_dict, time.time())
-                            output.put_nowait(order_book_message)
+                        else:
+                            order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
+                                msg_dict, time.time())
+                        output.put_nowait(order_book_message)
 
                     await ws.disconnect()
             except asyncio.CancelledError:
