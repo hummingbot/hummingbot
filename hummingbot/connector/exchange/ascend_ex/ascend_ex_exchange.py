@@ -139,7 +139,7 @@ class AscendExExchange(ExchangePyBase):
         self._account_uid = None  # required in order to produce deterministic order ids
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
-        self._in_flight_order_tracker: InFlightOrderTracker = InFlightOrderTracker()
+        self._in_flight_order_tracker: InFlightOrderTracker = InFlightOrderTracker(connector=self)
 
     @property
     def name(self) -> str:
@@ -166,9 +166,9 @@ class AscendExExchange(ExchangePyBase):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0
-            if self._trading_required
-            else True,
+            "user_stream_initialized": (
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True
+            ),
             "account_data": self._account_group is not None and self._account_uid is not None,
         }
 
