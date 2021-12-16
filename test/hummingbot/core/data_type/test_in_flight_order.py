@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Awaitable
 from unittest.mock import patch
 
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.event.events import OrderType, TradeType
 
@@ -140,6 +141,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
         )
 
+        self.assertIsNone(order_0.average_executed_price)
+
         trade_update_0: TradeUpdate = TradeUpdate(
             trade_id="someTradeId",
             client_order_id=self.client_order_id,
@@ -225,6 +228,100 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         self.assertEqual(self.exchange_order_id, result)
         self.assertTrue(order.exchange_order_id_update_event.is_set())
+
+    def test_from_json(self):
+        order_json = {
+            "client_order_id": "someClientOrderId",
+            "exchange_order_id": None,
+            "trading_pair": "COINALPHA-HBOT",
+            "order_type": "LIMIT",
+            "trade_type": "BUY",
+            "price": "1.0",
+            "amount": "1000.0",
+            "executed_amount_base": "0",
+            "executed_amount_quote": "0",
+            "fee_asset": None,
+            "fee_paid": "0",
+            "last_state": "0",
+            "leverage": "1",
+            "position": "NIL",
+        }
+
+        expected_order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+
+        self.assertEqual(expected_order, InFlightOrder.from_json(order_json))
+
+    def test_to_json(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+
+        order_json = order.to_json()
+
+        self.assertIsInstance(order_json, dict)
+
+        self.assertEqual(order_json["client_order_id"], order.client_order_id)
+        self.assertEqual(order_json["exchange_order_id"], order.exchange_order_id)
+        self.assertEqual(order_json["trading_pair"], order.trading_pair)
+        self.assertEqual(order_json["order_type"], order.order_type.name)
+        self.assertEqual(order_json["trade_type"], order.trade_type.name)
+        self.assertEqual(order_json["price"], str(order.price))
+        self.assertEqual(order_json["amount"], str(order.amount))
+        self.assertEqual(order_json["executed_amount_base"], str(order.executed_amount_base))
+        self.assertEqual(order_json["executed_amount_quote"], str(order.executed_amount_quote))
+        self.assertEqual(order_json["fee_asset"], order.fee_asset)
+        self.assertEqual(order_json["fee_paid"], str(order.cumulative_fee_paid))
+        self.assertEqual(order_json["last_state"], str(order.current_state.value))
+        self.assertEqual(order_json["leverage"], str(order.leverage))
+        self.assertEqual(order_json["position"], order.position.value)
+
+    def test_to_limit_order(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+
+        expected_limit_order: LimitOrder = LimitOrder(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("1.0"),
+            quantity=Decimal("1000.0"),
+            filled_quantity=Decimal("0"),
+        )
+
+        limit_order = order.to_limit_order()
+
+        self.assertIsInstance(limit_order, LimitOrder)
+
+        self.assertEqual(limit_order.client_order_id, expected_limit_order.client_order_id)
+        self.assertEqual(limit_order.trading_pair, expected_limit_order.trading_pair)
+        self.assertEqual(limit_order.is_buy, expected_limit_order.is_buy)
+        self.assertEqual(limit_order.base_currency, expected_limit_order.base_currency)
+        self.assertEqual(limit_order.quote_currency, expected_limit_order.quote_currency)
+        self.assertEqual(limit_order.price, expected_limit_order.price)
+        self.assertEqual(limit_order.quantity, expected_limit_order.quantity)
+        self.assertEqual(limit_order.filled_quantity, expected_limit_order.filled_quantity)
+        self.assertEqual(limit_order.creation_timestamp, expected_limit_order.creation_timestamp)
+        self.assertEqual(limit_order.status, expected_limit_order.status)
 
     def test_update_with_order_update_client_order_id_mismatch(self):
         order: InFlightOrder = InFlightOrder(
@@ -354,6 +451,42 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertTrue(order.is_done)
         expected_average_price = (initial_executed_amount_quote + subsequent_executed_amount_quote) / order.amount
         self.assertEqual(expected_average_price, order.average_executed_price)
+
+    def test_update_with_trade_update_trade_update_with_trade_fee_percent(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id="someTradeId",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("1.0"),
+            fill_base_amount=Decimal("500.0"),
+            fill_quote_amount=Decimal("500.0"),
+            fee_asset=self.base_asset,
+            trade_fee_percent=self.trade_fee_percent,
+            fill_timestamp=1,
+        )
+
+        self.assertTrue(order.update_with_trade_update(trade_update))
+        self.assertIsNotNone(order.exchange_order_id)
+        self.assertTrue(order.exchange_order_id_update_event.is_set())
+        self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
+        self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
+        self.assertEqual(order.fee_asset, trade_update.fee_asset)
+        self.assertEqual(order.cumulative_fee_paid, self.trade_fee_percent * Decimal("500.0"))
+        self.assertEqual(order.last_filled_price, trade_update.fill_price)
+        self.assertEqual(order.last_filled_amount, trade_update.fill_base_amount)
+        self.assertEqual(order.last_update_timestamp, trade_update.fill_timestamp)
+        self.assertEqual(1, len(order.order_fills))
+        self.assertIn(trade_update.trade_id, order.order_fills)
 
     def test_update_with_trade_update_duplicate_trade_update(self):
         order: InFlightOrder = InFlightOrder(
