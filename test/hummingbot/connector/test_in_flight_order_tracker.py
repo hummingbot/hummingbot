@@ -170,6 +170,25 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
 
         self.assertTrue(fetched_order == order)
 
+    def test_process_order_update_invalid_order_update(self):
+
+        order_creation_update: OrderUpdate = OrderUpdate(
+            # client_order_id="someClientOrderId",  # client_order_id intentionally omitted
+            # exchange_order_id="someExchangeOrderId",  # client_order_id intentionally omitted
+            trading_pair=self.trading_pair,
+            update_timestamp=1,
+            new_state=OrderState.OPEN,
+        )
+
+        self.tracker.process_order_update(order_creation_update)
+
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "OrderUpdate does not contain any client_order_id or exchange_order_id",
+            )
+        )
+
     def test_process_order_update_order_not_found(self):
 
         order_creation_update: OrderUpdate = OrderUpdate(
