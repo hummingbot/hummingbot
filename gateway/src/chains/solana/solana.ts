@@ -21,6 +21,8 @@ import {
 } from '@solana/spl-token';
 import { TokenListProvider, TokenInfo } from '@solana/spl-token-registry';
 
+export type Solanaish = Solana;
+
 export class Solana {
   public rpcUrl;
   public transactionLamports;
@@ -160,7 +162,9 @@ export class Solana {
     return Keypair.fromSecretKey(decoded);
   }
 
-  async getBalance(wallet: Keypair): Promise<string, TokenValue>;
+  async getBalance(wallet: Keypair): Promise<TokenValue> {
+    return { value: BigNumber.from(0), decimals: 0 }; // TODO: Implement
+  }
   // returns the SOL balance, convert BigNumber to string
   async getSolBalance(wallet: Keypair): Promise<TokenValue> {
     const lamports = await this.connection.getBalance(wallet.publicKey);
@@ -280,5 +284,10 @@ export class Solana {
 
   public get metricsLogInterval(): number {
     return this._metricsLogInterval;
+  }
+
+  // returns the current block number
+  async getCurrentBlockNumber(): Promise<number> {
+    return 0; // TODO: Implement
   }
 }

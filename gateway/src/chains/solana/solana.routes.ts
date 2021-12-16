@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { NextFunction, Router, Request, Response } from 'express';
 import { Solana } from './solana';
-import { SolanaConfig } from './solana.config';
 import { ConfigManager } from '../../services/config-manager';
 import { verifySolanaIsAvailable } from './solana-middlewares';
 import { asyncHandler } from '../../services/error-handler';
-import { approve, balances, poll } from './solana.controllers';
+import { token, balances, poll } from './solana.controllers';
 import {
   SolanaBalanceRequest,
   SolanaBalanceResponse,
@@ -15,9 +14,9 @@ import {
   SolanaTokenRequest,
 } from './solana.requests';
 import {
-  validateSolanaApproveRequest,
+  validateSolanaGetTokenRequest,
   validateSolanaBalanceRequest,
-  validateSolanaCancelRequest,
+  validateSolanaPostTokenRequest,
   validateSolanaPollRequest,
 } from './solana.validators';
 
@@ -36,7 +35,7 @@ export namespace SolanaRoutes {
       const rpcUrl = solana.rpcUrl;
 
       res.status(200).json({
-        network: ConfigManager.config.ETHEREUM_CHAIN,
+        network: ConfigManager.config.SOLANA_CLUSTER,
         rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),
@@ -100,7 +99,7 @@ export namespace SolanaRoutes {
         res: Response<SolanaPollResponse, {}>
       ) => {
         validateSolanaPollRequest(req.body);
-        res.status(200).json(await poll(solana, req.body));
+        res.status(200).json(await poll(solana, req.body)); // TODO: Controller
       }
     )
   );
