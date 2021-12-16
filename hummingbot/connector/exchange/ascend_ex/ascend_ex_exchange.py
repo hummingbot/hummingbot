@@ -203,9 +203,8 @@ class AscendExExchange(ExchangePyBase):
         when it disconnects.
         :param saved_states: The saved tracking_states.
         """
-        self._in_flight_order_tracker.start_tracking_order(
-            InFlightOrder.from_json(data) for data in saved_states.values()
-        )
+        for data in saved_states.values():
+            self._in_flight_order_tracker.start_tracking_order(InFlightOrder.from_json(data))
 
     def supported_order_types(self) -> List[OrderType]:
         """
