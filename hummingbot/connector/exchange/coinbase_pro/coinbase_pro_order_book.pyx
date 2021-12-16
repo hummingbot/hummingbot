@@ -71,49 +71,6 @@ cdef class CoinbaseProOrderBook(OrderBook):
             timestamp=timestamp or msg_time)
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        """
-        *used for backtesting
-        Convert a row of snapshot data into standard OrderBookMessage format
-        :param record: a row of snapshot data from the database
-        :return: CoinbaseProOrderBookMessage
-        """
-        msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return CoinbaseProOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=msg,
-            timestamp=record.timestamp * 1e-3
-        )
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        """
-        *used for backtesting
-        Convert a row of diff data into standard OrderBookMessage format
-        :param record: a row of diff data from the database
-        :return: CoinbaseProOrderBookMessage
-        """
-        return CoinbaseProOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=record.json,
-            timestamp=record.timestamp * 1e-3
-        )
-
-    @classmethod
-    def trade_receive_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of trade data into standard OrderBookMessage format
-        :param record: a row of trade data from the database
-        :return: CoinbaseProOrderBookMessage
-        """
-        return CoinbaseProOrderBookMessage(
-            OrderBookMessageType.TRADE,
-            record.json,
-            timestamp=record.timestamp * 1e-3
-        )
-
-    @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
         raise NotImplementedError("Coinbase Pro order book needs to retain individual order data.")
 
