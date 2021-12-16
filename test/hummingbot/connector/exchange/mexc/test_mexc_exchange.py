@@ -1022,7 +1022,7 @@ class MexcExchangeTests(TestCase):
             self.exchange.execute_cancel(self.trading_pair, order.client_order_id)
         )
 
-        self._is_logged("NETWORK", f"Failed to cancel order 0 : MexcAPIError('Order could not be canceled')")
+        self._is_logged("NETWORK", "Failed to cancel order 0 : MexcAPIError('Order could not be canceled')")
 
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_execute_cancel_cancels(self, mock_cancel):
