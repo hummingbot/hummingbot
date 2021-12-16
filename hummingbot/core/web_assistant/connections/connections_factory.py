@@ -6,6 +6,17 @@ from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 
 
 class ConnectionsFactory:
+    """This class is a thin wrapper around the underlying REST and WebSocket third-party library.
+
+    The purpose of the class is to isolate the general `web_assistant` infrastructure from the underlying library
+    (in this case, `aiohttp`) to enable dependency change with minimal refactoring of the code.
+
+    Note: One future possibility is to enable injection of a specific connection factory implementation in the
+    `WebAssistantsFactory` to accommodate cases such as Bittrex that uses a specific WebSocket technology requiring
+    a separate third-party library. In that case, a factory can be created that returns `RESTConnection`s using
+    `aiohttp` and `WSConnection`s using `signalr_aio`.
+    """
+
     def __init__(self):
         self._shared_client: Optional[aiohttp.ClientSession] = None
 

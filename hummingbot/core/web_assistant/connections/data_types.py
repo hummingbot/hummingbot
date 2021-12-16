@@ -34,6 +34,12 @@ class RESTRequest:
 
 @dataclass
 class EndpointRESTRequest(RESTRequest, ABC):
+    """This request class enable the user to provide either a complete URL or simply an endpoint.
+
+    The endpoint is concatenated with the return value of `base_url`. It can handle endpoints supplied both as
+    `"endpoint"` and `"/endpoint"`. It also provides the necessary checks to ensure a valid URL can be constructed.
+    """
+
     endpoint: Optional[str] = None
 
     def __post_init__(self):

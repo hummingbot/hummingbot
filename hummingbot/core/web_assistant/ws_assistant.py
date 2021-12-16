@@ -9,6 +9,13 @@ from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WSAssistant:
+    """A helper class to contain all WebSocket-related logic.
+
+    The class can be injected with additional functionality by passing a list of objects inheriting from
+    the `WSPreProcessorBase` and `WSPostProcessorBase` classes. The pre-processors are applied to a request
+    before it is sent out, while the post-processors are applied to a response before it is returned to the caller.
+    """
+
     def __init__(
         self,
         connection: WSConnection,
@@ -48,7 +55,7 @@ class WSAssistant:
         await self._connection.send(request)
 
     async def iter_messages(self) -> AsyncGenerator[WSResponse, None]:
-        """Stops on `WSDelegate.disconnect()`."""
+        """This generator stops on `WSDelegate.disconnect()`."""
         while self._connection.connected:
             response = await self._connection.receive()
             if response is not None:
@@ -56,7 +63,7 @@ class WSAssistant:
                 yield response
 
     async def receive(self) -> Optional[WSResponse]:
-        """Will return None if `WSDelegate.disconnect()` is called while waiting for a response."""
+        """This method will return `None` if `WSDelegate.disconnect()` is called while waiting for a response."""
         response = await self._connection.receive()
         if response is not None:
             response = await self._post_process_response(response)

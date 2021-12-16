@@ -11,6 +11,15 @@ from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WebAssistantsFactory:
+    """Creates `RESTAssistant` and `WSAssistant` objects.
+
+    The purpose of the `web_assistant` layer is to abstract away all WebSocket and REST operations from the exchange
+    logic. The assistant objects are designed to be injectable with additional logic via the pre- and post-processor
+    lists. Consult the documentation of the relevant assistant and/or pre-/post-processor class for
+    additional information.
+
+    todo: integrate AsyncThrottler
+    """
     def __init__(
         self,
         rest_pre_processors: Optional[List[RESTPreProcessorBase]] = None,

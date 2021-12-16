@@ -10,6 +10,12 @@ from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBa
 
 
 class RESTAssistant:
+    """A helper class to contain all REST-related logic.
+
+    The class can be injected with additional functionality by passing a list of objects inheriting from
+    the `RESTPreProcessorBase` and `RESTPostProcessorBase` classes. The pre-processors are applied to a request
+    before it is sent out, while the post-processors are applied to a response before it is returned to the caller.
+    """
     def __init__(
         self,
         connection: RESTConnection,
