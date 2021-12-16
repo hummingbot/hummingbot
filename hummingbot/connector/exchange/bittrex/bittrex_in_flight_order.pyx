@@ -1,8 +1,8 @@
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 cdef class BittrexInFlightOrder(InFlightOrderBase):
@@ -26,6 +26,9 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
             initial_state
         )
 
+        self.trade_id_set = set()
+        self.fee_asset = self.quote_asset
+
     @property
     def is_done(self) -> bool:
         return self.last_state in {"CLOSED"}
@@ -46,20 +49,28 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            BittrexInFlightOrder retval = BittrexInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["trading_pair"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
+        order = cls._basic_from_json(data)
+        order.check_filled_condition()
+        return order
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_update: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["id"]
+        if str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+            return False
+        self.trade_id_set.add(trade_id)
+        trade_amount = abs(Decimal(str(trade_update["quantity"])))
+        trade_price = Decimal(str(trade_update["rate"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+        self.fee_paid += Decimal(str(trade_update["commission"]))
+
+        self.check_filled_condition()
+
+        return True
