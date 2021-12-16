@@ -1,9 +1,9 @@
-import ethers, { Transaction } from 'ethers';
+import ethers from 'ethers';
 
 // gasUsed and cumulativeGasUsed are BigNumbers
 // then need to be converted to strings before being
 // passed to the client
-export interface EthereumTransactionReceipt
+export interface SolanaTransactionReceipt
   extends Omit<
     ethers.providers.TransactionReceipt,
     'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
@@ -12,19 +12,7 @@ export interface EthereumTransactionReceipt
   cumulativeGasUsed: string;
   effectiveGasPrice: string | null;
 }
-
-export interface EthereumTransaction
-  extends Omit<
-    Transaction,
-    'maxPriorityFeePerGas' | 'maxFeePerGas' | 'gasLimit' | 'value'
-  > {
-  maxPriorityFeePerGas: string | null;
-  maxFeePerGas: string | null;
-  gasLimit: string | null;
-  value: string;
-}
-
-export interface EthereumTransactionResponse
+export interface SolanaTransactionResponse
   extends Omit<
     ethers.providers.TransactionResponse,
     'gasPrice' | 'gasLimit' | 'value'
@@ -32,11 +20,6 @@ export interface EthereumTransactionResponse
   gasPrice: string | null;
   gasLimit: string;
   value: string;
-}
-
-export interface EthereumAllowancesRequest {
-  privateKey: string; // the users private Ethereum key
-  tokenSymbols: string[]; // a list of token symbol
 }
 
 export interface SolanaBalanceRequest {
@@ -57,35 +40,25 @@ export interface SolanaTokenRequest {
 }
 
 export interface SolanaTokenResponse {
+  network: string;
+  timestamp: number;
   token: string; // the token symbol the spender will be approved for
   mintAddress: string;
   accountAddress: string;
   amount: number;
 }
 
-export interface EthereumPollRequest {
+export interface SolanaPollRequest {
   txHash: string;
 }
 
-export interface EthereumPollResponse {
+export interface SolanaPollResponse {
   network: string;
   timestamp: number;
   currentBlock: number;
   txHash: string;
   txStatus: number;
   txBlock: number;
-  txData: EthereumTransactionResponse | null;
-  txReceipt: EthereumTransactionReceipt | null;
-}
-
-export interface EthereumCancelRequest {
-  nonce: number; // the nonce of the transaction to be canceled
-  privateKey: string; // the user's private Ethereum key
-}
-
-export interface EthereumCancelResponse {
-  network: string;
-  timestamp: number;
-  latency: number;
-  txHash: string | undefined;
+  txData: SolanaTransactionResponse | null;
+  txReceipt: SolanaTransactionReceipt | null;
 }

@@ -10,10 +10,10 @@ import {
 // invalid parameter errors
 
 export const invalidPrivateKeyError: string =
-  'The privateKey param is not a valid Ethereum private key (64 hexidecimal characters).';
+  'The privateKey param is not a valid Solana private key (64 hexidecimal characters).';
 
 export const invalidSpenderError: string =
-  'The spender param is not a valid Ethereum public key (0x followed by 40 hexidecimal characters).';
+  'The spender param is not a valid Solana public key (0x followed by 40 hexidecimal characters).';
 
 export const invalidTokenSymbolsError: string =
   'The tokenSymbols param should be an array of strings.';
@@ -34,24 +34,24 @@ export const invalidMaxPriorityFeePerGasError: string =
 
 export const invalidTxHashError: string = 'The txHash param must be a string.';
 
-// test if a string matches the shape of an Ethereum public key
+// test if a string matches the shape of an Solana public key
 export const isPublicKey = (str: string): boolean => {
   return /^[a-fA-F0-9]{40}$/.test(str);
 };
 
-// test if a string matches the shape of an Ethereum private key
+// test if a string matches the shape of an Solana private key
 export const isPrivateKey = (str: string): boolean => {
   return /^[a-fA-F0-9]{64}$/.test(str);
 };
 
-// given a request, look for a key called privateKey that is an Ethereum private key
+// given a request, look for a key called privateKey that is an Solana private key
 export const validatePrivateKey: Validator = mkValidator(
   'privateKey',
   invalidPrivateKeyError,
   (val) => typeof val === 'string' && isPrivateKey(val)
 );
 
-// given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
+// given a request, look for a key called spender that is 'uniswap' or an Solana public key
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
@@ -100,20 +100,10 @@ export const validateTxHash: Validator = mkValidator(
 
 // request types and corresponding validators
 
-export const validateEthereumNonceRequest: RequestValidator =
-  mkRequestValidator([validatePrivateKey]);
-
-export const validateEthereumAllowancesRequest: RequestValidator =
-  mkRequestValidator([
-    validatePrivateKey,
-    validateSpender,
-    validateTokenSymbols,
-  ]);
-
-export const validateEthereumBalanceRequest: RequestValidator =
+export const validateSolanaBalanceRequest: RequestValidator =
   mkRequestValidator([validatePrivateKey, validateTokenSymbols]);
 
-export const validateEthereumApproveRequest: RequestValidator =
+export const validateSolanaApproveRequest: RequestValidator =
   mkRequestValidator([
     validatePrivateKey,
     validateSpender,
@@ -121,6 +111,14 @@ export const validateEthereumApproveRequest: RequestValidator =
     validateAmount,
   ]);
 
-export const validateEthereumPollRequest: RequestValidator = mkRequestValidator(
-  [validateTxHash]
-);
+export const validateSolanaPollRequest: RequestValidator = mkRequestValidator([
+  validateTxHash,
+]);
+
+export const validateSolanaGetTokenRequest: RequestValidator =
+  mkRequestValidator([]); // TODO: Implement
+
+export const validateSolanaPostTokenRequest: RequestValidator =
+  mkRequestValidator(
+    [] // TODO: Implement
+  );
