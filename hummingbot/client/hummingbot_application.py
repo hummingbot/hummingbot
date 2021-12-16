@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+import docker
 from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
 
@@ -116,6 +117,9 @@ class HummingbotApplication(*commands):
             completer=load_completer(self),
             command_tabs=command_tabs
         )
+
+        # docker client instance
+        self._docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
 
     @property
     def strategy_file_name(self) -> str:
