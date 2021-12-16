@@ -38,7 +38,7 @@ class WSConnection:
         self._connected = True
 
     async def disconnect(self):
-        if not self._connection.closed:
+        if self._connection is not None and not self._connection.closed:
             await self._connection.close()
         self._connection = None
         self._connected = False
