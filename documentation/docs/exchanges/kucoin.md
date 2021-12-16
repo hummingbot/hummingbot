@@ -17,6 +17,7 @@ tags:
 * Transaction fees: https://www.kucoin.com/vip/level
 * Minimum order size: https://api.kucoin.com/api/v1/symbols
 * Creating API keys: https://support.kucoin.plus/hc/en-us/articles/360015102174-How-to-Create-an-API-
+* Referral link: https://www.kucoin.com/ucenter/signup?rcode=272KvRf
 
 ## 👷 Maintenance
 

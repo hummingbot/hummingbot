@@ -160,6 +160,10 @@ cdef class FtxExchange(ExchangeBase):
             for key, value in self._in_flight_orders.items()
         }
 
+    @property
+    def user_stream_tracker(self) -> FtxUserStreamTracker:
+        return self._user_stream_tracker
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
             key: FtxInFlightOrder.from_json(value)
@@ -182,82 +186,66 @@ cdef class FtxExchange(ExchangeBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    def _update_inflight_order(self, tracked_order: FtxOrderStatus, event: Dict[str, Any]):
+    async def _update_inflight_order(self, tracked_order: FtxInFlightOrder, event: Dict[str, Any]):
         issuable_events: List[MarketEvent] = tracked_order.update(event)
 
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             base, quote = self.split_trading_pair(tracked_order.trading_pair)
-            if market_event == MarketEvent.OrderFilled:
-                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                     OrderFilledEvent(self._current_timestamp,
-                                                      tracked_order.client_order_id,
-                                                      tracked_order.trading_pair,
-                                                      tracked_order.trade_type,
-                                                      tracked_order.order_type,
-                                                      new_price,
-                                                      new_amount,
-                                                      self.get_fee(
-                                                          base,
-                                                          quote,
-                                                          tracked_order.order_type,
-                                                          tracked_order.trade_type,
-                                                          new_amount,
-                                                          new_price
-                                                      ),
-                                                      tracked_order.client_order_id))
-            elif market_event == MarketEvent.OrderCancelled:
+            if market_event == MarketEvent.OrderCancelled:
                 self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
+
             elif market_event == MarketEvent.OrderFailure:
                 self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                      MarketOrderFailureEvent(self._current_timestamp,
                                                              tracked_order.client_order_id,
                                                              tracked_order.order_type))
-            elif market_event == MarketEvent.BuyOrderCompleted:
-                self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                   f"according to user stream.")
-                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                     BuyOrderCompletedEvent(self._current_timestamp,
-                                                            tracked_order.client_order_id,
-                                                            base,
-                                                            quote,
-                                                            base,
-                                                            tracked_order.executed_amount_base,
-                                                            tracked_order.executed_amount_quote,
-                                                            self.get_fee(
-                                                                base,
-                                                                quote,
-                                                                tracked_order.order_type,
-                                                                tracked_order.trade_type,
-                                                                new_amount,
-                                                                new_price
-                                                            ),
-                                                            tracked_order.order_type))
-            elif market_event == MarketEvent.SellOrderCompleted:
-                self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                   f"according to user stream.")
-                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                     SellOrderCompletedEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             base,
-                                                             quote,
-                                                             quote,
-                                                             tracked_order.executed_amount_base,
-                                                             tracked_order.executed_amount_quote,
-                                                             self.get_fee(
-                                                                 base,
-                                                                 quote,
-                                                                 tracked_order.order_type,
-                                                                 tracked_order.trade_type,
-                                                                 new_amount,
-                                                                 new_price
-                                                             ),
-                                                             tracked_order.order_type))
-            # Complete the order if relevent
+
+            elif market_event in [MarketEvent.BuyOrderCompleted, MarketEvent.SellOrderCompleted]:
+                event = (self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
+                         if market_event == MarketEvent.BuyOrderCompleted
+                         else self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG)
+                event_class = (BuyOrderCompletedEvent
+                               if market_event == MarketEvent.BuyOrderCompleted
+                               else SellOrderCompletedEvent)
+
+                try:
+                    await asyncio.wait_for(tracked_order.wait_until_completely_filled(), timeout=2)
+                except asyncio.TimeoutError:
+                    self.logger().warning(
+                        f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
+                        f"The complete update will be processed with estimated fees.")
+                    fee_asset = tracked_order.quote_asset
+                    fee = self.get_fee(
+                        base,
+                        quote,
+                        tracked_order.order_type,
+                        tracked_order.trade_type,
+                        new_amount,
+                        new_price)
+                    fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair, new_price, tracked_order.amount)
+                else:
+                    fee_asset = tracked_order.fee_asset
+                    fee_amount = tracked_order.fee_paid
+
+                self.logger().info(f"The market {tracked_order.trade_type.name.lower()} order "
+                                   f"{tracked_order.client_order_id} has completed according to user stream.")
+                self.c_trigger_event(
+                    event,
+                    event_class(self._current_timestamp,
+                                tracked_order.client_order_id,
+                                base,
+                                quote,
+                                fee_asset,
+                                tracked_order.executed_amount_base,
+                                tracked_order.executed_amount_quote,
+                                fee_amount,
+                                tracked_order.order_type))
+            # Complete the order if relevant
             if tracked_order.is_done:
                 self.c_stop_tracking_order(tracked_order.client_order_id)
 
@@ -357,7 +345,7 @@ cdef class FtxExchange(ExchangeBase):
                     response = await self._api_request("GET", path_url=f"/orders/by_client_id/{tracked_order.client_order_id}")
                     order = response["result"]
 
-                    self._update_inflight_order(tracked_order, order)
+                    await self._update_inflight_order(tracked_order, order)
                 except RuntimeError as e:
                     if "Order not found" in str(e) and tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                         tracked_order.set_status("FAILURE")
@@ -400,23 +388,56 @@ cdef class FtxExchange(ExchangeBase):
                 data = stream_message.get("data")
                 event_type = stream_message.get("type")
 
-                if (channel == "orders") and (event_type == "update"):  # Updates track order status
-                    try:
-                        tracked_order = self._in_flight_orders[data['clientId']]
-                        self._update_inflight_order(tracked_order, data)
-                    except KeyError as e:
-                        self.logger().debug(f"Unknown order id from user stream order status updates: {data['clientId']}")
-                    except Exception as e:
-                        self.logger().error(f"Unexpected error from user stream order status updates: {e}, {data}", exc_info=True)
-                else:
-                    # Ignores all other user stream message types
-                    continue
-
+                if channel == "orders" and event_type == "update":  # Updates track order status
+                    safe_ensure_future(self._process_order_update_event(data))
+                elif channel == "fills" and event_type == "update":
+                    safe_ensure_future(self._process_trade_event(data))
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def _process_order_update_event(self, event_message: Dict[str, Any]):
+        try:
+            tracked_order = self._in_flight_orders[event_message['clientId']]
+            await self._update_inflight_order(tracked_order, event_message)
+        except KeyError as e:
+            self.logger().debug(f"Unknown order id from user stream order status updates: {event_message['clientId']}")
+        except Exception as e:
+            self.logger().error(f"Unexpected error from user stream order status updates: {e}, "
+                                f"{event_message}", exc_info=True)
+
+    async def _process_trade_event(self, event_message: Dict[str, Any]):
+        tracked_order = None
+        for order in list(self._in_flight_orders.values()):
+            exchange_id = await order.get_exchange_order_id()
+            if exchange_id == str(event_message["orderId"]):
+                tracked_order = order
+                break
+        if tracked_order:
+            updated = tracked_order.update_with_trade_update(event_message)
+            if updated:
+                execute_amount_diff = Decimal(event_message["size"])
+                self.logger().info(
+                    f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                    f"{tracked_order.order_type_description} order {tracked_order.client_order_id}")
+                exchange_order_id = tracked_order.exchange_order_id
+
+                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                     OrderFilledEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.trading_pair,
+                                         tracked_order.trade_type,
+                                         tracked_order.order_type,
+                                         Decimal(event_message["price"]),
+                                         execute_amount_diff,
+                                         TradeFee(percent=Decimal(0.0),
+                                                  flat_fees=[(event_message["feeCurrency"],
+                                                              Decimal(event_message["fee"]))]),
+                                         exchange_trade_id=event_message["tradeId"]
+                                     ))
 
     async def _status_polling_loop(self):
         while True:
@@ -462,6 +483,17 @@ cdef class FtxExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    def start_tracking_order(self,
+                             order_id: str,
+                             exchange_order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        """Helper method for testing."""
+        self.c_start_tracking_order(order_id, exchange_order_id, trading_pair, order_type, trade_type, price, amount)
 
     cdef c_start_tracking_order(self,
                                 str order_id,

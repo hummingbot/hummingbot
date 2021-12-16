@@ -42,9 +42,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _kappa
         object _gamma
         object _eta
-        object _closing_time
+        str _execution_timeframe
+        object _execution_state
+        object _start_time
+        object _end_time
         double _min_spread
-        object _time_left
         object _q_adjustment_factor
         object _reserved_price
         object _optimal_spread
@@ -82,4 +84,5 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_measure_order_book_liquidity(self)
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
+    cdef object c_calculate_inventory(self)
     cdef c_did_complete_order(self, object order_completed_event)
