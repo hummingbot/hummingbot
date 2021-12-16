@@ -263,6 +263,8 @@ class MexcExchange(ExchangeBase):
                            limit_id: Optional[str] = None) -> Dict[str, Any]:
 
         headers = {"Content-Type": "application/json"}
+        if path_url in CONSTANTS.MEXC_PLACE_ORDER:
+            headers.update({'source': 'HUMBOT'})
         client = await self._http_client()
         text_data = ujson.dumps(data) if data else None
         limit_id = limit_id or path_url
