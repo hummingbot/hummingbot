@@ -3,9 +3,10 @@ import asyncio
 import time
 
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 from cachetools import TTLCache
 
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -53,7 +54,7 @@ class InFlightOrderTracker(PubSub):
             ifot_logger = logging.getLogger(__name__)
         return ifot_logger
 
-    def __init__(self) -> None:
+    def __init__(self, connector: ConnectorBase) -> None:
         """
         Provides utilities for connectors to update in-flight orders and also handle order errors.
         Also it maintains cached orders to allow for additional updates to occur after the original order is determined to
@@ -63,15 +64,15 @@ class InFlightOrderTracker(PubSub):
         (2) Cannot retrieve exchange_order_id of an order
         (3) Error thrown by exchange when fetching order status
         """
-
+        self._connector: ConnectorBase = connector
         self._in_flight_orders: Dict[str, InFlightOrder] = {}
         self._cached_orders: TTLCache = TTLCache(maxsize=self.MAX_CACHE_SIZE, ttl=self.CACHED_ORDER_TTL)
 
         self._order_tracking_task: Optional[asyncio.Task] = None
         self._last_poll_timestamp: int = -1
 
-        self._event_reporter = EventReporter(event_source=__name__)
-        self._event_logger = EventLogger(event_source=__name__)
+        self._event_reporter = EventReporter(event_source=f"{self._connector.display_name}.{__name__}")
+        self._event_logger = EventLogger(event_source=f"{self._connector.display_name}.{__name__}")
         for event_tag in self.MARKET_EVENTS:
             self.add_listener(event_tag, self._event_reporter)
             self.add_listener(event_tag, self._event_logger)
@@ -97,6 +98,10 @@ class InFlightOrderTracker(PubSub):
         """
         return int(time.time() * 1e3)
 
+    @property
+    def event_logs(self) -> List[Any]:
+        return self._event_logger.event_log
+
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
 
@@ -117,7 +122,7 @@ class InFlightOrderTracker(PubSub):
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
         event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
-        self.trigger_event(
+        self._connector.trigger_event(
             event_tag,
             event_class(
                 self.current_timestamp,
@@ -131,11 +136,27 @@ class InFlightOrderTracker(PubSub):
         )
 
     def _trigger_cancelled_event(self, order: InFlightOrder):
-        self.trigger_event(
+        self._connector.trigger_event(
             MarketEvent.OrderCancelled,
             OrderCancelledEvent(
                 timestamp=self.current_timestamp,
                 order_id=order.client_order_id,
+            ),
+        )
+
+    def _trigger_filled_event(self, order: InFlightOrder):
+        self._connector.trigger_event(
+            MarketEvent.OrderFilled,
+            OrderFilledEvent(
+                self.current_timestamp,
+                order.client_order_id,
+                order.trading_pair,
+                order.trade_type,
+                order.order_type,
+                order.last_filled_price,
+                order.last_filled_amount,
+                order.latest_trade_fee,
+                order.exchange_order_id,
             ),
         )
 
@@ -144,7 +165,7 @@ class InFlightOrderTracker(PubSub):
             MarketEvent.BuyOrderCompleted if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
         )
         event_class = BuyOrderCompletedEvent if order.trade_type is TradeType.BUY else SellOrderCompletedEvent
-        self.trigger_event(
+        self._connector.trigger_event(
             event_tag,
             event_class(
                 self.current_timestamp,
@@ -161,7 +182,7 @@ class InFlightOrderTracker(PubSub):
         )
 
     def _trigger_failure_event(self, order: InFlightOrder):
-        self.trigger_event(
+        self._connector.trigger_event(
             MarketEvent.OrderFailure,
             MarketOrderFailureEvent(
                 timestamp=self.current_timestamp,
@@ -185,20 +206,7 @@ class InFlightOrderTracker(PubSub):
                 f"amounting to {tracked_order.executed_amount_base}/{tracked_order.amount} "
                 f"{tracked_order.base_asset} has been filled."
             )
-            self.trigger_event(
-                MarketEvent.OrderFilled,
-                OrderFilledEvent(
-                    self.current_timestamp,
-                    tracked_order.client_order_id,
-                    tracked_order.trading_pair,
-                    tracked_order.trade_type,
-                    tracked_order.order_type,
-                    tracked_order.last_filled_price,
-                    tracked_order.last_filled_amount,
-                    tracked_order.latest_trade_fee,
-                    tracked_order.exchange_order_id,
-                ),
-            )
+            self._trigger_filled_event(tracked_order)
 
     def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate] = None):
         if tracked_order.is_open:

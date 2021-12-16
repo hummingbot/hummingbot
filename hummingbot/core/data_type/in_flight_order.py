@@ -195,7 +195,7 @@ class InFlightOrder:
             trade_type=getattr(TradeType, data["trade_type"]),
             amount=Decimal(data["amount"]),
             price=Decimal(data["price"]),
-            initial_state=data["last_state"]
+            initial_state=OrderState(data["last_state"])
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -220,7 +220,7 @@ class InFlightOrder:
             "executed_amount_quote": str(self.executed_amount_quote),
             "fee_asset": self.fee_asset,
             "fee_paid": str(self.cumulative_fee_paid),
-            "last_state": self.last_state
+            "last_state": str(self.current_state.value),
         }
 
     def to_limit_order(self) -> LimitOrder:
