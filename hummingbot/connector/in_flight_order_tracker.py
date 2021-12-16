@@ -36,12 +36,6 @@ class InFlightOrderTracker:
         MarketEvent.OrderFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        # MarketEvent.FundingPaymentCompleted,
-        # MarketEvent.RangePositionCreated,
-        # MarketEvent.RangePositionRemoved,
-        # MarketEvent.RangePositionUpdated,
-        # MarketEvent.RangePositionFailure,
-        # MarketEvent.RangePositionInitiated,
     ]
 
     @classmethod
@@ -155,8 +149,8 @@ class InFlightOrderTracker:
                 amount=order.last_filled_amount,
                 trade_fee=order.latest_trade_fee,
                 exchange_trade_id=order.last_trade_id,
-                leverage=order.leverage,
-                position=order.position,
+                leverage=int(order.leverage),
+                position=order.position.name,
             ),
         )
 
