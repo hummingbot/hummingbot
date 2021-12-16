@@ -973,20 +973,9 @@ class AscendExExchange(ExchangePyBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
-        exchange_order_id = order_msg.orderId
-        client_order_id = None
-
-        for in_flight_order in self._in_flight_order_tracker.active_orders.values():
-            if in_flight_order.exchange_order_id == exchange_order_id:
-                client_order_id = in_flight_order.client_order_id
-                break
-
-        if client_order_id is None:
-            return
 
         order_update = OrderUpdate(
-            client_order_id=client_order_id,
-            exchange_order_id=exchange_order_id,
+            exchange_order_id=order_msg.orderId,
             trading_pair=ascend_ex_utils.convert_to_exchange_trading_pair(order_msg.symbol),
             update_timestamp=order_msg.lastExecTime,
             new_state=CONSTANTS.ORDER_STATE[order_msg.status],
