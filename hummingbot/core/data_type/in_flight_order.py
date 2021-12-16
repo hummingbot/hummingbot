@@ -65,8 +65,8 @@ class InFlightOrder:
         price: Optional[Decimal] = None,
         exchange_order_id: Optional[str] = None,
         initial_state: OrderState = OrderState.PENDING_CREATE,
-        leverage: Decimal = Decimal("1.0"),
-        position: Optional[PositionAction] = None,
+        leverage: int = 1,
+        position: PositionAction = PositionAction.NIL,
         trade_fee_percent: Decimal = s_decimal_0,
         timestamp: int = -1,
     ) -> None:
@@ -196,7 +196,9 @@ class InFlightOrder:
             trade_type=getattr(TradeType, data["trade_type"]),
             amount=Decimal(data["amount"]),
             price=Decimal(data["price"]),
-            initial_state=OrderState(int(data["last_state"]))
+            initial_state=OrderState(int(data["last_state"])),
+            leverage=int(data["leverage"]),
+            position=PositionAction(data["position"]),
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -222,6 +224,8 @@ class InFlightOrder:
             "fee_asset": self.fee_asset,
             "fee_paid": str(self.cumulative_fee_paid),
             "last_state": str(self.current_state.value),
+            "leverage": str(self.leverage),
+            "position": self.position.value
         }
 
     def to_limit_order(self) -> LimitOrder:
