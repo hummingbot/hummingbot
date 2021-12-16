@@ -1070,7 +1070,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not any(Decimal.is_nan(p) for p in bid_price_samples) and not Decimal.is_nan(current_top_bid_price):
             top_bid_price = max(list(bid_price_samples) + [current_top_bid_price])
         else:
-            top_bid_price = current_top_ask_price
+            top_bid_price = current_top_bid_price
 
         if not any(Decimal.is_nan(p) for p in ask_price_samples) and not Decimal.is_nan(current_top_ask_price):
             top_ask_price = min(list(ask_price_samples) + [current_top_ask_price])
