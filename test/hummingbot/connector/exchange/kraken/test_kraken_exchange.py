@@ -2,12 +2,11 @@ import asyncio
 import json
 import re
 import unittest
-
-from aioresponses import aioresponses
 from decimal import Decimal
 from functools import partial
 from typing import Awaitable, Dict
 
+from aioresponses import aioresponses
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 
 from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrderNotCreated
@@ -262,7 +261,7 @@ class KrakenExchangeTest(unittest.TestCase):
     @aioresponses()
     def test_check_network_success(self, mock_api):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
-        resp = {"status": 200, "result": []}
+        resp = {}
         mock_api.get(url, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
@@ -280,7 +279,7 @@ class KrakenExchangeTest(unittest.TestCase):
     @aioresponses()
     def test_check_network_not_connected_for_error_status(self, mock_api):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
-        resp = {"status": 405, "result": []}
+        resp = {}
         mock_api.get(url, status=405, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())

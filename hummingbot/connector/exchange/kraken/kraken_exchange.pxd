@@ -8,8 +8,6 @@ cdef class KrakenExchange(ExchangeBase):
         object _user_stream_tracker
         object _ev_loop
         object _poll_notifier
-        object _rest_assistant
-        object _api_factory
         double _last_timestamp
         double _poll_interval
         double _last_pull_timestamp
@@ -26,6 +24,7 @@ cdef class KrakenExchange(ExchangeBase):
         object _async_scheduler
         object _set_server_time_offset_task
         public object _kraken_auth
+        object _shared_client
         dict _asset_pairs
         int32_t _last_userref
         object _throttler
