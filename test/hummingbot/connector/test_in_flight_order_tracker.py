@@ -2,9 +2,10 @@ import asyncio
 import unittest
 
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 from unittest.mock import patch
 
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.in_flight_order_tracker import InFlightOrderTracker
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.event.events import (
@@ -37,7 +38,8 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         super().setUp()
         self.log_records = []
 
-        self.tracker = InFlightOrderTracker()
+        self.connector = ConnectorBase()
+        self.tracker = InFlightOrderTracker(connector=self.connector)
 
         self.tracker.logger().setLevel(1)
         self.tracker.logger().addHandler(self)
@@ -115,7 +117,7 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
 
     @patch("hummingbot.connector.in_flight_order_tracker.InFlightOrderTracker.CACHED_ORDER_TTL", 0.1)
     def test_cached_order_ttl_exceeded(self):
-        tracker = InFlightOrderTracker()
+        tracker = InFlightOrderTracker(self.connector)
         order: InFlightOrder = InFlightOrder(
             client_order_id="someClientOrderId",
             trading_pair=self.trading_pair,
@@ -226,8 +228,8 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         )
 
         # Check that Buy/SellOrderCreatedEvent has been triggered.
-        self.assertEqual(1, len(self.tracker._event_logger.event_log))
-        event_logged = self.tracker._event_logger.event_log[0]
+        self.assertEqual(1, len(self.connector.event_logs))
+        event_logged = self.connector.event_logs[0]
 
         self.assertIsInstance(event_logged, BuyOrderCreatedEvent)
         self.assertEqual(event_logged.amount, order.amount)
@@ -264,9 +266,9 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         self.assertTrue(self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}."))
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
-        self.assertEqual(1, len(self.tracker._event_logger.event_log))
+        self.assertEqual(1, len(self.connector.event_logs))
 
-        event_triggered = self.tracker._event_logger.event_log[0]
+        event_triggered = self.connector.event_logs[0]
         self.assertIsInstance(event_triggered, OrderCancelledEvent)
         self.assertEqual(event_triggered.exchange_order_id, order.exchange_order_id)
         self.assertEqual(event_triggered.order_id, order.client_order_id)
@@ -300,9 +302,9 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         )
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
-        self.assertEqual(1, len(self.tracker._event_logger.event_log))
+        self.assertEqual(1, len(self.connector.event_logs))
 
-        event_triggered = self.tracker._event_logger.event_log[0]
+        event_triggered = self.connector.event_logs[0]
         self.assertIsInstance(event_triggered, MarketOrderFailureEvent)
         self.assertEqual(event_triggered.order_id, order.client_order_id)
         self.assertEqual(event_triggered.order_type, order.order_type)
@@ -391,12 +393,12 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(3, len(self.tracker._event_logger.event_log))
+        self.assertEqual(3, len(self.connector.event_logs))
         order_fill_events: List[OrderFilledEvent] = [
-            event for event in self.tracker._event_logger.event_log if isinstance(event, OrderFilledEvent)
+            event for event in self.connector.event_logs if isinstance(event, OrderFilledEvent)
         ]
         order_completed_events: List[BuyOrderCompletedEvent] = [
-            event for event in self.tracker._event_logger.event_log if isinstance(event, BuyOrderCompletedEvent)
+            event for event in self.connector.event_logs if isinstance(event, BuyOrderCompletedEvent)
         ]
 
         self.assertEqual(2, len(order_fill_events))
@@ -441,8 +443,8 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(1, len(self.tracker._event_logger.event_log))
-        order_filled_event: OrderFilledEvent = self.tracker._event_logger.event_log[0]
+        self.assertEqual(1, len(self.connector.event_logs))
+        order_filled_event: OrderFilledEvent = self.connector.event_logs[0]
 
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
@@ -487,8 +489,8 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(1, len(self.tracker._event_logger.event_log))
-        order_filled_event: OrderFilledEvent = self.tracker._event_logger.event_log[0]
+        self.assertEqual(1, len(self.connector.event_logs))
+        order_filled_event: OrderFilledEvent = self.connector.event_logs[0]
 
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
@@ -526,7 +528,8 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
 
         fetched_order: InFlightOrder = self.tracker.fetch_order(order.client_order_id)
         self.assertTrue(fetched_order.is_filled)
-        self.assertIn(fetched_order.client_order_id, self.tracker._in_flight_orders)
+        self.assertNotIn(fetched_order.client_order_id, self.tracker.active_orders)
+        self.assertIn(fetched_order.client_order_id, self.tracker.cached_orders)
 
         self.assertTrue(
             self._is_logged(
@@ -536,13 +539,31 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(1, len(self.tracker._event_logger.event_log))
-        order_filled_event: OrderFilledEvent = self.tracker._event_logger.event_log[0]
+        self.assertEqual(2, len(self.connector.event_logs))
+
+        order_filled_event: Optional[OrderFilledEvent] = None
+        order_completed_event: Optional[BuyOrderCompletedEvent] = None
+        for event in self.connector.event_logs:
+            if isinstance(event, OrderFilledEvent):
+                order_filled_event = event
+            if isinstance(event, BuyOrderCompletedEvent):
+                order_completed_event = event
+
+        self.assertIsNotNone(order_filled_event)
+        self.assertIsNotNone(order_completed_event)
 
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
         self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), [(self.base_asset, fee_paid)]))
+
+        self.assertEqual(order_completed_event.order_id, order.client_order_id)
+        self.assertEqual(order_completed_event.exchange_order_id, order.exchange_order_id)
+        self.assertEqual(order_completed_event.base_asset_amount, order.amount)
+        self.assertEqual(
+            order_completed_event.quote_asset_amount, trade_update.fill_price * trade_update.fill_base_amount
+        )
+        self.assertEqual(order_completed_event.fee_amount, trade_update.fee_paid)
 
     def test_updating_order_states_with_both_process_order_update_and_process_trade_update(self):
         order: InFlightOrder = InFlightOrder(
