@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import AsyncGenerator, List, Optional
 
+from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
@@ -13,10 +14,12 @@ class WSAssistant:
         connection: WSConnection,
         ws_pre_processors: Optional[List[WSPreProcessorBase]] = None,
         ws_post_processors: Optional[List[WSPostProcessorBase]] = None,
+        auth: Optional[AuthBase] = None,
     ):
         self._connection = connection
         self._ws_pre_processors = ws_pre_processors or []
         self._ws_post_processors = ws_post_processors or []
+        self._auth = auth
 
     @property
     def last_recv_time(self) -> float:
@@ -41,14 +44,16 @@ class WSAssistant:
     async def send(self, request: WSRequest):
         request = deepcopy(request)
         request = await self._pre_process_request(request)
+        request = await self._authenticate(request)
         await self._connection.send(request)
 
-    async def iter_messages(self) -> AsyncGenerator[Optional[WSResponse], None]:
-        """Will yield None and stop if `WSDelegate.disconnect()` is called while waiting for a response."""
+    async def iter_messages(self) -> AsyncGenerator[WSResponse, None]:
+        """Stops on `WSDelegate.disconnect()`."""
         while self._connection.connected:
             response = await self._connection.receive()
-            response = await self._post_process_response(response)
-            yield response
+            if response is not None:
+                response = await self._post_process_response(response)
+                yield response
 
     async def receive(self) -> Optional[WSResponse]:
         """Will return None if `WSDelegate.disconnect()` is called while waiting for a response."""
@@ -60,6 +65,11 @@ class WSAssistant:
     async def _pre_process_request(self, request: WSRequest) -> WSRequest:
         for pre_processor in self._ws_pre_processors:
             request = await pre_processor.pre_process(request)
+        return request
+
+    async def _authenticate(self, request: WSRequest) -> WSRequest:
+        if self._auth is not None and request.is_auth_required:
+            request = await self._auth.ws_authenticate(request)
         return request
 
     async def _post_process_response(self, response: WSResponse) -> WSResponse:

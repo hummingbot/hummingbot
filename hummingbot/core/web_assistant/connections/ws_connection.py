@@ -38,10 +38,10 @@ class WSConnection:
         self._connected = True
 
     async def disconnect(self):
-        if self._connected:
+        if not self._connection.closed:
             await self._connection.close()
-            self._connection = None
-            self._connected = False
+        self._connection = None
+        self._connected = False
 
     async def send(self, request: WSRequest):
         self._ensure_connected()
