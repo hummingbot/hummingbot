@@ -98,7 +98,3 @@ PUBLIC_API_LIMITS = [
               limit=150,
               time_interval=60 * 10),
 ]
-
-
-PING_TIMEOUT = 5
-MESSAGE_TIMEOUT = 3

@@ -26,8 +26,6 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_utils import (
@@ -37,7 +35,6 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
     split_to_base_quote,
     is_dark_pool,
     build_rate_limits_by_tier,
-    build_api_factory,
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
@@ -118,15 +115,13 @@ cdef class KrakenExchange(ExchangeBase):
 
         super().__init__()
         self._trading_required = trading_required
-        self._api_factory = build_api_factory()
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
-        self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler, api_factory=self._api_factory)
+        self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
-        self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth, self._api_factory)
+        self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
-        self._rest_assistant = None
         self._last_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}  # Dict[client_order_id:str, KrakenInFlightOrder]
@@ -141,6 +136,7 @@ cdef class KrakenExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_pull_timestamp = 0
+        self._shared_client = None
         self._asset_pairs = {}
         self._last_userref = 0
         self._real_time_balance_update = False
@@ -188,6 +184,7 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
+            client = await self._http_client()
             url = f"{CONSTANTS.BASE_URL}{CONSTANTS.ASSET_PAIRS_PATH_URL}"
             asset_pairs = await self._api_request(method="get", endpoint=CONSTANTS.ASSET_PAIRS_PATH_URL)
             self._asset_pairs = {f"{details['base']}-{details['quote']}": details
@@ -634,8 +631,12 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            url = f"{CONSTANTS.TIME_PATH_URL}"
-            resp = await self._api_request(method="get", endpoint=url)
+            client = await self._http_client()
+            url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
+            async with self._throttler.execute_task(CONSTANTS.TIME_PATH_URL):
+                resp = await client.get(url)
+                if resp.status != 200:
+                    raise ConnectionError
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -657,6 +658,11 @@ cdef class KrakenExchange(ExchangeBase):
         self._last_userref += 1
         return self._last_userref
 
+    async def _http_client(self) -> aiohttp.ClientSession:
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
     @staticmethod
     def is_cloudflare_exception(exception: Exception):
         """
@@ -671,11 +677,6 @@ cdef class KrakenExchange(ExchangeBase):
                                                   CONSTANTS.OPEN_ORDERS_PATH_URL,
                                                   is_auth_required=True,
                                                   data=data)
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
 
     async def _api_request_with_retry(self,
                                       method: str,
@@ -715,9 +716,9 @@ cdef class KrakenExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
-        async with self._throttler.execute_task(limit_id=endpoint):
+        async with self._throttler.execute_task(endpoint):
             url = f"{CONSTANTS.BASE_URL}{endpoint}"
-            client = await self._get_rest_assistant()
+            client = await self._http_client()
             headers = {}
             data_dict = data if data is not None else {}
 
@@ -726,42 +727,42 @@ cdef class KrakenExchange(ExchangeBase):
                 headers.update(auth_dict["headers"])
                 data_dict = auth_dict["postDict"]
 
-            request = RESTRequest(method=RESTMethod[method.upper()],
-                                  url=url,
-                                  data=data_dict if data_dict else None,
-                                  params=params,
-                                  headers=headers,
-                                  is_auth_required=is_auth_required
-                                  )
+            response_coro = client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                data=data_dict,
+                timeout=100
+            )
 
-            response = await client.call(request=request, timeout=100)
+            async with response_coro as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                try:
+                    response_json = await response.json()
+                except Exception:
+                    raise IOError(f"Error parsing data from {url}.")
 
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-            try:
-                response_json = await response.json()
-            except Exception:
-                raise IOError(f"Error parsing data from {url}.")
+                try:
+                    err = response_json["error"]
+                    if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
+                        return {"error": err}
+                    elif "EAPI:Invalid nonce" in err:
+                        self.logger().error(f"Invalid nonce error from {url}. " +
+                                            "Please ensure your Kraken API key nonce window is at least 10, " +
+                                            "and if needed reset your API key.")
+                        raise IOError({"error": response_json})
+                except IOError:
+                    raise
+                except Exception:
+                    pass
 
-            try:
-                err = response_json["error"]
-                if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
-                    return {"error": err}
-                elif "EAPI:Invalid nonce" in err:
-                    self.logger().error(f"Invalid nonce error from {url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10, " +
-                                        "and if needed reset your API key.")
+                data = response_json.get("result")
+                if data is None:
+                    self.logger().error(f"Error received from {url}. Response is {response_json}.")
                     raise IOError({"error": response_json})
-            except IOError:
-                raise
-            except Exception:
-                pass
-
-            data = response_json.get("result")
-            if data is None:
-                self.logger().error(f"Error received from {url}. Response is {response_json}.")
-                raise IOError({"error": response_json})
-            return data
+                return data
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         o = self._in_flight_orders.get(client_order_id)
