@@ -47,7 +47,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
     def _simulate_order_created(self, order: InFlightOrder):
         order.current_state = OrderState.OPEN
-        order._update_exchange_order_id(self.exchange_order_id)
+        order.update_exchange_order_id(self.exchange_order_id)
 
     def _simulate_cancel_order_request_sent(self, order: InFlightOrder):
         order.current_state = OrderState.PENDING_CANCEL
@@ -220,7 +220,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(order.get_exchange_order_id())
 
-        order._update_exchange_order_id(self.exchange_order_id)
+        order.update_exchange_order_id(self.exchange_order_id)
         result = self.async_run_with_timeout(order.get_exchange_order_id())
 
         self.assertEqual(self.exchange_order_id, result)
