@@ -229,9 +229,11 @@ class InFlightOrderTracker:
         self.stop_tracking_order(tracked_order.client_order_id)
 
     def process_order_update(self, order_update: OrderUpdate):
-        client_order_id: str = order_update.client_order_id
+        if not order_update.client_order_id and not order_update.exchange_order_id:
+            self.logger().error("OrderUpdate does not contain any client_order_id or exchange_order_id", exc_info=True)
+            return
 
-        tracked_order: Optional[InFlightOrder] = self.fetch_order(client_order_id)
+        tracked_order: Optional[InFlightOrder] = self.fetch_order(order_update.client_order_id, order_update.exchange_order_id)
 
         if tracked_order:
             previous_state: OrderState = tracked_order.current_state
@@ -244,7 +246,7 @@ class InFlightOrderTracker:
                 self._trigger_order_completion(tracked_order, order_update)
 
         else:
-            self.logger().error(f"Order {client_order_id} no longer being tracked. {order_update}", exc_info=True)
+            self.logger().error(f"Order is not/no longer being tracked. {order_update}", exc_info=True)
 
     def process_trade_update(self, trade_update: TradeUpdate):
         client_order_id: str = trade_update.client_order_id

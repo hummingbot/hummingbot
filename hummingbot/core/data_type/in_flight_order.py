@@ -26,11 +26,11 @@ class OrderState(Enum):
 
 
 class OrderUpdate(NamedTuple):
-    client_order_id: str
-    exchange_order_id: str
     trading_pair: str
     update_timestamp: int  # milliseconds
     new_state: OrderState
+    client_order_id: Optional[str] = None
+    exchange_order_id: Optional[str] = None
     trade_id: Optional[str] = None
     fill_price: Optional[Decimal] = None  # If None, defaults to order price
     executed_amount_base: Optional[Decimal] = None
@@ -264,7 +264,7 @@ class InFlightOrder:
         Updates the in flight order with an order update (from REST API or WS API)
         return: True if the order gets updated otherwise False
         """
-        if order_update.client_order_id != self.client_order_id:
+        if order_update.client_order_id != self.client_order_id and order_update.exchange_order_id != self.exchange_order_id:
             return False
 
         if self.exchange_order_id is None:

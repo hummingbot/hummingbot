@@ -185,7 +185,7 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"Order {order_creation_update.client_order_id} no longer being tracked. {order_creation_update}",
+                f"Order is not/no longer being tracked. {order_creation_update}",
             )
         )
 
@@ -202,6 +202,57 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
 
         order_creation_update: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            update_timestamp=1,
+            new_state=OrderState.OPEN,
+        )
+
+        self.tracker.process_order_update(order_creation_update)
+
+        updated_order: InFlightOrder = self.tracker.fetch_tracked_order(order.client_order_id)
+
+        # Check order update has been successfully applied
+        self.assertEqual(updated_order.exchange_order_id, order_creation_update.exchange_order_id)
+        self.assertTrue(updated_order.exchange_order_id_update_event.is_set())
+        self.assertEqual(updated_order.current_state, order_creation_update.new_state)
+        self.assertTrue(updated_order.is_open)
+
+        # Check that Logger has logged the correct log
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"Created {order.order_type.name} {order.trade_type.name} order {order.client_order_id} for "
+                f"{order.amount} {order.trading_pair}.",
+            )
+        )
+
+        # Check that Buy/SellOrderCreatedEvent has been triggered.
+        self.assertEqual(1, len(self.connector.event_logs))
+        event_logged = self.connector.event_logs[0]
+
+        self.assertIsInstance(event_logged, BuyOrderCreatedEvent)
+        self.assertEqual(event_logged.amount, order.amount)
+        self.assertEqual(event_logged.exchange_order_id, order_creation_update.exchange_order_id)
+        self.assertEqual(event_logged.order_id, order.client_order_id)
+        self.assertEqual(event_logged.price, order.price)
+        self.assertEqual(event_logged.trading_pair, order.trading_pair)
+        self.assertEqual(event_logged.type, order.order_type)
+
+    def test_process_order_update_trigger_order_creation_event_without_client_order_id(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",  # exchange_order_id is provided when initialized. See AscendEx.
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+        self.tracker.start_tracking_order(order)
+
+        order_creation_update: OrderUpdate = OrderUpdate(
+            # client_order_id=order.client_order_id,  # client_order_id purposefully ommited
             exchange_order_id="someExchangeOrderId",
             trading_pair=self.trading_pair,
             update_timestamp=1,
