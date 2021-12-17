@@ -8,7 +8,7 @@ This guide shows you how to use the binary installer for Mac and Windows.
 
 <iframe width="616" height="347" src="https://www.youtube.com/embed/klN-ToclwW4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-The macOS install package allows very easy installation and running Hummingbot on Mac computers. macOS install packages are released with every Hummingbot release starting from v0.18.
+The macOS install package allows very easy installation and running Hummingbot on Mac computers. macOS install packages are released with every Hummingbot release starting from v0.18..
 
 To install Hummingbot with macOS install package:
 
