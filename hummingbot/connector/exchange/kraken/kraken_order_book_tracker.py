@@ -48,7 +48,8 @@ class KrakenOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            self._data_source = KrakenAPIOrderBookDataSource(trading_pairs=self._trading_pairs, api_factory=self._api_factory)
+            self._data_source = KrakenAPIOrderBookDataSource(trading_pairs=self._trading_pairs,
+                                                             api_factory=self._api_factory)
         return self._data_source
 
     @property
