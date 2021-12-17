@@ -2,7 +2,6 @@
 
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-from flask import Flask, jsonify, request
 import asyncio
 import logging
 from typing import (
@@ -11,20 +10,6 @@ from typing import (
     Optional,
 )
 # from notifier import api
-
-# from telegram.bot import Bot
-# from telegram.parsemode import ParseMode
-# from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
-# from telegram.update import Update
-# from telegram.error import (
-#     NetworkError,
-#     TelegramError,
-# )
-# from telegram.ext import (
-#     MessageHandler,
-#     Filters,
-#     Updater,
-# )
 
 import slack
 
@@ -38,7 +23,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 client = slack.WebClient(token=global_config_map.get("slack_token").value)
 verification_token = global_config_map.get("slack_verification_token").value
 
-api = Flask(__name__)
+# api = Flask(__name__)
 
 DISABLED_COMMANDS = {
     "connect",             # disabled because telegram can't display secondary prompt
@@ -46,27 +31,6 @@ DISABLED_COMMANDS = {
     "import",              # disabled because telegram can't display secondary prompt
     "export",              # disabled for security
 }
-
-
-# def authorized_only(handler: Callable[[Any, Bot, Update], None]) -> Callable[..., Any]:
-#     """ Decorator to check if the message comes from the correct channel """
-
-#     def wrapper(self, *args, **kwargs):
-#         update = kwargs.get('update') or args[1]
-
-#         # Reject unauthorized messages
-#         channel = int(self.channel)
-
-#         if int(update.message.channel) != channel:
-#             SlackNotifier.logger().info("Rejected unauthorized message from: %s", update.message.channel)
-#             return wrapper
-
-#         try:
-#             return handler(self, *args, **kwargs)
-#         except Exception as e:
-#             SlackNotifier.logger().exception(f"Exception occurred within slack module: {e}")
-
-#     return wrapper
 
 
 class SlackNotifier(NotifierBase):
@@ -85,47 +49,19 @@ class SlackNotifier(NotifierBase):
         super().__init__()
         self._token = token or global_config_map.get("slack_token").value
         self._channel = channel or global_config_map.get("slack_channel").value
-        # self._updater = Updater(token=token, workers=0)
         self._hb = hb
         self._ev_loop = asyncio.get_event_loop()
         self._async_call_scheduler = AsyncCallScheduler.shared_instance()
         self._msg_queue: asyncio.Queue = asyncio.Queue()
         self._send_msg_task: Optional[asyncio.Task] = None
 
-        # Register command handler and start telegram message polling
-        # handles = [MessageHandler(Filters.text, self.handler)]
-        # for handle in handles:
-        #     self._updater.dispatcher.add_handler(handle)
-
-    # @api.route('/test', methods=['GET'])
-    # def test():
-    #     return 'Here'
-
-    @api.route('/slack/start', methods=['POST'])
-    def slack():
-        payload = {'text': 'Welcome! Token didnot match'}
-
-        print('Verification token', verification_token)
-        if request.form['token'] == verification_token:
-            payload = {'text': 'Welcome! Strategy started'}
-
-        return jsonify(payload)
-
     def start(self):
         if not self._started:
             self._started = True
-            # self._updater.start_polling(
-            #     clean=True,
-            #     bootstrap_retries=-1,
-            #     timeout=30,
-            #     read_latency=60,
-            # )
             self._send_msg_task = safe_ensure_future(self.send_msg_from_queue(), loop=self._ev_loop)
             self.logger().info("Slack is listening...")
 
     def stop(self) -> None:
-        # if self._started or self._updater.running:
-        #     self._updater.stop()
         if self._send_msg_task:
             self._send_msg_task.cancel()
 
@@ -168,5 +104,5 @@ class SlackNotifier(NotifierBase):
         ))
 
 
-if __name__ == 'hummingbot.notifier.slack_notifier':
-    api.run(port=5000)
+# if __name__ == 'hummingbot.notifier.slack_notifier':
+#     api.run(port=5000)

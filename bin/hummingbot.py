@@ -5,7 +5,7 @@
 import asyncio
 import errno
 import socket
-# import threading
+import threading
 from typing import (
     List,
     Coroutine
@@ -24,7 +24,7 @@ from hummingbot import (
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
-# from hummingbot.notifier.slack_notifier import run_api
+from hummingbot.notifier.slack_server import run_api
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -70,11 +70,11 @@ async def main():
         await safe_gather(*tasks)
 
 
-# def humming_main():
-#     chdir_to_data_directory()
-#     if login_prompt():
-#         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-#         ev_loop.run_until_complete(main())
+def humming_main():
+    chdir_to_data_directory()
+    if login_prompt():
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        ev_loop.run_until_complete(main())
 
 
 # def slackServer():
@@ -83,10 +83,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    # thread1 = threading.Thread(target=humming_main)
+    thread1 = threading.Thread(target=run_api)
     # thread2 = threading.Thread(target=run_api)
 
-    # thread1.start()
+    thread1.start()
     # thread2.start()
 
     chdir_to_data_directory()
