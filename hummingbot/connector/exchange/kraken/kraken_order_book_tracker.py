@@ -21,6 +21,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import wait_til
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class KrakenOrderBookTracker(OrderBookTracker):
@@ -35,8 +36,10 @@ class KrakenOrderBookTracker(OrderBookTracker):
     def __init__(self,
                  trading_pairs: List[str],
                  throttler: Optional[AsyncThrottler] = None,
+                 api_factory: Optional[WebAssistantsFactory] = None,
                  ):
-        super().__init__(KrakenAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
+        super().__init__(KrakenAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs, api_factory)
+        self._api_factory = api_factory
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -45,7 +48,8 @@ class KrakenOrderBookTracker(OrderBookTracker):
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
-            self._data_source = KrakenAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
+            self._data_source = KrakenAPIOrderBookDataSource(trading_pairs=self._trading_pairs,
+                                                             api_factory=self._api_factory)
         return self._data_source
 
     @property
