@@ -19,6 +19,7 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import Coinbas
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -539,7 +540,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 self.c_stop_tracking_order(tracked_order.client_order_id)
         self._last_order_update_timestamp = current_timestamp
 
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
+    async def _iter_user_event_queue(self) -> AsyncIterable[OrderBookMessage]:
         """
         Iterator for incoming messages from the user stream.
         """

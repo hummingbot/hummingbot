@@ -30,8 +30,6 @@ from hummingbot.logger import HummingbotLogger
 MAX_RETRIES = 20
 NaN = float("nan")
 
-_shared_web_assistants_factory = None
-
 
 class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
@@ -39,6 +37,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     PING_TIMEOUT = 10.0
 
     _cbpaobds_logger: Optional[HummingbotLogger] = None
+    _shared_web_assistants_factory: Optional[WebAssistantsFactory] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -53,15 +52,13 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         to the methods, even if they are using the methods on an instance (e.g. `get_last_traded_prices` is called
         from `OrderBookTracker._update_last_trade_prices_loop`).
         """
-        global _shared_web_assistants_factory
-        if _shared_web_assistants_factory is None:
-            _shared_web_assistants_factory = build_coinbase_pro_web_assistant_factory()
-        return _shared_web_assistants_factory
+        if cls._shared_web_assistants_factory is None:
+            cls._shared_web_assistants_factory = build_coinbase_pro_web_assistant_factory()
+        return cls._shared_web_assistants_factory
 
     @classmethod
     def set_shared_web_assistants_factory(cls, factory: WebAssistantsFactory):
-        global _shared_web_assistants_factory
-        _shared_web_assistants_factory = factory
+        cls._shared_web_assistants_factory = factory
 
     def __init__(
         self,
@@ -173,7 +170,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 self.logger().info(f"Initialized order book for {trading_pair}. "
                                    f"{index+1}/{number_of_pairs} completed.")
-                await asyncio.sleep(0.6)
+                await self._sleep(0.6)
             except IOError:
                 self.logger().network(
                     f"Error getting snapshot for {trading_pair}.",
@@ -275,7 +272,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                         # Be careful not to go above API rate limits.
-                        await asyncio.sleep(CONSTANTS.REST_API_LIMIT_COOLDOWN)
+                        await self._sleep(CONSTANTS.REST_API_LIMIT_COOLDOWN)
                     except asyncio.CancelledError:
                         raise
                     except Exception:
@@ -286,11 +283,11 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                             f" Retrying in {CONSTANTS.REST_API_LIMIT_COOLDOWN} seconds."
                                             f" Check network connection."
                         )
-                        await asyncio.sleep(CONSTANTS.REST_API_LIMIT_COOLDOWN)
+                        await self._sleep(CONSTANTS.REST_API_LIMIT_COOLDOWN)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:

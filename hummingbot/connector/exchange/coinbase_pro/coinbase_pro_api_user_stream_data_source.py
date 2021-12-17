@@ -6,14 +6,11 @@ from typing import AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-
-_shared_web_assistants_factory: Optional[WebAssistantsFactory] = None
 
 
 class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -75,8 +72,7 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     elif msg_type == "error":
                         raise ValueError(f"Coinbase Pro Websocket received error message - {msg['message']}")
                     elif msg_type in ["open", "match", "change", "done"]:
-                        order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
-                        output.put_nowait(order_book_message)
+                        output.put_nowait(msg)
                     elif msg_type in ["received", "activate", "subscriptions"]:
                         # these messages are not needed to track the order book
                         pass

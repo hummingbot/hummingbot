@@ -129,9 +129,9 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertFalse(output_queue.empty())
 
-        ob_message = output_queue.get_nowait()
+        content = output_queue.get_nowait()
 
-        self.assertEqual(resp, ob_message.content)  # shallow comparison is ok
+        self.assertEqual(resp, content)  # shallow comparison is ok
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_processes_match_message(self, ws_connect_mock):
@@ -149,9 +149,9 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertFalse(output_queue.empty())
 
-        ob_message = output_queue.get_nowait()
+        content = output_queue.get_nowait()
 
-        self.assertEqual(resp, ob_message.content)  # shallow comparison is ok
+        self.assertEqual(resp, content)  # shallow comparison is ok
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_processes_change_message(self, ws_connect_mock):
@@ -169,9 +169,9 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertFalse(output_queue.empty())
 
-        ob_message = output_queue.get_nowait()
+        content = output_queue.get_nowait()
 
-        self.assertEqual(resp, ob_message.content)  # shallow comparison is ok
+        self.assertEqual(resp, content)  # shallow comparison is ok
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_processes_done_message(self, ws_connect_mock):
@@ -189,9 +189,9 @@ class TestCoinbaseProAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertFalse(output_queue.empty())
 
-        ob_message = output_queue.get_nowait()
+        content = output_queue.get_nowait()
 
-        self.assertEqual(resp, ob_message.content)  # shallow comparison is ok
+        self.assertEqual(resp, content)  # shallow comparison is ok
 
     @patch(
         "hummingbot.connector.exchange.coinbase_pro"
