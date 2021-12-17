@@ -36,7 +36,10 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._krausds_logger = logging.getLogger(__name__)
         return cls._krausds_logger
 
-    def __init__(self, throttler: AsyncThrottler, kraken_auth: KrakenAuth, api_factory: Optional[WebAssistantsFactory] = None):
+    def __init__(self,
+                 throttler: AsyncThrottler,
+                 kraken_auth: KrakenAuth,
+                 api_factory: Optional[WebAssistantsFactory] = None):
         self._throttler = throttler
         self._api_factory = api_factory or build_api_factory()
         self._rest_assistant = None
