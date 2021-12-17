@@ -875,7 +875,7 @@ class MexcExchange(ExchangeBase):
                     self.logger().network(
                         f"Failed to cancel all orders: {this_turn_cancel_order_ids}" + repr(ex),
                         exc_info=True,
-                        app_warning_msg=f"Failed to cancel all orders on Mexc. Check API key and network connection."
+                        app_warning_msg="Failed to cancel all orders on Mexc. Check API key and network connection."
                     )
         return cancellation_results
 
