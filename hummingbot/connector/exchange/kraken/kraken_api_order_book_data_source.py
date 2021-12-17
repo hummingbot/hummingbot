@@ -45,7 +45,10 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._kraobds_logger = logging.getLogger(__name__)
         return cls._kraobds_logger
 
-    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None, api_factory: Optional[WebAssistantsFactory] = None):
+    def __init__(self,
+                 throttler: Optional[AsyncThrottler] = None,
+                 trading_pairs: List[str] = None,
+                 api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__(trading_pairs)
         self._api_factory = api_factory or build_api_factory()
         self._rest_assistant = None
@@ -129,10 +132,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = next(iter(response_json["result"].values()))
             data = {"trading_pair": trading_pair, **data}
             data["latest_update"] = max([*map(lambda x: x[2], data["bids"] + data["asks"])], default=0.)
-
-            # Need to add the symbol into the snapshot message for the Kafka message queue.
-            # Because otherwise, there'd be no way for the receiver to know which market the
-            # snapshot belongs to.
 
             return data
 
