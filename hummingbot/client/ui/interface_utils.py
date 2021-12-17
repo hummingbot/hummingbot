@@ -82,5 +82,7 @@ async def start_trade_monitor(trade_monitor):
                         return_pcts.clear()
                         pnls.clear()
             await _sleep(2)  # sleeping for longer to manage resources
+        except asyncio.CancelledError:
+            raise
         except Exception:
             hb.logger().exception("start_trade_monitor failed.")
