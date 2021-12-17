@@ -261,7 +261,7 @@ class KrakenExchangeTest(unittest.TestCase):
     @aioresponses()
     def test_check_network_success(self, mock_api):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
-        resp = {}
+        resp = {"status": 200, "result": []}
         mock_api.get(url, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
@@ -279,7 +279,7 @@ class KrakenExchangeTest(unittest.TestCase):
     @aioresponses()
     def test_check_network_not_connected_for_error_status(self, mock_api):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
-        resp = {}
+        resp = {"status": 405, "result": []}
         mock_api.get(url, status=405, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
