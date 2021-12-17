@@ -45,8 +45,8 @@ class InterfaceUtilsTest(unittest.TestCase):
 
         mock_process.return_value.memory_info.return_value = memory_info
         mock_monitor = MagicMock()
-        mock_sleep.side_effect = ExpectedException()
-        with self.assertRaises(ExpectedException):
+        mock_sleep.side_effect = asyncio.CancelledError
+        with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_process_monitor(mock_monitor))
         self.assertEqual(
             "CPU:    30%, Mem:   512.00 B (1.00 KB), Threads:   2, ",
