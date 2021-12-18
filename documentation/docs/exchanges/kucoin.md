@@ -44,3 +44,8 @@ You are now connected to kucoin.
 Hummingbot assumes 0.1% maker fees and 0.1% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/kucoin/kucoin_utils.py#L12)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
+
+## 🛑 Limitations
+
+No fee information is provided by this exchange.
+

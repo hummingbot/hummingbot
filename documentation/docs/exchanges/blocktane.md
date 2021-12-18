@@ -41,3 +41,8 @@ You are now connected to blocktane.
 Hummingbot assumes 0.15% maker fees and 0.25% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/blocktane/blocktane_utils.py#L12)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
+
+## 🛑 Limitations
+
+No fee information is provided by this exchange.
+

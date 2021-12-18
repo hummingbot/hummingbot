@@ -41,3 +41,8 @@ You are now connected to coinzoom.
 Hummingbot assumes 0.2% maker fees and 0.26% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/coinzoom/coinzoom_utils.py#L22)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
+
+## 🛑 Limitations
+
+No fee information is provided by this exchange.
+
