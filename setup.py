@@ -3,9 +3,9 @@ import os
 import subprocess
 import sys
 
-from os import path
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
+
 from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20211102"
+    version = "20211201"
     packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [
@@ -85,11 +85,12 @@ def main():
         "requests",
         "rsa",
         "ruamel-yaml",
+        "scipy",
         "signalr-client-aio",
         "simplejson",
         "six",
         "sqlalchemy",
-        "txlocal",
+        "tzlocal",
         "ujson",
         "web3",
         "websockets",
@@ -102,7 +103,7 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if path.exists('test'):
+    if os.path.exists('test'):
         cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):

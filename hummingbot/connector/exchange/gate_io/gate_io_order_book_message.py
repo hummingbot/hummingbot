@@ -28,13 +28,6 @@ class GateIoOrderBookMessage(OrderBookMessage):
         )
 
     @property
-    def update_id(self) -> int:
-        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            return int(self.timestamp * 1e3)
-        else:
-            return -1
-
-    @property
     def trade_id(self) -> int:
         if self.type is OrderBookMessageType.TRADE:
             return int(self.timestamp * 1e3)
@@ -61,13 +54,17 @@ class GateIoOrderBookMessage(OrderBookMessage):
         raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     def __eq__(self, other) -> bool:
-        return self.type == other.type and self.timestamp == other.timestamp
+        return (type(self) == type(other)
+                and self.type == other.type
+                and self.update_id == other.update_id
+                and self.timestamp == other.timestamp)
+
+    def __hash__(self):
+        return hash((self.type, self.update_id, self.timestamp))
 
     def __lt__(self, other) -> bool:
-        if self.timestamp != other.timestamp:
-            return self.timestamp < other.timestamp
-        else:
-            """
-            If timestamp is the same, the ordering is snapshot < diff < trade
-            """
-            return self.type.value < other.type.value
+        return (self.update_id < other.update_id or
+                (self.update_id == other.update_id and self.timestamp < other.timestamp) or
+                (self.update_id == other.update_id and
+                 self.timestamp == other.timestamp
+                 and self.type.value < other.type.value))
