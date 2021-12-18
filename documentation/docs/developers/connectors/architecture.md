@@ -4,6 +4,9 @@
 
 The **_Architecture Diagram_**, given above, depicts the high-level design of a Connector. 
 
+!!! tip
+    Notice that for `Derivative` connectors, we have a multiple inheritance to `ExchangeBase` and `PerpetualTrading`.
+
 ## Root Directory and File Structure
 
 ```
@@ -17,62 +20,65 @@ hummingbot/connector/
 │   │   └── dummy.pyx
 │   └── ...
 ├── derivative/
-│   ├── binance_perpetual
-│   │   ├── binance_perpetual_api_order_book_data_source.py
-│   │   ├── binance_perpetual_derivative.py
-│   │   ├── binance_perpetual_in_flight_order.py
-│   │   ├── binance_perpetual_order_book_tracker.py
-│   │   ├── binance_perpetual_order_book.py
-│   │   ├── binance_perpetual_user_stream_tracker.py
-│   │   ├── binance_perpetual_utils.py
-│   │   ├── binance_perpetual_constants.py
+│   ├── bybit_perpetual
+│   │   ├── bybit_perpetual_api_order_book_data_source.py
+│   │   ├── bybit_perpetual_derivative.py
+│   │   ├── bybit_perpetual_in_flight_order.py
+│   │   ├── bybit_perpetual_order_book_tracker.py
+│   │   ├── bybit_perpetual_order_book.py
+│   │   ├── bybit_perpetual_user_stream_tracker.py
+│   │   ├── bybit_perpetual_utils.py
+│   │   ├── bybit_perpetual_constants.py
 │   │   ├── dummy.pxd
 │   │   └── dummy.pyx
 │   └── ...
 └── exchange/
-    ├── crypto_com
-    │   ├── crypto_com_api_order_book_data_source.py
-    │   ├── crypto_com_derivative.py
-    │   ├── crypto_com_in_flight_order.py
-    │   ├── crypto_com_order_book_tracker.py
-    │   ├── crypto_com_order_book.py
-    │   ├── crypto_com_user_stream_tracker.py
-    │   ├── crypto_com_utils.py
-    │   ├── crypto_com_constants.py
+    ├── ndax
+    │   ├── ndax_api_order_book_data_source.py
+    │   ├── ndax_derivative.py
+    │   ├── ndax_in_flight_order.py
+    │   ├── ndax_order_book_tracker.py
+    │   ├── ndax_order_book.py
+    │   ├── ndax_user_stream_tracker.py
+    │   ├── ndax_utils.py
+    │   ├── ndax_constants.py
     │   ├── dummy.pxd
     │   └── dummy.pyx
     └── ...
 ```
 
-## Exchange Component Overview
+## Connector Component Overview
 
-![Exchange Connector Architecture Diagram](/assets/img/exchange-connector-architecture-diagram.svg)
+![Connector Architecture Diagram](/assets/img/high-level-connector-architecture-diagram.svg)
 
-Each exchange connector is comprised of the following components.
+Each connector is comprised of the following components.
 Below are the detailed descriptions of tasks for each component and its corresponding files.
 
-### Exchange.py
+### Exchange/Derivative.py
 
-**File:** `*_exchange.py` — REQUIRED
+**File:** `*_exchange/derivative.py` — REQUIRED
 
-Connector modules are centered around an `Exchange` class, which are children of [`ConnectorBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/connector_base.pyx).
-Each `Exchange` class contains an `OrderBookTracker` and `UserStreamTracker,` and they are responsible for maintaining order books and user account information.
+Connector modules are centered around an `Exchange/Derivative` class, which are ultimately children of [`ConnectorBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/connector_base.pyx).
+Each `Exchange/Derivative` class contains an `OrderBookTracker` and `UserStreamTracker,` and they are responsible for maintaining order books and user account information.
 
-`Exchange` instances also contain a list of `InFlightOrders`, which are orders placed by Hummingbot currently on the order book.
+`Exchange/Derivative` instances also contain a list of `InFlightOrders`, which are orders placed by Hummingbot currently on the order book.
 Typically, it is also helpful to have an exchange-specific `Auth` class, which generates the necessary authentication parameters/headers to access restricted REST endpoints and WebSocket channel, such as for placing orders and listening for order updates.
 
-### ExchangeAuth.py
+The `Derivative` class in particular inherits functions that are specifically used in perpetual markets.
+See the [PerpetualTrading](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/perpetual_trading.py) class for more info.
+
+### ConnectorAuth.py
 
 **File:** `*_auth.py` — OPTIONAL
 
-This class generates the appropriate authentication headers for the restricted REST endpoints to be used by the `Exchange` and `UserStreamTracker` classes.
-Generally, this would mean that constructing the appropriate HTTP headers and authentication payload(as specified by the exchange's API documentation)
+This class generates the appropriate authentication headers for the restricted REST endpoints to be used by the `Exchange/Derivative` and `UserStreamTrackerDataSource` classes.
+Generally, this would mean constructing the appropriate HTTP headers and authentication payload(as specified by the exchange's API documentation)
 
 Some arguments tend to include:
 
 - HTTP Request Type
 - Endpoint URL
-- Mandatory parameters to pass on to the exchange (e.g. API key, secret, passphrase, request body)
+- Mandatory parameters to pass on to the exchange (e.g. API key, passphrase, request body)
 
 Depending on the specific exchange, different information may be needed for authentication. Typically, the `Auth` class will:
 
@@ -87,7 +93,7 @@ Depending on the specific exchange, different information may be needed for auth
 
 **File:** `*_order_book_tracker.py` — REQUIRED
 
-Each `Exchange` class contains an `OrderBookTracker` to maintain a real-time order book of one/multiple trading pairs and is responsible for applying the order book snapshots and diff messages to the corresponding `OrderBook`.
+Each `Exchange/Derivative` class contains an `OrderBookTracker` to maintain a real-time order book of one/multiple trading pairs and is responsible for applying the order book snapshots and diff messages to the corresponding `OrderBook`.
 
 - An `OrderBookTracker` contains a Dictionary of `OrderBook` for each trading pair it is maintaining.
 - `APIOrderBookTrackerDataSource` class contains either API requests or WebSocket feeds to pull order book data from the exchange.
@@ -97,16 +103,16 @@ Each `Exchange` class contains an `OrderBookTracker` to maintain a real-time ord
 
 **File:** `*_user_stream_tracker.py` — OPTIONAL
 
-Each `Exchange` class contains a `UserStreamTracker`, to maintain the current state of the user's account and orders, respectively.
+Each `Exchange/Derivative` class contains a `UserStreamTracker`, to maintain the current state of the user's account, orders and positions.
 
 - `APIUserStreamTrackerDataSource` class contains either API requests or WebSocket feeds to maintain user balance and order data from the exchange.
-- The `Auth` passed from the `Exchange` class contains methods to construct the appropriate authentication requests for REST API calls or WebSocket channel subscription requests.
+- The `Auth` passed from the `Exchange/Derivative` class contains methods to construct the appropriate authentication requests for REST API calls or WebSocket channel subscription requests.
 
 ### OrderBookTrackerDataSource
 
 **File:** `*_order_book_data_source.py` — REQUIRED
 
-The `OrderBookTrackerDataSource` class is responsible for order book data retrieval. It simply collects, parses, and queues the data stream to be processed by `OrderBookTracker`. Generally, this would mean pulling data from the exchange's API/WebSocket servers.
+The `OrderBookTrackerDataSource` class is responsible for order book data retrieval. It simply collects, parses, and queues the data stream to be processed by `OrderBookTracker`. Generally, this would mean pulling data from the exchange's API/WebSocket servers. For **Perpetual** connectors, the `OrderBookTrackerDataSource` is also tasked with maintaining the funding information of the active market.
 
 It is necessary to track the timestamp/nonce of each message received from the exchange API servers to maintain a consistent and up-to-date order book. Depending on the exchange responses, we can keep an order book in the following ways:
 
@@ -128,19 +134,15 @@ Unlike `OrderBookTrackerDataSource`, `UserStreamTrackerDataSource` only retrieve
 
 ### InFlightOrder
 
-**File:** `*_in_flight_order.pyx` — Required
+**File:** `*_in_flight_order.py` — Required
 
-Stores all details pertaining to the current state of an order.
+Stores all details pertaining to the current state of an order. For **Perpetual** connectors, 2 additional properties need to be included; namely `position` and `leverage`.
 
-!!! note
+!!! tip
     It is important to keep a consistent and accurate state of all active orders placed by the user. This ensures that the strategies are given the correct information and are able to perform their tasks accordingly.
 
 For more details on how to begin implementing the components, please refer to the [Connector Tutorial](/developers/contributions/)
 
 ## Protocol Connector Components Overview\ [TBD\]
-
-Coming soon.
-
-## Derivative Components Overview\ [TBD\]
 
 Coming soon.

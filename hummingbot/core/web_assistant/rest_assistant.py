@@ -1,3 +1,4 @@
+from asyncio import wait_for
 from copy import deepcopy
 from typing import List, Optional
 
@@ -18,10 +19,10 @@ class RESTAssistant:
         self._rest_pre_processors = rest_pre_processors or []
         self._rest_post_processors = rest_post_processors or []
 
-    async def call(self, request: RESTRequest) -> RESTResponse:
+    async def call(self, request: RESTRequest, timeout: Optional[float] = None) -> RESTResponse:
         request = deepcopy(request)
         request = await self._pre_process_request(request)
-        resp = await self._connection.call(request)
+        resp = await wait_for(self._connection.call(request), timeout)
         resp = await self._post_process_response(resp)
         return resp
 

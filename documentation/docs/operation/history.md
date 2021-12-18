@@ -112,10 +112,6 @@ The **Return %** (bottom navbar) matches the calculated return on **History** af
 
 ![ ](/assets/img/same_return.png)
 
-If the trading pair price moves, the **History** changes but **Return %** retains the calculated return based on the last price, see following screenshot:
-
-![ ](/assets/img/price_changes.png)
-
 ## Profit & loss
 
 The `pnl` command shows consolidated performance for all running bots in the same Binance account. This command can be useful when participating in Liquidity Mining campaigns.

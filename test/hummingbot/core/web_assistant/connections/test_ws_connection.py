@@ -124,11 +124,25 @@ class WSConnectionTest(unittest.TestCase):
         self.assertNotEqual(0, self.ws_connection.last_recv_time)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_receive_disconnects_and_raises_on_aiohttp_close(self, ws_connect_mock):
+    def test_receive_disconnects_and_raises_on_aiohttp_closed(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.CLOSED
+        )
+
+        with self.assertRaises(ConnectionError) as e:
+            self.async_run_with_timeout(self.ws_connection.receive())
+
+        self.assertEqual("The WS connection was closed unexpectedly.", str(e.exception))
+        self.assertFalse(self.ws_connection.connected)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_receive_disconnects_and_raises_on_aiohttp_close(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.CLOSE
         )
 
         with self.assertRaises(ConnectionError) as e:
@@ -193,6 +207,38 @@ class WSConnectionTest(unittest.TestCase):
         self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.PING
+        )
+        receive_task = self.ev_loop.create_task(self.ws_connection.receive())
+        self.async_tasks.append(receive_task)
+
+        self.assertEqual(0, self.ws_connection.last_recv_time)
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertNotEqual(0, self.ws_connection.last_recv_time)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_receive_ignores_pong(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.PONG
+        )
+        data = {"one": 1}
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message=json.dumps(data)
+        )
+
+        response = self.async_run_with_timeout(self.ws_connection.receive())
+
+        self.assertEqual(data, response.data)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_receive_pong_updates_last_recv_time(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.PONG
         )
         receive_task = self.ev_loop.create_task(self.ws_connection.receive())
         self.async_tasks.append(receive_task)
