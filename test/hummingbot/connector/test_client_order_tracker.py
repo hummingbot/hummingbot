@@ -6,7 +6,7 @@ from typing import List, Optional
 from unittest.mock import patch
 
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.in_flight_order_tracker import InFlightOrderTracker
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
 )
 
 
-class InFlightOrderTrackerUnitTest(unittest.TestCase):
+class ClientOrderTrackerUnitTest(unittest.TestCase):
     # logging.Level required to receive logs from the exchange
     level = 0
 
@@ -39,7 +39,7 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         self.log_records = []
 
         self.connector = ConnectorBase()
-        self.tracker = InFlightOrderTracker(connector=self.connector)
+        self.tracker = ClientOrderTracker(connector=self.connector)
 
         self.tracker.logger().setLevel(1)
         self.tracker.logger().addHandler(self)
@@ -86,7 +86,7 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.tracker.cached_orders))
 
     def test_cached_order_max_cache_size(self):
-        for i in range(InFlightOrderTracker.MAX_CACHE_SIZE + 1):
+        for i in range(ClientOrderTracker.MAX_CACHE_SIZE + 1):
             order: InFlightOrder = InFlightOrder(
                 client_order_id=f"someClientOrderId_{i}",
                 trading_pair=self.trading_pair,
@@ -97,7 +97,7 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
             )
             self.tracker._cached_orders[order.client_order_id] = order
 
-        self.assertEqual(InFlightOrderTracker.MAX_CACHE_SIZE, len(self.tracker.cached_orders))
+        self.assertEqual(ClientOrderTracker.MAX_CACHE_SIZE, len(self.tracker.cached_orders))
 
         # First entry gets removed when the no. of cached order exceeds MAX_CACHE_SIZE
         self.assertNotIn("someClientOrderId_0", self.tracker._cached_orders)
@@ -115,9 +115,9 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
 
         self.assertIn(order.client_order_id, self.tracker._cached_orders)
 
-    @patch("hummingbot.connector.in_flight_order_tracker.InFlightOrderTracker.CACHED_ORDER_TTL", 0.1)
+    @patch("hummingbot.connector.client_order_tracker.ClientOrderTracker.CACHED_ORDER_TTL", 0.1)
     def test_cached_order_ttl_exceeded(self):
-        tracker = InFlightOrderTracker(self.connector)
+        tracker = ClientOrderTracker(self.connector)
         order: InFlightOrder = InFlightOrder(
             client_order_id="someClientOrderId",
             trading_pair=self.trading_pair,
@@ -167,6 +167,39 @@ class InFlightOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.tracker.cached_orders))
 
         fetched_order: InFlightOrder = self.tracker.fetch_cached_order(order.client_order_id)
+
+        self.assertTrue(fetched_order == order)
+
+    def test_fetch_order_by_client_order_id(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+        self.tracker.start_tracking_order(order)
+        self.assertEqual(1, len(self.tracker.active_orders))
+
+        fetched_order: InFlightOrder = self.tracker.fetch_order(order.client_order_id)
+
+        self.assertTrue(fetched_order == order)
+
+    def test_fetch_order_by_exchange_order_id(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+        self.tracker.start_tracking_order(order)
+        self.assertEqual(1, len(self.tracker.active_orders))
+
+        fetched_order: InFlightOrder = self.tracker.fetch_order(order.exchange_order_id)
 
         self.assertTrue(fetched_order == order)
 

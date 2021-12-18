@@ -21,10 +21,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.logger.logger import HummingbotLogger
 
-ifot_logger = None
+cot_logger = None
 
 
-class InFlightOrderTracker:
+class ClientOrderTracker:
 
     MAX_CACHE_SIZE = 1000
     CACHED_ORDER_TTL = 30.0  # seconds
@@ -40,10 +40,10 @@ class InFlightOrderTracker:
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global ifot_logger
-        if ifot_logger is None:
-            ifot_logger = logging.getLogger(__name__)
-        return ifot_logger
+        global cot_logger
+        if cot_logger is None:
+            cot_logger = logging.getLogger(__name__)
+        return cot_logger
 
     def __init__(self, connector: ConnectorBase) -> None:
         """
@@ -74,7 +74,7 @@ class InFlightOrderTracker:
         """
         Returns orders that are no longer actively tracked.
         """
-        return self._cached_orders
+        return {client_order_id: order for client_order_id, order in self._cached_orders.items()}
 
     @property
     def all_orders(self) -> Dict[str, InFlightOrder]:
@@ -104,9 +104,14 @@ class InFlightOrderTracker:
     def fetch_cached_order(self, client_order_id: str) -> Optional[InFlightOrder]:
         return self._cached_orders.get(client_order_id, None)
 
-    def fetch_order(self, client_order_id: Optional[str] = None, exchange_order_id: Optional[str] = None) -> Optional[InFlightOrder]:
-        for c_oid, order in self.all_orders.items():
-            if c_oid == client_order_id or order.exchange_order_id == exchange_order_id:
+    def fetch_order(
+        self, client_order_id: Optional[str] = None, exchange_order_id: Optional[str] = None
+    ) -> Optional[InFlightOrder]:
+        if client_order_id in self.all_orders:
+            return self.all_orders[client_order_id]
+
+        for order in self.all_orders.values():
+            if order.exchange_order_id == exchange_order_id:
                 return order
         return None
 
@@ -227,7 +232,9 @@ class InFlightOrderTracker:
             self.logger().error("OrderUpdate does not contain any client_order_id or exchange_order_id", exc_info=True)
             return
 
-        tracked_order: Optional[InFlightOrder] = self.fetch_order(order_update.client_order_id, order_update.exchange_order_id)
+        tracked_order: Optional[InFlightOrder] = self.fetch_order(
+            order_update.client_order_id, order_update.exchange_order_id
+        )
 
         if tracked_order:
             previous_state: OrderState = tracked_order.current_state
