@@ -1,4 +1,11 @@
+import aiohttp
+import asyncio
+import json
 import logging
+import time
+
+from collections import namedtuple
+from decimal import Decimal
 from enum import Enum
 from typing import (
     Dict,
@@ -7,36 +14,29 @@ from typing import (
     Any,
     AsyncIterable,
 )
-from decimal import Decimal
-import asyncio
-import json
-import aiohttp
-import time
-from collections import namedtuple
-from hummingbot.connector.in_flight_order_tracker import InFlightOrderTracker
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
-    TradeFee,
-)
-from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.events import (
+    OrderType,
+    TradeFee,
+    TradeType
+)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -139,7 +139,7 @@ class AscendExExchange(ExchangePyBase):
         self._account_uid = None  # required in order to produce deterministic order ids
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
-        self._in_flight_order_tracker: InFlightOrderTracker = InFlightOrderTracker(connector=self)
+        self._in_flight_order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
     @property
     def name(self) -> str:
@@ -655,12 +655,6 @@ class AscendExExchange(ExchangePyBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            # if str(e).find("Order not found") != -1:
-            #     self._order_not_found_records[order_id] += 1
-            #     if self._order_not_found_records[order_id] > self.STOP_TRACKING_ORDER_NOT_FOUND_LIMIT:
-            #         self.stop_tracking_order(order_id)
-            #     return
-
             self.logger().error(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
@@ -809,19 +803,6 @@ class AscendExExchange(ExchangePyBase):
                 force_auth_path_url="order/batch",
             )
 
-            # open_orders = await self.get_open_orders()
-
-            # TODO: Process these with new InFlightOrder and OrderUpdate
-            # for cl_order_id, tracked_order in tracked_orders.items():
-            #     open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
-            #     if not open_order:
-            #         cancellation_results.append(CancellationResult(cl_order_id, True))
-            #         self.trigger_event(
-            #             MarketEvent.OrderCancelled, OrderCancelledEvent(self.current_timestamp, cl_order_id)
-            #         )
-            #         self.stop_tracking_order(cl_order_id)
-            #     else:
-            #         cancellation_results.append(CancellationResult(cl_order_id, False))
         except Exception:
             self.logger().network(
                 "Failed to cancel all orders.",
