@@ -5,8 +5,9 @@ import {
   SolanaBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  SolanaTokenRequest,
+  GetSolanaTokenRequest,
   SolanaTokenResponse,
+  PostSolanaTokenRequest,
 } from './solana.requests';
 import { Solanaish } from './solana';
 
@@ -63,7 +64,27 @@ export async function poll(
 
 export async function token(
   solanaish: Solanaish,
-  req: SolanaTokenRequest
+  req: GetSolanaTokenRequest
+): Promise<SolanaTokenResponse> {
+  const initTime = Date.now();
+  const token = '',
+    mintAddress = '',
+    accountAddress = '',
+    amount = 0; // TODO: Implement
+
+  return {
+    network: solanaish.cluster,
+    timestamp: initTime,
+    token,
+    mintAddress,
+    accountAddress,
+    amount,
+  };
+}
+
+export async function getOrCreateTokenAccount(
+  solanaish: Solanaish,
+  req: PostSolanaTokenRequest
 ): Promise<SolanaTokenResponse> {
   const initTime = Date.now();
   const token = '',

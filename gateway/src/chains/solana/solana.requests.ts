@@ -14,9 +14,13 @@ export interface SolanaBalanceResponse {
   balances: Record<string, string>; // the balance should be a string encoded number
 }
 
-export interface SolanaTokenRequest {
+export interface PostSolanaTokenRequest {
   token: string; // the token symbol the spender will be approved for
   privateKey: string | null; // the user's private Solana key
+}
+export interface GetSolanaTokenRequest {
+  token: string; // the token symbol the spender will be approved for
+  publicKey: string | null; // the user's public Solana key
 }
 
 export interface SolanaTokenResponse {

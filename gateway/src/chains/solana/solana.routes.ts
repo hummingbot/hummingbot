@@ -4,14 +4,20 @@ import { Solana } from './solana';
 import { ConfigManager } from '../../services/config-manager';
 import { verifySolanaIsAvailable } from './solana-middlewares';
 import { asyncHandler } from '../../services/error-handler';
-import { token, balances, poll } from './solana.controllers';
+import {
+  token,
+  balances,
+  poll,
+  getOrCreateTokenAccount,
+} from './solana.controllers';
 import {
   SolanaBalanceRequest,
   SolanaBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
   SolanaTokenResponse,
-  SolanaTokenRequest,
+  GetSolanaTokenRequest,
+  PostSolanaTokenRequest,
 } from './solana.requests';
 import {
   validateSolanaGetTokenRequest,
@@ -64,28 +70,28 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaTokenRequest>,
+        req: Request<{}, {}, GetSolanaTokenRequest>,
         res: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
         validateSolanaGetTokenRequest(req.body);
-        res.status(200).json(await token(solana, req.body)); // TODO: Controller
+        res.status(200).json(await token(solana, req.body));
       }
     )
   );
 
-  // Initializes token account with initializeTokenAccount(), if not yet existent
+  // Initializes token account with, if not yet existent
   // Costs 0.035 SOL if creating new
   router.post(
     '/token',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaTokenRequest>,
+        req: Request<{}, {}, PostSolanaTokenRequest>,
         res: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
         validateSolanaPostTokenRequest(req.body);
-        res.status(200).json(await token(solana, req.body)); // TODO: Controller
+        res.status(200).json(await getOrCreateTokenAccount(solana, req.body)); // TODO: Controller
       }
     )
   );
