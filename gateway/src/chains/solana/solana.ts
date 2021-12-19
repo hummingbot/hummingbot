@@ -237,11 +237,11 @@ export class Solana {
 
   // returns whether the token account is initialized, given its mint address
   async isTokenAccountInitialized(
-    wallet: Keypair,
+    walletAddress: PublicKey,
     mintAddress: PublicKey
   ): Promise<boolean> {
     const response = await this.connection.getParsedTokenAccountsByOwner(
-      wallet.publicKey,
+      walletAddress,
       { programId: this._tokenProgramAddress }
     );
     for (const accountInfo of response.value) {
