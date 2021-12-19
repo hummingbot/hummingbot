@@ -99,7 +99,7 @@ export namespace SolanaRoutes {
         res: Response<SolanaPollResponse, {}>
       ) => {
         validateSolanaPollRequest(req.body);
-        res.status(200).json(await poll(solana, req.body)); // TODO: Controller
+        res.status(200).json(await poll(solana, req.body));
       }
     )
   );

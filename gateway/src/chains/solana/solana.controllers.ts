@@ -1,16 +1,14 @@
 import { latency } from '../../services/base';
 
 import {
-  SolanaBalanceResponse,
   SolanaBalanceRequest,
+  SolanaBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  SolanaTransactionResponse,
   SolanaTokenRequest,
   SolanaTokenResponse,
 } from './solana.requests';
 import { Solanaish } from './solana';
-import { TransactionResponse } from '@solana/web3.js';
 
 export async function balances(
   solanaish: Solanaish,
@@ -34,27 +32,17 @@ export async function poll(
   const initTime = Date.now();
   const currentBlock = await solanaish.getCurrentBlockNumber();
   const txData = await solanaish.getTransaction(req.txHash);
-  const txBlock = 0,
-    txReceipt = null,
-    txStatus = 0; // TODO: Implement
+  const txStatus = await solanaish.getTransactionStatusCode(txData);
 
   return {
     network: solanaish.cluster,
     currentBlock,
     timestamp: initTime,
     txHash: req.txHash,
-    txBlock,
     txStatus,
-    txData: toSolanaTransactionResponse(txData),
-    txReceipt,
+    txData,
   };
 }
-
-const toSolanaTransactionResponse = (
-  response: TransactionResponse | null
-): SolanaTransactionResponse | null => {
-  return null; // TODO: Implement
-};
 
 export async function token(
   solanaish: Solanaish,
