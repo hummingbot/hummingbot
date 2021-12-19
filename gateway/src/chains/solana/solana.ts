@@ -339,6 +339,6 @@ export class Solana {
 
   // returns the current block number
   async getCurrentBlockNumber(): Promise<number> {
-    return 0; // TODO: Implement
+    return await this.connection.getSlot('processed');
   }
 }
