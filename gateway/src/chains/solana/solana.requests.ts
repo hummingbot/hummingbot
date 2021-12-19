@@ -4,7 +4,7 @@ export type SolanaTransactionResponse = TransactionResponse;
 
 export interface SolanaBalanceRequest {
   privateKey: string; // the users private Solana key in Base58
-  tokenSymbols: string[]; // a list of token symbol
+  tokenSymbols?: string[]; // a list of token symbol
 }
 
 export interface SolanaBalanceResponse {
