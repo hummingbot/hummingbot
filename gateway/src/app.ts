@@ -5,6 +5,7 @@ import { EthereumRoutes } from './chains/ethereum/ethereum.routes';
 import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
 import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
 import { PangolinRoutes } from './chains/avalanche/pangolin/pangolin.routes';
+import { SolanaRoutes } from './chains/solana/solana.routes';
 import { ConfigManager } from './services/config-manager';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -35,6 +36,9 @@ app.use('/eth/uniswap', UniswapRoutes.router);
 app.use('/avalanche', AvalancheRoutes.router);
 app.use('/avalanche/pangolin', PangolinRoutes.router);
 
+// mount sub routers
+app.use('/solana', SolanaRoutes.router);
+
 // a simple route to test that the server is running
 app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
@@ -56,6 +60,7 @@ interface ConfigUpdateRequest {
   GMT_OFFSET: number;
   CERT_PATH?: string;
   ETHEREUM_CHAIN?: string;
+  SOLANA_CLUSTER?: string;
   INFURA_KEY?: string;
   ETH_GAS_STATION_ENABLE?: boolean;
   ETH_GAS_STATION_API_KEY?: string;
@@ -92,6 +97,9 @@ app.post(
 
       logger.info('Reloading Ethereum routes.');
       EthereumRoutes.reload();
+
+      logger.info('Reloading Solana routes.');
+      SolanaRoutes.reload();
 
       logger.info('Restarting gateway.');
       await stopGateway();
