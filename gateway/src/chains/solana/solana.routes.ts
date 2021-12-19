@@ -54,7 +54,7 @@ export namespace SolanaRoutes {
     '/balance',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaBalanceRequest>, // TODO: Implement
+        req: Request<{}, {}, SolanaBalanceRequest>,
         res: Response<SolanaBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
@@ -65,7 +65,6 @@ export namespace SolanaRoutes {
   );
 
   // Checks whether this specific token account exists and returns it balance, if it does.
-  // If no private key is given, returns TokenInfo from TokenListProvider
   router.get(
     '/token',
     asyncHandler(

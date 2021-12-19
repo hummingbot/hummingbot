@@ -219,12 +219,12 @@ export class Solana {
   }
 
   // returns the balance for an SPL token
-  async getSplBalance(
-    wallet: Keypair,
+  public async getSplBalance(
+    walletAddress: PublicKey,
     mintAddress: PublicKey
   ): Promise<TokenValue> {
     const response = await this.connection.getParsedTokenAccountsByOwner(
-      wallet.publicKey,
+      walletAddress,
       { mint: mintAddress }
     );
     if (response['value'].length == 0) {
@@ -252,6 +252,25 @@ export class Solana {
         return true;
     }
     return false;
+  }
+
+  // returns token account if is initialized, given its mint address
+  public async getTokenAccount(
+    walletAddress: PublicKey,
+    mintAddress: PublicKey
+  ): Promise<AccountInfo<ParsedAccountData> | null> {
+    const response = await this.connection.getParsedTokenAccountsByOwner(
+      walletAddress,
+      { programId: this._tokenProgramAddress }
+    );
+    for (const accountInfo of response.value) {
+      if (
+        accountInfo.account.data.parsed['info']['mint'] ==
+        mintAddress.toBase58()
+      )
+        return accountInfo.account;
+    }
+    return null;
   }
 
   // Gets token account information, or creates a new token account for given token mint address

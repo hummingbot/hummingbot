@@ -10,6 +10,8 @@ import {
   PostSolanaTokenRequest,
 } from './solana.requests';
 import { Solanaish } from './solana';
+import { PublicKey } from '@solana/web3.js';
+import { HttpException } from '../../services/error-handler';
 
 export async function balances(
   solanaish: Solanaish,
@@ -67,17 +69,33 @@ export async function token(
   req: GetSolanaTokenRequest
 ): Promise<SolanaTokenResponse> {
   const initTime = Date.now();
-  const token = '',
-    mintAddress = '',
-    accountAddress = '',
-    amount = 0; // TODO: Implement
+  const tokenInfo = await solanaish.getTokenForSymbol(req.token);
+  if (!tokenInfo) {
+    throw new HttpException(501, 'Token not found');
+  }
+
+  const walletAddress = new PublicKey(req.publicKey);
+  const mintAddress = new PublicKey(tokenInfo.address);
+  const accountInfo = await solanaish.getTokenAccount(
+    walletAddress,
+    mintAddress
+  );
+
+  let amount;
+  try {
+    amount = tokenValueToString(
+      await solanaish.getSplBalance(walletAddress, mintAddress)
+    );
+  } catch (err) {
+    amount = undefined;
+  }
 
   return {
     network: solanaish.cluster,
     timestamp: initTime,
-    token,
-    mintAddress,
-    accountAddress,
+    token: req.token,
+    mintAddress: mintAddress.toString(),
+    accountAddress: accountInfo?.owner?.toString(),
     amount,
   };
 }
@@ -90,7 +108,7 @@ export async function getOrCreateTokenAccount(
   const token = '',
     mintAddress = '',
     accountAddress = '',
-    amount = 0; // TODO: Implement
+    amount = undefined; // TODO: Implement
 
   return {
     network: solanaish.cluster,

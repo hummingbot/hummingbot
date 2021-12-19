@@ -16,11 +16,11 @@ export interface SolanaBalanceResponse {
 
 export interface PostSolanaTokenRequest {
   token: string; // the token symbol the spender will be approved for
-  privateKey: string | null; // the user's private Solana key
+  privateKey: string; // the user's private Solana key
 }
 export interface GetSolanaTokenRequest {
   token: string; // the token symbol the spender will be approved for
-  publicKey: string | null; // the user's public Solana key
+  publicKey: string; // the user's public Solana key
 }
 
 export interface SolanaTokenResponse {
@@ -28,8 +28,8 @@ export interface SolanaTokenResponse {
   timestamp: number;
   token: string; // the token symbol the spender will be approved for
   mintAddress: string;
-  accountAddress: string;
-  amount: number;
+  accountAddress?: string;
+  amount?: string;
 }
 
 export interface SolanaPollRequest {
