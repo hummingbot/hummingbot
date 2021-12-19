@@ -80,8 +80,6 @@ export namespace SolanaRoutes {
     )
   );
 
-  // Initializes token account with, if not yet existent
-  // Costs 0.035 SOL if creating new
   router.post(
     '/token',
     asyncHandler(
