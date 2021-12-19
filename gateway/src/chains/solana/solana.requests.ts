@@ -1,26 +1,6 @@
-import ethers from 'ethers';
+import { TransactionResponse } from '@solana/web3.js';
 
-// gasUsed and cumulativeGasUsed are BigNumbers
-// then need to be converted to strings before being
-// passed to the client
-export interface SolanaTransactionReceipt
-  extends Omit<
-    ethers.providers.TransactionReceipt,
-    'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
-  > {
-  gasUsed: string;
-  cumulativeGasUsed: string;
-  effectiveGasPrice: string | null;
-}
-export interface SolanaTransactionResponse
-  extends Omit<
-    ethers.providers.TransactionResponse,
-    'gasPrice' | 'gasLimit' | 'value'
-  > {
-  gasPrice: string | null;
-  gasLimit: string;
-  value: string;
-}
+export type SolanaTransactionResponse = TransactionResponse;
 
 export interface SolanaBalanceRequest {
   privateKey: string; // the users private Solana key in Base58
@@ -52,13 +32,18 @@ export interface SolanaPollRequest {
   txHash: string;
 }
 
+export enum TransactionResponseStatusCode {
+  FAILED = -1,
+  PRCESSED,
+  CONFIRMED,
+  FINALISED,
+}
+
 export interface SolanaPollResponse {
   network: string;
   timestamp: number;
   currentBlock: number;
   txHash: string;
-  txStatus: number;
-  txBlock: number;
+  txStatus: TransactionResponseStatusCode;
   txData: SolanaTransactionResponse | null;
-  txReceipt: SolanaTransactionReceipt | null;
 }

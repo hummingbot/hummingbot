@@ -22,6 +22,7 @@ import {
   AccountInfo as TokenAccount,
 } from '@solana/spl-token';
 import { TokenListProvider, TokenInfo } from '@solana/spl-token-registry';
+import { TransactionResponseStatusCode } from './solana.requests';
 
 export type Solanaish = Solana;
 
@@ -287,6 +288,26 @@ export class Solana {
 
       return fetchedTx;
     }
+  }
+
+  // returns an ethereum TransactionResponseStatusCode for a txData.
+  public async getTransactionStatusCode(
+    txData: TransactionResponse | null
+  ): Promise<TransactionResponseStatusCode> {
+    let txStatus;
+    if (!txData) {
+      // tx not found, didn't reach the mempool or it never existed
+      txStatus = TransactionResponseStatusCode.FAILED;
+    } else {
+      txStatus =
+        typeof txData.meta?.err == null
+          ? TransactionResponseStatusCode.PRCESSED
+          : TransactionResponseStatusCode.FAILED;
+
+      // TODO implement TransactionResponseStatusCode CONFIRMED, FINALISED
+      //  based on how many blocks ago the Transaction was
+    }
+    return txStatus;
   }
 
   // caches transaction receipt once they arrive
