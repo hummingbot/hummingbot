@@ -1,4 +1,4 @@
-import { latency } from '../../services/base';
+import { latency, TokenValue, tokenValueToString } from '../../services/base';
 
 import {
   SolanaBalanceRequest,
@@ -15,15 +15,32 @@ export async function balances(
   req: SolanaBalanceRequest
 ): Promise<SolanaBalanceResponse | string> {
   const initTime = Date.now();
-  const balances: Record<string, string> = {}; // TODO: Implement
+  const wallet = solanaish.getWallet(req.privateKey);
+  const balances = await solanaish.getBalances(wallet);
 
   return {
     network: solanaish.cluster,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
-    balances: balances,
+    balances: toSolanaBalances(balances),
   };
 }
+
+const toSolanaBalances = (
+  balances: Record<string, TokenValue>,
+  tokenSymbols?: string[]
+): Record<string, string> => {
+  const filteredBalancesKeys = tokenSymbols
+    ? Object.keys(balances).filter((symbol) => symbol in tokenSymbols)
+    : Object.keys(balances);
+  const solanaBalances: Record<string, string> = {};
+
+  filteredBalancesKeys.map(
+    (symbol) => (solanaBalances[symbol] = tokenValueToString(balances[symbol]))
+  );
+
+  return solanaBalances;
+};
 
 export async function poll(
   solanaish: Solanaish,
