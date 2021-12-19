@@ -196,7 +196,7 @@ export class Solana {
         const tokenInfo = tokenAccount.account.data.parsed['info'];
         const symbol = this.getTokenForMintAddress(tokenInfo['mint'])?.symbol;
         if (symbol != null)
-          balances[symbol] = this.tokenResponseToTokenValue(
+          balances[symbol.toUpperCase()] = this.tokenResponseToTokenValue(
             tokenInfo['tokenAmount']
           );
       }
@@ -301,7 +301,7 @@ export class Solana {
     } else {
       txStatus =
         typeof txData.meta?.err == null
-          ? TransactionResponseStatusCode.PRCESSED
+          ? TransactionResponseStatusCode.CONFIRMED
           : TransactionResponseStatusCode.FAILED;
 
       // TODO implement TransactionResponseStatusCode CONFIRMED, FINALISED
