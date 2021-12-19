@@ -274,7 +274,19 @@ export class Solana {
   async getTransaction(
     payerSignature: string
   ): Promise<TransactionResponse | null> {
-    return this._connection.getTransaction(payerSignature);
+    if (this.cache.keys().includes(payerSignature)) {
+      // If it's in the cache, return the value in cache, whether it's null or not
+      return this.cache.get(payerSignature) as TransactionResponse;
+    } else {
+      // If it's not in the cache,
+      const fetchedTx = this._connection.getTransaction(payerSignature, {
+        commitment: 'confirmed',
+      });
+
+      this.cache.set(payerSignature, fetchedTx); // Cache the fetched receipt, whether it's null or not
+
+      return fetchedTx;
+    }
   }
 
   // caches transaction receipt once they arrive
