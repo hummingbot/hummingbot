@@ -14,6 +14,8 @@ import {
   LogsCallback,
   SlotUpdateCallback,
   TransactionResponse,
+  AccountInfo,
+  ParsedAccountData,
 } from '@solana/web3.js';
 import {
   Token as TokenProgram,
@@ -30,6 +32,7 @@ export class Solana {
 
   protected tokenList: TokenInfo[] = [];
   private _tokenMap: Record<string, TokenInfo> = {};
+  private _tokenAddressMap: Record<string, TokenInfo> = {};
 
   private static _instance: Solana;
 
@@ -86,6 +89,10 @@ export class Solana {
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
+  public get gasPrice(): number {
+    return this._lamportPrice;
+  }
+
   public static getInstance(): Solana {
     if (!Solana._instance) {
       Solana._instance = new Solana();
@@ -128,9 +135,10 @@ export class Solana {
 
   async loadTokens(): Promise<void> {
     this.tokenList = await this.getTokenList();
-    this.tokenList.forEach(
-      (token: TokenInfo) => (this._tokenMap[token.symbol] = token)
-    );
+    this.tokenList.forEach((token: TokenInfo) => {
+      this._tokenMap[token.symbol] = token;
+      this._tokenAddressMap[token.address] = token;
+    });
   }
 
   // returns a Tokens for a given list source and list type
@@ -156,15 +164,46 @@ export class Solana {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
+  // return the TokenInfo object for a symbol
+  getTokenForMintAddress(mintAddress: PublicKey): TokenInfo | null {
+    return this._tokenAddressMap[mintAddress.toString()]
+      ? this._tokenAddressMap[mintAddress.toString()]
+      : null;
+  }
+
   // returns Keypair for a private key, which should be encoded in Base58
   getWallet(privateKey: string): Keypair {
     const decoded = bs58.decode(privateKey);
     return Keypair.fromSecretKey(decoded);
   }
 
-  async getBalance(wallet: Keypair): Promise<TokenValue> {
-    return { value: BigNumber.from(0), decimals: 0 }; // TODO: Implement
+  async getBalances(wallet: Keypair): Promise<Record<string, TokenValue>> {
+    const balances: Record<string, TokenValue> = {};
+
+    balances['SOL'] = await this.getSolBalance(wallet);
+
+    const allSplTokens = await this.connection.getParsedTokenAccountsByOwner(
+      wallet.publicKey,
+      { programId: this._tokenProgramAddress }
+    );
+
+    allSplTokens.value.forEach(
+      (tokenAccount: {
+        pubkey: PublicKey;
+        account: AccountInfo<ParsedAccountData>;
+      }) => {
+        const tokenInfo = tokenAccount.account.data.parsed['info'];
+        const symbol = this.getTokenForMintAddress(tokenInfo['mint'])?.symbol;
+        if (symbol != null)
+          balances[symbol] = this.tokenResponseToTokenValue(
+            tokenInfo['tokenAmount']
+          );
+      }
+    );
+
+    return balances;
   }
+
   // returns the SOL balance, convert BigNumber to string
   async getSolBalance(wallet: Keypair): Promise<TokenValue> {
     const lamports = await this.connection.getBalance(wallet.publicKey);
