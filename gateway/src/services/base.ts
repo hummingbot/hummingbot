@@ -14,7 +14,7 @@ const stringInsert = (str: string, val: string, index: number) => {
 
 // counts decimal places of a value
 export const countDecimals = (value: number): number => {
-  if (value % 1 == 0) {
+  if (value % 1 == 0 || value >= 1) {
     return 0;
   } else {
     return Number(value.toExponential().split('-')[1]);
