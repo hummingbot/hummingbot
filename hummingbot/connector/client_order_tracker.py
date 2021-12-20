@@ -3,7 +3,7 @@ import asyncio
 import time
 
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -17,7 +17,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
+    TradeType, TradeFee,
 )
 from hummingbot.logger.logger import HummingbotLogger
 
@@ -141,7 +141,13 @@ class ClientOrderTracker:
             ),
         )
 
-    def _trigger_filled_event(self, order: InFlightOrder):
+    def _trigger_filled_event(
+            self,
+            order: InFlightOrder,
+            fill_amount: Decimal,
+            fill_price: Decimal,
+            fill_fee: TradeFee,
+            trade_id: str):
         self._connector.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -150,10 +156,10 @@ class ClientOrderTracker:
                 trading_pair=order.trading_pair,
                 trade_type=order.trade_type,
                 order_type=order.order_type,
-                price=order.last_filled_price,
-                amount=order.last_filled_amount,
-                trade_fee=order.latest_trade_fee,
-                exchange_trade_id=order.last_trade_id,
+                price=fill_price,
+                amount=fill_amount,
+                trade_fee=fill_fee,
+                exchange_trade_id=trade_id,
                 leverage=int(order.leverage),
                 position=order.position.name,
             ),
@@ -198,16 +204,29 @@ class ClientOrderTracker:
             )
             self._trigger_created_event(tracked_order)
 
-    def _trigger_order_fills(self, tracked_order: InFlightOrder, prev_executed_amount_base: Decimal):
+    def _trigger_order_fills(self,
+                             tracked_order: InFlightOrder,
+                             prev_executed_amount_base: Decimal,
+                             fill_amount: Decimal,
+                             fill_price: Decimal,
+                             fill_fee: TradeFee,
+                             trade_id: str):
         if prev_executed_amount_base < tracked_order.executed_amount_base:
             self.logger().info(
                 f"The {tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} "
                 f"amounting to {tracked_order.executed_amount_base}/{tracked_order.amount} "
                 f"{tracked_order.base_asset} has been filled."
             )
-            self._trigger_filled_event(tracked_order)
+            self._trigger_filled_event(
+                order=tracked_order,
+                fill_amount=fill_amount,
+                fill_price= fill_price,
+                fill_fee= fill_fee,
+                trade_id=trade_id)
 
-    def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate] = None):
+    def _trigger_order_completion(self,
+                                  tracked_order: InFlightOrder,
+                                  order_update: Optional[Union[OrderUpdate, TradeUpdate]] = None):
         if tracked_order.is_open:
             return
 
@@ -240,10 +259,24 @@ class ClientOrderTracker:
             previous_state: OrderState = tracked_order.current_state
             previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
 
+            fill_amount = (Decimal("0")
+                           if order_update.executed_amount_base is None
+                           else order_update.executed_amount_base - tracked_order.executed_amount_base)
+            fill_price = order_update.fill_price or tracked_order.price
+            fill_fee = (Decimal("0")
+                        if order_update.cumulative_fee_paid is None
+                        else order_update.cumulative_fee_paid - tracked_order.cumulative_fee_paid)
+
             updated: bool = tracked_order.update_with_order_update(order_update)
             if updated:
                 self._trigger_order_creation(tracked_order, previous_state, order_update.new_state)
-                self._trigger_order_fills(tracked_order, previous_executed_amount_base)
+                self._trigger_order_fills(
+                    tracked_order=tracked_order,
+                    prev_executed_amount_base=previous_executed_amount_base,
+                    fill_amount=fill_amount,
+                    fill_price=fill_price,
+                    fill_fee=TradeFee(Decimal("0"), [(tracked_order.fee_asset, fill_fee)]),
+                    trade_id=order_update.trade_id or order_update.update_timestamp)
                 self._trigger_order_completion(tracked_order, order_update)
 
         else:
@@ -256,8 +289,27 @@ class ClientOrderTracker:
 
         if tracked_order:
             previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
+            fee_asset = trade_update.fee_asset or tracked_order.quote_asset
+            fee_paid = None
+            if trade_update.fee_paid is None:
+                trade_fee_percent = trade_update.trade_fee_percent or tracked_order.trade_fee_percent
+
+                relevant_fee_amount: Decimal = (
+                    trade_update.fill_base_amount
+                    if trade_update.fee_asset == tracked_order.base_asset
+                    else trade_update.fill_quote_amount
+                )
+                fee_paid = Decimal("0") if trade_fee_percent is None else trade_fee_percent * relevant_fee_amount
+            else:
+                fee_paid = trade_update.fee_paid
 
             updated: bool = tracked_order.update_with_trade_update(trade_update)
             if updated:
-                self._trigger_order_fills(tracked_order, previous_executed_amount_base)
+                self._trigger_order_fills(
+                    tracked_order=tracked_order,
+                    prev_executed_amount_base=previous_executed_amount_base,
+                    fill_amount = trade_update.fill_base_amount,
+                    fill_price=trade_update.fill_price,
+                    fill_fee=TradeFee(Decimal("0"), [(fee_asset, fee_paid)]),
+                    trade_id=trade_update.trade_id)
                 self._trigger_order_completion(tracked_order, trade_update)
