@@ -3,8 +3,20 @@ import {
   bigNumberWithDecimalToStr,
   stringWithDecimalToBigNumber,
   gasCostInEthString,
+  countDecimals,
 } from '../../src/services/base';
 import 'jest-extended';
+
+test('countDecimals', () => {
+  expect(countDecimals(0)).toEqual(0);
+  expect(countDecimals(1)).toEqual(0);
+  expect(countDecimals(100)).toEqual(0);
+  expect(countDecimals(0.0000123)).toEqual(5);
+  expect(countDecimals(1.0000123)).toEqual(0);
+  expect(countDecimals(100.0000123)).toEqual(0);
+  expect(countDecimals(1e9)).toEqual(0);
+  expect(countDecimals(1e-9)).toEqual(9);
+});
 
 test('bigNumberWithDecimalToStr', () => {
   expect(bigNumberWithDecimalToStr(BigNumber.from(10), 1)).toEqual('1.0');
