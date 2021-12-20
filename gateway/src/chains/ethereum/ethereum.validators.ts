@@ -1,8 +1,8 @@
 import {
   isNaturalNumberString,
-  missingParameter,
   mkValidator,
   mkRequestValidator,
+  validateTokenSymbols,
   RequestValidator,
   Validator,
 } from '../../services/validators';
@@ -14,9 +14,6 @@ export const invalidPrivateKeyError: string =
 
 export const invalidSpenderError: string =
   'The spender param is not a valid Ethereum public key (0x followed by 40 hexidecimal characters).';
-
-export const invalidTokenSymbolsError: string =
-  'The tokenSymbols param should be an array of strings.';
 
 export const invalidTokenError: string = 'The token param should be a string.';
 
@@ -57,25 +54,6 @@ export const validateSpender: Validator = mkValidator(
   invalidSpenderError,
   (val) => typeof val === 'string' && (val === 'uniswap' || isPublicKey(val))
 );
-
-// confirm that tokenSymbols is an array of strings
-export const validateTokenSymbols: Validator = (req: any) => {
-  const errors: Array<string> = [];
-  if (req.tokenSymbols) {
-    if (Array.isArray(req.tokenSymbols)) {
-      req.tokenSymbols.forEach((symbol: any) => {
-        if (typeof symbol !== 'string') {
-          errors.push(invalidTokenSymbolsError);
-        }
-      });
-    } else {
-      errors.push(invalidTokenSymbolsError);
-    }
-  } else {
-    errors.push(missingParameter('tokenSymbols'));
-  }
-  return errors;
-};
 
 // confirm that token is a string
 export const validateToken: Validator = mkValidator(

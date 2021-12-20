@@ -1,5 +1,8 @@
 import { HttpException } from './error-handler';
 
+export const invalidTokenSymbolsError: string =
+  'The tokenSymbols param should be an array of strings.';
+
 export const isNaturalNumberString = (str: string): boolean => {
   return /^[0-9]+$/.test(str);
 };
@@ -70,3 +73,25 @@ export const mkRequestValidator = (
     throwIfErrorsExist(errors);
   };
 };
+
+// confirm that tokenSymbols is an array of strings
+export const validateTokenSymbols: Validator = (req: any) => {
+  const errors: Array<string> = [];
+  if (req.tokenSymbols) {
+    if (Array.isArray(req.tokenSymbols)) {
+      req.tokenSymbols.forEach((symbol: any) => {
+        if (typeof symbol !== 'string') {
+          errors.push(invalidTokenSymbolsError);
+        }
+      });
+    } else {
+      errors.push(invalidTokenSymbolsError);
+    }
+  } else {
+    errors.push(missingParameter('tokenSymbols'));
+  }
+  return errors;
+};
+
+export const isBase58 = (value: string): boolean =>
+  /^[A-HJ-NP-Za-km-z1-9]*$/.test(value);
