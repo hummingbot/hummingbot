@@ -26,7 +26,7 @@ export const unitTests = async () => {
       base: TOKENS[0],
       quote: TOKENS[1],
       amount: AMOUNT_PRICE.toString(),
-      side: 'buy',
+      side: 'BUY',
     });
     console.log(`Buy price: ${buyPrice.price}`);
 
@@ -36,7 +36,7 @@ export const unitTests = async () => {
       base: TOKENS[0],
       quote: TOKENS[1],
       amount: AMOUNT_PRICE.toString(),
-      side: 'sell',
+      side: 'SELL',
     });
     console.log(`Sell price: ${sellPrice.price}`);
 
@@ -48,16 +48,15 @@ export const unitTests = async () => {
       base: TOKENS[0],
       quote: TOKENS[1],
       amount: AMOUNT_TRADE.toString(),
-      side: 'buy',
-      limitPrice: buyPrice.price,
+      side: 'BUY',
     });
-    expect(buy.txHash).toBeDefined();
-    console.log(`Buy hash - ${buy.txHash}`);
+    expect(buy.hash).toBeDefined();
+    console.log(`Buy hash - ${buy.hash}`);
     let done = false;
     let tx1, tx2;
     console.log(`Polling...`);
     while (!done) {
-      tx1 = await request('POST', '/eth/poll', { txHash: buy.txHash });
+      tx1 = await request('POST', '/eth/poll', { txHash: buy.hash });
       console.log(tx1);
       done = tx1.confirmed;
     }
@@ -73,14 +72,13 @@ export const unitTests = async () => {
       base: TOKENS[0],
       quote: TOKENS[1],
       amount: AMOUNT_TRADE.toString(),
-      side: 'sell',
-      limitPrice: sellPrice.price,
+      side: 'SELL',
     });
-    expect(sell.txHash).toBeDefined();
-    console.log(`Buy hash - ${sell.txHash}`);
+    expect(sell.hash).toBeDefined();
+    console.log(`Buy hash - ${sell.hash}`);
     console.log(`Polling...`);
     while (!done) {
-      tx2 = await request('POST', '/eth/poll', { txHash: sell.txHash });
+      tx2 = await request('POST', '/eth/poll', { txHash: sell.hash });
       console.log(tx2);
       done = tx2.confirmed;
     }
@@ -97,7 +95,7 @@ export const unitTests = async () => {
         base: TOKENS[0],
         quote: TOKENS[1],
         amount: '1',
-        side: 'buy',
+        side: 'BUY',
         limitPrice: buyPrice.price / SCALE_FACTOR,
       })
     ).toBeUndefined();
@@ -113,7 +111,7 @@ export const unitTests = async () => {
         base: TOKENS[0],
         quote: TOKENS[1],
         amount: '1',
-        side: 'sell',
+        side: 'SELL',
         limitPrice: sellPrice.price * SCALE_FACTOR,
       })
     ).toBeUndefined();
