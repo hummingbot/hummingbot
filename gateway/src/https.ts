@@ -1,11 +1,8 @@
 import { Application } from 'express';
 import fs from 'fs';
 import https from 'https';
-// import { ConfigManager } from './services/config-manager';
 import { ConfigManagerCertPassphrase } from './services/config-manager-cert-passphrase';
 import { ConfigManagerV2 } from './services/config-manager-v2';
-
-// const certPath = ConfigManager.config.CERT_PATH.replace(/\/$/, '');
 
 export const addHttps = (app: Application) => {
   const serverKey = fs.readFileSync(
