@@ -103,7 +103,7 @@ const patchApproveERC20 = (tx_type?: string) => {
 
 describe('GET /eth', () => {
   it('should return 200', async () => {
-    request(app)
+    await request(app)
       .get(`/eth`)
       .expect('Content-Type', /json/)
       .expect(200)
