@@ -598,7 +598,9 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(self.trade_fee_percent, []))
+        self.assertEqual(
+            TradeFee(Decimal("0"), [(self.base_asset, trade_update.fill_base_amount * order.trade_fee_percent)]),
+            order_filled_event.trade_fee)
 
     def test_process_trade_update_trigger_filled_event_update_status_when_completely_filled(self):
         order: InFlightOrder = InFlightOrder(
