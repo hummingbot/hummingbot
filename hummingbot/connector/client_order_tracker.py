@@ -247,7 +247,7 @@ class ClientOrderTracker:
                 self._trigger_order_completion(tracked_order, order_update)
 
         else:
-            self.logger().error(f"Order is not/no longer being tracked. {order_update}", exc_info=True)
+            self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
 
     def process_trade_update(self, trade_update: TradeUpdate):
         client_order_id: str = trade_update.client_order_id
