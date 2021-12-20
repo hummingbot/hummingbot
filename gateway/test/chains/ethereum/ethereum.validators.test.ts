@@ -1,8 +1,7 @@
 import {
-  isPrivateKey,
-  isPublicKey,
-  validatePrivateKey,
-  invalidPrivateKeyError,
+  isAddress,
+  validateAddress,
+  invalidAddressError,
   validateSpender,
   invalidSpenderError,
   validateTokenSymbols,
@@ -25,76 +24,53 @@ import { missingParameter } from '../../../src/services/validators';
 
 import 'jest-extended';
 
-describe('isPublicKey', () => {
+describe('isAddress', () => {
   it('pass against a well formed public key', () => {
-    expect(isPublicKey('0xFaA12FD102FE8623C9299c72B03E45107F2772B5')).toEqual(
+    expect(isAddress('0xFaA12FD102FE8623C9299c72B03E45107F2772B5')).toEqual(
       true
     );
   });
 
   it('fail against a string that is too short', () => {
-    expect(isPublicKey('0xFaA12FD102FE8623C9299c72')).toEqual(false);
+    expect(isAddress('0xFaA12FD102FE8623C9299c72')).toEqual(false);
   });
 
   it('fail against a string that has non-hexadecimal characters', () => {
-    expect(isPublicKey('0xFaA12FD102FE8623C9299c7iwqpneciqwopienff')).toEqual(
+    expect(isAddress('0xFaA12FD102FE8623C9299c7iwqpneciqwopienff')).toEqual(
       false
     );
   });
 
   it('fail against a valid public key that is missing the initial 0x', () => {
-    expect(isPublicKey('FaA12FD102FE8623C9299c72B03E45107F2772B5')).toEqual(
+    expect(isAddress('FaA12FD102FE8623C9299c72B03E45107F2772B5')).toEqual(
       false
     );
   });
 });
 
-describe('isPrivateKey', () => {
-  it('pass against a well formed public key', () => {
+describe('validateAddress', () => {
+  it('valid when req.address is a address', () => {
     expect(
-      isPrivateKey(
-        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4'
-      )
-    ).toEqual(true);
-  });
-
-  it('fail against a string that is too short', () => {
-    expect(isPrivateKey('da857cbda0ba96757fed842617a40693d0')).toEqual(false);
-  });
-
-  it('fail against a string that has non-hexadecimal characters', () => {
-    expect(
-      isPrivateKey(
-        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747qwer'
-      )
-    ).toEqual(false);
-  });
-});
-
-describe('validatePrivateKey', () => {
-  it('valid when req.privateKey is a privateKey', () => {
-    expect(
-      validatePrivateKey({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+      validateAddress({
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
     ).toEqual([]);
   });
 
-  it('return error when req.privateKey does not exist', () => {
+  it('return error when req.address does not exist', () => {
     expect(
-      validatePrivateKey({
+      validateAddress({
         hello: 'world',
       })
-    ).toEqual([missingParameter('privateKey')]);
+    ).toEqual([missingParameter('address')]);
   });
 
-  it('return error when req.privateKey is invalid', () => {
+  it('return error when req.address is invalid', () => {
     expect(
-      validatePrivateKey({
-        privateKey: 'world',
+      validateAddress({
+        address: 'world',
       })
-    ).toEqual([invalidPrivateKeyError]);
+    ).toEqual([invalidAddressError]);
   });
 });
 

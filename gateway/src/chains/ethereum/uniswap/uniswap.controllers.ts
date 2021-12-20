@@ -111,7 +111,7 @@ export async function trade(
 
   let wallet: Wallet;
   try {
-    wallet = ethereumish.getWallet(req.privateKey);
+    wallet = await ethereumish.getWallet(req.address);
   } catch (err) {
     throw new HttpException(
       500,
