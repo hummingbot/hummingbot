@@ -14,18 +14,11 @@ export const unitTests = async () => {
     await ethTests('uniswap', TOKENS);
     console.log('\nStarting Uniswap tests');
     console.log('***************************************************');
-    // call /start
+    // call /
     const pair = `${TOKENS[0]}-${TOKENS[1]}`;
     console.log(`Starting Uniswap v2 on pair ${pair}...`);
-    const start = await request('GET', '/eth/uniswap/start', {
-      pairs: JSON.stringify([pair]),
-    });
-    console.log(start);
-
-    // call /gas-limit
-    console.log('Calling uniswap v2 gas-limit endpoint...');
-    const gasLimit = await request('POST', '/eth/uniswap/gas-limit', {});
-    console.log(gasLimit);
+    const root = await request('GET', '/eth/uniswap/');
+    console.log(root);
 
     // price buy
     console.log(`Checking buy price for ${pair}...`);
