@@ -159,9 +159,10 @@ export class EthereumBase {
   // returns Wallet for a public key
   async getWallet(address: string): Promise<Wallet> {
     const path = `${walletPath}/${this.chainName}`;
+
     const encryptedPrivateKey: string = await fse.readFile(
       `${path}/${address}.json`,
-      address
+      'utf8'
     );
 
     const passphrase = ConfigManagerCertPassphrase.readPassphrase();
@@ -176,8 +177,15 @@ export class EthereumBase {
     return wallet.encrypt(password);
   }
 
-  decrypt(encryptedPrivateKey: string, password: string): Promise<Wallet> {
-    return Wallet.fromEncryptedJson(encryptedPrivateKey, password);
+  async decrypt(
+    encryptedPrivateKey: string,
+    password: string
+  ): Promise<Wallet> {
+    const wallet = await Wallet.fromEncryptedJson(
+      encryptedPrivateKey,
+      password
+    );
+    return wallet.connect(this._provider);
   }
 
   // returns the Native balance, convert BigNumber to string
