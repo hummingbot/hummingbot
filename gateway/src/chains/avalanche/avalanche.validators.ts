@@ -2,15 +2,15 @@ import {
   mkRequestValidator,
   mkValidator,
   RequestValidator,
+  validateAmount,
+  validateToken,
   validateTokenSymbols,
   Validator,
 } from '../../services/validators';
 import {
   isPublicKey,
-  validateAmount,
   validateNonce,
   validatePrivateKey,
-  validateToken,
 } from '../ethereum/ethereum.validators';
 
 export const invalidSpenderError: string =

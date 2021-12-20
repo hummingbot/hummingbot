@@ -1,15 +1,14 @@
 import {
-  isNaturalNumberString,
   validateTokenSymbols,
   mkValidator,
   mkRequestValidator,
   RequestValidator,
   Validator,
   isBase58,
+  validateTxHash,
+  validateToken,
 } from '../../services/validators';
 import bs58 from 'bs58';
-
-import {} from '../ethereum/ethereum.validators';
 
 // invalid parameter errors
 
@@ -18,16 +17,6 @@ export const invalidPrivateKeyError: string =
 
 export const invalidPublicKeyError: string =
   'The spender param is not a valid Solana public key (base58 string worth 32 bytes).';
-
-export const invalidTokenSymbolsError: string =
-  'The tokenSymbols param should be an array of strings.';
-
-export const invalidTokenError: string = 'The token param should be a string.';
-
-export const invalidAmountError: string =
-  'If amount is included it must be a string of a non-negative integer.';
-
-export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // test if a string matches the shape of an Solana public key
 export const isPublicKey = (str: string): boolean => {
@@ -51,27 +40,6 @@ export const validatePublicKey: Validator = mkValidator(
   'publicKey',
   invalidPublicKeyError,
   (val) => typeof val === 'string' && isPublicKey(val)
-);
-
-// confirm that token is a string
-export const validateToken: Validator = mkValidator(
-  'token',
-  invalidTokenError,
-  (val) => typeof val === 'string'
-);
-
-// if amount exists, confirm that it is a string of a natural number
-export const validateAmount: Validator = mkValidator(
-  'amount',
-  invalidAmountError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val),
-  true
-);
-
-export const validateTxHash: Validator = mkValidator(
-  'txHash',
-  invalidTxHashError,
-  (val) => typeof val === 'string'
 );
 
 // request types and corresponding validators
