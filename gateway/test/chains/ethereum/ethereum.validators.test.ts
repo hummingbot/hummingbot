@@ -5,8 +5,6 @@ import {
   invalidPrivateKeyError,
   validateSpender,
   invalidSpenderError,
-  validateTokenSymbols,
-  invalidTokenSymbolsError,
   validateToken,
   invalidTokenError,
   validateAmount,
@@ -129,32 +127,6 @@ describe('validateSpender', () => {
         spender: 'world',
       })
     ).toEqual([invalidSpenderError]);
-  });
-});
-
-describe('validateTokenSymbols', () => {
-  it('valid when req.tokenSymbols is an array of strings', () => {
-    expect(
-      validateTokenSymbols({
-        tokenSymbols: ['WETH', 'DAI'],
-      })
-    ).toEqual([]);
-  });
-
-  it('return error when req.tokenSymbols does not exist', () => {
-    expect(
-      validateTokenSymbols({
-        hello: 'world',
-      })
-    ).toEqual([missingParameter('tokenSymbols')]);
-  });
-
-  it('return error when req.tokenSymbols is invalid', () => {
-    expect(
-      validateTokenSymbols({
-        tokenSymbols: 'WETH',
-      })
-    ).toEqual([invalidTokenSymbolsError]);
   });
 });
 
