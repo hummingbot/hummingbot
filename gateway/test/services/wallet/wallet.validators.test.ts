@@ -1,15 +1,65 @@
 import {
+  invalidPrivateKeyError,
+  isPrivateKey,
+  validatePrivateKey,
   invalidChainNameError,
   invalidAddressError,
   validateChainName,
   validateAddress,
-  // validateAddWalletRequest,
-  // validateRemoveWalletRequest
 } from '../../../src/services/wallet/wallet.validators';
 
 import { missingParameter } from '../../../src/services/validators';
 
 import 'jest-extended';
+
+describe('isPrivateKey', () => {
+  it('pass against a well formed public key', () => {
+    expect(
+      isPrivateKey(
+        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4'
+      )
+    ).toEqual(true);
+  });
+
+  it('fail against a string that is too short', () => {
+    expect(isPrivateKey('da857cbda0ba96757fed842617a40693d0')).toEqual(false);
+  });
+
+  it('fail against a string that has non-hexadecimal characters', () => {
+    expect(
+      isPrivateKey(
+        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747qwer'
+      )
+    ).toEqual(false);
+  });
+});
+
+describe('validatePrivateKey', () => {
+  it('valid when req.privateKey is a privateKey', () => {
+    expect(
+      validatePrivateKey({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+      })
+    ).toEqual([]);
+  });
+
+  it('return error when req.privateKey does not exist', () => {
+    expect(
+      validatePrivateKey({
+        hello: 'world',
+      })
+    ).toEqual([missingParameter('privateKey')]);
+  });
+
+  it('return error when req.privateKey is invalid', () => {
+    expect(
+      validatePrivateKey({
+        privateKey: 'world',
+      })
+    ).toEqual([invalidPrivateKeyError]);
+  });
+});
 
 describe('validateChainName', () => {
   it('valid when chainName is ethereum', () => {
