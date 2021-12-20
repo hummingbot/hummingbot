@@ -56,7 +56,7 @@ export class Solana {
     if (ConfigManager.config.SOLANA_CUSTOM_RPC == null) {
       switch (this._cluster) {
         case 'mainnet-beta':
-          this.rpcUrl = 'https://mainnet.infura.io/v3/';
+          this.rpcUrl = 'https://api.mainnet-beta.solana.com';
           break;
         case 'devnet':
           this.rpcUrl = 'https://api.devnet.solana.com';

@@ -36,7 +36,7 @@ export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // test if a string matches the shape of an Solana public key
 export const isPublicKey = (str: string): boolean => {
-  return /^[a-fA-F0-9]{40}$/.test(str);
+  return /^[a-fA-F0-9]{44}$/.test(str);
 };
 
 // test if a string matches the shape of an Solana private key
