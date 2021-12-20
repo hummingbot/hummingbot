@@ -2,6 +2,7 @@ import {
   mkRequestValidator,
   mkValidator,
   RequestValidator,
+  validateTokenSymbols,
   Validator,
 } from '../../services/validators';
 import {
@@ -10,7 +11,6 @@ import {
   validateNonce,
   validatePrivateKey,
   validateToken,
-  validateTokenSymbols,
 } from '../ethereum/ethereum.validators';
 
 export const invalidSpenderError: string =

@@ -1,6 +1,6 @@
 import {
   isNaturalNumberString,
-  missingParameter,
+  validateTokenSymbols,
   mkValidator,
   mkRequestValidator,
   RequestValidator,
@@ -57,25 +57,6 @@ export const validateSpender: Validator = mkValidator(
   invalidSpenderError,
   (val) => typeof val === 'string' && (val === 'uniswap' || isPublicKey(val))
 );
-
-// confirm that tokenSymbols is an array of strings
-export const validateTokenSymbols: Validator = (req: any) => {
-  const errors: Array<string> = [];
-  if (req.tokenSymbols) {
-    if (Array.isArray(req.tokenSymbols)) {
-      req.tokenSymbols.forEach((symbol: any) => {
-        if (typeof symbol !== 'string') {
-          errors.push(invalidTokenSymbolsError);
-        }
-      });
-    } else {
-      errors.push(invalidTokenSymbolsError);
-    }
-  } else {
-    errors.push(missingParameter('tokenSymbols'));
-  }
-  return errors;
-};
 
 // confirm that token is a string
 export const validateToken: Validator = mkValidator(

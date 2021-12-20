@@ -2,9 +2,12 @@ import {
   isNaturalNumberString,
   isIntegerString,
   isFloatString,
+  missingParameter,
+  validateTokenSymbols,
 } from '../../src/services/validators';
 
 import 'jest-extended';
+import { invalidTokenSymbolsError } from '../../src/chains/ethereum/ethereum.validators';
 
 describe('isNaturalNumberString', () => {
   it('pass against a well formed natural number in a string', () => {
@@ -57,5 +60,31 @@ describe('isFloatString', () => {
 
   it('fail against a non number string', () => {
     expect(isFloatString('Hello world')).toEqual(false);
+  });
+});
+
+describe('validateTokenSymbols', () => {
+  it('valid when req.tokenSymbols is an array of strings', () => {
+    expect(
+      validateTokenSymbols({
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+    ).toEqual([]);
+  });
+
+  it('return error when req.tokenSymbols does not exist', () => {
+    expect(
+      validateTokenSymbols({
+        hello: 'world',
+      })
+    ).toEqual([missingParameter('tokenSymbols')]);
+  });
+
+  it('return error when req.tokenSymbols is invalid', () => {
+    expect(
+      validateTokenSymbols({
+        tokenSymbols: 'WETH',
+      })
+    ).toEqual([invalidTokenSymbolsError]);
   });
 });
