@@ -2,23 +2,27 @@ import asyncio
 import copy
 import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, Mapping
-from libc.stdint cimport int64_t
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
+from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
-    CoinbaseProRESTRequest, build_coinbase_pro_web_assistant_factory
+    CoinbaseProRESTRequest,
+    build_coinbase_pro_web_assistant_factory
 )
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
@@ -37,14 +41,11 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
 s_decimal_0 = Decimal("0.0")
