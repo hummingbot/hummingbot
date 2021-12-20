@@ -125,7 +125,7 @@ describe('POST /eth/balances', () => {
       .post(`/eth/balances`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
@@ -148,7 +148,7 @@ describe('POST /eth/balances', () => {
       .post(`/eth/balances`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['ETH'],
       })
       .set('Accept', 'application/json')
@@ -171,7 +171,7 @@ describe('POST /eth/balances', () => {
       .post(`/eth/balances`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['XXX', 'YYY'],
       })
       .set('Accept', 'application/json')
@@ -198,7 +198,7 @@ describe('POST /eth/nonce', () => {
       .post(`/eth/nonce`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -230,7 +230,7 @@ describe('POST /eth/approve', () => {
       .post(`/eth/approve`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
       })
@@ -249,7 +249,7 @@ describe('POST /eth/approve', () => {
       .post(`/eth/approve`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -272,7 +272,7 @@ describe('POST /eth/approve', () => {
       .post(`/eth/approve`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -289,7 +289,7 @@ describe('POST /eth/approve', () => {
       .post(`/eth/approve`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 123,
         nonce: '23',
@@ -313,7 +313,7 @@ describe('POST /eth/cancel', () => {
       .post(`/eth/cancel`)
       .send({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -469,7 +469,7 @@ describe('overwrite existing transaction', () => {
 
     const requestParam = {
       address:
-        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       spender: 'uniswap',
       token: 'WETH',
       nonce: 115,

@@ -48,34 +48,12 @@ describe('isAddress', () => {
   });
 });
 
-describe('isAddress', () => {
-  it('pass against a well formed public key', () => {
-    expect(
-      isAddress(
-        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4'
-      )
-    ).toEqual(true);
-  });
-
-  it('fail against a string that is too short', () => {
-    expect(isAddress('da857cbda0ba96757fed842617a40693d0')).toEqual(false);
-  });
-
-  it('fail against a string that has non-hexadecimal characters', () => {
-    expect(
-      isAddress(
-        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747qwer'
-      )
-    ).toEqual(false);
-  });
-});
-
 describe('validateAddress', () => {
   it('valid when req.address is a address', () => {
     expect(
       validateAddress({
         address:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
     ).toEqual([]);
   });
