@@ -7,6 +7,8 @@ afterEach(() => {
   unpatch();
 });
 
+const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+
 const patchGetWallet = () => {
   patch(PangolinRoutes.avalanche, 'getWallet', () => {
     return {
@@ -261,8 +263,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
       })
@@ -281,8 +282,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
       })
       .set('Accept', 'application/json')
@@ -297,8 +297,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -326,8 +325,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
       })
@@ -346,8 +344,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -364,7 +361,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: 10000,
-        privateKey: 'da8',
+        address: 'da8',
         side: 'comprar',
       })
       .set('Accept', 'application/json')
@@ -393,8 +390,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WETH',
         base: 'BITCOIN',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -426,8 +422,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'BITCOIN',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -445,8 +440,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         limitPrice: '999999999999999999999',
@@ -463,8 +457,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         limitPrice: '999999999999999999999',
@@ -481,8 +474,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         limitPrice: '9',
@@ -499,8 +491,7 @@ describe('POST /avalanche/pangolin/trade', () => {
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         limitPrice: '9',
