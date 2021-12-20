@@ -36,12 +36,12 @@ export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // test if a string matches the shape of an Solana public key
 export const isPublicKey = (str: string): boolean => {
-  return /^[a-fA-F0-9]{40}$/.test(str);
+  return /^[a-fA-F0-9]{44}$/.test(str);
 };
 
 // test if a string matches the shape of an Solana private key
 export const isPrivateKey = (str: string): boolean => {
-  return /^[a-fA-F0-9]{64}$/.test(str);
+  return /^[a-fA-F0-9]{44}$/.test(str);
 };
 
 // given a request, look for a key called privateKey that is an Solana private key
@@ -51,11 +51,11 @@ export const validatePrivateKey: Validator = mkValidator(
   (val) => typeof val === 'string' && isPrivateKey(val)
 );
 
-// given a request, look for a key called spender that is 'uniswap' or an Solana public key
-export const validateSpender: Validator = mkValidator(
-  'spender',
+// given a request, look for a key called publicKey that is an Solana public key
+export const validatePublicKey: Validator = mkValidator(
+  'publicKey',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'uniswap' || isPublicKey(val))
+  (val) => typeof val === 'string' && isPublicKey(val)
 );
 
 // confirm that tokenSymbols is an array of strings
@@ -103,22 +103,12 @@ export const validateTxHash: Validator = mkValidator(
 export const validateSolanaBalanceRequest: RequestValidator =
   mkRequestValidator([validatePrivateKey, validateTokenSymbols]);
 
-export const validateSolanaApproveRequest: RequestValidator =
-  mkRequestValidator([
-    validatePrivateKey,
-    validateSpender,
-    validateToken,
-    validateAmount,
-  ]);
-
 export const validateSolanaPollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
 ]);
 
 export const validateSolanaGetTokenRequest: RequestValidator =
-  mkRequestValidator([]); // TODO: Implement
+  mkRequestValidator([validateToken, validatePublicKey]);
 
 export const validateSolanaPostTokenRequest: RequestValidator =
-  mkRequestValidator(
-    [] // TODO: Implement
-  );
+  mkRequestValidator([validateToken, validatePrivateKey]);
