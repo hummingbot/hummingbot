@@ -9,13 +9,17 @@ from typing import (
     Optional
 )
 
+import aiohttp
 from hummingbot.core.data_type.order_book import OrderBook
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
 
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 
@@ -30,15 +34,27 @@ class MexcOrderBookTracker(OrderBookTracker):
         return cls._mexcobt_logger
 
     def __init__(self,
-                 trading_pairs: Optional[List[str]] = None):
-        super().__init__(MexcAPIOrderBookDataSource(trading_pairs), trading_pairs)
+                 trading_pairs: Optional[List[str]] = None,
+                 shared_client: Optional[aiohttp.ClientSession] = None,
+                 throttler: Optional[AsyncThrottler] = None,):
+        super().__init__(MexcAPIOrderBookDataSource(trading_pairs, shared_client=shared_client, throttler=throttler), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
         return "mexc"
+
+    def start(self):
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
+
+    def stop(self):
+        if self._order_book_stream_listener_task:
+            self._order_book_stream_listener_task.cancel()
+        super().stop()
 
     async def _order_book_diff_router(self):
         last_message_timestamp: float = time.time()
