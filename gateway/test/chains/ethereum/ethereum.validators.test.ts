@@ -52,8 +52,7 @@ describe('validateAddress', () => {
   it('valid when req.address is a address', () => {
     expect(
       validateAddress({
-        address:
-          '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
     ).toEqual([]);
   });
