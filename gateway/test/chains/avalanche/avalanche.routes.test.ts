@@ -86,7 +86,7 @@ describe('POST /avalanche/nonce', () => {
     await request(app)
       .post(`/avalanche/nonce`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
       })
       .set('Accept', 'application/json')
@@ -99,7 +99,7 @@ describe('POST /avalanche/nonce', () => {
     await request(app)
       .post(`/avalanche/nonce`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -118,7 +118,7 @@ describe('POST /avalanche/approve', () => {
     await request(app)
       .post(`/avalanche/approve`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'pangolin',
         token: 'PNG',
@@ -136,7 +136,7 @@ describe('POST /avalanche/approve', () => {
     await request(app)
       .post(`/avalanche/approve`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'pangolin',
         token: 123,
@@ -160,7 +160,7 @@ describe('POST /avalanche/cancel', () => {
     await request(app)
       .post(`/avalanche/cancel`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         nonce: 23,
       })
@@ -178,7 +178,7 @@ describe('POST /avalanche/cancel', () => {
     await request(app)
       .post(`/avalanche/cancel`)
       .send({
-        privateKey: '',
+        address: '',
         nonce: '23',
       })
       .expect(404);

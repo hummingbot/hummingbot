@@ -326,7 +326,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
         nonce: 21,
@@ -346,7 +346,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
       })
@@ -362,7 +362,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
         nonce: 21,
@@ -392,7 +392,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'SELL',
         nonce: 21,
@@ -412,7 +412,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'SELL',
         nonce: 21,
@@ -431,7 +431,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'SELL',
         nonce: 21,
@@ -449,7 +449,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
         nonce: 21,
@@ -467,7 +467,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
         nonce: 21,
@@ -485,7 +485,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'SELL',
         nonce: 21,
@@ -503,7 +503,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: 10000,
-        privateKey: 'da8',
+        address: 'da8',
         side: 'comprar',
       })
       .set('Accept', 'application/json')
@@ -525,7 +525,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'SELL',
         nonce: 21,
@@ -552,7 +552,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
         nonce: 21,

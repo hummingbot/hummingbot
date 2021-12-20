@@ -124,7 +124,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -147,7 +147,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         tokenSymbols: ['ETH'],
       })
@@ -170,7 +170,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         tokenSymbols: ['XXX', 'YYY'],
       })
@@ -183,7 +183,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -197,7 +197,7 @@ describe('POST /eth/nonce', () => {
     await request(app)
       .post(`/eth/nonce`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
       })
       .set('Accept', 'application/json')
@@ -210,7 +210,7 @@ describe('POST /eth/nonce', () => {
     await request(app)
       .post(`/eth/nonce`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -229,7 +229,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'uniswap',
         token: 'WETH',
@@ -248,7 +248,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'uniswap',
         token: 'WETH',
@@ -271,7 +271,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'uniswap',
         token: 'WETH',
@@ -288,7 +288,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'uniswap',
         token: 123,
@@ -312,7 +312,7 @@ describe('POST /eth/cancel', () => {
     await request(app)
       .post(`/eth/cancel`)
       .send({
-        privateKey:
+        address:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         nonce: 23,
       })
@@ -330,7 +330,7 @@ describe('POST /eth/cancel', () => {
     await request(app)
       .post(`/eth/cancel`)
       .send({
-        privateKey: '',
+        address: '',
         nonce: '23',
       })
       .expect(404);
@@ -468,7 +468,7 @@ describe('overwrite existing transaction', () => {
     patchGetTokenBySymbol();
 
     const requestParam = {
-      privateKey:
+      address:
         'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
       spender: 'uniswap',
       token: 'WETH',

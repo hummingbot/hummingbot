@@ -8,7 +8,7 @@ import {
 
 import {
   validateNonce,
-  validatePrivateKey,
+  validateAddress,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
 } from '../ethereum.validators';
@@ -66,7 +66,7 @@ export const validateUniswapTradeRequest: RequestValidator = mkRequestValidator(
     validateQuote,
     validateBase,
     validateAmount,
-    validatePrivateKey,
+    validateAddress,
     validateSide,
     validateLimitPrice,
     validateNonce,
