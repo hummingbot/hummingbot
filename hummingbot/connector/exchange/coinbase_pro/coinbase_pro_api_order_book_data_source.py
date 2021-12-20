@@ -15,7 +15,8 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker_
     CoinbaseProOrderBookTrackerEntry
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
-    build_coinbase_pro_web_assistant_factory, CoinbaseProRESTRequest
+    CoinbaseProRESTRequest,
+    build_coinbase_pro_web_assistant_factory
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage

@@ -2,7 +2,7 @@ import asyncio
 import json
 import unittest
 from decimal import Decimal
-from typing import List, Awaitable, Dict, Optional
+from typing import Awaitable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -15,9 +15,7 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import Coinbas
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker_entry import (
     CoinbaseProOrderBookTrackerEntry
 )
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
-    build_coinbase_pro_web_assistant_factory
-)
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import build_coinbase_pro_web_assistant_factory
 from hummingbot.core.data_type.order_book import OrderBook
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 

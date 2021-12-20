@@ -3,7 +3,7 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from typing import List, Awaitable, Dict
+from typing import Awaitable, Dict, List
 
 from aioresponses import aioresponses
 
@@ -11,9 +11,14 @@ from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, OrderType, \
-    BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent, \
-    OrderCancelledEvent
+from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderType,
+    SellOrderCreatedEvent
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
