@@ -16,7 +16,7 @@ import {} from '../ethereum/ethereum.validators';
 export const invalidPrivateKeyError: string =
   'The privateKey param is not a valid Solana private key (base58 string worth 32 bytes).';
 
-export const invalidSpenderError: string =
+export const invalidPublicKeyError: string =
   'The spender param is not a valid Solana public key (base58 string worth 32 bytes).';
 
 export const invalidTokenSymbolsError: string =
@@ -49,7 +49,7 @@ export const validatePrivateKey: Validator = mkValidator(
 // given a request, look for a key called publicKey that is an Solana public key
 export const validatePublicKey: Validator = mkValidator(
   'publicKey',
-  invalidSpenderError,
+  invalidPublicKeyError,
   (val) => typeof val === 'string' && isPublicKey(val)
 );
 
