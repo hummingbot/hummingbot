@@ -199,7 +199,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.start_tracking_order(order)
         self.assertEqual(1, len(self.tracker.active_orders))
 
-        fetched_order: InFlightOrder = self.tracker.fetch_order(order.exchange_order_id)
+        fetched_order: InFlightOrder = self.tracker.fetch_order(exchange_order_id=order.exchange_order_id)
 
         self.assertTrue(fetched_order == order)
 
@@ -236,8 +236,8 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                f"Order is not/no longer being tracked. {order_creation_update}",
+                "DEBUG",
+                f"Order is not/no longer being tracked ({order_creation_update})",
             )
         )
 
