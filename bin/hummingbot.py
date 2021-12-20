@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # from logging import debug
-# import path_util        # noqa: F401
+import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
@@ -68,18 +68,6 @@ async def main():
             management_port: int = detect_available_port(8211)
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
         await safe_gather(*tasks)
-
-
-def humming_main():
-    chdir_to_data_directory()
-    if login_prompt():
-        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        ev_loop.run_until_complete(main())
-
-
-# def slackServer():
-#     print('hello')
-#     run_api()
 
 
 if __name__ == "__main__":
