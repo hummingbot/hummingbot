@@ -225,7 +225,12 @@ class CoinbaseProAPIOrderBookDataSourceTests(unittest.TestCase):
         resp = self.get_products_book_response_mock()
         mock_api.get(url, body=json.dumps(resp))
 
-        ret = self.async_run_with_timeout(coroutine=CoinbaseProAPIOrderBookDataSource.get_snapshot(self.trading_pair))
+        rest_assistant = self.ev_loop.run_until_complete(
+            build_coinbase_pro_web_assistant_factory().get_rest_assistant()
+        )
+        ret = self.async_run_with_timeout(
+            coroutine=CoinbaseProAPIOrderBookDataSource.get_snapshot(rest_assistant, self.trading_pair)
+        )
 
         self.assertEqual(resp, ret)  # shallow comparison ok
 
@@ -235,8 +240,13 @@ class CoinbaseProAPIOrderBookDataSourceTests(unittest.TestCase):
         resp = self.get_products_book_response_mock()
         mock_api.get(url, body=json.dumps(resp), status=401)
 
+        rest_assistant = self.ev_loop.run_until_complete(
+            build_coinbase_pro_web_assistant_factory().get_rest_assistant()
+        )
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(coroutine=CoinbaseProAPIOrderBookDataSource.get_snapshot(self.trading_pair))
+            self.async_run_with_timeout(
+                coroutine=CoinbaseProAPIOrderBookDataSource.get_snapshot(rest_assistant, self.trading_pair)
+            )
 
     @aioresponses()
     def test_get_new_order_book(self, mock_api):

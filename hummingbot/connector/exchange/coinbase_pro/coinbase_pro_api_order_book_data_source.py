@@ -24,6 +24,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -46,29 +47,13 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._cbpaobds_logger = logging.getLogger(__name__)
         return cls._cbpaobds_logger
 
-    @classmethod
-    def get_shared_web_assistants_factory(cls) -> WebAssistantsFactory:
-        """
-        This approach is taken because some users of the class cannot pass a shared assistant
-        to the methods, even if they are using the methods on an instance (e.g. `get_last_traded_prices` is called
-        from `OrderBookTracker._update_last_trade_prices_loop`).
-        """
-        if cls._shared_web_assistants_factory is None:
-            cls._shared_web_assistants_factory = build_coinbase_pro_web_assistant_factory()
-        return cls._shared_web_assistants_factory
-
-    @classmethod
-    def set_shared_web_assistants_factory(cls, factory: WebAssistantsFactory):
-        cls._shared_web_assistants_factory = factory
-
     def __init__(
         self,
         trading_pairs: Optional[List[str]] = None,
         web_assistants_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(trading_pairs)
-        if web_assistants_factory is not None:
-            self.set_shared_web_assistants_factory(web_assistants_factory)
+        self._web_assistants_factory = web_assistants_factory or build_coinbase_pro_web_assistant_factory()
         self._rest_assistant = None
 
     @classmethod
@@ -79,7 +64,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_price(cls, trading_pair: str) -> Decimal:
-        factory = cls.get_shared_web_assistants_factory()
+        factory = build_coinbase_pro_web_assistant_factory()
         rest_assistant = await factory.get_rest_assistant()
         endpoint = f"{CONSTANTS.PRODUCTS_PATH_URL}/{trading_pair}/ticker"
         request = CoinbaseProRESTRequest(RESTMethod.GET, endpoint=endpoint)
@@ -91,7 +76,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         trading_pair_list = []
         try:
-            factory = CoinbaseProAPIOrderBookDataSource.get_shared_web_assistants_factory()
+            factory = build_coinbase_pro_web_assistant_factory()
             rest_assistant = await factory.get_rest_assistant()
             request = CoinbaseProRESTRequest(RESTMethod.GET, endpoint=CONSTANTS.PRODUCTS_PATH_URL)
             response = await rest_assistant.call(request)
@@ -107,13 +92,11 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return trading_pair_list
 
     @staticmethod
-    async def get_snapshot(trading_pair: str) -> Dict[str, any]:
+    async def get_snapshot(rest_assistant: RESTAssistant, trading_pair: str) -> Dict[str, any]:
         """
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
         """
-        factory = CoinbaseProAPIOrderBookDataSource.get_shared_web_assistants_factory()
-        rest_assistant = await factory.get_rest_assistant()
         endpoint = f"{CONSTANTS.PRODUCTS_PATH_URL}/{trading_pair}/book?level=3"
         request = CoinbaseProRESTRequest(RESTMethod.GET, endpoint=endpoint)
         response = await rest_assistant.call(request)
@@ -124,7 +107,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return response_data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, any] = await self.get_snapshot(trading_pair)
+        rest_assistant = await self._get_rest_assistant()
+        snapshot: Dict[str, any] = await self.get_snapshot(rest_assistant, trading_pair)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
             snapshot,
@@ -147,11 +131,12 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Get the currently active markets
         trading_pairs: List[str] = self._trading_pairs
         retval: Dict[str, OrderBookTrackerEntry] = {}
+        rest_assistant = await self._get_rest_assistant()
 
         number_of_pairs: int = len(trading_pairs)
         for index, trading_pair in enumerate(trading_pairs):
             try:
-                snapshot: Dict[str, any] = await self.get_snapshot(trading_pair)
+                snapshot: Dict[str, any] = await self.get_snapshot(rest_assistant, trading_pair)
                 snapshot_timestamp: float = time.time()
                 snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                     snapshot,
@@ -212,8 +197,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                factory = CoinbaseProAPIOrderBookDataSource.get_shared_web_assistants_factory()
-                ws_assistant = await factory.get_ws_assistant()
+                ws_assistant = await self._web_assistants_factory.get_ws_assistant()
                 await ws_assistant.connect(CONSTANTS.WS_URL, message_timeout=CONSTANTS.WS_MESSAGE_TIMEOUT)
                 subscribe_payload = {
                     "type": "subscribe",
@@ -261,9 +245,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
+                rest_assistant = await self._get_rest_assistant()
                 for trading_pair in trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_snapshot(trading_pair)
+                        snapshot: Dict[str, any] = await self.get_snapshot(rest_assistant, trading_pair)
                         snapshot_timestamp: float = time.time()
                         snapshot_msg: OrderBookMessage = CoinbaseProOrderBook.snapshot_message_from_exchange(
                             snapshot,
@@ -297,3 +282,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
+
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+        return self._rest_assistant
