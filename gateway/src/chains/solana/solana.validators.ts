@@ -41,7 +41,7 @@ export const isPublicKey = (str: string): boolean => {
 
 // test if a string matches the shape of an Solana private key
 export const isPrivateKey = (str: string): boolean => {
-  return /^[a-fA-F0-9]{64}$/.test(str);
+  return /^[a-fA-F0-9]{44}$/.test(str);
 };
 
 // given a request, look for a key called privateKey that is an Solana private key
