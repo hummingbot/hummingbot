@@ -452,6 +452,30 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         expected_average_price = (initial_executed_amount_quote + subsequent_executed_amount_quote) / order.amount
         self.assertEqual(expected_average_price, order.average_executed_price)
 
+    def test_update_exchange_id_with_order_update(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            update_timestamp=1,
+            new_state=OrderState.OPEN,
+        )
+
+        result = order.update_with_order_update(order_update)
+        self.assertTrue(result)
+        self.assertEqual(self.exchange_order_id, order.exchange_order_id)
+        self.assertTrue(order.exchange_order_id_update_event.is_set())
+        self.assertEqual(0, len(order.order_fills))
+
     def test_update_with_trade_update_trade_update_with_trade_fee_percent(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,
