@@ -8,6 +8,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 CENTRALIZED = True
@@ -139,6 +140,17 @@ def decompress_ws_message(message):
         return message
 
 
+def compress_ws_message(message):
+    if type(message) == str:
+        message = message.encode()
+        compress = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+        deflated = compress.compress(message)
+        deflated += compress.flush()
+        return deflated
+    else:
+        return message
+
+
 KEYS = {
     "bitmart_api_key":
         ConfigVar(key="bitmart_api_key",
@@ -159,3 +171,8 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
+
+
+def build_api_factory() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory()
+    return api_factory
