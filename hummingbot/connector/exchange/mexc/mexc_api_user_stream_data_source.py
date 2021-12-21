@@ -17,7 +17,8 @@ from typing import (
     Any
 )
 
-from hummingbot.connector.exchange.mexc.constants import MEXC_WS_URL_PUBLIC
+from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
@@ -28,24 +29,29 @@ from websockets.exceptions import ConnectionClosed
 
 
 class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    _mexcausds_logger: Optional[HummingbotLogger] = None
+    _logger: Optional[HummingbotLogger] = None
     MESSAGE_TIMEOUT = 300.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._mexcausds_logger is None:
-            cls._mexcausds_logger = logging.getLogger(__name__)
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
 
-        return cls._mexcausds_logger
+        return cls._logger
 
-    def __init__(self, mexc_auth: MexcAuth, trading_pairs: Optional[List[str]] = []):
-        self._current_listen_key = None
-        self._current_endpoint = None
-        self._listen_for_user_stram_task = None
+    def __init__(self, throttler: AsyncThrottler, mexc_auth: MexcAuth, trading_pairs: Optional[List[str]] = [],
+                 shared_client: Optional[aiohttp.ClientSession] = None):
+        self._shared_client = shared_client or self._get_session_instance()
         self._last_recv_time: float = 0
         self._auth: MexcAuth = mexc_auth
         self._trading_pairs = trading_pairs
+        self._throttler = throttler
         super().__init__()
+
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
 
     @property
     def last_recv_time(self) -> float:
@@ -56,11 +62,11 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
+            session = self._shared_client
             try:
-                session = aiohttp.ClientSession()
-                async with session.ws_connect(MEXC_WS_URL_PUBLIC) as ws:
-                    ws: aiohttp.client_ws.ClientWebSocketResponse = ws
-
+                ws = await session.ws_connect(CONSTANTS.MEXC_WS_URL_PUBLIC)
+                ws: aiohttp.client_ws.ClientWebSocketResponse = ws
+                try:
                     params: Dict[str, Any] = {
                         'api_key': self._auth.api_key,
                         "op": "sub.personal",
@@ -71,18 +77,22 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     sign_data = hashlib.md5(params_sign.encode()).hexdigest()
                     del params['api_secret']
                     params["sign"] = sign_data
+                    async with self._throttler.execute_task(CONSTANTS.MEXC_WS_URL_PUBLIC):
+                        await ws.send_str(json.dumps(params))
 
-                    await ws.send_str(json.dumps(params))
-
-                    async for raw_msg in self._inner_messages(ws):
-                        self._last_recv_time = time.time()
-                        decoded_msg: dict = raw_msg
-                        if 'channel' in decoded_msg.keys() and decoded_msg['channel'] == 'push.personal.order':
-                            output.put_nowait(decoded_msg)
-                        elif 'channel' in decoded_msg.keys() and decoded_msg['channel'] == 'sub.personal':
-                            pass
-                        else:
-                            self.logger().debug(f"other message received from MEXC websocket: {decoded_msg}")
+                        async for raw_msg in self._inner_messages(ws):
+                            self._last_recv_time = time.time()
+                            decoded_msg: dict = raw_msg
+                            if 'channel' in decoded_msg.keys() and decoded_msg['channel'] == 'push.personal.order':
+                                output.put_nowait(decoded_msg)
+                            elif 'channel' in decoded_msg.keys() and decoded_msg['channel'] == 'sub.personal':
+                                pass
+                            else:
+                                self.logger().debug(f"other message received from MEXC websocket: {decoded_msg}")
+                except Exception as ex2:
+                    raise ex2
+                finally:
+                    await ws.close()
 
             except asyncio.CancelledError:
                 raise
@@ -90,18 +100,18 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error("Unexpected error with WebSocket connection ,Retrying after 30 seconds..." + str(ex),
                                     exc_info=True)
                 await asyncio.sleep(30.0)
-            finally:
-                await session.close()
 
     async def _inner_messages(self,
                               ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         try:
             while True:
-                msg: str = await asyncio.wait_for(ws.receive_json(), timeout=self.MESSAGE_TIMEOUT)
-                yield msg
+                msg = await asyncio.wait_for(ws.receive(), timeout=self.MESSAGE_TIMEOUT)
+                if msg.type == aiohttp.WSMsgType.CLOSED:
+                    raise ConnectionError
+                yield json.loads(msg.data)
         except asyncio.TimeoutError:
             return
         except ConnectionClosed:
             return
-        finally:
-            await ws.close()
+        except ConnectionError:
+            return

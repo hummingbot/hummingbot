@@ -12,15 +12,16 @@ from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
-_mexcob_logger = None
+_logger = None
 
-cdef class MexcOrderBook(OrderBook):
+
+class MexcOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _mexcob_logger
-        if _mexcob_logger is None:
-            _mexcob_logger = logging.getLogger(__name__),
-        return _mexcob_logger
+        global _logger
+        if _logger is None:
+            _logger = logging.getLogger(__name__),
+        return _logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
