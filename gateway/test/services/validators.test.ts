@@ -16,6 +16,7 @@ import {
 import 'jest-extended';
 
 export const tokenSymbols = ['DAI', 'WETH'];
+export const txHash = '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d';
 
 describe('isNaturalNumberString', () => {
   it('pass against a well formed natural number in a string', () => {
@@ -176,12 +177,7 @@ describe('validateAmount', () => {
 
 describe('validateTxHash', () => {
   it('valid when req.txHash is a string', () => {
-    expect(
-      validateTxHash({
-        txHash:
-          '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
-      })
-    ).toEqual([]);
+    expect(validateTxHash({ txHash })).toEqual([]);
   });
 
   it('invalid when req.txHash does not exist', () => {
