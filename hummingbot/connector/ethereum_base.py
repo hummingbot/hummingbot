@@ -39,9 +39,9 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class GatewayBase(ConnectorBase):
+class EthereumBase(ConnectorBase):
     """
-    Defines basic funtions common to connectors that interract with Gateway.
+    Defines basic functions common to connectors that interact with Ethereum through Gateway.
     """
 
     API_CALL_TIMEOUT = 10.0

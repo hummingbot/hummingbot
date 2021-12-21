@@ -1,14 +1,14 @@
 from decimal import Decimal
 from typing import List
 
-from hummingbot.connector.gateway_base import GatewayBase
+from hummingbot.connector.ethereum_base import EthereumBase
 
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class UniswapConnector(GatewayBase):
+class UniswapConnector(EthereumBase):
     """
     UniswapConnector connects with uniswap gateway APIs and provides pricing, user account tracking and trading
     functionality.
