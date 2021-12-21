@@ -124,6 +124,7 @@ class HummingbotApplication(*commands):
             notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
+        # print(f'_handle_command input {raw_command}')
         # unset to_stop_config flag it triggered before loading any command
         if self.app.to_stop_config:
             self.app.to_stop_config = False
