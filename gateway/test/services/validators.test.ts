@@ -13,8 +13,9 @@ import {
   invalidAmountError,
   invalidTxHashError,
 } from '../../src/services/validators';
-
 import 'jest-extended';
+
+export const tokenSymbols = ['DAI', 'WETH'];
 
 describe('isNaturalNumberString', () => {
   it('pass against a well formed natural number in a string', () => {
@@ -74,7 +75,7 @@ describe('validateTokenSymbols', () => {
   it('valid when req.tokenSymbols is an array of strings', () => {
     expect(
       validateTokenSymbols({
-        tokenSymbols: ['WETH', 'DAI'],
+        tokenSymbols,
       })
     ).toEqual([]);
   });
@@ -90,7 +91,7 @@ describe('validateTokenSymbols', () => {
   it('return error when req.tokenSymbols is invalid', () => {
     expect(
       validateTokenSymbols({
-        tokenSymbols: 'WETH',
+        tokenSymbols: tokenSymbols[0],
       })
     ).toEqual([invalidTokenSymbolsError]);
   });
