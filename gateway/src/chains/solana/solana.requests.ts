@@ -38,9 +38,7 @@ export interface SolanaPollRequest {
 
 export enum TransactionResponseStatusCode {
   FAILED = -1,
-  PROCESSED,
-  CONFIRMED,
-  FINALISED,
+  CONFIRMED = 1,
 }
 
 export interface SolanaPollResponse {
