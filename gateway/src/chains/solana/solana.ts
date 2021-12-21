@@ -323,7 +323,7 @@ export class Solana {
           ? TransactionResponseStatusCode.CONFIRMED
           : TransactionResponseStatusCode.FAILED;
 
-      // TODO implement TransactionResponseStatusCode CONFIRMED, FINALISED
+      // TODO implement TransactionResponseStatusCode PROCESSED, FINALISED,
       //  based on how many blocks ago the Transaction was
     }
     return txStatus;
