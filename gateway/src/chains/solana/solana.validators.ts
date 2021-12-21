@@ -13,7 +13,7 @@ import bs58 from 'bs58';
 // invalid parameter errors
 
 export const invalidPrivateKeyError: string =
-  'The privateKey param is not a valid Solana private key (base58 string worth 32 bytes).';
+  'The privateKey param is not a valid Solana private key (base58 string worth 64 bytes).';
 
 export const invalidPublicKeyError: string =
   'The spender param is not a valid Solana public key (base58 string worth 32 bytes).';
@@ -25,7 +25,7 @@ export const isPublicKey = (str: string): boolean => {
 
 // test if a string matches the shape of an Solana private key
 export const isPrivateKey = (str: string): boolean => {
-  return isBase58(str) && bs58.decode(str).length == 32;
+  return isBase58(str) && bs58.decode(str).length == 64;
 };
 
 // given a request, look for a key called privateKey that is an Solana private key
