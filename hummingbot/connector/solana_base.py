@@ -7,6 +7,7 @@ import json
 import time
 import ssl
 import copy
+import base58
 
 from hummingbot.connector.connector.solana.solana_in_flight_order import SolanaInFlightOrder
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -44,14 +45,22 @@ class SolanaBase(ConnectorBase):
         return s_logger
 
     def __init__(self,
-                 solana_wallet_address: str,
+                 trading_pairs: List[str],
                  solana_wallet_private_key: str,
                  trading_required: bool = True
                  ):
         """
+        :param trading_pairs: a list of trading pairs
+        :param solana_wallet_private_key: a solana wallet keypair, encoded in base58, 64 bytes long,
+        (first 32 bytes are the secret, last 32 bytes the public key)
+        :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         super().__init__()
-        self._solana_wallet_address = solana_wallet_address
+        self._trading_pairs = trading_pairs
+        self._tokens = set()
+        for trading_pair in trading_pairs:
+            self._tokens.update(set(trading_pair.split("-")))
+        self._solana_wallet_address = base58.b58encode(base58.b58decode(solana_wallet_private_key)[32:]).decode('ascii')
         self._solana_wallet_private_key = solana_wallet_private_key
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
@@ -64,7 +73,15 @@ class SolanaBase(ConnectorBase):
 
     @property
     def name(self):
-        return "solana"
+        raise NotImplementedError
+
+    @property
+    def base_path(self):
+        raise NotImplementedError
+
+    @staticmethod
+    async def fetch_trading_pairs(self) -> List[str]:
+        raise NotImplementedError
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
