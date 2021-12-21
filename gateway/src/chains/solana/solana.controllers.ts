@@ -110,10 +110,10 @@ export async function getOrCreateTokenAccount(
 
   const wallet = solanaish.getWallet(req.privateKey);
   const mintAddress = new PublicKey(tokenInfo.address);
-  // const account = await solanaish.getOrCreateAssociatedTokenAccount(
-  //   wallet,
-  //   mintAddress
-  // );
+  const account = await solanaish.getOrCreateAssociatedTokenAccount(
+    wallet,
+    mintAddress
+  );
 
   let amount;
   try {
@@ -129,7 +129,7 @@ export async function getOrCreateTokenAccount(
     timestamp: initTime,
     token: req.token,
     mintAddress: mintAddress.toString(),
-    accountAddress: undefined,
+    accountAddress: account?.owner?.toString(),
     amount,
   };
 }
