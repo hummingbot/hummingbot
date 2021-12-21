@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js-light';
 import { BigNumber, Wallet } from 'ethers';
 import {
   HttpException,
@@ -156,7 +157,7 @@ export async function trade(
     const price = result.trade.executionPrice.invert();
     if (
       limitPrice &&
-      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+      Decimal(price.toFixed(8).toString()).gte(Decimal(limitPrice))
     )
       throw new HttpException(
         500,
@@ -206,7 +207,7 @@ export async function trade(
     const price = result.trade.executionPrice;
     if (
       limitPrice &&
-      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+      Decimal(price.toFixed(8).toString()).gte(Decimal(limitPrice))
     )
       throw new HttpException(
         500,
