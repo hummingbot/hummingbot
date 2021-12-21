@@ -8,13 +8,15 @@ import {
 import 'jest-extended';
 
 test('countDecimals', () => {
-  expect(countDecimals(0)).toEqual(0);
-  expect(countDecimals(1)).toEqual(0);
-  expect(countDecimals(100)).toEqual(0);
+  const rangeError = 'countDecimals() is only valid for values between (0, 1).';
+  expect(() => countDecimals(0)).toThrow(rangeError);
+  expect(() => countDecimals(1)).toThrow(rangeError);
+  expect(() => countDecimals(-1)).toThrow(rangeError);
+  expect(() => countDecimals(100)).toThrow(rangeError);
+  expect(() => countDecimals(1.0000123)).toThrow(rangeError);
+  expect(() => countDecimals(100.0000123)).toThrow(rangeError);
+  expect(() => countDecimals(1e9)).toThrow(rangeError);
   expect(countDecimals(0.0000123)).toEqual(5);
-  expect(countDecimals(1.0000123)).toEqual(0);
-  expect(countDecimals(100.0000123)).toEqual(0);
-  expect(countDecimals(1e9)).toEqual(0);
   expect(countDecimals(1e-9)).toEqual(9);
 });
 
