@@ -17,7 +17,7 @@ export const unitTests = async () => {
     // call /
     const pair = `${TOKENS[0]}-${TOKENS[1]}`;
     console.log(`Starting Uniswap v2 on pair ${pair}...`);
-    const root = await request('GET', '/eth/uniswap/');
+    const root = await request('GET', '/eth/uniswap/', {});
     console.log(root);
 
     // price buy
@@ -50,19 +50,19 @@ export const unitTests = async () => {
       amount: AMOUNT_TRADE.toString(),
       side: 'BUY',
     });
-    expect(buy.hash).toBeDefined();
-    console.log(`Buy hash - ${buy.hash}`);
-    let done = false;
+    expect(buy.txHash).toBeDefined();
+    console.log(`Buy hash - ${buy.txHash}`);
+    let txStatus = 0;
     let tx1, tx2;
     console.log(`Polling...`);
-    while (!done) {
-      tx1 = await request('POST', '/eth/poll', { txHash: buy.hash });
+    while (txStatus !== 1) {
+      tx1 = await request('POST', '/eth/poll', { txHash: buy.txHash });
       console.log(tx1);
-      done = tx1.confirmed;
+      txStatus = tx1.txStatus;
     }
-    expect(tx1.receipt.status).toEqual(1);
+    expect(tx1.txReceipt.status).toEqual(1);
 
-    done = false;
+    txStatus = 0;
 
     // trade sell
     console.log(
@@ -74,15 +74,15 @@ export const unitTests = async () => {
       amount: AMOUNT_TRADE.toString(),
       side: 'SELL',
     });
-    expect(sell.hash).toBeDefined();
-    console.log(`Buy hash - ${sell.hash}`);
+    expect(sell.txHash).toBeDefined();
+    console.log(`Sell hash - ${sell.txHash}`);
     console.log(`Polling...`);
-    while (!done) {
-      tx2 = await request('POST', '/eth/poll', { txHash: sell.hash });
+    while (txStatus !== 1) {
+      tx2 = await request('POST', '/eth/poll', { txHash: sell.txHash });
       console.log(tx2);
-      done = tx2.confirmed;
+      txStatus = tx2.txStatus;
     }
-    expect(tx2.receipt.status).toEqual(1);
+    expect(tx2.txReceipt.status).toEqual(1);
 
     // add tests for extreme values of limitPrice - buy and sell
     console.log(
