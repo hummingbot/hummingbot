@@ -17,10 +17,10 @@ import {
   AccountInfo,
   ParsedAccountData,
 } from '@solana/web3.js';
-// import {
-//   Token as TokenProgram,
-//   AccountInfo as TokenAccount,
-// } from '@solana/spl-token';
+import {
+  Token as TokenProgram,
+  AccountInfo as TokenAccount,
+} from '@solana/spl-token';
 import { TokenListProvider, TokenInfo } from '@solana/spl-token-registry';
 import { TransactionResponseStatusCode } from './solana.requests';
 
@@ -275,20 +275,20 @@ export class Solana {
 
   // Gets token account information, or creates a new token account for given token mint address
   // if needed, which costs 0.035 SOL
-  // async getOrCreateAssociatedTokenAccount(
-  //   wallet: Keypair,
-  //   tokenAddress: PublicKey
-  // ): Promise<TokenAccount> {
-  //   const tokenProgram = new TokenProgram(
-  //     this._connection,
-  //     tokenAddress,
-  //     this._tokenProgramAddress,
-  //     wallet
-  //   );
-  //   return await tokenProgram.getOrCreateAssociatedAccountInfo(
-  //     wallet.publicKey
-  //   );
-  // }
+  async getOrCreateAssociatedTokenAccount(
+    wallet: Keypair,
+    tokenAddress: PublicKey
+  ): Promise<TokenAccount | null> {
+    const tokenProgram = new TokenProgram(
+      this._connection,
+      tokenAddress,
+      this._tokenProgramAddress,
+      wallet
+    );
+    return await tokenProgram.getOrCreateAssociatedAccountInfo(
+      wallet.publicKey
+    );
+  }
 
   // returns an ethereum TransactionResponse for a txHash.
   async getTransaction(
