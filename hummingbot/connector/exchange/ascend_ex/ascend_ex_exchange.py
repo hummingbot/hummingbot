@@ -24,6 +24,7 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker impor
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -57,14 +58,14 @@ class AscendExCommissionType(Enum):
 
 class AscendExTradingRule(TradingRule):
     def __init__(
-        self,
-        trading_pair: str,
-        min_price_increment: Decimal,
-        min_base_amount_increment: Decimal,
-        min_notional_size: Decimal,
-        max_notional_size: Decimal,
-        commission_type: AscendExCommissionType,
-        commission_reserve_rate: Decimal,
+            self,
+            trading_pair: str,
+            min_price_increment: Decimal,
+            min_base_amount_increment: Decimal,
+            min_notional_size: Decimal,
+            max_notional_size: Decimal,
+            commission_type: AscendExCommissionType,
+            commission_reserve_rate: Decimal,
     ):
         super().__init__(
             trading_pair=trading_pair,
@@ -100,11 +101,11 @@ class AscendExExchange(ExchangePyBase):
         return ctce_logger
 
     def __init__(
-        self,
-        ascend_ex_api_key: str,
-        ascend_ex_secret_key: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
+            self,
+            ascend_ex_api_key: str,
+            ascend_ex_secret_key: str,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
     ):
         """
         :param ascend_ex_api_key: The API key to connect to private AscendEx APIs.
@@ -364,13 +365,13 @@ class AscendExExchange(ExchangePyBase):
         self._account_uid = parsed_response["data"]["userUID"]
 
     async def _api_request(
-        self,
-        method: str,
-        path_url: str,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        is_auth_required: bool = False,
-        force_auth_path_url: Optional[str] = None,
+            self,
+            method: str,
+            path_url: str,
+            params: Optional[Dict[str, Any]] = None,
+            data: Optional[Dict[str, Any]] = None,
+            is_auth_required: bool = False,
+            force_auth_path_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
@@ -445,7 +446,8 @@ class AscendExExchange(ExchangePyBase):
         return self._order_book_tracker.order_books[trading_pair]
 
     def buy(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
+            self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
+            **kwargs
     ) -> str:
         """
         Buys an amount of base asset (of the given trading pair). This function returns immediately.
@@ -461,7 +463,8 @@ class AscendExExchange(ExchangePyBase):
         return client_order_id
 
     def sell(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
+            self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
+            **kwargs
     ) -> str:
         """
         Sells an amount of base asset (of the given trading pair). This function returns immediately.
@@ -487,13 +490,13 @@ class AscendExExchange(ExchangePyBase):
         return order_id
 
     async def _create_order(
-        self,
-        trade_type: TradeType,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        order_type: OrderType,
-        price: Decimal,
+            self,
+            trade_type: TradeType,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType,
+            price: Decimal,
     ):
         """
         Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
@@ -592,14 +595,14 @@ class AscendExExchange(ExchangePyBase):
             )
 
     def start_tracking_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        trade_type: TradeType,
-        price: Decimal,
-        amount: Decimal,
-        order_type: OrderType,
-        exchange_order_id: Optional[str] = None,
+            self,
+            order_id: str,
+            trading_pair: str,
+            trade_type: TradeType,
+            price: Decimal,
+            amount: Decimal,
+            order_type: OrderType,
+            exchange_order_id: Optional[str] = None,
     ):
         """
         Starts tracking an order by simply adding it into InFlightOrderTracker.
@@ -683,7 +686,7 @@ class AscendExExchange(ExchangePyBase):
                     "Unexpected error while fetching account updates.",
                     exc_info=True,
                     app_warning_msg="Could not fetch account updates from AscendEx. "
-                    "Check API key and network connection.",
+                                    "Check API key and network connection.",
                 )
                 await asyncio.sleep(0.5)
             finally:
@@ -785,37 +788,44 @@ class AscendExExchange(ExchangePyBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
-        cancellation_results = []
-        try:
-            tracked_orders: Dict[str, InFlightOrder] = self._in_flight_order_tracker.active_orders
+        order_ids_to_cancel = []
+        cancel_payloads = []
+        successful_cancellations = []
+        failed_cancellations = []
 
-            api_params = {
-                "orders": [
-                    {
-                        "id": ascend_ex_utils.uuid32(),
-                        "orderId": await order.get_exchange_order_id(),
-                        "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(order.trading_pair),
-                        "time": int(time.time() * 1e3),
-                    }
-                    for order in tracked_orders.values()
-                ]
-            }
+        for order in filter(lambda active_order: not active_order.is_done,
+                            self._in_flight_order_tracker.active_orders.values()):
+            if order.exchange_order_id is not None:
+                cancel_payloads.append({
+                    "id": ascend_ex_utils.uuid32(),
+                    "orderId": order.exchange_order_id,
+                    "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(order.trading_pair),
+                    "time": int(time.time() * 1e3),
+                })
+                order_ids_to_cancel.append(order.client_order_id)
+            else:
+                failed_cancellations.append(CancellationResult(order.client_order_id, False))
 
-            await self._api_request(
-                method="delete",
-                path_url=CONSTANTS.ORDER_BATCH_PATH_URL,
-                data=api_params,
-                is_auth_required=True,
-                force_auth_path_url="order/batch",
-            )
+        if cancel_payloads:
+            try:
+                api_params = {"orders": cancel_payloads}
+                await self._api_request(
+                    method="delete",
+                    path_url=CONSTANTS.ORDER_BATCH_PATH_URL,
+                    data=api_params,
+                    is_auth_required=True,
+                    force_auth_path_url="order/batch",
+                )
 
-        except Exception:
-            self.logger().network(
-                "Failed to cancel all orders.",
-                exc_info=True,
-                app_warning_msg="Failed to cancel all orders on AscendEx. Check API key and network connection.",
-            )
-        return cancellation_results
+                successful_cancellations = [CancellationResult(order_id, True) for order_id in order_ids_to_cancel]
+
+            except Exception:
+                self.logger().network(
+                    "Failed to cancel all orders.",
+                    exc_info=True,
+                    app_warning_msg="Failed to cancel all orders on AscendEx. Check API key and network connection.",
+                )
+        return successful_cancellations + failed_cancellations
 
     def tick(self, timestamp: float):
         """
@@ -836,13 +846,13 @@ class AscendExExchange(ExchangePyBase):
         self._last_timestamp = timestamp
 
     def get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
     ) -> TradeFee:
         """For more information: https://ascendex.github.io/ascendex-pro-api/#place-order."""
         trading_pair = f"{base_currency}-{quote_currency}"
@@ -1007,8 +1017,8 @@ class AscendExExchange(ExchangePyBase):
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if (
-            notional_size < trading_rule.min_notional_size * Decimal("1.01")
-            or notional_size > trading_rule.max_notional_size
+                notional_size < trading_rule.min_notional_size * Decimal("1.01")
+                or notional_size > trading_rule.max_notional_size
         ):
             return s_decimal_0
 

@@ -231,11 +231,11 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
     def test_from_json(self):
         order_json = {
-            "client_order_id": "someClientOrderId",
-            "exchange_order_id": None,
-            "trading_pair": "COINALPHA-HBOT",
-            "order_type": "LIMIT",
-            "trade_type": "BUY",
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "trading_pair": self.trading_pair,
+            "order_type": OrderType.LIMIT.name,
+            "trade_type": TradeType.BUY.name,
             "price": "1.0",
             "amount": "1000.0",
             "executed_amount_base": "0",
@@ -249,6 +249,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         expected_order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
@@ -256,7 +257,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
         )
 
-        self.assertEqual(expected_order, InFlightOrder.from_json(order_json))
+        order_from_json = InFlightOrder.from_json(order_json)
+        self.assertEqual(expected_order, order_from_json)
 
     def test_to_json(self):
         order: InFlightOrder = InFlightOrder(

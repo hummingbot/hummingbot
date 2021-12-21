@@ -192,6 +192,7 @@ class InFlightOrder:
             trade_type=getattr(TradeType, data["trade_type"]),
             amount=Decimal(data["amount"]),
             price=Decimal(data["price"]),
+            exchange_order_id=data["exchange_order_id"],
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
