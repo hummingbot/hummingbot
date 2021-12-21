@@ -4,7 +4,6 @@ import { app } from '../../../src/app';
 import { Solana } from '../../../src/chains/solana/solana';
 import { privateKey, publicKey } from './solana.validators.test';
 import { tokenSymbols } from '../../services/validators.test';
-import bs58 from 'bs58';
 
 let solana: Solana;
 beforeAll(async () => {
@@ -25,15 +24,6 @@ describe('GET /solana', () => {
   });
 });
 
-const patchGetWallet = () => {
-  patch(solana, 'getWallet', () => {
-    return {
-      publicKey: bs58.decode(publicKey),
-      secretKey: bs58.decode(privateKey),
-    };
-  });
-};
-
 const patchGetBalances = () => {
   patch(solana, 'getBalances', () => {
     return {
@@ -46,7 +36,6 @@ const patchGetBalances = () => {
 
 describe('POST /solana/balance', () => {
   it('should return 200', async () => {
-    patchGetWallet();
     patchGetBalances();
 
     await request(app)
@@ -81,7 +70,7 @@ const patchGetTokenAccount = () => {
 const patchGetTokenForSymbol = () => {
   patch(solana, 'getTokenForSymbol', () => {
     return {
-      address: privateKey,
+      address: publicKey,
     };
   });
 };
@@ -108,7 +97,7 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(privateKey))
+      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
       .expect((res) => expect(res.body.accountAddress).toBeUndefined())
       .expect((res) => expect(res.body.amount).toBe('0.003'));
   });
@@ -128,7 +117,7 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(privateKey))
+      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
       .expect((res) => expect(res.body.accountAddress).toBe(publicKey))
       .expect((res) => expect(res.body.amount).toBeUndefined());
   });
@@ -146,7 +135,7 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(privateKey))
+      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
       .expect((res) => expect(res.body.accountAddress).toBe(publicKey))
       .expect((res) => expect(res.body.amount).toBe('0.003'));
   });
