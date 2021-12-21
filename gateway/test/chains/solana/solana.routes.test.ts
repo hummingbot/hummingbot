@@ -3,7 +3,9 @@ import { patch, unpatch } from '../../services/patch';
 import { app } from '../../../src/app';
 import { Solana } from '../../../src/chains/solana/solana';
 import { privateKey, publicKey } from './solana.validators.test';
-import { tokenSymbols } from '../../services/validators.test';
+import { tokenSymbols, txHash } from '../../services/validators.test';
+import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana.requests';
+import * as transactionSuccessful from './fixtures/transaction-successful.json';
 
 let solana: Solana;
 beforeAll(async () => {
@@ -179,7 +181,7 @@ describe('POST /solana/token', () => {
       .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
       .expect((res) => expect(res.body.accountAddress).toBeUndefined())
       .expect((res) => expect(res.body.amount).toBe('0.003'));
-  })
+  });
 
   it('should get amount = undefined when Token account not initialized', async () => {
     patchGetTokenForSymbol();
@@ -224,7 +226,45 @@ describe('POST /solana/token', () => {
   });
 });
 
+const patchGetCurrentBlockNumber = () => {
+  patch(solana, 'getCurrentBlockNumber', () => 112646487);
+};
+
+const patchGetTransaction = () => {
+  patch(solana, 'getTransaction', () => transactionSuccessful);
+};
+
+const patchGetTransactionStatusCode = () => {
+  patch(
+    solana,
+    'getTransactionStatusCode',
+    () => TransactionResponseStatusCode.CONFIRMED
+  );
+};
+
 describe('POST /solana/poll', () => {
+  it('should return 200', async () => {
+    patchGetCurrentBlockNumber();
+    patchGetTransaction();
+    patchGetTransactionStatusCode();
+
+    await request(app)
+      .post(`/solana/poll`)
+      .send({ txHash })
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.network).toBe(solana.cluster))
+      .expect((res) => expect(res.body.timestamp).toBeNumber())
+      .expect((res) => expect(res.body.currentBlock).toBe(112646487))
+      .expect((res) => expect(res.body.txHash).toBe(txHash))
+      .expect((res) =>
+        expect(res.body.txStatus).toBe(TransactionResponseStatusCode.CONFIRMED)
+      )
+      .expect((res) =>
+        expect(res.body.txData).toStrictEqual(transactionSuccessful)
+      );
+  });
+
   it('should return 404 when parameters are invalid', async () => {
     await request(app).post(`/solana/poll`).send({}).expect(404);
   });
