@@ -12,6 +12,7 @@ import {
 import { Solanaish } from './solana';
 import { PublicKey } from '@solana/web3.js';
 import { HttpException } from '../../services/error-handler';
+import { tokenSymbols } from '../../../test/services/validators.test';
 
 export async function balances(
   solanaish: Solanaish,
@@ -25,20 +26,20 @@ export async function balances(
     network: solanaish.cluster,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
-    balances: toSolanaBalances(balances),
+    balances: toSolanaBalances(balances, tokenSymbols),
   };
 }
 
 const toSolanaBalances = (
   balances: Record<string, TokenValue>,
-  tokenSymbols?: string[]
+  tokenSymbols: string[]
 ): Record<string, string> => {
-  const filteredBalancesKeys = tokenSymbols
-    ? Object.keys(balances).filter((symbol) => tokenSymbols.includes(symbol))
-    : Object.keys(balances);
+  const filteredBalancesKeys = Object.keys(balances).filter((symbol) =>
+    tokenSymbols.includes(symbol)
+  );
   const solanaBalances: Record<string, string> = {};
 
-  filteredBalancesKeys.map(
+  filteredBalancesKeys.forEach(
     (symbol) => (solanaBalances[symbol] = tokenValueToString(balances[symbol]))
   );
 
