@@ -9,8 +9,9 @@ import {
 import { missingParameter } from '../../../src/services/validators';
 import 'jest-extended';
 
-export const publicKey = 'HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1';
-export const privateKey = 'KQ3cGFBdjJuRsB7U1K4to6cTGBPhgukqPgsi5pryr8v';
+export const publicKey = '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr';
+export const privateKey =
+  '5K23ZvkHuNoakyMKGNoaCvky6a2Yu5yfeoRz2wQLKYAczMKzACN5ZZb9ixu6QcsQvrvh91CNfqu8U1LqC1nvnyfp';
 
 describe('isPublicKey', () => {
   it('pass against a well formed public key', () => {
@@ -32,7 +33,7 @@ describe('isPrivateKey', () => {
   });
 
   it('fail against a string that is too short', () => {
-    expect(isPrivateKey(privateKey.substring(1))).toEqual(false);
+    expect(isPrivateKey(privateKey.substring(2))).toEqual(false);
   });
 
   it('fail against a string that is too long', () => {
