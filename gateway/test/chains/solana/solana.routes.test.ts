@@ -96,9 +96,7 @@ describe('GET /solana/token', () => {
   it('should return 200', async () => {
     patchGetTokenForSymbol();
     patch(solana, 'getTokenAccount', () => {
-      return {
-        owner: undefined,
-      };
+      return null;
     });
     patchGetSplBalance();
 
@@ -154,7 +152,7 @@ describe('GET /solana/token', () => {
   });
 
   it('should return 501 when token not found', async () => {
-    patch(solana, 'getTokenForSymbol', () => undefined);
+    patch(solana, 'getTokenForSymbol', () => null);
 
     await request(app)
       .get(`/solana/token`)
