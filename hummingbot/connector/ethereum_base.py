@@ -1,19 +1,13 @@
 import logging
 from decimal import Decimal
 import asyncio
-import aiohttp
-from typing import Dict, Any, List, Optional
-import json
-import time
-import ssl
-import copy
+from typing import Dict, List, Optional
+
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -27,10 +21,8 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
-from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway_base import GatewayBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
 
 s_logger = None
@@ -39,7 +31,7 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class EthereumBase(ConnectorBase):
+class EthereumBase(GatewayBase):
     """
     Defines basic functions common to connectors that interact with Ethereum through Gateway.
     """
@@ -65,25 +57,13 @@ class EthereumBase(ConnectorBase):
         :param wallet_private_key: a private key for eth wallet
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
-        super().__init__()
-        self._trading_pairs = trading_pairs
+        super().__init__(trading_pairs, trading_required)
         self._tokens = set()
         for trading_pair in trading_pairs:
             self._tokens.update(set(trading_pair.split("-")))
         self._wallet_private_key = wallet_private_key
-        self._trading_required = trading_required
-        self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
-        self._last_poll_timestamp = 0.0
-        self._last_balance_poll_timestamp = time.time()
         self._last_est_gas_cost_reported = 0
-        self._in_flight_orders = {}
         self._allowances = {}
-        self._chain_info = {}
-        self._status_polling_task = None
-        self._auto_approve_task = None
-        self._get_chain_info_task = None
-        self._poll_notifier = None
         self._nonce = None
 
     @property
@@ -91,12 +71,36 @@ class EthereumBase(ConnectorBase):
         raise NotImplementedError
 
     @property
+    def network_base_path(self):
+        return "eth"
+
+    @property
     def base_path(self):
         raise NotImplementedError
+
+    @property
+    def private_key(self):
+        if self._wallet_private_key[:2] != "0x":
+            self._wallet_private_key = "0x" + self._wallet_private_key
+        return self._wallet_private_key
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         return await fetch_trading_pairs()
+
+    async def init(self):
+        await self.auto_approve()
+
+    @property
+    def ready(self):
+        return all(self.status_dict.values())
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "allowances": self.has_allowances() if self._trading_required else True
+        }
 
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:
@@ -105,40 +109,9 @@ class EthereumBase(ConnectorBase):
             for approval_order in self._in_flight_orders.values() if approval_order.client_order_id.split("_")[0] == "approve"
         ]
 
-    @property
-    def amm_orders(self) -> List[GatewayInFlightOrder]:
-        return [
-            in_flight_order
-            for in_flight_order in self._in_flight_orders.values() if in_flight_order not in self.approval_orders
-        ]
-
-    @property
-    def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self.amm_orders
-        ]
-
     def is_pending_approval(self, token: str) -> bool:
         pending_approval_tokens = [tk.split("_")[2] for tk in self._in_flight_orders.keys()]
         return True if token in pending_approval_tokens else False
-
-    async def get_chain_info(self):
-        """
-        Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
-        """
-        try:
-            resp = await self._api_request("get", f"{self.base_path}/")
-            if bool(str(resp["success"])):
-                self._chain_info = resp
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                "Error fetching chain info",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
 
     async def auto_approve(self):
         """
@@ -185,6 +158,13 @@ class EthereumBase(ConnectorBase):
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
+
+    def has_allowances(self) -> bool:
+        """
+        Checks if all tokens have allowance (an amount approved)
+        """
+        return len(self._allowances.values()) == len(self._tokens) and \
+            all(amount > s_decimal_0 for amount in self._allowances.values())
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
@@ -318,7 +298,7 @@ class EthereumBase(ConnectorBase):
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
             gas_cost = order_result.get("gasCost")
-            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
+            self.start_tracking_order(order_id, None, trading_pair, OrderType.LIMIT, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
 
             if tracked_order is not None:
@@ -351,35 +331,6 @@ class EthereumBase(ConnectorBase):
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
-
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: str,
-                             trading_pair: str = "",
-                             trade_type: TradeType = TradeType.BUY,
-                             price: Decimal = s_decimal_0,
-                             amount: Decimal = s_decimal_0,
-                             gas_price: Decimal = s_decimal_0):
-        """
-        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
-        """
-        self._in_flight_orders[order_id] = GatewayInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=trade_type,
-            price=price,
-            amount=amount,
-            gas_price=gas_price
-        )
-
-    def stop_tracking_order(self, order_id: str):
-        """
-        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
-        """
-        if order_id in self._in_flight_orders:
-            del self._in_flight_orders[order_id]
 
     async def _update_approval_order_status(self, tracked_orders: GatewayInFlightOrder):
         """
@@ -468,62 +419,6 @@ class EthereumBase(ConnectorBase):
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         return Decimal("1e-15")
 
-    @property
-    def ready(self):
-        return all(self.status_dict.values())
-
-    def has_allowances(self) -> bool:
-        """
-        Checks if all tokens have allowance (an amount approved)
-        """
-        return len(self._allowances.values()) == len(self._tokens) and \
-            all(amount > s_decimal_0 for amount in self._allowances.values())
-
-    @property
-    def status_dict(self) -> Dict[str, bool]:
-        return {
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True
-        }
-
-    async def start_network(self):
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
-
-    async def stop_network(self):
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._auto_approve_task is not None:
-            self._auto_approve_task.cancel()
-            self._auto_approve_task = None
-        if self._get_chain_info_task is not None:
-            self._get_chain_info_task.cancel()
-            self._get_chain_info_task = None
-
-    async def check_network(self) -> NetworkStatus:
-        try:
-            response = await self._api_request("get", "")
-            if 'status' in response and response['status'] == 'ok':
-                pass
-            else:
-                raise Exception(f"Error connecting to Gateway API. Response is {response}.")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    def tick(self, timestamp: float):
-        """
-        Is called automatically by the clock for each clock's tick (1 second by default).
-        It checks if status polling task is due for execution.
-        """
-        if time.time() - self._last_poll_timestamp > self.POLL_INTERVAL:
-            if self._poll_notifier is not None and not self._poll_notifier.is_set():
-                self._poll_notifier.set()
-
     async def _update_nonce(self):
         """
         Call the gateway API to get the current nonce for self._wallet_private_key
@@ -531,104 +426,12 @@ class EthereumBase(ConnectorBase):
         resp_json = await self._api_request("post", "eth/nonce", {})
         self._nonce = resp_json['nonce']
 
-    async def _status_polling_loop(self):
-        await self._update_balances(on_interval = False)
-        while True:
-            try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self._update_balances(on_interval = True),
-                    self._update_approval_order_status(self.approval_orders),
-                    self._update_order_status(self.amm_orders)
-                )
-                self._last_poll_timestamp = self.current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch balances from Gateway API.")
-
-    async def _update_balances(self, on_interval = False):
-        """
-        Calls Eth API to update total and available balances.
-        """
-        last_tick = self._last_balance_poll_timestamp
-        current_tick = self.current_timestamp
-        if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
-            self._last_balance_poll_timestamp = current_tick
-            local_asset_names = set(self._account_balances.keys())
-            remote_asset_names = set()
-            resp_json = await self._api_request("post",
-                                                "eth/balances",
-                                                {"tokenSymbols": list(self._tokens)})
-            for token, bal in resp_json["balances"].items():
-                self._account_available_balances[token] = Decimal(str(bal))
-                self._account_balances[token] = Decimal(str(bal))
-                remote_asset_names.add(token)
-
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
-
-            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
-            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
-            self._shared_client = aiohttp.ClientSession(connector=conn)
-        return self._shared_client
-
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Dict[str, Any] = {}) -> Dict[str, Any]:
-        """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
-        :param params: A dictionary of required params for the end point
-        :returns A response in json format.
-        """
-        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                   f"{global_config_map['gateway_api_port'].value}"
-        url = f"{base_url}/{path_url}"
-        client = await self._http_client()
-        if method == "get":
-            if len(params) > 0:
-                response = await client.get(url, params=params)
-            else:
-                response = await client.get(url)
-        elif method == "post":
-            params["privateKey"] = self._wallet_private_key
-            if params["privateKey"][:2] != "0x":
-                params["privateKey"] = "0x" + params["privateKey"]
-            response = await client.post(url, json=params)
-        parsed_response = json.loads(await response.text())
-        if response.status != 200:
-            err_msg = ""
-            if "error" in parsed_response:
-                err_msg = f" Message: {parsed_response['error']}"
-            elif "message" in parsed_response:
-                err_msg = f" Message: {parsed_response['message']}"
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
-        if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
-
-        return parsed_response
+    async def _update(self):
+        await safe_gather(
+            self.update_balances(on_interval=True),
+            self._update_approval_order_status(self.approval_orders),
+            self._update_order_status(self.amm_orders)
+        )
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
-
-    @property
-    def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
-        return self._in_flight_orders
