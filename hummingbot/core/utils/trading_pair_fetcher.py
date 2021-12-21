@@ -47,6 +47,7 @@ class TradingPairFetcher:
             module = getattr(importlib.import_module(module_path), class_name)
             args = {}
             args = conn_setting.add_domain_parameter(args)
+            print(class_name)
             safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(**args), conn_setting.name))
 
         self.ready = True
