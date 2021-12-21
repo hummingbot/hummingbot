@@ -6,48 +6,37 @@ import {
   validatePublicKey,
   invalidPublicKeyError,
 } from '../../../src/chains/solana/solana.validators';
-
 import { missingParameter } from '../../../src/services/validators';
-
 import 'jest-extended';
+
+export const publicKey = 'HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1';
+export const privateKey = 'KQ3cGFBdjJuRsB7U1K4to6cTGBPhgukqPgsi5pryr8v';
 
 describe('isPublicKey', () => {
   it('pass against a well formed public key', () => {
-    expect(isPublicKey('HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1')).toEqual(
-      true
-    );
+    expect(isPublicKey(publicKey)).toEqual(true);
   });
 
   it('fail against a string that is too short', () => {
-    expect(isPublicKey('HAE1oNnc3XBmPudphRcHhyCvGS')).toEqual(false);
+    expect(isPublicKey(publicKey.substring(2))).toEqual(false);
   });
 
   it('fail against a string that is too long', () => {
-    expect(
-      isPublicKey(
-        'HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1HAE1oNnc3XBmPudphRcHh'
-      )
-    ).toEqual(false);
+    expect(isPublicKey(publicKey + 1)).toEqual(false);
   });
 });
 
 describe('isPrivateKey', () => {
   it('pass against a well formed private key', () => {
-    expect(
-      isPrivateKey('HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1')
-    ).toEqual(true);
+    expect(isPrivateKey(privateKey)).toEqual(true);
   });
 
   it('fail against a string that is too short', () => {
-    expect(isPrivateKey('HAE1oNnc3XBmPudphRcHhyCvGS')).toEqual(false);
+    expect(isPrivateKey(privateKey.substring(1))).toEqual(false);
   });
 
   it('fail against a string that is too long', () => {
-    expect(
-      isPrivateKey(
-        'HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1HAE1oNnc3XBmPudphRcHh'
-      )
-    ).toEqual(false);
+    expect(isPrivateKey(privateKey + 1)).toEqual(false);
   });
 });
 
@@ -55,7 +44,7 @@ describe('validatePrivateKey', () => {
   it('valid when req.privateKey is a privateKey', () => {
     expect(
       validatePrivateKey({
-        privateKey: 'HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1',
+        privateKey,
       })
     ).toEqual([]);
   });
@@ -81,7 +70,7 @@ describe('validatePublicKey', () => {
   it('valid when req.publicKey is a publicKey', () => {
     expect(
       validatePublicKey({
-        publicKey: 'HAE1oNnc3XBmPudphRcHhyCvGShtgDYtZVzx2MocKEr1',
+        publicKey,
       })
     ).toEqual([]);
   });
