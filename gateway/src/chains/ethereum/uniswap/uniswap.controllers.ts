@@ -157,7 +157,7 @@ export async function trade(
     const price = result.trade.executionPrice.invert();
     if (
       limitPrice &&
-      Decimal(price.toFixed(8).toString()).gte(Decimal(limitPrice))
+      new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
     )
       throw new HttpException(
         500,
@@ -207,7 +207,7 @@ export async function trade(
     const price = result.trade.executionPrice;
     if (
       limitPrice &&
-      Decimal(price.toFixed(8).toString()).gte(Decimal(limitPrice))
+      new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
     )
       throw new HttpException(
         500,
