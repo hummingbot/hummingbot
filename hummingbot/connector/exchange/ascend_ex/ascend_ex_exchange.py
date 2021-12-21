@@ -526,7 +526,6 @@ class AscendExExchange(ExchangePyBase):
             }
             self.start_tracking_order(
                 order_id=order_id,
-                exchange_order_id=ascend_ex_utils.gen_exchange_order_id(self._account_uid, order_uuid, timestamp)[0],
                 trading_pair=trading_pair,
                 trade_type=trade_type,
                 price=price,
@@ -633,23 +632,26 @@ class AscendExExchange(ExchangePyBase):
         try:
             tracked_order = self._in_flight_order_tracker.fetch_tracked_order(order_id)
             if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
+                non_tracked_order = self._in_flight_order_tracker.fetch_cached_order(order_id)
+                if non_tracked_order is None:
+                    raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+                else:
+                    self.logger().info(f"The order {order_id} was finished before being cancelled")
+            else:
+                ex_order_id = await tracked_order.get_exchange_order_id()
 
-            api_params = {
-                "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(trading_pair),
-                "orderId": ex_order_id,
-                "time": ascend_ex_utils.get_ms_timestamp(),
-            }
-            await self._api_request(
-                method="delete",
-                path_url=CONSTANTS.ORDER_PATH_URL,
-                data=api_params,
-                is_auth_required=True,
-                force_auth_path_url="order",
-            )
+                api_params = {
+                    "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(trading_pair),
+                    "orderId": ex_order_id,
+                    "time": ascend_ex_utils.get_ms_timestamp(),
+                }
+                await self._api_request(
+                    method="delete",
+                    path_url=CONSTANTS.ORDER_PATH_URL,
+                    data=api_params,
+                    is_auth_required=True,
+                    force_auth_path_url="order",
+                )
 
             return order_id
         except asyncio.CancelledError:
@@ -712,29 +714,33 @@ class AscendExExchange(ExchangePyBase):
 
         tracked_orders: List[InFlightOrder] = list(self._in_flight_order_tracker.active_orders.values())
 
-        open_orders: List[InFlightOrder] = []
-        for o in tracked_orders:
+        ex_oid_to_c_oid_map: Dict[str, str] = {}
+        # Check a second time the order is not done because it can be updated in other async process
+        for order in (tracked_order for tracked_order in tracked_orders if not tracked_order.is_done):
             try:
-                await o.get_exchange_order_id()
-                open_orders.append(o)
+                exchange_id = await order.get_exchange_order_id()
+                ex_oid_to_c_oid_map[exchange_id] = order.client_order_id
             except asyncio.TimeoutError:
                 self.logger().debug(
-                    f"Tracked order {o.client_order_id} does not have an exchange id. "
+                    f"Tracked order {order.client_order_id} does not have an exchange id. "
                     f"Attempting fetch in next polling interval."
                 )
                 continue
 
-        ex_oid_to_c_oid_map: Dict[str, str] = {o.exchange_order_id: o.client_order_id for o in open_orders}
-
         exchange_order_ids_param_str: str = ",".join(list(ex_oid_to_c_oid_map.keys()))
         params = {"orderId": exchange_order_ids_param_str}
-        resp = await self._api_request(
-            method="get",
-            path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
-            params=params,
-            is_auth_required=True,
-            force_auth_path_url="order/status",
-        )
+        try:
+            resp = await self._api_request(
+                method="get",
+                path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
+                params=params,
+                is_auth_required=True,
+                force_auth_path_url="order/status",
+            )
+        except Exception:
+            self.logger().exception(
+                f"There was an error requesting updates for the active orders ({ex_oid_to_c_oid_map})")
+            raise
         self.logger().debug(f"Polling for order status updates of {len(ex_oid_to_c_oid_map)} orders.")
         self.logger().debug(f"cash/order/status?orderId={exchange_order_ids_param_str} response: {resp}")
         # The data returned from this end point can be either a list or a dict depending on number of orders
