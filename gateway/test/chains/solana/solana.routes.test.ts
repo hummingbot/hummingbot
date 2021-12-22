@@ -5,11 +5,21 @@ import { Solana } from '../../../src/chains/solana/solana';
 import { privateKey, publicKey } from './solana.validators.test';
 import { tokenSymbols, txHash } from '../../services/validators.test';
 import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana.requests';
-import * as transactionSuccessful from './fixtures/transaction-successful.json';
+import * as getTransactionData from './fixtures/getTransaction.json';
+import * as getTokenAccountData from './fixtures/getTokenAccount.json';
+import * as getTokenListData from './fixtures/getTokenList.json';
 
 let solana: Solana;
 beforeAll(async () => {
   solana = Solana.getInstance();
+  solana.getTokenList = jest
+    .fn()
+    .mockReturnValue([
+      getTokenListData[0],
+      getTokenListData[1],
+      getTokenListData[2],
+      getTokenListData[3],
+    ]);
   await solana.init();
 });
 
@@ -61,21 +71,8 @@ describe('POST /solana/balance', () => {
   });
 });
 
-const tokenAccount = {
-  owner: publicKey,
-};
 const patchGetTokenAccount = () => {
-  patch(solana, 'getTokenAccount', () => {
-    return tokenAccount;
-  });
-};
-
-const patchGetTokenForSymbol = () => {
-  patch(solana, 'getTokenForSymbol', () => {
-    return {
-      address: publicKey,
-    };
-  });
+  patch(solana, 'getTokenAccount', () => getTokenAccountData);
 };
 
 const patchGetSplBalance = () => {
@@ -86,7 +83,6 @@ const patchGetSplBalance = () => {
 
 describe('GET /solana/token', () => {
   it('should get accountAddress = undefined when Token account not found', async () => {
-    patchGetTokenForSymbol();
     patch(solana, 'getTokenAccount', () => {
       return null;
     });
@@ -100,13 +96,14 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
+      .expect((res) =>
+        expect(res.body.mintAddress).toBe(getTokenListData[0].address)
+      )
       .expect((res) => expect(res.body.accountAddress).toBeUndefined())
       .expect((res) => expect(res.body.amount).toBe('0.003'));
   });
 
   it('should get amount = undefined when Token account not initialized', async () => {
-    patchGetTokenForSymbol();
     patchGetTokenAccount();
     patch(solana, 'getSplBalance', () => {
       throw new Error(`Token account not initialized`);
@@ -120,13 +117,16 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
-      .expect((res) => expect(res.body.accountAddress).toBe(publicKey))
+      .expect((res) =>
+        expect(res.body.mintAddress).toBe(getTokenListData[0].address)
+      )
+      .expect((res) =>
+        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+      )
       .expect((res) => expect(res.body.amount).toBeUndefined());
   });
 
   it('should return 200', async () => {
-    patchGetTokenForSymbol();
     patchGetTokenAccount();
     patchGetSplBalance();
 
@@ -138,14 +138,16 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
-      .expect((res) => expect(res.body.accountAddress).toBe(publicKey))
+      .expect((res) =>
+        expect(res.body.mintAddress).toBe(getTokenListData[0].address)
+      )
+      .expect((res) =>
+        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+      )
       .expect((res) => expect(res.body.amount).toBe('0.003'));
   });
 
   it('should return 501 when token not found', async () => {
-    patch(solana, 'getTokenForSymbol', () => null);
-
     await request(app)
       .get(`/solana/token`)
       .send({ token: 'not found', publicKey })
@@ -157,14 +159,11 @@ describe('GET /solana/token', () => {
 });
 
 const patchGetOrCreateAssociatedTokenAccount = () => {
-  patch(solana, 'getOrCreateAssociatedTokenAccount', () => {
-    return tokenAccount;
-  });
+  patch(solana, 'getOrCreateAssociatedTokenAccount', () => getTokenAccountData);
 };
 
 describe('POST /solana/token', () => {
   it('should get accountAddress = undefined when Token account not found', async () => {
-    patchGetTokenForSymbol();
     patch(solana, 'getOrCreateAssociatedTokenAccount', () => {
       return null;
     });
@@ -178,13 +177,14 @@ describe('POST /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
+      .expect((res) =>
+        expect(res.body.mintAddress).toBe(getTokenListData[0].address)
+      )
       .expect((res) => expect(res.body.accountAddress).toBeUndefined())
       .expect((res) => expect(res.body.amount).toBe('0.003'));
   });
 
   it('should get amount = undefined when Token account not initialized', async () => {
-    patchGetTokenForSymbol();
     patchGetOrCreateAssociatedTokenAccount();
     patch(solana, 'getSplBalance', () => {
       throw new Error(`Token account not initialized`);
@@ -198,13 +198,16 @@ describe('POST /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
-      .expect((res) => expect(res.body.accountAddress).toBe(publicKey))
+      .expect((res) =>
+        expect(res.body.mintAddress).toBe(getTokenListData[0].address)
+      )
+      .expect((res) =>
+        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+      )
       .expect((res) => expect(res.body.amount).toBeUndefined());
   });
 
   it('should return 200', async () => {
-    patchGetTokenForSymbol();
     patchGetOrCreateAssociatedTokenAccount();
     patchGetSplBalance();
 
@@ -216,8 +219,12 @@ describe('POST /solana/token', () => {
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
       .expect((res) => expect(res.body.token).toBe(tokenSymbols[0]))
-      .expect((res) => expect(res.body.mintAddress).toBe(publicKey))
-      .expect((res) => expect(res.body.accountAddress).toBe(publicKey))
+      .expect((res) =>
+        expect(res.body.mintAddress).toBe(getTokenListData[0].address)
+      )
+      .expect((res) =>
+        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+      )
       .expect((res) => expect(res.body.amount).toBe('0.003'));
   });
 
@@ -232,7 +239,7 @@ const patchGetCurrentBlockNumber = () => {
 };
 
 const patchGetTransaction = () => {
-  patch(solana, 'getTransaction', () => transactionSuccessful);
+  patch(solana, 'getTransaction', () => getTransactionData);
 };
 
 describe('POST /solana/poll', () => {
@@ -253,7 +260,7 @@ describe('POST /solana/poll', () => {
         expect(res.body.txStatus).toBe(TransactionResponseStatusCode.CONFIRMED)
       )
       .expect((res) =>
-        expect(res.body.txData).toStrictEqual(transactionSuccessful)
+        expect(res.body.txData).toStrictEqual(getTransactionData)
       );
   });
 

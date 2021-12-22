@@ -70,7 +70,7 @@ export async function token(
   req: GetSolanaTokenRequest
 ): Promise<SolanaTokenResponse> {
   const initTime = Date.now();
-  const tokenInfo = await solanaish.getTokenForSymbol(req.token);
+  const tokenInfo = solanaish.getTokenForSymbol(req.token);
   if (!tokenInfo) {
     throw new HttpException(501, 'Token not found');
   }
@@ -103,7 +103,7 @@ export async function getOrCreateTokenAccount(
   req: PostSolanaTokenRequest
 ): Promise<SolanaTokenResponse> {
   const initTime = Date.now();
-  const tokenInfo = await solanaish.getTokenForSymbol(req.token);
+  const tokenInfo = solanaish.getTokenForSymbol(req.token);
   if (!tokenInfo) {
     throw new HttpException(501, 'Token not found');
   }
