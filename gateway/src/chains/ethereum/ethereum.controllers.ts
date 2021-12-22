@@ -356,7 +356,7 @@ export async function poll(
     } else {
       // tx has been processed
       txBlock = txReceipt.blockNumber;
-      txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
+      txStatus = typeof txReceipt.status === 'number' ? 1 : -1;
       if (txStatus === 0) {
         const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
         const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
