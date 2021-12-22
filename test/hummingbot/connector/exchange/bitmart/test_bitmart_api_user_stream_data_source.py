@@ -4,7 +4,7 @@ import unittest
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 
-from typing import Awaitable
+from typing import Awaitable, Any, Dict
 from unittest.mock import patch, AsyncMock
 
 from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
@@ -66,6 +66,30 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
+        mock_response: Dict[Any] = {
+            "data": [
+                {
+                    "symbol": "BTC_USDT",
+                    "side": "buy",
+                    "type": "market",
+                    "notional": "",
+                    "size": "1.0000000000",
+                    "ms_t": "1609926028000",
+                    "price": "46100.0000000000",
+                    "filled_notional": "46100.0000000000",
+                    "filled_size": "1.0000000000",
+                    "margin_trading": "0",
+                    "state": "2",
+                    "order_id": "2147857398",
+                    "order_type": "0",
+                    "last_fill_time": "1609926039226",
+                    "last_fill_price": "46100.00000",
+                    "last_fill_count": "1.00000"
+                }
+            ],
+            "table": "spot/user/order"
+        }
+
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         initial_last_recv_time = self.data_source.last_recv_time
@@ -79,11 +103,11 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             json.dumps({"event": "login"}))
 
         # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(mock_response))
 
         first_received_message = self.ev_loop.run_until_complete(messages.get())
 
-        self.assertEqual('dummyMessage', first_received_message)
+        self.assertEqual(mock_response, first_received_message)
 
         self.assertTrue(self._is_logged('INFO', "Authenticating to User Stream..."))
         self.assertTrue(self._is_logged('INFO', "Successfully authenticated to User Stream."))
