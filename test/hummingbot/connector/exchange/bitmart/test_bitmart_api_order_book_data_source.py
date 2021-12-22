@@ -289,7 +289,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_ws.close.return_value = None
 
         resp = {
-            "table": "spot/depth500",
+            "table": "spot/depth5",
             "data": [
                 {
                     "asks": [
@@ -323,6 +323,8 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(msg_queue.get())
         except asyncio.exceptions.TimeoutError:
             pass
+
+        print(msg_queue.messages)
 
         first_msg: OrderBookMessage = msg_queue.messages[-1]
         self.assertTrue(first_msg.type == OrderBookMessageType.SNAPSHOT)

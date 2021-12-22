@@ -147,7 +147,10 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=self.MESSAGE_TIMEOUT)
+                try:
+                    await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=self.MESSAGE_TIMEOUT, ping_timeout=self.PING_TIMEOUT)
+                except RuntimeError:
+                    self.logger().info("BitMart WebSocket already connected.")
 
                 for trading_pair in self._trading_pairs:
                     ws_message: WSRequest = WSRequest({
@@ -163,8 +166,12 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     messages = ujson.loads(messages)
 
-                    if "errorCode" in messages.keys() or "data" not in messages.keys():
+                    if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
                         # Error/Unrecognized response from "depth400" channel
+                        continue
+
+                    if messages["table"] != "spot/trade":
+                        # Not a trade message
                         continue
 
                     for msg in messages["data"]:        # data is a list
@@ -180,9 +187,10 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except asyncio.exceptions.TimeoutError:
-                pass
+                await ws.disconnect()
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
+                await ws.disconnect()
                 await self._sleep(5.0)
             finally:
                 await ws.disconnect()
@@ -210,8 +218,12 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     messages = ujson.loads(messages)
 
-                    if "errorCode" in messages.keys() or "data" not in messages.keys():
+                    if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
                         # Error/Unrecognized response from "depth400" channel
+                        continue
+
+                    if messages["table"] != "spot/depth5":
+                        # Not an order book message
                         continue
 
                     for msg in messages["data"]:        # data is a list
@@ -227,7 +239,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except asyncio.exceptions.TimeoutError:
-                pass
+                await ws.disconnect()
             except Exception:
                 self.logger().network(
                     "Unexpected error with WebSocket connection.",
@@ -235,6 +247,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
+                await ws.disconnect()
                 await self._sleep(30.0)
             finally:
                 await ws.disconnect()
