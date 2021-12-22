@@ -17,12 +17,12 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
-    TradeFee,
     MarketEvent,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy

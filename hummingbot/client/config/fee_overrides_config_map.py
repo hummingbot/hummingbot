@@ -1,5 +1,5 @@
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.event.events import TradeFeeType
+from hummingbot.core.data_type.trade_fee import TradeFeeType
 from hummingbot.client.config.config_methods import new_fee_config_var
 
 

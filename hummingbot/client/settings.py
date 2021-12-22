@@ -15,7 +15,7 @@ from typing import List, NamedTuple, Dict, Any, Optional, Set
 from hummingbot import get_strategy_list
 from pathlib import Path
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.event.events import TradeFeeType
+from hummingbot.core.data_type.trade_fee import TradeFeeType
 
 # Global variables
 required_exchanges: List[str] = []

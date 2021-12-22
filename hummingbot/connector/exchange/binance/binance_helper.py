@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import datetime, timezone
-from hummingbot.core.data_type.trade import Trade, TradeType, TradeFee
+from hummingbot.core.data_type.trade import Trade, TradeType
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.exchange.binance.binance_utils import (
     convert_from_exchange_trading_pair,
 )

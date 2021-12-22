@@ -31,9 +31,9 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,

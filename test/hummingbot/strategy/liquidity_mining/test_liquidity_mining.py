@@ -18,7 +18,7 @@ from hummingbot.strategy.liquidity_mining.data_types import PriceSize, Proposal
 from hummingbot.strategy.liquidity_mining.liquidity_mining import LiquidityMiningStrategy
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.core.event.events import TradeFee
+from hummingbot.core.data_type.trade_fee import TradeFee
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 

@@ -25,7 +25,6 @@ from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerF
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent, SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
     BuyOrderCompletedEvent,
     OrderFilledEvent,
@@ -35,6 +34,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.exchange.beaxy.beaxy_exchange import BeaxyExchange
 from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
 from typing import (

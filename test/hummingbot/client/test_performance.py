@@ -5,7 +5,8 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.data_type.trade import Trade, TradeType, TradeFee
+from hummingbot.core.data_type.trade import Trade, TradeType
+from hummingbot.core.data_type.trade_fee import TradeFee
 
 trading_pair = "HBOT-USDT"
 base, quote = trading_pair.split("-")
@@ -21,7 +22,7 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         trade.amount = amount
         trade.price = price
         if fee:
-            trade.trade_fee = TradeFee.to_json(fee)
+            trade.trade_fee = fee.to_json()
 
         return trade
 

@@ -17,9 +17,9 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    TradeFee
+    SellOrderCompletedEvent
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_5_vwap import Dev5TwapTradeStrategy
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
