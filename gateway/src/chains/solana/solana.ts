@@ -162,7 +162,7 @@ export class Solana {
 
   // return the TokenInfo object for a symbol
   getTokenForSymbol(symbol: string): TokenInfo | null {
-    return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
+    return this._tokenMap[symbol] ?? null;
   }
 
   // return the TokenInfo object for a symbol
