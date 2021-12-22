@@ -79,7 +79,7 @@ const patchGetTokenAccount = () => {
 
 const patchGetSplBalance = () => {
   patch(solana, 'getSplBalance', () => {
-    return { value: 3, decimals: 3 };
+    return { value: BigNumber.from(123456), decimals: 9 };
   });
 };
 
@@ -102,7 +102,7 @@ describe('GET /solana/token', () => {
         expect(res.body.mintAddress).toBe(getTokenListData[0].address)
       )
       .expect((res) => expect(res.body.accountAddress).toBeUndefined())
-      .expect((res) => expect(res.body.amount).toBe('0.003'));
+      .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
   it('should get amount = undefined when Token account not initialized', async () => {
@@ -146,7 +146,7 @@ describe('GET /solana/token', () => {
       .expect((res) =>
         expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
       )
-      .expect((res) => expect(res.body.amount).toBe('0.003'));
+      .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
   it('should return 501 when token not found', async () => {
@@ -183,7 +183,7 @@ describe('POST /solana/token', () => {
         expect(res.body.mintAddress).toBe(getTokenListData[0].address)
       )
       .expect((res) => expect(res.body.accountAddress).toBeUndefined())
-      .expect((res) => expect(res.body.amount).toBe('0.003'));
+      .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
   it('should get amount = undefined when Token account not initialized', async () => {
@@ -227,7 +227,7 @@ describe('POST /solana/token', () => {
       .expect((res) =>
         expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
       )
-      .expect((res) => expect(res.body.amount).toBe('0.003'));
+      .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
   it('should return 404 when parameters are invalid', async () => {
