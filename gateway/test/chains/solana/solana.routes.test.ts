@@ -8,6 +8,7 @@ import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana
 import * as getTransactionData from './fixtures/getTransaction.json';
 import * as getTokenAccountData from './fixtures/getTokenAccount.json';
 import * as getTokenListData from './fixtures/getTokenList.json';
+import { BigNumber } from 'ethers';
 
 let solana: Solana;
 beforeAll(async () => {
@@ -39,9 +40,10 @@ describe('GET /solana', () => {
 const patchGetBalances = () => {
   patch(solana, 'getBalances', () => {
     return {
-      [tokenSymbols[0]]: { value: 1, decimals: 1 },
-      [tokenSymbols[1]]: { value: 2, decimals: 2 },
-      OTH: { value: 3, decimals: 3 },
+      SOL: { value: BigNumber.from(228293), decimals: 9 },
+      [tokenSymbols[0]]: { value: BigNumber.from(100001), decimals: 9 },
+      [tokenSymbols[1]]: { value: BigNumber.from(200002), decimals: 9 },
+      OTH: { value: BigNumber.from(300003), decimals: 9 },
     };
   });
 };
@@ -60,8 +62,8 @@ describe('POST /solana/balance', () => {
       .expect((res) => expect(res.body.latency).toBeNumber())
       .expect((res) =>
         expect(res.body.balances).toEqual({
-          [tokenSymbols[0]]: '0.1',
-          [tokenSymbols[1]]: '0.02',
+          [tokenSymbols[0]]: '0.000100001',
+          [tokenSymbols[1]]: '0.000200002',
         })
       );
   });
