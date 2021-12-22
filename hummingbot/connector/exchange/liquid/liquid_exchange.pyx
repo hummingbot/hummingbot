@@ -320,22 +320,6 @@ cdef class LiquidExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        """
-        *required
-        function to calculate fees for a particular order
-        :returns: TradeFee class that includes fee percentage and flat fees
-        """
-        """
-        cdef:
-            object maker_fee = Decimal("0.0010")
-            object taker_fee = Decimal("0.0010")
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["liquid_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("liquid", is_maker)
 

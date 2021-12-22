@@ -16,7 +16,7 @@ import time
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
-from hummingbot.core.utils import estimate_fee
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -608,7 +608,7 @@ class DigifinexExchange(ExchangeBase):
                     tracked_order.order_type,
                     Decimal(str(trade_msg["executed_price"])),
                     Decimal(str(trade_msg["executed_amount"])),
-                    estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                    estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                     # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
                     exchange_trade_id=trade_msg["tid"]
                 )
@@ -659,7 +659,7 @@ class DigifinexExchange(ExchangeBase):
                 tracked_order.order_type,
                 delta_trade_price,
                 delta_trade_amount,
-                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id='N/A'
             )

@@ -30,9 +30,10 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
@@ -52,7 +53,6 @@ from hummingbot.connector.exchange_base import (
 )
 from hummingbot.connector.exchange.mexc.mexc_user_stream_tracker import MexcUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from hummingbot.connector.exchange.mexc.constants import *
 

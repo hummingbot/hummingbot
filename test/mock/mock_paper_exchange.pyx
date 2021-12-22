@@ -11,7 +11,6 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting, ConnectorType
-from hummingbot.core.data_type.trade_fee import TradeFeeType
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.connector_base cimport ConnectorBase
 from .mock_order_tracker import MockOrderTracker

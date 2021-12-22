@@ -16,7 +16,7 @@ from typing import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
-from hummingbot.core.utils import estimate_fee
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -32,9 +32,9 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_tracker import BitmartOrderBookTracker
 from hummingbot.connector.exchange.bitmart.bitmart_user_stream_tracker import BitmartUserStreamTracker
@@ -693,7 +693,7 @@ class BitmartExchange(ExchangeBase):
                 delta_trade_price,
                 delta_trade_amount,
                 # TradeFee(0.0, [(trade_msg["fee_coin_name"], Decimal(str(trade_msg["fees"])))]),
-                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 exchange_trade_id=trade_id
             )
         )
@@ -742,7 +742,7 @@ class BitmartExchange(ExchangeBase):
                 tracked_order.order_type,
                 delta_trade_price,
                 delta_trade_amount,
-                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 exchange_trade_id=trade_id
             )
         )

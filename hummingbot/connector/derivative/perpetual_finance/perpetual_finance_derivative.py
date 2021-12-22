@@ -37,10 +37,10 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -350,7 +350,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                     continue
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
-                        fee = estimate_fee("perpetual_finance", False)
+                        fee = self.get_fee()
                         fee = TradeFee(fee.percent, [("XDAI", Decimal(str(update_result["receipt"]["gasUsed"])))])
                         self.trigger_event(
                             MarketEvent.OrderFilled,
@@ -638,11 +638,11 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
         return self._in_flight_orders
 
     def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
+                base_currency: Optional[str] = None,
+                quote_currency: Optional[str] = None,
+                order_type: Optional[OrderType] = None,
+                order_side: Optional[TradeType] = None,
+                amount: Optional[Decimal] = None,
                 price: Decimal = s_decimal_0) -> TradeFee:
         fee = estimate_fee("perpetual_finance", False)
         return fee

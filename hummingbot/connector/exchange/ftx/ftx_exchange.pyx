@@ -28,6 +28,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
 from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -40,8 +41,6 @@ from hummingbot.connector.exchange.ftx.ftx_user_stream_tracker import FtxUserStr
 from hummingbot.connector.exchange_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from hummingbot.connector.exchange.ftx.ftx_utils import (
     convert_from_exchange_trading_pair,
