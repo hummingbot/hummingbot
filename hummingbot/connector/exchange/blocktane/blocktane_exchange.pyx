@@ -29,7 +29,6 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.event.events import (
     MarketEvent,
-    TradeFee,
     OrderType,
     OrderFilledEvent,
     TradeType,
@@ -37,6 +36,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder

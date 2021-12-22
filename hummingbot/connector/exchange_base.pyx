@@ -16,9 +16,9 @@ from hummingbot.core.data_type.order_book_row import (
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
-    TradeFee,
     PriceType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.connector_base import ConnectorBase

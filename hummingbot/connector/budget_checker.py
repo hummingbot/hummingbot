@@ -6,7 +6,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.event.events import OrderType, TradeFee, TradeType
+from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import TradeFee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase

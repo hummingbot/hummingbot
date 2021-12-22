@@ -24,9 +24,9 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderFilledEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.terra.terra_in_flight_order import TerraInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH

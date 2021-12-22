@@ -31,9 +31,9 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
 from hummingbot.connector.exchange.crypto_com.crypto_com_user_stream_tracker import CryptoComUserStreamTracker

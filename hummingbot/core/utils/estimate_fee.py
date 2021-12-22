@@ -5,7 +5,7 @@ Estimate the fee of a transaction on any blockchain.
 """
 
 from decimal import Decimal
-from hummingbot.core.event.events import TradeFee, TradeFeeType
+from hummingbot.core.data_type.trade_fee import TradeFeeType, TradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import AllConnectorSettings
 

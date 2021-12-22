@@ -21,9 +21,9 @@ from hummingbot.core.event.events import (
     RangePositionFailureEvent,
     RangePositionUpdatedEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.ethereum import check_transaction_exceptions

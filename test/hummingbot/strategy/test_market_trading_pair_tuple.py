@@ -19,9 +19,9 @@ from hummingbot.core.event.events import (
     OrderType,
     PriceType,
     SellOrderCompletedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams

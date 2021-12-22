@@ -43,8 +43,8 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
     OrderType,
-    TradeFee,
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
 from hummingbot.connector.trading_rule cimport TradingRule

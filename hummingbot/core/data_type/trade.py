@@ -7,9 +7,9 @@ import pandas as pd
 
 from hummingbot.core.event.events import (
     TradeType,
-    TradeFee,
     OrderType,
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 
 
 class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type, market, timestamp, trade_fee")):

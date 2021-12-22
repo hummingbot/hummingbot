@@ -21,8 +21,8 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     OrderCancelledEvent,
     TradeType,
-    TradeFee,
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.exchange.loopring.loopring_exchange import LoopringExchange
 from hummingbot.connector.exchange_base import OrderType
 # from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth

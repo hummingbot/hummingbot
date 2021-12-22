@@ -34,9 +34,9 @@ from hummingbot.core.event.events import (
     PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType
 )
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather

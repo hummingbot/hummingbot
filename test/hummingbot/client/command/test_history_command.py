@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.core.event.events import TradeFee
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.model.trade_fill import TradeFill
 from test.mock.mock_cli import CLIMockingAssistant
 
@@ -84,7 +84,7 @@ class HistoryCommandTest(unittest.TestCase):
                 price=1,
                 amount=2,
                 leverage=1,
-                trade_fee=TradeFee.to_json(trade_fee),
+                trade_fee=trade_fee.to_json(),
                 exchange_trade_id="someExchangeId",
             )
         ]

@@ -4,7 +4,8 @@ from decimal import Decimal
 
 from hummingbot.connector.budget_checker import BudgetChecker, OrderCandidate
 from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.core.event.events import TradeFee, TradeType
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.trade_fee import TradeFee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
