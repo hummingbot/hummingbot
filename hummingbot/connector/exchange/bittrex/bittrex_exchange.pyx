@@ -188,17 +188,6 @@ cdef class BittrexExchange(ExchangeBase):
                           object price):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
-        """
-        cdef:
-            object maker_fee = Decimal(0.0025)
-            object taker_fee = Decimal(0.0025)
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
-
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("bittrex", is_maker)
 

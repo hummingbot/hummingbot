@@ -38,11 +38,9 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder
 from hummingbot.connector.exchange.blocktane.blocktane_order_book_tracker import BlocktaneOrderBookTracker
 from hummingbot.connector.exchange.blocktane.blocktane_user_stream_tracker import BlocktaneUserStreamTracker
-from hummingbot.connector.exchange.blocktane.blocktane_api_order_book_data_source import BlocktaneAPIOrderBookDataSource
 from hummingbot.connector.exchange.blocktane.blocktane_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair, split_trading_pair
 
 bm_logger = None

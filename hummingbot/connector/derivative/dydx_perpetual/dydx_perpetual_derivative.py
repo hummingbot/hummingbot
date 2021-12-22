@@ -9,7 +9,6 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 from dateutil.parser import parse as dateparse
 
 from dydx3.errors import DydxApiError
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
@@ -162,7 +161,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._in_flight_orders = {}
         self._trading_pairs = trading_pairs
         self._fee_rules = {}
-        self._fee_override = "dydx_maker_fee_amount" in fee_overrides_config_map
         self._reserved_balances = {}
         self._unclaimed_fills = defaultdict(set)
         self._in_flight_orders_by_exchange_id = {}

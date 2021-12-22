@@ -297,24 +297,6 @@ cdef class BinanceExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        """
-        cdef:
-            object maker_trade_fee = Decimal("0.001")
-            object taker_trade_fee = Decimal("0.001")
-            str trading_pair = base_currency + quote_currency
-
-        if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
-
-        if trading_pair not in self._trade_fees:
-            # https://www.binance.com/en/fee/schedule
-            self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
-        else:
-            maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
-        return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee(self.name, is_maker)
 

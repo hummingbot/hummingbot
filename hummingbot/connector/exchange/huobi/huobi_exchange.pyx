@@ -334,14 +334,6 @@ cdef class HuobiExchange(ExchangeBase):
                           object amount,
                           object price):
         # https://www.hbg.com/en-us/about/fee/
-        """
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["huobi_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["huobi_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=Decimal("0.002"))
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("huobi", is_maker)
 
