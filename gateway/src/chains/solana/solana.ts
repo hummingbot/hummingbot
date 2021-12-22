@@ -319,7 +319,7 @@ export class Solana {
       txStatus = TransactionResponseStatusCode.FAILED;
     } else {
       txStatus =
-        typeof txData.meta?.err == null
+        txData.meta?.err == null
           ? TransactionResponseStatusCode.CONFIRMED
           : TransactionResponseStatusCode.FAILED;
 

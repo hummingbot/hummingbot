@@ -226,27 +226,19 @@ describe('POST /solana/token', () => {
   });
 });
 
+const CurrentBlockNumber = 112646487;
 const patchGetCurrentBlockNumber = () => {
-  patch(solana, 'getCurrentBlockNumber', () => 112646487);
+  patch(solana, 'getCurrentBlockNumber', () => CurrentBlockNumber);
 };
 
 const patchGetTransaction = () => {
   patch(solana, 'getTransaction', () => transactionSuccessful);
 };
 
-const patchGetTransactionStatusCode = () => {
-  patch(
-    solana,
-    'getTransactionStatusCode',
-    () => TransactionResponseStatusCode.CONFIRMED
-  );
-};
-
 describe('POST /solana/poll', () => {
   it('should return 200', async () => {
     patchGetCurrentBlockNumber();
     patchGetTransaction();
-    patchGetTransactionStatusCode();
 
     await request(app)
       .post(`/solana/poll`)
@@ -255,7 +247,7 @@ describe('POST /solana/poll', () => {
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
       .expect((res) => expect(res.body.timestamp).toBeNumber())
-      .expect((res) => expect(res.body.currentBlock).toBe(112646487))
+      .expect((res) => expect(res.body.currentBlock).toBe(CurrentBlockNumber))
       .expect((res) => expect(res.body.txHash).toBe(txHash))
       .expect((res) =>
         expect(res.body.txStatus).toBe(TransactionResponseStatusCode.CONFIRMED)
