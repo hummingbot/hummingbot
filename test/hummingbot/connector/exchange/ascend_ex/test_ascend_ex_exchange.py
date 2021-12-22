@@ -5,6 +5,7 @@ import unittest
 
 from decimal import Decimal
 from typing import Awaitable, Optional, List
+from unittest.mock import MagicMock
 
 from aioresponses import aioresponses
 
@@ -15,7 +16,8 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExCommissionType,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderType, TradeType, MarketEvent, MarketOrderFailureEvent
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -41,11 +43,32 @@ class TestAscendExExchange(unittest.TestCase):
 
         self.exchange = AscendExExchange(self.api_key, self.api_secret_key, trading_pairs=[self.trading_pair])
         self.mocking_assistant = NetworkMockingAssistant()
+        self._initialize_event_loggers()
+
+        self.exchange.logger().setLevel(1)
+        self.exchange.logger().addHandler(self)
+        self.exchange._in_flight_order_tracker.logger().setLevel(1)
+        self.exchange._in_flight_order_tracker.logger().addHandler(self)
 
     def tearDown(self) -> None:
         self.exchange._shared_client and self.exchange._shared_client.close()
         self.async_task and self.async_task.cancel()
         super().tearDown()
+
+    def _initialize_event_loggers(self):
+        self.buy_order_completed_logger = EventLogger()
+        self.sell_order_completed_logger = EventLogger()
+        self.order_filled_logger = EventLogger()
+        self.order_failure_logger = EventLogger()
+
+        events_and_loggers = [
+            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
+            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
+            (MarketEvent.OrderFilled, self.order_filled_logger),
+            (MarketEvent.OrderFailure, self.order_failure_logger)]
+
+        for event, logger in events_and_loggers:
+            self.exchange.add_listener(event, logger)
 
     def handle(self, record):
         self.log_records.append(record)
@@ -164,3 +187,58 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertTrue(result[0].success)
         self.assertEqual("testOrderId2", result[1].order_id)
         self.assertFalse(result[1].success)
+
+    def test_order_without_exchange_id_marked_as_failure_and_removed_during_cancellation(self):
+        self.exchange.start_tracking_order(
+            order_id="testOrderId1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("20000"),
+            amount=Decimal("2"),
+            order_type=OrderType.LIMIT
+        )
+        order = self.exchange.in_flight_orders["testOrderId1"]
+        event_mock = MagicMock()
+        event_mock.wait.side_effect = asyncio.TimeoutError()
+        order.exchange_order_id_update_event = event_mock
+
+        for i in range(self.exchange.STOP_TRACKING_ORDER_NOT_FOUND_LIMIT):
+            self.async_run_with_timeout(
+                self.exchange._execute_cancel(trading_pair=self.trading_pair, order_id=order.client_order_id))
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        self.assertEqual(1, len(self.order_failure_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+        self.assertEqual(order.order_type, failure_event.order_type)
+        self.assertEqual(1, len(self.log_records))
+        self.assertEqual("INFO", self.log_records[0].levelname)
+        self.assertTrue(
+            self.log_records[0].getMessage().startswith(f"Order {order.client_order_id} has failed. Order Update:"))
+
+    def test_order_without_exchange_id_marked_as_failure_and_removed_during_status_update(self):
+        self.exchange.start_tracking_order(
+            order_id="testOrderId1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("20000"),
+            amount=Decimal("2"),
+            order_type=OrderType.LIMIT
+        )
+        order = self.exchange.in_flight_orders["testOrderId1"]
+        event_mock = MagicMock()
+        event_mock.wait.side_effect = asyncio.TimeoutError()
+        order.exchange_order_id_update_event = event_mock
+
+        for i in range(self.exchange.STOP_TRACKING_ORDER_NOT_FOUND_LIMIT):
+            self.async_run_with_timeout(self.exchange._update_order_status())
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        self.assertEqual(1, len(self.order_failure_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+        self.assertEqual(order.order_type, failure_event.order_type)
+        self.assertEqual(4, len(self.log_records))
+        self.assertEqual("INFO", self.log_records[3].levelname)
+        self.assertTrue(
+            self.log_records[3].getMessage().startswith(f"Order {order.client_order_id} has failed. Order Update:"))

@@ -141,6 +141,7 @@ class AscendExExchange(ExchangePyBase):
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
         self._in_flight_order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
+        self._order_without_exchange_id_records = {}
 
     @property
     def name(self) -> str:
@@ -535,64 +536,63 @@ class AscendExExchange(ExchangePyBase):
                 amount=amount,
                 order_type=order_type,
             )
-            resp = await self._api_request(
-                method="post",
-                path_url=CONSTANTS.ORDER_PATH_URL,
-                data=api_params,
-                is_auth_required=True,
-                force_auth_path_url="order",
-            )
 
-            resp_status = resp["data"]["status"].upper()
+            try:
+                resp = await self._api_request(
+                    method="post",
+                    path_url=CONSTANTS.ORDER_PATH_URL,
+                    data=api_params,
+                    is_auth_required=True,
+                    force_auth_path_url="order",
+                )
 
-            order_data = resp["data"]["info"]
-            if resp_status == "ACK":
-                # Ack request status means the server has received the request
-                return
+                resp_status = resp["data"]["status"].upper()
 
-            order_update = None
-            if resp_status == "ACCEPT":
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=order_id,
-                    exchange_order_id=str(order_data["orderId"]),
-                    trading_pair=trading_pair,
-                    update_timestamp=order_data["lastExecTime"],
-                    new_state=OrderState.OPEN,
-                )
-            elif resp_status == "DONE":
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=order_id,
-                    exchange_order_id=str(order_data["orderId"]),
-                    trading_pair=trading_pair,
-                    update_timestamp=order_data["lastExecTime"],
-                    new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
-                    fill_price=Decimal(order_data["avgPx"]),
-                    executed_amount_base=Decimal(order_data["cumFilledQty"]),
-                    executed_amount_quote=Decimal(order_data["avgPx"]) * Decimal(order_data["cumFilledQty"]),
-                    fee_asset=order_data["feeAsset"],
-                    cumulative_fee_paid=Decimal(order_data["cumFee"]),
-                )
-            elif resp_status == "ERR":
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=order_id,
-                    exchange_order_id=str(order_data["orderId"]),
-                    trading_pair=trading_pair,
-                    update_timestamp=order_data["lastExecTime"],
-                    new_state=OrderState.FAILED,
-                )
-            self._in_flight_order_tracker.process_order_update(order_update)
+                order_data = resp["data"]["info"]
+                if resp_status == "ACK":
+                    # Ack request status means the server has received the request
+                    return
+
+                order_update = None
+                if resp_status == "ACCEPT":
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=order_id,
+                        exchange_order_id=str(order_data["orderId"]),
+                        trading_pair=trading_pair,
+                        update_timestamp=order_data["lastExecTime"],
+                        new_state=OrderState.OPEN,
+                    )
+                elif resp_status == "DONE":
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=order_id,
+                        exchange_order_id=str(order_data["orderId"]),
+                        trading_pair=trading_pair,
+                        update_timestamp=order_data["lastExecTime"],
+                        new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
+                        fill_price=Decimal(order_data["avgPx"]),
+                        executed_amount_base=Decimal(order_data["cumFilledQty"]),
+                        executed_amount_quote=Decimal(order_data["avgPx"]) * Decimal(order_data["cumFilledQty"]),
+                        fee_asset=order_data["feeAsset"],
+                        cumulative_fee_paid=Decimal(order_data["cumFee"]),
+                    )
+                elif resp_status == "ERR":
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=order_id,
+                        exchange_order_id=str(order_data["orderId"]),
+                        trading_pair=trading_pair,
+                        update_timestamp=order_data["lastExecTime"],
+                        new_state=OrderState.FAILED,
+                    )
+                self._in_flight_order_tracker.process_order_update(order_update)
+            except IOError:
+                self.logger().exception(f"The request to create the order {order_id} failed")
+                self.stop_tracking_order(order_id)
         except asyncio.CancelledError:
             raise
         except Exception:
-            msg = (
-                f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for "
-                f"{amount} {trading_pair} "
-                f"{price}."
-            )
-            self.logger().error(
-                msg,
-                exc_info=True,
-            )
+            msg = (f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for "
+                   f"{amount} {trading_pair} {price}.")
+            self.logger().exception(msg)
 
     def start_tracking_order(
             self,
@@ -659,6 +659,8 @@ class AscendExExchange(ExchangePyBase):
             return order_id
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self._stop_tracking_order_exceed_no_exchange_id_limit(tracked_order=tracked_order)
         except Exception as e:
             self.logger().error(
                 f"Failed to cancel order {order_id}: {str(e)}",
@@ -728,58 +730,79 @@ class AscendExExchange(ExchangePyBase):
                     f"Tracked order {order.client_order_id} does not have an exchange id. "
                     f"Attempting fetch in next polling interval."
                 )
+                self._stop_tracking_order_exceed_no_exchange_id_limit(tracked_order=order)
                 continue
 
-        exchange_order_ids_param_str: str = ",".join(list(ex_oid_to_c_oid_map.keys()))
-        params = {"orderId": exchange_order_ids_param_str}
-        try:
-            resp = await self._api_request(
-                method="get",
-                path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
-                params=params,
-                is_auth_required=True,
-                force_auth_path_url="order/status",
-            )
-        except Exception:
-            self.logger().exception(
-                f"There was an error requesting updates for the active orders ({ex_oid_to_c_oid_map})")
-            raise
-        self.logger().debug(f"Polling for order status updates of {len(ex_oid_to_c_oid_map)} orders.")
-        self.logger().debug(f"cash/order/status?orderId={exchange_order_ids_param_str} response: {resp}")
-        # The data returned from this end point can be either a list or a dict depending on number of orders
-        resp_records: List = []
-        if isinstance(resp["data"], dict):
-            resp_records.append(resp["data"])
-        elif isinstance(resp["data"], list):
-            resp_records = resp["data"]
-
-        order_updates: List[OrderUpdate] = []
-        try:
-            for order_data in resp_records:
-                exchange_order_id = order_data["orderId"]
-                client_order_id = ex_oid_to_c_oid_map[exchange_order_id]
-                new_state: OrderState = CONSTANTS.ORDER_STATE[order_data["status"]]
-                order_updates.append(
-                    OrderUpdate(
-                        client_order_id=client_order_id,
-                        exchange_order_id=exchange_order_id,
-                        trading_pair=ascend_ex_utils.convert_from_exchange_trading_pair(order_data["symbol"]),
-                        update_timestamp=order_data["lastExecTime"],
-                        new_state=new_state,
-                        fill_price=Decimal(order_data["avgPx"]),
-                        executed_amount_base=Decimal(order_data["cumFilledQty"]),
-                        executed_amount_quote=Decimal(order_data["avgPx"]) * Decimal(order_data["cumFilledQty"]),
-                        fee_asset=order_data["feeAsset"],
-                        cumulative_fee_paid=Decimal(order_data["cumFee"]),
-                    )
+        if ex_oid_to_c_oid_map:
+            exchange_order_ids_param_str: str = ",".join(list(ex_oid_to_c_oid_map.keys()))
+            params = {"orderId": exchange_order_ids_param_str}
+            try:
+                resp = await self._api_request(
+                    method="get",
+                    path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
+                    params=params,
+                    is_auth_required=True,
+                    force_auth_path_url="order/status",
                 )
-            for update in order_updates:
-                self._in_flight_order_tracker.process_order_update(update)
+            except Exception:
+                self.logger().exception(
+                    f"There was an error requesting updates for the active orders ({ex_oid_to_c_oid_map})")
+                raise
+            self.logger().debug(f"Polling for order status updates of {len(ex_oid_to_c_oid_map)} orders.")
+            self.logger().debug(f"cash/order/status?orderId={exchange_order_ids_param_str} response: {resp}")
+            # The data returned from this end point can be either a list or a dict depending on number of orders
+            resp_records: List = []
+            if isinstance(resp["data"], dict):
+                resp_records.append(resp["data"])
+            elif isinstance(resp["data"], list):
+                resp_records = resp["data"]
 
-        except Exception:
-            self.logger().info(
-                f"Unexpected error during processing order status. The Ascend Ex Response: {resp}", exc_info=True
+            order_updates: List[OrderUpdate] = []
+            try:
+                for order_data in resp_records:
+                    exchange_order_id = order_data["orderId"]
+                    client_order_id = ex_oid_to_c_oid_map[exchange_order_id]
+                    new_state: OrderState = CONSTANTS.ORDER_STATE[order_data["status"]]
+                    order_updates.append(
+                        OrderUpdate(
+                            client_order_id=client_order_id,
+                            exchange_order_id=exchange_order_id,
+                            trading_pair=ascend_ex_utils.convert_from_exchange_trading_pair(order_data["symbol"]),
+                            update_timestamp=order_data["lastExecTime"],
+                            new_state=new_state,
+                            fill_price=Decimal(order_data["avgPx"]),
+                            executed_amount_base=Decimal(order_data["cumFilledQty"]),
+                            executed_amount_quote=Decimal(order_data["avgPx"]) * Decimal(order_data["cumFilledQty"]),
+                            fee_asset=order_data["feeAsset"],
+                            cumulative_fee_paid=Decimal(order_data["cumFee"]),
+                        )
+                    )
+                for update in order_updates:
+                    self._in_flight_order_tracker.process_order_update(update)
+
+            except Exception:
+                self.logger().info(
+                    f"Unexpected error during processing order status. The Ascend Ex Response: {resp}", exc_info=True
+                )
+
+    def _stop_tracking_order_exceed_no_exchange_id_limit(self, tracked_order: InFlightOrder):
+        """
+        Increments and checks if the tracked order has exceed the STOP_TRACKING_ORDER_NOT_FOUND_LIMIT limit.
+        If true, Triggers a MarketOrderFailureEvent and stops tracking the order.
+        """
+        client_order_id = tracked_order.client_order_id
+        self._order_without_exchange_id_records[client_order_id] = (
+            self._order_without_exchange_id_records.get(client_order_id, 0) + 1)
+        if self._order_without_exchange_id_records[client_order_id] >= self.STOP_TRACKING_ORDER_NOT_FOUND_LIMIT:
+            # Wait until the absence of exchange id has repeated a few times before actually treating it as failed.
+            order_update = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                client_order_id=tracked_order.client_order_id,
+                update_timestamp=int(time.time() * 1e3),
+                new_state=OrderState.FAILED,
             )
+            self._in_flight_order_tracker.process_order_update(order_update)
+            del self._order_without_exchange_id_records[client_order_id]
 
     async def cancel_all(self, timeout_seconds: float):
         """
