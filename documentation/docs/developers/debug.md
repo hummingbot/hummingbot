@@ -14,7 +14,7 @@ When you start Hummingbot with debug console enabled, it will print out a "Start
 
 ![Started debug console logm essage](/assets/img/debug2.png)
 
-Note the port number printed in the debug message (port 8211 in the example above), you can use `telnet` or `nc` to access the debug console by connecting to the TCP port described in the log message.
+As specified in the message, you can use `ssh` to access the debug console and exit with `CTRL + D`. The server accepts any user name (i.e. `ssh random@localhost -p 8211` works just as well).
 
 ![Entering the debug console](/assets/img/debug3.png)
 
@@ -35,7 +35,7 @@ Here are some of the exposed properties you can access from the debug console:
 
 ## Sample Ways to Use the Console
 
-Below is an example where a developer queries the currently active bids/asks under the strategy, and the current best ask price on Binance.
+Below is an example where a developer queries the currently active bids/asks under the strategy.
 
 ![Example](/assets/img/debug5.png)
 

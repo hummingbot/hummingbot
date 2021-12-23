@@ -21,7 +21,6 @@ Below are the available commands in the current Hummingbot release.
 | `history`         | See the past performance of the current bot                   |
 | `generate_certs`  | Create SSL certifications for Gateway communication.          |
 | `exit`            | Exit and cancel all outstanding orders                        |
-| `paper_trade`     | Toggle paper trading mode                                     |
 | `export`          | Export your bot's trades or private keys                      |
 | `order_book`      | Displays the top 5 bid/ask prices and volume                  |
 | `ticker`          | Show market ticker of current order book                      |
@@ -69,6 +68,7 @@ For more information about basic Linux commands, check out [The Linux command li
 | `CTRL + Z`        | Undo                       | \* Undo action                               |
 | `Single CTRL + C` | Copy                       | \* Copy text                                 |
 | `CTRL + V`        | Paste                      | \* Paste text                                |
+| `CTRL + T`        | Toggle Logs                | Hide / Show logs pane                        |
 
 _\* Used for text edit in input pane only._
 

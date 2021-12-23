@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import logging
 
@@ -26,10 +27,11 @@ class NdaxUserStreamTracker(UserStreamTracker):
         return cls._logger
 
     def __init__(
-        self, throttler: AsyncThrottler, auth_assistant: Optional[NdaxAuth] = None, domain: Optional[str] = None
+        self, throttler: AsyncThrottler, shared_client: Optional[aiohttp.ClientSession] = None, auth_assistant: Optional[NdaxAuth] = None, domain: Optional[str] = None
     ):
         super().__init__()
         self._auth_assistant: NdaxAuth = auth_assistant
+        self._shared_client = shared_client
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
@@ -44,7 +46,7 @@ class NdaxUserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             self._data_source = NdaxAPIUserStreamDataSource(
-                throttler=self._throttler, auth_assistant=self._auth_assistant, domain=self._domain
+                throttler=self._throttler, shared_client=self._shared_client, auth_assistant=self._auth_assistant, domain=self._domain
             )
         return self._data_source
 

@@ -2,7 +2,7 @@
 ###   Spot-Perpetual Arbitrage strategy config   ###
 ##########################################
 
-template_version: 2
+template_version: 3
 strategy: null
 
 # The following configuations are only required for the AMM arbitrage trading strategy
@@ -10,18 +10,20 @@ strategy: null
 # Connectors and markets parameters
 spot_connector: null
 spot_market: null
-derivative_connector: null
-derivative_market: null
+perpetual_connector: null
+perpetual_market: null
 
+# Order amount to submit orders on both spot and perpetual markets
 order_amount: null
 
-derivative_leverage: null
+perpetual_leverage: null
 
-# Spread required before first arbitrage can take place, expressed in percentage value, e.g. 1 = 1%
-min_divergence: null
+# Minimum profit percentage required before opening an arbitrage position, expressed in percentage value, e.g. 1 = 1%
+# The profitability is calculated from the gap between sell and buy price, it does not account for fees and slippages
+min_opening_arbitrage_pct: null
 
-# Spread required after first arbitrage before second arbitreage can take place, expressed in percentage value, e.g. 1 = 1%
-min_convergence: null
+# Minimum profit percentage required before closing the arbitrage position, expressed in percentage value, e.g. 1 = 1%
+min_closing_arbitrage_pct: null
 
 # A buffer for which to adjust order price for higher chance of the order getting filled.
 # This is important for AMM which transaction takes a long time where a slippage is acceptable rather having
@@ -31,10 +33,7 @@ spot_market_slippage_buffer: null
 
 # A buffer to add to the price to account for slippage when buying/selling on second connector market
 # (Enter 1 for 1%)
-derivative_market_slippage_buffer: null
-
-# A flag (true/false), if true the bot would only execute second arbitrage once funding payment is received provided second arbitrage wasn't executed before funding period.
-maximize_funding_rate: null
+perpetual_market_slippage_buffer: null
 
 # cool off period between arbitrage cycles
-next_arbitrage_cycle_delay: null
+next_arbitrage_opening_delay: null

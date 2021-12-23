@@ -170,12 +170,15 @@ class OrderBookTracker(ABC):
                 self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
                 await asyncio.sleep(30)
 
+    async def _initial_order_book_for_trading_pair(self, trading_pair: str) -> OrderBook:
+        return await self._data_source.get_new_order_book(trading_pair)
+
     async def _init_order_books(self):
         """
         Initialize order books
         """
         for index, trading_pair in enumerate(self._trading_pairs):
-            self._order_books[trading_pair] = await self._data_source.get_new_order_book(trading_pair)
+            self._order_books[trading_pair] = await self._initial_order_book_for_trading_pair(trading_pair)
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info(f"Initialized order book for {trading_pair}. "
@@ -243,7 +246,7 @@ class OrderBookTracker(ABC):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, trading_pair: str):
-        past_diffs_window: Deque[OrderBookMessage] = deque()
+        past_diffs_window: Deque[OrderBookMessage] = deque(maxlen=self.PAST_DIFF_WINDOW_SIZE)
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
@@ -257,8 +260,6 @@ class OrderBookTracker(ABC):
                 if message.type is OrderBookMessageType.DIFF:
                     order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     past_diffs_window.append(message)
-                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                        past_diffs_window.popleft()
                     diff_messages_accepted += 1
 
                     # Output some statistics periodically.

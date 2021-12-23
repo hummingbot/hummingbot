@@ -1,21 +1,15 @@
 #!/usr/bin/env python
-import time
 import asyncio
 import logging
-from typing import (
-    Any,
-    AsyncIterable,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, List, Optional
+
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+
 from .gate_io_auth import GateIoAuth
-from .gate_io_utils import (
-    convert_to_exchange_trading_pair,
-    GateIoAPIError,
-)
+from .gate_io_utils import GateIoAPIError, convert_to_exchange_trading_pair
 from .gate_io_websocket import GateIoWebsocket
 
 
@@ -29,18 +23,26 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, gate_io_auth: GateIoAuth, trading_pairs: Optional[List[str]] = None):
+    def __init__(
+        self,
+        gate_io_auth: GateIoAuth,
+        trading_pairs: Optional[List[str]] = None,
+        api_factory: Optional[WebAssistantsFactory] = None,
+    ):
+        self._api_factory = api_factory
         self._gate_io_auth: GateIoAuth = gate_io_auth
         self._ws: Optional[GateIoWebsocket] = None
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._last_recv_time: float = 0
         super().__init__()
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        recv_time = 0
+        if self._ws is not None:
+            recv_time = self._ws.last_recv_time
+        return recv_time
 
     async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
@@ -48,7 +50,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = GateIoWebsocket(self._gate_io_auth)
+            self._ws = GateIoWebsocket(self._gate_io_auth, self._api_factory)
 
             await self._ws.connect()
 
@@ -65,12 +67,9 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
 
             async for msg in self._ws.on_message():
-                self._last_recv_time = time.time()
 
-                if msg is None:
-                    # Skip empty subscribed/unsubscribed messages
+                if msg.get("event") in ["subscribe", "unsubscribe"]:
                     continue
-
                 if msg.get("result", None) is None:
                     continue
                 elif msg.get("channel", None) in user_channels:
@@ -78,7 +77,8 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as e:
             raise e
         finally:
-            await self._ws.disconnect()
+            if self._ws is not None:
+                await self._ws.disconnect()
             await asyncio.sleep(5)
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):

@@ -1,5 +1,6 @@
 {
-  "privateKey": "$ETH_PRIVATE_KEY",
+  "address": "$ETH_ADDRESS",
   "spender": "uniswap",
-  "token": "DAI"
+  "token": "DAI",
+  "nonce": 132
 }
