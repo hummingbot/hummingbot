@@ -6,7 +6,9 @@ from typing import Awaitable
 import aiohttp
 from aioresponses import aioresponses
 
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTResponse
+from hummingbot.core.web_assistant.connections.data_types import (
+    RESTMethod, RESTResponse, EndpointRESTRequest
+)
 
 
 class DataTypesTest(unittest.TestCase):
@@ -66,3 +68,62 @@ class DataTypesTest(unittest.TestCase):
         actual = str(response)
 
         self.assertEqual(expected, actual)
+
+
+class EndpointRESTRequestDummy(EndpointRESTRequest):
+    @property
+    def base_url(self) -> str:
+        return "https://some.url"
+
+
+class EndpointRESTRequestTest(unittest.TestCase):
+    def test_constructs_url_from_endpoint(self):
+        endpoint = "some/endpoint"
+        alt_endpoint = "/some/endpoint"
+        request = EndpointRESTRequestDummy(method=RESTMethod.GET, endpoint=endpoint)
+        alt_request = EndpointRESTRequestDummy(method=RESTMethod.GET, endpoint=alt_endpoint)
+
+        url = request.url
+        alt_url = alt_request.url
+
+        self.assertEqual(f"{request.base_url}/{endpoint}", url)
+        self.assertEqual(url, alt_url)
+
+    def test_raises_on_no_url_and_no_endpoint(self):
+        with self.assertRaises(ValueError):
+            EndpointRESTRequestDummy(method=RESTMethod.GET)
+
+    def test_raises_on_params_supplied_to_post_request(self):
+        endpoint = "some/endpoint"
+        params = {"one": 1}
+
+        with self.assertRaises(ValueError):
+            EndpointRESTRequestDummy(
+                method=RESTMethod.POST,
+                endpoint=endpoint,
+                params=params,
+            )
+
+    def test_data_to_str(self):
+        endpoint = "some/endpoint"
+        data = {"one": 1}
+
+        request = EndpointRESTRequestDummy(
+            method=RESTMethod.POST,
+            endpoint=endpoint,
+            data=data,
+        )
+
+        self.assertIsInstance(request.data, str)
+        self.assertEqual(data, json.loads(request.data))
+
+    def test_raises_on_data_supplied_to_non_post_request(self):
+        endpoint = "some/endpoint"
+        data = {"one": 1}
+
+        with self.assertRaises(ValueError):
+            EndpointRESTRequestDummy(
+                method=RESTMethod.GET,
+                endpoint=endpoint,
+                data=data,
+            )
