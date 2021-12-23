@@ -1,21 +1,11 @@
-from traceback import format_exc
-from collections import defaultdict
-from libc.stdint cimport int64_t
 import aiohttp
-from aiokafka import (
-    AIOKafkaConsumer,
-    ConsumerRecord
-)
 import asyncio
-from async_timeout import timeout
-from binance.client import Client as BinanceClient
-from binance import client as binance_client_module
-from binance.exceptions import BinanceAPIException
+import logging
+import time
+
+from collections import defaultdict
 from decimal import Decimal
 from functools import partial
-import logging
-import pandas as pd
-import time
 from typing import (
     Any,
     Dict,
@@ -25,50 +15,62 @@ from typing import (
     Coroutine,
 )
 
+from aiokafka import (
+    AIOKafkaConsumer,
+    ConsumerRecord
+)
+from async_timeout import timeout
+from binance.client import Client as BinanceClient
+from binance import client as binance_client_module
+from binance.exceptions import BinanceAPIException
+from libc.stdint cimport int64_t
+
 import conf
+import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+
+from hummingbot.connector.exchange.binance.binance_in_flight_order import BinanceInFlightOrder
+from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.connector.exchange.binance.binance_time import BinanceTime
+from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
+from hummingbot.connector.exchange.binance.binance_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair)
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.connector.utils import build_api_factory
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade import Trade
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketTransactionFailureEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType,
+)
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketTransactionFailureEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from .binance_order_book_tracker import BinanceOrderBookTracker
-from .binance_user_stream_tracker import BinanceUserStreamTracker
-from .binance_time import BinanceTime
-from .binance_in_flight_order import BinanceInFlightOrder
-from .binance_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
-from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.trade import Trade
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
+
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -136,8 +138,13 @@ cdef class BinanceExchange(ExchangeBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
+        self._api_factory = build_api_factory()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs, domain=domain, throttler=self._throttler)
+        self._order_book_tracker = BinanceOrderBookTracker(
+            trading_pairs=trading_pairs,
+            domain=domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
         self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain, throttler=self._throttler)
         self._ev_loop = asyncio.get_event_loop()
