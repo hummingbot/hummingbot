@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - bidict
   - certifi=2021.5.30
   - coverage=5.5
   - intel-openmp=2021.3.0
