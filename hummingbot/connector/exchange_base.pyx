@@ -1,13 +1,11 @@
 from decimal import Decimal
-import pandas as pd
 from typing import (
     Dict,
     List,
-    Tuple,
     Optional,
-    Iterator,
-    Any)
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+    Iterator)
+
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
     ClientOrderBookQueryResult
@@ -39,6 +37,7 @@ cdef class ExchangeBase(ConnectorBase):
     def __init__(self):
         super().__init__()
         self._order_book_tracker = None
+        self._budget_checker = BudgetChecker(exchange=self)
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -56,15 +55,12 @@ cdef class ExchangeBase(ConnectorBase):
     def limit_orders(self) -> List[LimitOrder]:
         raise NotImplementedError
 
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
+
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return (self.get_price(trading_pair, True) + self.get_price(trading_pair, False)) / Decimal("2")
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        """
-        :return: data frame with trading_pair as index, and at least the following columns --
-                 ["baseAsset", "quoteAsset", "volume", "USDVolume"]
-        """
-        raise NotImplementedError
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN, dict kwargs={}):
@@ -102,7 +98,7 @@ cdef class ExchangeBase(ConnectorBase):
         try:
             top_price = Decimal(order_book.c_get_price(is_buy))
         except EnvironmentError as e:
-            self.logger().warning(f"{'Ask' if is_buy else 'Buy'} orderbook for {trading_pair} is empty.")
+            self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
             return s_decimal_NaN
 
         return self.c_quantize_order_price(trading_pair, top_price)
@@ -111,6 +107,18 @@ cdef class ExchangeBase(ConnectorBase):
         cdef:
             OrderBook order_book = self.c_get_order_book(trading_pair)
             OrderBookQueryResult result = order_book.c_get_vwap_for_volume(is_buy, float(volume))
+            object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
+            object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(s_decimal_NaN,
+                                          query_volume,
+                                          result_price,
+                                          result_volume)
+
+    cdef ClientOrderBookQueryResult c_get_price_for_quote_volume(self, str trading_pair, bint is_buy, double volume):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(trading_pair)
+            OrderBookQueryResult result = order_book.c_get_price_for_quote_volume(is_buy, float(volume))
             object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
             object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
             object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))

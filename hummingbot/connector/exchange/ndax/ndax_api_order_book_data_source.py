@@ -2,7 +2,6 @@ import aiohttp
 import asyncio
 import logging
 import time
-import websockets
 
 from typing import (
     Any,
@@ -33,10 +32,12 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(
         self,
         throttler: Optional[AsyncThrottler] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
         trading_pairs: Optional[List[str]] = None,
         domain: Optional[str] = None,
     ):
         super().__init__(trading_pairs)
+        self._shared_client = shared_client or self._get_session_instance()
         self._throttler = throttler or self._get_throttler_instance()
         self._domain: Optional[str] = domain
 
@@ -47,40 +48,47 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._logger
 
     @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         return throttler
 
     @classmethod
-    async def init_trading_pair_ids(cls, domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None):
+    async def init_trading_pair_ids(cls, domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None, shared_client: Optional[aiohttp.ClientSession] = None):
         """Initialize _trading_pair_id_map class variable
         """
         cls._trading_pair_id_map.clear()
 
+        shared_client = shared_client or cls._get_session_instance()
+
         params = {
             "OMSId": 1
         }
-        async with aiohttp.ClientSession() as client:
-            throttler = throttler or cls._get_throttler_instance()
-            async with throttler.execute_task(CONSTANTS.MARKETS_URL):
-                async with client.get(
-                    f"{ndax_utils.rest_api_url(domain) + CONSTANTS.MARKETS_URL}", params=params
-                ) as response:
-                    if response.status == 200:
-                        resp_json: Dict[str, Any] = await response.json()
 
-                        results = {
-                            f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}": int(
-                                instrument["InstrumentId"])
-                            for instrument in resp_json
-                            if instrument["SessionStatus"] == "Running"
-                        }
+        throttler = throttler or cls._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.MARKETS_URL):
+            async with shared_client.get(
+                f"{ndax_utils.rest_api_url(domain) + CONSTANTS.MARKETS_URL}", params=params
+            ) as response:
+                if response.status == 200:
+                    resp_json: Dict[str, Any] = await response.json()
 
-                        cls._trading_pair_id_map = results
+                    results = {
+                        f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}": int(
+                            instrument["InstrumentId"])
+                        for instrument in resp_json
+                        if instrument["SessionStatus"] == "Running"
+                    }
+
+                    cls._trading_pair_id_map = results
 
     @classmethod
     async def get_last_traded_prices(
-        cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
+        cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None, shared_client: Optional[aiohttp.ClientSession] = None
     ) -> Dict[str, float]:
         """Fetches the Last Traded Price of the specified trading pairs.
 
@@ -90,28 +98,29 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not len(cls._trading_pair_id_map) > 0:
             await cls.init_trading_pair_ids(domain)
 
+        shared_client = shared_client or cls._get_session_instance()
+
         results = {}
 
-        async with aiohttp.ClientSession() as client:
-            for trading_pair in trading_pairs:
-                if trading_pair in cls._last_traded_prices:
-                    results[trading_pair] = cls._last_traded_prices[trading_pair]
-                else:
-                    params = {
-                        "OMSId": 1,
-                        "InstrumentId": cls._trading_pair_id_map[trading_pair],
-                    }
-                    throttler = throttler or cls._get_throttler_instance()
-                    async with throttler.execute_task(CONSTANTS.LAST_TRADE_PRICE_URL):
-                        async with client.get(
-                            f"{ndax_utils.rest_api_url(domain) + CONSTANTS.LAST_TRADE_PRICE_URL}", params=params
-                        ) as response:
-                            if response.status == 200:
-                                resp_json: Dict[str, Any] = await response.json()
+        for trading_pair in trading_pairs:
+            if trading_pair in cls._last_traded_prices:
+                results[trading_pair] = cls._last_traded_prices[trading_pair]
+            else:
+                params = {
+                    "OMSId": 1,
+                    "InstrumentId": cls._trading_pair_id_map[trading_pair],
+                }
+                throttler = throttler or cls._get_throttler_instance()
+                async with throttler.execute_task(CONSTANTS.LAST_TRADE_PRICE_URL):
+                    async with shared_client.get(
+                        f"{ndax_utils.rest_api_url(domain) + CONSTANTS.LAST_TRADE_PRICE_URL}", params=params
+                    ) as response:
+                        if response.status == 200:
+                            resp_json: Dict[str, Any] = await response.json()
 
-                                results.update({
-                                    trading_pair: float(resp_json["LastTradedPx"])
-                                })
+                            results.update({
+                                trading_pair: float(resp_json["LastTradedPx"])
+                            })
 
         return results
 
@@ -138,9 +147,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 if instrument["SessionStatus"] == "Running"]
                     return []
 
-    @classmethod
     async def get_order_book_data(
-        cls, trading_pair: str, domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
+        self, trading_pair: str, domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, any]:
         """Retrieves entire orderbook snapshot of the specified trading pair via the REST API.
 
@@ -152,31 +160,30 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns:
             Dict[str, any]: Parsed API Response.
         """
-        if not len(cls._trading_pair_id_map) > 0:
-            await cls.init_trading_pair_ids(domain)
+        if not len(self._trading_pair_id_map) > 0:
+            await self.init_trading_pair_ids(domain)
         params = {
             "OMSId": 1,
-            "InstrumentId": cls._trading_pair_id_map[trading_pair],
+            "InstrumentId": self._trading_pair_id_map[trading_pair],
             "Depth": 200,
         }
 
-        async with aiohttp.ClientSession() as client:
-            throttler = throttler or cls._get_throttler_instance()
-            async with throttler.execute_task(CONSTANTS.ORDER_BOOK_URL):
-                async with client.get(
-                    f"{ndax_utils.rest_api_url(domain) + CONSTANTS.ORDER_BOOK_URL}", params=params
-                ) as response:
-                    status = response.status
-                    if status != 200:
-                        raise IOError(
-                            f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL}. "
-                            f"HTTP {status}. Response: {await response.json()}"
-                        )
+        throttler = throttler or self._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.ORDER_BOOK_URL):
+            async with self._shared_client.get(
+                f"{ndax_utils.rest_api_url(domain) + CONSTANTS.ORDER_BOOK_URL}", params=params
+            ) as response:
+                status = response.status
+                if status != 200:
+                    raise IOError(
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL}. "
+                        f"HTTP {status}. Response: {await response.json()}"
+                    )
 
-                    response_ls: List[Any] = await response.json()
-                    orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response_ls]
-                    return {"data": orderbook_entries,
-                            "timestamp": int(time.time() * 1e3)}
+                response_ls: List[Any] = await response.json()
+                orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response_ls]
+                return {"data": orderbook_entries,
+                        "timestamp": int(time.time() * 1e3)}
 
     async def _sleep(self, delay):
         """
@@ -200,7 +207,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_instrument_ids(self) -> Dict[str, int]:
         if not len(self._trading_pair_id_map) > 0:
-            await self.init_trading_pair_ids(self._domain, self._throttler)
+            await self.init_trading_pair_ids(self._domain, self._throttler, self._shared_client)
         return self._trading_pair_id_map
 
     async def _create_websocket_connection(self) -> NdaxWebSocketAdaptor:
@@ -208,7 +215,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            ws = await websockets.connect(ndax_utils.wss_url(self._domain))
+            ws = await self._shared_client.ws_connect(ndax_utils.wss_url(self._domain))
             return NdaxWebSocketAdaptor(throttler=self._throttler, websocket=ws)
         except asyncio.CancelledError:
             raise
@@ -222,7 +229,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Periodically polls for orderbook snapshots using the REST API.
         """
         if not len(self._trading_pair_id_map) > 0:
-            await self.init_trading_pair_ids(self._domain, self._throttler)
+            await self.init_trading_pair_ids(self._domain, self._throttler, self._shared_client)
         while True:
             await self._sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             try:
@@ -251,11 +258,11 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for orderbook diffs using WebSocket API.
         """
         if not len(self._trading_pair_id_map) > 0:
-            await self.init_trading_pair_ids(self._domain, self._throttler)
+            await self.init_trading_pair_ids(self._domain, self._throttler, self._shared_client)
 
         while True:
             try:
-                ws_adapter: NdaxWebSocketAdaptor = await self._create_websocket_connection()
+                ws_adaptor: NdaxWebSocketAdaptor = await self._create_websocket_connection()
                 for trading_pair in self._trading_pairs:
                     payload = {
                         "OMSId": 1,
@@ -263,9 +270,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "Depth": 200
                     }
                     async with self._throttler.execute_task(CONSTANTS.WS_ORDER_BOOK_CHANNEL):
-                        await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+                        await ws_adaptor.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
                                                       payload=payload)
-                async for raw_msg in ws_adapter.iter_messages():
+                async for raw_msg in ws_adaptor.iter_messages():
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
@@ -312,8 +319,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
-                if ws_adapter:
-                    await ws_adapter.close()
+                if ws_adaptor:
+                    await ws_adaptor.close()
                 await self._sleep(30.0)
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):

@@ -1,0 +1,2 @@
+# If true it will collect data about API usage.
+allowed: false

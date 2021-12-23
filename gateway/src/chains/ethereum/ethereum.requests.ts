@@ -35,7 +35,7 @@ export interface EthereumTransactionResponse
 }
 
 export interface EthereumNonceRequest {
-  privateKey: string; // the users private Ethereum key
+  address: string; // the users public Ethereum key
 }
 
 export interface EthereumNonceResponse {
@@ -43,7 +43,7 @@ export interface EthereumNonceResponse {
 }
 
 export interface EthereumAllowancesRequest {
-  privateKey: string; // the users private Ethereum key
+  address: string; // the users public Ethereum key
   spender: string; // the spender address for whom approvals are checked
   tokenSymbols: string[]; // a list of token symbol
 }
@@ -57,7 +57,7 @@ export interface EthereumAllowancesResponse {
 }
 
 export interface EthereumBalanceRequest {
-  privateKey: string; // the users private Ethereum key
+  address: string; // the users public Ethereum key
   tokenSymbols: string[]; // a list of token symbol
 }
 
@@ -70,10 +70,10 @@ export interface EthereumBalanceResponse {
 
 export interface EthereumApproveRequest {
   amount?: string; // the amount the spender will be approved to use
-  nonce?: number; // the privateKey's next nonce
+  nonce?: number; // the address's next nonce
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
-  privateKey: string; // the user's private Ethereum key
+  address: string; // the user's public Ethereum key
   spender: string; // the address of the spend (or a pre-defined string like 'uniswap', 'balancer', etc.)
   token: string; // the token symbol the spender will be approved for
 }
@@ -106,7 +106,7 @@ export interface EthereumPollResponse {
 
 export interface EthereumCancelRequest {
   nonce: number; // the nonce of the transaction to be canceled
-  privateKey: string; // the user's private Ethereum key
+  address: string; // the user's public Ethereum key
 }
 
 export interface EthereumCancelResponse {

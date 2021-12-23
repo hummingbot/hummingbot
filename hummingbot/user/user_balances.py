@@ -1,5 +1,5 @@
 from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.client.settings import CONNECTOR_SETTINGS
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
 from hummingbot.core.utils.async_utils import safe_gather
@@ -19,7 +19,7 @@ class UserBalances:
     @staticmethod
     def connect_market(exchange, **api_details):
         connector = None
-        conn_setting = CONNECTOR_SETTINGS[exchange]
+        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
         if not conn_setting.use_ethereum_wallet:
             connector_class = get_connector_class(exchange)
             init_params = conn_setting.conn_init_parameters(api_details)
@@ -77,9 +77,9 @@ class UserBalances:
         tasks = []
         # Update user balances, except connectors that use Ethereum wallet.
         if len(exchanges) == 0:
-            exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values()]
-        exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet
-                     and cs.name in exchanges]
+            exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
+        exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values() if not cs.use_ethereum_wallet
+                     and cs.name in exchanges and not cs.name.endswith("paper_trade")]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:

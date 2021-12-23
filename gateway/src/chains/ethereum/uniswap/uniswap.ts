@@ -1,10 +1,14 @@
-import { ConfigManager } from '../../../services/config-manager';
-import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
+import {
+  InitializationError,
+  SERVICE_UNITIALIZED_ERROR_CODE,
+  SERVICE_UNITIALIZED_ERROR_MESSAGE,
+} from '../../../services/error-handler';
 import { EthereumConfig } from '../ethereum.config';
 import { Ethereum } from '../ethereum';
 import { UniswapConfig } from './uniswap.config';
+import routerAbi from './uniswap_v2_router_abi.json';
+import { Contract, ContractInterface } from '@ethersproject/contracts';
 import {
-  CurrencyAmount,
   Fetcher,
   Percent,
   Router,
@@ -12,35 +16,31 @@ import {
   TokenAmount,
   Trade,
 } from '@uniswap/sdk';
+import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../../services/logger';
-import routerAbi from './uniswap_v2_router_abi.json';
-export interface ExpectedTrade {
-  trade: Trade;
-  expectedAmount: CurrencyAmount;
-}
-
-export class Uniswap {
+import {
+  ExpectedTrade,
+  Uniswapish,
+} from '../../../services/uniswapish.interface';
+import { percentRegexp } from '../../../services/config-manager-v2';
+export class Uniswap implements Uniswapish {
   private static instance: Uniswap;
-  private _uniswapRouter: string;
+  private ethereum: Ethereum = Ethereum.getInstance();
+  private _router: string;
+  private _routerAbi: ContractInterface;
+  private _gasLimit: number;
+  private _ttl: number;
   private chainId;
-  private ethereum = Ethereum.getInstance();
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
   private constructor() {
-    let config;
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      config = UniswapConfig.config.mainnet;
-    } else {
-      config = UniswapConfig.config.kovan;
-    }
-
-    this._uniswapRouter = config.uniswapV2RouterAddress;
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      this.chainId = EthereumConfig.config.mainnet.chainId;
-    } else {
-      this.chainId = EthereumConfig.config.kovan.chainId;
-    }
+    const config = UniswapConfig.config;
+    this.chainId = EthereumConfig.config.network.chainID;
+    this._ttl = UniswapConfig.config.ttl;
+    this._routerAbi = routerAbi.abi;
+    this._gasLimit = UniswapConfig.config.gasLimit;
+    this._router = config.uniswapV2RouterAddress;
   }
 
   public static getInstance(): Uniswap {
@@ -51,9 +51,17 @@ export class Uniswap {
     return Uniswap.instance;
   }
 
+  public getTokenByAddress(address: string): Token {
+    return this.tokenList[address];
+  }
+
   public async init() {
-    if (!this.ethereum.ready()) throw new Error('Eth is not available');
-    for (const token of this.ethereum.storedTokenList) {
+    if (!Ethereum.getInstance().ready())
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
+    for (const token of Ethereum.getInstance().storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -69,12 +77,25 @@ export class Uniswap {
     return this._ready;
   }
 
-  public get uniswapRouter(): string {
-    return this._uniswapRouter;
+  public get router(): string {
+    return this._router;
   }
 
-  getSlippagePercentage(allowedSlippage: string): Percent {
-    const nd = allowedSlippage.match(ConfigManager.percentRegexp);
+  public get ttl(): number {
+    return this._ttl;
+  }
+
+  public get routerAbi(): ContractInterface {
+    return this._routerAbi;
+  }
+
+  public get gasLimit(): number {
+    return this._gasLimit;
+  }
+
+  getSlippagePercentage(): Percent {
+    const allowedSlippage = UniswapConfig.config.allowedSlippage;
+    const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
       'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
@@ -84,67 +105,61 @@ export class Uniswap {
   // get the expected amount of token out, for a given pair and a token amount in.
   // this only considers direct routes.
   async priceSwapIn(
-    tokenInAddress: string,
-    tokenOutAddress: string,
+    tokenIn: Token,
+    tokenOut: Token,
     tokenInAmount: BigNumber
   ): Promise<ExpectedTrade | string> {
-    const tokenIn = this.tokenList[tokenInAddress];
-    if (!tokenIn)
-      return `priceSwapIn: tokenInAddress ${tokenInAddress} not found in tokenList.`;
-    const tokenOut = this.tokenList[tokenOutAddress];
-    if (!tokenOut)
-      return `priceSwapIn: tokenOutAddress ${tokenOutAddress} not found in tokenList.`;
-
     const tokenInAmount_ = new TokenAmount(tokenIn, tokenInAmount.toString());
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.ethereum.provider
+    );
     const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
       maxHops: 1,
     });
     if (!trades || trades.length === 0)
-      return `priceSwapIn: no trade pair found for ${tokenInAddress} to ${tokenOutAddress}.`;
+      return `priceSwapIn: no trade pair found for ${tokenIn} to ${tokenOut}.`;
     logger.info(
       `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      this.getSlippagePercentage(ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE)
+      this.getSlippagePercentage()
     );
     return { trade: trades[0], expectedAmount };
   }
 
   async priceSwapOut(
-    tokenInAddress: string,
-    tokenOutAddress: string,
+    tokenIn: Token,
+    tokenOut: Token,
     tokenOutAmount: BigNumber
   ): Promise<ExpectedTrade | string> {
-    const tokenIn = this.tokenList[tokenInAddress];
-    if (!tokenIn)
-      return `priceSwapOut: tokenInAddress ${tokenInAddress} not found in tokenList.`;
-    const tokenOut = this.tokenList[tokenOutAddress];
-    if (!tokenOut)
-      return `priceSwapOut: tokenOutAddress ${tokenOutAddress} not found in tokenList.`;
     const tokenOutAmount_ = new TokenAmount(
       tokenOut,
       tokenOutAmount.toString()
     );
-
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.ethereum.provider
+    );
     const trades = Trade.bestTradeExactOut([pair], tokenIn, tokenOutAmount_, {
       maxHops: 1,
     });
     if (!trades || trades.length === 0)
-      return `priceSwapOut: no trade pair found for ${tokenInAddress} to ${tokenOutAddress}.`;
+      return `priceSwapOut: no trade pair found for ${tokenIn.address} to ${tokenOut.address}.`;
     logger.info(
       `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
     );
 
     const expectedAmount = trades[0].maximumAmountIn(
-      this.getSlippagePercentage(ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE)
+      this.getSlippagePercentage()
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -154,26 +169,28 @@ export class Uniswap {
     wallet: Wallet,
     trade: Trade,
     gasPrice: number,
+    uniswapRouter: string,
+    ttl: number,
+    abi: ContractInterface,
+    gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
   ): Promise<Transaction> {
     const result = Router.swapCallParameters(trade, {
-      ttl: ConfigManager.config.UNISWAP_TTL,
+      ttl,
       recipient: wallet.address,
-      allowedSlippage: this.getSlippagePercentage(
-        ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
-      ),
+      allowedSlippage: this.getSlippagePercentage(),
     });
 
-    const contract = new Contract(this._uniswapRouter, routerAbi.abi, wallet);
+    const contract = new Contract(uniswapRouter, abi, wallet);
     if (!nonce) {
       nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
     }
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {
       tx = await contract[result.methodName](...result.args, {
-        gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
+        gasLimit: gasLimit,
         value: result.value,
         nonce: nonce,
         maxFeePerGas,
@@ -182,7 +199,7 @@ export class Uniswap {
     } else {
       tx = await contract[result.methodName](...result.args, {
         gasPrice: gasPrice * 1e9,
-        gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
+        gasLimit: gasLimit,
         value: result.value,
         nonce: nonce,
       });

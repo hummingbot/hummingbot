@@ -2,45 +2,48 @@
 
 connector_status = {
     'ascend_ex': 'yellow',
-    'balancer': 'yellow',
+    'balancer': 'green',
     'beaxy': 'green',
     'binance': 'green',
     'binance_perpetual': 'yellow',
     'binance_perpetual_testnet': 'yellow',
-    'binance_us': 'yellow',
+    'binance_us': 'green',
     'bitfinex': 'yellow',
+    'bitmart': 'green',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
+    'bybit_perpetual': 'yellow',
+    'bybit_perpetual_testnet': 'yellow',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
-    'coinzoom': 'green',
+    'coinzoom': 'yellow',
     'crypto_com': 'green',
     'digifinex': "yellow",
-    'dydx': 'green',
-    'dydx_perpetual': 'yellow',
+    'dydx_perpetual': 'green',
     'ethereum': 'red',
     'ftx': 'green',
-    'gate_io': 'yellow',
+    'gate_io': 'green',
     'hitbtc': 'green',
     'huobi': 'green',
-    'kraken': 'green',
+    'kraken': 'yellow',
     'kucoin': 'yellow',
     'k2': 'red',
     'liquid': 'yellow',
     'loopring': 'yellow',
-    'ndax': 'green',
-    'ndax_testnet': 'green',
+    'mexc': 'yellow',
+    'ndax': 'yellow',
+    'ndax_testnet': 'yellow',
     'okex': 'yellow',
     'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
     'terra': 'green',
     'uniswap': 'yellow',
-    'uniswap_v3': 'yellow'
+    'uniswap_v3': 'yellow',
+    'wazirx': 'yellow'
 }
 
 warning_messages = {
-    'eterbase': 'Hack investigation and security audit is ongoing for Eterbase. Trading is currently disabled.'
 }
 
 
@@ -55,5 +58,5 @@ def get_connector_status(connector_name: str) -> str:
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"
     else:
-        return connector_status[connector_name].upper()
+        return f"&c{connector_status[connector_name].upper()}"
     return status

@@ -7,12 +7,14 @@ import {
   utils,
   Wallet,
 } from 'ethers';
-import abi from './ethereum.abi.json';
 import axios from 'axios';
 import fs from 'fs/promises';
 import { TokenListType, TokenValue } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
+import { EvmTxStorage } from './evm.tx-storage';
+import fse from 'fs-extra';
+import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 
 // information about an Ethereum token
 export interface Token {
@@ -27,6 +29,8 @@ export type NewBlockHandler = (bn: number) => void;
 
 export type NewDebugMsgHandler = (msg: any) => void;
 
+const walletPath = './conf/wallets';
+
 export class EthereumBase {
   private _provider;
   protected tokenList: Token[] = [];
@@ -36,6 +40,7 @@ export class EthereumBase {
   private _initializing: boolean = false;
   private _initPromise: Promise<void> = Promise.resolve();
 
+  public chainName;
   public chainId;
   public rpcUrl;
   public gasPriceConstant;
@@ -43,8 +48,10 @@ export class EthereumBase {
   public tokenListType: TokenListType;
   public cache: NodeCache;
   private _nonceManager: EVMNonceManager;
+  private _txStorage: EvmTxStorage;
 
   constructor(
+    chainName: string,
     chainId: number,
     rpcUrl: string,
     tokenListSource: string,
@@ -52,14 +59,16 @@ export class EthereumBase {
     gasPriceConstant: number
   ) {
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
+    this.chainName = chainName;
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = EVMNonceManager.getInstance();
-    this._nonceManager.init(this.provider, 60, chainId);
+    this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
+    this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
+    this._txStorage = new EvmTxStorage('transactions.level');
   }
 
   ready(): boolean {
@@ -124,13 +133,12 @@ export class EthereumBase {
     return tokens;
   }
 
-  // returns the gas price.
-  public get gasPrice(): number {
-    return this.gasPriceConstant;
-  }
-
   public get nonceManager() {
     return this._nonceManager;
+  }
+
+  public get txStorage(): EvmTxStorage {
+    return this._txStorage;
   }
 
   // ethereum token lists are large. instead of reloading each time with
@@ -145,39 +153,75 @@ export class EthereumBase {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
-  // returns Wallet for a private key
-  getWallet(privateKey: string): Wallet {
+  getWalletFromPrivateKey(privateKey: string): Wallet {
     return new Wallet(privateKey, this._provider);
   }
+  // returns Wallet for a public key
+  async getWallet(address: string): Promise<Wallet> {
+    const path = `${walletPath}/${this.chainName}`;
 
-  // returns the ETH balance, convert BigNumber to string
-  async getEthBalance(wallet: Wallet): Promise<TokenValue> {
+    const encryptedPrivateKey: string = await fse.readFile(
+      `${path}/${address}.json`,
+      'utf8'
+    );
+
+    const passphrase = ConfigManagerCertPassphrase.readPassphrase();
+    if (!passphrase) {
+      throw new Error('missing passphrase');
+    }
+    return await this.decrypt(encryptedPrivateKey, passphrase);
+  }
+
+  encrypt(privateKey: string, password: string): Promise<string> {
+    const wallet = this.getWalletFromPrivateKey(privateKey);
+    return wallet.encrypt(password);
+  }
+
+  async decrypt(
+    encryptedPrivateKey: string,
+    password: string
+  ): Promise<Wallet> {
+    const wallet = await Wallet.fromEncryptedJson(
+      encryptedPrivateKey,
+      password
+    );
+    return wallet.connect(this._provider);
+  }
+
+  // returns the Native balance, convert BigNumber to string
+  async getNativeBalance(wallet: Wallet): Promise<TokenValue> {
     const balance = await wallet.getBalance();
     return { value: balance, decimals: 18 };
   }
 
   // returns the balance for an ERC-20 token
   async getERC20Balance(
+    contract: Contract,
     wallet: Wallet,
-    tokenAddress: string,
     decimals: number
   ): Promise<TokenValue> {
-    // instantiate a contract and pass in provider for read-only access
-    const contract = new Contract(tokenAddress, abi.ERC20Abi, this._provider);
+    logger.info('Requesting balance for owner ' + wallet.address + '.');
     const balance = await contract.balanceOf(wallet.address);
+    logger.info(balance);
     return { value: balance, decimals: decimals };
   }
 
   // returns the allowance for an ERC-20 token
   async getERC20Allowance(
+    contract: Contract,
     wallet: Wallet,
     spender: string,
-    tokenAddress: string,
     decimals: number
   ): Promise<TokenValue> {
-    // instantiate a contract and pass in provider for read-only access
-    const contract = new Contract(tokenAddress, abi.ERC20Abi, this._provider);
+    logger.info(
+      'Requesting spender ' +
+        spender +
+        ' allowance for owner ' +
+        wallet.address +
+        '.'
+    );
     const allowance = await contract.allowance(wallet.address, spender);
+    logger.info(allowance);
     return { value: allowance, decimals: decimals };
   }
 
@@ -216,29 +260,41 @@ export class EthereumBase {
 
   // adds allowance by spender to transfer the given amount of Token
   async approveERC20(
+    contract: Contract,
     wallet: Wallet,
     spender: string,
-    tokenAddress: string,
     amount: BigNumber,
     nonce?: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    maxPriorityFeePerGas?: BigNumber,
+    gasPrice?: number
   ): Promise<Transaction> {
-    // instantiate a contract and pass in wallet, which act on behalf of that signer
-    const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
+    logger.info(
+      'Calling approve method called for spender ' +
+        spender +
+        ' requesting allowance ' +
+        amount.toString() +
+        ' from owner ' +
+        wallet.address +
+        '.'
+    );
     if (!nonce) {
       nonce = await this.nonceManager.getNonce(wallet.address);
     }
     const params: any = {
-      gasPrice: this.gasPriceConstant * 1e9,
       gasLimit: 100000,
       nonce: nonce,
     };
-    if (maxFeePerGas) params.maxFeePerGas = maxFeePerGas;
-    if (maxPriorityFeePerGas)
+    if (maxFeePerGas || maxPriorityFeePerGas) {
+      params.maxFeePerGas = maxFeePerGas;
       params.maxPriorityFeePerGas = maxPriorityFeePerGas;
-
-    return contract.approve(spender, amount, params);
+    } else if (gasPrice) {
+      params.gasPrice = gasPrice * 1e9;
+    }
+    const response = await contract.approve(spender, amount, params);
+    logger.info(response);
+    await this.nonceManager.commitNonce(wallet.address, nonce);
+    return response;
   }
 
   public getTokenBySymbol(tokenSymbol: string): Token | undefined {

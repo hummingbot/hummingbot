@@ -25,16 +25,6 @@ beforeAll(async () => {
 
 afterEach(() => unpatch());
 
-describe('GET /eth', () => {
-  it('should return 200', async () => {
-    request(app)
-      .get(`/eth`)
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect((res) => expect(res.body.connection).toBe(true));
-  });
-});
-
 const patchGetWallet = () => {
   patch(eth, 'getWallet', () => {
     return {
@@ -47,41 +37,154 @@ const patchGetNonce = () => {
   patch(eth.nonceManager, 'getNonce', () => 2);
 };
 
+const patchGetERC20Balance = () => {
+  patch(eth, 'getERC20Balance', () => ({ value: 1, decimals: 3 }));
+};
+
+const patchGetNativeBalance = () => {
+  patch(eth, 'getNativeBalance', () => ({ value: 1, decimals: 3 }));
+};
+
 const patchGetTokenBySymbol = () => {
-  patch(eth, 'getTokenBySymbol', () => {
-    return {
-      chainId: 42,
-      name: 'WETH',
-      symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-      decimals: 18,
-    };
+  patch(eth, 'getTokenBySymbol', (symbol: string) => {
+    let result;
+    switch (symbol) {
+      case 'WETH':
+        result = {
+          chainId: 42,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+        break;
+      case 'DAI':
+        result = {
+          chainId: 42,
+          name: 'DAI',
+          symbol: 'DAI',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cFFFFF',
+          decimals: 18,
+        };
+        break;
+    }
+    return result;
   });
 };
 
-const patchApproveERC20 = () => {
+const patchApproveERC20 = (tx_type?: string) => {
+  const default_tx = {
+    type: 2,
+    chainId: 42,
+    nonce: 115,
+    maxPriorityFeePerGas: { toString: () => '106000000000' },
+    maxFeePerGas: { toString: () => '106000000000' },
+    gasPrice: { toString: () => null },
+    gasLimit: { toString: () => '100000' },
+    to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
+    value: { toString: () => '0' },
+    data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    accessList: [],
+    hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
+    v: 0,
+    r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
+    s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
+    from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    confirmations: 0,
+  };
+  if (tx_type === 'overwritten_tx') {
+    default_tx.hash =
+      '0x5a1ed682d0d7a58fbd7828bbf5994cd024feb8895d4da82c741ec4a191b9e849';
+  }
   patch(eth, 'approveERC20', () => {
-    return {
-      type: 2,
-      chainId: 42,
-      nonce: 115,
-      maxPriorityFeePerGas: { toString: () => '106000000000' },
-      maxFeePerGas: { toString: () => '106000000000' },
-      gasPrice: { toString: () => null },
-      gasLimit: { toString: () => '100000' },
-      to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
-      value: { toString: () => '0' },
-      data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-      accessList: [],
-      hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
-      v: 0,
-      r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
-      s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
-      from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
-      confirmations: 0,
-    };
+    return default_tx;
   });
 };
+
+describe('GET /eth', () => {
+  it('should return 200', async () => {
+    request(app)
+      .get(`/eth`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
+
+describe('POST /eth/balances', () => {
+  it('should return 200 asking for supported tokens', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetNativeBalance();
+    patchGetERC20Balance();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.balances.WETH).toBeDefined())
+      .expect((res) => expect(res.body.balances.DAI).toBeDefined());
+  });
+
+  it('should return 200 asking for native token', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetNativeBalance();
+    patchGetERC20Balance();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        tokenSymbols: ['ETH'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.balances.ETH).toBeDefined())
+      .expect((res) => console.log(res.body));
+  });
+
+  it('should return 500 for unsupported tokens', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetNativeBalance();
+    patchGetERC20Balance();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        tokenSymbols: ['XXX', 'YYY'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(500);
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        address: 'da857cbda0ba96757fed842617a4',
+      })
+      .expect(404);
+  });
+});
 
 describe('POST /eth/nonce', () => {
   it('should return 200', async () => {
@@ -91,8 +194,7 @@ describe('POST /eth/nonce', () => {
     await request(app)
       .post(`/eth/nonce`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -104,15 +206,18 @@ describe('POST /eth/nonce', () => {
     await request(app)
       .post(`/eth/nonce`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
 });
 
 describe('POST /eth/approve', () => {
-  it('approve without nonce parmeter should return 200', async () => {
+  it('approve without nonce parameter should return 200', async () => {
     patchGetWallet();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
     patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
     patchApproveERC20();
@@ -120,8 +225,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
       })
@@ -139,8 +243,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -162,8 +265,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -179,8 +281,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 123,
         nonce: '23',
@@ -203,8 +304,7 @@ describe('POST /eth/cancel', () => {
     await request(app)
       .post(`/eth/cancel`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -221,7 +321,7 @@ describe('POST /eth/cancel', () => {
     await request(app)
       .post(`/eth/cancel`)
       .send({
-        privateKey: '',
+        address: '',
         nonce: '23',
       })
       .expect(404);
@@ -349,5 +449,60 @@ describe('POST /eth/poll', () => {
     expect(res.statusCode).toEqual(503);
     expect(res.body.errorCode).toEqual(UNKNOWN_ERROR_ERROR_CODE);
     expect(res.body.message).toEqual(UNKNOWN_ERROR_MESSAGE);
+  });
+});
+
+describe('overwrite existing transaction', () => {
+  it('overwritten transaction is dropped', async () => {
+    patchGetWallet();
+    patch(eth.nonceManager, 'getNonce', () => 115);
+    patchGetTokenBySymbol();
+
+    const requestParam = {
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      spender: 'uniswap',
+      token: 'WETH',
+      nonce: 115,
+      maxFeePerGas: '5000000000',
+      maxPriorityFeePerGas: '5000000000',
+    };
+
+    patchApproveERC20('overwritten_tx');
+    const tx_1 = await request(app)
+      .post(`/eth/approve`)
+      .send(requestParam)
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    patchApproveERC20(); // patch to return different tx_hash
+    requestParam.maxPriorityFeePerGas = '8000000000'; // we only increase maxPriorityFeePerGas
+    const tx_2 = await request(app)
+      .post(`/eth/approve`)
+      .send(requestParam)
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    // once tx_2 is confirmed, tx_1 will be dropped
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => null);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res_1 = await request(app).post('/eth/poll').send({
+      txHash: tx_1.body.approval.hash,
+    });
+    expect(res_1.statusCode).toEqual(200);
+    expect(res_1.body.txReceipt).toEqual(null);
+    expect(res_1.body.txData).toEqual(null);
+
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => transactionSuccesful);
+    patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
+    const res_2 = await request(app).post('/eth/poll').send({
+      txHash: tx_2.body.approval.hash,
+    });
+    expect(res_2.statusCode).toEqual(200);
+    expect(res_2.body.txReceipt).toBeDefined();
+    expect(res_2.body.txData).toBeDefined();
   });
 });
