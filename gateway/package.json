@@ -35,6 +35,7 @@
     "body-parser": "^1.19.0",
     "copyfiles": "^2.4.1",
     "dayjs": "^1.10.6",
+    "decimal.js-light": "^2.5.1",
     "ethers": "^5.4.1",
     "express": "^4.17.1",
     "express-ipfilter": "^1.2.0",

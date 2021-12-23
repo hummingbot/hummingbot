@@ -1,5 +1,5 @@
 {
-  "privateKey": "$ETH_PRIVATE_KEY",
+  "address": "$ETH_ADDRESS",
   "quote": "WETH",
   "base": "DAI",
   "amount": "100000000000000",

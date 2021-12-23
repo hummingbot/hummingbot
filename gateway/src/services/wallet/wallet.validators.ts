@@ -5,7 +5,20 @@ import {
   Validator,
 } from '../validators';
 
-import { validatePrivateKey } from '../../chains/ethereum/ethereum.validators';
+export const invalidPrivateKeyError: string =
+  'The privateKey param is not a valid Ethereum private key (64 hexidecimal characters).';
+
+// test if a string matches the shape of an Ethereum private key
+export const isPrivateKey = (str: string): boolean => {
+  return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
+};
+
+// given a request, look for a key called privateKey that is an Ethereum private key
+export const validatePrivateKey: Validator = mkValidator(
+  'privateKey',
+  invalidPrivateKeyError,
+  (val) => typeof val === 'string' && isPrivateKey(val)
+);
 
 export const invalidChainNameError: string =
   'chainName must be "ethereum" or "avalanche"';
