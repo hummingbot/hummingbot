@@ -255,7 +255,6 @@ export class ConfigManagerV2 {
   public static getInstance(): ConfigManagerV2 {
     if (!ConfigManagerV2._instance) {
       const rootPath = path.join(ConfigDir, 'root.yml');
-      console.log(rootPath);
       if (!fs.existsSync(rootPath)) {
         // copy from template
         fs.copyFileSync(path.join(ConfigTemplatesDir, 'root.yml'), rootPath);
