@@ -25,7 +25,7 @@ export interface UniswapTradeRequest {
   quote: string;
   base: string;
   amount: string;
-  privateKey: string;
+  address: string;
   side: Side;
   limitPrice?: string; // integer as string
   nonce?: number;

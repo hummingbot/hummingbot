@@ -5,6 +5,7 @@
 # the cert files in the same place as CERT_PATH from /conf/gateway-config.yml
 
 # Here are some examples
+# export ETH_PUBLIC_KEY='0x...'
 # export ETH_PRIVATE_KEY='0000000000000000000000000000000000000000000000000000000000000001'
 # export GATEWAY_CERT='/home/hummingbot/gateway/certs/client_cert.pem'
 # export GATEWAY_KEY='/home/hummingbot/gateway/certs/client_key.pem'
@@ -33,19 +34,19 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 # get Ethereum balances for your private key
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_balances.json)" https://localhost:5000/eth/balances | jq
 
-# get Ethereum allowances for your uniswap on private key
+# get Ethereum allowances for uniswap on an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_allowances.json)" https://localhost:5000/eth/allowances | jq
 
-# approve uniswap allowance on your private key
+# approve uniswap allowance on an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve.json)" https://localhost:5000/eth/approve | jq
 
-# approve uniswap allowance on your private key
+# approve uniswap allowance on an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve_with_fees.json)" https://localhost:5000/eth/approve | jq
 
-# remove uniswap allowance on your private key
+# remove uniswap allowance on an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/approve | jq
 
-# get the next nonce you should use for your private key
+# get the next nonce you should use for an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_nonce.json)" https://localhost:5000/eth/nonce | jq
 
 # call approve with a nonce, if the nonce is incorrect, this should fail
@@ -73,7 +74,7 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 
 # TEST Avalanche
 
-# get the next nonce you should use for your private key
+# get the next nonce you should use for an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/avalanche_nonce.json)" https://localhost:5000/avalanche/nonce | jq
 
 
