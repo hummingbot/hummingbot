@@ -43,12 +43,16 @@ class WSAssistant:
         request = await self._pre_process_request(request)
         await self._connection.send(request)
 
+    async def ping(self):
+        await self._connection.ping()
+
     async def iter_messages(self) -> AsyncGenerator[Optional[WSResponse], None]:
         """Will yield None and stop if `WSDelegate.disconnect()` is called while waiting for a response."""
         while self._connection.connected:
             response = await self._connection.receive()
-            response = await self._post_process_response(response)
-            yield response
+            if response is not None:
+                response = await self._post_process_response(response)
+                yield response
 
     async def receive(self) -> Optional[WSResponse]:
         """Will return None if `WSDelegate.disconnect()` is called while waiting for a response."""
