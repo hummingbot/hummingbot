@@ -1,25 +1,22 @@
-import unittest
-import aiohttp
 import asyncio
-from collections import deque
-import ujson
-import re
 import json
-from unittest.mock import patch, AsyncMock
-from typing import (
-    Any,
-    Dict,
-    List,
-)
+import re
+import unittest
+from collections import deque
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from typing import Any, Awaitable, Dict, List
+from unittest.mock import AsyncMock, patch
+
+import aiohttp
+import ujson
 from aioresponses import aioresponses
+
+import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
-import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from typing import Awaitable
 
 
 class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
@@ -54,12 +51,6 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def handle(self, record):
         self.log_records.append(record)
-
-    class QueueMock(asyncio.Queue):
-        messages = []
-
-        def put_nowait(self, message):
-            self.messages.append(message)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -284,7 +275,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_successful(self, mock_ws):
-        msg_queue: asyncio.Queue = BitmartAPIOrderBookDataSourceUnitTests.QueueMock()
+        msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
@@ -311,7 +302,9 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, bitmart_utils.compress_ws_message(ujson.dumps(resp)), message_type=aiohttp.WSMsgType.BINARY
+            mock_ws.return_value,
+            bitmart_utils.compress_ws_message(ujson.dumps(resp)),
+            message_type=aiohttp.WSMsgType.BINARY
         )
 
         BitmartAPIOrderBookDataSource._trading_pairs = ["ETH-USDT"]
@@ -319,14 +312,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
         )
 
-        try:
-            self.async_run_with_timeout(msg_queue.get())
-        except asyncio.exceptions.TimeoutError:
-            pass
-
-        print(msg_queue.messages)
-
-        first_msg: OrderBookMessage = msg_queue.messages[-1]
+        first_msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
         self.assertTrue(first_msg.type == OrderBookMessageType.SNAPSHOT)
 
     def _trade_ws_messsage(self):
@@ -353,26 +339,23 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listen_for_trades(self, mock_ws):
-        msg_queue: asyncio.Queue = BitmartAPIOrderBookDataSourceUnitTests.QueueMock()
+        msg_queue: asyncio.Queue = asyncio.Queue()
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
         # Add message to be processed after subscriptions, to unlock the test
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, bitmart_utils.compress_ws_message(self._trade_ws_messsage()), message_type=aiohttp.WSMsgType.BINARY)
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             bitmart_utils.compress_ws_message(self._trade_ws_messsage()),
+                                                             message_type=aiohttp.WSMsgType.BINARY)
         BitmartAPIOrderBookDataSource._trading_pairs = ["ETH-USDT"]
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_trades(self.ev_loop, msg_queue)
         )
 
-        try:
-            self.async_run_with_timeout(msg_queue.get())
-        except asyncio.exceptions.TimeoutError:
-            pass
-
-        trade1: OrderBookMessage = msg_queue.messages[-2]
-        trade2: OrderBookMessage = msg_queue.messages[-1]
+        trade1: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        trade2: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertTrue(msg_queue.empty())
         self.assertEqual(1542337219 * 1000, int(trade1.trade_id))
