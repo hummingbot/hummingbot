@@ -175,7 +175,6 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if "errorCode" in messages.keys() or \
                                "data" not in messages.keys() or \
                                "table" not in messages.keys():
-                                # Error/Unrecognized response from "depth400" channel
                                 continue
 
                             if messages["table"] != "spot/trade":
@@ -239,7 +238,6 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if "errorCode" in messages.keys() or \
                                "data" not in messages.keys() or \
                                "table" not in messages.keys():
-                                # Error/Unrecognized response from "depth400" channel
                                 continue
 
                             if messages["table"] != "spot/depth5":
