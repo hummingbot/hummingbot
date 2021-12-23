@@ -1,5 +1,3 @@
-# A single source of truth for constant variables related to the exchange
-from binance.client import Client as BinanceClient
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 # Base URL
@@ -13,20 +11,21 @@ PRIVATE_API_VERSION = "v3"
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
 SNAPSHOT_PATH_URL = "/depth"
-BINANCE_GET_EXCHANGE_INFO = BinanceClient.get_exchange_info.__name__
-BINANCE_GET_SERVER_TIME = BinanceClient.get_server_time.__name__
-BINANCE_PING = BinanceClient.ping.__name__
+BINANCE_GET_EXCHANGE_INFO = "get_exchange_info"
+BINANCE_GET_SERVER_TIME = "get_server_time"
+BINANCE_PING = "ping"
 
 # Private API endpoints or BinanceClient function
 BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
-BINANCE_GET_ACCOUNT = BinanceClient.get_account.__name__
-BINANCE_GET_MY_TRADES = BinanceClient.get_my_trades.__name__
-BINANCE_GET_TRADE_FEE = BinanceClient.get_trade_fee.__name__
-BINANCE_GET_ORDER = BinanceClient.get_order.__name__
-BINANCE_CREATE_ORDER = BinanceClient.create_order.__name__
-BINANCE_CANCEL_ORDER = BinanceClient.cancel_order.__name__
-BINANCE_GET_OPEN_ORDERS = BinanceClient.get_open_orders.__name__
+BINANCE_GET_ACCOUNT = "get_account"
+BINANCE_GET_MY_TRADES = "get_my_trades"
+BINANCE_GET_TRADE_FEE = "get_trade_fee"
+BINANCE_GET_ORDER = "get_order"
+BINANCE_CREATE_ORDER = "create_order"
+BINANCE_CANCEL_ORDER = "cancel_order"
+BINANCE_GET_OPEN_ORDERS = "get_open_orders"
 
+WS_HEARTBEAT_TIME_INTERVAL = 30
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"

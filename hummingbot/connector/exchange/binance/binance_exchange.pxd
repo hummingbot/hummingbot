@@ -1,4 +1,3 @@
-# from hummingbot.market.market_base cimport MarketBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
@@ -25,6 +24,7 @@ cdef class BinanceExchange(ExchangeBase):
         object _async_scheduler
         object _set_server_time_offset_task
         object _throttler
+        object _api_factory
         str _domain
 
     cdef c_did_timeout_tx(self, str tracking_id)
