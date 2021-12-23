@@ -119,8 +119,8 @@ describe('POST /eth/allowances', () => {
   it('should return 200 asking for allowances', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
-    const spender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
-    eth.getSpender = jest.fn().mockReturnValue(spender);
+    const theSpender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+    eth.getSpender = jest.fn().mockReturnValue(theSpender);
     eth.getContract = jest.fn().mockReturnValue({
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
@@ -131,13 +131,13 @@ describe('POST /eth/allowances', () => {
       .send({
         privateKey:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
-        spender: spender,
+        spender: theSpender,
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.spender).toEqual(spender))
+      .expect((res) => expect(res.body.spender).toEqual(theSpender))
       .expect((res) => expect(res.body.approvals.WETH).toEqual('0.001'))
       .expect((res) => expect(res.body.approvals.DAI).toEqual('0.001'));
   });

@@ -186,7 +186,7 @@ describe('POST /avalanche/allowances', () => {
   });
 });
 
-describe('POST /avalanche/avalanche', () => {
+describe('POST /avalanche/balances', () => {
   it('should return 200 asking for supported tokens', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
