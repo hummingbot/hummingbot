@@ -139,7 +139,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             json.dumps({"errorCode": "test code", "errorMessage": "test err message"})
         )
         try:
-            self.async_run_with_timeout(self.listening_task)
+            self.ev_loop.run_until_complete(self.listening_task)
         except Exception:
             pass
         self.assertTrue(self._is_logged("ERROR", "WebSocket login errored with message: test err message"))
@@ -202,8 +202,8 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, messages))
             try:
                 self.async_run_with_timeout(self.listening_task)
-            except TimeoutError:
-                pass
+            except asyncio.TimeoutError:
+                raise
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. Retrying after 30 seconds..."))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -221,7 +221,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_user_stream(self.ev_loop,
                                                         messages))
-            self.async_run_with_timeout(self.listening_task)
+            self.ev_loop.run_until_complete(self.listening_task)
         except Exception:
             pass
 

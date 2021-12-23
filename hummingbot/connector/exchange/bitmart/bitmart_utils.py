@@ -2,14 +2,12 @@ import math
 import zlib
 from typing import Dict, List, Tuple
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
 
 CENTRALIZED = True
 

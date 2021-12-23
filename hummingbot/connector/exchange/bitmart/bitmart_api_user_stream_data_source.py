@@ -2,24 +2,24 @@
 
 import asyncio
 import logging
-import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
+from typing import Any, Dict, List, Optional
 
-from typing import Optional, List, Any, Dict
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
+import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
 
 
 class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 10.0
-    PING_TIMEOUT = 10.0
+    PING_TIMEOUT = 2.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -117,7 +117,9 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 ws: WSAssistant = await self._get_ws_assistant()
                 try:
-                    await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=self.MESSAGE_TIMEOUT, ping_timeout=self.PING_TIMEOUT)
+                    await ws.connect(ws_url=CONSTANTS.WSS_URL,
+                                     message_timeout=self.MESSAGE_TIMEOUT,
+                                     ping_timeout=self.PING_TIMEOUT)
                 except RuntimeError:
                     self.logger().info("BitMart WebSocket already connected.")
                 self.logger().info("Authenticating to User Stream...")
@@ -133,13 +135,17 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             if messages is None:
                                 continue
 
-                            if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
+                            if "errorCode" in messages.keys() or \
+                               "data" not in messages.keys() or \
+                               "table" not in messages.keys():
                                 # Error/Unrecognized response from "depth400" channel
                                 continue
 
                             if messages["table"] != "spot/user/order":
                                 # Not a trade or order message
                                 continue
+
+                            output.put_nowait(messages)
 
                         break
                     except asyncio.exceptions.TimeoutError:

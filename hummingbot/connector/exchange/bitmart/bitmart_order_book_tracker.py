@@ -2,18 +2,19 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.connector.exchange.bitmart.bitmart_constants as constants
 from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from typing import Deque, Dict, List, Optional
+
+import hummingbot.connector.exchange.bitmart.bitmart_constants as constants
 from hummingbot.connector.exchange.bitmart import bitmart_utils
-from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_order_book import BitmartOrderBook
+from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 
 class BitmartOrderBookTracker(OrderBookTracker):
