@@ -129,8 +129,7 @@ describe('POST /eth/allowances', () => {
     await request(app)
       .post(`/eth/allowances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: theSpender,
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -146,8 +145,7 @@ describe('POST /eth/allowances', () => {
     await request(app)
       .post(`/eth/allowances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: '0xSpender',
         tokenSymbols: ['WETH', 'DAI'],
       })
