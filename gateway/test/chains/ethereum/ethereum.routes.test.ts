@@ -45,6 +45,10 @@ const patchGetNativeBalance = () => {
   patch(eth, 'getNativeBalance', () => ({ value: 1, decimals: 3 }));
 };
 
+const patchGetERC20Allowance = () => {
+  patch(eth, 'getERC20Allowance', () => ({ value: 1, decimals: 3 }));
+};
+
 const patchGetTokenBySymbol = () => {
   patch(eth, 'getTokenBySymbol', (symbol: string) => {
     let result;
@@ -108,6 +112,46 @@ describe('GET /eth', () => {
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
+
+describe('POST /eth/allowances', () => {
+  it('should return 200 asking for allowances', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    const spender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+    eth.getSpender = jest.fn().mockReturnValue(spender);
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+    patchGetERC20Allowance();
+
+    await request(app)
+      .post(`/eth/allowances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: spender,
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.spender).toEqual(spender))
+      .expect((res) => expect(res.body.approvals.WETH).toEqual('0.001'))
+      .expect((res) => expect(res.body.approvals.DAI).toEqual('0.001'));
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/allowances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: '0xSpender',
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .expect(404);
   });
 });
 
