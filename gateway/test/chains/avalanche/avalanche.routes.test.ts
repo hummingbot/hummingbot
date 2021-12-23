@@ -20,7 +20,7 @@ afterEach(unpatch);
 
 describe('GET /avalanche', () => {
   it('should return 200', async () => {
-    request(app)
+    await request(app)
       .get(`/avalanche`)
       .expect('Content-Type', /json/)
       .expect(200)
@@ -76,6 +76,18 @@ const patchApproveERC20 = () => {
       confirmations: 0,
     };
   });
+};
+
+const patchGetERC20Allowance = () => {
+  patch(avalanche, 'getERC20Allowance', () => ({ value: 1, decimals: 3 }));
+};
+
+const patchGetNativeBalance = () => {
+  patch(avalanche, 'getNativeBalance', () => ({ value: 1, decimals: 3 }));
+};
+
+const patchGetERC20Balance = () => {
+  patch(avalanche, 'getERC20Balance', () => ({ value: 1, decimals: 3 }));
 };
 
 describe('POST /avalanche/nonce', () => {
@@ -143,6 +155,59 @@ describe('POST /avalanche/approve', () => {
         nonce: '23',
       })
       .expect(404);
+  });
+});
+
+describe('POST /avalanche/allowances', () => {
+  it('should return 200 asking for allowances', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    const spender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+    avalanche.getSpender = jest.fn().mockReturnValue(spender);
+    avalanche.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+    patchGetERC20Allowance();
+
+    await request(app)
+      .post(`/avalanche/allowances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: spender,
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.spender).toEqual(spender))
+      .expect((res) => expect(res.body.approvals.WETH).toEqual('0.001'))
+      .expect((res) => expect(res.body.approvals.DAI).toEqual('0.001'));
+  });
+});
+
+describe('POST /avalanche/avalanche', () => {
+  it('should return 200 asking for supported tokens', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetNativeBalance();
+    patchGetERC20Balance();
+    avalanche.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/avalanche/balances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.balances.WETH).toBeDefined())
+      .expect((res) => expect(res.body.balances.DAI).toBeDefined());
   });
 });
 
