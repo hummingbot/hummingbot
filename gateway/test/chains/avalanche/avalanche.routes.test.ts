@@ -171,8 +171,7 @@ describe('POST /avalanche/allowances', () => {
     await request(app)
       .post(`/avalanche/allowances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: spender,
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -198,8 +197,7 @@ describe('POST /avalanche/balances', () => {
     await request(app)
       .post(`/avalanche/balances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
