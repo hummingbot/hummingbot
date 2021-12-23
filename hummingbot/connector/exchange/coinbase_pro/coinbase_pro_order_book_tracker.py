@@ -2,30 +2,22 @@
 
 import asyncio
 import bisect
-from collections import (
-    defaultdict,
-    deque
-)
 import logging
 import time
-from typing import (
-    Deque,
-    Dict,
-    List,
-    Optional
-)
+from collections import defaultdict, deque
+from typing import Deque, Dict, List, Optional
 
-from hummingbot.core.event.events import TradeType
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessageType,
-    OrderBookMessage,
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import (
+    CoinbaseProAPIOrderBookDataSource
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 
 class CoinbaseProOrderBookTracker(OrderBookTracker):
@@ -37,11 +29,16 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
             cls._cbpobt_logger = logging.getLogger(__name__)
         return cls._cbpobt_logger
 
-    def __init__(self,
-                 trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source=CoinbaseProAPIOrderBookDataSource(trading_pairs=trading_pairs),
-                         trading_pairs=trading_pairs)
-        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+    def __init__(
+        self,
+        trading_pairs: Optional[List[str]] = None,
+        web_assistants_factory: Optional[WebAssistantsFactory] = None,
+    ):
+        super().__init__(
+            data_source=CoinbaseProAPIOrderBookDataSource(trading_pairs, web_assistants_factory),
+            trading_pairs=trading_pairs,
+        )
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
