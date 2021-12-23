@@ -28,10 +28,12 @@ describe('GET /avalanche', () => {
   });
 });
 
+const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+
 const patchGetWallet = () => {
   patch(avalanche, 'getWallet', () => {
     return {
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      address,
     };
   });
 };
@@ -98,8 +100,7 @@ describe('POST /avalanche/nonce', () => {
     await request(app)
       .post(`/avalanche/nonce`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -111,7 +112,7 @@ describe('POST /avalanche/nonce', () => {
     await request(app)
       .post(`/avalanche/nonce`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -121,7 +122,7 @@ describe('POST /avalanche/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
     avalanche.getContract = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      address,
     });
     patch(avalanche.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
@@ -130,8 +131,7 @@ describe('POST /avalanche/approve', () => {
     await request(app)
       .post(`/avalanche/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         spender: 'pangolin',
         token: 'PNG',
         nonce: 115,
@@ -148,8 +148,7 @@ describe('POST /avalanche/approve', () => {
     await request(app)
       .post(`/avalanche/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         spender: 'pangolin',
         token: 123,
         nonce: '23',
@@ -215,7 +214,7 @@ describe('POST /avalanche/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     avalanche.getWallet = jest.fn().mockReturnValue({
-      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      address,
     });
 
     avalanche.cancelTx = jest.fn().mockReturnValue({
@@ -225,8 +224,7 @@ describe('POST /avalanche/cancel', () => {
     await request(app)
       .post(`/avalanche/cancel`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -243,7 +241,7 @@ describe('POST /avalanche/cancel', () => {
     await request(app)
       .post(`/avalanche/cancel`)
       .send({
-        privateKey: '',
+        address: '',
         nonce: '23',
       })
       .expect(404);
