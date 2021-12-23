@@ -126,22 +126,31 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._subscribe_to_channels(ws)
                 self.logger().info("Successfully subscribed to all Private channels.")
 
-                async for raw_msg in ws.iter_messages():
-                    messages = raw_msg.data
-                    if messages is None:
-                        continue
+                while True:
+                    try:
+                        async for raw_msg in ws.iter_messages():
+                            messages = raw_msg.data
+                            if messages is None:
+                                continue
 
-                    if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
-                        # Error/Unrecognized response from "depth400" channel
-                        continue
+                            if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
+                                # Error/Unrecognized response from "depth400" channel
+                                continue
 
-                    if messages["table"] != "spot/user/order":
-                        # Not a trade or order message
-                        continue
+                            if messages["table"] != "spot/user/order":
+                                # Not a trade or order message
+                                continue
 
-                    output.put_nowait(messages)
+                        break
+                    except asyncio.exceptions.TimeoutError:
+                        # Check whether connection is really dead
+                        await ws.ping()
             except asyncio.CancelledError:
                 raise
+            except asyncio.exceptions.TimeoutError:
+                self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+                await ws.disconnect()
+                await asyncio.sleep(30.0)
             except Exception:
                 self.logger().error(
                     "Unexpected error with BitMart WebSocket connection. Retrying after 30 seconds...",

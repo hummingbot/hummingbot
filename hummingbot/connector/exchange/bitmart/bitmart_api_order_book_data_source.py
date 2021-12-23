@@ -158,36 +158,43 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "args": [f"spot/trade:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
                     })
                     await ws.send(ws_message)
+                while True:
+                    try:
+                        async for raw_msg in ws.iter_messages():
+                            messages = bitmart_utils.decompress_ws_message(raw_msg.data)
+                            if messages is None:
+                                continue
 
-                async for raw_msg in ws.iter_messages():
-                    messages = bitmart_utils.decompress_ws_message(raw_msg.data)
-                    if messages is None:
-                        continue
+                            messages = ujson.loads(messages)
 
-                    messages = ujson.loads(messages)
+                            if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
+                                # Error/Unrecognized response from "depth400" channel
+                                continue
 
-                    if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
-                        # Error/Unrecognized response from "depth400" channel
-                        continue
+                            if messages["table"] != "spot/trade":
+                                # Not a trade message
+                                continue
 
-                    if messages["table"] != "spot/trade":
-                        # Not a trade message
-                        continue
+                            for msg in messages["data"]:        # data is a list
+                                msg_timestamp: float = float(msg["s_t"] * 1000)
+                                t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
 
-                    for msg in messages["data"]:        # data is a list
-                        msg_timestamp: float = float(msg["s_t"] * 1000)
-                        t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
+                                trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
+                                    msg=msg,
+                                    timestamp=msg_timestamp,
+                                    metadata={"trading_pair": t_pair})
 
-                        trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
-                            msg=msg,
-                            timestamp=msg_timestamp,
-                            metadata={"trading_pair": t_pair})
-
-                        output.put_nowait(trade_msg)
+                                output.put_nowait(trade_msg)
+                            break
+                    except asyncio.exceptions.TimeoutError:
+                        # Check whether connection is really dead
+                        await ws.ping()
             except asyncio.CancelledError:
                 raise
             except asyncio.exceptions.TimeoutError:
+                self.logger().warning("WebSocket ping timed out. Going to reconnect...")
                 await ws.disconnect()
+                await asyncio.sleep(30.0)
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await ws.disconnect()
@@ -202,7 +209,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=self.MESSAGE_TIMEOUT)
+                await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=self.MESSAGE_TIMEOUT, ping_timeout=self.PING_TIMEOUT)
 
                 for trading_pair in self._trading_pairs:
                     ws_message: WSRequest = WSRequest({
@@ -211,35 +218,43 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     })
                     await ws.send(ws_message)
 
-                async for raw_msg in ws.iter_messages():
-                    messages = bitmart_utils.decompress_ws_message(raw_msg.data)
-                    if messages is None:
-                        continue
+                while True:
+                    try:
+                        async for raw_msg in ws.iter_messages():
+                            messages = bitmart_utils.decompress_ws_message(raw_msg.data)
+                            if messages is None:
+                                continue
 
-                    messages = ujson.loads(messages)
+                            messages = ujson.loads(messages)
 
-                    if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
-                        # Error/Unrecognized response from "depth400" channel
-                        continue
+                            if "errorCode" in messages.keys() or "data" not in messages.keys() or "table" not in messages.keys():
+                                # Error/Unrecognized response from "depth400" channel
+                                continue
 
-                    if messages["table"] != "spot/depth5":
-                        # Not an order book message
-                        continue
+                            if messages["table"] != "spot/depth5":
+                                # Not an order book message
+                                continue
 
-                    for msg in messages["data"]:        # data is a list
-                        msg_timestamp: float = float(msg["ms_t"])
-                        t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
+                            for msg in messages["data"]:        # data is a list
+                                msg_timestamp: float = float(msg["ms_t"])
+                                t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
 
-                        snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-                            msg=msg,
-                            timestamp=msg_timestamp,
-                            metadata={"trading_pair": t_pair}
-                        )
-                        output.put_nowait(snapshot_msg)
+                                snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
+                                    msg=msg,
+                                    timestamp=msg_timestamp,
+                                    metadata={"trading_pair": t_pair}
+                                )
+                                output.put_nowait(snapshot_msg)
+                        break
+                    except asyncio.exceptions.TimeoutError:
+                        # Check whether connection is really dead
+                        await ws.ping()
             except asyncio.CancelledError:
                 raise
             except asyncio.exceptions.TimeoutError:
+                self.logger().warning("WebSocket ping timed out. Going to reconnect...")
                 await ws.disconnect()
+                await asyncio.sleep(30.0)
             except Exception:
                 self.logger().network(
                     "Unexpected error with WebSocket connection.",
