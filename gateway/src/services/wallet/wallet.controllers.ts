@@ -37,10 +37,10 @@ export async function addWallet(
   let address: string;
   let encryptedPrivateKey: string;
   if (req.chainName === 'ethereum') {
-    address = ethereum.getWallet(req.privateKey).address;
+    address = ethereum.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await ethereum.encrypt(req.privateKey, passphrase);
   } else if (req.chainName === 'avalanche') {
-    address = avalanche.getWallet(req.privateKey).address;
+    address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
