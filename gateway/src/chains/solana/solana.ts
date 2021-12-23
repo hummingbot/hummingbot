@@ -258,7 +258,10 @@ export class Solana {
   public async getTokenAccount(
     walletAddress: PublicKey,
     mintAddress: PublicKey
-  ): Promise<AccountInfo<ParsedAccountData> | null> {
+  ): Promise<{
+    pubkey: PublicKey;
+    account: AccountInfo<ParsedAccountData>;
+  } | null> {
     const response = await this.connection.getParsedTokenAccountsByOwner(
       walletAddress,
       { programId: this._tokenProgramAddress }
@@ -268,7 +271,7 @@ export class Solana {
         accountInfo.account.data.parsed['info']['mint'] ==
         mintAddress.toBase58()
       )
-        return accountInfo.account;
+        return accountInfo;
     }
     return null;
   }
