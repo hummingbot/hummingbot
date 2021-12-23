@@ -11,12 +11,12 @@ const host = 'localhost';
 const port = confV2.get('server.port');
 const ALLOWANCE = 5000000;
 
-let privateKey: string;
-if (process.env.ETH_PRIVATE_KEY && process.env.ETH_PRIVATE_KEY !== '') {
-  privateKey = process.env.ETH_PRIVATE_KEY;
+let publicKey: string;
+if (process.env.ETH_PUBLIC_KEY && process.env.ETH_PUBLIC_KEY !== '') {
+  publicKey = process.env.ETH_PUBLIC_KEY;
 } else {
   console.log(
-    'Please define the env variable ETH_PRIVATE_KEY in order to run the tests.'
+    'Please define the env variable ETH_PUBLIC_KEY in order to run the tests.'
   );
   process.exit(1);
 }
@@ -56,7 +56,7 @@ export const request = async (
     if (method === 'GET') {
       response = await httpsAgent.get(gatewayAddress + path);
     } else {
-      params.privateKey = privateKey;
+      params.address = publicKey;
       response = await httpsAgent.post(gatewayAddress + path, params);
     }
     return response.data;
@@ -75,7 +75,15 @@ export const ethTests = async (
   console.log('***************************************************');
   console.log('Token symbols used in tests: ', tokens);
   expect(tokens.length).toEqual(3);
-  expect(privateKey).toBeDefined();
+
+  // Check wallet for public key is added
+  console.log('Checking wallet has been added...');
+  const wallets = await request('GET', '/wallet/', {});
+  console.log(wallets);
+  for (const chain of wallets) {
+    if (chain.chain === 'ethereum')
+      expect(chain.walletAddresses).toContain(publicKey);
+  }
 
   // call /
   console.log('Checking status of gateway server...');
