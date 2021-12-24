@@ -128,6 +128,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.closed = False
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         self.listening_task = self.ev_loop.create_task(
@@ -215,6 +216,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             if "testAPIKey" in sent_message["args"]
             else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message))
         # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.closed = False
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         try:
@@ -239,6 +241,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message)
         )
         # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.closed = False
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         try:
