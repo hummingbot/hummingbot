@@ -1,7 +1,6 @@
 import asyncio
 import json
 import re
-import ujson
 import unittest
 
 from typing import (
@@ -11,6 +10,8 @@ from typing import (
     List,
 )
 from unittest.mock import AsyncMock, patch, MagicMock
+
+import ujson
 
 from aioresponses.core import aioresponses
 from bidict import bidict
@@ -53,6 +54,11 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
+
+        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
+            "com": bidict(
+                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
+        }
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -169,19 +175,22 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_all_mid_prices(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
 
-        mock_response: List[Dict[str, Any]] = [{
-            # Truncated Response
-            "symbol": self.ex_trading_pair,
-            "bidPrice": "99",
-            "askPrice": "101",
-        }]
+        mock_response: List[Dict[str, Any]] = [
+            {
+                # Truncated Response
+                "symbol": self.ex_trading_pair,
+                "bidPrice": "99",
+                "askPrice": "101",
+            },
+            {
+                # Truncated Response for unrecognized pair
+                "symbol": "BCCBTC",
+                "bidPrice": "99",
+                "askPrice": "101",
+            }
+        ]
 
         mock_api.get(url, body=ujson.dumps(mock_response))
 
@@ -194,6 +203,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
+        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         url = utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
 
         mock_response: Dict[str, Any] = {
@@ -301,6 +311,8 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs_exception_raised(self, mock_api):
+        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
+
         url = utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -317,11 +329,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -335,11 +342,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_snapshot_catch_exception(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -351,11 +353,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -407,11 +404,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_trades = {
@@ -457,10 +449,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
     def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
@@ -594,11 +582,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -613,11 +596,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.connector.exchange.binance.binance_api_order_book_data_source"
            ".BinanceAPIOrderBookDataSource._sleep")
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
@@ -636,11 +614,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
-
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))

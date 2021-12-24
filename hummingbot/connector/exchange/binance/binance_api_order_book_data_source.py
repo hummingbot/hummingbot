@@ -104,10 +104,16 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         ret_val = {}
         for record in resp_json:
-            pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                symbol=record["symbol"],
-                domain=domain)
-            ret_val[pair] = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
+            try:
+                pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                    symbol=record["symbol"],
+                    domain=domain)
+                ret_val[pair] = ((Decimal(record.get("bidPrice", "0")) +
+                                  Decimal(record.get("askPrice", "0")))
+                                 / Decimal("2"))
+            except KeyError:
+                # Ignore results for pairs that are not tracked
+                continue
         return ret_val
 
     @classmethod
@@ -173,7 +179,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 if "result" in json_msg:
                     continue
-                trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(json_msg)
+                trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                    json_msg["s"])
+                trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(
+                    json_msg, {"trading_pair": trading_pair})
                 output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
@@ -188,8 +197,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 json_msg = await message_queue.get()
                 if "result" in json_msg:
                     continue
+                trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                    json_msg["s"])
                 order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
-                    json_msg, time.time())
+                    json_msg, time.time(), {"trading_pair": trading_pair})
                 output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -340,9 +351,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                      throttler: AsyncThrottler) -> float:
 
         url = binance_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
+        symbol = await cls.exchange_symbol_associated_to_pair(trading_pair)
         request = RESTRequest(
             method=RESTMethod.GET,
-            url=f"{url}?symbol={binance_utils.convert_to_exchange_trading_pair(trading_pair)}")
+            url=f"{url}?symbol={symbol}")
 
         async with throttler.execute_task(limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
             resp: RESTResponse = await rest_assistant.call(request=request)

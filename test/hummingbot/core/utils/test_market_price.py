@@ -1,9 +1,9 @@
 import asyncio
 import re
 import unittest
+
 from decimal import Decimal
 from typing import Any, Awaitable, Dict, List
-from unittest.mock import patch
 
 import ujson
 from aioresponses import aioresponses
@@ -59,9 +59,11 @@ class MarketPriceUnitTests(unittest.TestCase):
         self.assertEqual(result, Decimal("1.5"))
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.binance.binance_utils.convert_from_exchange_trading_pair")
-    def test_get_last_price(self, mock_api, mock_utils):
-        mock_utils.return_value = self.trading_pair
+    def test_get_last_price(self, mock_api):
+        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
+            "com": bidict(
+                {f"{self.binance_ex_trading_pair}": self.trading_pair})
+        }
 
         url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
