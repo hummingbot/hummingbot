@@ -126,6 +126,7 @@ class WSConnectionTest(unittest.TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_receive_disconnects_and_raises_on_aiohttp_closed(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.close_code = 1111
         self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.CLOSED
@@ -134,12 +135,13 @@ class WSConnectionTest(unittest.TestCase):
         with self.assertRaises(ConnectionError) as e:
             self.async_run_with_timeout(self.ws_connection.receive())
 
-        self.assertEqual("The WS connection was closed unexpectedly.", str(e.exception))
+        self.assertEqual("The WS connection was closed unexpectedly. Close code = 1111 msg data: ", str(e.exception))
         self.assertFalse(self.ws_connection.connected)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_receive_disconnects_and_raises_on_aiohttp_close(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.close_code = 1111
         self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.CLOSE
@@ -148,7 +150,7 @@ class WSConnectionTest(unittest.TestCase):
         with self.assertRaises(ConnectionError) as e:
             self.async_run_with_timeout(self.ws_connection.receive())
 
-        self.assertEqual("The WS connection was closed unexpectedly.", str(e.exception))
+        self.assertEqual("The WS connection was closed unexpectedly. Close code = 1111 msg data: ", str(e.exception))
         self.assertFalse(self.ws_connection.connected)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
