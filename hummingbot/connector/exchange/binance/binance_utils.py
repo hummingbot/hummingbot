@@ -1,47 +1,12 @@
-import re
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 
-from typing import Optional, Tuple
-
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
 
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = [0.1, 0.1]
-
-SPECIAL_PAIRS = re.compile(r"^(BAT|BNB|HNT|ONT|OXT|USDT|VET)(USD)$")
-RE_4_LETTERS_QUOTE = re.compile(r"^(\w{2,})(BIDR|BKRW|BUSD|BVND|IDRT|TUSD|USDC|USDS|USDT)$")
-RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
-
-
-def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    try:
-        m = SPECIAL_PAIRS.match(trading_pair)
-        if m is None:
-            m = RE_4_LETTERS_QUOTE.match(trading_pair)
-        if m is None:
-            m = RE_3_LETTERS_QUOTE.match(trading_pair)
-        return m.group(1), m.group(2)
-    # Exceptions are now logged as warnings in trading pair fetcher
-    except Exception:
-        return None
-
-
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-    result = None
-    splitted_pair = split_trading_pair(exchange_trading_pair)
-    if splitted_pair is not None:
-        # Binance does not split BASEQUOTE (BTCUSDT)
-        base_asset, quote_asset = splitted_pair
-        result = f"{base_asset}-{quote_asset}"
-    return result
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    # Binance does not split BASEQUOTE (BTCUSDT)
-    return hb_trading_pair.replace("-", "")
 
 
 def public_rest_url(path_url: str, domain: str = "com") -> str:
