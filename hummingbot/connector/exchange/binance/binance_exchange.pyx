@@ -8,11 +8,11 @@ from decimal import Decimal
 from functools import partial
 from typing import (
     Any,
+    AsyncIterable,
+    Coroutine,
     Dict,
     List,
-    AsyncIterable,
     Optional,
-    Coroutine,
 )
 
 from aiokafka import (
@@ -20,32 +20,29 @@ from aiokafka import (
     ConsumerRecord
 )
 from async_timeout import timeout
-from binance.client import Client as BinanceClient
 from binance import client as binance_client_module
+from binance.client import Client as BinanceClient
 from binance.exceptions import BinanceAPIException
 from libc.stdint cimport int64_t
 
 import conf
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_in_flight_order import BinanceInFlightOrder
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.connector.exchange.binance.binance_time import BinanceTime
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
-from hummingbot.connector.exchange.binance.binance_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.utils import build_api_factory
-from hummingbot.core.clock cimport Clock
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -331,12 +328,12 @@ cdef class BinanceExchange(ExchangeBase):
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.query_api(self._binance_client.get_exchange_info)
-            trading_rules_list = self._format_trading_rules(exchange_info)
+            trading_rules_list = await self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
 
-    def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
         Example:
         {
@@ -367,7 +364,8 @@ cdef class BinanceExchange(ExchangeBase):
             list retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = convert_from_exchange_trading_pair(rule.get("symbol"))
+                trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                    rule.get("symbol"))
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
@@ -406,8 +404,10 @@ cdef class BinanceExchange(ExchangeBase):
                     trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
 
                 trading_pairs = list(trading_pairs_to_order_map.keys())
-                tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
-                         for trading_pair in trading_pairs]
+                tasks = [self.query_api(
+                    self._binance_client.get_my_trades,
+                    symbol=await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair))
+                    for trading_pair in trading_pairs]
                 self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
                 results = await safe_gather(*tasks, return_exceptions=True)
                 for trades, trading_pair in zip(results, trading_pairs):
@@ -452,8 +452,10 @@ cdef class BinanceExchange(ExchangeBase):
 
         if current_tick > last_tick:
             trading_pairs = self._order_book_tracker._trading_pairs
-            tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
-                     for trading_pair in trading_pairs]
+            tasks = [self.query_api(
+                self._binance_client.get_my_trades,
+                symbol=await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair))
+                for trading_pair in trading_pairs]
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             exchange_history = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(exchange_history, trading_pairs):
@@ -497,9 +499,11 @@ cdef class BinanceExchange(ExchangeBase):
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            tasks = [self.query_api(self._binance_client.get_order,
-                                    symbol=convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
-                     for o in tracked_orders]
+            tasks = [self.query_api(
+                self._binance_client.get_order,
+                symbol=await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(o.trading_pair),
+                origClientOrderId=o.client_order_id)
+                for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
@@ -647,7 +651,9 @@ cdef class BinanceExchange(ExchangeBase):
 
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
-                        order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
+                        order_filled_event = order_filled_event._replace(
+                            trading_pair=await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                                order_filled_event.trading_pair))
                         if unique_update:
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -879,7 +885,8 @@ cdef class BinanceExchange(ExchangeBase):
         price_str = f"{price:f}"
         type_str = BinanceExchange.binance_order_type(order_type)
         side_str = BinanceClient.SIDE_BUY if trade_type is TradeType.BUY else BinanceClient.SIDE_SELL
-        api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
+        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+        api_params = {"symbol": symbol,
                       "side": side_str,
                       "quantity": amount_str,
                       "type": type_str,
@@ -948,8 +955,9 @@ cdef class BinanceExchange(ExchangeBase):
 
     async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
+            symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
             cancel_result = await self.query_api(self._binance_client.cancel_order,
-                                                 symbol=convert_to_exchange_trading_pair(trading_pair),
+                                                 symbol=symbol,
                                                  origClientOrderId=order_id)
         except BinanceAPIException as e:
             if "Unknown order sent" in e.message or e.code == 2011:
@@ -1106,7 +1114,8 @@ cdef class BinanceExchange(ExchangeBase):
             ret_val.append(
                 OpenOrder(
                     client_order_id=order["clientOrderId"],
-                    trading_pair=convert_from_exchange_trading_pair(order["symbol"]),
+                    trading_pair=await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                        order["symbol"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["origQty"])),
                     executed_amount=Decimal(str(order["executedQty"])),
@@ -1122,10 +1131,10 @@ cdef class BinanceExchange(ExchangeBase):
     @async_ttl_cache(ttl=30, maxsize=1000)
     async def get_all_my_trades(self, trading_pair: str) -> List[Trade]:
         # Ths Binance API call rate is 5, so we cache to make sure we don't go over rate limit
-        trades = await self.query_api(self._binance_client.get_my_trades,
-                                      symbol=convert_to_exchange_trading_pair(trading_pair))
+        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+        trades = await self.query_api(self._binance_client.get_my_trades, symbol=symbol)
         from hummingbot.connector.exchange.binance.binance_helper import format_trades
-        return format_trades(trades)
+        return await format_trades(trades)
 
     async def get_my_trades(self, trading_pair: str, days_ago: float) -> List[Trade]:
         trades = await self.get_all_my_trades(trading_pair)

@@ -2,20 +2,18 @@ import asyncio
 import time
 import unittest
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-
 from collections import deque
 from typing import (
     Deque,
     Optional,
     Union,
 )
-from unittest.mock import patch
 
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
@@ -146,10 +144,7 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(0.5))
         self.assertEqual(1, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
-    @patch("hummingbot.connector.exchange.binance.binance_utils.convert_from_exchange_trading_pair")
-    def test_track_single_book_snapshot_message_with_past_diffs(self, mock_utils):
-        # Mocks binance_utils for BinanceOrderBook.diff_message_from_exchange()
-        mock_utils.return_value = self.trading_pair
+    def test_track_single_book_snapshot_message_with_past_diffs(self):
         snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
             msg={
                 "trading_pair": self.trading_pair,
@@ -182,7 +177,8 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
                         "100"
                     ]
                 ]
-            }
+            },
+            metadata={"trading_pair": self.trading_pair}
         )
 
         self.tracking_task = self.ev_loop.create_task(
@@ -199,10 +195,7 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         self.assertEqual(1, self.tracker.order_books[self.trading_pair].snapshot_uid)
         self.assertEqual(2, self.tracker.order_books[self.trading_pair].last_diff_uid)
 
-    @patch("hummingbot.connector.exchange.binance.binance_utils.convert_from_exchange_trading_pair")
-    def test_track_single_book_diff_message(self, mock_utils):
-        # Mocks binance_utils for BinanceOrderBook.diff_message_from_exchange()
-        mock_utils.return_value = self.trading_pair
+    def test_track_single_book_diff_message(self):
         diff_msg: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
             msg={
                 "e": "depthUpdate",
@@ -222,7 +215,8 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
                         "100"
                     ]
                 ]
-            }
+            },
+            metadata={"trading_pair": self.trading_pair}
         )
 
         self._simulate_message_enqueue(self.tracker._tracking_message_queues[self.trading_pair], diff_msg)
