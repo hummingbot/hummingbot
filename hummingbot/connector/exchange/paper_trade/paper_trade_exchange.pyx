@@ -56,7 +56,7 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.estimate_fee import estimate_fee, build_trade_fee
 
 from .market_config import (
     MarketConfig,
@@ -906,7 +906,16 @@ cdef class PaperTradeExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        return estimate_fee(self.name, order_type is OrderType.LIMIT)
+        return build_trade_fee(
+            self.name,
+            is_maker=order_type is OrderType.LIMIT,
+            base_currency=base_asset,
+            quote_currency=quote_asset,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
+        )
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:

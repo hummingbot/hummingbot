@@ -522,7 +522,8 @@ cdef class BittrexExchange(ExchangeBase):
                         tracked_order.price)
                     fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair,
                                                          tracked_order.price,
-                                                         tracked_order.amount)
+                                                         tracked_order.amount,
+                                                         self)
                 else:
                     fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
                     fee_amount = tracked_order.fee_paid
