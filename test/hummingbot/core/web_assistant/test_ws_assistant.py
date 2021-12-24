@@ -5,8 +5,10 @@ from unittest.mock import patch, PropertyMock
 
 import aiohttp
 
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, \
-    WSResponse
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import (
+    WSRequest, WSResponse, RESTRequest
+)
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
@@ -101,6 +103,34 @@ class WSAssistantTest(unittest.TestCase):
         self.assertNotEqual(id(request), id(sent_request))  # has been cloned
         self.assertEqual(request, sent_request)
 
+    @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.send")
+    def test_ws_assistant_authenticates(self, send_mock):
+        class Auth(AuthBase):
+            async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+                pass
+
+            async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+                request.payload["authenticated"] = True
+                return request
+
+        ws_assistant = WSAssistant(connection=self.ws_connection, auth=Auth())
+        sent_requests = []
+        send_mock.side_effect = lambda r: sent_requests.append(r)
+        payload = {"one": 1}
+        req = WSRequest(payload)
+        auth_req = WSRequest(payload, is_auth_required=True)
+
+        self.async_run_with_timeout(ws_assistant.send(req))
+        self.async_run_with_timeout(ws_assistant.send(auth_req))
+
+        sent_request = sent_requests[0]
+        auth_sent_request = sent_requests[1]
+        expected = {"one": 1}
+        auth_expected = {"one": 1, "authenticated": True}
+
+        self.assertEqual(expected, sent_request.payload)
+        self.assertEqual(auth_expected, auth_sent_request.payload)
+
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.receive")
     def test_receive(self, receive_mock):
         data = {"one": 1}
@@ -136,7 +166,7 @@ class WSAssistantTest(unittest.TestCase):
         new_callable=PropertyMock,
     )
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.receive")
-    def test_iter_message(self, receive_mock, connected_mock):
+    def test_iter_messages(self, receive_mock, connected_mock):
         connected_mock.return_value = True
         data = {"one": 1}
         response_mock = WSResponse(data)
