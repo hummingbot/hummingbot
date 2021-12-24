@@ -27,7 +27,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             amount=Decimal("10"),
             price=Decimal("2"),
         )
-        populated_candidate = self.budget_checker.populate_collateral_fields(order_candidate)
+        populated_candidate = self.budget_checker.populate_collateral_entries(order_candidate)
 
         self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
         self.assertEqual(Decimal("20.2"), populated_candidate.collateral_amount)
@@ -41,7 +41,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             price=Decimal("2"),
             leverage=Decimal("2")
         )
-        populated_candidate = self.budget_checker.populate_collateral_fields(order_candidate)
+        populated_candidate = self.budget_checker.populate_collateral_entries(order_candidate)
 
         self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
         self.assertEqual(Decimal("10.2"), populated_candidate.collateral_amount)
@@ -54,7 +54,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             amount=Decimal("10"),
             price=Decimal("2"),
         )
-        populated_candidate = self.budget_checker.populate_collateral_fields(order_candidate)
+        populated_candidate = self.budget_checker.populate_collateral_entries(order_candidate)
 
         self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
         self.assertEqual(Decimal("20.2"), populated_candidate.collateral_amount)
@@ -68,7 +68,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             price=Decimal("2"),
             leverage=Decimal("2"),
         )
-        populated_candidate = self.budget_checker.populate_collateral_fields(order_candidate)
+        populated_candidate = self.budget_checker.populate_collateral_entries(order_candidate)
 
         self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
         self.assertEqual(Decimal("10.2"), populated_candidate.collateral_amount)

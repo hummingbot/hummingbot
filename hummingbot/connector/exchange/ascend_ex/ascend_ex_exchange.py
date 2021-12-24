@@ -821,7 +821,7 @@ class AscendExExchange(ExchangePyBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
-        """For more information: https://ascendex.github.io/ascendex-pro-api/#place-order."""
+        """For more information: https://ascendex.github.io/ascendex-pro-api/#place-order (Order Request Criteria)."""
         trading_pair = f"{base_currency}-{quote_currency}"
         trading_rule = self._trading_rules[trading_pair]
         fee_percent = Decimal("0")
