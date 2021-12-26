@@ -1,59 +1,101 @@
-# TWAP Strategy
+---
+tags:
+- utility strategy
+- developer tutorial
+---
 
-!!! bug
-    Starting from version 0.41, we took out the existing TWAP strategy from the development branch into production. Please be advised of the [outstanding bugs](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aissue+is%3Aopen++in%3Atitle+TWAP+label%3Abug) which will be fixed in future releases.
+# `twap`
 
-## Creating the strategy
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/twap)
 
-1. Make sure to connect to an exchange supported by the TWAP strategy
-   - [How to use the `connect` command to connect your API keys](/operation/connect-exchange)
-2. Run the `create` command and enter `twap` when prompted for the strategy you want to use
-3. Enter the configuration of how you want the bot to behave by answering each prompt
-4. To review your settings, run the `config` command
-5. The strategy configuration file is saved in `logs/` or `hummingbot_logs` folder depending on how you installed Hummingbot
+## 📝 Summary
 
-!!! tip
-    If you already have an existing strategy config file created previously, follow the instructions on how to [import an existing strategy file](https://docs.hummingbot.io/operation/config-files/#import-an-existing-strategy-file).
+This strategy is a simple bot that places a series of limit orders on an exchange, while allowing users to control order size, price, and duration. 
 
-## How it works
+We recommend this strategy as a starting point for developers looking to build their own strategies, and it is used as reference for articles in [Developer Reference: Strategies](/developers/strategies).
 
-This strategy allows users to continuously create either buy or sell limit orders at a specified price at every time interval. To be more specific, the strategy performs the following:
+## 🏦 Exchanges supported
 
-1. It goes through preliminary checks on every cycle if it can break down the target amount into the number of desired orders and if there is enough balance
-2. The `target_asset_amount` is the total amount of trades you want the strategy to execute. This target is broken down into smaller orders based on `order_step_size` value
-3. Creates a one-sided limit order (buy or sell) based on `trade_side` at the specified `order_price`
-4. Waits for `order_delay_time` value in seconds before creating another limit order (interval between orders)
-5. Cancels any active order which has been outstanding more than the `cancel_order_wait_time` value in seconds
-6. You can specify the duration how long the strategy should run by enabling `is_time_span_execution`, then set the `start_datetime` and `end_datetime` parameters
-7. If the order step size is bigger than the pending amount or if the pending amount reaches 0, the strategy will stop creating additional orders
+[`spot` exchanges](/exchanges/#spot)
 
-## Sample demo
+## 👷 Maintenance
+
+* Release added: [0.41.0](/release-notes/0.41.0/) by CoinAlpha
+* Maintainer: Open
+
+## 🛠️ Strategy configs
+
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/twap/twap_config_map.py)
+
+
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `connector`                  | string      |             | True        | Enter the name of spot connector |
+| `trading_pair`               | string      |             | True        | Enter the token trading pair you would like to trade on `[connector]`|
+| `trade_side`                 | string      | buy         | True        | What operation will be executed? (buy/sell)|
+| `target_asset_amount`        | decimal     | 1           | True        | What is the total amount of [base_token] to be traded?|
+| `order_step_size`            | decimal     | 1           | True        | What is the amount of each individual order (denominated in the base asset, default is 1)|
+| `order_price`                | decimal     |             | True        | What is the price for the limit orders?|
+| `order_delay_time`           | decimal     | 10          | True        | How many seconds do you want to wait between each individual order?|
+| `cancel_order_wait_time`     | decimal     | 60          | True        | How long do you want to wait before cancelling your limit order (in seconds).|
+| `is_time_span_execution`     | bool        | False       | False       | Do you want to specify a start time and an end time for the execution? |
+| `start_datetime`             | decimal     |             | False       | Please enter the start date and time|
+| `end_datetime`               | decimal     |             | False       | Please enter the end date and time|
+
+## 📓 Description
+
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/twap/twap.py)
+
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
+
+The TWAP strategy is a common algorithmic execution strategy used for splitting up large orders over time. Specifically, the TWAP strategy helps traders minimize slippage when buying or selling large orders. These features make the strategy more useful to traders and will help when creating future, more complex strategies:
+
+* Incrementing / maintaining states over clock ticks
+* Quantizing (rounding down to nearest tradable value) order size
+* Dividing an order into segments
+* Incorporating time delays between segmented orders
+
+### Overview
+
+The TWAP strategy divides a large user order into chunks according to the following user configurations:
+
+* Total order size
+* number of individual orders
+* time delay between orders
+
+![Figure 1: Processing orders](/assets/img/TWAP_1.svg)
+
+The orders are then split into tradable (quantized) amounts and executed sequentially with the indicated time delay in between orders. There is no time delay before the first order. Because only one order is placed in a clock tick, a state machine is needed to emit multiple orders over different clock ticks. To see the executed orders, type history into the command prompt.
+
+### Config
+
+Here are the additional user configurable parameters for the TWAP strategy (fields are added to `config_map` file):
+
+* `time_delay` : Change the question to ask for the number of seconds to delay each individual order. (e.g. How many seconds do you want to wait between each individual order?)
+* `num_individual_orders` : a new field added to the config map. It should ask for the number of individual orders that an order should be split up into. (e.g.Into how many individual orders do you want to split this order?)
+
+### Strategy
+
+The TWAP strategy logic is trying to split a large order into smaller ones over time, and it does that by maintaining important information about the state when processing orders by adding state variables.
+
+Custom state variables can be added to the strategy by setting variables in the `__init__` function.
+
+* `self._quantity_remaining` : Indicates the quantity of order left to be placed as individual orders. This state variable is updated after each order is placed and persisted throughout until the order is done processing.
+* `self._first_order` : Indicates whether the current individual order is the first order.
+
+![Figure 2: Placing orders](/assets/img/TWAP_2.svg)
+
+TWAP processes orders when there is a remaining order quantity & the specified time_delay has passed. Specifically, some of the key elements in utilizing the remaining order quantity and time_delay are detailed below:
+
+* If self._quantity_remaining is greater than 0 place an order
+* If `self._first_order` is true, we want to place order as soon as `self._current_timestamp > self._previous_timestamp` we don't have a time delay before the first order
+* If it isn't the first order, check that `self._current_timestamp > self._previous_timestamp + self._time_delay`
+* Once order is placed, update self._quantity_remaining by subtracting the amount of the order just placed `curr_order_amount` : Either (total order amount)/(number of orders) or `self._quantity_remaining` depending on which is smaller
+
+## 📺 Demo
 
 !!! warning
     This demo is for instructional and educational purposes only. Any parameters used are purely for demo purposes only. We are not giving any legal, tax, financial, or investment advice. Every user is responsible for their use and configuration of Hummingbot.
 
 <iframe width="733" height="474" src="https://www.loom.com/embed/8b36e590272c479fa0ccf69b011433e1" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
-## Basic parameters
-
-Hummingbot prompts to enter the values for these parameters when creating the strategy.
-
-| Parameter                | Description                                                              |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `connector`              | The exchange where you want to trade                                     |
-| `trading_pair`           | Token trading pair for the exchange e.g. BTC-USDT                        |
-| `trade_side`             | Choose between creating buy or sell orders                               |
-| `target_asset_amount`    | Total target amount to be traded                                         |
-| `order_step_size`        | Size of each limit order to be created                                   |
-| `order_price`            | Specifies the price of each limit order                                  |
-| `is_time_span_execution` | Enables or disables the feature to run the strategy on a fixed time span |
-| `start_datetime`         | Date and time to start the strategy                                      |
-| `end_datetime`           | Date and time to stop the strategy                                       |
-| `order_delay_time`       | The time interval (in seconds) in between orders                         |
-| `cancel_order_wait_time` | How long you want to wait before canceling any unfilled order            |
-
-## Troubleshooting
-
-- If the strategy is not creating orders even with enough balance, your order may be below the exchange’s minimum trade size. Adjust the `order_step_size` and/or `order_price` accordingly
-- If the start date/time and end date/time is not working, make sure that `is_time_span_execution` is enabled by setting it to `True`
-- When `is_time_span_execution` is enabled, make sure `start_datetime` and `end_datetime` is configured. Otherwise, the strategy will not start

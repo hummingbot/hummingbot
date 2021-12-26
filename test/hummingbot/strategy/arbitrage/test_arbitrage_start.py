@@ -13,7 +13,6 @@ class ArbitrageStartTest(unittest.TestCase):
         super().setUp()
         self.strategy: ArbitrageStrategy = None
         self.markets = {"binance": ConnectorBase(), "balancer": ConnectorBase()}
-        self.assets = set()
         self.notifications = []
         self.log_errors = []
         assign_config_default(arbitrage_config_map)
@@ -26,9 +25,6 @@ class ArbitrageStartTest(unittest.TestCase):
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
-
-    def _initialize_wallet(self, token_trading_pairs):
-        pass
 
     def _initialize_markets(self, market_names):
         pass

@@ -13,27 +13,27 @@ def validate_exchange(value: str) -> Optional[str]:
     """
     Restrict valid exchanges to the exchange file names
     """
-    from hummingbot.client.settings import EXCHANGES
-    if value not in EXCHANGES:
-        return f"Invalid exchange, please choose value from {EXCHANGES}"
+    from hummingbot.client.settings import AllConnectorSettings
+    if value not in AllConnectorSettings.get_exchange_names():
+        return f"Invalid exchange, please choose value from {AllConnectorSettings.get_exchange_names()}"
 
 
 def validate_derivative(value: str) -> Optional[str]:
     """
     restrict valid derivatives to the derivative file names
     """
-    from hummingbot.client.settings import DERIVATIVES
-    if value not in DERIVATIVES:
-        return f"Invalid derivative, please choose value from {DERIVATIVES}"
+    from hummingbot.client.settings import AllConnectorSettings
+    if value not in AllConnectorSettings.get_derivative_names():
+        return f"Invalid derivative, please choose value from {AllConnectorSettings.get_derivative_names()}"
 
 
 def validate_connector(value: str) -> Optional[str]:
     """
     Restrict valid derivatives to the connector file names
     """
-    from hummingbot.client.settings import CONNECTOR_SETTINGS
-    if value not in CONNECTOR_SETTINGS:
-        return f"Invalid connector, please choose value from {CONNECTOR_SETTINGS.keys()}"
+    from hummingbot.client.settings import AllConnectorSettings
+    if value not in AllConnectorSettings.get_connector_settings():
+        return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
 
 
 def validate_strategy(value: str) -> Optional[str]:

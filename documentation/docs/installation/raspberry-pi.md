@@ -1,6 +1,6 @@
 # Raspberry Pi
 
-## Install via Docker (BETA)
+## Install via Docker
 
 ### Prerequisites
 
@@ -34,50 +34,50 @@ The Latest ARM version can be found here (filter list by "arm") - https://hub.do
 
 You can install Hummingbot with **_either_** of the following options:
 
-- **Scripts**: download and use automated install scripts.
-- **Manual**: run install commands manually.
+- **Scripts**: download and use automated install scripts
+- **Manual**: run install commands manually
 
-### Scripts
+=== "Scripts"
 
-```bash
-# 1) Download Hummingbot install, start, and update script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
+    ```bash
+    # 1) Download Hummingbot install, start, and update script
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
 
-# 2) Enable script permissions
-chmod a+x *.sh
+    # 2) Enable script permissions
+    chmod a+x *.sh
 
-# 3) Create a hummingbot instance
-./create.sh
+    # 3) Create a hummingbot instance
+    ./create.sh
 
-# 4) Pull Hummingbot ARM image when asked what version to use
-Enter Hummingbot version: [ latest/development ] ( default = 'latest' )
->> version-0.42.0-arm_beta
-```
+    # 4) Pull Hummingbot ARM image when asked what version to use
+    Enter Hummingbot version: [ latest/development ] ( default = 'latest' )
+    >> version-0.42.0-arm_beta
+    ```
 
-### Manual
+=== "Manual"
 
-```bash
-# 1) Create folder for your new instance
-mkdir hummingbot_files
+    ```bash
+    # 1) Create folder for your new instance
+    mkdir hummingbot_files
 
-# 2) Create folders for logs, config files and database file
-mkdir hummingbot_files/hummingbot_conf
-mkdir hummingbot_files/hummingbot_logs
-mkdir hummingbot_files/hummingbot_data
-mkdir hummingbot_files/hummingbot_scripts
+    # 2) Create folders for logs, config files and database file
+    mkdir hummingbot_files/hummingbot_conf
+    mkdir hummingbot_files/hummingbot_logs
+    mkdir hummingbot_files/hummingbot_data
+    mkdir hummingbot_files/hummingbot_scripts
 
-# 3) Launch a new instance of hummingbot
-docker run -it \
---network host \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
-coinalpha/hummingbot:version-0.42.0-arm_beta
-```
+    # 3) Launch a new instance of hummingbot
+    docker run -it \
+    --network host \
+    --name hummingbot-instance \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
+    coinalpha/hummingbot:version-0.42.0-arm_beta
+    ```
 
 ## Install from source
 
@@ -121,21 +121,16 @@ sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 Logout and login again to enable `conda`, this will make the `conda` command available in shell / terminal.
 
-**Install pip dependencies**
+**Clone project and install dependencies**
 
 ```
-# Create a conda environment for Hummingbot
-conda create --name hummingbot
-
-# Activate your conda environment
-conda activate hummingbot
-
 # Clone the Hummingbot repo from Github
 git clone https://github.com/CoinAlpha/hummingbot.git
 
 # Install the pip dependencies
 cd hummingbot
-pip install -r setup/requirements-arm.txt
+./install
+conda activate hummingbot
 ```
 
 **Compile and run Hummingbot**

@@ -8,17 +8,9 @@ from typing import (
     NamedTuple,
     Optional)
 from dataclasses import dataclass
+
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-
-
-class WalletEvent(Enum):
-    ReceivedAsset = 5
-    BalanceChanged = 6
-    WrappedEth = 7
-    UnwrappedEth = 8
-    GasUsed = 9
-    TokenApproved = 10
-    TransactionFailure = 99
 
 
 class MarketEvent(Enum):
@@ -42,25 +34,8 @@ class MarketEvent(Enum):
     RangePositionFailure = 304
 
 
-class NewBlocksWatcherEvent(Enum):
-    NewBlocks = 401
-
-
-class IncomingEthWatcherEvent(Enum):
-    ReceivedEther = 501
-
-
-class ERC20WatcherEvent(Enum):
-    ReceivedToken = 601
-    ApprovedToken = 602
-
-
 class OrderBookEvent(Enum):
     TradeEvent = 901
-
-
-class ZeroExEvent(Enum):
-    Fill = 1001
 
 
 class TradeType(Enum):
@@ -125,60 +100,6 @@ class MarketOrderFailureEvent(NamedTuple):
     order_type: OrderType
 
 
-class WalletReceivedAssetEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    from_address: str
-    to_address: str
-    asset_name: str
-    amount_received: Decimal
-    raw_amount_received: int
-
-
-class WalletWrappedEthEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    address: str
-    amount: Decimal
-    raw_amount: int
-
-
-class WalletUnwrappedEthEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    address: str
-    amount: Decimal
-    raw_amount: int
-
-
-class ZeroExFillEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    maker_address: str
-    fee_recipient_address: str
-    maker_asset_data: bytes
-    taker_asset_data: bytes
-    maker_fee_asset_data: bytes
-    taker_fee_asset_data: bytes
-    order_hash: str
-    taker_address: str
-    sender_address: str
-    maker_asset_filled_amount: Decimal
-    taker_asset_filled_amount: Decimal
-    maker_fee_paid: Decimal
-    taker_fee_paid: Decimal
-    protocol_fee_paid: Decimal
-
-
-class MarketReceivedAssetEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    from_address: str
-    to_address: str
-    asset_name: str
-    amount_received: float
-
-
 @dataclass
 class BuyOrderCompletedEvent:
     timestamp: float
@@ -228,35 +149,6 @@ class FundingPaymentCompletedEvent:
     funding_rate: Decimal
 
 
-class MarketWithdrawAssetEvent(NamedTuple):
-    timestamp: float
-    tracking_id: str
-    to_address: str
-    asset_name: str
-    amount: Decimal
-    fee_amount: Decimal
-
-
-class EthereumGasUsedEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    gas_price_gwei: float
-    gas_price_raw: int
-    gas_used: int
-    eth_amount: float
-    eth_amount_raw: int
-
-
-class TokenApprovedEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    owner_address: str
-    spender_address: str
-    asset_name: str
-    amount: float
-    raw_amount: int
-
-
 class TradeFeeType(Enum):
     Percent = 1
     FlatFee = 2
@@ -293,13 +185,27 @@ class TradeFee(NamedTuple):
         fee_amount = Decimal("0")
         if self.percent > 0:
             fee_amount = (price * order_amount) * self.percent
-        base, quote = trading_pair.split("-")
+        base, quote = split_hb_trading_pair(trading_pair)
         for flat_fee in self.flat_fees:
             if interchangeable(flat_fee[0], base):
                 fee_amount += (flat_fee[1] * price)
             elif interchangeable(flat_fee[0], quote):
                 fee_amount += flat_fee[1]
         return fee_amount
+
+    def order_amount_from_quote_with_fee(
+        self, trading_pair: str, price: Decimal, order_size_with_fee: Decimal
+    ):
+        fee_amount = order_size_with_fee
+        base, quote = split_hb_trading_pair(trading_pair)
+        for flat_fee in self.flat_fees:
+            if interchangeable(flat_fee[0], base):
+                fee_amount -= (flat_fee[1] * price)
+            elif interchangeable(flat_fee[0], quote):
+                fee_amount -= flat_fee[1]
+        order_size = order_size_with_fee / (Decimal("1") + self.percent)
+        order_amount = order_size / price
+        return order_amount
 
 
 class OrderBookTradeEvent(NamedTuple):

@@ -1,0 +1,4 @@
+{
+  "privateKey": "$AVALANCHE_PRIVATE_KEY",
+  "chainName": "avalanche"
+}

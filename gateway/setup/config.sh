@@ -47,5 +47,6 @@ prompt_to_allow_telemetry
 
 # update config file
 CONFIGURATION_FILE="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../conf/gateway-config.yml"
-echo "ENABLE_TELEMETRY: '$TELEMETRY'"  >> $CONFIGURATION_FILE
+sed -i '/ENABLE_TELEMETRY: .*/d;/^ *$/d' $CONFIGURATION_FILE
+echo "ENABLE_TELEMETRY: $TELEMETRY"  >> $CONFIGURATION_FILE
 echo "" >> $CONFIGURATION_FILE

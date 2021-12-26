@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 import concurrent
 import inspect
-import pandas as pd
 from mock import patch
 from unittest import TestCase
 
@@ -31,83 +30,6 @@ class TestLiquidAPIOrderBookDataSource(TestCase):
                 return next(self.iter)
             except StopIteration:
                 raise StopAsyncIteration
-
-    @patch(PATCH_BASE_PATH.format(method='get_exchange_markets_data'))
-    def test_get_active_exchange_markets(self, mock_get_exchange_markets_data):
-        """
-        Test end to end flow from pinging Liquid API for markets and exchange data
-        all the way to extract out needed information such as trading_pairs,
-        prices, and volume information.
-        """
-        loop = asyncio.get_event_loop()
-
-        # Mock Future() object return value as the request response
-        f = asyncio.Future()
-        f.set_result(FixtureLiquid.EXCHANGE_MARKETS_DATA)
-        mock_get_exchange_markets_data.return_value = f
-
-        all_markets_df = loop.run_until_complete(
-            LiquidAPIOrderBookDataSource.get_active_exchange_markets())
-        # loop.close()
-
-        # Check DF type
-        self.assertIsInstance(all_markets_df, pd.DataFrame)
-
-        # Check DF dimension
-        self.assertEqual(all_markets_df.shape, (7, 29))  # (num of rows, num of cols)
-
-        # Check DF indices
-        self.assertListEqual(
-            all_markets_df.index.to_list(),
-            ['BTC-USD', 'ETH-USD', 'BTC-USDC', 'ETH-USDC', 'LCX-BTC', 'STAC-ETH', 'WLO-BTC']
-        )
-
-        # Check DF column names
-        self.assertListEqual(
-            sorted(all_markets_df.columns),
-            [
-                'USDVolume',
-                'base_currency',
-                'btc_minimum_withdraw',
-                'cfd_enabled',
-                'code',
-                'currency',
-                'currency_pair_code',
-                'disabled',
-                'fiat_minimum_withdraw',
-                'high_market_ask',
-                'id',
-                'indicator',
-                'last_event_timestamp',
-                'last_price_24h',
-                'last_traded_price',
-                'last_traded_quantity',
-                'low_market_bid',
-                'maker_fee',
-                'margin_enabled',
-                'market_ask',
-                'market_bid',
-                'name',
-                'product_type',
-                'pusher_channel',
-                'quoted_currency',
-                'symbol',
-                'taker_fee',
-                'volume',
-                'volume_24h'
-            ]
-        )
-
-        # Check DF values
-        self.assertEqual(
-            all_markets_df.loc['BTC-USD'].last_traded_price, '7470.49746')
-
-        # Check DF order, make sure it's sorted by USDVolume col in desending order
-        usd_volumes = all_markets_df.loc[:, 'USDVolume'].to_list()
-        self.assertListEqual(
-            usd_volumes,
-            sorted(usd_volumes, reverse=True),
-            "The output usd volumes should remain the same after being sorted again")
 
     def test_filter_market_data(self):
         """
