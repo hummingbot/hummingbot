@@ -201,7 +201,7 @@ class GatewayBase(ConnectorBase):
         raise NotImplementedError
 
     async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
+        await self._update_balances(on_interval=False)
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
@@ -216,7 +216,7 @@ class GatewayBase(ConnectorBase):
                                       exc_info=True,
                                       app_warning_msg="Could not fetch balances from Gateway API.")
 
-    async def update_balances(self, on_interval=False):
+    async def _update_balances(self, on_interval=False):
         """
         Calls Gateway API to update total and available balances.
         """
