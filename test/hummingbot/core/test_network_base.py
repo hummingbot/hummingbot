@@ -1,5 +1,6 @@
 import asyncio
-from hummingbot.core.network_base import NetworkBase, NetworkStatus
+from hummingbot.core.network_base import NetworkBase
+from hummingbot.core.network_iterator import NetworkStatus
 import unittest
 
 

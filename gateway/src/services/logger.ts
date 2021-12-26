@@ -1,9 +1,9 @@
-import { ConfigManager } from './config-manager';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import appRoot from 'app-root-path';
+import { ConfigManagerV2 } from './config-manager-v2';
 dayjs.extend(utc);
 
 const { LEVEL, MESSAGE } = require('triple-beam');
@@ -23,7 +23,7 @@ const errorsWithStack = winston.format((einfo) => {
 });
 
 export const getLocalDate = () => {
-  const gmtOffset = ConfigManager.config.GMT_OFFSET;
+  const gmtOffset = ConfigManagerV2.getInstance().get('server.GMTOffset');
   return dayjs().utcOffset(gmtOffset, false).format('YYYY-MM-DD hh:mm:ss');
 };
 
@@ -44,7 +44,7 @@ const sdtoutFormat = winston.format.combine(
 );
 
 const getLogPath = () => {
-  let logPath = ConfigManager.config.LOG_PATH;
+  let logPath = ConfigManagerV2.getInstance().get('logging.logPath');
   logPath = [appRoot.path, 'logs'].join('/');
   return logPath;
 };
@@ -69,7 +69,7 @@ const toStdout = new winston.transports.Console({
 });
 
 export const updateLoggerToStdout = () => {
-  ConfigManager.config.LOG_TO_STDOUT === true
+  ConfigManagerV2.getInstance().get('logging.logToStdOut') === true
     ? logger.add(toStdout)
     : logger.remove(toStdout);
 };

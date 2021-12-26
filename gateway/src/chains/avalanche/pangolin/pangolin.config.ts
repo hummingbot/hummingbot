@@ -1,19 +1,23 @@
+import { ConfigManagerV2 } from '../../../services/config-manager-v2';
+
 export namespace PangolinConfig {
-  export interface AvalancheNetworkConfig {
+  export interface NetworkConfig {
+    allowedSlippage: string;
+    gasLimit: number;
+    ttl: number;
     routerAddress: string;
   }
 
-  export interface PanConfig {
-    fuji: AvalancheNetworkConfig;
-    avalanche: AvalancheNetworkConfig;
-  }
+  const network = ConfigManagerV2.getInstance().get('avalanche.network');
 
-  export const config: PanConfig = {
-    fuji: {
-      routerAddress: '0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106',
-    },
-    avalanche: {
-      routerAddress: '0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106',
-    },
+  export const config: NetworkConfig = {
+    allowedSlippage: ConfigManagerV2.getInstance().get(
+      'pangolin.allowedSlippage'
+    ),
+    gasLimit: ConfigManagerV2.getInstance().get('pangolin.gasLimit'),
+    ttl: ConfigManagerV2.getInstance().get('pangolin.ttl'),
+    routerAddress: ConfigManagerV2.getInstance().get(
+      'pangolin.contractAddresses.' + network + '.routerAddress'
+    ),
   };
 }

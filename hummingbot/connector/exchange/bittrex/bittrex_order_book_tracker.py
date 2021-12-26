@@ -3,27 +3,19 @@ import asyncio
 import bisect
 import logging
 import time
-from collections import (
-    defaultdict,
-    deque,
-)
-from typing import (
-    Optional,
-    Dict,
-    List,
-    Set,
-    Deque,
-)
 
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from collections import defaultdict, deque
+from typing import Deque, Dict, List, Optional, Set
+
 from hummingbot.connector.exchange.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.connector.exchange.bittrex.bittrex_order_book import BittrexOrderBook
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
@@ -79,7 +71,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info(f"Started order book tracking for {trading_pair}.")
 
         for trading_pair in deleted_trading_pair:

@@ -5,14 +5,14 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
+    AllConnectorSettings,
 )
 from typing import Optional
 
 
 def symbol_prompt():
     exchange = dev_5_vwap_config_map.get("exchange").value
-    example = EXAMPLE_PAIRS.get(exchange)
+    example = AllConnectorSettings.get_example_pairs().get(exchange)
     return "Enter the trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
 
@@ -30,7 +30,7 @@ def validate_market_trading_pair_tuple(value: str) -> Optional[str]:
 def order_percent_of_volume_prompt():
     percent_slippage = dev_5_vwap_config_map.get("percent_slippage").value
     return ("What percent of open order volume up to %s percent slippage do you want" % percent_slippage
-            + "each order to be? (default is 100 percent)? >>> ")
+            + " each order to be? (default is 100 percent)? >>> ")
 
 
 dev_5_vwap_config_map = {

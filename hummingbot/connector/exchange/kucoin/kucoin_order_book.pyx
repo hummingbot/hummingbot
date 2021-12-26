@@ -51,7 +51,7 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return KucoinOrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["data"]["symbol"],
+            "trading_pair": msg["symbol"],
             "first_update_id": msg["data"]["sequenceStart"],
             "update_id": msg["data"]["sequenceEnd"],
             "bids": msg["data"]["changes"]["bids"],

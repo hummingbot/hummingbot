@@ -22,6 +22,8 @@ cdef class HuobiExchange(ExchangeBase):
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
+        object _api_factory
+        object _rest_assistant
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

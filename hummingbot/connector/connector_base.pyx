@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.connector.utils import TradeFillOrderDetails, split_hb_trading_pair
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -100,7 +100,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        return tuple(trading_pair.split('-'))
+        return split_hb_trading_pair(trading_pair)
 
     def in_flight_asset_balances(self, in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
         """
@@ -381,7 +381,7 @@ cdef class ConnectorBase(NetworkIterator):
         if price.is_nan():
             return price
         price_quantum = self.c_get_order_price_quantum(trading_pair, price)
-        return round(price / price_quantum) * price_quantum
+        return (price // price_quantum) * price_quantum
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """

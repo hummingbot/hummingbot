@@ -2,15 +2,15 @@ import {
   mkRequestValidator,
   mkValidator,
   RequestValidator,
+  Validator,
   validateAmount,
   validateToken,
   validateTokenSymbols,
-  Validator,
 } from '../../services/validators';
 import {
-  isPublicKey,
+  isAddress,
   validateNonce,
-  validatePrivateKey,
+  validateAddress,
 } from '../ethereum/ethereum.validators';
 
 export const invalidSpenderError: string =
@@ -20,12 +20,12 @@ export const invalidSpenderError: string =
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'pangolin' || isPublicKey(val))
+  (val) => typeof val === 'string' && (val === 'pangolin' || isAddress(val))
 );
 
 export const validateAvalancheApproveRequest: RequestValidator =
   mkRequestValidator([
-    validatePrivateKey,
+    validateAddress,
     validateSpender,
     validateToken,
     validateAmount,
@@ -33,8 +33,4 @@ export const validateAvalancheApproveRequest: RequestValidator =
   ]);
 
 export const validateAvalancheAllowancesRequest: RequestValidator =
-  mkRequestValidator([
-    validatePrivateKey,
-    validateSpender,
-    validateTokenSymbols,
-  ]);
+  mkRequestValidator([validateAddress, validateSpender, validateTokenSymbols]);

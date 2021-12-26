@@ -6,7 +6,8 @@ import { privateKey, publicKey } from './solana.validators.test';
 import { tokenSymbols, txHash } from '../../services/validators.test';
 import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana.requests';
 import * as getTransactionData from './fixtures/getTransaction.json';
-import * as getTokenAccountData from './fixtures/getTokenAccount.json';
+import getTokenAccountData from './fixtures/getTokenAccount';
+import getOrCreateAssociatedTokenAccountData from './fixtures/getOrCreateAssociatedTokenAccount';
 import * as getTokenListData from './fixtures/getTokenList.json';
 import { BigNumber } from 'ethers';
 
@@ -123,7 +124,9 @@ describe('GET /solana/token', () => {
         expect(res.body.mintAddress).toBe(getTokenListData[0].address)
       )
       .expect((res) =>
-        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+        expect(res.body.accountAddress).toBe(
+          getTokenAccountData.pubkey.toBase58()
+        )
       )
       .expect((res) => expect(res.body.amount).toBeUndefined());
   });
@@ -144,7 +147,9 @@ describe('GET /solana/token', () => {
         expect(res.body.mintAddress).toBe(getTokenListData[0].address)
       )
       .expect((res) =>
-        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+        expect(res.body.accountAddress).toBe(
+          getTokenAccountData.pubkey.toBase58()
+        )
       )
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
@@ -161,7 +166,11 @@ describe('GET /solana/token', () => {
 });
 
 const patchGetOrCreateAssociatedTokenAccount = () => {
-  patch(solana, 'getOrCreateAssociatedTokenAccount', () => getTokenAccountData);
+  patch(
+    solana,
+    'getOrCreateAssociatedTokenAccount',
+    () => getOrCreateAssociatedTokenAccountData
+  );
 };
 
 describe('POST /solana/token', () => {
@@ -204,7 +213,9 @@ describe('POST /solana/token', () => {
         expect(res.body.mintAddress).toBe(getTokenListData[0].address)
       )
       .expect((res) =>
-        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+        expect(res.body.accountAddress).toBe(
+          getTokenAccountData.pubkey.toBase58()
+        )
       )
       .expect((res) => expect(res.body.amount).toBeUndefined());
   });
@@ -225,7 +236,9 @@ describe('POST /solana/token', () => {
         expect(res.body.mintAddress).toBe(getTokenListData[0].address)
       )
       .expect((res) =>
-        expect(res.body.accountAddress).toBe(getTokenAccountData.owner)
+        expect(res.body.accountAddress).toBe(
+          getTokenAccountData.pubkey.toBase58()
+        )
       )
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });

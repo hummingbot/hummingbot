@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import time
+
 from collections import (
     defaultdict,
     deque,
@@ -14,18 +15,19 @@ from typing import (
     Deque,
 )
 
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessageType,
-    OrderBookMessage,
-)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.ftx.ftx_active_order_tracker import FtxActiveOrderTracker
 from hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source import FtxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ftx.ftx_order_book import FtxOrderBook
 from hummingbot.connector.exchange.ftx.ftx_order_book_message import FtxOrderBookMessage
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker_entry import FtxOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessage,
+    OrderBookMessageType
+)
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class FtxOrderBookTracker(OrderBookTracker):
@@ -77,7 +79,7 @@ class FtxOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info(f"Started order book tracking for {trading_pair}.")
 
         for trading_pair in deleted_trading_pair:

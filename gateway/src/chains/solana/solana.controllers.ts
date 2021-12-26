@@ -92,8 +92,8 @@ export async function token(
     network: solanaish.cluster,
     timestamp: initTime,
     token: req.token,
-    mintAddress: mintAddress.toString(),
-    accountAddress: account?.owner?.toString(),
+    mintAddress: mintAddress.toBase58(),
+    accountAddress: account?.pubkey.toBase58(),
     amount,
   };
 }
@@ -128,8 +128,8 @@ export async function getOrCreateTokenAccount(
     network: solanaish.cluster,
     timestamp: initTime,
     token: req.token,
-    mintAddress: mintAddress.toString(),
-    accountAddress: account?.owner?.toString(),
+    mintAddress: mintAddress.toBase58(),
+    accountAddress: account?.address.toBase58(),
     amount,
   };
 }

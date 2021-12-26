@@ -1,8 +1,11 @@
 import asyncio
 import json
+import time
 import unittest
 from typing import Dict, Awaitable
 from unittest.mock import patch, AsyncMock
+
+import numpy as np
 
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
@@ -30,27 +33,28 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
 
     def get_user_trades_mock(self) -> Dict:
         user_trades = {
-            "time": 1605176741,
+            "time": 1637764970,
             "channel": "spot.usertrades",
             "event": "update",
             "result": [
                 {
-                    "id": 5736713,
-                    "user_id": 1000001,
-                    "order_id": "30784428",
-                    "currency_pair": f"{self.base_asset}_{self.quote_asset}",
-                    "create_time": 1605176741,
-                    "create_time_ms": "1605176741123.456",
-                    "side": "sell",
-                    "amount": "1.00000000",
-                    "role": "taker",
-                    "price": "10000.00000000",
-                    "fee": "0.00200000000000",
+                    "id": 2217816329,
+                    "user_id": 5774224,
+                    "order_id": "96780687179",
+                    "currency_pair": "ETH_USDT",
+                    "create_time": 1637764970,
+                    "create_time_ms": "1637764970928.48",
+                    "side": "buy",
+                    "amount": "0.005",
+                    "role": "maker",
+                    "price": "4191.1",
+                    "fee": "0.000009",
+                    "fee_currency": "ETH",
                     "point_fee": "0",
                     "gt_fee": "0",
-                    "text": "apiv4"
+                    "text": "t-HBOT-B-EHUT1637764969004024",
                 }
-            ]
+            ],
         }
         return user_trades
 
@@ -84,9 +88,9 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
                     "gt_fee": "0",
                     "gt_discount": True,
                     "rebated_fee": "0",
-                    "rebated_fee_currency": "USDT"
+                    "rebated_fee_currency": "USDT",
                 }
-            ]
+            ],
         }
         return user_orders
 
@@ -103,38 +107,52 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
                     "currency": self.base_asset,
                     "change": "100",
                     "total": "1032951.325075926",
-                    "available": "1022943.325075926"
+                    "available": "1022943.325075926",
                 }
-            ]
+            ],
         }
         return user_balance
 
-    @patch("websockets.connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream(self, ws_connect_mock):
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_user_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         output_queue = asyncio.Queue()
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
 
         resp = self.get_user_trades_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertEqual(ret, resp)
 
         resp = self.get_user_orders_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertEqual(ret, resp)
 
         resp = self.get_user_balance_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertEqual(ret, resp)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_skips_subscribe_unsubscribe_messages_updates_last_recv_time(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        resp = {"time": 1632223851, "channel": "spot.usertrades", "event": "subscribe", "result": {"status": "success"}}
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
+        resp = {
+            "time": 1632223851,
+            "channel": "spot.usertrades",
+            "event": "unsubscribe",
+            "result": {"status": "success"},
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
+
+        output_queue = asyncio.Queue()
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(output_queue.empty())
+        np.testing.assert_allclose([time.time()], self.data_source.last_recv_time, rtol=1)
