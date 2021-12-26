@@ -428,7 +428,7 @@ class EthereumBase(GatewayBase):
 
     async def _update(self):
         await safe_gather(
-            self.update_balances(on_interval=True),
+            self._update_balances(on_interval=True),
             self._update_approval_order_status(self.approval_orders),
             self._update_order_status(self.amm_orders)
         )

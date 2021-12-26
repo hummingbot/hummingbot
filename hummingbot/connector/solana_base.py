@@ -59,7 +59,7 @@ class SolanaBase(GatewayBase):
         raise NotImplementedError
 
     async def _update(self):
-        await self.update_balances()
+        await self._update_balances()
 
     @property
     def name(self):

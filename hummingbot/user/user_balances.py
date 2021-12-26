@@ -30,7 +30,7 @@ class UserBalances:
     @staticmethod
     async def _update_balances(market) -> Optional[str]:
         try:
-            await market.update_balances()
+            await market._update_balances()
         except Exception as e:
             return str(e)
         return None
@@ -120,7 +120,7 @@ class UserBalances:
                                       get_eth_wallet_private_key(),
                                       ethereum_rpc_url,
                                       True)
-        await connector.update_balances()
+        await connector._update_balances()
         return connector.get_all_balances()
 
     @staticmethod
