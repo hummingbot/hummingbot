@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 
 from hummingbot.client.config.config_methods import using_exchange
@@ -7,6 +9,10 @@ from hummingbot.client.config.config_var import ConfigVar
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = [0.1, 0.1]
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())
 
 
 def public_rest_url(path_url: str, domain: str = "com") -> str:

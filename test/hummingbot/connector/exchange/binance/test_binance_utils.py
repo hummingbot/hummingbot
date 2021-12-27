@@ -26,3 +26,32 @@ class BinanceUtilTestCases(unittest.TestCase):
         domain = "com"
         expected_url = CONSTANTS.REST_URL.format(domain) + CONSTANTS.PRIVATE_API_VERSION + path_url
         self.assertEqual(expected_url, utils.private_rest_url(path_url, domain))
+
+    def test_is_exchange_information_valid(self):
+        invalid_info_1 = {
+            "status": "BREAK",
+            "permissions": ["MARGIN"],
+        }
+
+        self.assertFalse(utils.is_exchange_information_valid(invalid_info_1))
+
+        invalid_info_2 = {
+            "status": "BREAK",
+            "permissions": ["SPOT"],
+        }
+
+        self.assertFalse(utils.is_exchange_information_valid(invalid_info_2))
+
+        invalid_info_3 = {
+            "status": "TRADING",
+            "permissions": ["MARGIN"],
+        }
+
+        self.assertFalse(utils.is_exchange_information_valid(invalid_info_3))
+
+        invalid_info_4 = {
+            "status": "TRADING",
+            "permissions": ["SPOT"],
+        }
+
+        self.assertTrue(utils.is_exchange_information_valid(invalid_info_4))

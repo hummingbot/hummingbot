@@ -11,8 +11,6 @@ from typing import (
 )
 from unittest.mock import AsyncMock, patch, MagicMock
 
-import ujson
-
 from aioresponses.core import aioresponses
 from bidict import bidict
 
@@ -163,7 +161,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "count": 76,
         }
 
-        mock_api.get(regex_url, body=ujson.dumps(mock_response))
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         result: Dict[str, float] = self.async_run_with_timeout(
             self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair],
@@ -192,7 +190,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             }
         ]
 
-        mock_api.get(url, body=ujson.dumps(mock_response))
+        mock_api.get(url, body=json.dumps(mock_response))
 
         result: Dict[str, float] = self.async_run_with_timeout(
             self.data_source.get_all_mid_prices()
@@ -298,7 +296,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             ]
         }
 
-        mock_api.get(url, body=ujson.dumps(mock_response))
+        mock_api.get(url, body=json.dumps(mock_response))
 
         result: Dict[str] = self.async_run_with_timeout(
             self.data_source.fetch_trading_pairs()
@@ -332,7 +330,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.get(regex_url, body=ujson.dumps(self._snapshot_response()))
+        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
 
         result: Dict[str, Any] = self.async_run_with_timeout(
             self.data_source.get_snapshot(self.trading_pair)
@@ -371,36 +369,13 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 ]
             ]
         }
-        mock_api.get(regex_url, body=ujson.dumps(mock_response))
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         result: OrderBook = self.async_run_with_timeout(
             self.data_source.get_new_order_book(self.trading_pair)
         )
 
         self.assertEqual(1, result.snapshot_uid)
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_create_websocket_connection_cancelled_when_connecting(self, mock_ws):
-        mock_ws.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.data_source._create_websocket_connection()
-            )
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_create_websocket_connection_exception_raised(self, mock_ws):
-        mock_ws.side_effect = Exception("TEST ERROR.")
-
-        with self.assertRaises(Exception):
-            self.async_run_with_timeout(
-                self.data_source._create_websocket_connection()
-            )
-
-        self.assertTrue(
-            self._is_logged(
-                "NETWORK",
-                "Unexpected error occurred when connecting to WebSocket server. Error: TEST ERROR."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
@@ -618,7 +593,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.get(regex_url, body=ujson.dumps(self._snapshot_response()))
+        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
