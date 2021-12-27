@@ -140,11 +140,7 @@ app.use(
 
 export const startGateway = async () => {
   const port = ConfigManagerV2.getInstance().get('server.port');
-  // logger.info(`⚡️ Gateway API listening on port ${port}`);
-  console.log(
-    'hola esoty aca',
-    ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')
-  );
+  logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
 
@@ -162,9 +158,7 @@ export const startGateway = async () => {
 
     // mount swagger api docs
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-    console.log('pongo a escuchar el server en unsafe http');
     server = await app.listen(port);
-    logger.info(`⚡️ Gateway API listening on port ${port}`);
   } else {
     server = await addHttps(app).listen(port);
     logger.info('The server is secured behind HTTPS.');
