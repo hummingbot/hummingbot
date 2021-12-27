@@ -22,7 +22,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import TradeFee, TradeFeeSchema
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
@@ -82,7 +82,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.market: MockPaperExchange = MockPaperExchange(fee_percent=Decimal("25"))
+        trade_fee_schema = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
+        )
+        self.market: MockPaperExchange = MockPaperExchange(trade_fee_schema)
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )

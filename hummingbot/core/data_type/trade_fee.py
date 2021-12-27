@@ -115,13 +115,7 @@ class TradeFeeSchema:
             self.maker_percent_fee_decimal = Decimal(self.maker_percent_fee_decimal)
         if self.taker_percent_fee_decimal is not None:
             self.taker_percent_fee_decimal = Decimal(self.taker_percent_fee_decimal)
-        if self.taker_fixed_fees is None:
-            assert self.taker_percent_fee_decimal is not None
-        else:
-            for i in range(len(self.taker_fixed_fees)):
-                self.taker_fixed_fees[i][1] = Decimal(self.taker_fixed_fees[i][1])
-        if self.maker_fixed_fees is None:
-            assert self.maker_percent_fee_decimal is not None
-        else:
-            for i in range(len(self.maker_fixed_fees)):
-                self.maker_fixed_fees[i][1] = Decimal(self.maker_percent_fee_decimal[i][1])
+        for i in range(len(self.taker_fixed_fees)):
+            self.taker_fixed_fees[i] = (self.taker_fixed_fees[i][0], Decimal(self.taker_fixed_fees[i][1]))
+        for i in range(len(self.maker_fixed_fees)):
+            self.maker_fixed_fees[i] = (self.maker_fixed_fees[i][0], Decimal(self.maker_fixed_fees[i][1]))
