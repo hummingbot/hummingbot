@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 
-from hummingbot.connector.utils import split_hb_trading_pair, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TradeFee, TradeFeePercentageApplication
 
