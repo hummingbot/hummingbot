@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import numpy as np
 from decimal import Decimal
 
@@ -20,12 +20,11 @@ s_decimal_0 = Decimal("0")
 
 cdef class MockPaperExchange(PaperTradeExchange):
 
-    def __init__(self, fee_percent: Decimal = Decimal("0")):
+    def __init__(self, trade_fee_schema: Optional[TradeFeeSchema] = None):
         PaperTradeExchange.__init__(self, MockOrderTracker(), MarketConfig.default_config(), MockPaperExchange)
 
-        fee_percent_decimal = fee_percent / Decimal("100")
-        trade_fee_schema = TradeFeeSchema(
-            maker_percent_fee_decimal=fee_percent_decimal, taker_percent_fee_decimal=fee_percent_decimal
+        trade_fee_schema = trade_fee_schema or TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0"), taker_percent_fee_decimal=Decimal("0")
         )
         AllConnectorSettings.get_connector_settings()[self.name] = ConnectorSetting(
             self.name,

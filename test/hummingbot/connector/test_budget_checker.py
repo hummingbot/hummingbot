@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from hummingbot.connector.budget_checker import OrderCandidate, BudgetChecker
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.event.events import OrderType, TradeType
 from test.mock.mock_paper_exchange import MockPaperExchange
 
@@ -14,8 +15,10 @@ class BudgetCheckerTest(unittest.TestCase):
         self.quote_asset = "HBOT"
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
 
-        fee_percent = Decimal("1")
-        self.exchange = MockPaperExchange(fee_percent)
+        trade_fee_schema = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.01"), taker_percent_fee_decimal=Decimal("0.01")
+        )
+        self.exchange = MockPaperExchange(trade_fee_schema)
         self.budget_checker: BudgetChecker = self.exchange.budget_checker
 
     def test_populate_collateral_fields_buy_order(self):
@@ -52,6 +55,35 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.quote_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("19.8"), populated_candidate.potential_returns.amount)
+
+    def test_populate_collateral_fields_fixed_fees_in_quote_token(self):
+        trade_fee_schema = TradeFeeSchema(
+            maker_fixed_fees=[(self.quote_asset, Decimal("1"))],
+            taker_fixed_fees=[(self.quote_asset, Decimal("2"))],
+        )
+        exchange = MockPaperExchange(trade_fee_schema)
+        budget_checker: BudgetChecker = exchange.budget_checker
+
+        order_candidate = OrderCandidate(
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("2"),
+        )
+        populated_candidate = budget_checker.populate_collateral_entries(order_candidate)
+
+        self.assertEqual(self.quote_asset, populated_candidate.order_collateral.token)
+        self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
+        self.assertIsNone(populated_candidate.percent_fee_collateral)
+        self.assertEqual(1, len(populated_candidate.fixed_fee_collaterals))
+
+        fixed_fee_collateral = populated_candidate.fixed_fee_collaterals[0]
+
+        self.assertEqual(self.quote_asset, fixed_fee_collateral.token)
+        self.assertEqual(Decimal("1"), fixed_fee_collateral.amount)
+        self.assertEqual(self.base_asset, populated_candidate.potential_returns.token)
+        self.assertEqual(Decimal("10"), populated_candidate.potential_returns.amount)
 
     def test_adjust_candidate_sufficient_funds(self):
         self.exchange.set_balance(self.quote_asset, Decimal("100"))
@@ -141,6 +173,26 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, adjusted_candidate.potential_returns.token)
         self.assertEqual(Decimal("9.9"), adjusted_candidate.potential_returns.amount)  # 10 * 0.99
 
+    def test_adjust_candidate_insufficient_funds_for_flat_fees(self):
+        # trade_fee_schema = TradeFeeSchema(
+        #     maker_fixed_fees=[(self.quote_asset, Decimal("11"))],
+        #     taker_fixed_fees=[(self.quote_asset, Decimal("11"))],
+        # )
+        # exchange = MockPaperExchange(trade_fee_schema)
+        # budget_checker: BudgetChecker = exchange.budget_checker
+        # exchange.set_balance(self.quote_asset, Decimal("10"))
+        #
+        # order_candidate = OrderCandidate(
+        #     trading_pair=self.trading_pair,
+        #     order_type=OrderType.LIMIT,
+        #     order_side=TradeType.BUY,
+        #     amount=Decimal("10"),
+        #     price=Decimal("2"),
+        # )
+        # adjusted_candidate = budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        raise NotImplementedError
+
     def test_adjust_candidate_and_lock_available_collateral(self):
         self.exchange.set_balance(self.base_asset, Decimal("10"))
 
@@ -177,7 +229,9 @@ class BudgetCheckerTest(unittest.TestCase):
 
         self.assertEqual(Decimal("7"), first_adjusted_candidate.amount)
         self.assertEqual(Decimal("3"), second_adjusted_candidate.amount)
+        self.assertEqual(Decimal("3"), second_adjusted_candidate.order_collateral.amount)
         self.assertEqual(Decimal("0"), third_adjusted_candidate.amount)
+        self.assertIsNone(third_adjusted_candidate.order_collateral)
 
     def test_reset_locked_collateral(self):
         self.exchange.set_balance(self.base_asset, Decimal("10"))
@@ -242,7 +296,9 @@ class BudgetCheckerTest(unittest.TestCase):
 
         self.assertEqual(Decimal("7"), first_adjusted_candidate.amount)
         self.assertEqual(Decimal("3"), second_adjusted_candidate.amount)
+        self.assertEqual(Decimal("3"), second_adjusted_candidate.order_collateral.amount)
         self.assertEqual(Decimal("0"), third_adjusted_candidate.amount)
+        self.assertIsNone(third_adjusted_candidate.order_collateral)
 
     def test_adjust_candidates_resets_locked_collateral(self):
         self.exchange.set_balance(self.base_asset, Decimal("10"))

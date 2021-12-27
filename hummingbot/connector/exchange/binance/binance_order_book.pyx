@@ -59,31 +59,6 @@ cdef class BinanceOrderBook(OrderBook):
         }, timestamp=timestamp)
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = record["json"] if type(record["json"])==dict else ujson.loads(record["json"])
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
-        }, timestamp=record["timestamp"] * 1e-3)
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = ujson.loads(record["json"])  # Binance json in DB is TEXT
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
-            "first_update_id": msg["U"],
-            "update_id": msg["u"],
-            "bids": msg["b"],
-            "asks": msg["a"]
-        }, timestamp=record["timestamp"] * 1e-3)
-
-    @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode("utf-8"))
         if metadata:
@@ -107,21 +82,6 @@ cdef class BinanceOrderBook(OrderBook):
             "asks": msg["a"],
 
         }, timestamp=record.timestamp * 1e-3)
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        msg = record["json"]
-        if metadata:
-            msg.update(metadata)
-        ts = record.timestamp
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
-            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
-            "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
-        }, timestamp=ts * 1e-3)
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):

@@ -19,7 +19,7 @@ class TokenAmount:
     amount: Decimal
 
     def __iter__(self):
-        return (self.token, self.amount).__iter__()
+        return iter((self.token, self.amount))
 
 
 @dataclass
@@ -70,10 +70,6 @@ class OrderCandidate:
 
     def set_to_zero(self):
         self.scale_order(scaler=Decimal("0"))
-        self.order_collateral = None
-        self.percent_fee_collateral = None
-        self.fixed_fee_collaterals = []
-        self.potential_returns = None
 
     def scale_order(self, scaler: Decimal):
         self.amount *= scaler
@@ -84,7 +80,10 @@ class OrderCandidate:
         if self.potential_returns is not None:
             self.potential_returns.amount *= scaler
         if self.is_zero_order:
+            self.order_collateral = None
+            self.percent_fee_collateral = None
             self.fixed_fee_collaterals = []
+            self.potential_returns = None
         self.resized = True
 
     def _adjust_for_order_collateral(self, available_balances: Dict[str, Decimal]):
@@ -276,9 +275,9 @@ class BudgetChecker:
         return oc_amount
 
     def _populate_percent_fee_collateral_entry(self, order_candidate: OrderCandidate, fee: TradeFee) -> OrderCandidate:
-        if fee.percent_token is None:
+        if fee.percent is not None and fee.percent_token is None:
             fee.percent_token = order_candidate.order_collateral.token
-        if fee.percentage_application == TradeFeePercentageApplication.AddedToCost:
+        if fee.percent is not None and fee.percentage_application == TradeFeePercentageApplication.AddedToCost:
             if order_candidate.order_collateral is None or fee.percent_token != order_candidate.order_collateral.token:
                 size, token = self._get_order_size_and_size_token(order_candidate)
                 if fee.percent_token == token:

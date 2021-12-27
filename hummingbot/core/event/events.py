@@ -55,6 +55,7 @@ class OrderType(Enum):
 class PositionAction(Enum):
     OPEN = "OPEN"
     CLOSE = "CLOSE"
+    NIL = "NIL"
 
 
 # For Derivatives Exchanges
