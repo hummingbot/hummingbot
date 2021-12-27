@@ -14,7 +14,7 @@ if typing.TYPE_CHECKING:  # avoid circular import problems
 
 
 @dataclass
-class SizeEntry:
+class TokenAmount:
     token: str
     amount: Decimal
 
@@ -39,10 +39,10 @@ class OrderCandidate:
     order_side: TradeType
     amount: Decimal
     price: Decimal
-    order_collateral: Optional[SizeEntry] = field(default=None, init=False)
-    percent_fee_collateral: Optional[SizeEntry] = field(default=None, init=False)
-    fixed_fee_collaterals: List[SizeEntry] = field(default=list, init=False)
-    potential_returns: Optional[SizeEntry] = field(default=None, init=False)
+    order_collateral: Optional[TokenAmount] = field(default=None, init=False)
+    percent_fee_collateral: Optional[TokenAmount] = field(default=None, init=False)
+    fixed_fee_collaterals: List[TokenAmount] = field(default=list, init=False)
+    potential_returns: Optional[TokenAmount] = field(default=None, init=False)
     resized: bool = field(default=False, init=False)
 
     @property
@@ -255,7 +255,7 @@ class BudgetChecker:
         oc_token = self._get_order_collateral_token(order_candidate)
         if oc_token is not None:
             oc_amount = self._get_order_collateral_amount(order_candidate, oc_token)
-            order_candidate.order_collateral = SizeEntry(oc_token, oc_amount)
+            order_candidate.order_collateral = TokenAmount(oc_token, oc_amount)
         return order_candidate
 
     def _get_order_collateral_token(self, order_candidate: OrderCandidate) -> Optional[str]:
@@ -289,7 +289,7 @@ class BudgetChecker:
                 amount = size * exchange_rate * fee.percent
             else:  # fee.percent_token == order_candidate.order_collateral.token
                 amount = order_candidate.order_collateral.amount * fee.percent
-            order_candidate.percent_fee_collateral = SizeEntry(fee.percent_token, amount)
+            order_candidate.percent_fee_collateral = TokenAmount(fee.percent_token, amount)
 
         return order_candidate
 
@@ -297,7 +297,7 @@ class BudgetChecker:
     def _populate_fixed_fee_collateral_entries(order_candidate: OrderCandidate, fee: TradeFee) -> OrderCandidate:
         order_candidate.fixed_fee_collaterals = []
         for token, amount in fee.flat_fees:
-            order_candidate.fixed_fee_collaterals.append(SizeEntry(token, amount))
+            order_candidate.fixed_fee_collaterals.append(TokenAmount(token, amount))
         return order_candidate
 
     def _populate_potential_returns_entry(self, order_candidate: OrderCandidate, fee: TradeFee) -> OrderCandidate:
@@ -306,7 +306,7 @@ class BudgetChecker:
             r_amount = self._get_returns_amount(order_candidate)
             if fee.percentage_application == TradeFeePercentageApplication.DeductedFromReturns:
                 r_amount *= Decimal("1") - fee.percent
-            order_candidate.potential_returns = SizeEntry(r_token, r_amount)
+            order_candidate.potential_returns = TokenAmount(r_token, r_amount)
         return order_candidate
 
     def _get_returns_token(self, order_candidate: OrderCandidate) -> Optional[str]:
