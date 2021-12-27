@@ -6,7 +6,7 @@ unit tests for hummingbot.core.utils.estimate_fee
 
 import unittest
 from decimal import Decimal
-from hummingbot.core.data_type.trade_fee import TradeFee, estimate_fee
+from hummingbot.core.data_type.trade_fee import estimate_fee, TradeFee
 
 
 class EstimateFeeTest(unittest.TestCase):
