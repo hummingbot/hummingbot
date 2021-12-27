@@ -50,7 +50,8 @@ class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
-            header = self._fmfw_auth.add_auth_to_params("POST", Fmfw_USER_STREAM_ENDPOINT)
+            payload: Dict = {"method": "POST", "url": Fmfw_USER_STREAM_ENDPOINT}
+            header = self._fmfw_auth.add_auth_to_params(payload)
             async with client.post(f"{Fmfw_API_ENDPOINT}{Fmfw_USER_STREAM_ENDPOINT}", headers=header) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:

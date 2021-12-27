@@ -1,4 +1,5 @@
 import aiohttp
+import requests
 import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
@@ -14,6 +15,7 @@ from typing import (
 )
 import json
 import time
+from requests import Session
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -60,7 +62,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 km_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
-Fmfw_ROOT_API = "https://api.fmfw.io/api/3"
+Fmfw_ROOT_API = "https://api.fmfw.io"
 
 
 class FmfwAPIError(IOError):
@@ -378,47 +380,43 @@ cdef class FmfwExchange(ExchangeBase):
                            path_url,
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
-                           is_auth_required: bool = False,
-                           is_partner_required: bool = False) -> Dict[str, Any]:
+                           is_auth_required: bool = False) -> Dict[str, Any]:
         url = Fmfw_ROOT_API + path_url
         client = await self._http_client()
-        if is_auth_required:
-            if is_partner_required:
-                headers = self._fmfw_auth.add_auth_to_params(method, path_url, params, partner_header=True)
-            else:
-                headers = self._fmfw_auth.add_auth_to_params(method, path_url, params)
-        else:
-            headers = {"Content-Type": "application/json"}
-
         post_json = json.dumps(params)
         if method == "get":
-            response = await client.get(url, headers=headers)
+            response = requests.get(url, auth=self._fmfw_auth)
         elif method == "post":
-            response = await client.post(url, data=post_json, headers=headers)
+            response = requests.post(url, data=post_json, auth=self._fmfw_auth)
         elif method == "delete":
-            response = await client.delete(url, headers=headers)
+            response = requests.delete(url,auth=self._fmfw_auth)
         else:
             response = False
-
+        print('OUTSIDE ELSE',response.json())
         if response:
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            # if response.status != 200:
+            # raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
-                parsed_response = json.loads(await response.text())
+                if len(response.json())>0:
+                    parsed_response = response.json()
+                else:
+                    parsed_response=[]
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
             return parsed_response
 
     async def _update_balances(self):
         cdef:
-            str path_url = "/api/3/public/trades"
+            str path_url = "/api/3/spot/balance"
             str asset_name
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
-
+        print(path_url)
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        print('data : ',json.dumps(data))
         if data:
             for balance_entry in data["data"]:
+             #   print('balance entry',balance_entry)
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
                 self._account_balances[asset_name] = Decimal(balance_entry["balance"])

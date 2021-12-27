@@ -3,6 +3,7 @@ from itertools import islice
 
 import aiohttp
 import asyncio
+import requests
 from async_timeout import timeout
 from collections import defaultdict
 from enum import Enum
@@ -317,17 +318,15 @@ class FmfwAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(EXCHANGE_INFO_URL, timeout=5) as response:
-                if response.status == 200:
-                    try:
-                        data: Dict[str, Any] = await response.json()
-                        all_trading_pairs = data.get("data", [])
-                        return [convert_from_exchange_trading_pair(item["symbol"]) for item in all_trading_pairs if item["enableTrading"] is True]
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for fmfw trading pairs
-                return []
+        response = requests.get(EXCHANGE_INFO_URL, timeout=5)
+        if response:
+            try:
+                data: Dict[str, Any] = response.json()
+                return [convert_from_exchange_trading_pair(value["base_currency"], value["quote_currency"]) for attr, value in data.items() if value["status"] == 'working']
+            except Exception:
+                pass
+        # Do nothing if the request fails -- there will be no autocomplete for fmfw trading pairs
+        return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, auth: FmfwAuth = None) -> Dict[str, Any]:
@@ -335,7 +334,8 @@ class FmfwAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         url = SNAPSHOT_REST_URL if auth else SNAPSHOT_REST_URL_NO_AUTH
         path_url = f"{URL(url).path}?{urlencode(params)}"
-        headers = auth.add_auth_to_params("get", path_url) if auth else None
+        payload: Dict = {"method": "get", "url": path_url}
+        headers = auth.add_auth_to_params(payload) if auth else None
 
         async with client.get(url, params=params, headers=headers) as response:
             response: aiohttp.ClientResponse = response

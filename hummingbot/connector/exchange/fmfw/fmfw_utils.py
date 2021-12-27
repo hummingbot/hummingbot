@@ -37,8 +37,7 @@ def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
         raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
 
 
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    base, quote = exchange_trading_pair.split("-")
+def convert_from_exchange_trading_pair(base: str, quote: str) -> str:
     if base in ASSET_TO_NAME_MAPPING:
         base = ASSET_TO_NAME_MAPPING[base]
 
