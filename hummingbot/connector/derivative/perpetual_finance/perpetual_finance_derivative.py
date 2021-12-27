@@ -644,7 +644,8 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                 order_type: Optional[OrderType] = None,
                 order_side: Optional[TradeType] = None,
                 amount: Optional[Decimal] = None,
-                price: Decimal = s_decimal_0) -> TradeFee:
+                price: Decimal = s_decimal_0,
+                is_maker: Optional[bool] = None) -> TradeFee:
         fee = estimate_fee("perpetual_finance", False)
         return fee
 

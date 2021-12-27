@@ -14,7 +14,9 @@ import random
 from typing import (
     Dict,
     List,
-    Tuple)
+    Tuple,
+    Optional,
+)
 from cython.operator cimport(
     postincrement as inc,
     dereference as deref,
@@ -905,10 +907,11 @@ cdef class PaperTradeExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         return build_trade_fee(
             self.name,
-            is_maker=order_type is OrderType.LIMIT,
+            is_maker=is_maker or order_type is OrderType.LIMIT,
             base_currency=base_asset,
             quote_currency=quote_asset,
             order_type=order_type,
@@ -1004,8 +1007,9 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_0):
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_0,
+                is_maker: Optional[bool] = None):
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

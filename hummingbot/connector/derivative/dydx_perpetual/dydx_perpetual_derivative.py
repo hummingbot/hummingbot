@@ -563,6 +563,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         order_side: TradeType,
         amount: Decimal,
         price: Decimal = s_decimal_0,
+        is_maker: Optional[bool] = None,
     ):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("dydx_perpetual", is_maker)
