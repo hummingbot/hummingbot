@@ -703,10 +703,12 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
     def create_order_candidates_for_budget_check(self, proposal: Proposal):
         order_candidates = []
 
+        is_maker = True
         order_candidates.extend(
             [
                 PerpetualOrderCandidate(
                     self.trading_pair,
+                    is_maker,
                     OrderType.LIMIT,
                     TradeType.BUY,
                     buy.size,
@@ -720,6 +722,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             [
                 PerpetualOrderCandidate(
                     self.trading_pair,
+                    is_maker,
                     OrderType.LIMIT,
                     TradeType.SELL,
                     sell.size,

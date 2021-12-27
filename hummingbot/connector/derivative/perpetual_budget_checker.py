@@ -5,8 +5,10 @@ from typing import Optional
 
 from hummingbot.connector.budget_checker import BudgetChecker, OrderCandidate
 from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFee
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.event.events import TradeType, PositionAction
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
@@ -52,9 +54,15 @@ class PerpetualBudgetChecker(BudgetChecker):
 
     def _populate_percent_fee_collateral_entry(
         self, order_candidate: PerpetualOrderCandidate, fee: TradeFee
-    ) -> OrderCandidate:
+    ) -> PerpetualOrderCandidate:
         if not order_candidate.position_close:
+            leverage = order_candidate.leverage
             order_candidate = super()._populate_percent_fee_collateral_entry(order_candidate, fee)
+            if (
+                order_candidate.percent_fee_collateral is not None
+                and order_candidate.percent_fee_collateral.token == order_candidate.order_collateral.token
+            ):
+                order_candidate.percent_fee_collateral.amount *= leverage
         return order_candidate
 
     def _get_returns_token(self, order_candidate: PerpetualOrderCandidate) -> Optional[str]:
@@ -101,3 +109,22 @@ class PerpetualBudgetChecker(BudgetChecker):
             else TradeType.SELL
         )
         return order_candidate
+
+    def _get_fee(self, order_candidate: PerpetualOrderCandidate) -> TradeFee:
+        trading_pair = order_candidate.trading_pair
+        price = order_candidate.price
+        base, quote = split_hb_trading_pair(trading_pair)
+        position_action = PositionAction.CLOSE if order_candidate.position_close else PositionAction.OPEN
+        fee = build_perpetual_trade_fee(
+            self._exchange.name,
+            order_candidate.is_maker,
+            position_action,
+            base,
+            quote,
+            order_candidate.order_type,
+            order_candidate.order_side,
+            order_candidate.amount,
+            price,
+        )
+
+        return fee
