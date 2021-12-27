@@ -12,7 +12,6 @@ from typing import (
     Optional,
 )
 
-import aiohttp
 import pandas as pd
 from bidict import bidict
 
@@ -26,7 +25,12 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod, RESTResponse, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import (
+    RESTMethod,
+    RESTRequest,
+    RESTResponse,
+    WSRequest,
+)
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -289,20 +293,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return data
 
-    async def _create_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
-        """
-        Initialize WebSocket client for APIOrderBookDataSource
-        """
-        try:
-            return await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
-                                                            heartbeat=self.HEARTBEAT_TIME_INTERVAL)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(f"Unexpected error occurred when connecting to WebSocket server. "
-                                  f"Error: {e}")
-            raise
-
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
             payload = {
@@ -386,9 +376,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 response: RESTResponse = await rest_assistant.call(request=request)
                 if response.status == 200:
                     data = await response.json()
-                    for symbol_data in data["symbols"]:
-                        if symbol_data["status"] == "TRADING" and "SPOT" in symbol_data["permissions"]:
-                            mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
+                    for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
+                        mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange infor ({str(ex)})")
 

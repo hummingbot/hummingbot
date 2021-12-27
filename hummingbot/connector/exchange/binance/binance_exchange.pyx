@@ -27,7 +27,9 @@ from libc.stdint cimport int64_t
 
 import conf
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_in_flight_order import BinanceInFlightOrder
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
@@ -135,6 +137,7 @@ cdef class BinanceExchange(ExchangeBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
+        self._auth = BinanceAuth(api_key=binance_api_key, secret_key=binance_api_secret)
         self._api_factory = build_api_factory()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._order_book_tracker = BinanceOrderBookTracker(
@@ -143,7 +146,7 @@ cdef class BinanceExchange(ExchangeBase):
             api_factory=self._api_factory,
             throttler=self._throttler)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
-        self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain, throttler=self._throttler)
+        self._user_stream_tracker = BinanceUserStreamTracker(auth=self._auth, domain=domain, throttler=self._throttler)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -362,7 +365,7 @@ cdef class BinanceExchange(ExchangeBase):
         cdef:
             list trading_pair_rules = exchange_info_dict.get("symbols", [])
             list retval = []
-        for rule in trading_pair_rules:
+        for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
                     rule.get("symbol"))

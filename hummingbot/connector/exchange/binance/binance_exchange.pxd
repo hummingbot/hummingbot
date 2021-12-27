@@ -23,6 +23,7 @@ cdef class BinanceExchange(ExchangeBase):
         public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
+        object _auth
         object _throttler
         object _api_factory
         str _domain
