@@ -496,7 +496,8 @@ cdef class BeaxyExchange(ExchangeBase):
         object order_type,
         object order_side,
         object amount,
-        object price
+        object price,
+        object is_maker = None,
     ):
         """
         *required
@@ -1214,8 +1215,9 @@ cdef class BeaxyExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

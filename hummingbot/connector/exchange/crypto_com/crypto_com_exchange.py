@@ -769,7 +769,8 @@ class CryptoComExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> TradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for

@@ -627,7 +627,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     # MARKET AND ACCOUNT INFO ---
     def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
-                amount: object, price: object):
+                amount: object, price: object, is_maker: Optional[bool] = None):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("binance_perpetual", is_maker)
 

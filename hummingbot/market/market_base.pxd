@@ -44,4 +44,5 @@ cdef class MarketBase(NetworkIterator):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price)
+                          object price,
+                          object is_maker=*)

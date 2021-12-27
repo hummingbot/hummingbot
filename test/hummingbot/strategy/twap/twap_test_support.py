@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
@@ -75,7 +75,7 @@ class MockExchange(ExchangeBase):
         pass
 
     def get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
-                amount: Decimal, price: Decimal = s_decimal_NaN) -> TradeFee:
+                amount: Decimal, price: Decimal = s_decimal_NaN, is_maker: Optional[bool] = None) -> TradeFee:
         pass
 
     _ready = False

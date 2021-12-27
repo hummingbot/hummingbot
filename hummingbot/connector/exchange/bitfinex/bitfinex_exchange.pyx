@@ -224,7 +224,8 @@ cdef class BitfinexExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         *required
         function to calculate fees for a particular order
@@ -1355,8 +1356,9 @@ cdef class BitfinexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
