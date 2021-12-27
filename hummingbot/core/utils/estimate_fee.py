@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema, TradeFeePercentageApplication
+from hummingbot.core.data_type.trade_fee import TradeFeePercentageApplication, TradeFeeSchema
 from hummingbot.core.event.events import OrderType, TradeFee, TradeType, PositionAction
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import AllConnectorSettings
