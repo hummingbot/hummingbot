@@ -307,6 +307,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         budget_checker = market_info.market.budget_checker
         order_candidate = OrderCandidate(
             trading_pair=market_info.trading_pair,
+            is_maker=False,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
             amount=order_amount,
@@ -345,6 +346,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         order_candidate = PerpetualOrderCandidate(
             trading_pair=market_info.trading_pair,
+            is_maker=False,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
             amount=order_amount,

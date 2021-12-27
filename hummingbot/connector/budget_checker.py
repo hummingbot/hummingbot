@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TradeFee, TradeFeePercentageApplication
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
@@ -35,6 +36,7 @@ class OrderCandidate:
     a dictionary of currently available assets in the user account.
     """
     trading_pair: str
+    is_maker: bool
     order_type: OrderType
     order_side: TradeType
     amount: Decimal
@@ -112,12 +114,13 @@ class OrderCandidate:
             available_balance = available_balances[ffc_token]
             if available_balance < ffc_amount:
                 self.scale_order(scaler=Decimal("0"))
+                break
             if ffc_token == oc_token and available_balance < ffc_amount + oc_amount:
-                scaler = oc_amount / (available_balance - ffc_amount)
+                scaler = (available_balance - ffc_amount) / oc_amount
                 self.scale_order(scaler)
                 oc_amount, pfc_amount = self._get_order_and_pf_collateral_amounts_for_ff_adjustment()
             if pfc_token is not None and ffc_token == pfc_token and available_balance < ffc_amount + pfc_amount:
-                scaler = pfc_amount / (available_balance - ffc_amount)
+                scaler = (available_balance - ffc_amount) / pfc_amount  # todo: test
                 self.scale_order(scaler)
                 oc_amount, pfc_amount = self._get_order_and_pf_collateral_amounts_for_ff_adjustment()
             if self.is_zero_order:
@@ -283,7 +286,7 @@ class BudgetChecker:
                 if fee.percent_token == token:
                     exchange_rate = Decimal("1")
                 else:
-                    exchange_pair = combine_to_hb_trading_pair(fee.percent_token, token)
+                    exchange_pair = combine_to_hb_trading_pair(token, fee.percent_token)  # buy order token w/ pf token
                     exchange_rate = self._exchange.get_price(exchange_pair, is_buy=True)
                 amount = size * exchange_rate * fee.percent
             else:  # fee.percent_token == order_candidate.order_collateral.token
@@ -390,7 +393,9 @@ class BudgetChecker:
         trading_pair = order_candidate.trading_pair
         price = order_candidate.price
         base, quote = split_hb_trading_pair(trading_pair)
-        fee = self._exchange.get_fee(
+        fee = build_trade_fee(
+            self._exchange.name,
+            order_candidate.is_maker,
             base,
             quote,
             order_candidate.order_type,

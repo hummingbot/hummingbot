@@ -26,7 +26,10 @@ def build_trade_fee(
     percent = trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
     percentage_application = (
         TradeFeePercentageApplication.AddedToCost
-        if order_side == TradeType.BUY or trade_fee_schema.percent_fee_token is not None
+        if (
+            order_side == TradeType.BUY and not trade_fee_schema.buy_percent_fee_deducted_from_returns
+            or trade_fee_schema.percent_fee_token is not None
+        )
         else TradeFeePercentageApplication.DeductedFromReturns
     )
     fixed_fees = trade_fee_schema.maker_fixed_fees if is_maker else trade_fee_schema.taker_fixed_fees
