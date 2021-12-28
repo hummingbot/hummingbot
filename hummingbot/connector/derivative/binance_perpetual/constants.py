@@ -1,4 +1,5 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "binance_perpetual"
 
@@ -41,9 +42,18 @@ GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 ACCOUNT_INFO_URL = "/account"
 POSITION_INFORMATION_URL = "/positionRisk"
 
-
 # Private API Endpoints
 BINANCE_USER_STREAM_ENDPOINT = "/listenKey"
+
+# Order Statuses
+ORDER_STATE = {
+    # "PENDING_NEW": OrderState.PENDING_CREATE,
+    "NEW": OrderState.OPEN,
+    "FILLED": OrderState.FILLED,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
+    "CANCELED": OrderState.CANCELLED,
+    # "FAILED": OrderState.FAILED,
+}
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"

@@ -1,27 +1,30 @@
+import aiohttp
 import asyncio
 import hashlib
 import hmac
 import logging
 import time
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
+
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+
+from async_timeout import timeout
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
 from typing import Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import urlencode
 
-import aiohttp
-from async_timeout import timeout
 
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import (
-    BinancePerpetualsInFlightOrder
+    BinancePerpetualsInFlightOrder,
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
-    BinancePerpetualOrderBookTracker
+    BinancePerpetualOrderBookTracker,
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
-    BinancePerpetualUserStreamTracker
+    BinancePerpetualUserStreamTracker,
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -32,23 +35,19 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
     FundingInfo,
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
-    OrderFilledEvent,
     OrderType,
     PositionAction,
     PositionMode,
     PositionSide,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
@@ -94,13 +93,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             bpm_logger = logging.getLogger(__name__)
         return bpm_logger
 
-    def __init__(self,
-                 binance_perpetual_api_key: str = None,
-                 binance_perpetual_api_secret: str = None,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = "binance_perpetual",
-                 ):
+    def __init__(
+        self,
+        binance_perpetual_api_key: str = None,
+        binance_perpetual_api_secret: str = None,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = "binance_perpetual",
+    ):
         self._api_key = binance_perpetual_api_key
         self._api_secret = binance_perpetual_api_secret
         self._trading_pairs = trading_pairs
@@ -112,8 +112,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         PerpetualTrading.__init__(self)
         BinanceTime.get_instance().start()
 
-        self._user_stream_tracker = BinancePerpetualUserStreamTracker(api_key=self._api_key, domain=self._domain, throttler=self._throttler)
-        self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs, domain=self._domain, throttler=self._throttler)
+        self._user_stream_tracker = BinancePerpetualUserStreamTracker(
+            api_key=self._api_key, domain=self._domain, throttler=self._throttler
+        )
+        self._order_book_tracker = BinancePerpetualOrderBookTracker(
+            trading_pairs=trading_pairs, domain=self._domain, throttler=self._throttler
+        )
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._in_flight_orders = {}
@@ -129,6 +133,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._last_poll_timestamp = 0
         self._funding_payment_span = [0, 30]
         self._budget_checker = PerpetualBudgetChecker(self)
+        self._client_order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
     @property
     def name(self) -> str:
@@ -144,8 +149,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return all(self.status_dict.values())
 
     @property
-    def in_flight_orders(self) -> Dict[str, BinancePerpetualsInFlightOrder]:
-        return self._in_flight_orders
+    def in_flight_orders(self) -> Dict[str, InFlightOrder]:
+        return self._client_order_tracker.active_orders
 
     @property
     def status_dict(self):
@@ -155,16 +160,43 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "funding_info": len(self._funding_info) > 0,
             "position_mode": self.position_mode,
-            "user_stream_initializied": self._user_stream_tracker.data_source.last_recv_time > 0
+            "user_stream_initializied": self._user_stream_tracker.data_source.last_recv_time > 0,
         }
 
     @property
-    def limit_orders(self):
-        return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
+    def limit_orders(self) -> List[LimitOrder]:
+        return [order.to_limit_order() for order in self._client_order_tracker.all_orders]
 
     @property
     def budget_checker(self) -> PerpetualBudgetChecker:
         return self._budget_checker
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        """
+        :return active in-flight orders in json format, is used to save in sqlite db.
+        """
+        return {
+            client_order_id: in_flight_order.to_json()
+            for client_order_id, in_flight_order in self._client_order_tracker.active_orders.items()
+            if not in_flight_order.is_done
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        Restore in-flight orders from saved tracking states, this is st the connector can pick up on where it left off
+        when it disconnects.
+        :param saved_states: The saved tracking_states.
+        """
+        for data in saved_states.values():
+            self._client_order_tracker.start_tracking_order(InFlightOrder.from_json(data))
+
+    def supported_order_types(self) -> List[OrderType]:
+        """
+        :return a list of OrderType supported by this connector.
+        Note that Market order type is no longer required and will not be used.
+        """
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
@@ -219,22 +251,17 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    def supported_order_types(self) -> List[OrderType]:
-        """
-        :return a list of OrderType supported by this connector.
-        Note that Market order type is no longer required and will not be used.
-        """
-        return [OrderType.LIMIT, OrderType.MARKET]
-
     # ORDER PLACE AND CANCEL EXECUTIONS ---
-    async def create_order(self,
-                           trade_type: TradeType,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           order_type: OrderType,
-                           position_action: PositionAction,
-                           price: Optional[Decimal] = Decimal("NaN")):
+    async def create_order(
+        self,
+        trade_type: TradeType,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType,
+        position_action: PositionAction,
+        price: Optional[Decimal] = Decimal("NaN"),
+    ):
 
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
@@ -244,16 +271,18 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price = self.quantize_order_price(trading_pair, price)
 
         if amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}")
+            raise ValueError(
+                f"Buy order amount {amount} is lower than the minimum order size " f"{trading_rule.min_order_size}"
+            )
 
         order_result = None
-        api_params = {"symbol": utils.convert_to_exchange_trading_pair(trading_pair),
-                      "side": "BUY" if trade_type is TradeType.BUY else "SELL",
-                      "type": "LIMIT" if order_type is OrderType.LIMIT else "MARKET",
-                      "quantity": f"{amount}",
-                      "newClientOrderId": order_id
-                      }
+        api_params = {
+            "symbol": utils.convert_to_exchange_trading_pair(trading_pair),
+            "side": "BUY" if trade_type is TradeType.BUY else "SELL",
+            "type": "LIMIT" if order_type is OrderType.LIMIT else "MARKET",
+            "quantity": f"{amount}",
+            "newClientOrderId": order_id,
+        }
         if order_type == OrderType.LIMIT:
             api_params["price"] = f"{price}"
             api_params["timeInForce"] = "GTC"
@@ -264,50 +293,56 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
 
-        self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type, self._leverage[trading_pair], position_action.name)
+        self.start_tracking_order(
+            order_id,
+            None,
+            trading_pair,
+            trade_type,
+            price,
+            amount,
+            order_type,
+            self._leverage[trading_pair],
+            position_action.name,
+        )
 
         try:
-            order_result = await self.request(path=CONSTANTS.ORDER_URL,
-                                              params=api_params,
-                                              method=MethodType.POST,
-                                              add_timestamp = True,
-                                              is_signed=True)
+            order_result = await self.request(
+                path=CONSTANTS.ORDER_URL, params=api_params, method=MethodType.POST, add_timestamp=True, is_signed=True
+            )
 
-            tracked_order = self._in_flight_orders.get(order_id)
-            self.logger().info(f"Created {order_type.name.lower()} {trade_type.name.lower()} order {order_id} for "
-                               f"{amount} {trading_pair}.")
+            self.logger().info(
+                f"Created {order_type.name.lower()} {trade_type.name.lower()} order {order_id} for "
+                f"{amount} {trading_pair}."
+            )
 
+            order_update: OrderUpdate = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=order_result["updateTime"],
+                new_state=CONSTANTS.ORDER_STATE[order_result["status"]],
+                client_order_id=order_id,
+                exchange_order_id=str(order_result["orderId"]),
+            )
             # Since POST /order endpoint is synchrounous, we can update exchange_order_id and last_state of tracked order.
-            exchange_order_id = str(order_result["orderId"])
-            order_status = str(order_result["status"])
-            tracked_order.update_exchange_order_id(exchange_order_id)
-            tracked_order.last_state = order_status
+            self._client_order_tracker.process_order_update(order_update)
 
-            event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
-                else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_class(self.current_timestamp,
-                                           order_type,
-                                           trading_pair,
-                                           amount,
-                                           price,
-                                           order_id,
-                                           leverage=self._leverage[trading_pair],
-                                           position=position_action.name))
-            return order_result
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting order to Binance Perpetuals for {amount} {trading_pair} "
                 f"{'' if order_type is OrderType.MARKET else price}.",
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=str(e),
             )
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+            order_update: OrderUpdate = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=OrderState.FAILED,
+                client_order_id=order_id,
+                exchange_order_id=str(order_result["orderId"]),
+            )
+            # This should call stop_tracking_order
+            self._client_order_tracker.process_order_update(order_update)
 
     async def execute_buy(self,
                           order_id: str,
@@ -340,7 +375,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("sell", t_pair)
-        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
+        safe_ensure_future(
+            self.execute_sell(order_id, trading_pair, amount, order_type, kwargs["position_action"], price)
+        )
         return order_id
 
     async def cancel_all(self, timeout_seconds: float):
@@ -407,8 +444,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 params=params,
                 method=MethodType.DELETE,
                 is_signed=True,
-                add_timestamp = True,
-                return_err=True
+                add_timestamp=True,
+                return_err=True,
             )
             if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
@@ -416,9 +453,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.stop_tracking_order(client_order_id)
                 self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                    OrderCancelledEvent(self.current_timestamp, client_order_id))
-                return {
-                    "origClientOrderId": client_order_id
-                }
+                return {"origClientOrderId": client_order_id}
         except Exception as e:
             self.logger().error(f"Could not cancel order {client_order_id} (on Binance Perp. {trading_pair})")
             raise e
@@ -448,26 +483,34 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return Decimal(trading_rule.min_base_amount_increment)
 
     # ORDER TRACKING ---
-    def start_tracking_order(self, order_id: str, exchange_order_id: str, trading_pair: str, trading_type: object,
-                             price: object, amount: object, order_type: object, leverage: int, position: str):
-        self._in_flight_orders[order_id] = BinancePerpetualsInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trading_type,
-            price=price,
-            amount=amount,
-            leverage=leverage,
-            position=position
-
+    def start_tracking_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        trading_type: TradeType,
+        price: Decimal,
+        amount: Decimal,
+        order_type: OrderType,
+        leverage: int,
+        position: str,
+        exchange_order_id: Optional[str] = None,
+    ):
+        self._client_order_tracker.start_tracking_order(
+            InFlightOrder(
+                client_order_id=order_id,
+                exchange_order_id=exchange_order_id,
+                trading_pair=trading_pair,
+                order_type=order_type,
+                trade_type=trading_type,
+                price=price,
+                amount=amount,
+                leverage=leverage,
+                position=position,
+            )
         )
 
     def stop_tracking_order(self, order_id: str):
-        if order_id in self._in_flight_orders:
-            del self._in_flight_orders[order_id]
-        if order_id in self._order_not_found_records:
-            del self._order_not_found_records[order_id]
+        self._client_order_tracker.stop_tracking_order(client_order_id=order_id)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -479,7 +522,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
-                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
+                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection.",
                 )
                 await self._sleep(1.0)
 
@@ -497,74 +540,39 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         event_type = event_message.get("e")
         if event_type == "ORDER_TRADE_UPDATE":
             order_message = event_message.get("o")
-            client_order_id = order_message.get("c")
+            client_order_id = order_message.get("c", None)
 
-            # If the order has not already been cancelled
-            if client_order_id in self._in_flight_orders:
-                tracked_order = self._in_flight_orders.get(client_order_id)
-                updated = tracked_order.update_with_execution_report(event_message)
-                if updated:
-                    # Execution Type: Trade => Filled
-                    trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
-                    if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
-                        flat_fees = ([(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
-                                     if tracked_order.fee_asset
-                                     else [])
-                        order_filled_event = OrderFilledEvent(
-                            timestamp=event_message.get("E") * 1e-3,
-                            order_id=client_order_id,
-                            trading_pair=utils.convert_from_exchange_trading_pair(order_message.get("s")),
-                            trade_type=trade_type,
-                            order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
-                            price=Decimal(order_message.get("L")),
-                            amount=Decimal(order_message.get("l")),
-                            leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
-                            trade_fee=TradeFee(0.0, flat_fees),
-                            exchange_trade_id=order_message.get("t"),
-                            position=tracked_order.position
-                        )
-                        self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+            tracked_order: InFlightOrder = self._client_order_tracker.fetch_order(client_order_id)
+            if not tracked_order:
+                return
 
-                    if tracked_order.is_done:
-                        if not tracked_order.is_failure:
-                            event_tag = None
-                            event_class = None
-                            if trade_type is TradeType.BUY:
-                                event_tag = self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
-                                event_class = BuyOrderCompletedEvent
-                            else:
-                                event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
-                                event_class = SellOrderCompletedEvent
-                            self.logger().info(
-                                f"The {tracked_order.order_type.name.lower()} {trade_type} order {client_order_id} has completed "
-                                f"according to websocket delta.")
-                            self.trigger_event(event_tag,
-                                               event_class(self.current_timestamp,
-                                                           client_order_id,
-                                                           tracked_order.base_asset,
-                                                           tracked_order.quote_asset,
-                                                           (tracked_order.fee_asset or tracked_order.quote_asset),
-                                                           tracked_order.executed_amount_base,
-                                                           tracked_order.executed_amount_quote,
-                                                           tracked_order.fee_paid,
-                                                           tracked_order.order_type))
-                        else:
-                            if tracked_order.is_cancelled:
-                                if tracked_order.client_order_id in self._in_flight_orders:
-                                    self.logger().info(
-                                        f"Successfully cancelled order {tracked_order.client_order_id} according to websocket delta.")
-                                    self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                       OrderCancelledEvent(self.current_timestamp,
-                                                                           tracked_order.client_order_id))
-                                else:
-                                    self.logger().info(
-                                        f"The {tracked_order.order_type.name.lower()} order {tracked_order.client_order_id} has failed "
-                                        f"according to websocket delta.")
-                                    self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                                       MarketOrderFailureEvent(self.current_timestamp,
-                                                                               tracked_order.client_order_id,
-                                                                               tracked_order.order_type))
-                        self.stop_tracking_order(tracked_order.client_order_id)
+            trade_id: str = str(order_message["t"])
+
+            if trade_id != "0":  # Indicates that there has been a trade
+                trade_update: TradeUpdate = TradeUpdate(
+                    trade_id=trade_id,
+                    client_order_id=client_order_id,
+                    exchange_order_id=order_message["i"],
+                    trading_pair=tracked_order.trading_pair,
+                    fill_timestamp=order_message["T"],
+                    fill_price=Decimal(order_message["L"]),
+                    fill_base_amount=Decimal(order_message["z"]),
+                    fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["z"]),
+                    fee_asset=order_message["N"],
+                    fee_paid=Decimal(order_message["n"])
+                )
+                self._client_order_tracker.process_trade_update(trade_update)
+
+            order_update: OrderUpdate = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=event_message["T"],
+                new_state=order_message["X"],
+                client_order_id=client_order_id,
+                exchange_order_id=order_message["i"],
+            )
+
+            self._client_order_tracker.process_order_update(order_update)
+
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
             # update balances
@@ -664,33 +672,36 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     collateral_token = rule["marginAsset"]
 
                     return_val.append(
-                        TradingRule(trading_pair,
-                                    min_order_size=min_order_size,
-                                    min_price_increment=Decimal(tick_size),
-                                    min_base_amount_increment=Decimal(step_size),
-                                    min_notional_size=Decimal(min_notional),
-                                    buy_order_collateral_token=collateral_token,
-                                    sell_order_collateral_token=collateral_token,
-                                    )
+                        TradingRule(
+                            trading_pair,
+                            min_order_size=min_order_size,
+                            min_price_increment=Decimal(tick_size),
+                            min_base_amount_increment=Decimal(step_size),
+                            min_notional_size=Decimal(min_notional),
+                            buy_order_collateral_token=collateral_token,
+                            sell_order_collateral_token=collateral_token,
+                        )
                     )
             except Exception as e:
-                self.logger().error(f"Error parsing the trading pair rule {rule}. Error: {e}. Skipping...",
-                                    exc_info=True)
+                self.logger().error(
+                    f"Error parsing the trading pair rule {rule}. Error: {e}. Skipping...", exc_info=True
+                )
         return return_val
 
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                await safe_gather(
-                    self._update_trading_rules()
-                )
+                await safe_gather(self._update_trading_rules())
                 await self._sleep(3600)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Unexpected error while fetching trading rules.", exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from Binance Perpetuals. "
-                                                      "Check network connection.")
+                self.logger().network(
+                    "Unexpected error while fetching trading rules.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch new trading rules from Binance Perpetuals. "
+                    "Check network connection.",
+                )
                 await self._sleep(0.5)
 
     async def _funding_info_polling_loop(self):
@@ -829,19 +840,19 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            trading_pairs_to_order_map = defaultdict(lambda: {})
+            trading_pairs_to_order_map: Dict[str, Dict[str, Any]] = defaultdict(lambda: {})
             for order in self._in_flight_orders.values():
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
                 self.request(
                     path=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                    params={
-                        "symbol": utils.convert_to_exchange_trading_pair(trading_pair)
-                    },
+                    params={"symbol": utils.convert_to_exchange_trading_pair(trading_pair)},
                     is_signed=True,
-                    add_timestamp=True
-                ) for trading_pair in trading_pairs]
+                    add_timestamp=True,
+                )
+                for trading_pair in trading_pairs
+            ]
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading_pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(results, trading_pairs):
@@ -855,125 +866,82 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 for trade in trades:
                     order_id = str(trade.get("orderId"))
                     if order_id in order_map:
-                        tracked_order = order_map.get(order_id)
-                        order_type = tracked_order.order_type
-                        applied_trade = tracked_order.update_with_trade_updates(trade)
-                        if applied_trade:
-                            self.trigger_event(
-                                self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                OrderFilledEvent(
-                                    self.current_timestamp,
-                                    tracked_order.client_order_id,
-                                    tracked_order.trading_pair,
-                                    tracked_order.trade_type,
-                                    order_type,
-                                    Decimal(trade.get("price")),
-                                    Decimal(trade.get("qty")),
-                                    self.get_fee(
-                                        tracked_order.base_asset,
-                                        tracked_order.quote_asset,
-                                        order_type,
-                                        tracked_order.trade_type,
-                                        Decimal(trade["price"]),
-                                        Decimal(trade["qty"])),
-                                    exchange_trade_id=trade["id"],
-                                    leverage=self._leverage[tracked_order.trading_pair],
-                                    position=tracked_order.position
-                                )
-                            )
+                        tracked_order: InFlightOrder = order_map.get(order_id)
+                        trade_update: TradeUpdate = TradeUpdate(
+                            trade_id=trade["id"],
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=trade["orderId"],
+                            trading_pair=tracked_order.trading_pair,
+                            fill_timestamp=trade["time"],
+                            fill_price=Decimal(trade["price"]),
+                            fill_base_amount=Decimal(trade["qty"]),
+                            fill_quote_amount=Decimal(trade["quoteQty"]),
+                            fee_asset=trade["commissionAsset"],
+                            fee_paid=Decimal(trade["commission"])
+                        )
+                        self._client_order_tracker.process_trade_update(trade_update)
 
     async def _update_order_status(self):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            tasks = [self.request(path=CONSTANTS.ORDER_URL,
-                                  params={
-                                      "symbol": utils.convert_to_exchange_trading_pair(order.trading_pair),
-                                      "origClientOrderId": order.client_order_id
-                                  },
-                                  method=MethodType.GET,
-                                  add_timestamp=True,
-                                  is_signed=True,
-                                  return_err=True)
-                     for order in tracked_orders]
+            tasks = [
+                self.request(
+                    path=CONSTANTS.ORDER_URL,
+                    params={
+                        "symbol": utils.convert_to_exchange_trading_pair(order.trading_pair),
+                        "origClientOrderId": order.client_order_id
+                    },
+                    method=MethodType.GET,
+                    add_timestamp=True,
+                    is_signed=True,
+                    return_err=True,
+                )
+                for order in tracked_orders
+            ]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
+
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
-                if client_order_id not in self._in_flight_orders:
+                if client_order_id not in self._client_order_tracker.all_orders:
                     continue
                 if isinstance(order_update, Exception):
                     # NO_SUCH_ORDER code
                     if order_update["code"] == -2013 or order_update["msg"] == "Order does not exist.":
-                        self._order_not_found_records[client_order_id] = \
+                        self._order_not_found_records[client_order_id] = (
                             self._order_not_found_records.get(client_order_id, 0) + 1
+                        )
                         if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
                             continue
                         self.trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                            MarketOrderFailureEvent(self.current_timestamp, client_order_id, tracked_order.order_type)
+                            MarketOrderFailureEvent(self.current_timestamp, client_order_id, tracked_order.order_type),
                         )
                         self.stop_tracking_order(client_order_id)
                     else:
-                        self.logger().network(f"Error fetching status update for the order {client_order_id}: "
-                                              f"{order_update}.")
+                        self.logger().network(
+                            f"Error fetching status update for the order {client_order_id}: " f"{order_update}."
+                        )
                     continue
 
-                tracked_order.last_state = order_update.get("status")
-                order_type = OrderType.LIMIT if order_update.get("type") == "LIMIT" else OrderType.MARKET
-                executed_amount_base = Decimal(order_update.get("executedQty", "0"))
-                executed_amount_quote = Decimal(order_update.get("cumQuote", "0"))
+                new_order_update: OrderUpdate = OrderUpdate(
+                    trading_pair=utils.convert_from_exchange_trading_pair(order_update["symbol"]),
+                    update_timestamp=order_update["updateTime"],
+                    new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
+                    client_order_id=order_update["clientOrderId"],
+                    exchange_order_id=order_update["orderId"],
+                    executed_amount_base=Decimal(order_update.get("executedQty", "0")),
+                    executed_amount_quote=Decimal(order_update.get("cumQuote", "0")),
+                )
 
-                if tracked_order.is_done:
-                    if not tracked_order.is_failure:
-                        event_tag = None
-                        event_class = None
-                        if tracked_order.trade_type is TradeType.BUY:
-                            event_tag = self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
-                            event_class = BuyOrderCompletedEvent
-                        else:
-
-                            event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
-                            event_class = SellOrderCompletedEvent
-                        self.logger().info(f"The {order_type.name.lower()} {tracked_order.trade_type.name.lower()} order {client_order_id} has "
-                                           f"completed according to order status API.")
-                        self.trigger_event(event_tag,
-                                           event_class(self.current_timestamp,
-                                                       client_order_id,
-                                                       tracked_order.base_asset,
-                                                       tracked_order.quote_asset,
-                                                       (tracked_order.fee_asset or tracked_order.base_asset),
-                                                       executed_amount_base,
-                                                       executed_amount_quote,
-                                                       tracked_order.fee_paid,
-                                                       order_type))
-                    else:
-                        if tracked_order.is_cancelled:
-                            self.logger().info(f"Successfully cancelled order {client_order_id} according to order status API.")
-                            self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                               OrderCancelledEvent(self.current_timestamp,
-                                                                   client_order_id))
-                        else:
-                            self.logger().info(f"The {order_type.name.lower()} order {client_order_id} has failed according to "
-                                               f"order status API.")
-                            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                               MarketOrderFailureEvent(self.current_timestamp,
-                                                                       client_order_id,
-                                                                       order_type))
-                    self.stop_tracking_order(client_order_id)
+                self._client_order_tracker.process_order_update(new_order_update)
 
     async def _set_leverage(self, trading_pair: str, leverage: int = 1):
-        params = {
-            "symbol": utils.convert_to_exchange_trading_pair(trading_pair),
-            "leverage": leverage
-        }
+        params = {"symbol": utils.convert_to_exchange_trading_pair(trading_pair), "leverage": leverage}
         set_leverage = await self.request(
-            path=CONSTANTS.SET_LEVERAGE_URL,
-            params=params,
-            method=MethodType.POST,
-            add_timestamp=True,
-            is_signed=True
+            path=CONSTANTS.SET_LEVERAGE_URL, params=params, method=MethodType.POST, add_timestamp=True, is_signed=True
         )
         if set_leverage["leverage"] == leverage:
             self._leverage[trading_pair] = leverage
@@ -988,11 +956,19 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def get_funding_payment(self, startTime):
         funding_payment_tasks = []
         for pair in self._trading_pairs:
-            funding_payment_tasks.append(self.request(path=CONSTANTS.GET_INCOME_HISTORY_URL,
-                                                      params={"symbol": utils.convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "startTime": int(startTime * 1000)},
-                                                      method=MethodType.GET,
-                                                      add_timestamp=True,
-                                                      is_signed=True))
+            funding_payment_tasks.append(
+                self.request(
+                    path=CONSTANTS.GET_INCOME_HISTORY_URL,
+                    params={
+                        "symbol": utils.convert_to_exchange_trading_pair(pair),
+                        "incomeType": "FUNDING_FEE",
+                        "startTime": int(startTime * 1000),
+                    },
+                    method=MethodType.GET,
+                    add_timestamp=True,
+                    is_signed=True,
+                )
+            )
         funding_payment_results = await safe_gather(*funding_payment_tasks, return_exceptions=True)
         for funding_payments in funding_payment_results:
             for funding_payment in funding_payments:
