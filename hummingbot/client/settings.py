@@ -4,16 +4,14 @@ generate a dictionary of exchange names to ConnectorSettings.
 """
 
 import importlib
-from os import scandir
-from os.path import (
-    realpath,
-    join,
-)
-from enum import Enum
 from decimal import Decimal
-from typing import List, NamedTuple, Dict, Any, Optional, Set, Union
-from hummingbot import get_strategy_list
+from enum import Enum
+from os import scandir
+from os.path import join, realpath
 from pathlib import Path
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
+
+from hummingbot import get_strategy_list
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
