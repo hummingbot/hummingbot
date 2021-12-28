@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 CENTRALIZED = True
@@ -69,6 +70,11 @@ def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str 
 def wss_url(endpoint: str, domain: str = "binance_perpetual"):
     base_ws_url = CONSTANTS.PERPETUAL_WS_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_WS_URL
     return base_ws_url + endpoint
+
+
+def build_api_factory() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory()
+    return api_factory
 
 
 KEYS = {
