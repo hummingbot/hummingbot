@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import re
 import ujson
@@ -183,23 +182,26 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         result: bool = self.async_run_with_timeout(self.data_source.ping_listen_key())
         self.assertTrue(result)
 
+    @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_cancelled_when_connecting(self, mock_ws):
-        mock_ws.side_effect = asyncio.CancelledError
+    def test_create_websocket_connection_log_exception(self, mock_api, mock_ws):
+        url = utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._create_websocket_connection())
+        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_log_exception(self, mock_ws):
         mock_ws.side_effect = Exception("TEST ERROR.")
 
-        with self.assertRaises(Exception):
-            self.async_run_with_timeout(self.data_source._create_websocket_connection())
+        msg_queue = asyncio.Queue()
+        try:
+            self.async_run_with_timeout(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+        except asyncio.exceptions.TimeoutError:
+            pass
 
         self.assertTrue(
             self._is_logged(
-                "NETWORK", "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR.",
             )
         )
 
@@ -252,25 +254,18 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
 
-        mock_ws.side_effect = lambda **_: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR."))
+        mock_ws.side_effect = Exception("TEST ERROR.")
 
         msg_queue = asyncio.Queue()
+
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        try:
+            self.async_run_with_timeout(msg_queue.get())
+        except asyncio.exceptions.TimeoutError:
+            pass
 
         self.assertTrue(self._is_logged("INFO", f"Successfully obtained listen key {self.listen_key}"))
-        self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Connecting to {utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)}/{self.listen_key}.",
-            )
-        )
-        self.assertTrue(
-            self._is_logged(
-                "NETWORK", "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."
-            )
-        )
         self.assertTrue(
             self._is_logged(
                 "ERROR",
@@ -290,71 +285,24 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR")
-        )
-        mock_ws.close.return_value = None
+        mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
+        mock_ws.return_value.closed = False
+        mock_ws.return_value.close.side_effect = Exception
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        try:
+            self.async_run_with_timeout(msg_queue.get())
+        except Exception:
+            pass
 
         self.assertTrue(self._is_logged("INFO", f"Successfully obtained listen key {self.listen_key}"))
-        self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Connecting to {utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)}/{self.listen_key}.",
-            )
-        )
-        self.assertTrue(
-            self._is_logged("NETWORK", "Unexpected error occurred when parsing websocket payload. Error: TEST ERROR")
-        )
         self.assertTrue(
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR",
             )
         )
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_handle_ping_frame(self, mock_api, mock_ws):
-        url = utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
-
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "", aiohttp.WSMsgType.PING)
-
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
-
-        msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
-
-        msg = self.async_run_with_timeout(msg_queue.get())
-        self.assertTrue(msg, self._simulate_user_update_event)
-        self.assertTrue(self._is_logged("DEBUG", "Received PING frame. Sending PONG frame..."))
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_handle_pong_frame(self, mock_api, mock_ws):
-        url = utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
-
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "", aiohttp.WSMsgType.PONG)
-
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
-
-        msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
-
-        msg = self.async_run_with_timeout(msg_queue.get())
-        self.assertTrue(msg, self._simulate_user_update_event)
-        self.assertTrue(self._is_logged("DEBUG", "Received PONG frame."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

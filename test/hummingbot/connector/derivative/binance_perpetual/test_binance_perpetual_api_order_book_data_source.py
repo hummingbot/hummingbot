@@ -3,21 +3,18 @@ import re
 import ujson
 import unittest
 
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-
 from aioresponses.core import aioresponses
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-)
+from typing import Any, Awaitable, Dict
 from unittest.mock import AsyncMock, patch
 
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_utils as utils
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
+    BinancePerpetualAPIOrderBookDataSource
+)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_utils as utils
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import BinancePerpetualAPIOrderBookDataSource
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -246,27 +243,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertIsInstance(result, OrderBook)
         self.assertEqual(1027024, result.snapshot_uid)
 
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_create_websocket_connection_cancelled_when_connecting(self, mock_ws):
-        mock_ws.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.data_source._create_websocket_connection()
-            )
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_create_websocket_connection_exception_raised(self, mock_ws):
-        mock_ws.side_effect = Exception("TEST ERROR.")
-
-        with self.assertRaises(Exception):
-            self.async_run_with_timeout(
-                self.data_source._create_websocket_connection()
-            )
-
-        self.assertTrue(self._is_logged("NETWORK",
-                                        "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."))
-
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     def test_listen_for_order_book_diffs_cancelled_when_connecting(self, _, mock_ws):
@@ -292,16 +268,23 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "m": 1,
             "i": 2,
         }
-        self.mocking_assistant.add_websocket_json_message(mock_ws.return_value, incomplete_resp)
-        self.mocking_assistant.add_websocket_json_message(mock_ws.return_value, self._orderbook_update_event())
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             ujson.dumps(incomplete_resp))
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             ujson.dumps(self._orderbook_update_event()))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_json_messages_delivered(mock_ws.return_value)
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.exceptions.TimeoutError:
+            pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
@@ -311,7 +294,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
-        self.mocking_assistant.add_websocket_json_message(mock_ws.return_value, self._orderbook_update_event())
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             ujson.dumps(self._orderbook_update_event()))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
@@ -330,9 +314,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_trades_cancelled_error_raised(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive_json.side_effect = lambda: (
-            self._raise_exception(asyncio.CancelledError)
-        )
+        mock_ws.return_value.receive.side_effect = asyncio.CancelledError
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_trades(self.ev_loop, msg_queue)
@@ -352,8 +334,9 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "m": 1,
             "i": 2,
         }
-        self.mocking_assistant.add_websocket_json_message(mock_ws.return_value, incomplete_resp)
-        self.mocking_assistant.add_websocket_json_message(mock_ws.return_value, self._orderbook_trade_event())
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, ujson.dumps(incomplete_resp))
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             ujson.dumps(self._orderbook_trade_event()))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_trades(self.ev_loop, msg_queue)
@@ -361,7 +344,9 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
@@ -371,7 +356,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
-        self.mocking_assistant.add_websocket_json_message(mock_ws.return_value, self._orderbook_trade_event())
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             ujson.dumps(self._orderbook_trade_event()))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_trades(self.ev_loop, msg_queue)
@@ -420,7 +406,9 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds...")
+        )
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
