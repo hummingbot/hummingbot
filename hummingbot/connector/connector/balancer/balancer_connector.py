@@ -405,7 +405,7 @@ class BalancerConnector(ConnectorBase):
                                 tracked_order.order_type,
                                 Decimal(str(tracked_order.price)),
                                 Decimal(str(tracked_order.amount)),
-                                TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                                TradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(str(fee)))]),
                                 exchange_trade_id=order_id
                             )
                         )

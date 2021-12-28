@@ -199,7 +199,7 @@ class OrderFilledEvent(NamedTuple):
             OrderType[execution_report["o"]],
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
-            TradeFee(percent=Decimal(0.0), flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),
+            TradeFee(flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),
             exchange_trade_id=execution_report["t"]
         )
 

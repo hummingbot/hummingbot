@@ -618,7 +618,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                       tracked_order.order_type,
                                                       new_price,
                                                       new_amount,
-                                                      TradeFee(Decimal(0), [(tracked_order.fee_asset, new_fee)]),
+                                                      TradeFee(flat_fees=[(tracked_order.fee_asset, new_fee)]),
                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,

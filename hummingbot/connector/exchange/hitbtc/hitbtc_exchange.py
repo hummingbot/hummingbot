@@ -712,7 +712,7 @@ class HitbtcExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg.get("tradePrice", "0"))),
                 Decimal(str(trade_msg.get("tradeQuantity", "0"))),
-                TradeFee(0.0, [(tracked_order.quote_asset, Decimal(str(trade_msg.get("tradeFee", "0"))))]),
+                TradeFee(flat_fees=[(tracked_order.quote_asset, Decimal(str(trade_msg.get("tradeFee", "0"))))]),
                 exchange_trade_id=trade_msg["id"]
             )
         )

@@ -31,7 +31,7 @@ def format_trades(trades):
                 order_type=None,
                 market=convert_from_exchange_trading_pair(trade["symbol"]),
                 timestamp=int(time),
-                trade_fee=TradeFee(0.0, [(trade["commissionAsset"], commission)]),
+                trade_fee=TradeFee(flat_fees=[(trade["commissionAsset"], commission)]),
             )
         )
         trades = [t for t in trades if t not in sum_trades]

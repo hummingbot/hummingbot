@@ -434,8 +434,7 @@ cdef class FtxExchange(ExchangeBase):
                                          tracked_order.order_type,
                                          Decimal(event_message["price"]),
                                          execute_amount_diff,
-                                         TradeFee(percent=Decimal(0.0),
-                                                  flat_fees=[(event_message["feeCurrency"],
+                                         TradeFee(flat_fees=[(event_message["feeCurrency"],
                                                               Decimal(event_message["fee"]))]),
                                          exchange_trade_id=event_message["tradeId"]
                                      ))

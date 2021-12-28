@@ -519,7 +519,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
                             leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
-                            trade_fee=TradeFee(0.0, flat_fees),
+                            trade_fee=TradeFee(flat_fees=flat_fees),
                             exchange_trade_id=order_message.get("t"),
                             position=tracked_order.position
                         )

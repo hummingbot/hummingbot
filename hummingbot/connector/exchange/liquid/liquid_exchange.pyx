@@ -762,7 +762,7 @@ cdef class LiquidExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(content["price"]),
                                              execute_amount_diff,
-                                             TradeFee(0.0, [(tracked_order.fee_asset, fee_diff)]),
+                                             TradeFee(flat_fees=[(tracked_order.fee_asset, fee_diff)]),
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 
