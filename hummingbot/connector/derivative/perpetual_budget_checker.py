@@ -7,7 +7,7 @@ from hummingbot.connector.budget_checker import BudgetChecker, OrderCandidate
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFee
-from hummingbot.core.event.events import TradeType, PositionAction
+from hummingbot.core.event.events import PositionAction, TradeType
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems

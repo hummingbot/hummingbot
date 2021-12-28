@@ -4,7 +4,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
-from hummingbot.connector.utils import split_hb_trading_pair, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.event.utils import interchangeable
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
