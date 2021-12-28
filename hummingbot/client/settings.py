@@ -234,8 +234,12 @@ class AllConnectorSettings:
     ) -> TradeFeeSchema:
         if not isinstance(trade_fee_schema, TradeFeeSchema):
             # backward compatibility
-            maker_percent_fee_decimal = Decimal(trade_fee_schema[0]) if trade_fee_schema is not None else Decimal("0")
-            taker_percent_fee_decimal = Decimal(trade_fee_schema[1]) if trade_fee_schema is not None else Decimal("0")
+            maker_percent_fee_decimal = (
+                Decimal(str(trade_fee_schema[0])) / Decimal("100") if trade_fee_schema is not None else Decimal("0")
+            )
+            taker_percent_fee_decimal = (
+                Decimal(str(trade_fee_schema[1])) / Decimal("100") if trade_fee_schema is not None else Decimal("0")
+            )
             trade_fee_schema = TradeFeeSchema(
                 maker_percent_fee_decimal=maker_percent_fee_decimal,
                 taker_percent_fee_decimal=taker_percent_fee_decimal,

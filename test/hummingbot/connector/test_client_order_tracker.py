@@ -552,7 +552,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), flat_fees=[(self.base_asset, fee_paid)]))
+        self.assertEqual(order_filled_event.trade_fee, TradeFee(flat_fees=[(self.base_asset, fee_paid)]))
 
     def test_process_trade_update_trigger_filled_event_trade_fee_percent(self):
         order: InFlightOrder = InFlightOrder(
@@ -658,7 +658,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), flat_fees=[(self.base_asset, fee_paid)]))
+        self.assertEqual(order_filled_event.trade_fee, TradeFee(flat_fees=[(self.base_asset, fee_paid)]))
 
         self.assertEqual(order_completed_event.order_id, order.client_order_id)
         self.assertEqual(order_completed_event.exchange_order_id, order.exchange_order_id)

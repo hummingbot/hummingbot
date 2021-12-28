@@ -1,3 +1,4 @@
+import warnings
 from decimal import Decimal
 
 from hummingbot.core.data_type.trade_fee import TradeFeePercentageApplication, TradeFeeSchema
@@ -68,29 +69,30 @@ def build_perpetual_trade_fee(
 
 def _superimpose_overrides(exchange: str, trade_fee_schema: TradeFeeSchema):
     trade_fee_schema.percent_fee_token = (
-        fee_overrides_config_map.get(f"{exchange}_percent_fee_token")
+        fee_overrides_config_map.get(f"{exchange}_percent_fee_token").value
         or trade_fee_schema.percent_fee_token
     )
     trade_fee_schema.maker_percent_fee_decimal = (
-        fee_overrides_config_map.get(f"{exchange}_maker_percent_fee") / Decimal("100")
-        if fee_overrides_config_map.get(f"{exchange}_maker_percent_fee") is not None
+        fee_overrides_config_map.get(f"{exchange}_maker_percent_fee").value / Decimal("100")
+        if fee_overrides_config_map.get(f"{exchange}_maker_percent_fee").value is not None
         else trade_fee_schema.maker_percent_fee_decimal
     )
     trade_fee_schema.taker_percent_fee_decimal = (
-        fee_overrides_config_map.get(f"{exchange}_taker_percent_fee") / Decimal("100")
-        if fee_overrides_config_map.get(f"{exchange}_taker_percent_fee") is not None
+        fee_overrides_config_map.get(f"{exchange}_taker_percent_fee").value / Decimal("100")
+        if fee_overrides_config_map.get(f"{exchange}_taker_percent_fee").value is not None
         else trade_fee_schema.taker_percent_fee_decimal
     )
     trade_fee_schema.buy_percent_fee_deducted_from_returns = (
-        fee_overrides_config_map.get(f"{exchange}_buy_percent_fee_deducted_from_returns")
-        or trade_fee_schema.buy_percent_fee_deducted_from_returns
+        fee_overrides_config_map.get(f"{exchange}_buy_percent_fee_deducted_from_returns").value
+        if fee_overrides_config_map.get(f"{exchange}_buy_percent_fee_deducted_from_returns").value is not None
+        else trade_fee_schema.buy_percent_fee_deducted_from_returns
     )
     trade_fee_schema.maker_fixed_fees = (
-        fee_overrides_config_map.get(f"{exchange}_maker_fixed_fees")
+        fee_overrides_config_map.get(f"{exchange}_maker_fixed_fees").value
         or trade_fee_schema.maker_fixed_fees
     )
     trade_fee_schema.taker_fixed_fees = (
-        fee_overrides_config_map.get(f"{exchange}_taker_fixed_fees")
+        fee_overrides_config_map.get(f"{exchange}_taker_fixed_fees").value
         or trade_fee_schema.taker_fixed_fees
     )
     trade_fee_schema.validate_schema()
@@ -106,6 +108,11 @@ def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
     exchange is the name of the exchange to query.
     is_maker if true look at fee from maker side, otherwise from taker side.
     """
+    warnings.warn(
+        "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     trade_fee = build_trade_fee(
         exchange,
         is_maker,

@@ -129,7 +129,7 @@ class HuobiExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["feeCurrency"].upper(), Decimal(partial_fill["transactFee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
@@ -180,7 +180,7 @@ class HuobiExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["feeCurrency"].upper(), Decimal(complete_fill["transactFee"]))],
                          fill_event.trade_fee.flat_fees)
 
@@ -275,7 +275,7 @@ class HuobiExchangeTests(TestCase):
         self.assertEqual(Decimal("30"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["feeCurrency"].upper(), Decimal(complete_fill["transactFee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(

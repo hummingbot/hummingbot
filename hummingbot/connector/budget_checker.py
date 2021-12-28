@@ -105,7 +105,7 @@ class OrderCandidate:
                 self.scale_order(scaler)
 
     def _adjust_for_fixed_fee_collaterals(self, available_balances: Dict[str, Decimal]):
-        oc_token = self.order_collateral.token
+        oc_token = self.order_collateral.token if self.order_collateral is not None else None
         pfc_token = self.percent_fee_collateral.token if self.percent_fee_collateral is not None else None
         oc_amount, pfc_amount = self._get_order_and_pf_collateral_amounts_for_ff_adjustment()
 
@@ -115,22 +115,26 @@ class OrderCandidate:
             if available_balance < ffc_amount:
                 self.scale_order(scaler=Decimal("0"))
                 break
-            if ffc_token == oc_token and available_balance < ffc_amount + oc_amount:
+            if oc_token is not None and ffc_token == oc_token and available_balance < ffc_amount + oc_amount:
                 scaler = (available_balance - ffc_amount) / oc_amount
                 self.scale_order(scaler)
                 oc_amount, pfc_amount = self._get_order_and_pf_collateral_amounts_for_ff_adjustment()
             if pfc_token is not None and ffc_token == pfc_token and available_balance < ffc_amount + pfc_amount:
-                scaler = (available_balance - ffc_amount) / pfc_amount  # todo: test
+                scaler = (available_balance - ffc_amount) / pfc_amount
                 self.scale_order(scaler)
                 oc_amount, pfc_amount = self._get_order_and_pf_collateral_amounts_for_ff_adjustment()
             if self.is_zero_order:
                 break
 
     def _get_order_and_pf_collateral_amounts_for_ff_adjustment(self) -> Tuple[Decimal, Decimal]:
-        oc_token, oc_amount = self.order_collateral
+        if self.order_collateral is not None:
+            oc_token, oc_amount = self.order_collateral
+        else:
+            oc_token = None
+            oc_amount = Decimal("0")
         if self.percent_fee_collateral is not None:
             pfc_token, pfc_amount = self.percent_fee_collateral
-            if pfc_token == oc_token:
+            if oc_token is not None and pfc_token == oc_token:
                 oc_amount += pfc_amount
                 pfc_amount = Decimal("0")
         else:

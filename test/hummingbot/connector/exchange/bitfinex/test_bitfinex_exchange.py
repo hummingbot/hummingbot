@@ -103,7 +103,7 @@ class BitfinexExchangeTests(TestCase):
         self.assertEqual(Decimal(str(partial_fill[2][9])), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill[2][10], Decimal(str(partial_fill[2][9])))], fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
@@ -139,7 +139,7 @@ class BitfinexExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill[2][10], Decimal(complete_fill[2][9]))],
                          fill_event.trade_fee.flat_fees)
 
