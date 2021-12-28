@@ -688,7 +688,7 @@ class K2Exchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
-                TradeFee(0.0, [(fee_currency, Decimal(str(trade_msg["fee"])))]),
+                TradeFee(flat_fees=[(fee_currency, Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["orderid"]
             )
         )

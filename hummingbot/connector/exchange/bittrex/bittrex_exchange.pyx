@@ -585,9 +585,8 @@ cdef class BittrexExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(execution_event["rate"]),
                                              Decimal(execution_event["quantity"]),
-                                             TradeFee(0.0,
-                                                      [(tracked_order.fee_asset,
-                                                        Decimal(execution_event["commission"]))]),
+                                             TradeFee(flat_fees=[(tracked_order.fee_asset,
+                                                                 Decimal(execution_event["commission"]))]),
                                              exchange_trade_id=execution_event["id"]
                                          ))
 

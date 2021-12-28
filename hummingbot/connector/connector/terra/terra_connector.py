@@ -218,7 +218,7 @@ class TerraConnector(ConnectorBase):
                                        tracked_order.order_type,
                                        price,
                                        amount,
-                                       TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                                       TradeFee(flat_fees=[(tracked_order.fee_asset, tracked_order.fee_paid)]),
                                        hash
                                    ))
 

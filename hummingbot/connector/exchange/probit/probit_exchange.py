@@ -774,7 +774,7 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(order_msg["price"])),
                 Decimal(str(order_msg["quantity"])),
-                TradeFee(0.0, [(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]),
+                TradeFee(flat_fees=[(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]),
                 exchange_trade_id=order_msg["id"]
             )
         )

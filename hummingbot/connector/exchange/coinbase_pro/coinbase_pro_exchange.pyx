@@ -588,7 +588,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                  tracked_order.order_type,
                                                  execute_price,
                                                  execute_amount_diff,
-                                                 TradeFee(tracked_order.fee_rate_from_trade_update(content), []),
+                                                 TradeFee(percent=tracked_order.fee_rate_from_trade_update(content)),
                                                  exchange_trade_id=content["trade_id"]
                                              ))
 

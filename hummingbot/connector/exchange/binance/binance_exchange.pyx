@@ -411,7 +411,6 @@ cdef class BinanceExchange(ExchangeBase):
                                                          Decimal(trade["price"]),
                                                          Decimal(trade["qty"]),
                                                          TradeFee(
-                                                             percent=Decimal(0.0),
                                                              flat_fees=[(trade["commissionAsset"],
                                                                          Decimal(trade["commission"]))]
                                                          ),
@@ -455,7 +454,6 @@ cdef class BinanceExchange(ExchangeBase):
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
                                                      TradeFee(
-                                                         percent=Decimal(0.0),
                                                          flat_fees=[(trade["commissionAsset"],
                                                                      Decimal(trade["commission"]))]
                                                      ),

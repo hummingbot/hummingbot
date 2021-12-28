@@ -244,9 +244,9 @@ class InFlightOrder:
     @property
     def latest_trade_fee(self) -> TradeFee:
         trade_fee: TradeFee = (
-            TradeFee(self.trade_fee_percent, [])
+            TradeFee(percent=self.trade_fee_percent)
             if self.trade_fee_percent
-            else TradeFee(s_decimal_0, [(self.fee_asset, self.last_fee_paid)])
+            else TradeFee(flat_fees=[(self.fee_asset, self.last_fee_paid)])
         )
         return trade_fee
 

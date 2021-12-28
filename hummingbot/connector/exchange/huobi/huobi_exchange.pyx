@@ -684,9 +684,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      tracked_order.order_type,
                                      execute_price,
                                      execute_amount_diff,
-                                     TradeFee(0.0,
-                                              [(tracked_order.fee_asset,
-                                                Decimal(trade_event["transactFee"]))]),
+                                     TradeFee(flat_fees=[(tracked_order.fee_asset,
+                                                         Decimal(trade_event["transactFee"]))]),
                                      exchange_trade_id=order_id
                                  ))
 

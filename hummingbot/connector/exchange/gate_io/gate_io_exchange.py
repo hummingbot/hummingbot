@@ -813,7 +813,7 @@ class GateIoExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(update_msg.get("fill_price", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
-                TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                TradeFee(flat_fees=[(tracked_order.fee_asset, tracked_order.fee_paid)]),
                 str(update_msg.get("update_time_ms", update_msg.get("id")))
             )
         )

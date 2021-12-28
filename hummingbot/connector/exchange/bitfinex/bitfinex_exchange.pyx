@@ -1063,9 +1063,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         tracked_order.order_type,
                         execute_price,
                         tracked_order.executed_amount_base,
-                        TradeFee(
-                            percent=Decimal(0.0),
-                            flat_fees=[(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]),
+                        TradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]),
                         exchange_trade_id=tracked_order.exchange_order_id
                     )
                 )

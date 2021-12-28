@@ -47,7 +47,7 @@ class TradeFee:
             (str(fee_entry["asset"]), Decimal(fee_entry["amount"]))
             for fee_entry in data["flat_fees"]
         ]
-        return TradeFee(percent, percent_token, percentage_application, tuple(flat_fees))
+        return TradeFee(percent, percent_token, percentage_application, flat_fees)
 
     def to_json(self) -> Dict[str, any]:
         return {

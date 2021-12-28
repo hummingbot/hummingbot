@@ -711,7 +711,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         new_price,
                         new_amount,
-                        TradeFee(Decimal(0), [(tracked_order.fee_asset, new_fee)]),
+                        TradeFee(flat_fees=[(tracked_order.fee_asset, new_fee)]),
                         tracked_order.client_order_id,
                         self._leverage[tracked_order.trading_pair],
                         tracked_order.position,
