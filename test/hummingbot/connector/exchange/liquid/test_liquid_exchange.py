@@ -152,7 +152,7 @@ class LiquidExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["funding_currency"], Decimal(partial_fill["order_fee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
@@ -182,7 +182,7 @@ class LiquidExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual(
             [(complete_fill["funding_currency"],
               Decimal(complete_fill["order_fee"]) - Decimal(partial_fill["order_fee"]))],
@@ -236,7 +236,7 @@ class LiquidExchangeTests(TestCase):
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["funding_currency"], Decimal(complete_fill["order_fee"]))],
                          fill_event.trade_fee.flat_fees)
 

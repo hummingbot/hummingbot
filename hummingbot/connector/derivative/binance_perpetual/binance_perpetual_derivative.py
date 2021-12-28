@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import logging
 import time
+import warnings
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
@@ -53,7 +54,6 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
 
 
@@ -628,8 +628,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     # MARKET AND ACCOUNT INFO ---
     def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
                 amount: object, price: object, is_maker: Optional[bool] = None):
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("binance_perpetual", is_maker)
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         order_books: dict = self._order_book_tracker.order_books
@@ -869,13 +875,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                     order_type,
                                     Decimal(trade.get("price")),
                                     Decimal(trade.get("qty")),
-                                    self.get_fee(
-                                        tracked_order.base_asset,
-                                        tracked_order.quote_asset,
-                                        order_type,
-                                        tracked_order.trade_type,
-                                        Decimal(trade["price"]),
-                                        Decimal(trade["qty"])),
+                                    TradeFee(flat_fees=[(trade["commissionAsset"],
+                                                        abs(Decimal(trade["commission"])))]),
                                     exchange_trade_id=trade["id"],
                                     leverage=self._leverage[tracked_order.trading_pair],
                                     position=tracked_order.position

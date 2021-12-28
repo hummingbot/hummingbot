@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+import warnings
 from collections import defaultdict
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
@@ -37,7 +38,6 @@ from hummingbot.core.event.events import (BuyOrderCompletedEvent, BuyOrderCreate
 from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
@@ -565,8 +565,14 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         price: Decimal = s_decimal_0,
         is_maker: Optional[bool] = None,
     ):
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("dydx_perpetual", is_maker)
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     # ==========================================================
     # Runtime

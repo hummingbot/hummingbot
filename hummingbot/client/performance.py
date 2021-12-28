@@ -206,7 +206,7 @@ class PerformanceMetrics:
                         self.fees[flat_fee["asset"]] = s_decimal_0
                     self.fees[flat_fee["asset"]] += Decimal(flat_fee["amount"])
             else:  # assume this is Trade object
-                if trade.trade_fee.percent > 0:
+                if trade.trade_fee.percent is not None and trade.trade_fee.percent > 0:
                     if quote not in self.fees:
                         self.fees[quote] = s_decimal_0
                     self.fees[quote] += (trade.price * trade.order_amount) * trade.trade_fee.percent

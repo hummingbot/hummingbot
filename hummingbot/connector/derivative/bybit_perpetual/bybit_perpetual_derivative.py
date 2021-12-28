@@ -3,6 +3,7 @@ import copy
 import logging
 import math
 import time
+import warnings
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
@@ -672,14 +673,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
-        """
-        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
-        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
-        maker order.
-        """
-        is_maker = order_type is OrderType.LIMIT
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+                is_maker: Optional[bool] = None):
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """

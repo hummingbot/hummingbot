@@ -21,7 +21,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import TradeFee, TradeFeeSchema
 from hummingbot.strategy.data_types import Proposal, PriceSize
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
@@ -49,12 +49,15 @@ class PerpetualMarketMakingTests(TestCase):
         cls.stop_loss_slippage_buffer = Decimal("0.1")
         cls.long_profit_taking_spread = Decimal("0.5")
         cls.short_profit_taking_spread = Decimal("0.4")
-        cls.fee_percent = Decimal("1")
+        cls.trade_fee_schema = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.01"),
+            taker_percent_fee_decimal=Decimal("0.01"),
+        )
 
     def setUp(self):
         super().setUp()
         self.log_records = []
-        self.market: MockPerpConnector = MockPerpConnector(self.fee_percent)
+        self.market: MockPerpConnector = MockPerpConnector(self.trade_fee_schema)
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair,

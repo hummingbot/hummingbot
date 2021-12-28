@@ -576,7 +576,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
 
         complete_fill = {
@@ -630,7 +630,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
                          fill_event.trade_fee.flat_fees)
 
@@ -706,7 +706,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
 
         complete_fill = {
@@ -760,7 +760,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
                          fill_event.trade_fee.flat_fees)
 
@@ -836,7 +836,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
 
         complete_fill = {
@@ -952,7 +952,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(0), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([], fill_event.trade_fee.flat_fees)
 
     def test_order_event_with_cancelled_status_marks_order_as_cancelled(self):

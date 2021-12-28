@@ -31,7 +31,7 @@ class TradeFee:
     percent: Optional[Decimal] = None
     percent_token: Optional[str] = None  # only set when fee charged in third token (the Binance BNB case)
     percentage_application: TradeFeePercentageApplication = TradeFeePercentageApplication.AddedToCost
-    flat_fees: List[Tuple[str, Decimal]] = field(default_factory=tuple)  # list of (asset, amount) tuples
+    flat_fees: List[Tuple[str, Decimal]] = field(default_factory=list)  # list of (asset, amount) tuples
 
     @classmethod
     def from_json(cls, data: Dict[str, any]) -> "TradeFee":
@@ -51,7 +51,7 @@ class TradeFee:
 
     def to_json(self) -> Dict[str, any]:
         return {
-            "percent": float(self.percent),
+            "percent": None if self.percent is None else float(self.percent),
             "percent_token": self.percent_token,
             "percentage_application": self.percentage_application.value,
             "flat_fees": [{"asset": asset, "amount": float(amount)}

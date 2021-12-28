@@ -128,7 +128,7 @@ class FtxExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["feeCurrency"], Decimal(partial_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
@@ -172,7 +172,7 @@ class FtxExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["feeCurrency"], Decimal(complete_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
 
@@ -262,7 +262,7 @@ class FtxExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertIsNone(fill_event.trade_fee.percent)
         self.assertEqual([(complete_fill["feeCurrency"], Decimal(complete_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(

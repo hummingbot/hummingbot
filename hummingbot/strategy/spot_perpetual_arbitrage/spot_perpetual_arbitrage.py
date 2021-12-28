@@ -318,9 +318,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         if adjusted_candidate_order.amount < order_amount:
             self.logger().info(
-                f"Cannot arbitrage, {proposal_side.market_info.market.display_name}"
-                f" {adjusted_candidate_order.collateral_token} balance ({adjusted_candidate_order.collateral_amount})"
-                f" is below required to place the order amount {order_amount}."
+                f"Cannot arbitrage, {proposal_side.market_info.market.display_name} balance"
+                f" is insufficient to place the order candidate {order_candidate}."
             )
             return False
 
@@ -359,9 +358,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         if adjusted_candidate_order.amount < order_amount:
             self.logger().info(
-                f"Cannot arbitrage, {proposal_side.market_info.market.display_name}"
-                f" {adjusted_candidate_order.collateral_token} balance ({adjusted_candidate_order.collateral_amount})"
-                f" is below required to place the order amount {order_amount}."
+                f"Cannot arbitrage, {proposal_side.market_info.market.display_name} balance"
+                f" is insufficient to place the order candidate {order_candidate}."
             )
             return False
 

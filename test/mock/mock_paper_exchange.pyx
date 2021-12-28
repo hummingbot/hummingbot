@@ -2,6 +2,7 @@ from typing import List, Tuple, Optional
 import numpy as np
 from decimal import Decimal
 
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, fee_overrides_dict
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange cimport PaperTradeExchange, QuantizationParams
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
@@ -39,6 +40,7 @@ cdef class MockPaperExchange(PaperTradeExchange):
             domain_parameter="",
             use_eth_gas_lookup=False,
         )
+        fee_overrides_config_map.update(fee_overrides_dict())
 
     @property
     def name(self) -> str:

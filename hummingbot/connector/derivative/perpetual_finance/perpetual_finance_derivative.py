@@ -4,6 +4,7 @@ import json
 import logging
 import ssl
 import time
+import warnings
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -36,8 +37,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
-from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -341,7 +341,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                                                "perpfi/receipt",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
+            for update_result, tracked_order in zip(update_results, tracked_orders):
                 self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
                 if isinstance(update_result, Exception):
                     raise update_result
@@ -350,8 +350,18 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                     continue
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
-                        fee = self.get_fee()
-                        fee = TradeFee(fee.percent, [("XDAI", Decimal(str(update_result["receipt"]["gasUsed"])))])
+                        fee = build_perpetual_trade_fee(
+                            exchange=self.name,
+                            is_maker=True,
+                            position_action=PositionAction[tracked_order.position],
+                            base_currency=tracked_order.base_asset,
+                            quote_currency=tracked_order.quote_asset,
+                            order_type=tracked_order.order_type,
+                            order_side=tracked_order.trade_type,
+                            amount=tracked_order.amount,
+                            price=tracked_order.price,
+                        )
+                        fee.flat_fees.append(("XDAI", Decimal(str(update_result["receipt"]["gasUsed"]))))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
@@ -645,9 +655,15 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                 order_side: Optional[TradeType] = None,
                 amount: Optional[Decimal] = None,
                 price: Decimal = s_decimal_0,
-                is_maker: Optional[bool] = None) -> TradeFee:
-        fee = estimate_fee("perpetual_finance", False)
-        return fee
+                is_maker: Optional[bool] = None):
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         _, quote = self.split_trading_pair(trading_pair)
