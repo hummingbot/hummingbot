@@ -136,6 +136,10 @@ class InFlightOrder:
         return self.trading_pair.split("-")[1]
 
     @property
+    def is_pending_create(self) -> bool:
+        return self.current_state == OrderState.PENDING_CREATE
+
+    @property
     def is_pending_cancel_confirmation(self) -> bool:
         return self.current_state == OrderState.PENDING_CANCEL
 
