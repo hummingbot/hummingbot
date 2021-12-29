@@ -22,7 +22,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -827,14 +827,14 @@ class BitmartExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

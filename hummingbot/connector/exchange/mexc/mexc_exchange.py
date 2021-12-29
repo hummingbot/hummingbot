@@ -29,7 +29,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
@@ -946,9 +946,9 @@ class MexcExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def get_deal_detail_fee(self, order_id: str) -> Dict[str, Any]:
         params = {

@@ -21,7 +21,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee, TradeFeeSchema
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.strategy.data_types import Proposal, PriceSize
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
@@ -143,7 +143,7 @@ class PerpetualMarketMakingTests(TestCase):
             OrderType.LIMIT,
             limit_order.price,
             limit_order.quantity,
-            TradeFee(Decimal("0"))
+            AddedToCostTradeFee(Decimal("0"))
         ))
         event_type = MarketEvent.BuyOrderCompleted if limit_order.is_buy else MarketEvent.SellOrderCompleted
         event_class = BuyOrderCompletedEvent if limit_order.is_buy else SellOrderCompletedEvent

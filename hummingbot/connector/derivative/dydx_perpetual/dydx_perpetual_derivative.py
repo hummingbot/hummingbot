@@ -35,7 +35,7 @@ from hummingbot.core.event.events import (BuyOrderCompletedEvent, BuyOrderCreate
                                           OrderCancelledEvent, OrderExpiredEvent, OrderFilledEvent, OrderType,
                                           PositionAction, PositionMode, PositionSide, SellOrderCompletedEvent,
                                           SellOrderCreatedEvent, TradeType)
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -717,7 +717,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         new_price,
                         new_amount,
-                        TradeFee(flat_fees=[(tracked_order.fee_asset, new_fee)]),
+                        AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset, new_fee)]),
                         tracked_order.client_order_id,
                         self._leverage[tracked_order.trading_pair],
                         tracked_order.position,

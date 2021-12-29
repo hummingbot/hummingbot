@@ -53,7 +53,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -1003,7 +1003,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"]),
                         Decimal(trade_msg["exec_qty"]),
-                        TradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(trade_msg["exec_fee"]))]),
+                        AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(trade_msg["exec_fee"]))]),
                         exchange_trade_id=str(trade_msg["exec_id"]),
                         leverage=self._leverage[tracked_order.trading_pair],
                         position=tracked_order.position

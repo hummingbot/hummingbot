@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import datetime, timezone
 from hummingbot.core.data_type.trade import Trade, TradeType
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange.binance.binance_utils import (
     convert_from_exchange_trading_pair,
 )
@@ -31,7 +31,7 @@ def format_trades(trades):
                 order_type=None,
                 market=convert_from_exchange_trading_pair(trade["symbol"]),
                 timestamp=int(time),
-                trade_fee=TradeFee(flat_fees=[(trade["commissionAsset"], commission)]),
+                trade_fee=AddedToCostTradeFee(flat_fees=[(trade["commissionAsset"], commission)]),
             )
         )
         trades = [t for t in trades if t not in sum_trades]

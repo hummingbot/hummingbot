@@ -31,7 +31,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
     OrderType, TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -876,7 +876,7 @@ class AscendExExchange(ExchangePyBase):
             amount: Decimal,
             price: Decimal = s_decimal_NaN,
             is_maker: Optional[bool] = None
-    ) -> TradeFee:
+    ) -> AddedToCostTradeFee:
         """For more information: https://ascendex.github.io/ascendex-pro-api/#place-order."""
         trading_pair = f"{base_currency}-{quote_currency}"
         trading_rule = self._trading_rules[trading_pair]
@@ -886,7 +886,7 @@ class AscendExExchange(ExchangePyBase):
                 fee_percent = trading_rule.commission_reserve_rate
         elif trading_rule.commission_type == AscendExCommissionType.BASE:
             fee_percent = trading_rule.commission_reserve_rate
-        return TradeFee(percent=fee_percent)
+        return AddedToCostTradeFee(percent=fee_percent)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

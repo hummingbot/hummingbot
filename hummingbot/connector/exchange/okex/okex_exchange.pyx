@@ -33,7 +33,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
@@ -993,7 +993,7 @@ cdef class OkexExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:

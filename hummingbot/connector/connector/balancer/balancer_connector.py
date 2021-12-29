@@ -26,7 +26,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
@@ -405,7 +405,7 @@ class BalancerConnector(ConnectorBase):
                                 tracked_order.order_type,
                                 Decimal(str(tracked_order.price)),
                                 Decimal(str(tracked_order.amount)),
-                                TradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(str(fee)))]),
+                                AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(str(fee)))]),
                                 exchange_trade_id=order_id
                             )
                         )

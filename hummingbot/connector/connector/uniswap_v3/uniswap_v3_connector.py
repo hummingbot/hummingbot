@@ -23,7 +23,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
@@ -140,7 +140,7 @@ class UniswapV3Connector(UniswapConnector):
                         tracked_order.order_type,
                         Decimal(str(tracked_order.price)),
                         Decimal(str(tracked_order.amount)),
-                        TradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(str(fee)))]),
+                        AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset, Decimal(str(fee)))]),
                         exchange_trade_id=order_id
                     )
                 )

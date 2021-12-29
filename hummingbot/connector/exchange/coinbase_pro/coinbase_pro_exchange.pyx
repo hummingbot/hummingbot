@@ -38,7 +38,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -588,7 +588,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                  tracked_order.order_type,
                                                  execute_price,
                                                  execute_amount_diff,
-                                                 TradeFee(percent=tracked_order.fee_rate_from_trade_update(content)),
+                                                 AddedToCostTradeFee(
+                                                     percent=tracked_order.fee_rate_from_trade_update(content)
+                                                 ),
                                                  exchange_trade_id=content["trade_id"]
                                              ))
 
@@ -1072,7 +1074,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_nan,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:

@@ -32,7 +32,7 @@ from hummingbot.connector.other.celo.celo_data_types import (
 from hummingbot.core.event.events import (
     OrderType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.model.trade_fill import TradeFill
 
 
@@ -421,6 +421,6 @@ cdef class CeloArbStrategy(StrategyBase):
                                      order_type="n/a",
                                      price=float(order.price),
                                      amount=float(order.amount),
-                                     trade_fee=TradeFee(Decimal("0")).to_json(),
+                                     trade_fee=AddedToCostTradeFee(Decimal("0")).to_json(),
                                      exchange_trade_id=order.tx_hash))
         return results

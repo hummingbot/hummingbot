@@ -44,7 +44,7 @@ from hummingbot.core.event.events import (
     TradeType,
     OrderType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -618,7 +618,9 @@ cdef class LoopringExchange(ExchangeBase):
                                                       tracked_order.order_type,
                                                       new_price,
                                                       new_amount,
-                                                      TradeFee(flat_fees=[(tracked_order.fee_asset, new_fee)]),
+                                                      AddedToCostTradeFee(
+                                                          flat_fees=[(tracked_order.fee_asset, new_fee)]
+                                                      ),
                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,
@@ -968,5 +970,5 @@ cdef class LoopringExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)

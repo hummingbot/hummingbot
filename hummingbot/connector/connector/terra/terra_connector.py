@@ -26,7 +26,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.terra.terra_in_flight_order import TerraInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
@@ -218,7 +218,9 @@ class TerraConnector(ConnectorBase):
                                        tracked_order.order_type,
                                        price,
                                        amount,
-                                       TradeFee(flat_fees=[(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                                       AddedToCostTradeFee(
+                                           flat_fees=[(tracked_order.fee_asset, tracked_order.fee_paid)]
+                                       ),
                                        hash
                                    ))
 

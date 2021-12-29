@@ -18,7 +18,7 @@ from hummingbot.core.event.events import (
     TradeType,
     PriceType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.connector_base import ConnectorBase
@@ -232,7 +232,7 @@ cdef class ExchangeBase(ConnectorBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         raise NotImplementedError
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:

@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from itertools import chain
 
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
+from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
