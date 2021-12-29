@@ -8,6 +8,8 @@ import pandas as pd
 
 from collections import defaultdict
 from typing import Optional, List, Dict, Any, AsyncIterable
+
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.core.data_type.order_book import OrderBook
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -66,10 +68,12 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for trading_pair in trading_pairs:
             client = client or cls._get_session_instance()
             throttler = throttler or cls._get_throttler_instance()
+            headers = AscendExAuth.get_hb_id_headers()
             async with throttler.execute_task(CONSTANTS.TRADES_PATH_URL):
                 resp = await client.get(
                     f"{CONSTANTS.REST_URL}/{CONSTANTS.TRADES_PATH_URL}"
-                    f"?symbol={convert_to_exchange_trading_pair(trading_pair)}"
+                    f"?symbol={convert_to_exchange_trading_pair(trading_pair)}",
+                    headers=headers,
                 )
             if resp.status != 200:
                 raise IOError(
@@ -97,8 +101,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs(client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> List[str]:
         client = client or AscendExAPIOrderBookDataSource._get_session_instance()
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
+        headers = AscendExAuth.get_hb_id_headers()
         async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
-            resp = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}")
+            resp = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}", headers=headers)
 
         if resp.status != 200:
             # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -114,10 +119,12 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         client = client or AscendExAPIOrderBookDataSource._get_session_instance()
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
+        headers = AscendExAuth.get_hb_id_headers()
         async with throttler.execute_task(CONSTANTS.DEPTH_PATH_URL):
             resp = await client.get(
                 f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}"
-                f"?symbol={convert_to_exchange_trading_pair(trading_pair)}"
+                f"?symbol={convert_to_exchange_trading_pair(trading_pair)}",
+                headers=headers,
             )
         if resp.status != 200:
             raise IOError(
@@ -161,8 +168,10 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 }
                 for topic in [self.DIFF_TOPIC_ID, self.TRADE_TOPIC_ID]
             ]
+            headers = AscendExAuth.get_hb_id_headers()
             ws = await self._shared_client.ws_connect(url=CONSTANTS.WS_URL,
-                                                      heartbeat=self.HEARTBEAT_PING_INTERVAL)
+                                                      heartbeat=self.HEARTBEAT_PING_INTERVAL,
+                                                      headers=headers)
             for payload in subscription_payloads:
                 async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                     await ws.send_json(payload)

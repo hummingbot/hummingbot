@@ -23,7 +23,7 @@ def get_rest_url_private(account_id: int) -> str:
 
 
 def get_ws_url_private(account_id: int) -> str:
-    return f"wss://ascendex.com/{account_id}/api/pro/v1"
+    return f"wss://ascendex.com:443/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
