@@ -347,6 +347,7 @@ class AscendExExchange(ExchangePyBase):
         headers = {
             **self._ascend_ex_auth.get_headers(),
             **self._ascend_ex_auth.get_auth_headers("info"),
+            **self._ascend_ex_auth.get_hb_id_headers(),
         }
         url = f"{CONSTANTS.REST_URL}/info"
         response = await self._shared_client.get(url, headers=headers)
@@ -398,10 +399,14 @@ class AscendExExchange(ExchangePyBase):
                 **self._ascend_ex_auth.get_auth_headers(
                     path_url if force_auth_path_url is None else force_auth_path_url
                 ),
+                **self._ascend_ex_auth.get_hb_id_headers(),
             }
         else:
             url = f"{CONSTANTS.REST_URL}/{path_url}"
-            kwargs["headers"] = self._ascend_ex_auth.get_headers()
+            kwargs["headers"] = {
+                **self._ascend_ex_auth.get_headers(),
+                **self._ascend_ex_auth.get_hb_id_headers(),
+            }
 
         if method == "get":
             async with self._throttler.execute_task(path_url):
