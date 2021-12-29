@@ -1,25 +1,39 @@
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
+
 export interface NetworkConfig {
-  rpcUrl: string;
   slug: string;
+  rpcUrl: string;
 }
 export interface Config {
-  devnet: NetworkConfig;
-  testnet: NetworkConfig;
-  mainnet_beta: NetworkConfig;
+  network: NetworkConfig;
+  nativeCurrencySymbol: string;
+  tokenProgram: string;
+  transactionLamports: number;
+  lamportsToSol: number;
+  timeToLive: number;
+  customRpcUrl: string | undefined;
+  rpcAPIKey: string | undefined;
 }
 export namespace SolanaConfig {
-  export const config: Config = {
-    devnet: {
-      rpcUrl: 'https://api.devnet.solana.com',
-      slug: 'devnet',
+  export const config: Config = getSolanaConfig('solana');
+}
+
+export function getSolanaConfig(chainName: string): Config {
+  const configManager = ConfigManagerV2.getInstance();
+  const network = ConfigManagerV2.getInstance().get(chainName + '.network');
+  return {
+    network: {
+      slug: network,
+      rpcUrl: configManager.get(chainName + '.networks.' + network + '.rpcURL'),
     },
-    testnet: {
-      rpcUrl: 'https://api.testnet.solana.com',
-      slug: 'testnet',
-    },
-    mainnet_beta: {
-      rpcUrl: 'https://mainnet.infura.io/v3/',
-      slug: 'mainnet-beta',
-    },
+    nativeCurrencySymbol: configManager.get(
+      chainName + '.nativeCurrencySymbol'
+    ),
+    tokenProgram: configManager.get(chainName + '.tokenProgram'),
+    transactionLamports: configManager.get(chainName + '.transactionLamports'),
+    lamportsToSol: configManager.get(chainName + '.lamportsToSol'),
+    timeToLive: configManager.get(chainName + '.timeToLive'),
+    customRpcUrl: configManager.get(chainName + '.customRpcUrl'),
+    rpcAPIKey: configManager.get(chainName + '.rpcAPIKey'),
   };
 }

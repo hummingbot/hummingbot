@@ -142,7 +142,6 @@ class HummingbotApplication(*commands):
 
     def _init_gateway_monitor(self):
         self._gateway_monitor = GatewayBase(trading_pairs = [],
-                                            wallet_private_key = "",
                                             trading_required = False
                                             )
         self._gateway_monitor_clock = Clock(ClockMode.REALTIME)

@@ -230,7 +230,7 @@ class HummingbotCLI:
             kwargs.pop("close")
         if cmd_tab.button is None:
             cmd_tab.button = create_tab_button(command_name, lambda: self.tab_button_clicked(command_name))
-            cmd_tab.close_button = create_tab_button("x", lambda: self.close_buton_clicked(command_name), 1, '', ' ')
+            cmd_tab.close_button = create_tab_button("x", lambda: self.close_buton_clicked(command_name), 1)
             cmd_tab.output_field = create_live_field()
             cmd_tab.tab_index = max(t.tab_index for t in self.command_tabs.values()) + 1
         self.tab_button_clicked(command_name)
