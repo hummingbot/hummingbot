@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType, PositionAction, TradeFee, TradeType
+from hummingbot.core.event.events import OrderType, PositionAction, AddedToCostTradeFee, TradeType
 
 s_decimal_0 = Decimal("0")
 
@@ -242,11 +242,11 @@ class InFlightOrder:
         )
 
     @property
-    def latest_trade_fee(self) -> TradeFee:
-        trade_fee: TradeFee = (
-            TradeFee(percent=self.trade_fee_percent)
+    def latest_trade_fee(self) -> AddedToCostTradeFee:
+        trade_fee: AddedToCostTradeFee = (
+            AddedToCostTradeFee(percent=self.trade_fee_percent)
             if self.trade_fee_percent
-            else TradeFee(flat_fees=[(self.fee_asset, self.last_fee_paid)])
+            else AddedToCostTradeFee(flat_fees=[(self.fee_asset, self.last_fee_paid)])
         )
         return trade_fee
 

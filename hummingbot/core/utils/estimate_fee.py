@@ -1,8 +1,13 @@
 import warnings
 from decimal import Decimal
 
-from hummingbot.core.data_type.trade_fee import TradeFeePercentageApplication, TradeFeeSchema
-from hummingbot.core.event.events import OrderType, PositionAction, TradeFee, TradeType
+from hummingbot.core.data_type.trade_fee import (
+    AddedToCostTradeFee,
+    DeductedFromReturnsTradeFee,
+    TradeFeeBase,
+    TradeFeeSchema,
+)
+from hummingbot.core.event.events import OrderType, PositionAction, TradeType
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import AllConnectorSettings
 
@@ -16,8 +21,10 @@ def build_trade_fee(
     order_side: TradeType,
     amount: Decimal,
     price: Decimal = Decimal("NaN"),
-) -> TradeFee:
+) -> TradeFeeBase:
     """
+    WARNING: Do not use this method for order sizing. Use the `BudgetChecker` instead.
+
     Uses the exchange's `TradeFeeSchema` to build a `TradeFee`, given the trade parameters.
     """
     if exchange not in AllConnectorSettings.get_connector_settings():
@@ -25,16 +32,16 @@ def build_trade_fee(
     trade_fee_schema = AllConnectorSettings.get_connector_settings()[exchange].trade_fee_schema
     trade_fee_schema = _superimpose_overrides(exchange, trade_fee_schema)
     percent = trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
-    percentage_application = (
-        TradeFeePercentageApplication.AddedToCost
+    fee_cls = (
+        AddedToCostTradeFee
         if (
             order_side == TradeType.BUY and not trade_fee_schema.buy_percent_fee_deducted_from_returns
             or trade_fee_schema.percent_fee_token is not None
         )
-        else TradeFeePercentageApplication.DeductedFromReturns
+        else DeductedFromReturnsTradeFee
     )
     fixed_fees = trade_fee_schema.maker_fixed_fees if is_maker else trade_fee_schema.taker_fixed_fees
-    trade_fee = TradeFee(percent, trade_fee_schema.percent_fee_token, percentage_application, fixed_fees)
+    trade_fee = fee_cls(percent, trade_fee_schema.percent_fee_token, fixed_fees)
     return trade_fee
 
 
@@ -48,8 +55,10 @@ def build_perpetual_trade_fee(
     order_side: TradeType,
     amount: Decimal,
     price: Decimal = Decimal("NaN"),
-) -> TradeFee:
+) -> TradeFeeBase:
     """
+    WARNING: Do not use this method for order sizing. Use the `BudgetChecker` instead.
+
     Uses the exchange's `TradeFeeSchema` to build a `TradeFee`, given the trade parameters.
     """
     if exchange not in AllConnectorSettings.get_connector_settings():
@@ -57,13 +66,13 @@ def build_perpetual_trade_fee(
     trade_fee_schema = AllConnectorSettings.get_connector_settings()[exchange].trade_fee_schema
     trade_fee_schema = _superimpose_overrides(exchange, trade_fee_schema)
     percent = trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
-    percentage_application = (
-        TradeFeePercentageApplication.AddedToCost
+    fee_cls = (
+        AddedToCostTradeFee
         if position_action == PositionAction.OPEN or trade_fee_schema.percent_fee_token is not None
-        else TradeFeePercentageApplication.DeductedFromReturns
+        else DeductedFromReturnsTradeFee
     )
     fixed_fees = trade_fee_schema.maker_fixed_fees if is_maker else trade_fee_schema.taker_fixed_fees
-    trade_fee = TradeFee(percent, trade_fee_schema.percent_fee_token, percentage_application, fixed_fees)
+    trade_fee = fee_cls(percent, trade_fee_schema.percent_fee_token, fixed_fees)
     return trade_fee
 
 
@@ -99,9 +108,9 @@ def _superimpose_overrides(exchange: str, trade_fee_schema: TradeFeeSchema):
     return trade_fee_schema
 
 
-def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
+def estimate_fee(exchange: str, is_maker: bool) -> TradeFeeBase:
     """
-    !WARNING!: This method is deprecated and remains only for backward compatibility.
+    WARNING: This method is deprecated and remains only for backward compatibility.
     Use `build_trade_fee` and `build_perpetual_trade_fee` instead.
 
     Estimate the fee of a transaction on any blockchain.
