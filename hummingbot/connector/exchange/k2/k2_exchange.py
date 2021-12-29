@@ -32,7 +32,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker
 from hummingbot.connector.exchange.k2.k2_user_stream_tracker import K2UserStreamTracker
@@ -688,7 +688,7 @@ class K2Exchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
-                TradeFee(flat_fees=[(fee_currency, Decimal(str(trade_msg["fee"])))]),
+                AddedToCostTradeFee(flat_fees=[(fee_currency, Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["orderid"]
             )
         )
@@ -813,14 +813,14 @@ class K2Exchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

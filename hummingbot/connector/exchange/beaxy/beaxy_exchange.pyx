@@ -35,7 +35,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 
 from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
 from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
@@ -517,7 +517,7 @@ cdef class BeaxyExchange(ExchangeBase):
             self.logger().info(f'Fee for {pair} is not in fee cache')
             return estimate_fee('beaxy', is_maker)
 
-        return TradeFee(percent=fees[pair] / Decimal(100))
+        return AddedToCostTradeFee(percent=fees[pair] / Decimal(100))
 
     async def execute_buy(
         self,
@@ -1216,7 +1216,7 @@ cdef class BeaxyExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:

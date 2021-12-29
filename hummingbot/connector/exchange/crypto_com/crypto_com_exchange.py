@@ -33,7 +33,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
 from hummingbot.connector.exchange.crypto_com.crypto_com_user_stream_tracker import CryptoComUserStreamTracker
@@ -677,7 +677,7 @@ class CryptoComExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["traded_price"])),
                 Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(flat_fees=[(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
+                AddedToCostTradeFee(flat_fees=[(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["order_id"]
             )
         )
@@ -770,14 +770,14 @@ class CryptoComExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

@@ -49,7 +49,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -410,7 +410,7 @@ cdef class BinanceExchange(ExchangeBase):
                                                          order_type,
                                                          Decimal(trade["price"]),
                                                          Decimal(trade["qty"]),
-                                                         TradeFee(
+                                                         AddedToCostTradeFee(
                                                              flat_fees=[(trade["commissionAsset"],
                                                                          Decimal(trade["commission"]))]
                                                          ),
@@ -453,7 +453,7 @@ cdef class BinanceExchange(ExchangeBase):
                                                      OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
-                                                     TradeFee(
+                                                     AddedToCostTradeFee(
                                                          flat_fees=[(trade["commissionAsset"],
                                                                      Decimal(trade["commission"]))]
                                                      ),
@@ -1066,7 +1066,7 @@ cdef class BinanceExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:

@@ -6,9 +6,8 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-from hummingbot.connector.budget_checker import OrderCandidate
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
 from hummingbot.connector.derivative.position import Position
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder

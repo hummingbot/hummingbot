@@ -2,7 +2,8 @@ import unittest
 from decimal import Decimal
 from test.mock.mock_perp_connector import MockPerpConnector
 
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker, PerpetualOrderCandidate
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
+from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema

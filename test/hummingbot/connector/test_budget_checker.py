@@ -2,7 +2,8 @@ import unittest
 from decimal import Decimal
 from test.mock.mock_paper_exchange import MockPaperExchange
 
-from hummingbot.connector.budget_checker import BudgetChecker, OrderCandidate
+from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema

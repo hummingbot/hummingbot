@@ -43,7 +43,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -684,8 +684,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      tracked_order.order_type,
                                      execute_price,
                                      execute_amount_diff,
-                                     TradeFee(flat_fees=[(tracked_order.fee_asset,
-                                                         Decimal(trade_event["transactFee"]))]),
+                                     AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset,
+                                                                     Decimal(trade_event["transactFee"]))]),
                                      exchange_trade_id=order_id
                                  ))
 
@@ -1044,7 +1044,7 @@ cdef class HuobiExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:

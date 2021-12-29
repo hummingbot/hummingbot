@@ -27,7 +27,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -434,8 +434,8 @@ cdef class FtxExchange(ExchangeBase):
                                          tracked_order.order_type,
                                          Decimal(event_message["price"]),
                                          execute_amount_diff,
-                                         TradeFee(flat_fees=[(event_message["feeCurrency"],
-                                                              Decimal(event_message["fee"]))]),
+                                         AddedToCostTradeFee(flat_fees=[(event_message["feeCurrency"],
+                                                                         Decimal(event_message["fee"]))]),
                                          exchange_trade_id=event_message["tradeId"]
                                      ))
 
@@ -968,5 +968,5 @@ cdef class FtxExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = Decimal('NaN'),
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)

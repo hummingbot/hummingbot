@@ -51,7 +51,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
 from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
@@ -262,7 +262,7 @@ cdef class KrakenExchange(ExchangeBase):
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_rules(self):
         cdef:
@@ -503,7 +503,12 @@ cdef class KrakenExchange(ExchangeBase):
                                                                   tracked_order.order_type,
                                                                   Decimal(trade.get("price")),
                                                                   Decimal(trade.get("vol")),
-                                                                  TradeFee(flat_fee=[(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
+                                                                  AddedToCostTradeFee(
+                                                                      flat_fee=[
+                                                                          (tracked_order.fee_asset,
+                                                                           Decimal((trade.get("fee"))))
+                                                                      ]
+                                                                  ),
                                                                   trade.get("trade_id")))
 
                             if tracked_order.is_done:
@@ -1127,7 +1132,7 @@ cdef class KrakenExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:

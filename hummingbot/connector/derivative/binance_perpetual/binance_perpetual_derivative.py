@@ -51,7 +51,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -519,7 +519,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
                             leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
-                            trade_fee=TradeFee(flat_fees=flat_fees),
+                            trade_fee=AddedToCostTradeFee(flat_fees=flat_fees),
                             exchange_trade_id=order_message.get("t"),
                             position=tracked_order.position
                         )
@@ -875,8 +875,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                     order_type,
                                     Decimal(trade.get("price")),
                                     Decimal(trade.get("qty")),
-                                    TradeFee(flat_fees=[(trade["commissionAsset"],
-                                                        abs(Decimal(trade["commission"])))]),
+                                    AddedToCostTradeFee(flat_fees=[(trade["commissionAsset"],
+                                                                    abs(Decimal(trade["commission"])))]),
                                     exchange_trade_id=trade["id"],
                                     leverage=self._leverage[tracked_order.trading_pair],
                                     position=tracked_order.position

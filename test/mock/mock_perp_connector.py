@@ -3,7 +3,7 @@ from typing import Optional
 
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema, TradeFee
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema, AddedToCostTradeFee
 from hummingbot.core.event.events import PositionMode, OrderType, TradeType, PositionAction
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from test.mock.mock_paper_exchange import MockPaperExchange
@@ -58,7 +58,7 @@ class MockPerpConnector(MockPaperExchange, PerpetualTrading):
                 amount: Decimal,
                 price: Decimal = Decimal("0"),
                 is_maker: Optional[bool] = None,
-                position_action: PositionAction = PositionAction.OPEN) -> TradeFee:
+                position_action: PositionAction = PositionAction.OPEN) -> AddedToCostTradeFee:
         return build_perpetual_trade_fee(
             exchange=self.name,
             is_maker=is_maker,

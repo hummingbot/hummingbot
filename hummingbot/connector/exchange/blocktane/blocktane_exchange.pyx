@@ -36,7 +36,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder
 from hummingbot.connector.exchange.blocktane.blocktane_order_book_tracker import BlocktaneOrderBookTracker
@@ -209,11 +209,11 @@ cdef class BlocktaneExchange(ExchangeBase):
             object maker_fee = Decimal(0.002)
             object taker_fee = Decimal(0.002)
         if order_type is OrderType.LIMIT and fee_overrides_config_map["blocktane_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["blocktane_maker_fee"].value)
+            return AddedToCostTradeFee(percent=fee_overrides_config_map["blocktane_maker_fee"].value)
         if order_type is OrderType.MARKET and fee_overrides_config_map["blocktane_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["blocktane_taker_fee"].value)
+            return AddedToCostTradeFee(percent=fee_overrides_config_map["blocktane_taker_fee"].value)
 
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        return AddedToCostTradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_balances(self):
         cdef:
@@ -1058,5 +1058,5 @@ cdef class BlocktaneExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> TradeFee:
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
