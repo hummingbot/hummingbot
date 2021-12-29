@@ -9,7 +9,7 @@ from hummingbot.core.event.events import (
     TradeType,
     OrderType,
 )
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 
 
 class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type, market, timestamp, trade_fee")):
@@ -20,7 +20,7 @@ class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type,
     order_type: OrderType
     market: str
     timestamp: float
-    trade_fee: TradeFee
+    trade_fee: AddedToCostTradeFee
 
     @classmethod
     def to_pandas(cls, trades: List):

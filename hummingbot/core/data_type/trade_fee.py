@@ -1,7 +1,7 @@
 import typing
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
-from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
@@ -9,58 +9,29 @@ from hummingbot.core.event.utils import interchangeable
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
-
-
-class TradeFeePercentageApplication(Enum):
-    """
-    Indicates how the trade fee object must be applied.
-
-    `AddedToCost` is used for normal buy orders and third-token percentage fees for both buy and sell orders.
-    `DeductedFromReturns` is used for normal sell orders and Binance-style buy orders, where an order to buy
-    1000 USDT worth of BTC with a 0.1% fee will return 999 USDT worth of BTC to the user.
-    """
-    AddedToCost = 0
-    DeductedFromReturns = 1
+    from hummingbot.core.data_type.order_candidate import OrderCandidate
 
 
 @dataclass
-class TradeFee:
+class TradeFeeBase(ABC):
     """
     Contains the necessary information to apply the trade fee to a particular order.
     """
     percent: Optional[Decimal] = None
     percent_token: Optional[str] = None  # only set when fee charged in third token (the Binance BNB case)
-    percentage_application: TradeFeePercentageApplication = TradeFeePercentageApplication.AddedToCost
     flat_fees: List[Tuple[str, Decimal]] = field(default_factory=list)  # list of (asset, amount) tuples
-
-    @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "TradeFee":
-        percent = data["percent"]
-        percent_token = data.get("percent_token")
-        percentage_application = data.get("percentage_application")
-        percentage_application = (
-            TradeFeePercentageApplication(int(percentage_application))
-            if percentage_application is not None
-            else TradeFeePercentageApplication.AddedToCost
-        )
-        flat_fees = [
-            (str(fee_entry["asset"]), Decimal(fee_entry["amount"]))
-            for fee_entry in data["flat_fees"]
-        ]
-        return TradeFee(percent, percent_token, percentage_application, flat_fees)
 
     def to_json(self) -> Dict[str, any]:
         return {
             "percent": None if self.percent is None else float(self.percent),
             "percent_token": self.percent_token,
-            "percentage_application": self.percentage_application.value,
             "flat_fees": [{"asset": asset, "amount": float(amount)}
                           for asset, amount in self.flat_fees]
         }
 
     def fee_amount_in_quote(
-        self, trading_pair: str, price: Decimal, order_amount: Decimal, exchange: Optional["ExchangeBase"] = None
-    ):
+        self, trading_pair: str, price: Decimal, order_amount: Decimal, exchange: Optional['ExchangeBase'] = None
+    ) -> Decimal:
         fee_amount = Decimal("0")
         if self.percent > 0:
             fee_amount = (price * order_amount) * self.percent
@@ -76,6 +47,28 @@ class TradeFee:
                 fee_amount = (flat_fee[1] * conversion_rate)
         return fee_amount
 
+    @abstractmethod
+    def get_fee_impact_on_order_cost(
+        self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
+    ) -> Optional[Tuple[str, Decimal]]:
+        """
+        WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
+
+        Returns the impact of the fee on the cost requirements for the candidate order.
+        """
+        ...
+
+    @abstractmethod
+    def get_fee_impact_on_order_returns(
+        self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
+    ) -> Optional[Decimal]:
+        """
+        WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
+
+        Returns the impact of the fee on the expected returns from the candidate order.
+        """
+        ...
+
     @staticmethod
     def _get_exchange_rate(trading_pair: str, exchange: Optional["ExchangeBase"] = None) -> Decimal:
         from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -85,6 +78,65 @@ class TradeFee:
         else:
             rate = RateOracle.get_instance().rate(trading_pair)
         return rate
+
+
+class AddedToCostTradeFee(TradeFeeBase):
+    def get_fee_impact_on_order_cost(
+        self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
+    ) -> Optional[Tuple[str, Decimal]]:
+        """
+        WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
+
+        Returns the impact of the fee on the cost requirements for the candidate order.
+        """
+        ret = None
+        if self.percent is not None:
+            fee_token = self.percent_token or order_candidate.order_collateral.token
+            if order_candidate.order_collateral is None or fee_token != order_candidate.order_collateral.token:
+                token, size = order_candidate.get_size_token_and_order_size()
+                if fee_token == token:
+                    exchange_rate = Decimal("1")
+                else:
+                    exchange_pair = combine_to_hb_trading_pair(token, fee_token)  # buy order token w/ pf token
+                    exchange_rate = exchange.get_price(exchange_pair, is_buy=True)
+                fee_amount = size * exchange_rate * self.percent
+            else:  # self.percent_token == order_candidate.order_collateral.token
+                fee_amount = order_candidate.order_collateral.amount * self.percent
+            ret = (fee_token, fee_amount)
+        return ret
+
+    def get_fee_impact_on_order_returns(
+        self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
+    ) -> Optional[Decimal]:
+        """
+        WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
+
+        Returns the impact of the fee on the expected returns from the candidate order.
+        """
+        return None
+
+
+class DeductedFromReturnsTradeFee(TradeFeeBase):
+    def get_fee_impact_on_order_cost(
+        self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
+    ) -> Optional[Tuple[str, Decimal]]:
+        """
+        WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
+
+        Returns the impact of the fee on the cost requirements for the candidate order.
+        """
+        return None
+
+    def get_fee_impact_on_order_returns(
+        self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
+    ) -> Optional[Decimal]:
+        """
+        WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
+
+        Returns the impact of the fee on the expected returns from the candidate order.
+        """
+        impact = order_candidate.potential_returns.amount * self.percent
+        return impact
 
 
 @dataclass
