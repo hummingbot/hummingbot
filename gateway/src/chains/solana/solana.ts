@@ -1,5 +1,5 @@
 import { logger } from '../../services/logger';
-import { ConfigManager } from '../../services/config-manager';
+import { SolanaConfig } from './solana.config';
 import { TokenValue, countDecimals } from '../../services/base';
 import NodeCache from 'node-cache';
 import bs58 from 'bs58';
@@ -51,9 +51,9 @@ export class Solana {
   private _initPromise: Promise<void> = Promise.resolve();
 
   constructor() {
-    this._cluster = ConfigManager.config.SOLANA_CLUSTER;
+    this._cluster = SolanaConfig.config.network.slug;
 
-    if (ConfigManager.config.SOLANA_CUSTOM_RPC == null) {
+    if (SolanaConfig.config.customRpcUrl == undefined) {
       switch (this._cluster) {
         case 'mainnet-beta':
           this.rpcUrl = 'https://api.mainnet-beta.solana.com';
@@ -68,19 +68,17 @@ export class Solana {
           throw new Error('SOLANA_CHAIN not valid');
       }
     } else {
-      this.rpcUrl = ConfigManager.config.SOLANA_CUSTOM_RPC;
+      this.rpcUrl = SolanaConfig.config.customRpcUrl;
     }
 
     this._connection = new Connection(this.rpcUrl, 'processed' as Commitment);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
 
     this._nativeTokenSymbol = 'SOL';
-    this._tokenProgramAddress = new PublicKey(
-      ConfigManager.config.SOLANA_TOKEN_PROGRAM
-    );
+    this._tokenProgramAddress = new PublicKey(SolanaConfig.config.tokenProgram);
 
-    this.transactionLamports = ConfigManager.config.SOLANA_TRANSACTION_LAMPORTS;
-    this._lamportPrice = ConfigManager.config.SOLANA_LAMPORTS_TO_SOL;
+    this.transactionLamports = SolanaConfig.config.transactionLamports;
+    this._lamportPrice = SolanaConfig.config.lamportsToSol;
     this._lamportDecimals = countDecimals(this._lamportPrice);
 
     this._requestCount = 0;

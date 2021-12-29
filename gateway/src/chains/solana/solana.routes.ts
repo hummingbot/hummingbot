@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { NextFunction, Router, Request, Response } from 'express';
 import { Solana } from './solana';
-import { ConfigManager } from '../../services/config-manager';
+import { SolanaConfig } from './solana.config';
 import { verifySolanaIsAvailable } from './solana-middlewares';
 import { asyncHandler } from '../../services/error-handler';
 import {
@@ -41,7 +41,7 @@ export namespace SolanaRoutes {
       const rpcUrl = solana.rpcUrl;
 
       res.status(200).json({
-        network: ConfigManager.config.SOLANA_CLUSTER,
+        network: SolanaConfig.config.network.slug,
         rpcUrl: rpcUrl,
         connection: true,
         timestamp: Date.now(),
