@@ -211,9 +211,9 @@ class PerformanceMetrics:
                         self.fees[quote] = s_decimal_0
                     self.fees[quote] += (trade.price * trade.order_amount) * trade.trade_fee.percent
                 for flat_fee in trade.trade_fee.flat_fees:
-                    if flat_fee[0] not in self.fees:
-                        self.fees[flat_fee[0]] = s_decimal_0
-                    self.fees[flat_fee[0]] += flat_fee[1]
+                    if flat_fee.token not in self.fees:
+                        self.fees[flat_fee.token] = s_decimal_0
+                    self.fees[flat_fee.token] += flat_fee.amount
 
         for fee_token, fee_amount in self.fees.items():
             if fee_token == quote:
