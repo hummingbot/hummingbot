@@ -14,8 +14,8 @@ import random
 from typing import (
     Dict,
     List,
-    Tuple,
     Optional,
+    Tuple,
 )
 from cython.operator cimport(
     postincrement as inc,
@@ -911,7 +911,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                           object is_maker = None):
         return build_trade_fee(
             self.name,
-            is_maker=is_maker if is_maker is not None else order_type is OrderType.LIMIT,
+            is_maker=is_maker if is_maker is not None else order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER],
             base_currency=base_asset,
             quote_currency=quote_asset,
             order_type=order_type,
