@@ -1,5 +1,6 @@
 import { SwaggerManager } from '../../src/services/swagger-manager';
 import { patch, unpatch } from './patch';
+// import { app } from '../../src/app';
 // import yaml from 'js-yaml';
 import fs from 'fs';
 
@@ -133,3 +134,48 @@ describe('generateSwaggerJson', () => {
     ).toThrow();
   });
 });
+
+// describe('verify vefinitions', () => {
+//   // beforeAll(() => {
+//   //   unpatch();
+//   // });
+//   console.log(app)
+//   // it('All routes should have swagger documentation', () => {
+//   //   // const swaggerDocument = SwaggerManager.generateSwaggerJson(
+//   //   //   '../../docs/swagger/swagger.yml',
+//   //   //   '../../docs/swagger/definitions.yml',
+//   //   //   [
+//   //   //     '../../docs/swagger/main-routes.yml',
+//   //   //     '../../docs/swagger/eth-routes.yml',
+//   //   //     '../../docs/swagger/eth-uniswap-routes.yml',
+//   //   //     '../../docs/swagger/avalanche-routes.yml',
+//   //   //     '../../docs/swagger/avalanche-pangolin-routes.yml',
+//   //   //   ]
+//   //   // );
+//   //   // console.log(Object.keys(swaggerDocument.paths).sort());
+
+//   //   const routes: any[] = [];
+//   //   // app._router.stack.forEach(function (middleware: any) {
+//   //   //   if (middleware.route) {
+//   //   //     // routes registered directly on the app
+//   //   //     routes.push(middleware.route.path);
+//   //   //   } else if (middleware.name === 'router') {
+//   //   //     const parentPath = middleware.regexp
+//   //   //       .toString()
+//   //   //       .split('?')[0]
+//   //   //       .slice(2)
+//   //   //       .replaceAll('\\', '')
+//   //   //       .slice(0, -1);
+//   //   //     // router middleware
+//   //   //     middleware.handle.stack.forEach(function (handler: any) {
+//   //   //       const route = handler.route;
+//   //   //       if (route) {
+//   //   //         route.path = `${parentPath}${route.path}`;
+//   //   //         routes.push(route.path);
+//   //   //       }
+//   //   //     });
+//   //   //   }
+//   //   // });
+//   //   console.log('total routes', app, routes.sort());
+//   // });
+// });

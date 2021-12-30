@@ -19,6 +19,7 @@ const avalanche = Avalanche.getInstance();
 afterEach(unpatch);
 
 describe('GET /avalanche', () => {
+  console.log(app)
   it('should return 200', async () => {
     request(app)
       .get(`/avalanche`)

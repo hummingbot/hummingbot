@@ -16,7 +16,7 @@ import {
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
-
+// import { parse } from 'path-to-regexp';
 const swaggerUi = require('swagger-ui-express');
 
 export const app = express();
@@ -110,6 +110,7 @@ export const startGateway = async () => {
   const port = ConfigManagerV2.getInstance().get('server.port');
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
+    console.log('corro en unsafe');
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
 
     const swaggerDocument = SwaggerManager.generateSwaggerJson(
@@ -124,10 +125,35 @@ export const startGateway = async () => {
       ]
     );
 
+    console.log(Object.keys(swaggerDocument.paths).sort());
+
     // mount swagger api docs
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
     server = await app.listen(port);
+    const routes: any[] = [];
+    app._router.stack.forEach(function (middleware: any) {
+      if (middleware.route) {
+        // routes registered directly on the app
+        routes.push(middleware.route.path);
+      } else if (middleware.name === 'router') {
+        const parentPath = middleware.regexp
+          .toString()
+          .split('?')[0]
+          .slice(2)
+          .replaceAll('\\', '')
+          .slice(0, -1);
+        // router middleware
+        middleware.handle.stack.forEach(function (handler: any) {
+          const route = handler.route;
+          if (route) {
+            route.path = `${parentPath}${route.path}`;
+            routes.push(route.path);
+          }
+        });
+      }
+    });
+    console.log('total routes', routes.sort());
   } else {
     server = await addHttps(app).listen(port);
     logger.info('The server is secured behind HTTPS.');
