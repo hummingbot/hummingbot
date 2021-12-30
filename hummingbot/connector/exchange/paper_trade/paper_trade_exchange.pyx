@@ -14,8 +14,8 @@ import random
 from typing import (
     Dict,
     List,
-    Tuple,
     Optional,
+    Tuple,
 )
 from cython.operator cimport(
     postincrement as inc,
