@@ -66,6 +66,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
+        self.exchange._client_order_tracker.logger().setLevel(1)
+        self.exchange._client_order_tracker.logger().addHandler(self)
         self.mocking_assistant = NetworkMockingAssistant()
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
@@ -451,7 +453,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def test_funding_info_polling_loop_cancelled_when_listening(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        ws_connect_mock.return_value.receive_json.side_effect = asyncio.CancelledError
+        ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
@@ -466,13 +468,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         )
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        ws_connect_mock.return_value.receive_json.side_effect = lambda: (
-            self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
-        )
+        ws_connect_mock.side_effect = Exception("TEST ERROR")
 
-        self.test_task = self.ev_loop.create_task(self.exchange._funding_info_polling_loop())
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        try:
+            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
+        except Exception:
+            pass
 
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error updating funding info. Retrying after 10 seconds... "))
@@ -573,7 +574,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
@@ -626,7 +627,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(50), order.fee_paid)
+        self.assertEqual(Decimal(50), order.cumulative_fee_paid)
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
@@ -703,7 +704,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
@@ -756,7 +757,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(50), order.fee_paid)
+        self.assertEqual(Decimal(50), order.cumulative_fee_paid)
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
@@ -833,7 +834,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
@@ -886,7 +887,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
@@ -949,7 +950,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(task)
 
         self.assertIsNone(order.fee_asset)
-        self.assertEqual(Decimal(0), order.fee_paid)
+        self.assertEqual(Decimal(0), order.cumulative_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
@@ -1019,9 +1020,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Successfully cancelled order {order.client_order_id} according to websocket delta."
+            f"Successfully cancelled order {order.client_order_id}."
         ))
 
     def test_user_stream_event_listener_raises_cancelled_error(self):

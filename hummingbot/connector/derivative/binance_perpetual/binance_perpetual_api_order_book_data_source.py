@@ -60,7 +60,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._ws_assistant
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
+    async def get_last_traded_prices(cls, 
+                                     trading_pairs: List[str], 
+                                     domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
@@ -90,7 +92,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @staticmethod
-    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN, 
+                                  throttler: Optional[AsyncThrottler] = None) -> List[str]:
         api_factory = utils.build_api_factory()
         rest_assistant = await api_factory.get_rest_assistant()
 
@@ -204,7 +207,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}", ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+                await ws.connect(ws_url=f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}", 
+                                 ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
 
                 payload = {
                     "method": "SUBSCRIBE",

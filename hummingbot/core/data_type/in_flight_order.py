@@ -67,7 +67,7 @@ class InFlightOrder:
         initial_state: OrderState = OrderState.PENDING_CREATE,
         leverage: int = 1,
         position: PositionAction = PositionAction.NIL,
-        trade_fee_percent: Decimal = s_decimal_0,
+        trade_fee_percent: Decimal = None,
         timestamp: int = -1,
     ) -> None:
         self.client_order_id = client_order_id
@@ -249,7 +249,7 @@ class InFlightOrder:
     def latest_trade_fee(self) -> TradeFee:
         trade_fee: TradeFee = (
             TradeFee(self.trade_fee_percent, [])
-            if self.trade_fee_percent
+            if self.trade_fee_percent is not None
             else TradeFee(s_decimal_0, [(self.fee_asset, self.last_fee_paid)])
         )
         return trade_fee
@@ -348,7 +348,7 @@ class InFlightOrder:
 
         if not self.fee_asset and trade_update.fee_asset:
             self.fee_asset = trade_update.fee_asset
-        if trade_update.trade_fee_percent:
+        if trade_update.trade_fee_percent is not None:
             self.trade_fee_percent = trade_update.trade_fee_percent
 
         relevant_fee_amount: Decimal = (
@@ -357,7 +357,7 @@ class InFlightOrder:
             else trade_update.fill_quote_amount
         )
         fee_paid: Decimal = (
-            trade_update.fee_paid if trade_update.fee_paid else self.trade_fee_percent * relevant_fee_amount
+            trade_update.fee_paid if trade_update.fee_paid is not None else self.trade_fee_percent * relevant_fee_amount
         )
         self.cumulative_fee_paid += fee_paid
 

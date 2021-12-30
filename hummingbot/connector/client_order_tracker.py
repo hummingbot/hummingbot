@@ -155,7 +155,7 @@ class ClientOrderTracker:
                 trade_fee=order.latest_trade_fee,
                 exchange_trade_id=order.last_trade_id,
                 leverage=int(order.leverage),
-                position=order.position.name,
+                position=order.position,
             ),
         )
 
