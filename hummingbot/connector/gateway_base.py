@@ -171,7 +171,6 @@ class GatewayBase(ConnectorBase):
             hash = resp["approval"]["hash"]
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.update_exchange_order_id(hash)
-            tracked_order.nonce = resp["nonce"]
             self.logger().info(f"Maximum {token_symbol} approval for {self.name} contract sent, hash: {hash}.")
         else:
             self.stop_tracking_order(order_id)
@@ -319,7 +318,6 @@ class GatewayBase(ConnectorBase):
         try:
             order_result = await self._api_request("post", f"{self.base_path}/trade", api_params)
             hash = order_result.get("txHash")
-            nonce = order_result.get("nonce")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
             gas_cost = order_result.get("gasCost")
@@ -333,7 +331,6 @@ class GatewayBase(ConnectorBase):
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
-                tracked_order.nonce = nonce
                 tracked_order.fee_asset = self._chain_info["nativeCurrency"]["symbol"]
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
@@ -407,12 +404,12 @@ class GatewayBase(ConnectorBase):
                 if "txHash" not in update_result:
                     self.logger().info(f"_update_order_status txHash not in resp: {update_result}")
                     continue
-                if update_result["txStatus"] == 1:
-                    if update_result["txReceipt"]["status"] == 1:
+                if update_result["confirmed"] is True:
+                    if update_result["receipt"]["status"] == 1:
                         if tracked_order in self.approval_orders:
                             self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
                         else:
-                            gas_used = update_result["txReceipt"]["gasUsed"]
+                            gas_used = update_result["receipt"]["gasUsed"]
                             gas_price = tracked_order.gas_price
                             fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
                             self.trigger_event(
