@@ -1865,9 +1865,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(order.order_type, order_filled_events[1].order_type)
         self.assertEqual(Decimal(44000), order_filled_events[1].price)
         self.assertEqual(Decimal(0.2), order_filled_events[1].amount)
-        self.assertIsNone(order_filled_events[1].trade_fee.percent)
-        self.assertEqual(self.quote_asset, order_filled_events[1].trade_fee.flat_fees[0][0])
-        self.assertEqual(Decimal("0.0000001"), order_filled_events[1].trade_fee.flat_fees[0][1])
+        self.assertEqual(Decimal("0"), order_filled_events[1].trade_fee.percent)
+        self.assertEqual(self.quote_asset, order_filled_events[1].trade_fee.flat_fees[0].token)
+        self.assertEqual(Decimal("0.0000001"), order_filled_events[1].trade_fee.flat_fees[0].amount)
         self.assertEqual("256e5ef8-abfe-5772-971b-f944e15e0d69", order_filled_events[1].exchange_trade_id)
 
         self.assertTrue(self._is_logged("INFO", "The BUY order O1 has completed according to order status API"))
