@@ -51,7 +51,7 @@ class AscendExAuth:
 
     @staticmethod
     def get_hb_id_headers() -> Dict[str, Any]:
-        """Headers signature to identify user as a HB liquidity provider."""
+        """Headers signature to identify user as an HB liquidity provider."""
         return {
             "request-source": "hummingbot-liq-mining",
         }
