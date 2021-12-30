@@ -43,7 +43,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -813,7 +813,7 @@ class GateIoExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(update_msg.get("fill_price", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
-                AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, tracked_order.fee_paid)]),
                 str(update_msg.get("update_time_ms", update_msg.get("id")))
             )
         )

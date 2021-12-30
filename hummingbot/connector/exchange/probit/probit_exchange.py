@@ -41,7 +41,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -774,7 +774,9 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(order_msg["price"])),
                 Decimal(str(order_msg["quantity"])),
-                AddedToCostTradeFee(flat_fees=[(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]),
+                AddedToCostTradeFee(
+                    flat_fees=[TokenAmount(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]
+                ),
                 exchange_trade_id=order_msg["id"]
             )
         )

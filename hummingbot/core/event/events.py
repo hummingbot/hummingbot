@@ -9,7 +9,7 @@ from typing import (
 from dataclasses import dataclass
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
 class MarketEvent(Enum):
@@ -199,7 +199,7 @@ class OrderFilledEvent(NamedTuple):
             OrderType[execution_report["o"]],
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
-            AddedToCostTradeFee(flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),
+            AddedToCostTradeFee(flat_fees=[TokenAmount(execution_report["N"], Decimal(execution_report["n"]))]),
             exchange_trade_id=execution_report["t"]
         )
 

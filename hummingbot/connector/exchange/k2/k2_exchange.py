@@ -32,7 +32,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker
 from hummingbot.connector.exchange.k2.k2_user_stream_tracker import K2UserStreamTracker
@@ -688,7 +688,7 @@ class K2Exchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
-                AddedToCostTradeFee(flat_fees=[(fee_currency, Decimal(str(trade_msg["fee"])))]),
+                AddedToCostTradeFee(flat_fees=[TokenAmount(fee_currency, Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["orderid"]
             )
         )

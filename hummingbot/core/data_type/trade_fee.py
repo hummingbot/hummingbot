@@ -2,7 +2,7 @@ import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.event.utils import interchangeable
@@ -13,13 +13,22 @@ if typing.TYPE_CHECKING:  # avoid circular import problems
 
 
 @dataclass
+class TokenAmount:
+    token: str
+    amount: Decimal
+
+    def __iter__(self):
+        return iter((self.token, self.amount))
+
+
+@dataclass
 class TradeFeeBase(ABC):
     """
     Contains the necessary information to apply the trade fee to a particular order.
     """
     percent: Optional[Decimal] = None
     percent_token: Optional[str] = None  # only set when fee charged in third token (the Binance BNB case)
-    flat_fees: List[Tuple[str, Decimal]] = field(default_factory=list)  # list of (asset, amount) tuples
+    flat_fees: List[TokenAmount] = field(default_factory=list)  # list of (asset, amount) tuples
 
     def to_json(self) -> Dict[str, any]:
         return {
@@ -37,20 +46,20 @@ class TradeFeeBase(ABC):
             fee_amount = (price * order_amount) * self.percent
         base, quote = split_hb_trading_pair(trading_pair)
         for flat_fee in self.flat_fees:
-            if interchangeable(flat_fee[0], base):
-                fee_amount += (flat_fee[1] * price)
-            elif interchangeable(flat_fee[0], quote):
-                fee_amount += flat_fee[1]
+            if interchangeable(flat_fee.token, base):
+                fee_amount += (flat_fee.amount * price)
+            elif interchangeable(flat_fee.token, quote):
+                fee_amount += flat_fee.amount
             else:
-                conversion_pair = combine_to_hb_trading_pair(base=flat_fee[0], quote=quote)
+                conversion_pair = combine_to_hb_trading_pair(base=flat_fee.token, quote=quote)
                 conversion_rate = self._get_exchange_rate(conversion_pair, exchange)
-                fee_amount = (flat_fee[1] * conversion_rate)
+                fee_amount = (flat_fee.amount * conversion_rate)
         return fee_amount
 
     @abstractmethod
     def get_fee_impact_on_order_cost(
         self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
-    ) -> Optional[Tuple[str, Decimal]]:
+    ) -> Optional[TokenAmount]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
 
@@ -83,7 +92,7 @@ class TradeFeeBase(ABC):
 class AddedToCostTradeFee(TradeFeeBase):
     def get_fee_impact_on_order_cost(
         self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
-    ) -> Optional[Tuple[str, Decimal]]:
+    ) -> Optional[TokenAmount]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
 
@@ -119,7 +128,7 @@ class AddedToCostTradeFee(TradeFeeBase):
 class DeductedFromReturnsTradeFee(TradeFeeBase):
     def get_fee_impact_on_order_cost(
         self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
-    ) -> Optional[Tuple[str, Decimal]]:
+    ) -> Optional[TokenAmount]:
         """
         WARNING: Do not use this method for sizing. Instead, use the `BudgetChecker`.
 
@@ -154,8 +163,8 @@ class TradeFeeSchema:
     maker_percent_fee_decimal: Optional[Decimal] = None
     taker_percent_fee_decimal: Optional[Decimal] = None
     buy_percent_fee_deducted_from_returns: bool = False
-    maker_fixed_fees: List[Tuple[str, Decimal]] = field(default_factory=list)
-    taker_fixed_fees: List[Tuple[str, Decimal]] = field(default_factory=list)
+    maker_fixed_fees: List[TokenAmount] = field(default_factory=list)
+    taker_fixed_fees: List[TokenAmount] = field(default_factory=list)
 
     def __post_init__(self):
         self.validate_schema()
@@ -168,6 +177,10 @@ class TradeFeeSchema:
         if self.taker_percent_fee_decimal is not None:
             self.taker_percent_fee_decimal = Decimal(self.taker_percent_fee_decimal)
         for i in range(len(self.taker_fixed_fees)):
-            self.taker_fixed_fees[i] = (self.taker_fixed_fees[i][0], Decimal(self.taker_fixed_fees[i][1]))
+            self.taker_fixed_fees[i] = TokenAmount(
+                self.taker_fixed_fees[i].token, Decimal(self.taker_fixed_fees[i].amount)
+            )
         for i in range(len(self.maker_fixed_fees)):
-            self.maker_fixed_fees[i] = (self.maker_fixed_fees[i][0], Decimal(self.maker_fixed_fees[i][1]))
+            self.maker_fixed_fees[i] = TokenAmount(
+                self.maker_fixed_fees[i].token, Decimal(self.maker_fixed_fees[i].amount)
+            )

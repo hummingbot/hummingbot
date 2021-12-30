@@ -7,6 +7,7 @@ import json
 import time
 import ssl
 import copy
+
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -26,7 +27,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.terra.terra_in_flight_order import TerraInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
@@ -219,7 +220,7 @@ class TerraConnector(ConnectorBase):
                                        price,
                                        amount,
                                        AddedToCostTradeFee(
-                                           flat_fees=[(tracked_order.fee_asset, tracked_order.fee_paid)]
+                                           flat_fees=[TokenAmount(tracked_order.fee_asset, tracked_order.fee_paid)]
                                        ),
                                        hash
                                    ))

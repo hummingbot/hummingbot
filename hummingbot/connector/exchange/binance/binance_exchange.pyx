@@ -49,7 +49,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -411,8 +411,12 @@ cdef class BinanceExchange(ExchangeBase):
                                                          Decimal(trade["price"]),
                                                          Decimal(trade["qty"]),
                                                          AddedToCostTradeFee(
-                                                             flat_fees=[(trade["commissionAsset"],
-                                                                         Decimal(trade["commission"]))]
+                                                             flat_fees=[
+                                                                 TokenAmount(
+                                                                     trade["commissionAsset"],
+                                                                     Decimal(trade["commission"])
+                                                                 )
+                                                             ]
                                                          ),
                                                          exchange_trade_id=trade["id"]
                                                      ))
@@ -454,8 +458,12 @@ cdef class BinanceExchange(ExchangeBase):
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
                                                      AddedToCostTradeFee(
-                                                         flat_fees=[(trade["commissionAsset"],
-                                                                     Decimal(trade["commission"]))]
+                                                         flat_fees=[
+                                                             TokenAmount(
+                                                                 trade["commissionAsset"],
+                                                                 Decimal(trade["commission"])
+                                                             )
+                                                         ]
                                                      ),
                                                      exchange_trade_id=trade["id"]
                                                  ))
