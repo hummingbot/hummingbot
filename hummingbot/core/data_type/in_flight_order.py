@@ -9,7 +9,7 @@ from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.event.events import OrderType, PositionAction, AddedToCostTradeFee, TradeType
+from hummingbot.core.event.events import AddedToCostTradeFee, OrderType, PositionAction, TradeType
 
 s_decimal_0 = Decimal("0")
 
