@@ -45,7 +45,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -762,7 +762,9 @@ cdef class LiquidExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(content["price"]),
                                              execute_amount_diff,
-                                             AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset, fee_diff)]),
+                                             AddedToCostTradeFee(
+                                                 flat_fees=[TokenAmount(tracked_order.fee_asset, fee_diff)]
+                                             ),
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 

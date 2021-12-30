@@ -31,7 +31,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -585,8 +585,13 @@ cdef class BittrexExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(execution_event["rate"]),
                                              Decimal(execution_event["quantity"]),
-                                             AddedToCostTradeFee(flat_fees=[(tracked_order.fee_asset,
-                                                                             Decimal(execution_event["commission"]))]),
+                                             AddedToCostTradeFee(
+                                                 flat_fees=[
+                                                     TokenAmount(
+                                                         tracked_order.fee_asset, Decimal(execution_event["commission"])
+                                                     )
+                                                 ]
+                                             ),
                                              exchange_trade_id=execution_event["id"]
                                          ))
 

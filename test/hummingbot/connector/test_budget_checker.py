@@ -6,7 +6,7 @@ from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema, TokenAmount
 from hummingbot.core.event.events import OrderType, TradeType
 
 
@@ -143,8 +143,8 @@ class BudgetCheckerTest(unittest.TestCase):
 
     def test_populate_collateral_fields_fixed_fees_in_quote_token(self):
         trade_fee_schema = TradeFeeSchema(
-            maker_fixed_fees=[(self.quote_asset, Decimal("1"))],
-            taker_fixed_fees=[(self.base_asset, Decimal("2"))],
+            maker_fixed_fees=[TokenAmount(self.quote_asset, Decimal("1"))],
+            taker_fixed_fees=[TokenAmount(self.base_asset, Decimal("2"))],
         )
         exchange = MockPaperExchange(trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
@@ -265,7 +265,7 @@ class BudgetCheckerTest(unittest.TestCase):
 
     def test_adjust_candidate_insufficient_funds_for_flat_fees_same_token(self):
         trade_fee_schema = TradeFeeSchema(
-            maker_fixed_fees=[(self.quote_asset, Decimal("1"))],
+            maker_fixed_fees=[TokenAmount(self.quote_asset, Decimal("1"))],
         )
         exchange = MockPaperExchange(trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
@@ -297,7 +297,7 @@ class BudgetCheckerTest(unittest.TestCase):
     def test_adjust_candidate_insufficient_funds_for_flat_fees_third_token(self):
         fee_asset = "FEE"
         trade_fee_schema = TradeFeeSchema(
-            maker_fixed_fees=[(fee_asset, Decimal("11"))],
+            maker_fixed_fees=[TokenAmount(fee_asset, Decimal("11"))],
         )
         exchange = MockPaperExchange(trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
@@ -319,7 +319,7 @@ class BudgetCheckerTest(unittest.TestCase):
     def test_adjust_candidate_insufficient_funds_for_flat_fees_and_percent_fees(self):
         trade_fee_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.1"),
-            maker_fixed_fees=[(self.quote_asset, Decimal("1"))],
+            maker_fixed_fees=[TokenAmount(self.quote_asset, Decimal("1"))],
         )
         exchange = MockPaperExchange(trade_fee_schema)
         budget_checker: BudgetChecker = exchange.budget_checker
@@ -355,7 +355,7 @@ class BudgetCheckerTest(unittest.TestCase):
             percent_fee_token=fc_token,
             maker_percent_fee_decimal=Decimal("0.01"),
             taker_percent_fee_decimal=Decimal("0.01"),
-            maker_fixed_fees=[(fc_token, Decimal("1"))]
+            maker_fixed_fees=[TokenAmount(fc_token, Decimal("1"))]
         )
         exchange = MockPaperExchange(trade_fee_schema)
         pfc_quote_pair = combine_to_hb_trading_pair(self.quote_asset, fc_token)

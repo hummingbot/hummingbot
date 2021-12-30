@@ -2,24 +2,15 @@ import typing
 from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict
 
 from hummingbot.connector.utils import split_hb_trading_pair, combine_to_hb_trading_pair
+from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount
 from hummingbot.core.event.events import OrderType, TradeType, PositionAction
 from hummingbot.core.utils.estimate_fee import build_trade_fee, build_perpetual_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
-    from hummingbot.core.data_type.trade_fee import TradeFeeBase
-
-
-@dataclass
-class TokenAmount:
-    token: str
-    amount: Decimal
-
-    def __iter__(self):
-        return iter((self.token, self.amount))
 
 
 @dataclass
@@ -63,7 +54,7 @@ class OrderCandidate:
     def is_zero_order(self) -> bool:
         return self.amount == Decimal("0")
 
-    def get_size_token_and_order_size(self) -> Tuple[str, Decimal]:
+    def get_size_token_and_order_size(self) -> TokenAmount:
         trading_pair = self.trading_pair
         base, quote = split_hb_trading_pair(trading_pair)
         if self.order_side == TradeType.BUY:
@@ -72,7 +63,7 @@ class OrderCandidate:
         else:
             order_size = self.amount
             size_token = base
-        return size_token, order_size
+        return TokenAmount(size_token, order_size)
 
     def set_to_zero(self):
         self._scale_order(scaler=Decimal("0"))
@@ -115,19 +106,19 @@ class OrderCandidate:
         oc_amount = order_size * size_collateral_price
         return oc_amount
 
-    def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: 'TradeFeeBase'):
+    def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         impact = fee.get_fee_impact_on_order_cost(self, exchange)
         if impact is not None:
             token, amount = impact
             self.percent_fee_collateral = TokenAmount(token, amount)
 
-    def _populate_fixed_fee_collateral_entries(self, fee: 'TradeFeeBase'):
+    def _populate_fixed_fee_collateral_entries(self, fee: TradeFeeBase):
         self.fixed_fee_collaterals = []
         for token, amount in fee.flat_fees:
             self.fixed_fee_collaterals.append(
                 TokenAmount(token, amount))
 
-    def _populate_potential_returns_entry(self, exchange: 'ExchangeBase', fee: 'TradeFeeBase'):
+    def _populate_potential_returns_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         r_token = self._get_returns_token(exchange)
         if r_token is not None:
             r_amount = self._get_returns_amount(exchange)
@@ -208,7 +199,7 @@ class OrderCandidate:
             if self.is_zero_order:
                 break
 
-    def _get_order_and_pf_collateral_amounts_for_ff_adjustment(self) -> Tuple[Decimal, Decimal]:
+    def _get_order_and_pf_collateral_amounts_for_ff_adjustment(self) -> TokenAmount:
         if self.order_collateral is not None:
             oc_token, oc_amount = self.order_collateral
         else:
@@ -221,9 +212,9 @@ class OrderCandidate:
                 pfc_amount = Decimal("0")
         else:
             pfc_amount = Decimal("0")
-        return oc_amount, pfc_amount
+        return TokenAmount(oc_amount, pfc_amount)
 
-    def _get_fee(self, exchange: 'ExchangeBase') -> 'TradeFeeBase':
+    def _get_fee(self, exchange: 'ExchangeBase') -> TradeFeeBase:
         trading_pair = self.trading_pair
         price = self.price
         base, quote = split_hb_trading_pair(trading_pair)
@@ -277,7 +268,7 @@ class PerpetualOrderCandidate(OrderCandidate):
             oc_amount = self._get_collateral_amount(exchange)
         return oc_amount
 
-    def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: 'TradeFeeBase'):
+    def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         if not self.position_close:
             leverage = self.leverage
             super()._populate_percent_fee_collateral_entry(exchange, fee)
@@ -326,7 +317,7 @@ class PerpetualOrderCandidate(OrderCandidate):
             else TradeType.SELL
         )
 
-    def _get_fee(self, exchange: 'ExchangeBase') -> 'TradeFeeBase':
+    def _get_fee(self, exchange: 'ExchangeBase') -> TradeFeeBase:
         base, quote = split_hb_trading_pair(self.trading_pair)
         position_action = PositionAction.CLOSE if self.position_close else PositionAction.OPEN
         fee = build_perpetual_trade_fee(

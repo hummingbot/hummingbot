@@ -47,7 +47,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -713,7 +713,7 @@ class HitbtcExchange(ExchangeBase):
                 Decimal(str(trade_msg.get("tradePrice", "0"))),
                 Decimal(str(trade_msg.get("tradeQuantity", "0"))),
                 AddedToCostTradeFee(
-                    flat_fees=[(tracked_order.quote_asset, Decimal(str(trade_msg.get("tradeFee", "0"))))]
+                    flat_fees=[TokenAmount(tracked_order.quote_asset, Decimal(str(trade_msg.get("tradeFee", "0"))))]
                 ),
                 exchange_trade_id=trade_msg["id"]
             )

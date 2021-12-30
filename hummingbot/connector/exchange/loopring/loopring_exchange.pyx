@@ -44,7 +44,7 @@ from hummingbot.core.event.events import (
     TradeType,
     OrderType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -619,7 +619,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                       new_price,
                                                       new_amount,
                                                       AddedToCostTradeFee(
-                                                          flat_fees=[(tracked_order.fee_asset, new_fee)]
+                                                          flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]
                                                       ),
                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderExpired:
