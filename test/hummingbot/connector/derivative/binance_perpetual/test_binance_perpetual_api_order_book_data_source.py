@@ -141,15 +141,13 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         mock_api.get(regex_url, status=400, body=ujson.dumps({"ERROR"}))
 
-        result: Dict[str, Any] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(domain=self.domain)
+        self.async_run_with_timeout(
+            self.data_source.init_trading_pair_symbols(domain=self.domain)
         )
-        self.assertEqual(0, len(result))
+        self.assertEqual(0, len(self.data_source._trading_pair_symbol_map))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
-    def test_fetch_trading_pairs_successful(self, mock_api, mock_utils):
-        mock_utils.return_value = self.trading_pair
+    def test_fetch_trading_pairs_successful(self, mock_api):
         url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: Dict[str, Any] = {
@@ -169,10 +167,10 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             ],
         }
         mock_api.get(regex_url, status=200, body=ujson.dumps(mock_response))
-        result: Dict[str, Any] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(domain=self.domain)
+        self.async_run_with_timeout(
+            self.data_source.init_trading_pair_symbols(domain=self.domain)
         )
-        self.assertEqual(1, len(result))
+        self.assertEqual(1, len(self.data_source._trading_pair_symbol_map))
 
     @aioresponses()
     def test_get_snapshot_exception_raised(self, mock_api):
@@ -257,10 +255,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(msg_queue.qsize(), 0)
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception(self, mock_ws, mock_utils, *_):
-        mock_utils.return_value = self.trading_pair
+    def test_listen_for_subscriptions_logs_exception(self, mock_ws, *_):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
@@ -287,9 +283,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
-    def test_listen_for_subscriptions_successful(self, mock_utils, mock_ws):
-        mock_utils.return_value = self.trading_pair
+    def test_listen_for_subscriptions_successful(self, mock_ws):
         msg_queue_diffs: asyncio.Queue = asyncio.Queue()
         msg_queue_trades: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()

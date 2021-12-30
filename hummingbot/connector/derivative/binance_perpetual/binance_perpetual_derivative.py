@@ -15,6 +15,9 @@ from urllib.parse import urlencode
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
+    BinancePerpetualAPIOrderBookDataSource
+)
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
     BinancePerpetualOrderBookTracker
 )
@@ -284,7 +287,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         order_result = None
         api_params = {
-            "symbol": utils.convert_to_exchange_trading_pair(trading_pair),
+            "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair),
             "side": "BUY" if trade_type is TradeType.BUY else "SELL",
             "type": "LIMIT" if order_type is OrderType.LIMIT else "MARKET",
             "quantity": f"{amount}",
@@ -437,7 +440,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             params = {
                 "origClientOrderId": client_order_id,
-                "symbol": utils.convert_to_exchange_trading_pair(trading_pair)
+                "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)
             }
             response = await self.request(
                 path=CONSTANTS.ORDER_URL,
@@ -664,7 +667,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         for rule in rules:
             try:
                 if rule["contractType"] == "PERPETUAL":
-                    trading_pair = utils.convert_from_exchange_trading_pair(rule["symbol"])
+                    trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(rule["symbol"])
                     filters = rule["filters"]
                     filt_dict = {fil["filterType"]: fil for fil in filters}
 
@@ -718,7 +721,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 payload = {
                     "method": "SUBSCRIBE",
                     "params": [
-                        f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
+                        f"{BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
                         for trading_pair in self._trading_pairs
                     ]
                 }
@@ -727,7 +730,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 async for msg in ws.iter_messages():
                     if "result" in msg.data:
                         continue
-                    trading_pair = utils.convert_from_exchange_trading_pair(msg.data["data"]["s"])
+                    trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(msg.data["data"]["s"])
                     self._funding_info[trading_pair] = FundingInfo(
                         trading_pair,
                         Decimal(str(msg.data["data"]["i"])),
@@ -829,7 +832,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             pos_key = self.position_key(trading_pair, position_side)
             if amount != 0:
                 self._account_positions[pos_key] = Position(
-                    trading_pair=utils.convert_from_exchange_trading_pair(trading_pair),
+                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(trading_pair),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
@@ -851,7 +854,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             tasks = [
                 self.request(
                     path=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                    params={"symbol": utils.convert_to_exchange_trading_pair(trading_pair)},
+                    params={"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)},
                     is_signed=True,
                     add_timestamp=True,
                 )
@@ -894,7 +897,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.request(
                     path=CONSTANTS.ORDER_URL,
                     params={
-                        "symbol": utils.convert_to_exchange_trading_pair(order.trading_pair),
+                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(order.trading_pair),
                         "origClientOrderId": order.client_order_id
                     },
                     method=RESTMethod.GET,
@@ -931,7 +934,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     continue
 
                 new_order_update: OrderUpdate = OrderUpdate(
-                    trading_pair=utils.convert_from_exchange_trading_pair(order_update["symbol"]),
+                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(order_update["symbol"]),
                     update_timestamp=order_update["updateTime"],
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
@@ -943,7 +946,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self._client_order_tracker.process_order_update(new_order_update)
 
     async def _set_leverage(self, trading_pair: str, leverage: int = 1):
-        params = {"symbol": utils.convert_to_exchange_trading_pair(trading_pair), "leverage": leverage}
+        params = {"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair), "leverage": leverage}
         set_leverage = await self.request(
             path=CONSTANTS.SET_LEVERAGE_URL, params=params, method=RESTMethod.POST, add_timestamp=True, is_signed=True
         )
@@ -964,7 +967,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.request(
                     path=CONSTANTS.GET_INCOME_HISTORY_URL,
                     params={
-                        "symbol": utils.convert_to_exchange_trading_pair(pair),
+                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(pair),
                         "incomeType": "FUNDING_FEE",
                         "startTime": int(startTime * 1000),
                     },
@@ -978,7 +981,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             for funding_payment in funding_payments:
                 payment = Decimal(funding_payment["income"])
                 action = "paid" if payment < 0 else "received"
-                trading_pair = utils.convert_from_exchange_trading_pair(funding_payment["symbol"])
+                trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
                 if payment != Decimal("0"):
                     self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
                     self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
