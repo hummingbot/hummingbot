@@ -26,13 +26,13 @@ class TradeFeeBase(ABC):
     """
     Contains the necessary information to apply the trade fee to a particular order.
     """
-    percent: Optional[Decimal] = None
+    percent: Decimal = Decimal("0")
     percent_token: Optional[str] = None  # only set when fee charged in third token (the Binance BNB case)
     flat_fees: List[TokenAmount] = field(default_factory=list)  # list of (asset, amount) tuples
 
     def to_json(self) -> Dict[str, any]:
         return {
-            "percent": None if self.percent is None else float(self.percent),
+            "percent": float(self.percent),
             "percent_token": self.percent_token,
             "flat_fees": [{"asset": asset, "amount": float(amount)}
                           for asset, amount in self.flat_fees]
