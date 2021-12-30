@@ -1,12 +1,8 @@
 #!/usr/bin/env python
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import (
-    List,
-    Dict,
-    NamedTuple,
-    Optional)
-from dataclasses import dataclass
+from typing import Dict, List, NamedTuple, Optional
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase

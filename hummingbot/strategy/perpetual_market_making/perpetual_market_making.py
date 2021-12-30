@@ -1,25 +1,18 @@
 import logging
 import time
-
 from decimal import Decimal
-from math import (
-    floor,
-    ceil
-)
-from typing import (
-    Dict,
-    List,
-)
+from itertools import chain
+from math import ceil, floor
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-from itertools import chain
 
-from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     OrderFilledEvent,
@@ -28,19 +21,18 @@ from hummingbot.core.event.events import (
     PositionMode,
     PriceType,
     SellOrderCompletedEvent,
-    TradeType,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
-from hummingbot.strategy.perpetual_market_making.data_types import (
-    PriceSize,
-    Proposal,
+from hummingbot.strategy.perpetual_market_making.data_types import PriceSize, Proposal
+from hummingbot.strategy.perpetual_market_making.perpetual_market_making_order_tracker import (
+    PerpetualMarketMakingOrderTracker
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from .perpetual_market_making_order_tracker import PerpetualMarketMakingOrderTracker
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
