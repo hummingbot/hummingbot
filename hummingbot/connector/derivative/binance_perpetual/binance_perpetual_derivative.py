@@ -1,51 +1,55 @@
-import aiohttp
 import asyncio
 import hashlib
 import hmac
 import logging
 import time
-import ujson
-import websockets
-
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
-
-from async_timeout import timeout
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
+from typing import Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import urlencode
-from typing import Optional, List, Dict, Any, AsyncIterable
-from websockets.exceptions import ConnectionClosed
 
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
+import aiohttp
+from async_timeout import timeout
+
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import (
+    BinancePerpetualsInFlightOrder
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
+    BinancePerpetualOrderBookTracker
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
+    BinancePerpetualUserStreamTracker
+)
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.exchange.binance.binance_time import BinanceTime
-from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
-    FundingInfo,
-    OrderType,
-    TradeType,
-    MarketOrderFailureEvent,
-    MarketEvent,
-    OrderCancelledEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    FundingInfo,
     FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent,
-    PositionSide,
-    PositionMode,
+    OrderType,
     PositionAction,
+    PositionMode,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -80,6 +84,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    HEARTBEAT_TIME_INTERVAL = 30.0
+    ONE_HOUR_INTERVAL = 3600.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -122,6 +128,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._funding_fee_polling_task = None
         self._last_poll_timestamp = 0
         self._funding_payment_span = [0, 30]
+        self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
     def name(self) -> str:
@@ -148,11 +155,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "funding_info": len(self._funding_info) > 0,
             "position_mode": self.position_mode,
+            "user_stream_initializied": self._user_stream_tracker.data_source.last_recv_time > 0
         }
 
     @property
     def limit_orders(self):
         return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
@@ -469,26 +481,35 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     exc_info=True,
                     app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
                 )
-                await asyncio.sleep(1.0)
+                await self._sleep(1.0)
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                event_type = event_message.get("e")
-                if event_type == "ORDER_TRADE_UPDATE":
-                    order_message = event_message.get("o")
-                    client_order_id = order_message.get("c")
+                await self._process_user_stream_event(event_message)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
+                await self._sleep(5.0)
 
-                    # If the order has already been cancelled
-                    if client_order_id not in self._in_flight_orders:
-                        continue
+    async def _process_user_stream_event(self, event_message: Dict[str, Any]):
+        event_type = event_message.get("e")
+        if event_type == "ORDER_TRADE_UPDATE":
+            order_message = event_message.get("o")
+            client_order_id = order_message.get("c")
 
-                    tracked_order = self._in_flight_orders.get(client_order_id)
-                    tracked_order.update_with_execution_report(event_message)
-
+            # If the order has not already been cancelled
+            if client_order_id in self._in_flight_orders:
+                tracked_order = self._in_flight_orders.get(client_order_id)
+                updated = tracked_order.update_with_execution_report(event_message)
+                if updated:
                     # Execution Type: Trade => Filled
                     trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
                     if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
+                        flat_fees = ([(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
+                                     if tracked_order.fee_asset
+                                     else [])
                         order_filled_event = OrderFilledEvent(
                             timestamp=event_message.get("E") * 1e-3,
                             order_id=client_order_id,
@@ -498,14 +519,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
                             leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
-                            trade_fee=self.get_fee(
-                                base_currency=tracked_order.base_asset,
-                                quote_currency=tracked_order.quote_asset,
-                                order_type=tracked_order.order_type,
-                                order_side=trade_type,
-                                amount=Decimal(order_message.get("q")),
-                                price=Decimal(order_message.get("p"))
-                            ),
+                            trade_fee=TradeFee(0.0, flat_fees),
                             exchange_trade_id=order_message.get("t"),
                             position=tracked_order.position
                         )
@@ -521,8 +535,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             else:
                                 event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
                                 event_class = SellOrderCompletedEvent
-                            self.logger().info(f"The {tracked_order.order_type.name.lower()} {trade_type} order {client_order_id} has completed "
-                                               f"according to websocket delta.")
+                            self.logger().info(
+                                f"The {tracked_order.order_type.name.lower()} {trade_type} order {client_order_id} has completed "
+                                f"according to websocket delta.")
                             self.trigger_event(event_tag,
                                                event_class(self.current_timestamp,
                                                            client_order_id,
@@ -536,66 +551,63 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         else:
                             if tracked_order.is_cancelled:
                                 if tracked_order.client_order_id in self._in_flight_orders:
-                                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id} according to websocket delta.")
+                                    self.logger().info(
+                                        f"Successfully cancelled order {tracked_order.client_order_id} according to websocket delta.")
                                     self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                                        OrderCancelledEvent(self.current_timestamp,
                                                                            tracked_order.client_order_id))
                                 else:
-                                    self.logger().info(f"The {tracked_order.order_type.name.lower()} order {tracked_order.client_order_id} has failed "
-                                                       f"according to websocket delta.")
+                                    self.logger().info(
+                                        f"The {tracked_order.order_type.name.lower()} order {tracked_order.client_order_id} has failed "
+                                        f"according to websocket delta.")
                                     self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                                        MarketOrderFailureEvent(self.current_timestamp,
                                                                                tracked_order.client_order_id,
                                                                                tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
-                elif event_type == "ACCOUNT_UPDATE":
-                    update_data = event_message.get("a", {})
-                    # update balances
-                    for asset in update_data.get("B", []):
-                        asset_name = asset["a"]
-                        self._account_balances[asset_name] = Decimal(asset["wb"])
-                        self._account_available_balances[asset_name] = Decimal(asset["cw"])
+        elif event_type == "ACCOUNT_UPDATE":
+            update_data = event_message.get("a", {})
+            # update balances
+            for asset in update_data.get("B", []):
+                asset_name = asset["a"]
+                self._account_balances[asset_name] = Decimal(asset["wb"])
+                self._account_available_balances[asset_name] = Decimal(asset["cw"])
 
-                    # update position
-                    for asset in update_data.get("P", []):
-                        trading_pair = asset["s"]
-                        side = PositionSide[asset['ps']]
-                        position = self.get_position(trading_pair, side)
-                        if position is not None:
-                            amount = Decimal(asset["pa"])
-                            if amount == Decimal("0"):
-                                pos_key = self.position_key(trading_pair, side)
-                                del self._account_positions[pos_key]
-                            else:
-                                position.update_position(position_side=PositionSide[asset["ps"]],
-                                                         unrealized_pnl = Decimal(asset["up"]),
-                                                         entry_price = Decimal(asset["ep"]),
-                                                         amount = Decimal(asset["pa"]))
-                        else:
-                            await self._update_positions()
-                elif event_type == "MARGIN_CALL":
-                    positions = event_message.get("p", [])
-                    total_maint_margin_required = 0
-                    # total_pnl = 0
-                    negative_pnls_msg = ""
-                    for position in positions:
-                        existing_position = self.get_position(asset['s'], PositionSide[asset['ps']])
-                        if existing_position is not None:
-                            existing_position.update_position(position_side=PositionSide[asset["ps"]],
-                                                              unrealized_pnl=Decimal(asset["up"]),
-                                                              amount=Decimal(asset["pa"]))
-                        total_maint_margin_required += position.get("mm", 0)
-                        if position.get("up", 0) < 1:
-                            negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
-                    self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
-                                          "liquidation. Close your positions or add additional margin to your wallet.")
-                    self.logger().info(f"Margin Required: {total_maint_margin_required}. Total Unrealized PnL: "
-                                       f"{negative_pnls_msg}. Negative PnL assets: {negative_pnls_msg}.")
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
-                await asyncio.sleep(5.0)
+            # update position
+            for asset in update_data.get("P", []):
+                trading_pair = asset["s"]
+                side = PositionSide[asset['ps']]
+                position = self.get_position(trading_pair, side)
+                if position is not None:
+                    amount = Decimal(asset["pa"])
+                    if amount == Decimal("0"):
+                        pos_key = self.position_key(trading_pair, side)
+                        del self._account_positions[pos_key]
+                    else:
+                        position.update_position(position_side=PositionSide[asset["ps"]],
+                                                 unrealized_pnl=Decimal(asset["up"]),
+                                                 entry_price=Decimal(asset["ep"]),
+                                                 amount=Decimal(asset["pa"]))
+                else:
+                    await self._update_positions()
+        elif event_type == "MARGIN_CALL":
+            positions = event_message.get("p", [])
+            total_maint_margin_required = Decimal(0)
+            # total_pnl = 0
+            negative_pnls_msg = ""
+            for position in positions:
+                existing_position = self.get_position(position['s'], PositionSide[position['ps']])
+                if existing_position is not None:
+                    existing_position.update_position(position_side=PositionSide[position["ps"]],
+                                                      unrealized_pnl=Decimal(position["up"]),
+                                                      amount=Decimal(position["pa"]))
+                total_maint_margin_required += Decimal(position.get("mm", "0"))
+                if float(position.get("up", 0)) < 1:
+                    negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
+            self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
+                                  "liquidation. Close your positions or add additional margin to your wallet.")
+            self.logger().info(f"Margin Required: {total_maint_margin_required}. "
+                               f"Negative PnL assets: {negative_pnls_msg}.")
 
     def tick(self, timestamp: float):
         """
@@ -649,13 +661,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
                     tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
                     min_notional = Decimal(filt_dict.get("MIN_NOTIONAL").get("notional"))
+                    collateral_token = rule["marginAsset"]
 
                     return_val.append(
                         TradingRule(trading_pair,
                                     min_order_size=min_order_size,
                                     min_price_increment=Decimal(tick_size),
                                     min_base_amount_increment=Decimal(step_size),
-                                    min_notional_size=Decimal(min_notional)
+                                    min_notional_size=Decimal(min_notional),
+                                    buy_order_collateral_token=collateral_token,
+                                    sell_order_collateral_token=collateral_token,
                                     )
                     )
             except Exception as e:
@@ -669,45 +684,49 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 await safe_gather(
                     self._update_trading_rules()
                 )
-                await asyncio.sleep(3600)
+                await self._sleep(3600)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network("Unexpected error while fetching trading rules.", exc_info=True,
                                       app_warning_msg="Could not fetch new trading rules from Binance Perpetuals. "
                                                       "Check network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
 
     async def _funding_info_polling_loop(self):
         while True:
             try:
-                ws_subscription_path: str = "/".join([f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
-                                                      for trading_pair in self._trading_pairs])
-                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain) + f"?streams={ws_subscription_path}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)
+
+                async with aiohttp.ClientSession().ws_connect(url=stream_url,
+                                                              heartbeat=self.HEARTBEAT_TIME_INTERVAL) as ws:
+                    payload = {
+                        "method": "SUBSCRIBE",
+                        "params": [
+                            f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
+                            for trading_pair in self._trading_pairs
+                        ]
+                    }
+                    await ws.send_json(payload)
                     while True:
-                        try:
-                            raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=10.0)
-                            msg = ujson.loads(raw_msg)
-                            trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
-                            self._funding_info[trading_pair] = FundingInfo(
-                                trading_pair,
-                                Decimal(str(msg["data"]["i"])),
-                                Decimal(str(msg["data"]["p"])),
-                                int(msg["data"]["T"]),
-                                Decimal(str(msg["data"]["r"]))
-                            )
-                        except asyncio.TimeoutError:
-                            await ws.pong(data=b'')
-                        except ConnectionClosed:
-                            raise
+                        msg: Dict[str, Any] = await ws.receive_json()
+                        if "result" in msg:
+                            continue
+                        trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
+                        self._funding_info[trading_pair] = FundingInfo(
+                            trading_pair,
+                            Decimal(str(msg["data"]["i"])),
+                            Decimal(str(msg["data"]["p"])),
+                            int(msg["data"]["T"]),
+                            Decimal(str(msg["data"]["r"]))
+                        )
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error updating funding info. Retrying after 10 seconds... ",
                                     exc_info=True)
-                await asyncio.sleep(10.0)
+                await self._sleep(10.0)
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
@@ -733,9 +752,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 except Exception:
                     self.logger().error("Unexpected error whilst retrieving funding payments. Retrying after 10 seconds... ",
                                         exc_info=True)
-                    await asyncio.sleep(10.0)
+                    await self._sleep(10.0)
+                    continue
 
-            await asyncio.sleep(10)
+            await self._sleep(self.ONE_HOUR_INTERVAL)
 
     async def _status_polling_loop(self):
         while True:
@@ -754,7 +774,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Binance Perpetuals. "
                                                       "Check API key and network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
             finally:
                 self._poll_notifier = asyncio.Event()
 
@@ -1035,6 +1055,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     def supported_position_modes(self):
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
+
     async def request(self,
                       path: str,
                       params: Dict[str, Any] = {},
@@ -1068,7 +1096,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             return error_response
                         else:
                             raise IOError(f"Error executing request {method.name} {path}. HTTP status is {response.status}. "
-                                          f"Request Error: {error_response}")
+                                          f"Error: {response}")
                     return await response.json()
             except Exception as e:
                 if "Timestamp for this request" in str(e):
@@ -1081,3 +1109,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.logger().error(f"Error fetching {path}", exc_info=True)
                     self.logger().warning(f"{e}")
                 raise e
+
+    async def _sleep(self, delay: float):
+        await asyncio.sleep(delay)

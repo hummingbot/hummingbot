@@ -16,7 +16,7 @@ EXAMPLE_PAIR = "ETH-USDT"
 
 DEFAULT_FEES = [0.25, 0.25]
 
-HBOT_BROKER_ID = "HBOT-"
+HBOT_BROKER_ID = "hummingbot-"
 
 
 # deeply merge two dictionaries

@@ -22,10 +22,6 @@ The CLI is divided into five panes:
 
      - Reference of Version Release (Currently at 0.39)
 
-   - **paper_trade_mode:**
-
-     - A Hummingbot feature that allows users to simulate trading strategies without risking any assets. Learn more about [Paper Trade Mode](/operation/paper-trade/)
-
    - **Strategy:**
      - Hummingbot has 9 strategy configurations that can be used for trading or liquidity mining. Hummingbot strategy guide can be found [here](/strategies/).
    - **Strategy_file:**
@@ -33,7 +29,7 @@ The CLI is divided into five panes:
 
 ![Top Navigation](/assets/img/top-nav.gif)
 
-5. **Bottom navigation bar**: Displays the information of the following items
+1. **Bottom navigation bar**: Displays the information of the following items
 
    - Trades
      - Number of trades done by the bot
@@ -54,7 +50,52 @@ The CLI is divided into five panes:
 
 ![Bottom Navigation](/assets/img/bottom-nav.gif)
 
-# Keyboard shortcuts
+
+## Show and hide log pane
+
+The log pane on the right can be shown or hidden in two ways:
+
+1. Click the `log pane` button in the upper right hand corner
+2. Press `CTRL + T` shortcut on your keyboard
+
+![Hide Log Pane](/assets/img/hide-log-pane.gif)
+
+## Tabs
+
+Users can now open another tab in the left pane of Hummingbot where the log pane is supposed to be upon entering a command associated with the Tabs feature. Users can now switch between the `log pane` and the new tab they have opened simulateneously.
+
+
+!!! note
+    Currently, the feature only works with the `order_book` parameter.
+
+## Opening and Closing
+
+### Opening a tab
+
+Use the tabs by simply inputting a command associated with the tabs feature.
+
+Upon using the `order_book` command and any suffix it will open a tab automatically.
+
+![opening tabs](/assets/img/tab-opening.png)
+
+![showing tab](/assets/img/leftpane.png)
+
+### Closing a tab
+
+Simply click on the `x` at the top right corner or inputting `parameter_name --close`
+
+One option to close the tab is by clicking on the `x` next to `order_book`
+
+![closing tabs](/assets/img/closing-of-tabs.png)
+
+Alternatively, you can remove the new tab by inputting the `order_book --close` command to close the tab
+
+![alternative closing tabs](/assets/img/name-of-parameter.png)
+
+![closed tabs](/assets/img/closed-tabs.png)
+
+
+## Keyboard shortcuts
 
 | Keyboard Combo    | Command                    | Description                                  |
 | ----------------- | -------------------------- | -------------------------------------------- |
@@ -66,6 +107,8 @@ The CLI is divided into five panes:
 | `CTRL + Z`        | Undo                       | \* Undo action                               |
 | `Single CTRL + C` | Copy                       | \* Copy text                                 |
 | `CTRL + V`        | Paste                      | \* Paste text                                |
+| `CTRL + R`        | Reset Style                | Set default color style                            |
+| `CTRL + T`        | Toggle logs                | Hide / show the logs pane                    |
 
 _\* Used for text edit in input pane only._
 

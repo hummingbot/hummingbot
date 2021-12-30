@@ -16,4 +16,4 @@ class BitmartUtilsTests(TestCase):
     @patch('hummingbot.connector.exchange.bitmart.bitmart_utils.get_tracking_nonce')
     def test_client_order_id_creation(self, nonce_provider_mock):
         nonce_provider_mock.return_value = 1000
-        self.assertEqual("HBOT-B-BTC-USDT-1000", utils.get_new_client_order_id(True, "BTC-USDT"))
+        self.assertEqual("hummingbot-B-BTC-USDT-1000", utils.get_new_client_order_id(True, "BTC-USDT"))

@@ -21,7 +21,6 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
@@ -240,9 +239,6 @@ cdef class LoopringExchange(ExchangeBase):
             if loopring_flight_order.order_type is OrderType.LIMIT:
                 retval.append(loopring_flight_order.to_limit_order())
         return retval
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await LoopringAPIOrderBookDataSource.get_active_exchange_markets()
 
     # ----------------------------------------
     # Account Balances

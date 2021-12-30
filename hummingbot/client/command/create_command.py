@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import os
 import shutil
 
@@ -19,7 +20,8 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_validators import validate_strategy
 from hummingbot.client.ui.completer import load_completer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -47,10 +49,11 @@ class CreateCommand:
                                     validator=validate_strategy)
         await self.prompt_a_config(strategy_config)
         if self.app.to_stop_config:
-            self.app.to_stop_config = False
+            self.stop_config()
             return
         strategy = strategy_config.value
         config_map = get_strategy_config_map(strategy)
+        config_map_backup = copy.deepcopy(config_map)
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
                      f"while setting up these below configuration.")
         # assign default values and reset those not required
@@ -64,14 +67,12 @@ class CreateCommand:
                 if not self.app.to_stop_config:
                     await self.prompt_a_config(config)
                 else:
-                    self.app.to_stop_config = False
-                    return
+                    break
             else:
                 config.value = config.default
 
-        # catch a last key binding to stop config, if any
         if self.app.to_stop_config:
-            self.app.to_stop_config = False
+            self.stop_config(config_map, config_map_backup)
             return
 
         if file_name is None:
@@ -80,7 +81,7 @@ class CreateCommand:
             save_previous_strategy_value(file_name)
 
             if self.app.to_stop_config:
-                self.app.to_stop_config = False
+                self.stop_config(config_map, config_map_backup)
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
@@ -152,3 +153,17 @@ class CreateCommand:
         Security.update_config_map(global_config_map)
         if self.strategy_config_map is not None:
             Security.update_config_map(self.strategy_config_map)
+
+    def stop_config(
+        self,
+        config_map: Optional[Dict[str, ConfigVar]] = None,
+        config_map_backup: Optional[Dict[str, ConfigVar]] = None,
+    ):
+        if config_map is not None and config_map_backup is not None:
+            self.restore_config(config_map, config_map_backup)
+        self.app.to_stop_config = False
+
+    @staticmethod
+    def restore_config(config_map: Dict[str, ConfigVar], config_map_backup: Dict[str, ConfigVar]):
+        for key in config_map:
+            config_map[key] = config_map_backup[key]

@@ -1,20 +1,12 @@
-#!/usr/bin/env python
-
 import logging
 
-from sqlalchemy.engine import RowProxy
-from typing import (
-    Optional,
-    Dict,
-    List, Any)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
-)
+from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.logger import HummingbotLogger
 
 _logger = None
 
@@ -38,28 +30,14 @@ class GateIoOrderBook(OrderBook):
         :param timestamp: timestamp attached to incoming data
         :return: GateIoOrderBookMessage
         """
-
-        if metadata:
-            msg.update(metadata)
+        extra_data = metadata or {}
+        extra_data["update_id"] = msg["id"]
+        msg.update(extra_data)
 
         return GateIoOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of snapshot data into standard OrderBookMessage format
-        :param record: a row of snapshot data from the database
-        :return: GateIoOrderBookMessage
-        """
-        return GateIoOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod
@@ -74,27 +52,14 @@ class GateIoOrderBook(OrderBook):
         :return: GateIoOrderBookMessage
         """
 
-        if metadata:
-            msg.update(metadata)
+        extra_data = metadata or {}
+        extra_data["update_id"] = msg["u"]
+        msg.update(extra_data)
 
         return GateIoOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of diff data into standard OrderBookMessage format
-        :param record: a row of diff data from the database
-        :return: GateIoOrderBookMessage
-        """
-        return GateIoOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod
@@ -122,20 +87,6 @@ class GateIoOrderBook(OrderBook):
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of trade data into standard OrderBookMessage format
-        :param record: a row of trade data from the database
-        :return: GateIoOrderBookMessage
-        """
-        return GateIoOrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod

@@ -1,35 +1,34 @@
-# Balancer
+---
+tags:
+- amm exchange connector
+- ethereum dex
+---
 
-Balancer is an automated portfolio manager, liquidity provider, and price sensor. In other words, a decentralized finance protocol based on Ethereum allows automatic market-making.
-
-!!! warning
-    Currently, [Balancer](/connectors/balancer) could not be used on Binary Installers since it would need a [gateway](/installation/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker
-
-## Prerequisites
-
-- Ethereum wallet (refer to our guide [here](/operation/connect-exchange/#setup-ethereum-wallet))
-- Ethereum node (refer to our guide [here](/operation/connect-exchange/#setup-ethereum-nodes))
-- Hummingbot Gateway (done after connecting to Balancer)
-- Some ETH in wallet for gas
-- Inventory on both base and quote assets for the connectors
-
-## Connecting to Balancer
-
-When creating Hummingbot Gateway, it picks up the Ethereum settings in the global config file, which we can set up in the Hummingbot client.
-
-1. Run the command `connect ethereum` in the Hummingbot client
-2. Enter your wallet private key
-3. Enter Ethereum node address (starts with https://)
-4. Enter the WebSocket connection address of your Ethereum node (starts with wss://)
-
-![](/assets/img/connect-ethereum.gif)
-
-## Install Hummingbot Gateway
-
-After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
-
-- [Hummingbot Gateway Installation](/installation/gateway/)
+# `balancer`
 
 !!! note
-    For setting up gas estimator, you can check our [ETH Gas Station](/installation/gateway/#eth-gas-station) for more info
+    This connector is currently being refactored as part of the [Gateway V2 redesign](/developers/gateway). The current V1 version is working, but may have usability issues that will be addressed in the redesign.
 
+## 📁 Folders
+
+* [Hummingbot - Connector](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/connector/balancer)
+* [Gateway - Routes](https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/balancer.route.ts)
+* [Gateway - Service](https://github.com/CoinAlpha/gateway-api/blob/master/src/services/balancer.js)
+
+## ℹ️ Exchange Info
+
+**Uniswap** 
+[Website](https://balancer.fi/) | [CoinMarketCap](https://coinmarketcap.com/currencies/balancer/) | [CoinGecko](https://www.coingecko.com/en/coins/balancer)
+
+* API docs: https://docs.balancer.fi/v/v1/
+
+## 👷 Maintenance
+
+* Release added: [0.33.0](/release-notes/0.33.0/) by CoinAlpha
+* Maintainer: CoinAlpha
+
+## 🔑 Connection
+
+First, follow the instructions to install and run [Hummingbot Gateway](/protocols/gateway/).
+
+Since this exchange is an Ethereum-based decentralized exchange (DEX), run `connect ethereum` in order to connect your Ethereum wallet. See [Ethereum](/protocols/ethereum) for more information.

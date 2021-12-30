@@ -40,7 +40,7 @@ Orders:
 ```
 
 You will notice that when we use `start` it will show on the logs that orders are cancelled.
-![](/assets/img/exit-suspend.gif)
+![](/assets/img/exitsuspend1.gif)
 
 !!! note
     Running `start --restore` on a different configuration file wont work, You should always use the same config file where the `exit --suspend` is executed.
