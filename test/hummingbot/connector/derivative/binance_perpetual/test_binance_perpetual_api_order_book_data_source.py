@@ -245,13 +245,13 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_order_book_diffs_cancelled_when_connecting(self, _, mock_ws):
+    def test_listen_for_subscriptions_cancelled_when_connecting(self, _, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+                self.data_source.listen_for_subscriptions()
             )
             self.async_run_with_timeout(self.listening_task)
         self.assertEqual(msg_queue.qsize(), 0)
@@ -259,7 +259,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, mock_utils, *_):
+    def test_listen_for_subscriptions_logs_exception(self, mock_ws, mock_utils, *_):
         mock_utils.return_value = self.trading_pair
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -274,7 +274,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                                              ujson.dumps(self._orderbook_update_event()))
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+            self.data_source.listen_for_subscriptions()
         )
 
         try:
@@ -288,20 +288,29 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
-    def test_listen_for_order_book_diffs_successful(self, mock_utils, mock_ws):
+    def test_listen_for_subscriptions_successful(self, mock_utils, mock_ws):
         mock_utils.return_value = self.trading_pair
-        msg_queue: asyncio.Queue = asyncio.Queue()
+        msg_queue_diffs: asyncio.Queue = asyncio.Queue()
+        msg_queue_trades: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
                                                              ujson.dumps(self._orderbook_update_event()))
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
+                                                             ujson.dumps(self._orderbook_trade_event()))
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+            self.data_source.listen_for_subscriptions()
+        )
+        self.listening_task_diffs = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue_diffs)
+        )
+        self.listening_task_trades = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(self.ev_loop, msg_queue_trades)
         )
 
-        result: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        result: OrderBookMessage = self.async_run_with_timeout(msg_queue_diffs.get())
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.DIFF, result.type)
         self.assertTrue(result.has_update_id)
@@ -310,60 +319,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, len(result.content["bids"]))
         self.assertEqual(1, len(result.content["asks"]))
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_trades_cancelled_error_raised(self, mock_ws):
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = asyncio.CancelledError
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
-        self.assertEqual(msg_queue.qsize(), 0)
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
-    def test_listen_for_trades_logs_exception(self, mock_utils, _, mock_ws):
-        mock_utils.return_value = self.trading_pair
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.close.return_value = None
-        incomplete_resp = {
-            "m": 1,
-            "i": 2,
-        }
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, ujson.dumps(incomplete_resp))
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
-                                                             ujson.dumps(self._orderbook_trade_event()))
-
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-        )
-
-        self.async_run_with_timeout(msg_queue.get())
-
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds...")
-        )
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
-    def test_listen_for_trades_successful(self, mock_utils, mock_ws):
-        mock_utils.return_value = self.trading_pair
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.close.return_value = None
-
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value,
-                                                             ujson.dumps(self._orderbook_trade_event()))
-
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-        )
-
-        result: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        result: OrderBookMessage = self.async_run_with_timeout(msg_queue_trades.get())
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.TRADE, result.type)
         self.assertTrue(result.has_trade_id)

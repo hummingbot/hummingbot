@@ -1,26 +1,20 @@
 import asyncio
 import logging
-import pandas as pd
 import time
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
-
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+import pandas as pd
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -47,6 +41,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._order_book_create_function = lambda: OrderBook()
         self._domain = domain
         self._throttler = throttler or self._get_throttler_instance()
+
+        self._message_queue: Dict[int, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -163,34 +159,48 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def _subscribe_to_order_book_streams(self) -> WSResponse:
+        url = f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
+        ws: WSAssistant = await self._get_ws_assistant()
+        await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+
+        payload = {
+            "method": "SUBSCRIBE",
+            "params": [
+                f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
+                for trading_pair in self._trading_pairs
+            ],
+            "id": self.DIFF_STREAM_ID
+        }
+        subscribe_request: WSRequest = WSRequest(payload)
+        await ws.send(subscribe_request)
+
+        payload = {
+            "method": "SUBSCRIBE",
+            "params": [
+                f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
+                for trading_pair in self._trading_pairs
+            ],
+            "id": self.TRADE_STREAM_ID
+        }
+        subscribe_request: WSRequest = WSRequest(payload)
+        await ws.send(subscribe_request)
+
+        return ws
+
+    async def listen_for_subscriptions(self):
         ws = None
         while True:
             try:
-                url = f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
-
-                payload = {
-                    "method": "SUBSCRIBE",
-                    "params": [
-                        f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
-                        for trading_pair in self._trading_pairs
-                    ],
-                    "id": self.DIFF_STREAM_ID
-                }
-                subscribe_request: WSRequest = WSRequest(payload)
-                await ws.send(subscribe_request)
+                ws = await self._subscribe_to_order_book_streams()
 
                 async for msg in ws.iter_messages():
-                    json_msg = msg.data
-                    if "result" in json_msg:
+                    if "result" in msg.data:
                         continue
-                    timestamp: float = time.time()
-                    order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
-                        json_msg, timestamp
-                    )
-                    output.put_nowait(order_book_message)
+                    if ("@depth" in msg.data["stream"]):
+                        self._message_queue[self.DIFF_STREAM_ID].put_nowait(msg)
+                    elif "@aggTrade" in msg.data["stream"]:
+                        self._message_queue[self.TRADE_STREAM_ID].put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -202,40 +212,20 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 ws and await ws.disconnect()
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        ws = None
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
-            try:
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}", 
-                                 ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+            msg = await self._message_queue[self.DIFF_STREAM_ID].get()
+            timestamp: float = time.time()
+            order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
+                msg.data, timestamp
+            )
+            output.put_nowait(order_book_message)
 
-                payload = {
-                    "method": "SUBSCRIBE",
-                    "params": [
-                        f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
-                        for trading_pair in self._trading_pairs
-                    ],
-                    "id": self.TRADE_STREAM_ID
-                }
-                subscribe_request: WSRequest = WSRequest(payload)
-                await ws.send(subscribe_request)
-
-                async for msg in ws.iter_messages():
-                    json_msg = msg.data
-                    if "result" in json_msg:
-                        continue
-                    trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(json_msg)
-                    output.put_nowait(trade_msg)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error(
-                    "Unexpected error with Websocket connection. Retrying after 30 seconds...", exc_info=True
-                )
-                await self._sleep(30.0)
-            finally:
-                ws and await ws.disconnect()
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        while True:
+            msg = await self._message_queue[self.TRADE_STREAM_ID].get()
+            trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg.data)
+            output.put_nowait(trade_msg)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:

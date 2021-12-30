@@ -48,7 +48,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -722,17 +722,18 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         for trading_pair in self._trading_pairs
                     ]
                 }
-                await ws.send(payload)
+                subscribe_request: WSRequest = WSRequest(payload)
+                await ws.send(subscribe_request)
                 async for msg in ws.iter_messages():
                     if "result" in msg.data:
                         continue
-                    trading_pair = utils.convert_from_exchange_trading_pair(msg.data["s"])
+                    trading_pair = utils.convert_from_exchange_trading_pair(msg.data["data"]["s"])
                     self._funding_info[trading_pair] = FundingInfo(
                         trading_pair,
-                        Decimal(str(msg.data["i"])),
-                        Decimal(str(msg.data["p"])),
-                        int(msg.data["T"]),
-                        Decimal(str(msg.data["r"]))
+                        Decimal(str(msg.data["data"]["i"])),
+                        Decimal(str(msg.data["data"]["p"])),
+                        int(msg.data["data"]["T"]),
+                        Decimal(str(msg.data["data"]["r"]))
                     )
 
             except asyncio.CancelledError:
