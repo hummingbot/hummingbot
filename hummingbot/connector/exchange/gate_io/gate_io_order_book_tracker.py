@@ -1,27 +1,25 @@
-#!/usr/bin/env python
 import asyncio
 import bisect
 import logging
 import time
-
 from collections import defaultdict, deque
-from typing import Optional, Dict, List, Deque
+from typing import Deque, Dict, List, Optional
 
-import aiohttp
-
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_active_order_tracker import GateIoActiveOrderTracker
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_order_book import GateIoOrderBook
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 
 class GateIoOrderBookTracker(OrderBookTracker):
+    PAST_DIFF_WINDOW_SIZE: int = 100
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -34,9 +32,9 @@ class GateIoOrderBookTracker(OrderBookTracker):
         self,
         throttler: Optional[AsyncThrottler] = None,
         trading_pairs: Optional[List[str]] = None,
-        shared_client: Optional[aiohttp.ClientSession] = None,
+        api_factory: Optional[WebAssistantsFactory] = None,
     ):
-        super().__init__(GateIoAPIOrderBookDataSource(throttler, trading_pairs, shared_client), trading_pairs)
+        super().__init__(GateIoAPIOrderBookDataSource(throttler, trading_pairs, api_factory), trading_pairs)
 
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -73,7 +71,7 @@ class GateIoOrderBookTracker(OrderBookTracker):
         """
         Update an order book with changes from the latest batch of received messages
         """
-        past_diffs_window: Deque[GateIoOrderBookMessage] = deque()
+        past_diffs_window: Deque[GateIoOrderBookMessage] = deque(maxlen=self.PAST_DIFF_WINDOW_SIZE)
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
@@ -85,20 +83,11 @@ class GateIoOrderBookTracker(OrderBookTracker):
 
         while True:
             try:
-                message: GateIoOrderBookMessage = None
-                saved_messages: Deque[GateIoOrderBookMessage] = self._saved_message_queues[trading_pair]
-                # Process saved messages first if there are any
-                if len(saved_messages) > 0:
-                    message = saved_messages.popleft()
-                else:
-                    message = await message_queue.get()
-
+                message: GateIoOrderBookMessage = await message_queue.get()
                 if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.update_id)
                     past_diffs_window.append(message)
-                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                        past_diffs_window.popleft()
                     diff_messages_accepted += 1
 
                     # Output some statistics periodically.

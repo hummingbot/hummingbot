@@ -31,6 +31,7 @@ def start(self):
     use_oracle_conversion_rate = xemm_map.get("use_oracle_conversion_rate").value
     taker_to_maker_base_conversion_rate = xemm_map.get("taker_to_maker_base_conversion_rate").value
     taker_to_maker_quote_conversion_rate = xemm_map.get("taker_to_maker_quote_conversion_rate").value
+    slippage_buffer = xemm_map.get("slippage_buffer").value / Decimal("100")
 
     # check if top depth tolerance is a list or if trade size override exists
     if isinstance(top_depth_tolerance, list) or "trade_size_override" in xemm_map:
@@ -86,5 +87,6 @@ def start(self):
         use_oracle_conversion_rate=use_oracle_conversion_rate,
         taker_to_maker_base_conversion_rate=taker_to_maker_base_conversion_rate,
         taker_to_maker_quote_conversion_rate=taker_to_maker_quote_conversion_rate,
+        slippage_buffer=slippage_buffer,
         hb_app_notification=True,
     )

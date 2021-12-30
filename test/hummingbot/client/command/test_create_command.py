@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from hummingbot.client.config.config_helpers import get_strategy_config_map
+from hummingbot.client.config.config_helpers import get_strategy_config_map, read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
@@ -15,8 +15,11 @@ class CreateCommandTest(unittest.TestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
     def setUp(self, _: MagicMock) -> None:
         super().setUp()
-        self.app = HummingbotApplication()
         self.ev_loop = asyncio.get_event_loop()
+
+        self.async_run_with_timeout(read_system_configs_from_yml())
+
+        self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
         self.global_config_backup = deepcopy(global_config_map)
@@ -34,6 +37,7 @@ class CreateCommandTest(unittest.TestCase):
     def get_async_sleep_fn(delay: float):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
+
         return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -94,11 +98,7 @@ class CreateCommandTest(unittest.TestCase):
         self.async_run_with_timeout(self.app.prompt_for_configuration(strategy_file_name))
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
         self.assertEqual(base_strategy, self.app.strategy_name)
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(
-                msg="Value must be more than 0."
-            )
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="Value must be more than 0."))
 
     @patch("shutil.copy")
     @patch("hummingbot.client.command.create_command.save_to_yml")

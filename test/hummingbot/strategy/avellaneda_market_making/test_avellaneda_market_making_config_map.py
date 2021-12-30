@@ -1,8 +1,10 @@
 import unittest
 from copy import deepcopy
 
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import (
     avellaneda_market_making_config_map,
+    maker_trading_pair_prompt,
     order_amount_prompt,
 )
 
@@ -31,5 +33,14 @@ class AvellanedaMarketMakingConfigMapTest(unittest.TestCase):
         avellaneda_market_making_config_map["market"].value = self.trading_pair
         prompt = order_amount_prompt()
         expected = f"What is the amount of {self.base_asset} per order? >>> "
+
+        self.assertEqual(expected, prompt)
+
+    def test_maker_trading_pair_prompt(self):
+        exchange = avellaneda_market_making_config_map["exchange"].value = "binance"
+        example = AllConnectorSettings.get_example_pairs().get(exchange)
+
+        prompt = maker_trading_pair_prompt()
+        expected = f"Enter the token trading pair you would like to trade on {exchange} (e.g. {example}) >>> "
 
         self.assertEqual(expected, prompt)
