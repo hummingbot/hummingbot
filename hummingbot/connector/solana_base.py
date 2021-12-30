@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, Any, Union
 import base58
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -55,8 +55,26 @@ class SolanaBase(GatewayBase):
         return self._solana_wallet_private_key
 
     async def init(self):
-        # TODO: Initialize all needed token accounts
-        raise NotImplementedError
+        if self._trading_required is True:
+            await self.auto_create_token_accounts()
+
+    async def auto_create_token_accounts(self):
+        """Automatically creates all token accounts required for trading."""
+        for token in self._tokens:
+            await self.get_or_create_token_account(token)
+
+    async def get_or_create_token_account(self, token_symbol: str) -> Union[Dict[str, Any], None]:
+        resp = await self._api_request("post",
+                                       "solana/token",
+                                       {"token": token_symbol,
+                                        "privateKey": self._solana_wallet_private_key})
+        if resp.get("accountAddress", None) is None:
+            self.logger().info(f"Token account initialization for {token_symbol} on {self.name} failed.")
+            return None
+        else:
+            self.logger().info(f"{token_symbol} account on wallet {self._solana_wallet_address} initialized"
+                               f" with mint address {resp['mintAddress']}.")
+            return resp
 
     async def _update(self):
         await self._update_balances()
