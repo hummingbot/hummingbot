@@ -4,23 +4,26 @@ import logging
 from async_timeout import timeout
 from datetime import datetime, timedelta
 from decimal import Decimal
-from libc.stdint cimport int64_t
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from aiohttp.client_exceptions import ContentTypeError
+from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
+from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
+from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
+from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
+from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
+from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
+from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -35,15 +38,10 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-
-from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
-from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
-from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
-from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
-from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
-from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
-from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None

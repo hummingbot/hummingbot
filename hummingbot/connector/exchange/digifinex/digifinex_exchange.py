@@ -1,49 +1,44 @@
-import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
-from decimal import Decimal
 import asyncio
+import logging
 # import json
 # import aiohttp
 import math
 import time
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
-from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker
-from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker import DigifinexUserStreamTracker
 # from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_in_flight_order import DigifinexInFlightOrder
-from hummingbot.connector.exchange.digifinex import digifinex_utils
+from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker
+from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker import DigifinexUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 # from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.logger import HummingbotLogger
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 

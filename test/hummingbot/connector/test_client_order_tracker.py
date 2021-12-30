@@ -1,23 +1,22 @@
 import asyncio
 import unittest
-
 from decimal import Decimal
 from typing import List, Optional
 from unittest.mock import patch
 
-from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
+    AddedToCostTradeFee,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
-    AddedToCostTradeFee,
-    TradeType,
+    TradeType
 )
 
 

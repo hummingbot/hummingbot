@@ -2,12 +2,12 @@ import typing
 from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
-from hummingbot.connector.utils import split_hb_trading_pair, combine_to_hb_trading_pair
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount
-from hummingbot.core.event.events import OrderType, TradeType, PositionAction
-from hummingbot.core.utils.estimate_fee import build_trade_fee, build_perpetual_trade_fee
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import OrderType, PositionAction, TradeType
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee, build_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
