@@ -48,20 +48,6 @@ def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         return None
 
 
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-    result = None
-    splitted_pair = split_trading_pair(exchange_trading_pair)
-    if splitted_pair is not None:
-        # Binance does not split BASEQUOTE (BTCUSDT)
-        base_asset, quote_asset = splitted_pair
-        result = f"{base_asset}-{quote_asset}"
-    return result
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "")
-
-
 def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):
     base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_BASE_URL
     return base_url + api_version + path_url

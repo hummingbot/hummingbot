@@ -27,6 +27,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
 
     _bpobds_logger: Optional[HummingbotLogger] = None
+    _trading_pair_symbol_map: Dict[str, str] = {}
 
     def __init__(
         self,
@@ -56,6 +57,10 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._ws_assistant
 
     @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
+    @classmethod
     async def get_last_traded_prices(cls, 
                                      trading_pairs: List[str], 
                                      domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
@@ -71,7 +76,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = cls._get_throttler_instance()
 
         url = utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL, domain=domain)
-        params = {"symbol": utils.convert_to_exchange_trading_pair(trading_pair)}
+        params = {"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)}
 
         async with throttler.execute_task(CONSTANTS.TICKER_PRICE_CHANGE_URL):
             request = RESTRequest(
@@ -84,12 +89,19 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return float(resp_json["lastPrice"])
 
     @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+    async def trading_pair_symbol_map(cls, 
+                                      domain: Optional[str] = CONSTANTS.DOMAIN, 
+                                      throttler: Optional[AsyncThrottler] = None) -> Dict[str, str]:
+        if not cls._trading_pair_symbol_map:
+            await cls.init_trading_pair_symbols(domain, throttler)
+        return cls._trading_pair_symbol_map
 
-    @staticmethod
-    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN, 
-                                  throttler: Optional[AsyncThrottler] = None) -> List[str]:
+    @classmethod
+    async def init_trading_pair_symbols(cls, 
+                                        domain: str = CONSTANTS.DOMAIN,
+                                        throttler: Optional[AsyncThrottler] = None):
+        """Initialize _trading_pair_symbol_map class variable
+        """
         api_factory = utils.build_api_factory()
         rest_assistant = await api_factory.get_rest_assistant()
 
@@ -105,17 +117,34 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if response.status == 200:
                 data = await response.json()
                 # fetch d["pair"] for binance perpetual
-                raw_trading_pairs = [d["pair"] for d in data["symbols"] if d["status"] == "TRADING"]
-                trading_pair_targets = [
-                    f"{d['baseAsset']}-{d['quoteAsset']}" for d in data["symbols"] if d["status"] == "TRADING"
-                ]
-                trading_pair_list: List[str] = []
-                for raw_trading_pair, pair_target in zip(raw_trading_pairs, trading_pair_targets):
-                    trading_pair = utils.convert_from_exchange_trading_pair(raw_trading_pair)
-                    if trading_pair is not None and trading_pair == pair_target:
-                        trading_pair_list.append(trading_pair)
-                return trading_pair_list
-        return []
+                cls._trading_pair_symbol_map = {
+                    d["pair"]: (f"{d['baseAsset']}-{d['quoteAsset']}")
+                    for d in data["symbols"] if d["status"] == "TRADING"
+                }
+
+    @staticmethod
+    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN, 
+                                  throttler: Optional[AsyncThrottler] = None) -> List[str]:
+        trading_pair_list: List[str] = []
+        symbols_map = await BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain, throttler=throttler)
+        trading_pair_list.extend(list(symbols_map.values()))
+
+        return trading_pair_list
+
+    @classmethod
+    def convert_from_exchange_trading_pair(cls, exchange_trading_pair: str) -> Optional[str]:
+        return cls._trading_pair_symbol_map[exchange_trading_pair]
+
+    @classmethod
+    def convert_to_exchange_trading_pair(cls, hb_trading_pair: str) -> str:
+        symbols = [symbol for symbol, pair in cls._trading_pair_symbol_map.items() if pair == hb_trading_pair]
+
+        if symbols:
+            symbol = symbols[0]
+        else:
+            raise ValueError(f"There is no symbol mapping for trading pair {trading_pair}")
+
+        return symbol
 
     @staticmethod
     async def get_snapshot(trading_pair: str,
@@ -127,7 +156,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             rest_assistant = await api_factory.get_rest_assistant()
 
             params = {
-                "symbol": utils.convert_to_exchange_trading_pair(trading_pair)
+                "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)
             }
             if limit != 0:
                 params.update({"limit": str(limit)})
@@ -167,7 +196,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         payload = {
             "method": "SUBSCRIBE",
             "params": [
-                f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
+                f"{BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
                 for trading_pair in self._trading_pairs
             ],
             "id": self.DIFF_STREAM_ID
@@ -178,7 +207,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         payload = {
             "method": "SUBSCRIBE",
             "params": [
-                f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
+                f"{BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
                 for trading_pair in self._trading_pairs
             ],
             "id": self.TRADE_STREAM_ID
@@ -216,6 +245,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             msg = await self._message_queue[self.DIFF_STREAM_ID].get()
             timestamp: float = time.time()
+            msg.data["data"]["s"] = self.convert_from_exchange_trading_pair(msg.data["data"]["s"])
             order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
                 msg.data, timestamp
             )
@@ -224,8 +254,11 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             msg = await self._message_queue[self.TRADE_STREAM_ID].get()
-            trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg.data)
-            output.put_nowait(trade_msg)
+            msg.data["data"]["s"] = self.convert_from_exchange_trading_pair(msg.data["data"]["s"])
+            trade_message: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(
+                msg.data
+            )
+            output.put_nowait(trade_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
