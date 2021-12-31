@@ -404,3 +404,75 @@ definitions:
         type: 'string'
       txHash:
         type: 'string'
+
+  EthereumCancelRequest:
+    type: 'object'
+    required:
+      - 'nonce'
+      - 'address'
+    properties:
+      nonce:
+        type: 'integer'
+        example: 123
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+  
+  EthereumCancelResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+
+  AddWalletRequest:
+    type: 'object'
+    required:
+      - 'chainName'
+      - 'privateKey'
+    properties:
+      chainName:
+        type: 'string'
+        example: 'ethereum'
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+  
+  RemoveWalletRequest:
+    type: 'object'
+    required:
+      - 'chainName'
+      - 'address'
+    properties:
+      chainName:
+        type: 'string'
+        example: 'ethereum'
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+
+  GetWalletResponse:
+    type: 'object'
+      required:
+        - 'chain'
+        - 'walletAddresses'
+      properties:
+        chain:
+          type: 'string'
+        tokenSymbols:
+          type: 'array'
+          items: 'string'
+          example: ['0xd0A1E359811322d97991E03f863a0C30C2cF029C', '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX']
