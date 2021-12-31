@@ -61,8 +61,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @classmethod
-    async def get_last_traded_prices(cls, 
-                                     trading_pairs: List[str], 
+    async def get_last_traded_prices(cls,
+                                     trading_pairs: List[str],
                                      domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
@@ -89,15 +89,15 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return float(resp_json["lastPrice"])
 
     @classmethod
-    async def trading_pair_symbol_map(cls, 
-                                      domain: Optional[str] = CONSTANTS.DOMAIN, 
+    async def trading_pair_symbol_map(cls,
+                                      domain: Optional[str] = CONSTANTS.DOMAIN,
                                       throttler: Optional[AsyncThrottler] = None) -> Dict[str, str]:
         if not cls._trading_pair_symbol_map:
             await cls.init_trading_pair_symbols(domain, throttler)
         return cls._trading_pair_symbol_map
 
     @classmethod
-    async def init_trading_pair_symbols(cls, 
+    async def init_trading_pair_symbols(cls,
                                         domain: str = CONSTANTS.DOMAIN,
                                         throttler: Optional[AsyncThrottler] = None):
         """Initialize _trading_pair_symbol_map class variable
@@ -123,7 +123,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 }
 
     @staticmethod
-    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN, 
+    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN,
                                   throttler: Optional[AsyncThrottler] = None) -> List[str]:
         trading_pair_list: List[str] = []
         symbols_map = await BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain, throttler=throttler)
@@ -142,7 +142,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if symbols:
             symbol = symbols[0]
         else:
-            raise ValueError(f"There is no symbol mapping for trading pair {trading_pair}")
+            raise ValueError(f"There is no symbol mapping for trading pair {hb_trading_pair}")
 
         return symbol
 
