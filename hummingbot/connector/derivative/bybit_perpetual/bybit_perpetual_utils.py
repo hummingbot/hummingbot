@@ -9,7 +9,7 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "BTC-USD"
+EXAMPLE_PAIR = "BTC-USDT"
 
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
 # Fees have to be expressed as percent value

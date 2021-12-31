@@ -64,7 +64,7 @@ s_decimal_0 = Decimal(0)
 class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     _logger = None
 
-    _DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
+    _DEFAULT_TIME_IN_FORCE = "PostOnly"
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_TRADING_RULES_INTERVAL = 60.0
     LONG_POLL_INTERVAL = 120.0
@@ -425,7 +425,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "side": "Buy" if trade_type == TradeType.BUY else "Sell",
                 "symbol": await self._trading_pair_symbol(trading_pair),
-                "qty": amount,
+                "qty": str(amount),
                 "time_in_force": self._DEFAULT_TIME_IN_FORCE,
                 "close_on_trigger": False,
                 "order_link_id": order_id,
@@ -442,7 +442,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 price: Decimal = self.quantize_order_price(trading_pair, price)
                 params.update({
                     "order_type": "Limit",
-                    "price": price,
+                    "price": str(price),
                 })
             else:
                 params.update({

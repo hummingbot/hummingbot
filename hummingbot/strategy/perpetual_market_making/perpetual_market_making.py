@@ -469,10 +469,12 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
     def tick(self, timestamp: float):
         market: ExchangeBase = self._market_info.market
         session_positions = [s for s in self.active_positions.values() if s.trading_pair == self.trading_pair]
+        self.logger().debug(['session positions', session_positions])
         current_tick = timestamp // self._status_report_interval
         last_tick = self._last_timestamp // self._status_report_interval
         should_report_warnings = ((current_tick > last_tick) and
                                   (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
+        self.logger().debug(['new tick', current_tick, last_tick, should_report_warnings])
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self.active_markets])
@@ -484,27 +486,35 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                         self.logger().warning("Markets are not ready. No market making trades are permitted.")
                     return
 
+            self.logger().debug('_all_markets_ready')
+
             if should_report_warnings:
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
                     self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
                                           "making may be dangerous when markets or networks are unstable.")
+            self.logger().debug('should_report_warnings')
 
             if len(session_positions) == 0:
                 self._exit_orders = dict()  # Empty list of exit order at this point to reduce size
                 proposal = None
                 if self._create_timestamp <= self.current_timestamp:
-                    # 1. Create base order proposals
+                    self.logger().debug("1. Create base order proposals")
                     proposal = self.create_base_proposal()
-                    # 2. Apply functions that limit numbers of buys and sells proposal
+                    self.logger().debug(["# 2. Apply functions that limit numbers of buys and sells proposal", proposal])
                     self.apply_order_levels_modifiers(proposal)
-                    # 3. Apply functions that modify orders price
+                    self.logger().debug("# 3. Apply functions that modify orders price")
+                    self.logger().debug(proposal)
                     self.apply_order_price_modifiers(proposal)
-                    # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                    self.logger().debug("4. Apply budget constraint, i.e. can't buy/sell more than what you have.")
+                    self.logger().debug(proposal)
                     self.apply_budget_constraint(proposal)
-
                     self.filter_out_takers(proposal)
+                    self.logger().debug('filter_out_takers')
+                    self.logger().debug(proposal)
 
                 self.cancel_active_orders(proposal)
+                self.logger().debug('cancel_active_orders')
+                self.logger().debug(proposal)
                 self.cancel_orders_below_min_spread()
                 if self.to_create_orders(proposal):
                     self.execute_orders_proposal(proposal, PositionAction.OPEN)

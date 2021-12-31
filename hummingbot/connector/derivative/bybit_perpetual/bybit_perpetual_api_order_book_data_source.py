@@ -111,7 +111,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             for instrument in resp_json["result"]
                             if (instrument["status"] == "Trading"
                                 and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}"
-                                and bybit_perpetual_utils.is_linear_perpetual(f"{instrument['base_currency']}-{instrument['quote_currency']}"))
+                                and bybit_perpetual_utils.is_linear_perpetual(
+                                        f"{instrument['base_currency']}-{instrument['quote_currency']}"))
                         }
 
     @classmethod
@@ -123,7 +124,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(
-        cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
+            cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
         if (domain in cls._last_traded_prices
                 and all(trading_pair in cls._last_traded_prices[domain]
@@ -136,7 +137,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def _get_last_traded_prices_from_exchange(
-        cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
+            cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
     ):
         result = {}
         trading_pair_symbol_map = await cls.trading_pair_symbol_map(domain=domain)
@@ -367,6 +368,10 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 order_book_message = await self._messages_queues[CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC].get()
 
                 symbol = order_book_message["topic"].split(".")[-1]
+                # if symbol in symbol_map.keys():
+                #     trading_pair = symbol_map[symbol]
+                # else:
+                #     self.logger().warning(['missing symbol', symbol, symbol_map.keys() ])
                 trading_pair = symbol_map[symbol]
                 event_type = order_book_message["type"]
 
@@ -467,7 +472,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
                             if "predicted_funding_rate_e6" in entry:
                                 current_funding_info.rate = (
-                                    Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
+                                        Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
                                 )
                         self._funding_info[trading_pair] = current_funding_info
 
