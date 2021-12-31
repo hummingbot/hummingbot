@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import hashlib
 import hmac
@@ -8,7 +7,6 @@ import time
 from async_timeout import timeout
 from collections import defaultdict
 from decimal import Decimal
-from enum import Enum
 from typing import Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -53,7 +51,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -355,7 +352,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                           order_type: OrderType,
                           position_action: PositionAction,
                           price: Optional[Decimal] = s_decimal_NaN):
-        return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, position_action, price)
+        return await self.create_order(TradeType.BUY,
+                                       order_id,
+                                       trading_pair,
+                                       amount,
+                                       order_type,
+                                       position_action,
+                                       price)
 
     def buy(self, trading_pair: str, amount: object, order_type: object = OrderType.MARKET,
             price: object = s_decimal_NaN, **kwargs) -> str:
@@ -560,8 +563,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     fill_price=Decimal(order_message["L"]),
                     fill_base_amount=Decimal(order_message["z"]),
                     fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["z"]),
-                    fee_asset=order_message.get("N",tracked_order.fee_asset),
-                    fee_paid=Decimal(order_message.get("n","0")),
+                    fee_asset=order_message.get("N", tracked_order.fee_asset),
+                    fee_paid=Decimal(order_message.get("n", "0")),
                     trade_fee_percent=trade_fee_percent
                 )
                 self._client_order_tracker.process_trade_update(trade_update)
@@ -574,7 +577,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 exchange_order_id=str(order_message["i"]),
                 executed_amount_base=Decimal(order_message["z"]),
                 fill_price=Decimal(order_message["L"]),
-                fee_asset=order_message.get("N",tracked_order.fee_asset)
+                fee_asset=order_message.get("N", tracked_order.fee_asset)
             )
 
             self._client_order_tracker.process_order_update(order_update)
