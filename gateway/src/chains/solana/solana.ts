@@ -1,8 +1,9 @@
 import { logger } from '../../services/logger';
 import { SolanaConfig } from './solana.config';
-import { TokenValue, countDecimals } from '../../services/base';
+import { TokenValue, countDecimals, walletPath } from '../../services/base';
 import NodeCache from 'node-cache';
 import bs58 from 'bs58';
+const AES = require('crypto-js/aes');
 import { BigNumber } from 'ethers';
 import {
   Commitment,
@@ -23,6 +24,8 @@ import {
 } from '@solana/spl-token';
 import { TokenListProvider, TokenInfo } from '@solana/spl-token-registry';
 import { TransactionResponseStatusCode } from './solana.requests';
+import fse from 'fs-extra';
+import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 
 export type Solanaish = Solana;
 
@@ -171,9 +174,37 @@ export class Solana {
   }
 
   // returns Keypair for a private key, which should be encoded in Base58
-  getWallet(privateKey: string): Keypair {
+  getKeypairFromPrivateKey(privateKey: string): Keypair {
     const decoded = bs58.decode(privateKey);
     return Keypair.fromSecretKey(decoded);
+  }
+
+  async getKeypair(address: string): Promise<Keypair> {
+    const path = `${walletPath}/solana`;
+
+    const encryptedPrivateKey: string = await fse.readFile(
+      `${path}/${address}.json`,
+      'utf8'
+    );
+
+    const passphrase = ConfigManagerCertPassphrase.readPassphrase();
+    if (!passphrase) {
+      throw new Error('missing passphrase');
+    }
+    return await this.decrypt(encryptedPrivateKey, passphrase);
+  }
+
+  encrypt(privateKey: string, password: string): string {
+    const cipher = AES.encrypt(privateKey, password);
+    return JSON.stringify(cipher);
+  }
+
+  async decrypt(
+    encryptedPrivateKey: string,
+    password: string
+  ): Promise<Keypair> {
+    const privateKey = AES.decrypt(encryptedPrivateKey, password);
+    return Keypair.fromSecretKey(privateKey);
   }
 
   async getBalances(wallet: Keypair): Promise<Record<string, TokenValue>> {

@@ -1,6 +1,7 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Solana } from '../../chains/solana/solana';
 
 import {
   AddWalletRequest,
@@ -18,6 +19,10 @@ import {
 
 const walletPath = './conf/wallets';
 
+const ethereum = Ethereum.getInstance();
+const avalanche = Avalanche.getInstance();
+const solana = Solana.getInstance();
+
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
   if (!exists) {
@@ -25,11 +30,7 @@ export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   }
 }
 
-export async function addWallet(
-  ethereum: Ethereum,
-  avalanche: Avalanche,
-  req: AddWalletRequest
-): Promise<void> {
+export async function addWallet(req: AddWalletRequest): Promise<void> {
   const passphrase = ConfigManagerCertPassphrase.readPassphrase();
   if (!passphrase) {
     throw new Error('There is no passphrase');
@@ -42,6 +43,11 @@ export async function addWallet(
   } else if (req.chainName === 'avalanche') {
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
+  } else if (req.chainName === 'solana') {
+    address = solana
+      .getKeypairFromPrivateKey(req.privateKey)
+      .publicKey.toBase58();
+    encryptedPrivateKey = solana.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,
