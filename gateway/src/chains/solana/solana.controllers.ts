@@ -12,7 +12,6 @@ import {
 import { Solanaish } from './solana';
 import { PublicKey } from '@solana/web3.js';
 import { HttpException } from '../../services/error-handler';
-import { tokenSymbols } from '../../../test/services/validators.test';
 
 export async function balances(
   solanaish: Solanaish,
@@ -26,7 +25,7 @@ export async function balances(
     network: solanaish.cluster,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
-    balances: toSolanaBalances(balances, tokenSymbols),
+    balances: toSolanaBalances(balances, req.tokenSymbols),
   };
 }
 
