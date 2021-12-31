@@ -257,7 +257,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_logs_exception(self, mock_ws, *_):
-        msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
         incomplete_resp = {
