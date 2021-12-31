@@ -99,7 +99,7 @@ class AddedToCostTradeFee(TradeFeeBase):
         Returns the impact of the fee on the cost requirements for the candidate order.
         """
         ret = None
-        if self.percent is not None:
+        if self.percent != Decimal("0"):
             fee_token = self.percent_token or order_candidate.order_collateral.token
             if order_candidate.order_collateral is None or fee_token != order_candidate.order_collateral.token:
                 token, size = order_candidate.get_size_token_and_order_size()
@@ -160,8 +160,8 @@ class TradeFeeSchema:
     costs, and `buy_percent_fee_deducted_from_returns` cannot be set to `True`.
     """
     percent_fee_token: Optional[str] = None
-    maker_percent_fee_decimal: Optional[Decimal] = None
-    taker_percent_fee_decimal: Optional[Decimal] = None
+    maker_percent_fee_decimal: Decimal = Decimal("0")
+    taker_percent_fee_decimal: Decimal = Decimal("0")
     buy_percent_fee_deducted_from_returns: bool = False
     maker_fixed_fees: List[TokenAmount] = field(default_factory=list)
     taker_fixed_fees: List[TokenAmount] = field(default_factory=list)
@@ -172,10 +172,8 @@ class TradeFeeSchema:
     def validate_schema(self):
         if self.percent_fee_token is not None:
             assert not self.buy_percent_fee_deducted_from_returns
-        if self.maker_percent_fee_decimal is not None:
-            self.maker_percent_fee_decimal = Decimal(self.maker_percent_fee_decimal)
-        if self.taker_percent_fee_decimal is not None:
-            self.taker_percent_fee_decimal = Decimal(self.taker_percent_fee_decimal)
+        self.maker_percent_fee_decimal = Decimal(self.maker_percent_fee_decimal)
+        self.taker_percent_fee_decimal = Decimal(self.taker_percent_fee_decimal)
         for i in range(len(self.taker_fixed_fees)):
             self.taker_fixed_fees[i] = TokenAmount(
                 self.taker_fixed_fees[i].token, Decimal(self.taker_fixed_fees[i].amount)
