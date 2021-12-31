@@ -1,7 +1,8 @@
 import random
 import string
-from typing import Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res, get_tracking_nonce
+import time
+from typing import Optional, Tuple
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -33,9 +34,17 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "/")
 
 
+def _time():
+    """
+    Private function created just to have a method that can be safely patched during unit tests and make tests
+    independent from real time
+    """
+    return time.time()
+
+
 # get timestamp in milliseconds
 def get_ms_timestamp() -> int:
-    return get_tracking_nonce_low_res()
+    return int(_time() * 1e3)
 
 
 def uuid32():
@@ -56,14 +65,14 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
 
 
-def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]:
+def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optional[int] = None) -> Tuple[str, int]:
     """
     Generates the exchange order id based on user uid and client order id.
     :param user_uid: user uid,
     :param client_order_id: client order id used for local order tracking
     :return: order id of length 32
     """
-    time = get_ms_timestamp()
+    time = timestamp or get_ms_timestamp()
     return [
         derive_order_id(
             userUid,

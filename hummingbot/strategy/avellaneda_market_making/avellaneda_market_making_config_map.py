@@ -7,6 +7,8 @@ from hummingbot.client.config.config_validators import (
     validate_int,
     validate_bool,
     validate_decimal,
+    validate_datetime_iso_string,
+    validate_time_iso_string,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -28,20 +30,38 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
-def validate_max_spread(value: str) -> Optional[str]:
-    is_invalid_decimal = validate_decimal(value, 0, 100, inclusive=False)
-    if is_invalid_decimal:
-        return is_invalid_decimal
-    if avellaneda_market_making_config_map["min_spread"].value is not None:
-        min_spread = Decimal(avellaneda_market_making_config_map["min_spread"].value)
-        max_spread = Decimal(value)
-        if min_spread >= max_spread:
-            return f"Max spread cannot be lesser or equal to min spread {max_spread}%<={min_spread}%"
+def validate_execution_timeframe(value: str) -> Optional[str]:
+    timeframes = ["infinite", "from_date_to_date", "daily_between_times"]
+    if value not in timeframes:
+        return f"Invalid timeframe, please choose value from {timeframes}"
 
 
-def onvalidated_min_spread(value: str):
-    # If entered valid min_spread, max_spread is invalidated so user sets it up again
-    avellaneda_market_making_config_map["max_spread"].value = None
+def validate_execution_time(value: str) -> Optional[str]:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        ret = validate_datetime_iso_string(value)
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        ret = validate_time_iso_string(value)
+    if ret is not None:
+        return ret
+
+
+def execution_time_start_prompt() -> str:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        return "Please enter the start date and time (YYYY-MM-DD HH:MM:SS) >>> "
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        return "Please enter the start time (HH:MM:SS) >>> "
+
+
+def execution_time_end_prompt() -> str:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        return "Please enter the end date and time (YYYY-MM-DD HH:MM:SS) >>> "
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        return "Please enter the end time (HH:MM:SS) >>> "
+
+
+def on_validated_execution_timeframe(value: str):
+    avellaneda_market_making_config_map["start_time"].value = None
+    avellaneda_market_making_config_map["end_time"].value = None
 
 
 def order_amount_prompt() -> str:
@@ -57,18 +77,6 @@ def on_validated_price_source_exchange(value: str):
 
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
-
-
-def on_validated_parameters_based_on_spread(value: str):
-    if value == 'True':
-        avellaneda_market_making_config_map.get("risk_factor").value = None
-        avellaneda_market_making_config_map.get("order_book_depth_factor").value = None
-        avellaneda_market_making_config_map.get("order_amount_shape_factor").value = None
-    else:
-        avellaneda_market_making_config_map.get("max_spread").value = None
-        avellaneda_market_making_config_map.get("min_spread").value = None
-        avellaneda_market_making_config_map.get("vol_to_spread_multiplier").value = None
-        avellaneda_market_making_config_map.get("inventory_risk_aversion").value = None
 
 
 avellaneda_market_making_config_map = {
@@ -87,6 +95,26 @@ avellaneda_market_making_config_map = {
                   prompt=maker_trading_pair_prompt,
                   validator=validate_exchange_trading_pair,
                   prompt_on_new=True),
+    "execution_timeframe":
+        ConfigVar(key="execution_timeframe",
+                  prompt="Choose execution timeframe ( infinite / from_date_to_date / daily_between_times ) >>> ",
+                  validator=validate_execution_timeframe,
+                  on_validated=on_validated_execution_timeframe,
+                  prompt_on_new=True),
+    "start_time":
+        ConfigVar(key="start_time",
+                  prompt=execution_time_start_prompt,
+                  type_str="str",
+                  validator=validate_execution_time,
+                  required_if=lambda: avellaneda_market_making_config_map.get("execution_timeframe").value != "infinite",
+                  prompt_on_new=True),
+    "end_time":
+        ConfigVar(key="end_time",
+                  prompt=execution_time_end_prompt,
+                  type_str="str",
+                  validator=validate_execution_time,
+                  required_if=lambda: avellaneda_market_making_config_map.get("execution_timeframe").value != "infinite",
+                  prompt_on_new=True),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
@@ -99,86 +127,27 @@ avellaneda_market_making_config_map = {
                   type_str="bool",
                   default=True,
                   validator=validate_bool),
-    "parameters_based_on_spread":
-        ConfigVar(key="parameters_based_on_spread",
-                  prompt="Do you want to automate Avellaneda-Stoikov parameters based on min/max spread? >>> ",
-                  type_str="bool",
-                  validator=validate_bool,
-                  on_validated=on_validated_parameters_based_on_spread,
-                  default=True,
-                  prompt_on_new=True),
-    "min_spread":
-        ConfigVar(key="min_spread",
-                  prompt="Enter the minimum spread allowed from mid-price in percentage "
-                         "(Enter 1 to indicate 1%) >>> ",
-                  type_str="decimal",
-                  required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
-                  prompt_on_new=True,
-                  on_validated=onvalidated_min_spread),
-    "max_spread":
-        ConfigVar(key="max_spread",
-                  prompt="Enter the maximum spread allowed from mid-price in percentage "
-                         "(Enter 1 to indicate 1%) >>> ",
-                  type_str="decimal",
-                  required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_max_spread(v),
-                  prompt_on_new=True),
-    "vol_to_spread_multiplier":
-        ConfigVar(key="vol_to_spread_multiplier",
-                  prompt="Enter the Volatility threshold multiplier: "
-                         "(If market volatility multiplied by this value is above the minimum spread, "
-                         "it will increase the minimum and maximum spread value) >>> ",
-                  type_str="decimal",
-                  required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=True),
-                  prompt_on_new=True),
-    "volatility_sensibility":
-        ConfigVar(key="volatility_sensibility",
-                  prompt="Enter volatility change threshold to trigger parameter recalculation >>> ",
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=True),
-                  default=20),
-    "inventory_risk_aversion":
-        ConfigVar(key="inventory_risk_aversion",
-                  prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more "
-                         "skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, "
-                         "increasing profitability but also increasing inventory risk) >>>",
-                  type_str="decimal",
-                  required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
-                  prompt_on_new=True),
-    "order_book_depth_factor":
-        ConfigVar(key="order_book_depth_factor",
-                  printable_key="order_book_depth_factor(\u03BA)",
-                  prompt="Enter order book depth factor (\u03BA) >>> ",
-                  type_str="decimal",
-                  required_if=lambda: not avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
-                  prompt_on_new=True),
     "risk_factor":
         ConfigVar(key="risk_factor",
                   printable_key="risk_factor(\u03B3)",
                   prompt="Enter risk factor (\u03B3) >>> ",
                   type_str="decimal",
-                  required_if=lambda: not avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
+                  default=Decimal("1"),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
     "order_amount_shape_factor":
         ConfigVar(key="order_amount_shape_factor",
                   printable_key="order_amount_shape_factor(\u03B7)",
                   prompt="Enter order amount shape factor (\u03B7) >>> ",
                   type_str="decimal",
-                  required_if=lambda: not avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=True),
-                  prompt_on_new=True),
-    "closing_time":
-        ConfigVar(key="closing_time",
-                  prompt="Enter operational closing time (T). (How long will each trading cycle last "
-                         "in days or fractions of day) >>> ",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=True)),
+    "min_spread":
+        ConfigVar(key="min_spread",
+                  prompt="Enter minimum spread limit (as % of mid price) >>> ",
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
-                  default=Decimal("0.041666667")),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=True),
+                  default=Decimal("0")),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
@@ -224,14 +193,26 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="volatility_buffer_size",
                   prompt="Enter amount of ticks that will be stored to calculate volatility >>> ",
                   type_str="int",
-                  validator=lambda v: validate_decimal(v, 5, 600),
-                  default=60),
+                  validator=lambda v: validate_decimal(v, 1, 10000),
+                  default=200),
+    "trading_intensity_buffer_size":
+        ConfigVar(key="trading_intensity_buffer_size",
+                  prompt="Enter amount of ticks that will be stored to estimate order book liquidity >>> ",
+                  type_str="int",
+                  validator=lambda v: validate_int(v, 1, 10000),
+                  default=200),
     "order_levels":
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
                   validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
+    "level_distances":
+        ConfigVar(key="level_distances",
+                  prompt="How far apart in % of optimal spread should orders on one side be? >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=True),
+                  default=0),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,
