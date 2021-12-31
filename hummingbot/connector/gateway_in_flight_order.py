@@ -34,6 +34,7 @@ class GatewayInFlightOrder(InFlightOrderBase):
         )
         self.trade_id_set = set()
         self._gas_price = gas_price
+        self.nonce = 0
 
     @property
     def is_done(self) -> bool:

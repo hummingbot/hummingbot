@@ -135,6 +135,17 @@ const patchExecuteTrade = () => {
   });
 };
 
+describe('GET /uniswap', () => {
+  it('should return 200', async () => {
+    patchInit();
+    await request(app)
+      .get(`/eth/uniswap`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
+
 describe('POST /eth/uniswap/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
