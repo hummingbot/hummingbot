@@ -57,6 +57,7 @@ cdef class FmfwInFlightOrder(InFlightOrderBase):
                 amount=Decimal(data["amount"]),
                 initial_state=data["last_state"]
             )
+            
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
         retval.fee_asset = data["fee_asset"]

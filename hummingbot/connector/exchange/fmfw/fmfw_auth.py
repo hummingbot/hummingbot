@@ -28,9 +28,10 @@ class FmfwAuth:
                          msg=''.join(message).encode(),
                          digestmod=sha256).hexdigest()
         data = [self.api_key, signature, timestamp]
-        data
+
         if window:
             data.append(window)
+
         base64_encoded = b64encode(':'.join(data).encode()).decode()
         r.headers['Authorization'] = f'HS256 {base64_encoded}'
         return r

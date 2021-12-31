@@ -1,23 +1,28 @@
 #!/usr/bin/env python
 
 import asyncio
-import aiohttp
 import logging
 import time
 from typing import (
     AsyncIterable,
     Dict,
-    Optional
+    Optional,
+    List,
 )
 import ujson
 import websockets
+from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.connector.exchange.fmfw.fmfw_auth import FmfwAuth
 from hummingbot.logger import HummingbotLogger
+# from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.connector.exchange.fmfw.fmfw_order_book import FmfwOrderBook
 
-Fmfw_API_ENDPOINT = "https://api.fmfw.io/api/3"
-Fmfw_USER_STREAM_ENDPOINT = "/api/v1/bullet-private"
+FMFW_API_ENDPOINT = "https://api.fmfw.io/api/3"
+FMFW_USER_STREAM_ENDPOINT = "wss://api.fmfw.io/api/3/ws/public"
+MAX_RETRIES = 20
+NaN = float("nan")
 
 Fmfw_PRIVATE_TOPICS = [
     "/spotMarket/tradeOrders",
@@ -27,90 +32,90 @@ Fmfw_PRIVATE_TOPICS = [
 
 class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
-    PING_TIMEOUT = 50.0
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
 
-    _kausds_logger: Optional[HummingbotLogger] = None
+    _cbpausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._kausds_logger is None:
-            cls._kausds_logger = logging.getLogger(__name__)
-        return cls._kausds_logger
+        if cls._cbpausds_logger is None:
+            cls._cbpausds_logger = logging.getLogger(__name__)
+        return cls._cbpausds_logger
 
-    def __init__(self, fmfw_auth: FmfwAuth):
-        self._current_listen_key = None
-        self._current_endpoint = None
-        super().__init__()
+    def __init__(self, fmfw_auth: FmfwAuth, trading_pairs: Optional[List[str]] = []):
         self._fmfw_auth: FmfwAuth = fmfw_auth
+        self._trading_pairs = trading_pairs
+        self._current_listen_key = None
+        self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+        super().__init__()
+
+    @property
+    def order_book_class(self):
+        """
+        *required
+        Get relevant order book class to access class specific methods
+        :returns: OrderBook class
+        """
+        return FmfwOrderBook
 
     @property
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def get_listen_key(self):
-        async with aiohttp.ClientSession() as client:
-            payload: Dict = {"method": "POST", "url": Fmfw_USER_STREAM_ENDPOINT}
-            header = self._fmfw_auth.add_auth_to_params(payload)
-            async with client.post(f"{Fmfw_API_ENDPOINT}{Fmfw_USER_STREAM_ENDPOINT}", headers=header) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Fmfw user stream listen key. HTTP status is {response.status}.")
-                data: Dict[str, str] = await response.json()
-                return data
-
-    async def _subscribe_topic(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        try:
-            for topic in Fmfw_PRIVATE_TOPICS:
-                subscribe_request = {
-                    "id": int(time.time()),
-                    "type": "subscribe",
-                    "topic": topic,
-                    "privateChannel": True,
-                    "response": True}
-                await ws.send(ujson.dumps(subscribe_request))
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return
-
-    async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
-        stream_url: str = f"{self._current_endpoint}?token={self._current_listen_key}&acceptUserMessage=true"
-        self.logger().info(f"Connecting to {stream_url}.")
-
-        # Create the WS connection.
-        return websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
-
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        try:
-            while True:
-                msg: str = await ws.recv()
-                self._last_recv_time = time.time()
-                yield msg
-        finally:
-            await ws.close()
-            self._current_listen_key = None
-
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to user stream via web socket, and keep the connection open for incoming messages
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
         while True:
             try:
-                if self._current_listen_key is None:
-                    creds = await self.get_listen_key()
-                    self._current_listen_key = creds["data"]["token"]
-                    self._current_endpoint = creds["data"]["instanceServers"][0]["endpoint"]
-                    self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
-
-                    async with (await self.get_ws_connection()) as ws:
-                        await self._subscribe_topic(ws)
-                        async for msg in self._inner_messages(ws):
-                            decoded: Dict[str, any] = ujson.loads(msg)
-                            output.put_nowait(decoded)
-
+                async with websockets.connect(FMFW_USER_STREAM_ENDPOINT) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    subscribe_request: Dict[str, any] = {
+                        "method": "subscribe",
+                        "ch": "orderbook/full",
+                        "params": {
+                            "symbols": ["ETHBTC", "MAHAUSDT"]
+                        },
+                        "id": 123
+                    }
+                    await ws.send(ujson.dumps(subscribe_request))
+                    async for raw_msg in self._inner_messages(ws):
+                        msg = ujson.loads(raw_msg)
+                        output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                    "5 seconds...", exc_info=False)
-                self._current_listen_key = None
-                await ws.close()
-                await asyncio.sleep(5)
+                self.logger().error("Unexpected error with Coinbase Pro WebSocket connection. "
+                                    "Retrying after 30 seconds...", exc_info=True)
+                await asyncio.sleep(30.0)
+
+    async def _inner_messages(self,
+                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        """
+        Generator function that returns messages from the web socket stream
+        :param ws: current web socket connection
+        :returns: message in AsyncIterable format
+        """
+        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
+        try:
+            while True:
+                try:
+                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    self._last_recv_time = time.time()
+                    yield msg
+                except asyncio.TimeoutError:
+                    pong_waiter = await ws.ping()
+                    self._last_recv_time = time.time()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+        except asyncio.TimeoutError:
+            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+            return
+        except ConnectionClosed:
+            return
+        finally:
+            await ws.close()

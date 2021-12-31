@@ -38,9 +38,9 @@ cdef class FmfwOrderBook(OrderBook):
             msg.update(metadata)
         return FmfwOrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["symbol"],
-            "update_id": int(msg["data"]["sequence"]),
-            "bids": msg["data"]["bids"],
-            "asks": msg["data"]["asks"]
+            "update_id":timestamp,
+            "bids": msg["bid"],
+            "asks": msg["ask"]
         }, timestamp=timestamp)
 
     @classmethod

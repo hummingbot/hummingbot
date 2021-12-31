@@ -382,17 +382,14 @@ cdef class FmfwExchange(ExchangeBase):
                            data=None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
         url = Fmfw_ROOT_API + path_url
-        client = await self._http_client()
-        post_json = json.dumps(params)
         if method == "get":
             response = requests.get(url, auth=self._fmfw_auth)
         elif method == "post":
-            response = requests.post(url, data=post_json, auth=self._fmfw_auth)
+            response = requests.post(url, data=data, auth=self._fmfw_auth)
         elif method == "delete":
             response = requests.delete(url,auth=self._fmfw_auth)
         else:
             response = False
-        print('OUTSIDE ELSE',response.json())
         if response:
             # if response.status != 200:
             # raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
@@ -411,15 +408,15 @@ cdef class FmfwExchange(ExchangeBase):
             str asset_name
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
-        print(path_url)
+       # print(path_url)
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-        print('data : ',json.dumps(data))
+       # print('data : ',json.dumps(data))
         if data:
-            for balance_entry in data["data"]:
-             #   print('balance entry',balance_entry)
+            for balance_entry in data:
+               # print('balance entry',balance_entry)
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
-                self._account_balances[asset_name] = Decimal(balance_entry["balance"])
+                self._account_balances[asset_name] = Decimal(balance_entry["available"])
                 remote_asset_names.add(asset_name)
 
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -461,18 +458,24 @@ cdef class FmfwExchange(ExchangeBase):
     def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
             list trading_rules = []
-
-        for info in raw_trading_pair_info["data"]:
+        for symbol,info in raw_trading_pair_info.items():
+            # working on this
             try:
-                trading_rules.append(
-                    TradingRule(trading_pair=convert_from_exchange_trading_pair(info["symbol"]),
-                                min_order_size=Decimal(info["baseMinSize"]),
-                                max_order_size=Decimal(info["baseMaxSize"]),
-                                min_price_increment=Decimal(info['priceIncrement']),
-                                min_base_amount_increment=Decimal(info['baseIncrement']),
-                                min_quote_amount_increment=Decimal(info['quoteIncrement']),
-                                min_notional_size=Decimal(info["quoteMinSize"]))
-                )
+                if(info["status"]=='working'):
+                    trading_rules.append(
+                        TradingRule(trading_pair=convert_from_exchange_trading_pair(info["base_currency"],info["quote_currency"]),
+                                    min_price_increment=Decimal(info["tick_size"]),
+                                    #min_order_size=Decimal(info["baseMinSize"]),
+                                    #max_order_size=Decimal(info["baseMaxSize"]),
+                                    min_base_amount_increment=Decimal(info['quantity_increment']),
+                                    min_quote_amount_increment=Decimal(info['tick_size']),
+                                    #max_initial_leverage=Decimal(info["max_initial_leverage"]),
+                                    #take_rate=Decimal(info['take_rate']),
+                                    #make_rate=Decimal(info['make_rate']),
+                                    #min_quote_amount_increment=Decimal(info['quoteIncrement']),
+                                    #min_notional_size=Decimal(info["quoteMinSize"])
+                                    )
+                    )
             except Exception:
                 self.logger().error(f"Error parsing the trading_pair rule {info}. Skipping.", exc_info=True)
         return trading_rules
@@ -489,9 +492,13 @@ cdef class FmfwExchange(ExchangeBase):
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
+            print('tracked orders ',tracked_orders)
             for tracked_order in tracked_orders:
+                print(tracked_order)
                 exchange_order_id = await tracked_order.get_exchange_order_id()
+                print('exchange_order_id',exchange_order_id)
                 order_update = await self.get_order_status(exchange_order_id)
+                print('order_update: ',order_update)
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -501,7 +508,10 @@ cdef class FmfwExchange(ExchangeBase):
                     )
                     continue
 
-                order_state = order_update["data"]["isActive"]
+                order_state = False
+                if order_update["status"] == 'new':
+                    order_state = True
+                
                 if order_state:
                     continue
 
@@ -636,37 +646,27 @@ cdef class FmfwExchange(ExchangeBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self,
-                          order_id: str,
                           trading_pair: str,
                           amount: Decimal,
                           is_buy: bool,
-                          order_type: OrderType,
                           price: Decimal) -> str:
+    
         path_url = "/api/3/spot/order"
         side = "buy" if is_buy else "sell"
-        order_type_str = "limit"
+        quantity = '0.1'
         params = {
-            "size": str(amount),
-            "clientOid": order_id,
+            "price": str(price),
             "side": side,
-            "symbol": convert_to_exchange_trading_pair(trading_pair),
-            "type": order_type_str,
+            'quantity': str(amount),
+            "symbol": trading_pair.replace('-',''),
         }
-        if order_type is OrderType.LIMIT:
-            params["price"] = str(price)
-            params["hidden"] = True
-        elif order_type is OrderType.LIMIT_MAKER:
-            params["price"] = str(price)
-            params["postOnly"] = True
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
-            params=params,
             data=params,
             is_auth_required=True,
-            is_partner_required=True
         )
-        return str(exchange_order_id["data"]["orderId"])
+        return str(exchange_order_id["client_order_id"])
 
     async def execute_buy(self,
                           order_id: str,
@@ -683,14 +683,17 @@ cdef class FmfwExchange(ExchangeBase):
             object tracked_order
 
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            print('687 trading_pair',trading_pair,'amount',amount)
+            new_trading_pair=trading_pair.replace('-','')
             decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
             decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
+            exchange_order_id = await self.place_order(trading_pair, decimal_amount, True,
                                                        decimal_price)
+            print('689 exchange_order_id: ',exchange_order_id)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
@@ -761,7 +764,7 @@ cdef class FmfwExchange(ExchangeBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
+            exchange_order_id = await self.place_order(trading_pair, decimal_amount, False,
                                                        decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,

@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 from itertools import islice
-
-import aiohttp
 import asyncio
 import requests
 from async_timeout import timeout
@@ -23,8 +21,8 @@ from typing import (
 )
 import websockets
 from websockets.client import Connect as WSConnectionContext
-from urllib.parse import urlencode
-from yarl import URL
+# from urllib.parse import urlencode
+# from yarl import URL
 
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -107,17 +105,18 @@ class FmfwWSConnectionIterator:
 
     @staticmethod
     async def get_ws_connection_context() -> WSConnectionContext:
-        async with aiohttp.ClientSession() as session:
-            async with session.post('https://api.kucoin.com/api/v1/bullet-public', data=b'') as resp:
-                response: aiohttp.ClientResponse = resp
-                if response.status != 200:
-                    raise IOError(f"Error fetching Fmfw websocket connection data."
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, Any] = await response.json()
+        # async with aiohttp.ClientSession() as session:
+        #     async with session.post('https://api.kucoin.com/api/v1/bullet-public', data=b'') as resp:
+        #         response: aiohttp.ClientResponse = resp
+        #         if response.status != 200:
+        #             raise IOError(f"Error fetching Fmfw websocket connection data."
+        #                           f"HTTP status is {response.status}.")
+        #         data: Dict[str, Any] = await response.json()
 
-        endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
-        token: str = data["data"]["token"]
-        ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
+        # endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
+        # token: str = data["data"]["token"]
+        # ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
+        ws_url: str = "wss://api.fmfw.io/api/3/ws/public"
         return WSConnectionContext(ws_url)
 
     @staticmethod
@@ -308,12 +307,12 @@ class FmfwAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         results = dict()
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(TICKER_PRICE_CHANGE_URL)
-            resp_json = await resp.json()
-            for trading_pair in trading_pairs:
-                resp_record = [o for o in resp_json["data"]["ticker"] if convert_from_exchange_trading_pair(o["symbol"]) == trading_pair][0]
-                results[trading_pair] = float(resp_record["last"])
+        resp = requests.get(TICKER_PRICE_CHANGE_URL)
+        resp_json: Dict[str, Any] = resp.json()
+        for trading_pair in trading_pairs:
+            new_trading_pair = trading_pair.replace('-', '')
+            resp_record = [value for o, value in resp_json.items() if o == new_trading_pair][0]
+            results[trading_pair] = float(resp_record["last"])
         return results
 
     @staticmethod
@@ -329,36 +328,29 @@ class FmfwAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return []
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, auth: FmfwAuth = None) -> Dict[str, Any]:
-        params: Dict = {"symbol": convert_to_exchange_trading_pair(trading_pair)}
-
+    async def get_snapshot(trading_pair: str, auth: FmfwAuth = None) -> Dict[str, Any]:
+        symbol = convert_to_exchange_trading_pair(trading_pair)
+        symbol = symbol.replace('-', '')
         url = SNAPSHOT_REST_URL if auth else SNAPSHOT_REST_URL_NO_AUTH
-        path_url = f"{URL(url).path}?{urlencode(params)}"
-        payload: Dict = {"method": "get", "url": path_url}
-        headers = auth.add_auth_to_params(payload) if auth else None
-
-        async with client.get(url, params=params, headers=headers) as response:
-            response: aiohttp.ClientResponse = response
-            if response.status != 200:
-                raise IOError(f"Error fetching fmfw market snapshot for {trading_pair}. "
-                              f"HTTP status is {response.status}.")
-            data: Dict[str, Any] = await response.json()
+        path_url = f'{url}/{symbol}'
+        response = requests.get(path_url, auth=auth)
+        if response:
+            data: Dict[str, Any] = response.json()
             return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, self._auth)
-            snapshot_timestamp: float = time.time()
-            snapshot_msg: OrderBookMessage = FmfwOrderBook.snapshot_message_from_exchange(
-                snapshot,
-                snapshot_timestamp,
-                metadata={"symbol": trading_pair}
-            )
-            order_book: OrderBook = self.order_book_create_function()
-            active_order_tracker: FmfwActiveOrderTracker = FmfwActiveOrderTracker()
-            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
-            return order_book
+        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, self._auth)
+        snapshot_timestamp: float = time.time()
+        snapshot_msg: OrderBookMessage = FmfwOrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"symbol": trading_pair}
+        )
+        order_book: OrderBook = self.order_book_create_function()
+        active_order_tracker: FmfwActiveOrderTracker = FmfwActiveOrderTracker()
+        bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        return order_book
 
     async def get_markets_per_ws_connection(self) -> List[str]:
         # Fetch the  markets and split per connection
@@ -523,24 +515,23 @@ class FmfwAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
-                async with aiohttp.ClientSession() as client:
-                    for trading_pair in trading_pairs:
-                        try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, self._auth)
-                            snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = FmfwOrderBook.snapshot_message_from_exchange(
-                                snapshot,
-                                snapshot_timestamp,
-                                metadata={"symbol": trading_pair}
-                            )
-                            output.put_nowait(snapshot_msg)
-                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                            await asyncio.sleep(self.SLEEP_BETWEEN_SNAPSHOT_REQUEST)
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
-                            await asyncio.sleep(5.0)
+                for trading_pair in trading_pairs:
+                    try:
+                        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, self._auth)
+                        snapshot_timestamp: float = time.time()
+                        snapshot_msg: OrderBookMessage = FmfwOrderBook.snapshot_message_from_exchange(
+                            snapshot,
+                            snapshot_timestamp,
+                            metadata={"symbol": trading_pair}
+                        )
+                        output.put_nowait(snapshot_msg)
+                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                        await asyncio.sleep(self.SLEEP_BETWEEN_SNAPSHOT_REQUEST)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.logger().error("Unexpected error.", exc_info=True)
+                        await asyncio.sleep(5.0)
                 await asyncio.sleep(secs_until_next_oclock())
             except asyncio.CancelledError:
                 raise
