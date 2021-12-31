@@ -99,3 +99,5 @@ export type ParseResult<T> =
 export const latency = (startTime: number, endTime: number): number => {
   return (endTime - startTime) / 1000;
 };
+
+export const walletPath = './conf/wallets';

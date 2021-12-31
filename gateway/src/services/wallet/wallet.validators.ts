@@ -14,6 +14,7 @@ export const isPrivateKey = (str: string): boolean => {
 };
 
 // given a request, look for a key called privateKey that is an Ethereum private key
+// TODO: Case for Solana private keys
 export const validatePrivateKey: Validator = mkValidator(
   'privateKey',
   invalidPrivateKeyError,
@@ -21,7 +22,7 @@ export const validatePrivateKey: Validator = mkValidator(
 );
 
 export const invalidChainNameError: string =
-  'chainName must be "ethereum" or "avalanche"';
+  'chainName must be "ethereum", "avalanche" or "solana';
 
 export const invalidAddressError: string = 'address must be a string';
 
@@ -29,7 +30,8 @@ export const validateChainName: Validator = mkValidator(
   'chainName',
   invalidChainNameError,
   (val) =>
-    typeof val === 'string' && (val === 'ethereum' || val === 'avalanche')
+    typeof val === 'string' &&
+    (val === 'ethereum' || val === 'avalanche' || val === 'solana')
 );
 
 export const validateAddress: Validator = mkValidator(
