@@ -654,8 +654,8 @@ cdef class OkexExchange(ExchangeBase):
                           price: Decimal) -> str:
         data = {
             'clOrdId': order_id,
-            'tdMode': 'cash',
-            'ordType': 'limit',
+            'tdMode': 'cross',
+            'ordType': 'post_only',
             'side': "buy" if is_buy else "sell",
             'instId': trading_pair,
             'sz': str(amount),
