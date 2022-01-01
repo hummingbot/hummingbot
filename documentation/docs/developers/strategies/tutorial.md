@@ -198,7 +198,7 @@ Both [StrategyPyBase](https://github.com/CoinAlpha/hummingbot/blob/master/hummin
 
 Lastly, we also need an additional file inside the templates folder, which acts as a placeholder for the strategy parameters. First, let’s navigate to the `templates` folder and create the file. Run the following commands.
 ```
-cd ~/hummingbot instance
+cd ~/hummingbot-instance
 cd hummingbot/templates
 touch conf_limit_order_strategy_TEMPLATE.yml  
 ```
