@@ -6,7 +6,6 @@ import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
 import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
 import { PangolinRoutes } from './chains/avalanche/pangolin/pangolin.routes';
 import { SolanaRoutes } from './chains/solana/solana.routes';
-console.log('lol');
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';

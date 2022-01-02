@@ -1,3 +1,7 @@
+$namespace solana:
+  configurationPath: solana.yml
+  schemaPath: ../../../src/services/schema/solana-schema.json
+
 $namespace avalanche:
   configurationPath: avalanche.yml
   schemaPath: ../../../src/services/schema/ethereum-schema.json
@@ -5,10 +9,6 @@ $namespace avalanche:
 $namespace ethereum:
   configurationPath: ethereum.yml
   schemaPath: ../../../src/services/schema/ethereum-schema.json
-
-$namespace solana:
-  configurationPath: solana.yml
-  schemaPath: ../../../src/services/schema/solana-schema.json
 
 $namespace ethereumGasStation:
   configurationPath: ethereum-gas-station.yml
