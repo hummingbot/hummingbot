@@ -1,12 +1,13 @@
 import asyncio
 import logging
-from typing import (
-    Dict,
-    Optional,
-    List
-)
+
 from decimal import Decimal
 from enum import Enum
+from typing import (
+    Dict,
+    List,
+    Optional,
+)
 
 import aiohttp
 
@@ -20,8 +21,7 @@ from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 
@@ -199,7 +199,7 @@ class RateOracle(NetworkBase):
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
             if isinstance(task_result, Exception):
-                cls.logger().error("Unexpected error while retrieving rates from Coingecko. "
+                cls.logger().error("Unexpected error while retrieving rates from Binance. "
                                    "Check the log file for more info.")
                 break
             else:
@@ -223,16 +223,23 @@ class RateOracle(NetworkBase):
         async with client.request("GET", url) as resp:
             records = await resp.json()
             for record in records:
-                trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    record["symbol"], domain=domain)
+                try:
+                    trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                        record["symbol"], domain=domain)
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the Binance connector
+                    continue
                 if quote_symbol is not None:
                     base, quote = trading_pair.split("-")
                     if quote != quote_symbol:
                         continue
-                if trading_pair and record["bidPrice"] is not None and record["askPrice"] is not None and \
-                        Decimal(record["bidPrice"]) > 0 and Decimal(record["askPrice"]):
-                    results[trading_pair] = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal(
-                        "2")
+                if (trading_pair and record["bidPrice"] is not None
+                        and record["askPrice"] is not None
+                        and Decimal(record["bidPrice"]) > 0
+                        and Decimal(record["askPrice"])):
+                    results[trading_pair] = ((Decimal(record["bidPrice"]) + Decimal(record["askPrice"]))
+                                             / Decimal("2"))
+
         return results
 
     @classmethod
