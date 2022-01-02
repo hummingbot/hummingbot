@@ -1027,7 +1027,7 @@ class BinanceExchange(ExchangeBase):
         )
         return response["serverTime"]
 
-    async def _format_trades(trades):
+    async def _format_trades(self, trades):
         ret_val = []
         processed_keys = set()
         for trade in trades:
