@@ -305,6 +305,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if method == "GET":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=params)
+            self.logger().info([url, params])
             async with self._throttler.execute_task(limit_id):
                 response = await client.get(url=url,
                                             headers=self._auth.get_headers(referer_header_required),
@@ -313,6 +314,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         elif method == "POST":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
+            self.logger().info([url, params])
             async with self._throttler.execute_task(limit_id):
                 response = await client.post(url=url,
                                              headers=self._auth.get_headers(referer_header_required),
@@ -745,6 +747,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
             is_auth_required=True,
         )
+        self.logger().info(wallet_balance)
 
         for asset_name, balance_json in wallet_balance["result"].items():
             self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
@@ -787,7 +790,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
-
+        self.logger().info(raw_responses)
         # Initial parsing of responses. Removes Exceptions.
         parsed_status_responses: List[Dict[str, Any]] = []
         for resp in raw_responses:
@@ -823,6 +826,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     is_auth_required=True)))
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
+        self.logger().info(raw_responses)
 
         # Initial parsing of responses. Joining all the responses
         parsed_history_resps: List[Dict[str, Any]] = []
@@ -848,6 +852,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         while True:
             try:
+                self.logger().debug("""self._update_balances(),
+                    self._update_positions(),
+                    self._update_order_status(),
+                    self._update_trade_history(),""")
                 self._status_poll_notifier = asyncio.Event()
                 await self._status_poll_notifier.wait()
                 start_ts = self.current_timestamp
@@ -866,7 +874,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                       exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Bybit Perpetual. "
                                                       "Check API key and network connection.")
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -1128,7 +1136,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     is_auth_required=True)))
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*position_tasks, return_exceptions=True)
-
+        self.logger().debug(raw_responses)
         # Initial parsing of responses. Joining all the responses
         parsed_resps: List[Dict[str, Any]] = []
         for resp in raw_responses:
@@ -1165,6 +1173,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     del self._account_positions[pos_key]
 
     async def _set_leverage(self, trading_pair: str, leverage: int = 1):
+        self.logger().info(['setting leverage', trading_pair, leverage])
         ex_trading_pair = bybit_utils.convert_to_exchange_trading_pair(trading_pair)
         symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
         if ex_trading_pair not in symbol_trading_pair_map:

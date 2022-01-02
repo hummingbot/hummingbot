@@ -460,8 +460,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         super().start(clock, timestamp)
         self._last_timestamp = timestamp
         self.apply_initial_settings(self.trading_pair, self._position_mode, self._leverage)
+        self.logger().info('start() finished')
 
     def apply_initial_settings(self, trading_pair: str, position: Position, leverage: int):
+        self.logger().info(['start startegy', trading_pair, leverage, position])
         market: ExchangeBase = self._market_info.market
         market.set_leverage(trading_pair, leverage)
         market.set_position_mode(position)
