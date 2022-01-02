@@ -59,7 +59,9 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        if self._ws_assistant:
+            return self._ws_assistant.last_recv_time
+        return -1
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         ws = None
