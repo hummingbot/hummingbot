@@ -74,7 +74,7 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
       chainName: 'ethereum',
     });
@@ -99,7 +99,7 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
       chainName: 'avalanche',
     });
@@ -115,7 +115,7 @@ describe('addWallet and getWallets', () => {
 
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
-      addWallet(eth, avalanche, {
+      addWallet({
         privateKey: onePrivateKey,
         chainName: 'shibainu',
       })
@@ -142,7 +142,7 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
       chainName: 'ethereum',
     });
