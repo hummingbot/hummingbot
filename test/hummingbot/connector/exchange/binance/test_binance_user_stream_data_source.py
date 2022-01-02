@@ -3,7 +3,7 @@ import json
 import re
 import unittest
 
-from aioresponses.core import aioresponses
+from aioresponses import aioresponses
 from typing import (
     Any,
     Awaitable,
@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 import hummingbot.connector.exchange.binance.binance_utils as utils
-
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -109,7 +108,11 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def test_last_recv_time(self):
         # Initial last_recv_time
-        self.assertEqual(0, self.data_source.last_recv_time)
+        self.assertEqual(-1, self.data_source.last_recv_time)
+
+        ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
+        ws_assistant._connection._last_recv_time = 1000
+        self.assertEqual(1000, self.data_source.last_recv_time)
 
     def test_get_throttler_instance(self):
         self.assertIsInstance(self.data_source._get_throttler_instance(), AsyncThrottler)
