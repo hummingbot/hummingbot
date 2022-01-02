@@ -1,7 +1,8 @@
 import hashlib
 import hmac
+import time
+from collections import OrderedDict
 
-from datetime import time
 from typing import (
     Any,
     Dict
@@ -18,24 +19,33 @@ class BinanceAuth:
     # def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
     #    return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
 
+    def get_headers(self, request_type: str) -> Dict[str, Any]:
+        """
+        Generates authentication headers required by ProBit
+        :return: a dictionary of auth headers
+        """
+        content_type = "application/json" if request_type == "post" else "application/x-www-form-urlencoded"
+        return {
+            "Content-Type": content_type,
+        }
+
+    def get_auth_headers(self, request_type: str) -> Dict[str, Any]:
+        headers = self.get_headers(request_type=request_type)
+        headers["X-MBX-APIKEY"] = self.api_key
+        return headers
+
     def add_auth_to_params(self,
-                           params: Dict[str, Any] = None):
-        timestamp = int(self._time() * 1000)
+                           params: Dict[str, Any],
+                           current_time: float):
+        timestamp = int(current_time * 1e3)
 
-        if not params:
-            params = {}
+        request_params = OrderedDict(params or {})
+        request_params["timestamp"] = timestamp
 
-        params.update({"timestamp": timestamp})
+        signature = self._generate_signature(params=request_params)
+        request_params["signature"] = signature
 
-        # sorted_params = self.keysort(params)
-        # signature = self.generate_signature(method=method,
-        #                                    path_url=path_url,
-        #                                    params=sorted_params)
-        # sorted_params["signature"] = signature
-        signature = self._generate_signature(params=params)
-        params["signature"] = signature
-
-        return params
+        return request_params
 
     def _generate_signature(self, params: Dict[str, Any]) -> str:
 
