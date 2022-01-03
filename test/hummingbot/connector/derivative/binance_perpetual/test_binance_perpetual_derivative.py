@@ -6,6 +6,7 @@ from decimal import Decimal
 import pandas as pd
 import re
 import unittest
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import BinancePerpetualAPIOrderBookDataSource
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
@@ -63,6 +64,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+            self.symbol: self.trading_pair
+        }
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
