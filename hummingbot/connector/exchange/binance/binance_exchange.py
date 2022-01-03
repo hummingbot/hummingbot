@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import time
 
@@ -247,14 +246,21 @@ class BinanceExchange(ExchangeBase):
         if is_auth_required:
             url = binance_utils.private_rest_url(path_url, domain=self._domain)
             headers = self._auth.get_auth_headers(request_type=method)
-            params = self._auth.add_auth_to_params(params, current_time=self._binance_time_synchronizer.time())
+            if method.upper() == "POST":
+                data = self._auth.add_auth_to_params(
+                    params=data,
+                    current_time=self._binance_time_synchronizer.time())
+            else:
+                params = self._auth.add_auth_to_params(
+                    params=params,
+                    current_time=self._binance_time_synchronizer.time())
         else:
             url = binance_utils.public_rest_url(path_url, domain=self._domain)
             headers = self._auth.get_headers(request_type=method)
 
         request = RESTRequest(method=RESTMethod[method.upper()],
                               url=url,
-                              data=json.dumps(data) if data else None,
+                              data=data,
                               params=params,
                               headers=headers,
                               is_auth_required=is_auth_required)
@@ -263,7 +269,7 @@ class BinanceExchange(ExchangeBase):
             response = await client.call(request)
 
             if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} ({response}).")
             try:
                 parsed_response = await response.json()
             except Exception:
