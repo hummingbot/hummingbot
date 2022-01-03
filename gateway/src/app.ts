@@ -111,27 +111,23 @@ export const startGateway = async () => {
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-    try {
-      const swaggerDocument = SwaggerManager.generateSwaggerJson(
-        './docs/swagger/swagger.yml',
-        './docs/swagger/definitions.yml',
-        [
-          './docs/swagger/main-routes.yml',
-          './docs/swagger/eth-routes.yml',
-          './docs/swagger/eth-uniswap-routes.yml',
-          './docs/swagger/avalanche-routes.yml',
-          './docs/swagger/avalanche-pangolin-routes.yml',
-          './docs/swagger/wallet-routes.yml',
-        ]
-      );
+    const swaggerDocument = SwaggerManager.generateSwaggerJson(
+      './docs/swagger/swagger.yml',
+      './docs/swagger/definitions.yml',
+      [
+        './docs/swagger/main-routes.yml',
+        './docs/swagger/eth-routes.yml',
+        './docs/swagger/eth-uniswap-routes.yml',
+        './docs/swagger/avalanche-routes.yml',
+        './docs/swagger/avalanche-pangolin-routes.yml',
+        './docs/swagger/wallet-routes.yml',
+      ]
+    );
 
-      // mount swagger api docs
-      app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    // mount swagger api docs
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-      server = await app.listen(port);
-    } catch (error) {
-      console.log(error);
-    }
+    server = await app.listen(port);
   } else {
     server = await addHttps(app).listen(port);
     logger.info('The server is secured behind HTTPS.');
