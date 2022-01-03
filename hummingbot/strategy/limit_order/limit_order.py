@@ -51,7 +51,7 @@ class LimitOrder(StrategyPyBase):
             # method is derived from the Strategy_base class.
             order_id = self.buy_with_specific_market(
                 self._market_info,  # market_trading_pair_tuple
-                Decimal("0.005"),   # amount
+                Decimal("0.5"),   # amount
                 OrderType.LIMIT,    # order_type
                 mid_price           # price
             )

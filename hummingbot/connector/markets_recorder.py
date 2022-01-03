@@ -179,6 +179,7 @@ class MarketsRecorder:
             session.commit()
 
     def restore_market_states(self, config_file_path: str, market: ConnectorBase):
+        print('In here aniketh')
         market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
 
         if market_states is not None:

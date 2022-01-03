@@ -408,12 +408,9 @@ cdef class FmfwExchange(ExchangeBase):
             str asset_name
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
-       # print(path_url)
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-       # print('data : ',json.dumps(data))
         if data:
             for balance_entry in data:
-               # print('balance entry',balance_entry)
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
                 self._account_balances[asset_name] = Decimal(balance_entry["available"])
@@ -492,13 +489,11 @@ cdef class FmfwExchange(ExchangeBase):
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            print('tracked orders ',tracked_orders)
             for tracked_order in tracked_orders:
-                print(tracked_order)
+                print('493 tracked_order : ',tracked_order)
                 exchange_order_id = await tracked_order.get_exchange_order_id()
-                print('exchange_order_id',exchange_order_id)
                 order_update = await self.get_order_status(exchange_order_id)
-                print('order_update: ',order_update)
+                print('496',order_update)
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -513,10 +508,11 @@ cdef class FmfwExchange(ExchangeBase):
                     order_state = True
                 
                 if order_state:
+                    print('509 here')
                     continue
 
                 # Calculate the newly executed amount for this update.
-                if order_update["data"]["opType"] == "DEAL":
+                if order_update["status"] == "filled":
                     if order_state:
                         tracked_order.last_state = "DEAL"
                     else:
@@ -528,9 +524,6 @@ cdef class FmfwExchange(ExchangeBase):
                 execute_amount_diff = Decimal(order_update["data"]["dealSize"])
 
                 if execute_amount_diff > s_decimal_0:
-                    tracked_order.executed_amount_base = Decimal(order_update["data"]["dealSize"])
-                    tracked_order.executed_amount_quote = new_confirmed_amount
-                    tracked_order.fee_paid = Decimal(order_update["data"]["fee"])
                     execute_price = Decimal(order_update["data"]["dealFunds"]) / execute_amount_diff
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
@@ -653,7 +646,6 @@ cdef class FmfwExchange(ExchangeBase):
     
         path_url = "/api/3/spot/order"
         side = "buy" if is_buy else "sell"
-        quantity = '0.1'
         params = {
             "price": str(price),
             "side": side,
@@ -683,17 +675,14 @@ cdef class FmfwExchange(ExchangeBase):
             object tracked_order
 
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-            print('687 trading_pair',trading_pair,'amount',amount)
-            new_trading_pair=trading_pair.replace('-','')
             decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
             decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(trading_pair, decimal_amount, True,
+            exchange_order_id = await self.place_order(trading_pair, decimal_amount, False,
                                                        decimal_price)
-            print('689 exchange_order_id: ',exchange_order_id)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
@@ -850,13 +839,14 @@ cdef class FmfwExchange(ExchangeBase):
 
             for tracked_order, response in zip(tracked_orders.values(), responses):
                 # Handle failed cancelled orders
-                if isinstance(response, Exception) or "data" not in response:
+                if isinstance(response, Exception):
                     self.logger().error(f"Failed to cancel order {tracked_order.client_order_id}. Response: {response}",
                                         exc_info=True,
                                         )
                     cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
                 # Handles successfully cancelled orders
-                elif tracked_order.exchange_order_id == response['data']['cancelledOrderIds'][0]:
+
+                elif tracked_order.exchange_order_id == response['client_order_id']:
                     if tracked_order.client_order_id in self._in_flight_orders:
                         tracked_order.last_state = "CANCEL"
                         self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")

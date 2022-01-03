@@ -72,6 +72,7 @@ cdef class InFlightOrderBase:
 
     @property
     def quote_asset(self) -> str:
+        print('here', self.trading_pair)
         return self.trading_pair.split("-")[1]
 
     def update_exchange_order_id(self, exchange_id: str):
