@@ -162,7 +162,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        return [order.to_limit_order() for order in self._client_order_tracker.all_orders]
+        return [order.to_limit_order() for order in self._client_order_tracker.all_orders.values()]
 
     @property
     def budget_checker(self) -> PerpetualBudgetChecker:

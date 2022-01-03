@@ -153,9 +153,9 @@ class ClientOrderTracker:
                 price=order.last_filled_price,
                 amount=order.last_filled_amount,
                 trade_fee=order.latest_trade_fee,
-                exchange_trade_id=order.last_trade_id,
+                exchange_trade_id=str(order.last_trade_id),
                 leverage=int(order.leverage),
-                position=order.position,
+                position=order.position.name,
             ),
         )
 
