@@ -228,7 +228,7 @@ class OrderFilledEvent(NamedTuple):
     trade_fee: TradeFee
     exchange_trade_id: str = ""
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = "NIL"
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,

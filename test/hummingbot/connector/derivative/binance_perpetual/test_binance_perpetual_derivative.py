@@ -520,7 +520,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -650,7 +650,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -691,7 +691,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "cr": "5.0",
                 "rp": "0"
             }
-
         }
 
         mock_user_stream = AsyncMock()
@@ -780,7 +779,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -902,7 +901,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -966,7 +965,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
