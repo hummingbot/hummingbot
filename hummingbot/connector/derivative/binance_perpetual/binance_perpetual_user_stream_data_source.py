@@ -3,6 +3,7 @@ import logging
 import time
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 
 from typing import (
     Any,
@@ -10,8 +11,6 @@ from typing import (
     Optional,
     Tuple,
 )
-
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -57,6 +56,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_stream_task = None
         self._domain = domain
         self._throttler = throttler or self._get_throttler_instance()
+        self._last_listen_key_ping_ts = None
 
         self._manage_listen_key_task = None
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()

@@ -3,11 +3,12 @@ import re
 import ujson
 import unittest
 
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+
 from aioresponses.core import aioresponses
 from typing import Any, Awaitable, Dict
 from unittest.mock import AsyncMock, patch
 
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_utils as utils
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource
