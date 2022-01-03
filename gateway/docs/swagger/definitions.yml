@@ -466,13 +466,27 @@ definitions:
 
   GetWalletResponse:
     type: 'object'
-      required:
-        - 'chain'
-        - 'walletAddresses'
-      properties:
-        chain:
-          type: 'string'
-        tokenSymbols:
-          type: 'array'
-          items: 'string'
-          example: ['0xd0A1E359811322d97991E03f863a0C30C2cF029C', '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX']
+    required:
+      - 'chain'
+      - 'walletAddresses'
+    properties:
+      chain:
+        type: 'string'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['0xd0A1E359811322d97991E03f863a0C30C2cF029C', '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX']
+
+  ConfigUpdateRequest:
+    type: 'object'
+    required:
+      - 'configPath'
+      - 'configValue'
+    properties:
+      configPath:
+        type: 'string'
+      configValue:
+        OneOf:
+          - type: 'boolean'
+          - type: 'number'
+
