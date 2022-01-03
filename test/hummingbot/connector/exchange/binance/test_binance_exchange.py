@@ -115,7 +115,19 @@ class BinanceExchangeTests(TestCase):
         }
 
     def _validate_auth_credentials_for_request(self, request_call_tuple: NamedTuple):
-        request_params = request_call_tuple.kwargs["params"]
+        self._validate_auth_credentials_taking_parameters_from_argument(
+            request_call_tuple=request_call_tuple,
+            params_key="params"
+        )
+
+    def _validate_auth_credentials_for_post_request(self, request_call_tuple: NamedTuple):
+        self._validate_auth_credentials_taking_parameters_from_argument(
+            request_call_tuple=request_call_tuple,
+            params_key="data"
+        )
+
+    def _validate_auth_credentials_taking_parameters_from_argument(self, request_call_tuple: NamedTuple, params_key: str):
+        request_params = request_call_tuple.kwargs[params_key]
         self.assertIn("timestamp", request_params)
         self.assertIn("signature", request_params)
         request_headers = request_call_tuple.kwargs["headers"]
@@ -183,8 +195,8 @@ class BinanceExchangeTests(TestCase):
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
-        self._validate_auth_credentials_for_request(order_request[1][0])
-        request_data = json.loads(order_request[1][0].kwargs["data"])
+        self._validate_auth_credentials_for_post_request(order_request[1][0])
+        request_data = order_request[1][0].kwargs["data"]
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(CONSTANTS.SIDE_BUY, request_data["side"])
         self.assertEqual(BinanceExchange.binance_order_type(OrderType.LIMIT), request_data["type"])
