@@ -26,6 +26,7 @@ TICKER_PRICE_CHANGE_URL = "/ticker/24hr"
 EXCHANGE_INFO_URL = "/exchangeInfo"
 RECENT_TRADES_URL = "/trades"
 PING_URL = "/ping"
+MARK_PRICE_URL = "/premiumIndex"
 
 # Private API v1 Endpoints
 ORDER_URL = "/order"
@@ -107,4 +108,6 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]

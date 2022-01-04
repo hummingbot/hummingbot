@@ -44,6 +44,10 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         self._domain = domain
 
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
+        self._order_book_funding_info_listener_task: Optional[asyncio.Task] = None
+
+    def is_funding_info_initialized(self) -> bool:
+        return self._data_source.is_funding_info_initialized()
 
     @property
     def exchange_name(self) -> str:
@@ -54,7 +58,10 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         self._order_book_stream_listener_task = safe_ensure_future(
             self._data_source.listen_for_subscriptions()
         )
+        self._order_book_funding_info_listener_task = safe_ensure_future(
+            self._data_source.listen_for_funding_info())
 
     def stop(self):
         self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        self._order_book_funding_info_listener_task and self._order_book_funding_info_listener_task.cancel()
         super().stop()
