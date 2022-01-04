@@ -58,7 +58,7 @@ export class TelemetryTransport extends winston.transports.Http {
     if (this.requestCountAggregator > 0) {
       const metric = {
         data: JSON.stringify({
-          name: 'hourly_request_count',
+          name: 'request_count',
           source: 'gateway',
           instance_id: this.instanceId,
           value: this.requestCountAggregator,
@@ -88,7 +88,7 @@ export class TelemetryTransport extends winston.transports.Http {
     const req = https.request({
       method: 'POST',
       host: this.host,
-      port: this.port,
+      port: 443,
       path: isLog
         ? `/reporting-proxy-v2/log?${querystring.stringify(options.params)}`
         : '/reporting-proxy-v2/client_metrics',
