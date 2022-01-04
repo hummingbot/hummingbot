@@ -50,7 +50,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -130,7 +130,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
-        self._funding_info_polling_task = None
         self._funding_fee_polling_task = None
         self._user_stream_tracker_task = None
         self._last_poll_timestamp = 0
@@ -161,9 +160,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "funding_info": len(self._funding_info) > 0,
             "position_mode": self.position_mode,
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
+            "funding_info_initialized": self._order_book_tracker.is_funding_info_initialized(),
         }
 
     @property
@@ -221,7 +220,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def start_network(self):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
         if self._trading_required:
             await self._get_position_mode()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -244,13 +242,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._user_stream_event_listener_task.cancel()
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
-        if self._funding_info_polling_task is not None:
-            self._funding_info_polling_task.cancel()
         if self._funding_fee_polling_task is not None:
             self._funding_fee_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = \
-            self._user_stream_event_listener_task = self._funding_info_polling_task = \
-            self._funding_fee_polling_task = None
+            self._user_stream_event_listener_task = self._funding_fee_polling_task = None
 
     async def stop_network(self):
         self._stop_network()
@@ -730,42 +725,18 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 )
                 await self._sleep(0.5)
 
-    async def _funding_info_polling_loop(self):
-        while True:
-            try:
-                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)
-
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=stream_url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
-
-                payload = {
-                    "method": "SUBSCRIBE",
-                    "params": [
-                        f"{OrderBookDataSource.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
-                        for trading_pair in self._trading_pairs
-                    ]
-                }
-                subscribe_request: WSRequest = WSRequest(payload)
-                await ws.send(subscribe_request)
-
-                async for msg in ws.iter_messages():
-                    if "result" in msg.data:
-                        continue
-                    trading_pair = OrderBookDataSource.convert_from_exchange_trading_pair(msg.data["data"]["s"])
-                    self._funding_info[trading_pair] = FundingInfo(
-                        trading_pair,
-                        Decimal(str(msg.data["data"]["i"])),
-                        Decimal(str(msg.data["data"]["p"])),
-                        int(msg.data["data"]["T"]),
-                        Decimal(str(msg.data["data"]["r"]))
-                    )
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error updating funding info. Retrying after 10 seconds... ",
-                                    exc_info=True)
-                await self._sleep(10.0)
+    def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
+        """
+        Retrieves the Funding Info for the specified trading pair.
+        Note: This function should NOT be called when the connector is not yet ready.
+        :param: trading_pair: The specified trading pair.
+        """
+        if trading_pair in self._order_book_tracker.data_source.funding_info:
+            return self._order_book_tracker.data_source.funding_info[trading_pair]
+        else:
+            self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
+            safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
+            return None
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
@@ -982,7 +953,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         safe_ensure_future(self._set_leverage(trading_pair, leverage))
 
-    async def get_funding_payment(self, startTime):
+    async def get_funding_payment(self, startTime: float):
         funding_payment_tasks = []
         for pair in self._trading_pairs:
             funding_payment_tasks.append(
