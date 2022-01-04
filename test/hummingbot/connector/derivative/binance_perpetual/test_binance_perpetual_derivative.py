@@ -501,69 +501,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_funding_info_polling_loop_cancelled_when_connecting(self, ws_connect_mock):
-        ws_connect_mock.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_funding_info_polling_loop_cancelled_when_listening(self, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        ws_connect_mock.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative._sleep")
-    def test_funding_info_polling_loop_log_exception(self, mock_sleep, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (
-            # Allows _funding_info_polling_loop task to yield control over thread
-            self.ev_loop.run_until_complete(asyncio.sleep(0.5))
-        )
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        ws_connect_mock.side_effect = Exception("TEST ERROR")
-
-        try:
-            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
-        except Exception:
-            pass
-
-        self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error updating funding info. Retrying after 10 seconds... "))
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_funding_info_polling_loop_successful(self, mock_map, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
-                                        f"{self.base_asset}-{self.quote_asset}")]
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
-
-        funding_info = self._get_funding_info_dict()
-
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(funding_info))
-
-        self.ev_loop.create_task(self.exchange._funding_info_polling_loop())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-        self.assertTrue(f"{self.base_asset}-{self.quote_asset}" in self.exchange._funding_info)
-
-        funding_info = self.exchange._funding_info[f"{self.base_asset}-{self.quote_asset}"]
-
-        self.assertEqual(funding_info.index_price, 1)
-        self.assertEqual(funding_info.mark_price, 10)
-        self.assertEqual(funding_info.next_funding_utc_timestamp, 200)
-        self.assertEqual(funding_info.rate, 1)
-
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
     def test_format_trading_rules(self, mock_map):
