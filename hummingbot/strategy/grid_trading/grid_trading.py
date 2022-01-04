@@ -789,8 +789,9 @@ class GridTradingStrategy(StrategyPyBase):
         # df_active = self.active_orders_df()
 
         df_order = self.gen_order_df()
+        df_order_r = df_order[::-1]
         self.logger().debug(['gen_order_df \n', df_order])
-        for ix, row in df_order[::-1][df_order['side'] == 'buy'].iloc[:n_range].iterrows():
+        for ix, row in df_order_r[df_order['side'] == 'buy'].iloc[:n_range].iterrows():
             price = Decimal(ix)
             size = row['size']
             size = market.quantize_order_amount(self.trading_pair, size)
