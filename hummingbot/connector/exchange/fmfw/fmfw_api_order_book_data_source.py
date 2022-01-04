@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from itertools import islice
+# from itertools import islice
 import asyncio
 import requests
 from async_timeout import timeout
@@ -17,7 +17,6 @@ from typing import (
     Optional,
     DefaultDict,
     Set,
-    Tuple,
 )
 import websockets
 from websockets.client import Connect as WSConnectionContext
@@ -119,48 +118,44 @@ class FmfwWSConnectionIterator:
         ws_url: str = "wss://api.fmfw.io/api/3/ws/public"
         return WSConnectionContext(ws_url)
 
-    @staticmethod
-    async def update_subscription(ws: websockets.WebSocketClientProtocol,
-                                  stream_type: StreamType,
-                                  trading_pairs: Set[str],
-                                  subscribe: bool):
-        # Fmfw has a limit of 100 subscription per 10 seconds
-        trading_pairs = {convert_to_exchange_trading_pair(t) for t in trading_pairs}
-        it = iter(trading_pairs)
-        trading_pair_chunks: List[Tuple[str]] = list(iter(lambda: tuple(islice(it, 100)), ()))
-        subscribe_requests: List[Dict[str, Any]] = []
-        if stream_type == StreamType.Depth:
-            for trading_pair_chunk in trading_pair_chunks:
-                market_str: str = ",".join(sorted(trading_pair_chunk))
-                subscribe_requests.append({
-                    "id": int(time.time()),
-                    "type": "subscribe" if subscribe else "unsubscribe",
-                    "topic": f"/market/level2:{market_str}",
-                    "response": True
-                })
-        else:
-            for trading_pair_chunk in trading_pair_chunks:
-                market_str: str = ",".join(sorted(trading_pair_chunk))
-                subscribe_requests.append({
-                    "id": int(time.time()),
-                    "type": "subscribe" if subscribe else "unsubscribe",
-                    "topic": f"/market/match:{market_str}",
-                    "privateChannel": False,
-                    "response": True
-                })
-        for i, subscribe_request in enumerate(subscribe_requests):
-            await ws.send(json.dumps(subscribe_request))
-            if i != len(subscribe_requests) - 1:  # only sleep between requests
-                await asyncio.sleep(10)
-
-        await asyncio.sleep(0.2)  # watch out for the rate limit
-
-    async def subscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
-        await FmfwWSConnectionIterator.update_subscription(self.websocket, stream_type, trading_pairs, True)
-
-    async def unsubscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
-        await FmfwWSConnectionIterator.update_subscription(self.websocket, stream_type, trading_pairs, False)
-
+    # @staticmethod
+    # async def update_subscription(ws: websockets.WebSocketClientProtocol,
+    #                               stream_type: StreamType,
+    #                               trading_pairs: Set[str],
+    #                               subscribe: bool):
+    #     # Fmfw has a limit of 100 subscription per 10 seconds
+    #     trading_pairs = {convert_to_exchange_trading_pair(t) for t in trading_pairs}
+    #     it = iter(trading_pairs)
+    #     trading_pair_chunks: List[Tuple[str]] = list(iter(lambda: tuple(islice(it, 100)), ()))
+    #     subscribe_requests: List[Dict[str, Any]] = []
+    #     if stream_type == StreamType.Depth:
+    #         for trading_pair_chunk in trading_pair_chunks:
+    #             market_str: str = ",".join(sorted(trading_pair_chunk))
+    #             subscribe_requests.append({
+    #                 "id": int(time.time()),
+    #                 "type": "subscribe" if subscribe else "unsubscribe",
+    #                 "topic": f"/market/level2:{market_str}",
+    #                 "response": True
+    #             })
+    #     else:
+    #         for trading_pair_chunk in trading_pair_chunks:
+    #             market_str: str = ",".join(sorted(trading_pair_chunk))
+    #             subscribe_requests.append({
+    #                 "id": int(time.time()),
+    #                 "type": "subscribe" if subscribe else "unsubscribe",
+    #                 "topic": f"/market/match:{market_str}",
+    #                 "privateChannel": False,
+    #                 "response": True
+    #             })
+    #     for i, subscribe_request in enumerate(subscribe_requests):
+    #         await ws.send(json.dumps(subscribe_request))
+    #         if i != len(subscribe_requests) - 1:  # only sleep between requests
+    #             await asyncio.sleep(10)
+    #     await asyncio.sleep(0.2)  # watch out for the rate limit
+    # async def subscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
+    #     await FmfwWSConnectionIterator.update_subscription(self.websocket, stream_type, trading_pairs, True)
+    # async def unsubscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
+    #     await FmfwWSConnectionIterator.update_subscription(self.websocket, stream_type, trading_pairs, False)
     @property
     def stream_type(self) -> StreamType:
         return self._stream_type
@@ -171,18 +166,18 @@ class FmfwWSConnectionIterator:
 
     @trading_pairs.setter
     def trading_pairs(self, trading_pairs: Set[str]):
-        prev_trading_pairs = self._trading_pairs
+        # prev_trading_pairs = self._trading_pairs
         self._trading_pairs = trading_pairs.copy()
 
-        if prev_trading_pairs != trading_pairs and self._websocket is not None:
-            async def update_subscriptions_func():
-                unsubscribe_set: Set[str] = prev_trading_pairs - trading_pairs
-                subscribe_set: Set[str] = trading_pairs - prev_trading_pairs
-                if len(unsubscribe_set) > 0:
-                    await self.unsubscribe(self.stream_type, unsubscribe_set)
-                if len(subscribe_set) > 0:
-                    await self.subscribe(self.stream_type, subscribe_set)
-            safe_ensure_future(update_subscriptions_func())
+        # if prev_trading_pairs != trading_pairs and self._websocket is not None:
+        #     async def update_subscriptions_func():
+        #         unsubscribe_set: Set[str] = prev_trading_pairs - trading_pairs
+        #         subscribe_set: Set[str] = trading_pairs - prev_trading_pairs
+        #         if len(unsubscribe_set) > 0:
+        #             await self.unsubscribe(self.stream_type, unsubscribe_set)
+        #         if len(subscribe_set) > 0:
+        #             await self.subscribe(self.stream_type, subscribe_set)
+        #     safe_ensure_future(update_subscriptions_func())
 
     @property
     def websocket(self) -> Optional[websockets.WebSocketClientProtocol]:
@@ -239,7 +234,7 @@ class FmfwWSConnectionIterator:
                 self._websocket = ws
 
                 # Subscribe to the initial topic.
-                await self.subscribe(self.stream_type, self.trading_pairs)
+                # await self.subscribe(self.stream_type, self.trading_pairs)
 
                 # Start the ping task
                 ping_task = safe_ensure_future(self._ping_loop(self.PING_INTERVAL))
@@ -364,152 +359,35 @@ class FmfwAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return market_subsets
 
-    async def _start_update_tasks(self, stream_type: StreamType, output: asyncio.Queue):
-        self._stop_update_tasks(stream_type)
-        market_assignments: List[str] = await self.get_markets_per_ws_connection()
-
-        for task_index, market_subset in enumerate(market_assignments):
-            await self._start_single_update_task(stream_type,
-                                                 output,
-                                                 task_index,
-                                                 market_subset)
-
-    async def _start_single_update_task(self,
-                                        stream_type: StreamType,
-                                        output: asyncio.Queue,
-                                        task_index: int,
-                                        market_subset: str):
-        self._tasks[stream_type][task_index] = self.TaskEntry(
-            set(market_subset.split(',')),
-            safe_ensure_future(self._collect_and_decode_messages_loop(stream_type, task_index, output))
-        )
-
-    async def _refresh_subscriptions(self, stream_type: StreamType, output: asyncio.Queue):
-        """
-        modifies the subscription list (market pairs) for each connection to track changes in active markets
-        :param stream_type: whether diffs or trades
-        :param output: the output queue
-        """
-        all_symbols: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
-        all_symbols_set: Set[str] = set(all_symbols)
-        pending_trading_pair_updates: Dict[Tuple[StreamType, int], Set[str]] = {}
-
-        # removals
-        # remove any markets in current connections that are not present in the new master set
-        for task_index in self._tasks[stream_type]:
-            update_key: Tuple[StreamType, int] = (stream_type, task_index)
-            if update_key not in pending_trading_pair_updates:
-                pending_trading_pair_updates[update_key] = self._tasks[stream_type][task_index].trading_pairs
-            pending_trading_pair_updates[update_key] &= all_symbols_set
-
-        # additions
-        # from the new set of trading pairs, delete any items that are in the connections already
-        for task_index in self._tasks[stream_type]:
-            all_symbols_set -= self._tasks[stream_type][task_index].trading_pairs
-
-        # now all_symbols_set contains just the additions, add each of those to the shortest connection list
-        for market in all_symbols_set:
-            smallest_index: int = 0
-            smallest_set_size: int = self.SYMBOLS_PER_CONNECTION + 1
-            for task_index in self._tasks[stream_type]:
-                if len(self._tasks[stream_type][task_index].trading_pairs) < smallest_set_size:
-                    smallest_index = task_index
-                    smallest_set_size = len(self._tasks[stream_type][task_index].trading_pairs)
-            if smallest_set_size < self.SYMBOLS_PER_CONNECTION:
-                update_key: Tuple[StreamType, int] = (stream_type, smallest_index)
-                if update_key not in pending_trading_pair_updates:
-                    pending_trading_pair_updates[update_key] = self._tasks[stream_type][smallest_index].trading_pairs
-                pending_trading_pair_updates[update_key].add(market)
-            else:
-                new_index: int = len(self._tasks[stream_type])
-                await self._start_single_update_task(stream_type=stream_type,
-                                                     output=output,
-                                                     task_index=new_index,
-                                                     market_subset=market)
-
-        # update the trading pairs set for all task entries that have pending updates.
-        for (stream_type, task_index), trading_pairs in pending_trading_pair_updates.items():
-            self._tasks[stream_type][task_index].update_trading_pairs(trading_pairs)
-
-    def _stop_update_tasks(self, stream_type: StreamType):
-        if stream_type in self._tasks:
-            for task_index in self._tasks[stream_type]:
-                if not self._tasks[stream_type][task_index].task.done():
-                    self._tasks[stream_type][task_index].task.cancel()
-            del self._tasks[stream_type]
-
-    async def _collect_and_decode_messages_loop(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
-        while True:
-            try:
-                fmfw_msg_iterator: FmfwWSConnectionIterator = FmfwWSConnectionIterator(
-                    stream_type, self._tasks[stream_type][task_index].trading_pairs
-                )
-                self._tasks[stream_type][task_index].message_iterator = fmfw_msg_iterator
-                async for raw_msg in fmfw_msg_iterator:
-                    msg_type: str = raw_msg.get("type", "")
-                    if msg_type in {"ack", "welcome", "pong"}:
-                        pass
-                    elif msg_type == "message":
-                        if stream_type == StreamType.Depth:
-                            order_book_message: OrderBookMessage = FmfwOrderBook.diff_message_from_exchange(raw_msg)
-                        else:
-                            trading_pair: str = convert_to_exchange_trading_pair(raw_msg["data"]["symbol"])
-                            data = raw_msg["data"]
-                            order_book_message: OrderBookMessage = \
-                                FmfwOrderBook.trade_message_from_exchange(
-                                    data,
-                                    metadata={"trading_pair": trading_pair}
-                                )
-                        output.put_nowait(order_book_message)
-                    elif msg_type == "error":
-                        self.logger().error(f"WS error message from Fmfw: {raw_msg}")
-                    else:
-                        self.logger().warning(f"Unrecognized message type from Fmfw: {msg_type}. "
-                                              f"Message = {raw_msg}.")
-            except asyncio.CancelledError:
-                raise
-            except asyncio.TimeoutError:
-                self.logger().error("Timeout error with WebSocket connection. Retrying after 5 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(5.0)
-            except Exception:
-                self.logger().error("Unexpected exception with WebSocket connection. Retrying after 5 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(5.0)
-            finally:
-                if stream_type in self._tasks:
-                    if task_index in self._tasks:
-                        self._tasks[stream_type][task_index].message_iterator = None
-
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                await self._start_update_tasks(StreamType.Trade, output)
+                # await self._start_update_tasks(StreamType.Trade, output)
                 while True:
                     await asyncio.sleep(secs_until_next_oclock())
-                    await self._refresh_subscriptions(StreamType.Trade, output)
+                    # await self._refresh_subscriptions(StreamType.Trade, output)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().error(f"Unexpected error. {e}", exc_info=True)
                 await asyncio.sleep(5.0)
-            finally:
-                self._stop_update_tasks(StreamType.Trade)
+            # finally:
+                # self._stop_update_tasks(StreamType.Trade)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                await self._start_update_tasks(StreamType.Depth, output)
+                # await self._start_update_tasks(StreamType.Depth, output)
                 while True:
                     await asyncio.sleep(secs_until_next_oclock())
-                    await self._refresh_subscriptions(StreamType.Depth, output)
+                    # await self._refresh_subscriptions(StreamType.Depth, output)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().error(f"Unexpected error. {e}", exc_info=True)
                 await asyncio.sleep(5.0)
-            finally:
-                self._stop_update_tasks(StreamType.Depth)
+            # finally:
+            #     self._stop_update_tasks(StreamType.Depth)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
