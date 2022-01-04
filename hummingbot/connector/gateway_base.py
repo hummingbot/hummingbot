@@ -143,6 +143,19 @@ class GatewayBase(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
+    async def get_gateway_status(self):
+        """
+        Calls the status endpoint on Gateway to know basic info about connected networks.
+        """
+        try:
+            return await self._api_request("get", "/status")
+        except Exception as e:
+            self.logger().network(
+                "Error fetching gateway status info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+
     async def auto_approve(self):
         """
         Automatically approves trading pair tokens for contract(s).
