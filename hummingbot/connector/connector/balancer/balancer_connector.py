@@ -1,14 +1,14 @@
 from decimal import Decimal
 from typing import List
 
-from hummingbot.connector.ethereum_base import EthereumBase
+from hummingbot.connector.gateway_base import GatewayBase
 
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class BalancerConnector(EthereumBase):
+class BalancerConnector(GatewayBase):
     """
     BalancerConnector connects with balancer gateway APIs and provides pricing, user account tracking and trading
     functionality.
