@@ -177,14 +177,18 @@ def create_log_toggle(function):
         text='> log pane',
         width=13,
         handler=function,
+        left_symbol='',
+        right_symbol='',
     )
 
 
-def create_tab_button(text, function, margin=2):
+def create_tab_button(text, function, margin=2, left_symbol=' ', right_symbol=' '):
     return Button(
         text=text,
         width=len(text) + margin,
         handler=function,
+        left_symbol=left_symbol,
+        right_symbol=right_symbol
     )
 
 
