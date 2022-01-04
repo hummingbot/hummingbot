@@ -833,9 +833,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         for resp in raw_responses:
             if not isinstance(resp, Exception):
                 self._last_trade_history_timestamp = float(resp["time_now"])
-                trade_entries = (resp["result"]["trade_list"]
-                                 if "trade_list" in resp["result"]
-                                 else resp["result"]["data"])
+                trade_entries = None
+                if 'result' in resp.keys():
+                    trade_entries = (resp["result"]["trade_list"]
+                                     if "trade_list" in resp["result"]
+                                     else resp["result"]["data"])
                 if trade_entries:
                     parsed_history_resps.extend(trade_entries)
             else:
@@ -852,10 +854,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         while True:
             try:
-                self.logger().debug("""self._update_balances(),
-                    self._update_positions(),
-                    self._update_order_status(),
-                    self._update_trade_history(),""")
+                # self.logger().debug("""self._update_balances(),
+                #     self._update_positions(),
+                #     self._update_order_status(),
+                #     self._update_trade_history(),""")
                 self._status_poll_notifier = asyncio.Event()
                 await self._status_poll_notifier.wait()
                 start_ts = self.current_timestamp

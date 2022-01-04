@@ -86,6 +86,7 @@ class StdoutProxy(object):
 
     def write(self, data):
         with self._lock:
+            data = data if isinstance(data, str) else data.decode()
             self._write(data)
 
     def flush(self):

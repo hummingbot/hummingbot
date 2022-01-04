@@ -35,19 +35,19 @@ from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
-from hummingbot.strategy.perpetual_market_making.data_types import (
+from hummingbot.strategy.grid_trading.data_types import (
     PriceSize,
     Proposal,
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from .perpetual_market_making_order_tracker import PerpetualMarketMakingOrderTracker
+from .grid_trading_order_tracker import GridTradingMakingOrderTracker
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_neg_one = Decimal(-1)
 
 
-class PerpetualMarketMakingStrategy(StrategyPyBase):
+class GridTradingStrategy(StrategyPyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
@@ -64,6 +64,13 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     market_info: MarketTradingPairTuple,
                     leverage: int,
                     position_mode: str,
+                    # grid trading
+                    trading_direction: str,
+                    lower_bound: Decimal,
+                    upper_bound: Decimal,
+                    max_amount: Decimal,
+                    price_interval: Decimal,
+
                     bid_spread: Decimal,
                     ask_spread: Decimal,
                     order_amount: Decimal,
@@ -89,16 +96,30 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     status_report_interval: float = 900,
                     minimum_spread: Decimal = Decimal(0),
                     hb_app_notification: bool = False,
-                    order_override: Dict[str, List[str]] = {},
+                    # order_override: Dict[str, List[str]] = {},
+
+                    # grid trading
+                    size_of_order: Decimal = None,
+                    trigger_price: Decimal = None,
                     ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
 
-        self._sb_order_tracker = PerpetualMarketMakingOrderTracker()
+        self._sb_order_tracker = GridTradingMakingOrderTracker()
         self._market_info = market_info
         self._leverage = leverage
         self._position_mode = PositionMode.HEDGE if position_mode == "Hedge" else PositionMode.ONEWAY
+
+        # grid trading
+        self._trading_direction = trading_direction
+        self._lower_bound = lower_bound
+        self._upper_bound = upper_bound
+        self._max_amount = max_amount
+        self._price_interval = price_interval
+        self._size_of_order = size_of_order
+        self._trigger_price = trigger_price
+
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread
         self._minimum_spread = minimum_spread
@@ -122,7 +143,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._hb_app_notification = hb_app_notification
-        self._order_override = order_override
+        # self._order_override = order_override
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -138,7 +159,6 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         self._next_sell_exit_order_timestamp = 0
 
         self.add_markets([market_info.market])
-
         self._close_order_type = OrderType.LIMIT
         self._time_between_stop_loss_orders = time_between_stop_loss_orders
         self._stop_loss_slippage_buffer = stop_loss_slippage_buffer
@@ -347,7 +367,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         active_orders = self.active_orders
         no_sells = len([o for o in active_orders if not o.is_buy])
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age"]
+        columns = ["Level", "is_buy", "price", "Spread", "size", "Age", 'order_id']
         data = []
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
@@ -368,12 +388,13 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
                 level,
-                "buy" if order.is_buy else "sell",
+                order.is_buy,
                 float(order.price),
                 f"{spread:.2%}",
-                amount_orig,
+                # amount_orig,
                 float(order.quantity),
-                age
+                age,
+                order.client_order_id
             ])
 
         return pd.DataFrame(data=data, columns=columns)
@@ -471,14 +492,15 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
     def tick(self, timestamp: float):
         market: ExchangeBase = self._market_info.market
         session_positions = [s for s in self.active_positions.values() if s.trading_pair == self.trading_pair]
-        #self.logger().debug(['session positions', session_positions])
+        # self.logger().debug(['session positions', session_positions])
         current_tick = timestamp // self._status_report_interval
         last_tick = self._last_timestamp // self._status_report_interval
         should_report_warnings = ((current_tick > last_tick) and
                                   (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
-        #self.logger().debug(['new tick', current_tick, last_tick, should_report_warnings])
+        # self.logger().debug(['new tick', current_tick, last_tick, should_report_warnings])
         try:
             if not self._all_markets_ready:
+                self.logger().warning('market not ready _all_markets_ready, waiting ....')
                 self._all_markets_ready = all([market.ready for market in self.active_markets])
                 if self._asset_price_delegate is not None and self._all_markets_ready:
                     self._all_markets_ready = self._asset_price_delegate.ready
@@ -488,45 +510,105 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                         self.logger().warning("Markets are not ready. No market making trades are permitted.")
                     return
 
-            #self.logger().debug('_all_markets_ready')
+            # self.logger().debug('_all_markets_ready')
 
             if should_report_warnings:
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
                     self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
                                           "making may be dangerous when markets or networks are unstable.")
-            #self.logger().debug('should_report_warnings')
+            # self.logger().debug('should_report_warnings')
 
-            if len(session_positions) == 0:
-                self._exit_orders = dict()  # Empty list of exit order at this point to reduce size
-                proposal = None
-                if self._create_timestamp <= self.current_timestamp:
-                    #self.logger().debug("1. Create base order proposals")
-                    proposal = self.create_base_proposal()
-                    #self.logger().debug(["# 2. Apply functions that limit numbers of buys and sells proposal", proposal])
-                    self.apply_order_levels_modifiers(proposal)
-                    #self.logger().debug("# 3. Apply functions that modify orders price")
-                    #self.logger().debug(proposal)
-                    self.apply_order_price_modifiers(proposal)
-                    #self.logger().debug("4. Apply budget constraint, i.e. can't buy/sell more than what you have.")
-                    #self.logger().debug(proposal)
-                    self.apply_budget_constraint(proposal)
-                    self.filter_out_takers(proposal)
-                    #self.logger().debug('filter_out_takers')
-                    #self.logger().debug(proposal)
+            # if len(session_positions) == 0:
+            self._exit_orders = dict()  # Empty list of exit order at this point to reduce size
+            proposal = None
 
-                self.cancel_active_orders(proposal)
-                #self.logger().debug('cancel_active_orders')
-                #self.logger().debug(proposal)
+            if self.current_timestamp >= self._create_timestamp:
+                self.set_timers()
+                # self.logger().debug("1. Create base order proposals")
+                proposal = self.create_base_proposal()
+                self.logger().info(['create_base_proposal ', str(proposal)])
+                # proposal = self.filter_range(proposal)
+                proposal = self.filter_close(proposal)
+                proposal = self.reconcile_orders(proposal)
+                self.logger().info(['after filter and reconcile ', str(proposal)])
+                self.filter_out_takers(proposal)
+                proposal = self.filter_limit(proposal)
                 self.cancel_orders_below_min_spread()
-                if self.to_create_orders(proposal):
-                    self.execute_orders_proposal(proposal, PositionAction.OPEN)
-                # Reset peak ask and bid prices
-                self._ts_peak_ask_price = market.get_price(self.trading_pair, False)
-                self._ts_peak_bid_price = market.get_price(self.trading_pair, True)
-            else:
-                self.manage_positions(session_positions)
+                # if self.to_create_orders(proposal):
+                if proposal is not None:
+                    if len(proposal.buys) > 0:
+                        self.execute_orders_proposal(Proposal(proposal.buys, []), PositionAction.OPEN)
+                    if len(proposal.sells) > 0:
+                        self.execute_orders_proposal(Proposal([], proposal.sells), PositionAction.CLOSE)
+
+            # Reset peak ask and bid prices
+            self._ts_peak_ask_price = market.get_price(self.trading_pair, False)
+            self._ts_peak_bid_price = market.get_price(self.trading_pair, True)
+
         finally:
             self._last_timestamp = timestamp
+
+    def reconcile_orders(self, proposal: Proposal):
+        df_orders = self.active_orders_df()
+        to_cancel = []
+        new_buy = []
+        new_sell = []
+
+        if df_orders.empty:
+            return proposal
+
+        self.logger().debug(['df_orders', df_orders])
+        self.logger().debug(['proposal.buys', proposal.buys])
+        self.logger().debug(['proposal.sells', proposal.sells])
+
+        for p in proposal.buys:
+            df_match = df_orders[df_orders['price'] == p.price]
+            self.logger().debug(['find matching', df_match.shape, df_match])
+            order_size = Decimal(f"{df_match['size'].sum():.16}")
+            order_ids = df_match['order_id'].to_list()
+
+            if df_match.empty:
+                new_buy.append(p)
+            elif (abs(p.size - order_size) > 1e-6) or df_match['is_buy'].sum() != df_match.shape[0]:
+                self.logger().info(
+                    ['replace order', 'buy', p.price, df_match['is_buy'].values, order_size, 'to', p.size, order_ids])
+                to_cancel += order_ids
+                new_buy.append(p)
+
+        for p in proposal.sells:
+            df_match = df_orders[df_orders['price'] == p.price]
+            self.logger().debug(['find matching', df_match.shape, df_match])
+            order_size = Decimal(f"{df_match['size'].sum():.16}")
+            order_ids = df_match['order_id'].to_list()
+
+            if df_match.empty:
+                new_sell.append(p)
+            elif (abs(p.size - order_size) > 1e-6) or df_match['is_buy'].abs().sum() != 0:
+                self.logger().info(
+                    ['replace order', 'sell', p.price, df_match['is_buy'].values, order_size, 'to', p.size, order_ids])
+                to_cancel += order_ids
+                new_sell.append(p)
+
+        proposal.buys = new_buy
+        proposal.sells = new_sell
+        for i in to_cancel:
+            self.cancel_order(self._market_info, i)
+        return proposal
+
+    def filter_close(self, proposal: Proposal):
+        df_pos = self.active_positions_df()
+        total_pos = df_pos['Amount'].sum()
+        sells = []
+        if self._trading_direction == 'long':  # filter sells
+            order_pos = 0
+            for o in proposal.sells:
+                if order_pos < total_pos:
+                    sells.append(o)
+                    order_pos += o.size
+                else:
+                    break
+            proposal.sells = sells
+        return proposal
 
     def manage_positions(self, session_positions: List[Position]):
         mode = self._position_mode
@@ -571,9 +653,11 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 # check if there is an active order to take profit, and create if none exists
                 profit_spread = self._long_profit_taking_spread if position.amount > 0 else self._short_profit_taking_spread
                 if position.amount > 0:
-                    take_profit_price = max(self.get_price()*Decimal("1.0001"), position.entry_price * (Decimal("1") + profit_spread))
+                    take_profit_price = max(self.get_price() * Decimal("1.0001"),
+                                            position.entry_price * (Decimal("1") + profit_spread))
                 else:
-                    take_profit_price = min(self.get_price()*Decimal("0.9999"), position.entry_price * (Decimal("1") - profit_spread))
+                    take_profit_price = min(self.get_price() * Decimal("0.9999"),
+                                            position.entry_price * (Decimal("1") - profit_spread))
                 price = market.quantize_order_price(self.trading_pair, take_profit_price)
                 size = market.quantize_order_amount(self.trading_pair, abs(position.amount))
                 old_exit_orders = [
@@ -652,47 +736,72 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                         buys.append(PriceSize(price, size))
         return Proposal(buys, sells)
 
+    def gen_order_df(self):
+        u = Decimal(self._upper_bound)
+        l = Decimal(self._lower_bound)
+        # n = self._number_of_grid
+        price_interval = self._price_interval
+        current_price = self.get_price()
+        if self._price_interval > 0:
+            n = int((u - l) / price_interval)
+        else:
+            n = self._number_of_grid
+        df_pos = self.active_positions_df()
+        current_position = Decimal(f"{(float(df_pos['Amount'].sum())):.16}")
+
+        list_price = [Decimal(f"{(l + i * (u - l) / n):.16}") for i in range(n + 1)]
+
+        # initialize
+        df_order = pd.DataFrame(list_price, columns=['price']).set_index('price')
+        df_order['size'] = Decimal(f"{(self._max_amount / n):.16}")
+        df_order['side'] = None
+        df_order.loc[:current_price, 'side'] = 'buy'
+        df_order.loc[current_price:, 'side'] = 'sell'
+        df_order['theo_pos'] = df_order['size'].iloc[-2::-1].cumsum()
+        df_order['theo_pos'] = df_order['theo_pos'].fillna(0)
+
+        # initial order
+        theo_pos = df_order.loc[current_price:, 'theo_pos'].max()
+        pos_diff = theo_pos - current_position
+        self.logger().info(f"initial order, price={current_price}, current_pos={current_position}, theo_pos={theo_pos},"
+                           f"pos_diff={pos_diff}")
+
+        closest_price = [df_order[:current_price].index.max(),
+                         df_order[current_price:].index.min()]
+
+        if pos_diff >= 0:
+            side_init = 'buy'
+            size_init = Decimal(pos_diff)
+            price_init = closest_price[0]
+        elif pos_diff < 0:
+            side_init = 'sell'
+            size_init = Decimal(-1) * pos_diff
+            price_init = closest_price[1]
+        df_order.loc[price_init, 'size'] += size_init
+        # self.logger().warning(['gen_order_df', df_order])
+        return df_order
+
     def create_base_proposal(self):
         market: ExchangeBase = self._market_info.market
         buys = []
         sells = []
+        n_range = 10
+        # df_active = self.active_orders_df()
 
-        # First to check if a customized order override is configured, otherwise the proposal will be created according
-        # to order spread, amount, and levels setting.
-        order_override = self._order_override
-        if order_override is not None and len(order_override) > 0:
-            for key, value in order_override.items():
-                if str(value[0]) in ["buy", "sell"]:
-                    if str(value[0]) == "buy":
-                        price = self.get_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
-                        price = market.quantize_order_price(self.trading_pair, price)
-                        size = Decimal(str(value[2]))
-                        size = market.quantize_order_amount(self.trading_pair, size)
-                        if size > 0 and price > 0:
-                            buys.append(PriceSize(price, size))
-                    elif str(value[0]) == "sell":
-                        price = self.get_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
-                        price = market.quantize_order_price(self.trading_pair, price)
-                        size = Decimal(str(value[2]))
-                        size = market.quantize_order_amount(self.trading_pair, size)
-                        if size > 0 and price > 0:
-                            sells.append(PriceSize(price, size))
-        else:
-            for level in range(0, self._buy_levels):
-                price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
-                price = market.quantize_order_price(self.trading_pair, price)
-                size = self._order_amount + (self._order_level_amount * level)
-                size = market.quantize_order_amount(self.trading_pair, size)
-                if size > 0:
-                    buys.append(PriceSize(price, size))
-            for level in range(0, self._sell_levels):
-                price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
-                price = market.quantize_order_price(self.trading_pair, price)
-                size = self._order_amount + (self._order_level_amount * level)
-                size = market.quantize_order_amount(self.trading_pair, size)
-                if size > 0:
-                    sells.append(PriceSize(price, size))
-
+        df_order = self.gen_order_df()
+        self.logger().debug(['gen_order_df \n', df_order])
+        for ix, row in df_order[::-1][df_order['side'] == 'buy'].iloc[:n_range].iterrows():
+            price = Decimal(ix)
+            size = row['size']
+            size = market.quantize_order_amount(self.trading_pair, size)
+            if size > 0:
+                buys.append(PriceSize(price, size))
+        for ix, row in df_order[df_order['side'] == 'sell'].iloc[:n_range].iterrows():
+            price = Decimal(ix)
+            size = row['size']
+            size = market.quantize_order_amount(self.trading_pair, size)
+            if size > 0:
+                sells.append(PriceSize(price, size))
         return Proposal(buys, sells)
 
     def apply_order_levels_modifiers(self, proposal: Proposal):
@@ -761,6 +870,28 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 order.size = s_decimal_zero
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         proposal.sells = [o for o in proposal.sells if o.size > 0]
+
+    def filter_limit(self, proposal: Proposal):
+        limit = 18
+        buys = []
+        sells = []
+        count = 0
+
+        for p in proposal.sells:
+            if count < limit:
+                sells.append(p)
+                count += 1
+            else:
+                self.logger().info(f"filter limit reached, stop adding orders... {p}")
+
+        for p in proposal.buys:
+            if count < limit:
+                buys.append(p)
+                count += 1
+            else:
+                self.logger().info(f"filter limit reached, stop adding orders... {p}")
+        proposal = Proposal(buys, sells)
+        return proposal
 
     def filter_out_takers(self, proposal: Proposal):
         market: ExchangeBase = self._market_info.market
@@ -898,7 +1029,6 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if len(self.active_orders) == 0:
             return
         if proposal is not None and self._order_refresh_tolerance_pct >= 0:
-
             active_buy_prices = [Decimal(str(o.price)) for o in self.active_orders if o.is_buy]
             active_sell_prices = [Decimal(str(o.price)) for o in self.active_orders if not o.is_buy]
             proposal_buys = [buy.price for buy in proposal.buys]

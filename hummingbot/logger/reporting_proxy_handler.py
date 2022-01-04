@@ -26,6 +26,7 @@ CLIENT_VERSION = open(VERSIONFILE, "rt").read()
 
 class ReportingProxyHandler(logging.Handler):
     _rrh_logger: Optional[HummingbotLogger] = None
+    _enable_order_event_logging: bool = False
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -113,8 +114,8 @@ class ReportingProxyHandler(logging.Handler):
             self._logged_order_events.append(log.dict_msg)
 
     def send_logs(self, logs):
-        if not self._enable_order_event_logging:
-            return
+        # if not self._enable_order_event_logging:
+        #     return
         request_obj = {
             "url": f"{self._proxy_url}/logs",
             "method": "POST",
