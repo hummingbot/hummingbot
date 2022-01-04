@@ -45,6 +45,10 @@ const patchGetNativeBalance = () => {
   patch(eth, 'getNativeBalance', () => ({ value: 1, decimals: 3 }));
 };
 
+const patchGetERC20Allowance = () => {
+  patch(eth, 'getERC20Allowance', () => ({ value: 1, decimals: 3 }));
+};
+
 const patchGetTokenBySymbol = () => {
   patch(eth, 'getTokenBySymbol', (symbol: string) => {
     let result;
@@ -103,11 +107,49 @@ const patchApproveERC20 = (tx_type?: string) => {
 
 describe('GET /eth', () => {
   it('should return 200', async () => {
-    request(app)
+    await request(app)
       .get(`/eth`)
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
+
+describe('POST /eth/allowances', () => {
+  it('should return 200 asking for allowances', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    const theSpender = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+    eth.getSpender = jest.fn().mockReturnValue(theSpender);
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+    patchGetERC20Allowance();
+
+    await request(app)
+      .post(`/eth/allowances`)
+      .send({
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        spender: theSpender,
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.spender).toEqual(theSpender))
+      .expect((res) => expect(res.body.approvals.WETH).toEqual('0.001'))
+      .expect((res) => expect(res.body.approvals.DAI).toEqual('0.001'));
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/allowances`)
+      .send({
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+        spender: '0xSpender',
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .expect(404);
   });
 });
 
@@ -124,8 +166,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
       .set('Accept', 'application/json')
@@ -147,8 +188,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['ETH'],
       })
       .set('Accept', 'application/json')
@@ -170,8 +210,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['XXX', 'YYY'],
       })
       .set('Accept', 'application/json')
@@ -183,7 +222,7 @@ describe('POST /eth/balances', () => {
     await request(app)
       .post(`/eth/balances`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -197,8 +236,7 @@ describe('POST /eth/nonce', () => {
     await request(app)
       .post(`/eth/nonce`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -210,7 +248,7 @@ describe('POST /eth/nonce', () => {
     await request(app)
       .post(`/eth/nonce`)
       .send({
-        privateKey: 'da857cbda0ba96757fed842617a4',
+        address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
@@ -229,8 +267,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
       })
@@ -248,8 +285,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -271,8 +307,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
         nonce: 115,
@@ -288,8 +323,7 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 123,
         nonce: '23',
@@ -312,8 +346,7 @@ describe('POST /eth/cancel', () => {
     await request(app)
       .post(`/eth/cancel`)
       .send({
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         nonce: 23,
       })
       .set('Accept', 'application/json')
@@ -330,7 +363,7 @@ describe('POST /eth/cancel', () => {
     await request(app)
       .post(`/eth/cancel`)
       .send({
-        privateKey: '',
+        address: '',
         nonce: '23',
       })
       .expect(404);
@@ -468,8 +501,7 @@ describe('overwrite existing transaction', () => {
     patchGetTokenBySymbol();
 
     const requestParam = {
-      privateKey:
-        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       spender: 'uniswap',
       token: 'WETH',
       nonce: 115,
