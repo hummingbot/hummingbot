@@ -23,9 +23,9 @@ export const isPublicKey = (str: string): boolean => {
   return isBase58(str) && bs58.decode(str).length == 32;
 };
 
-// given a request, look for a key called publicKey that is an Solana public key
+// given a request, look for a key called address that is an Solana public key
 export const validatePublicKey: Validator = mkValidator(
-  'publicKey',
+  'address',
   invalidPublicKeyError,
   (val) => typeof val === 'string' && isPublicKey(val)
 );

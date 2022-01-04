@@ -106,7 +106,6 @@ export async function getOrCreateTokenAccount(
   if (!tokenInfo) {
     throw new HttpException(501, 'Token not found');
   }
-
   const wallet = await solanaish.getKeypair(req.address);
   const mintAddress = new PublicKey(tokenInfo.address);
   const account = await solanaish.getOrCreateAssociatedTokenAccount(
@@ -116,9 +115,8 @@ export async function getOrCreateTokenAccount(
 
   let amount;
   try {
-    amount = tokenValueToString(
-      await solanaish.getSplBalance(wallet.publicKey, mintAddress)
-    );
+    const a = await solanaish.getSplBalance(wallet.publicKey, mintAddress);
+    amount = tokenValueToString(a);
   } catch (err) {
     amount = undefined;
   }
