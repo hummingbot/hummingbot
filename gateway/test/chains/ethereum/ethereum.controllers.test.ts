@@ -39,7 +39,7 @@ describe('nonce', () => {
     });
     patch(eth.nonceManager, 'getNonce', () => 2);
     const n = await nonce(eth, {
-      privateKey: zeroAddress,
+      address: zeroAddress,
     });
     expect(n).toEqual({ nonce: 2 });
   });
@@ -87,7 +87,7 @@ describe('allowances', () => {
     });
 
     const result = await allowances(eth, {
-      privateKey: zeroAddress,
+      address: zeroAddress,
       spender: uniswap,
       tokenSymbols: ['WETH'],
     });
@@ -126,7 +126,7 @@ describe('approve', () => {
     });
 
     const result = await approve(eth, {
-      privateKey: zeroAddress,
+      address: zeroAddress,
       spender: uniswap,
       token: 'WETH',
     });
@@ -145,7 +145,7 @@ describe('approve', () => {
 
     await expect(
       approve(eth, {
-        privateKey: zeroAddress,
+        address: zeroAddress,
         spender: uniswap,
         token: 'WETH',
       })
@@ -175,7 +175,7 @@ describe('approve', () => {
 
     await expect(
       approve(eth, {
-        privateKey: zeroAddress,
+        address: zeroAddress,
         spender: uniswap,
         token: 'WETH',
       })
@@ -197,7 +197,7 @@ describe('balances', () => {
     });
 
     await expect(
-      balances(eth, { privateKey: zeroAddress, tokenSymbols: ['WETH', 'DAI'] })
+      balances(eth, { address: zeroAddress, tokenSymbols: ['WETH', 'DAI'] })
     ).rejects.toThrow(
       new HttpException(
         500,
@@ -216,7 +216,7 @@ describe('cancel', () => {
     });
 
     await expect(
-      cancel(eth, { nonce: 123, privateKey: zeroAddress })
+      cancel(eth, { nonce: 123, address: zeroAddress })
     ).rejects.toThrow(
       new HttpException(
         500,
