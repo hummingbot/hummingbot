@@ -109,7 +109,7 @@ class BalanceCommand:
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
-                lines = ["    " + line for line in df.drop("sum_not_for_show", axis=1).to_string(index=False).split("\n")]
+                lines = ["    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
                 self._notify(f"\n  Total: {RateOracle.global_token_symbol} {PerformanceMetrics.smart_round(df[total_col_name].sum())}    "
                              f"Allocated: {allocated_total / df[sum_not_for_show_name].sum():.2%}")
