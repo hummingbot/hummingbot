@@ -9,6 +9,8 @@ import * as getTransactionData from './fixtures/getTransaction.json';
 import getTokenAccountData from './fixtures/getTokenAccount';
 import getOrCreateAssociatedTokenAccountData from './fixtures/getOrCreateAssociatedTokenAccount';
 import * as getTokenListData from './fixtures/getTokenList.json';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
 
 let solana: Solana;
@@ -22,13 +24,18 @@ beforeAll(async () => {
       getTokenListData[2],
       getTokenListData[3],
     ]);
-  solana.getKeypair = jest.fn().mockImplementation((pubkey) => {
-    return pubkey === publicKey ? privateKey : undefined;
-  });
   await solana.init();
 });
 
 afterEach(() => unpatch());
+
+const patchGetKeypair = () => {
+  patch(solana, 'getKeypair', (pubkey: string) => {
+    return pubkey === publicKey
+      ? Keypair.fromSecretKey(bs58.decode(privateKey))
+      : null;
+  });
+};
 
 describe('GET /solana', () => {
   it('should return 200', async () => {
@@ -54,11 +61,12 @@ const patchGetBalances = () => {
 
 describe('POST /solana/balance', () => {
   it('should return 200', async () => {
+    patchGetKeypair();
     patchGetBalances();
 
     await request(app)
       .post(`/solana/balance`)
-      .send({ publicKey, tokenSymbols })
+      .send({ address: publicKey, tokenSymbols })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -96,7 +104,7 @@ describe('GET /solana/token', () => {
 
     await request(app)
       .get(`/solana/token`)
-      .send({ token: tokenSymbols[0], publicKey })
+      .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -117,7 +125,7 @@ describe('GET /solana/token', () => {
 
     await request(app)
       .get(`/solana/token`)
-      .send({ token: tokenSymbols[0], publicKey })
+      .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -140,7 +148,7 @@ describe('GET /solana/token', () => {
 
     await request(app)
       .get(`/solana/token`)
-      .send({ token: tokenSymbols[0], publicKey })
+      .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -160,7 +168,7 @@ describe('GET /solana/token', () => {
   it('should return 501 when token not found', async () => {
     await request(app)
       .get(`/solana/token`)
-      .send({ token: 'not found', publicKey })
+      .send({ token: 'not found', address: publicKey })
       .expect(501);
   });
   it('should return 404 when parameters are invalid', async () => {
@@ -181,11 +189,12 @@ describe('POST /solana/token', () => {
     patch(solana, 'getOrCreateAssociatedTokenAccount', () => {
       return null;
     });
+    patchGetKeypair();
     patchGetSplBalance();
 
     await request(app)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], publicKey })
+      .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -200,13 +209,14 @@ describe('POST /solana/token', () => {
 
   it('should get amount = undefined when Token account not initialized', async () => {
     patchGetOrCreateAssociatedTokenAccount();
+    patchGetKeypair();
     patch(solana, 'getSplBalance', () => {
       throw new Error(`Token account not initialized`);
     });
 
     await request(app)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], publicKey })
+      .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -225,11 +235,12 @@ describe('POST /solana/token', () => {
 
   it('should return 200', async () => {
     patchGetOrCreateAssociatedTokenAccount();
+    patchGetKeypair();
     patchGetSplBalance();
 
     await request(app)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], publicKey })
+      .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
