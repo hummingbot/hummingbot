@@ -79,6 +79,7 @@ export namespace SolanaRoutes {
     )
   );
 
+  // Creates a new associated token account, if not existent
   router.post(
     '/token',
     asyncHandler(
@@ -88,7 +89,7 @@ export namespace SolanaRoutes {
         _next: NextFunction
       ) => {
         validateSolanaPostTokenRequest(req.body);
-        res.status(200).json(await getOrCreateTokenAccount(solana, req.body)); // TODO: Controller
+        res.status(200).json(await getOrCreateTokenAccount(solana, req.body));
       }
     )
   );

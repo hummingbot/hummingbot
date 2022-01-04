@@ -195,6 +195,7 @@ export class Solana {
   }
 
   encrypt(privateKey: string, password: string): string {
+    // TODO: Improve with salt
     const cipher = AES.encrypt(privateKey, password);
     return JSON.stringify(cipher);
   }

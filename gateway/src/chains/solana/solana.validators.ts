@@ -23,18 +23,6 @@ export const isPublicKey = (str: string): boolean => {
   return isBase58(str) && bs58.decode(str).length == 32;
 };
 
-// test if a string matches the shape of an Solana private key
-export const isPrivateKey = (str: string): boolean => {
-  return isBase58(str) && bs58.decode(str).length == 64;
-};
-
-// given a request, look for a key called privateKey that is an Solana private key
-export const validatePrivateKey: Validator = mkValidator(
-  'privateKey',
-  invalidPrivateKeyError,
-  (val) => typeof val === 'string' && isPrivateKey(val)
-);
-
 // given a request, look for a key called publicKey that is an Solana public key
 export const validatePublicKey: Validator = mkValidator(
   'publicKey',
@@ -45,7 +33,7 @@ export const validatePublicKey: Validator = mkValidator(
 // request types and corresponding validators
 
 export const validateSolanaBalanceRequest: RequestValidator =
-  mkRequestValidator([validatePrivateKey, validateTokenSymbols]);
+  mkRequestValidator([validatePublicKey, validateTokenSymbols]);
 
 export const validateSolanaPollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
@@ -55,4 +43,4 @@ export const validateSolanaGetTokenRequest: RequestValidator =
   mkRequestValidator([validateToken, validatePublicKey]);
 
 export const validateSolanaPostTokenRequest: RequestValidator =
-  mkRequestValidator([validateToken, validatePrivateKey]);
+  mkRequestValidator([validateToken, validatePublicKey]);

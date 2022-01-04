@@ -18,7 +18,7 @@ export async function balances(
   req: SolanaBalanceRequest
 ): Promise<SolanaBalanceResponse | string> {
   const initTime = Date.now();
-  const wallet = solanaish.getKeypairFromPrivateKey(req.privateKey);
+  const wallet = await solanaish.getKeypair(req.address);
   const balances = await solanaish.getBalances(wallet);
 
   return {
@@ -74,7 +74,7 @@ export async function token(
     throw new HttpException(501, 'Token not found');
   }
 
-  const walletAddress = new PublicKey(req.publicKey);
+  const walletAddress = new PublicKey(req.address);
   const mintAddress = new PublicKey(tokenInfo.address);
   const account = await solanaish.getTokenAccount(walletAddress, mintAddress);
 
@@ -107,7 +107,7 @@ export async function getOrCreateTokenAccount(
     throw new HttpException(501, 'Token not found');
   }
 
-  const wallet = solanaish.getKeypairFromPrivateKey(req.privateKey);
+  const wallet = await solanaish.getKeypair(req.address);
   const mintAddress = new PublicKey(tokenInfo.address);
   const account = await solanaish.getOrCreateAssociatedTokenAccount(
     wallet,

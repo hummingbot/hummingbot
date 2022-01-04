@@ -2,7 +2,7 @@ import request from 'supertest';
 import { patch, unpatch } from '../../services/patch';
 import { app } from '../../../src/app';
 import { Solana } from '../../../src/chains/solana/solana';
-import { privateKey, publicKey } from './solana.validators.test';
+import { publicKey, privateKey } from './solana.validators.test';
 import { tokenSymbols, txHash } from '../../services/validators.test';
 import { TransactionResponseStatusCode } from '../../../src/chains/solana/solana.requests';
 import * as getTransactionData from './fixtures/getTransaction.json';
@@ -22,6 +22,9 @@ beforeAll(async () => {
       getTokenListData[2],
       getTokenListData[3],
     ]);
+  solana.getKeypair = jest.fn().mockImplementation((pubkey) => {
+    return pubkey === publicKey ? privateKey : undefined;
+  });
   await solana.init();
 });
 
@@ -55,7 +58,7 @@ describe('POST /solana/balance', () => {
 
     await request(app)
       .post(`/solana/balance`)
-      .send({ privateKey, tokenSymbols })
+      .send({ publicKey, tokenSymbols })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -182,7 +185,7 @@ describe('POST /solana/token', () => {
 
     await request(app)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], privateKey })
+      .send({ token: tokenSymbols[0], publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -203,7 +206,7 @@ describe('POST /solana/token', () => {
 
     await request(app)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], privateKey })
+      .send({ token: tokenSymbols[0], publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
@@ -226,7 +229,7 @@ describe('POST /solana/token', () => {
 
     await request(app)
       .post(`/solana/token`)
-      .send({ token: tokenSymbols[0], privateKey })
+      .send({ token: tokenSymbols[0], publicKey })
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.network).toBe(solana.cluster))
