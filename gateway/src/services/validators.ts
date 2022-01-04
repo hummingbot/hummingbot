@@ -47,6 +47,27 @@ export type Validator = (req: any) => Array<string>;
 
 export type RequestValidator = (req: any) => void;
 
+export const mkBranchingValidator = (
+  branchingKey: string,
+  branchingCondition: (req: any, key: string) => boolean,
+  validator1: Validator,
+  validator2: Validator
+): Validator => {
+  return (req: any) => {
+    let errors: Array<string> = [];
+    if (req[branchingKey]) {
+      if (branchingCondition(req, branchingKey)) {
+        errors = errors.concat(validator1(req));
+      } else {
+        errors = errors.concat(validator2(req));
+      }
+    } else {
+      errors.push(missingParameter(branchingKey));
+    }
+    return errors;
+  };
+};
+
 export const mkValidator = (
   key: string,
   errorMsg: string,

@@ -1,8 +1,5 @@
 import {
-  isPrivateKey,
   isPublicKey,
-  validatePrivateKey,
-  invalidPrivateKeyError,
   validatePublicKey,
   invalidPublicKeyError,
 } from '../../../src/chains/solana/solana.validators';
@@ -24,46 +21,6 @@ describe('isPublicKey', () => {
 
   it('fail against a string that is too long', () => {
     expect(isPublicKey(publicKey + 1)).toEqual(false);
-  });
-});
-
-describe('isPrivateKey', () => {
-  it('pass against a well formed private key', () => {
-    expect(isPrivateKey(privateKey)).toEqual(true);
-  });
-
-  it('fail against a string that is too short', () => {
-    expect(isPrivateKey(privateKey.substring(2))).toEqual(false);
-  });
-
-  it('fail against a string that is too long', () => {
-    expect(isPrivateKey(privateKey + 1)).toEqual(false);
-  });
-});
-
-describe('validatePrivateKey', () => {
-  it('valid when req.privateKey is a privateKey', () => {
-    expect(
-      validatePrivateKey({
-        privateKey,
-      })
-    ).toEqual([]);
-  });
-
-  it('return error when req.privateKey does not exist', () => {
-    expect(
-      validatePrivateKey({
-        hello: 'world',
-      })
-    ).toEqual([missingParameter('privateKey')]);
-  });
-
-  it('return error when req.privateKey is invalid', () => {
-    expect(
-      validatePrivateKey({
-        privateKey: 'world',
-      })
-    ).toEqual([invalidPrivateKeyError]);
   });
 });
 

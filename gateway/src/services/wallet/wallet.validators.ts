@@ -3,22 +3,41 @@ import {
   mkRequestValidator,
   RequestValidator,
   Validator,
+  isBase58,
+  mkBranchingValidator,
 } from '../validators';
+import bs58 from 'bs58';
 
-export const invalidPrivateKeyError: string =
-  'The privateKey param is not a valid Ethereum private key (64 hexidecimal characters).';
+export const invalidEthPrivateKeyError: string =
+  'The privateKey param is not a valid Ethereum private key (64 hexadecimal characters).';
+
+export const invalidSolPrivateKeyError: string =
+  'The privateKey param is not a valid Solana private key (64 bytes, base 58 encoded).';
 
 // test if a string matches the shape of an Ethereum private key
-export const isPrivateKey = (str: string): boolean => {
+export const isEthPrivateKey = (str: string): boolean => {
   return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
 };
 
+// test if a string matches the shape of an Solana private key
+export const isSolPrivateKey = (str: string): boolean => {
+  return isBase58(str) && bs58.decode(str).length == 64;
+};
+
 // given a request, look for a key called privateKey that is an Ethereum private key
-// TODO: Case for Solana private keys
-export const validatePrivateKey: Validator = mkValidator(
-  'privateKey',
-  invalidPrivateKeyError,
-  (val) => typeof val === 'string' && isPrivateKey(val)
+export const validatePrivateKey: Validator = mkBranchingValidator(
+  'chainName',
+  (req, key) => req[key] === 'solana',
+  mkValidator(
+    'privateKey',
+    invalidSolPrivateKeyError,
+    (val) => typeof val === 'string' && isSolPrivateKey(val)
+  ),
+  mkValidator(
+    'privateKey',
+    invalidEthPrivateKeyError,
+    (val) => typeof val === 'string' && isEthPrivateKey(val)
+  )
 );
 
 export const invalidChainNameError: string =
@@ -41,10 +60,10 @@ export const validateAddress: Validator = mkValidator(
 );
 
 export const validateAddWalletRequest: RequestValidator = mkRequestValidator([
-  validatePrivateKey,
   validateChainName,
+  validatePrivateKey,
 ]);
 
 export const validateRemoveWalletRequest: RequestValidator = mkRequestValidator(
-  [validateAddress, validateChainName]
+  [validateChainName, validateAddress]
 );
