@@ -159,8 +159,10 @@ class InFlightOrder:
     def is_filled(self) -> bool:
         return (
             self.current_state == OrderState.FILLED
-            or math.isclose(self.executed_amount_base, self.amount)
-            or self.executed_amount_base >= self.amount
+            or (self.amount != s_decimal_0
+                and (math.isclose(self.executed_amount_base, self.amount)
+                     or self.executed_amount_base >= self.amount)
+                )
         )
 
     @property
