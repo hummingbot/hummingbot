@@ -219,9 +219,8 @@ class BalancerConnector(ConnectorBase):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
-                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
-                    fee_overrides_config_map["balancer_maker_fee_amount"].value = Decimal(str(gas_cost))
-                    fee_overrides_config_map["balancer_taker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["balancer_maker_fixed_fees"] = [("ETH", Decimal(str(gas_cost)))]
+                    fee_overrides_config_map["balancer_taker_fee_amount"] = [("ETH", Decimal(str(gas_cost)))]
                     return Decimal(str(price))
         except asyncio.CancelledError:
             raise

@@ -17,6 +17,7 @@ from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
 from hummingbot.core.clock cimport Clock
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.connector.exchange_base import s_decimal_NaN
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.network_iterator import NetworkStatus
@@ -37,7 +38,6 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent
 )
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder
 from hummingbot.connector.exchange.blocktane.blocktane_order_book_tracker import BlocktaneOrderBookTracker
 from hummingbot.connector.exchange.blocktane.blocktane_user_stream_tracker import BlocktaneUserStreamTracker
@@ -205,15 +205,17 @@ cdef class BlocktaneExchange(ExchangeBase):
                           object price,
                           object is_maker = None):
         # Fee info from https://trade.blocktane.io/api/v2/xt/public/trading_fees
-        cdef:
-            object maker_fee = Decimal(0.002)
-            object taker_fee = Decimal(0.002)
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["blocktane_maker_fee"].value is not None:
-            return AddedToCostTradeFee(percent=fee_overrides_config_map["blocktane_maker_fee"].value)
-        if order_type is OrderType.MARKET and fee_overrides_config_map["blocktane_taker_fee"].value is not None:
-            return AddedToCostTradeFee(percent=fee_overrides_config_map["blocktane_taker_fee"].value)
-
-        return AddedToCostTradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        fee = build_trade_fee(
+            exchange=self.name,
+            is_maker=is_maker,
+            base_currency=base_currency,
+            quote_currency=quote_currency,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
+        )
+        return fee
 
     async def _update_balances(self):
         cdef:
