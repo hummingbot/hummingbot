@@ -1,14 +1,6 @@
-import { ConfigManagerV2 } from '../src/services/config-manager-v2';
-import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
-import https from 'https';
 import 'jest-extended';
+import { request } from './test.base';
 
-const confV2 = new ConfigManagerV2(path.join(__dirname, '../conf/root.yml'));
-const certPath = path.dirname(confV2.get('ssl.certificatePath'));
-const host = 'localhost';
-const port = confV2.get('server.port');
 const ALLOWANCE = 5000000;
 
 let publicKey: string;
@@ -23,46 +15,6 @@ if (process.env.ETH_PUBLIC_KEY && process.env.ETH_PUBLIC_KEY !== '') {
 
 const sleep = (ms: number) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
-const httpsAgent = axios.create({
-  httpsAgent: new https.Agent({
-    ca: fs.readFileSync(certPath.concat('/ca_cert.pem'), {
-      encoding: 'utf-8',
-    }),
-    cert: fs.readFileSync(certPath.concat('/client_cert.pem'), {
-      encoding: 'utf-8',
-    }),
-    key: fs.readFileSync(certPath.concat('/client_key.pem'), {
-      encoding: 'utf-8',
-    }),
-    host: host,
-    port: port,
-    requestCert: true,
-    rejectUnauthorized: false,
-  }),
-});
-
-type method = 'GET' | 'POST';
-
-export const request = async (
-  method: method,
-  path: string,
-  params: Record<string, any>
-) => {
-  try {
-    let response;
-    const gatewayAddress = `https://${host}:${port}`;
-    if (method === 'GET') {
-      response = await httpsAgent.get(gatewayAddress + path);
-    } else {
-      params.address = publicKey;
-      response = await httpsAgent.post(gatewayAddress + path, params);
-    }
-    return response.data;
-  } catch (err) {
-    console.log(`${path} - ${err}`);
-  }
 };
 
 jest.setTimeout(300000); // run for 5 mins
