@@ -507,7 +507,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     # Execution Type: Trade => Filled
                     trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
                     if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
-                        flat_fees = ([(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
+                        flat_fees = ([TokenAmount(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
                                      if tracked_order.fee_asset
                                      else [])
                         order_filled_event = OrderFilledEvent(

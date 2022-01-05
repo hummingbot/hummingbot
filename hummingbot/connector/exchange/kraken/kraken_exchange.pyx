@@ -51,7 +51,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
 from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
@@ -504,9 +504,11 @@ cdef class KrakenExchange(ExchangeBase):
                                                                   Decimal(trade.get("price")),
                                                                   Decimal(trade.get("vol")),
                                                                   AddedToCostTradeFee(
-                                                                      flat_fee=[
-                                                                          (tracked_order.fee_asset,
-                                                                           Decimal((trade.get("fee"))))
+                                                                      flat_fees=[
+                                                                          TokenAmount(
+                                                                              tracked_order.fee_asset,
+                                                                              Decimal((trade.get("fee"))),
+                                                                          )
                                                                       ]
                                                                   ),
                                                                   trade.get("trade_id")))
