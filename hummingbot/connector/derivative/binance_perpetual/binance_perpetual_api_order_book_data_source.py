@@ -251,43 +251,27 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._funding_info[trading_pair] = await self._get_funding_info_from_exchange(trading_pair)
         return self._funding_info[trading_pair]
 
-    async def _subscribe_to_order_book_streams(self) -> WSResponse:
+    async def _subscribe_to_order_book_streams(self) -> WSAssistant:
         url = f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
         ws: WSAssistant = await self._get_ws_assistant()
         await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
 
-        payload = {
-            "method": "SUBSCRIBE",
-            "params": [
-                f"{self.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
-                for trading_pair in self._trading_pairs
-            ],
-            "id": self.DIFF_STREAM_ID,
-        }
-        subscribe_request: WSRequest = WSRequest(payload)
-        await ws.send(subscribe_request)
-
-        payload = {
-            "method": "SUBSCRIBE",
-            "params": [
-                f"{self.convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
-                for trading_pair in self._trading_pairs
-            ],
-            "id": self.TRADE_STREAM_ID,
-        }
-        subscribe_request: WSRequest = WSRequest(payload)
-        await ws.send(subscribe_request)
-
-        payload = {
-            "method": "SUBSCRIBE",
-            "params": [
-                f"{BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
-                for trading_pair in self._trading_pairs
-            ],
-            "id": self.FUNDING_INFO_STREAM_ID,
-        }
-        subscribe_request: WSRequest = WSRequest(payload)
-        await ws.send(subscribe_request)
+        stream_id_channel_pairs = [
+            (self.DIFF_STREAM_ID, "@depth"),
+            (self.TRADE_STREAM_ID, "@aggTrade"),
+            (self.FUNDING_INFO_STREAM_ID, "@markPrice"),
+        ]
+        for stream_id, channel in stream_id_channel_pairs:
+            payload = {
+                "method": "SUBSCRIBE",
+                "params": [
+                    f"{self.convert_to_exchange_trading_pair(trading_pair).lower()}{channel}"
+                    for trading_pair in self._trading_pairs
+                ],
+                "id": stream_id,
+            }
+            subscribe_request: WSRequest = WSRequest(payload)
+            await ws.send(subscribe_request)
 
         return ws
 
