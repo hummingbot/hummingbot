@@ -1,4 +1,5 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
 
@@ -19,7 +20,6 @@ SERVER_TIME_PATH_URL = "/time"
 # Private API endpoints or BinanceClient function
 ACCOUNTS_PATH_URL = "/account"
 MY_TRADES_PATH_URL = "/myTrades"
-OPEN_ORDERS_PATH_URL = "/openOrders"
 ORDER_PATH_URL = "/order"
 BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
 
@@ -45,6 +45,18 @@ ONE_SECOND = 1
 ONE_DAY = 86400
 
 MAX_REQUEST = 5000
+
+# Order States
+ORDER_STATE = {
+    "PENDING": OrderState.PENDING_CREATE,
+    "NEW": OrderState.OPEN,
+    "FILLED": OrderState.FILLED,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
+    "PENDING_CANCEL": OrderState.OPEN,
+    "CANCELED": OrderState.CANCELLED,
+    "REJECTED": OrderState.FAILED,
+    "EXPIRED": OrderState.FAILED,
+}
 
 RATE_LIMITS = [
     # Pools
@@ -72,6 +84,4 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
                              LinkedLimitWeightPair(ORDERS, 1),
                              LinkedLimitWeightPair(ORDERS_24HR, 1)]),
-    RateLimit(limit_id=OPEN_ORDERS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 40)]),
 ]
