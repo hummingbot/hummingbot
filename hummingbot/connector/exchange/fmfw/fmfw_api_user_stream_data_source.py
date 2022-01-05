@@ -3,6 +3,8 @@
 import asyncio
 import logging
 import time
+from hashlib import sha256
+from hmac import HMAC
 from typing import (
     AsyncIterable,
     Dict,
@@ -20,7 +22,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.fmfw.fmfw_order_book import FmfwOrderBook
 
 FMFW_API_ENDPOINT = "https://api.fmfw.io/api/3"
-FMFW_USER_STREAM_ENDPOINT = "wss://api.fmfw.io/api/3/ws/public"
+FMFW_USER_STREAM_ENDPOINT = "wss://api.fmfw.io/api/3/ws/trading"
 MAX_RETRIES = 20
 NaN = float("nan")
 
@@ -28,6 +30,9 @@ Fmfw_PRIVATE_TOPICS = [
     "/spotMarket/tradeOrders",
     "/account/balance",
 ]
+
+api_key = 'Jt-QoNtyvTacKE4gWRj85_uPCH118WBP'
+secret_key = 'k2rA8qEdrMxAXl4KBqoHx5-51CxD3mmN'
 
 
 class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -75,15 +80,39 @@ class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 async with websockets.connect(FMFW_USER_STREAM_ENDPOINT) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+
+                    timestamp = int(time.time() * 1000)
+                    message = str(timestamp)
+
+                    sign = HMAC(key=secret_key.encode(),
+                                msg=message.encode(),
+                                digestmod=sha256).hexdigest()
+
                     subscribe_request: Dict[str, any] = {
-                        "method": "subscribe",
-                        "ch": "orderbook/full",
+                        "method": "login",
                         "params": {
-                            "symbols": ["ETHBTC", "MAHAUSDT"]
-                        },
+                            "type": "HS256",
+                            "api_key": api_key,
+                            "timestamp": timestamp,
+                            "signature": sign
+                        }
+                    }
+                    await ws.send(ujson.dumps(subscribe_request))
+
+                    subscribe_request: Dict[str, any] = {
+                        "method": "spot_subscribe",
+                        "params": {},
                         "id": 123
                     }
                     await ws.send(ujson.dumps(subscribe_request))
+
+                    # subscribe_request: Dict[str, any] = {
+                    #     "method": "spot_cancel_orders",
+                    #     "params": {},
+                    #     "id": 123
+                    # }
+                    # await ws.send(ujson.dumps(subscribe_request))
+
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         output.put_nowait(msg)

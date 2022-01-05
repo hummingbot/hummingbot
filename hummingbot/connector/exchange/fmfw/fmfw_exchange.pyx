@@ -258,112 +258,110 @@ cdef class FmfwExchange(ExchangeBase):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
-                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
+                    app_warning_msg="Could not fetch user events from fmfw. Check API key and network connection."
                 )
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
+            #('267',event_message)
             try:
-                event_type = event_message.get("type")
-                event_topic = event_message.get("topic")
-                execution_data = event_message.get("data")
+                if 'params' in event_message.keys():
+                    execution_data=[]
+                    event_method = event_message["method"]
+                    if event_method =='spot_order':
+                        execution_data.append(event_message['params'])
+                    elif event_method =='spot_orders':
+                        execution_data = event_message["params"]
+                    for update_order in execution_data:
+                        #print('276 update_order',update_order)
+                    # Refer to https://docs.kucoin.com/#private-order-change-events
+                        execution_status = update_order["status"]
+                        #print('execution_status',execution_status)
+                        execution_type = update_order["type"]
+                        client_order_id: Optional[str] = update_order["client_order_id"]
+                        #print('client_order_id',client_order_id)
+                        tracked_order = self._in_flight_orders.get(client_order_id)
+                        #print('284 tracked_order',tracked_order)
+                        if tracked_order is None:
+                            self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
+                            self.logger().debug(f"Event: {event_message}")
+                            continue
 
-                # Refer to https://docs.kucoin.com/#private-order-change-events
-                if event_type == "message" and event_topic == "/spotMarket/tradeOrders":
-                    execution_status = execution_data["status"]
-                    execution_type = execution_data["type"]
-                    client_order_id: Optional[str] = execution_data.get("clientOid")
-
-                    tracked_order = self._in_flight_orders.get(client_order_id)
-
-                    if tracked_order is None:
-                        self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
-                        self.logger().debug(f"Event: {event_message}")
-                        continue
-                elif event_type == "message" and event_topic == "/account/balance":
-                    if "trade" in execution_data["relationEvent"]:
-                        currency = convert_asset_from_exchange(execution_data["currency"])
-                        available_balance = Decimal(execution_data["available"])
-                        total_balance = Decimal(execution_data["total"])
-                        self._account_balances.update({currency: total_balance})
-                        self._account_available_balances.update({currency: available_balance})
-                        continue
-                else:
-                    continue
-
-                if (execution_status == "open" or execution_status == "match") and execution_type != "open":
-                    if Decimal(execution_data["matchSize"]) > 0:
-                        execute_amount_diff = Decimal(execution_data["matchSize"])
-                        execute_price = Decimal(execution_data["price"])
-                        tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                        tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
-                            execute_price)
-                        self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                           f"order {tracked_order.client_order_id}.")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     execute_amount_diff,
-                                                 ),
-                                                 tracked_order.exchange_order_id
-                                             ))
-                if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
-                    tracked_order.last_state = "DONE"
-                    tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
-                        execution_data["price"])
-                    if tracked_order.trade_type == TradeType.BUY:
-                        self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                           f"according to Fmfw user stream.")
-                        self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                             BuyOrderCompletedEvent(self._current_timestamp,
+                        if (execution_status == "new") :
+                            print('289')
+                            execute_amount_diff =Decimal(update_order["quantity_cumulative"])
+                            execute_price = Decimal(update_order["price"])
+                            tracked_order.executed_amount_base = execute_amount_diff
+                            tracked_order.executed_amount_quote = execute_amount_diff *execute_price
+                            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                            f"order {tracked_order.client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                                OrderFilledEvent(
+                                                    self._current_timestamp,
+                                                    tracked_order.client_order_id,
+                                                    tracked_order.trading_pair,
+                                                    tracked_order.trade_type,
+                                                    tracked_order.order_type,
+                                                    execute_price,
+                                                    execute_amount_diff,
+                                                    self.c_get_fee(
+                                                        tracked_order.base_asset,
+                                                        tracked_order.quote_asset,
+                                                        tracked_order.order_type,
+                                                        tracked_order.trade_type,
+                                                        execute_price,
+                                                        execute_amount_diff,
+                                                    ),
+                                                    tracked_order.exchange_order_id
+                                                ))
+                        if execution_status == "partiallyFilled" or execution_status == "filled":
+                            print('315 here ')
+                            tracked_order.last_state = "DONE"
+                            execute_amount_diff = Decimal(update_order["quantity"])-Decimal(update_order["quantity_cumulative"])
+                            execute_price = Decimal(update_order["price"])
+                            tracked_order.executed_amount_base = execute_amount_diff
+                            tracked_order.executed_amount_quote = execute_amount_diff * execute_price
+                            if tracked_order.trade_type == TradeType.BUY:
+                                self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                                f"according to Fmfw user stream.")
+                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                    BuyOrderCompletedEvent(self._current_timestamp,
+                                                                            tracked_order.client_order_id,
+                                                                            tracked_order.base_asset,
+                                                                            tracked_order.quote_asset,
+                                                                            (tracked_order.fee_asset
+                                                                            or tracked_order.base_asset),
+                                                                            tracked_order.executed_amount_base,
+                                                                            tracked_order.executed_amount_quote,
+                                                                            tracked_order.fee_paid,
+                                                                            tracked_order.order_type,
+                                                                            exchange_order_id=tracked_order.exchange_order_id))
+                            else:
+                                self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                                f"according to Fmfw user stream.")
+                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                    SellOrderCompletedEvent(self._current_timestamp,
+                                                                            tracked_order.client_order_id,
+                                                                            tracked_order.base_asset,
+                                                                            tracked_order.quote_asset,
+                                                                            (tracked_order.fee_asset
+                                                                            or tracked_order.quote_asset),
+                                                                            tracked_order.executed_amount_base,
+                                                                            tracked_order.executed_amount_quote,
+                                                                            tracked_order.fee_paid,
+                                                                            tracked_order.order_type,
+                                                                            exchange_order_id=tracked_order.exchange_order_id))
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                        elif execution_status == "filled" or execution_type == "canceled":
+                            print('352 here')
+                            tracked_order.last_state = "CANCEL"
+                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                OrderCancelledEvent(self._current_timestamp,
                                                                     tracked_order.client_order_id,
-                                                                    tracked_order.base_asset,
-                                                                    tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
-                                                                    tracked_order.executed_amount_base,
-                                                                    tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
-                                                                    tracked_order.order_type,
                                                                     exchange_order_id=tracked_order.exchange_order_id))
-                    else:
-                        self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                           f"according to Fmfw user stream.")
-                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                             SellOrderCompletedEvent(self._current_timestamp,
-                                                                     tracked_order.client_order_id,
-                                                                     tracked_order.base_asset,
-                                                                     tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
-                                                                     tracked_order.executed_amount_base,
-                                                                     tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
-                                                                     tracked_order.order_type,
-                                                                     exchange_order_id=tracked_order.exchange_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
-                elif execution_status == "done" and execution_type == "canceled":
-                    tracked_order.last_state = "CANCEL"
-                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                         OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             exchange_order_id=tracked_order.exchange_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -371,9 +369,9 @@ cdef class FmfwExchange(ExchangeBase):
                 await asyncio.sleep(5.0)
 
     async def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
+            if self._shared_client is None:
+                self._shared_client = aiohttp.ClientSession()
+            return self._shared_client
 
     async def _api_request(self,
                            method,
@@ -654,6 +652,7 @@ cdef class FmfwExchange(ExchangeBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self,
+                          order_id:str,
                           trading_pair: str,
                           amount: Decimal,
                           is_buy: bool,
@@ -664,6 +663,7 @@ cdef class FmfwExchange(ExchangeBase):
         params = {
             "price": str(price),
             "side": side,
+            "client_order_id":order_id,
             'quantity': str(amount),
             "symbol": trading_pair.replace('-',''),
         }
@@ -696,7 +696,7 @@ cdef class FmfwExchange(ExchangeBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(trading_pair, decimal_amount, False,
+            exchange_order_id = await self.place_order(order_id,trading_pair, decimal_amount, False,
                                                        decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
@@ -707,6 +707,7 @@ cdef class FmfwExchange(ExchangeBase):
                 price=decimal_price,
                 amount=decimal_amount
             )
+            #print('order_id',order_id)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
@@ -768,7 +769,7 @@ cdef class FmfwExchange(ExchangeBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(trading_pair, decimal_amount, False,
+            exchange_order_id = await self.place_order(order_id,trading_pair, decimal_amount, False,
                                                        decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
@@ -851,28 +852,31 @@ cdef class FmfwExchange(ExchangeBase):
                     is_auth_required=True,
                 ))
             responses = await safe_gather(*cancellation_tasks)
-
             for tracked_order, response in zip(tracked_orders.values(), responses):
-                # Handle failed cancelled orders
-                if isinstance(response, Exception):
-                    self.logger().error(f"Failed to cancel order {tracked_order.client_order_id}. Response: {response}",
-                                        exc_info=True,
-                                        )
-                    cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
-                # Handles successfully cancelled orders
+                #print('response>>>>>>>>>',response)
+                if response is not None:
+                    # Handle failed cancelled orders
+                    if isinstance(response, Exception):
+                        self.logger().error(f"Failed to cancel order {tracked_order.client_order_id}. Response: {response}",
+                                            exc_info=True,
+                                            )
+                        cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
+                    # Handles successfully cancelled orders
 
-                elif tracked_order.exchange_order_id == response['client_order_id']:
-                    if tracked_order.client_order_id in self._in_flight_orders:
-                        tracked_order.last_state = "CANCEL"
-                        self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id,
-                                                                 exchange_order_id=tracked_order.exchange_order_id))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-                    cancellation_results.append(CancellationResult(tracked_order.client_order_id, True))
+                    elif tracked_order.exchange_order_id == response['client_order_id']:
+                        if tracked_order.client_order_id in self._in_flight_orders:
+                            tracked_order.last_state = "CANCEL"
+                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                OrderCancelledEvent(self._current_timestamp,
+                                                                    tracked_order.client_order_id,
+                                                                    exchange_order_id=tracked_order.exchange_order_id))
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                        cancellation_results.append(CancellationResult(tracked_order.client_order_id, True))
+                    else:
+                        continue
                 else:
-                    continue
+                    self.logger().info(f"Orders are successfully filled or canceled")
 
         except Exception as e:
             self.logger().network(

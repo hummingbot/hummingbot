@@ -36,12 +36,6 @@ from hummingbot.connector.exchange.fmfw.fmfw_utils import (
     convert_to_exchange_trading_pair,
 )
 
-# SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v3/market/orderbook/level2"
-# SNAPSHOT_REST_URL_NO_AUTH = "https://api.kucoin.com/api/v1/market/orderbook/level2_100"
-# DIFF_STREAM_URL = ""
-# TICKER_PRICE_CHANGE_URL = "https://api.kucoin.com/api/v1/market/allTickers"
-# EXCHANGE_INFO_URL = "https://api.kucoin.com/api/v1/symbols"
-
 SNAPSHOT_REST_URL = "https://api.fmfw.io/api/3/public/orderbook"
 SNAPSHOT_REST_URL_NO_AUTH = "https://api.fmfw.io/api/3/public/orderbook"
 DIFF_STREAM_URL = ""

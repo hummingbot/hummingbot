@@ -494,6 +494,7 @@ cdef class KucoinExchange(ExchangeBase):
             tracked_orders = list(self._in_flight_orders.values())
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
+                print('497 exchange_order_id',exchange_order_id)
                 order_update = await self.get_order_status(exchange_order_id)
                 if order_update is None:
                     self.logger().network(
