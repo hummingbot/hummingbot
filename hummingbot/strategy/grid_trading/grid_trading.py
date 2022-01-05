@@ -772,12 +772,14 @@ class GridTradingStrategy(StrategyPyBase):
         if pos_diff >= 0:
             side_init = 'buy'
             size_init = Decimal(pos_diff)
-            price_init = closest_price[0]
+            price_init, price_ct = closest_price
         elif pos_diff < 0:
             side_init = 'sell'
             size_init = Decimal(-1) * pos_diff
-            price_init = closest_price[1]
-        df_order.loc[price_init, 'size'] += size_init
+            price_ct, price_init = closest_price
+        size0 = df_order.loc[price_ct, 'size']
+        #df_order.loc[price_ct, 'size'] = max(size0*Decimal(0.5), size0 - Decimal(0.1)*size_init)
+        df_order.loc[price_init, 'size'] += Decimal(0.1) * size_init
         # self.logger().warning(['gen_order_df', df_order])
         return df_order
 
@@ -789,15 +791,16 @@ class GridTradingStrategy(StrategyPyBase):
         # df_active = self.active_orders_df()
 
         df_order = self.gen_order_df()
-        df_order_r = df_order[::-1]
+        df_order_buy = df_order[df_order['side'] == 'buy'].sort_index(ascending=False)
+        df_order_sell = df_order[df_order['side'] == 'sell'].sort_index(ascending=True)
         self.logger().debug(['gen_order_df \n', df_order])
-        for ix, row in df_order_r[df_order['side'] == 'buy'].iloc[:n_range].iterrows():
+        for ix, row in df_order_buy.iloc[:n_range].iterrows():
             price = Decimal(ix)
             size = row['size']
             size = market.quantize_order_amount(self.trading_pair, size)
             if size > 0:
                 buys.append(PriceSize(price, size))
-        for ix, row in df_order[df_order['side'] == 'sell'].iloc[:n_range].iterrows():
+        for ix, row in df_order_sell.iloc[:n_range].iterrows():
             price = Decimal(ix)
             size = row['size']
             size = market.quantize_order_amount(self.trading_pair, size)
