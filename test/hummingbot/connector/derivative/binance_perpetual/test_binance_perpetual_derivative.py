@@ -853,7 +853,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "cr": "5.0",
                 "rp": "0"
             }
-
         }
 
         mock_user_stream = AsyncMock()
@@ -872,7 +871,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
         self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
 
-        complete_fill = {
+        repeated_partial_fill = {
             "e": "ORDER_TRADE_UPDATE",
             "E": 1568879465651,
             "T": 1568879465650,
@@ -887,13 +886,13 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "ap": "0",
                 "sp": "7103.04",
                 "x": "TRADE",
-                "X": "FILLED",
+                "X": "PARTIALLY_FILLED",
                 "i": 8886774,
-                "l": "0.9",
-                "z": "1",
+                "l": "0.1",
+                "z": "0.1",
                 "L": "10000",
                 "N": "USDT",
-                "n": "30",
+                "n": "20",
                 "T": 1568879465651,
                 "t": 1,
                 "b": "0",
@@ -908,12 +907,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "cr": "5.0",
                 "rp": "0"
             }
-
         }
 
         self.resume_test_event = asyncio.Event()
         mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: complete_fill)
+                                                             lambda: repeated_partial_fill)
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
@@ -924,7 +922,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
 
-    def test_fee_is_cero_when_not_included_in_fill_event(self):
+    def test_fee_is_zero_when_not_included_in_fill_event(self):
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",

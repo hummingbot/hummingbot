@@ -314,7 +314,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         try:
             order_result = await self.request(
-                path=CONSTANTS.ORDER_URL, params=api_params, method=RESTMethod.POST, add_timestamp=True, is_signed=True
+                path=CONSTANTS.ORDER_URL,
+                params=api_params,
+                method=RESTMethod.POST,
+                add_timestamp=True,
+                is_signed=True,
             )
 
             order_update: OrderUpdate = OrderUpdate(
@@ -341,7 +345,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 update_timestamp=self.current_timestamp,
                 new_state=OrderState.FAILED,
                 client_order_id=order_id,
-                exchange_order_id=str(order_result["orderId"]),
             )
             # This should call stop_tracking_order
             self._client_order_tracker.process_order_update(order_update)
@@ -587,9 +590,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 new_state=CONSTANTS.ORDER_STATE[order_message["X"]],
                 client_order_id=client_order_id,
                 exchange_order_id=str(order_message["i"]),
-                executed_amount_base=Decimal(order_message["z"]),
-                fill_price=Decimal(order_message["L"]),
-                fee_asset=order_message.get("N", tracked_order.fee_asset)
             )
 
             self._client_order_tracker.process_order_update(order_update)
