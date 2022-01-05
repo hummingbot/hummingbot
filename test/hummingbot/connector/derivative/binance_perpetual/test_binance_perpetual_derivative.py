@@ -50,8 +50,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         cls.ev_loop = asyncio.get_event_loop()
 
-    @patch("hummingbot.connector.exchange.binance.binance_time.BinanceTime.start")
-    def setUp(self, _) -> None:
+    def setUp(self) -> None:
         super().setUp()
 
         self.log_records = []
@@ -70,6 +69,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             self.symbol: self.trading_pair
         }
 
+        self.exchange._set_current_timestamp(1640780000)
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
         self.exchange._client_order_tracker.logger().setLevel(1)

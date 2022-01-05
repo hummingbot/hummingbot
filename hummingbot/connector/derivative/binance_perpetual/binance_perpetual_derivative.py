@@ -26,12 +26,11 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth im
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.exchange.binance.binance_time import BinanceTime
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -109,7 +108,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         ExchangeBase.__init__(self)
         PerpetualTrading.__init__(self)
-        BinanceTime.get_instance().start()
+        self._binance_time_synchronizer = TimeSynchronizer()
 
         self._user_stream_tracker = UserStreamTracker(
             api_key=self._api_key,
@@ -207,13 +206,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         Returns list of OrderType supported by this connector.
         """
         return [OrderType.LIMIT, OrderType.MARKET]
-
-    def start(self, clock: Clock, timestamp: float):
-        super().start(clock, timestamp)
-
-    def stop(self, clock: Clock):
-        super().stop(clock)
-        BinanceTime.get_instance().stop()
 
     async def start_network(self):
         """
@@ -982,7 +974,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
-                    self._update_positions()
+                    self._update_positions(),
+                    self._update_time_synchronizer(),
                 )
                 await self._update_order_fills_from_trades(),
                 await self._update_order_status()
@@ -1280,7 +1273,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         async with self._throttler.execute_task(limit_id=limit_id if limit_id else path):
             try:
                 if add_timestamp:
-                    params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
+                    params["timestamp"] = str(int(self._binance_time_synchronizer.time()) * 1000)
                     params["recvWindow"] = f"{20000}"
                 query = urlencode(sorted(params.items()))
                 if is_signed:
@@ -1304,16 +1297,30 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                       f"Error: {response}")
                 return await response.json()
             except Exception as e:
-                if "Timestamp for this request" in str(e):
-                    self.logger().warning("Got Binance timestamp error. "
-                                          "Going to force update Binance server time offset...")
-                    binance_time = BinanceTime.get_instance()
-                    binance_time.clear_time_offset_ms_samples()
-                    await binance_time.schedule_update_server_time_offset()
-                else:
-                    self.logger().error(f"Error fetching {path}", exc_info=True)
-                    self.logger().warning(f"{e}")
+                self.logger().error(f"Error fetching {path}", exc_info=True)
+                self.logger().warning(f"{e}")
                 raise e
+
+    async def _update_time_synchronizer(self):
+        try:
+            await self._binance_time_synchronizer.update_server_time_offset_with_time_provider(
+                time_provider=self._get_current_server_time()
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Error requesting time from Binance server")
+            raise
+
+    async def _get_current_server_time(self):
+        response = await self.request(
+            method=RESTMethod.GET,
+            path=CONSTANTS.CHANGE_POSITION_MODE_URL,
+            add_timestamp=True,
+            is_signed=True,
+            return_err=True
+        )
+        return response["serverTime"]
 
     async def _sleep(self, delay: float):
         await asyncio.sleep(delay)
