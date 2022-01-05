@@ -17,6 +17,7 @@ import {
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
 import { EthereumBase } from './services/ethereum-base';
+import { TradingRoutes } from './trading/trading.routes';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -34,6 +35,7 @@ app.use('/avalanche', AvalancheRoutes.router);
 app.use('/avalanche/pangolin', PangolinRoutes.router);
 
 app.use('/eth', EthereumRoutes.router);
+app.use('/trading', TradingRoutes.router);
 app.use('/eth/uniswap', UniswapRoutes.router);
 
 app.use('/wallet', WalletRoutes.router);
