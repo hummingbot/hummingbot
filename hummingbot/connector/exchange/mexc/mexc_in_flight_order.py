@@ -11,7 +11,8 @@ from hummingbot.core.event.events import (
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
-cdef class MexcInFlightOrder(InFlightOrderBase):
+
+class MexcInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -31,6 +32,7 @@ cdef class MexcInFlightOrder(InFlightOrderBase):
             amount,
             initial_state  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
         )
+        self.fee_asset = self.quote_asset
 
     @property
     def is_done(self) -> bool:
@@ -48,19 +50,21 @@ cdef class MexcInFlightOrder(InFlightOrderBase):
     def is_open(self) -> bool:
         return self.last_state in {"NEW", "PARTIALLY_FILLED"}
 
+    def mark_as_filled(self):
+        self.last_state = "FILLED"
+
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            MexcInFlightOrder retval = MexcInFlightOrder(
-                client_order_id=data["client_order_id"],
-                exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["trading_pair"],
-                order_type=getattr(OrderType, data["order_type"]),
-                trade_type=getattr(TradeType, data["trade_type"]),
-                price=Decimal(data["price"]),
-                amount=Decimal(data["amount"]),
-                initial_state=data["last_state"]
-            )
+        retval = MexcInFlightOrder(
+            client_order_id=data["client_order_id"],
+            exchange_order_id=data["exchange_order_id"],
+            trading_pair=data["trading_pair"],
+            order_type=getattr(OrderType, data["order_type"]),
+            trade_type=getattr(TradeType, data["trade_type"]),
+            price=Decimal(data["price"]),
+            amount=Decimal(data["amount"]),
+            initial_state=data["last_state"]
+        )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
         retval.fee_asset = data["fee_asset"]
