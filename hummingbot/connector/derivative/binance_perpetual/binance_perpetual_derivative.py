@@ -80,7 +80,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     LONG_POLL_INTERVAL = 120.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
     HEARTBEAT_TIME_INTERVAL = 30.0
-    ONE_HOUR_INTERVAL = 3600.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -509,7 +508,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    # ORDER TRACKING ---
     def start_tracking_order(
         self,
         order_id: str,
@@ -725,7 +723,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         while True:
             try:
                 await safe_gather(self._update_trading_rules())
-                await self._sleep(3600)
+                await self._sleep(CONSTANTS.ONE_HOUR)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -777,7 +775,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     await self._sleep(10.0)
                     continue
 
-            await self._sleep(self.ONE_HOUR_INTERVAL)
+            await self._sleep(CONSTANTS.ONE_HOUR)
 
     async def _status_polling_loop(self):
         while True:
@@ -1053,13 +1051,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def request(self,
                       path: str,
-                      params: Dict[str, Any] = {},
+                      params: Optional[Dict[str, Any]] = None,
                       method: RESTMethod = RESTMethod.GET,
                       add_timestamp: bool = False,
                       is_signed: bool = False,
                       return_err: bool = False,
                       api_version: str = CONSTANTS.API_VERSION,
                       limit_id: Optional[str] = None):
+        params = params or {}
         rest_assistant = await self._get_rest_assistant()
         async with self._throttler.execute_task(limit_id=limit_id if limit_id else path):
             try:

@@ -2,8 +2,6 @@ import re
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
-from typing import Optional, Tuple
-
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -33,19 +31,6 @@ def get_client_order_id(order_side: str, trading_pair: object):
     base: str = symbols[0].upper()
     quote: str = symbols[1].upper()
     return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
-
-
-def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    try:
-        m = SPECIAL_PAIRS.match(trading_pair)
-        if m is None:
-            m = RE_4_LETTERS_QUOTE.match(trading_pair)
-        if m is None:
-            m = RE_3_LETTERS_QUOTE.match(trading_pair)
-        return m.group(1), m.group(2)
-    # Exceptions are now logged as warnings in trading pair fetcher
-    except Exception:
-        return None
 
 
 def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):

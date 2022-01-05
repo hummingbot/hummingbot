@@ -1,17 +1,17 @@
 import asyncio
 import copy
-from decimal import Decimal
 import logging
 import time
-import pandas as pd
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
 from collections import defaultdict
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
@@ -134,7 +134,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 data = await response.json()
                 # fetch d["pair"] for binance perpetual
                 cls._trading_pair_symbol_map = {
-                    d["pair"]: (f"{d['baseAsset']}-{d['quoteAsset']}")
+                    d["pair"]: (combine_to_hb_trading_pair(d['baseAsset'], d['quoteAsset']))
                     for d in data["symbols"]
                     if d["status"] == "TRADING"
                 }
@@ -328,9 +328,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     output.put_nowait(snapshot_msg)
                     self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
+                delta = (CONSTANTS.ONE_HOUR - time.time() % CONSTANTS.ONE_HOUR)
                 await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
