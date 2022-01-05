@@ -20,8 +20,8 @@ from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.connector.exchange.binance.binance_time import BinanceTime
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -66,7 +66,7 @@ class BinanceExchange(ExchangeBase):
                  domain="com"
                  ):
         self._domain = domain
-        self._binance_time_synchronizer = BinanceTime()
+        self._binance_time_synchronizer = TimeSynchronizer()
         super().__init__()
         self._trading_required = trading_required
         self._auth = BinanceAuth(api_key=binance_api_key, secret_key=binance_api_secret)
