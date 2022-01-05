@@ -289,7 +289,7 @@ cdef class FmfwExchange(ExchangeBase):
                             continue
 
                         if (execution_status == "new") :
-                            print('289')
+                            #print('289')
                             execute_amount_diff =Decimal(update_order["quantity_cumulative"])
                             execute_price = Decimal(update_order["price"])
                             tracked_order.executed_amount_base = execute_amount_diff
@@ -316,7 +316,7 @@ cdef class FmfwExchange(ExchangeBase):
                                                     tracked_order.exchange_order_id
                                                 ))
                         if execution_status == "partiallyFilled" or execution_status == "filled":
-                            print('315 here ')
+                            #print('315 here ')
                             tracked_order.last_state = "DONE"
                             execute_amount_diff = Decimal(update_order["quantity"])-Decimal(update_order["quantity_cumulative"])
                             execute_price = Decimal(update_order["price"])
@@ -354,7 +354,7 @@ cdef class FmfwExchange(ExchangeBase):
                                                                             exchange_order_id=tracked_order.exchange_order_id))
                             self.c_stop_tracking_order(tracked_order.client_order_id)
                         elif execution_status == "filled" or execution_type == "canceled":
-                            print('352 here')
+                            #print('352 here')
                             tracked_order.last_state = "CANCEL"
                             self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -696,7 +696,7 @@ cdef class FmfwExchange(ExchangeBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id,trading_pair, decimal_amount, False,
+            exchange_order_id = await self.place_order(order_id,trading_pair, decimal_amount, True,
                                                        decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
