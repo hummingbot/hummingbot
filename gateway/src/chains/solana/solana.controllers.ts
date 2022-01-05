@@ -83,7 +83,11 @@ export async function token(
   const initTime = Date.now();
   const tokenInfo = solanaish.getTokenForSymbol(req.token);
   if (!tokenInfo) {
-    throw new HttpException(501, 'Token not found');
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.token,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
   }
 
   const walletAddress = new PublicKey(req.address);
