@@ -59,13 +59,13 @@ const patchGetBalances = () => {
   });
 };
 
-describe('POST /solana/balance', () => {
+describe('POST /solana/balances', () => {
   it('should return 200', async () => {
     patchGetKeypair();
     patchGetBalances();
 
     await request(app)
-      .post(`/solana/balance`)
+      .post(`/solana/balances`)
       .send({ address: publicKey, tokenSymbols })
       .expect('Content-Type', /json/)
       .expect(200)
@@ -81,7 +81,7 @@ describe('POST /solana/balance', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app).post(`/solana/balance`).send({}).expect(404);
+    await request(app).post(`/solana/balances`).send({}).expect(404);
   });
 });
 

@@ -1,31 +1,31 @@
 import { logger } from '../../services/logger';
 import { SolanaConfig } from './solana.config';
-import { TokenValue, countDecimals, walletPath } from '../../services/base';
+import { countDecimals, TokenValue, walletPath } from '../../services/base';
 import NodeCache from 'node-cache';
 import bs58 from 'bs58';
-const AES = require('crypto-js/aes');
 import { BigNumber } from 'ethers';
 import {
+  AccountInfo,
   Commitment,
   Connection,
-  PublicKey,
   Keypair,
-  TokenAmount,
-  LogsFilter,
   LogsCallback,
-  SlotUpdateCallback,
-  TransactionResponse,
-  AccountInfo,
+  LogsFilter,
   ParsedAccountData,
+  PublicKey,
+  SlotUpdateCallback,
+  TokenAmount,
+  TransactionResponse,
 } from '@solana/web3.js';
 import {
-  Token as TokenProgram,
   AccountInfo as TokenAccount,
+  Token as TokenProgram,
 } from '@solana/spl-token';
-import { TokenListProvider, TokenInfo } from '@solana/spl-token-registry';
+import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
 import { TransactionResponseStatusCode } from './solana.requests';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
+const crypto = require('crypto').webcrypto;
 
 export type Solanaish = Solana;
 
@@ -182,9 +182,18 @@ export class Solana {
   async getKeypair(address: string): Promise<Keypair> {
     const path = `${walletPath}/solana`;
 
-    const encryptedPrivateKey: string = await fse.readFile(
-      `${path}/${address}.json`,
-      'utf8'
+    const encryptedPrivateKey: any = JSON.parse(
+      await fse.readFile(`${path}/${address}.json`, 'utf8'),
+      (key, value) => {
+        switch (key) {
+          case 'ciphertext':
+          case 'salt':
+          case 'iv':
+            return bs58.decode(value);
+          default:
+            return value;
+        }
+      }
     );
 
     const passphrase = ConfigManagerCertPassphrase.readPassphrase();
@@ -194,18 +203,94 @@ export class Solana {
     return await this.decrypt(encryptedPrivateKey, passphrase);
   }
 
-  encrypt(privateKey: string, password: string): string {
-    // TODO: Improve with salt
-    const cipher = AES.encrypt(privateKey, password);
-    return JSON.stringify(cipher);
+  private static async getKeyMaterial(password: string) {
+    const enc = new TextEncoder();
+    return await crypto.subtle.importKey(
+      'raw',
+      enc.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits', 'deriveKey']
+    );
   }
 
-  async decrypt(
-    encryptedPrivateKey: string,
-    password: string
-  ): Promise<Keypair> {
-    const privateKey = AES.decrypt(encryptedPrivateKey, password);
-    return Keypair.fromSecretKey(privateKey);
+  private static async getKey(
+    keyAlgorithm: {
+      salt: Uint8Array;
+      name: string;
+      iterations: number;
+      hash: string;
+    },
+    keyMaterial: CryptoKey
+  ) {
+    return await crypto.subtle.deriveKey(
+      keyAlgorithm,
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  // Takes a base58 encoded privateKey and saves it to a json
+  async encrypt(privateKey: string, password: string): Promise<string> {
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const keyMaterial = await Solana.getKeyMaterial(password);
+    const keyAlgorithm = {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 500000,
+      hash: 'SHA-256',
+    };
+    const key = await Solana.getKey(keyAlgorithm, keyMaterial);
+    const cipherAlgorithm = {
+      name: 'AES-GCM',
+      iv: iv,
+    };
+    const enc = new TextEncoder();
+    const ciphertext: ArrayBuffer = await crypto.subtle.encrypt(
+      cipherAlgorithm,
+      key,
+      enc.encode(privateKey)
+    );
+    return JSON.stringify(
+      {
+        keyAlgorithm,
+        cipherAlgorithm,
+        ciphertext: new Uint8Array(ciphertext),
+      },
+      (key, value) => {
+        switch (key) {
+          case 'ciphertext':
+          case 'salt':
+          case 'iv':
+            return bs58.encode(value);
+          default:
+            return value;
+        }
+      }
+    );
+  }
+
+  async decrypt(encryptedPrivateKey: any, password: string): Promise<Keypair> {
+    logger.info(encryptedPrivateKey.keyAlgorithm.salt);
+    logger.info(encryptedPrivateKey.cipherAlgorithm.iv);
+    logger.info(encryptedPrivateKey.ciphertext);
+    const keyMaterial = await Solana.getKeyMaterial(password);
+    const key = await Solana.getKey(
+      encryptedPrivateKey.keyAlgorithm,
+      keyMaterial
+    );
+    const decrypted = await crypto.subtle.decrypt(
+      encryptedPrivateKey.cipherAlgorithm,
+      key,
+      encryptedPrivateKey.ciphertext
+    );
+
+    const dec = new TextDecoder();
+    dec.decode(decrypted);
+    return Keypair.fromSecretKey(bs58.decode(dec.decode(decrypted)));
   }
 
   async getBalances(wallet: Keypair): Promise<Record<string, TokenValue>> {

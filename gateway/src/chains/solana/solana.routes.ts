@@ -51,7 +51,7 @@ export namespace SolanaRoutes {
 
   // Get all token accounts and balances + solana balance
   router.post(
-    '/balance',
+    '/balances',
     asyncHandler(
       async (
         req: Request<{}, {}, SolanaBalanceRequest>,

@@ -47,7 +47,7 @@ export async function addWallet(req: AddWalletRequest): Promise<void> {
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
       .publicKey.toBase58();
-    encryptedPrivateKey = solana.encrypt(req.privateKey, passphrase);
+    encryptedPrivateKey = await solana.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

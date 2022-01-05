@@ -11,7 +11,11 @@ import {
 } from './solana.requests';
 import { Solanaish } from './solana';
 import { PublicKey } from '@solana/web3.js';
-import { HttpException } from '../../services/error-handler';
+import {
+  HttpException,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+} from '../../services/error-handler';
 
 export async function balances(
   solanaish: Solanaish,
@@ -20,12 +24,20 @@ export async function balances(
   const initTime = Date.now();
   const wallet = await solanaish.getKeypair(req.address);
   const balances = await solanaish.getBalances(wallet);
+  const filteredBalances = toSolanaBalances(balances, req.tokenSymbols);
+  if (Object.keys(filteredBalances).length === 0) {
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.tokenSymbols,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
+  }
 
   return {
     network: solanaish.cluster,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
-    balances: toSolanaBalances(balances, req.tokenSymbols),
+    balances: filteredBalances,
   };
 }
 
