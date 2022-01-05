@@ -364,8 +364,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        position_action,
                                        price)
 
-    def buy(self, trading_pair: str, amount: object, order_type: object = OrderType.MARKET,
-            price: object = s_decimal_NaN, **kwargs) -> str:
+    def buy(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.MARKET,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
 
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("buy", t_pair)
