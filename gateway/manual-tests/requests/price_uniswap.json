@@ -1,0 +1,9 @@
+{
+  "connector": "uniswap",
+  "chain": "ethereum",
+  "network": "ropsten",
+  "quote": "WETH",
+  "base": "DAI",
+  "amount": "1000000000000000000",
+  "side": "BUY"
+}
