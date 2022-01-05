@@ -14,9 +14,6 @@ from .silly_commands import SillyCommands
 from .order_book_command import OrderBookCommand
 from .ticker_command import TickerCommand
 from .gateway_command import GatewayCommand
-from .open_orders_command import OpenOrdersCommand
-from .trades_command import TradesCommand
-from .pnl_command import PnlCommand
 from .script_command import ScriptCommand
 from .rate_command import RateCommand
 
@@ -38,9 +35,6 @@ __all__ = [
     OrderBookCommand,
     TickerCommand,
     GatewayCommand,
-    OpenOrdersCommand,
-    TradesCommand,
-    PnlCommand,
     ScriptCommand,
     RateCommand,
 ]

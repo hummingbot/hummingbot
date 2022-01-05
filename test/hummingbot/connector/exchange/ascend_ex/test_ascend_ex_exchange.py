@@ -189,6 +189,7 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertFalse(result[1].success)
 
     def test_order_without_exchange_id_marked_as_failure_and_removed_during_cancellation(self):
+        self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="testOrderId1",
             trading_pair=self.trading_pair,
@@ -217,6 +218,7 @@ class TestAscendExExchange(unittest.TestCase):
             self.log_records[0].getMessage().startswith(f"Order {order.client_order_id} has failed. Order Update:"))
 
     def test_order_without_exchange_id_marked_as_failure_and_removed_during_status_update(self):
+        self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="testOrderId1",
             trading_pair=self.trading_pair,
