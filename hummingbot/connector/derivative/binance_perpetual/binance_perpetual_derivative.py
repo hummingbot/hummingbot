@@ -1,6 +1,4 @@
 import asyncio
-import hashlib
-import hmac
 import logging
 import time
 
@@ -22,6 +20,9 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_b
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
     BinancePerpetualUserStreamTracker
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import (
+    BinancePerpetualAuth
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -97,13 +98,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         domain: str = "binance_perpetual",
     ):
         self._api_key = binance_perpetual_api_key
-        self._api_secret = binance_perpetual_api_secret
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._api_factory = utils.build_api_factory()
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._auth: BinancePerpetualAuth = BinancePerpetualAuth(api_secret=binance_perpetual_api_secret)
         self._domain = domain
 
         ExchangeBase.__init__(self)
@@ -122,7 +123,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             api_factory=self._api_factory)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
-        self._order_not_found_records = {}
+        self._order_not_found_records = defaultdict(int)
         self._last_timestamp = 0
         self._trading_rules = {}
         self._position_mode = None
@@ -1124,9 +1125,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     # NO_SUCH_ORDER code
                     if not isinstance(order_update, Exception) and \
                        (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist."):
-                        self._order_not_found_records[client_order_id] = (
-                            self._order_not_found_records.get(client_order_id, 0) + 1
-                        )
+                        self._order_not_found_records[client_order_id] += 1
                         if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
                             continue
                         self.trigger_event(
@@ -1285,9 +1284,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     params["recvWindow"] = f"{20000}"
                 query = urlencode(sorted(params.items()))
                 if is_signed:
-                    secret = bytes(self._api_secret.encode("utf-8"))
-                    signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
-                    query += f"&signature={signature}"
+                    query = self._auth.extend_query_with_authentication_info(query=query)
 
                 url = utils.rest_url(path, self._domain, api_version)
 
