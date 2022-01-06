@@ -37,7 +37,7 @@ class BinancePerpetualRESTPreProcessor(RESTPreProcessorBase):
         self._auth = auth
 
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
-        if self._auth is not None:
+        if self._auth is not None and request.is_auth_required:
             request.headers = {"X-MBX-APIKEY": self._auth._api_key}
         return request
 
