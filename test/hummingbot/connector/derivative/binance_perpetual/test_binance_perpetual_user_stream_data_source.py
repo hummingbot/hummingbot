@@ -2,6 +2,7 @@ import asyncio
 import re
 import ujson
 import unittest
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
@@ -32,7 +33,10 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.domain = CONSTANTS.TESTNET_DOMAIN
 
         cls.api_key = "TEST_API_KEY"
+        cls.secret_key = "TEST_SECRET_KEY"
         cls.listen_key = "TEST_LISTEN_KEY"
+        cls.auth = BinancePerpetualAuth(api_key=cls.api_key,
+                                        api_secret=cls.secret_key)
 
     def setUp(self) -> None:
         super().setUp()
@@ -42,7 +46,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.data_source = BinancePerpetualUserStreamDataSource(
-            api_key=self.api_key, domain=self.domain, throttler=self.throttler
+            auth=self.auth, domain=self.domain, throttler=self.throttler
         )
 
         self.data_source.logger().setLevel(1)

@@ -1,10 +1,15 @@
 import re
+from typing import Optional
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -25,6 +30,18 @@ RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 BROKER_ID = "x-3QreWesy"
 
 
+class BinancePerpetualRESTPreProcessor(RESTPreProcessorBase):
+
+    def __init__(self, auth: Optional[BinancePerpetualAuth] = None) -> None:
+        super().__init__()
+        self._auth = auth
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        if self._auth is not None:
+            request.headers = {"X-MBX-APIKEY": self._auth._api_key}
+        return request
+
+
 def get_client_order_id(order_side: str, trading_pair: object):
     nonce = get_tracking_nonce()
     symbols: str = trading_pair.split("-")
@@ -43,8 +60,9 @@ def wss_url(endpoint: str, domain: str = "binance_perpetual"):
     return base_ws_url + endpoint
 
 
-def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(auth=auth,
+                                       rest_pre_processors=[BinancePerpetualRESTPreProcessor(auth=auth)])
     return api_factory
 
 
