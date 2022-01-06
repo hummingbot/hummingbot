@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 31
+template_version: 32
 
 # Exchange configs
 
@@ -214,10 +214,6 @@ gateway_api_port: 5000
 heartbeat_enabled:
 # The frequency of sending the aggregated order and trade data (in minutes, e.g. enter 5 for once every 5 minutes)
 heartbeat_interval_min:
-# a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
-binance_markets:
-
-
 
 # Command Shortcuts
 # Define abbreviations for often used commands
