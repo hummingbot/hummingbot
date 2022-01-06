@@ -9,7 +9,6 @@ from async_timeout import timeout
 from collections import defaultdict
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
-from urllib.parse import urlencode
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
@@ -58,10 +57,6 @@ from hummingbot.logger import HummingbotLogger
 
 bpm_logger = None
 
-OrderBookDataSource = BinancePerpetualAPIOrderBookDataSource
-OrderBookTracker = BinancePerpetualOrderBookTracker
-UserStreamTracker = BinancePerpetualUserStreamTracker
-
 
 class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset
@@ -97,26 +92,26 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_required: bool = True,
         domain: str = "binance_perpetual",
     ):
-        self._api_key = binance_perpetual_api_key
+        self._auth: BinancePerpetualAuth = BinancePerpetualAuth(api_key=binance_perpetual_api_key,
+                                                                api_secret=binance_perpetual_api_secret)
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
-        self._api_factory = utils.build_api_factory()
+        self._api_factory = utils.build_api_factory(auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._auth: BinancePerpetualAuth = BinancePerpetualAuth(api_secret=binance_perpetual_api_secret)
         self._domain = domain
 
         ExchangeBase.__init__(self)
         PerpetualTrading.__init__(self)
         BinanceTime.get_instance().start()
 
-        self._user_stream_tracker = UserStreamTracker(
-            api_key=self._api_key,
+        self._user_stream_tracker = BinancePerpetualUserStreamTracker(
+            auth=self._auth,
             domain=self._domain,
             throttler=self._throttler,
             api_factory=self._api_factory)
-        self._order_book_tracker = OrderBookTracker(
+        self._order_book_tracker = BinancePerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=self._domain,
             throttler=self._throttler,
@@ -262,7 +257,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         the network connection. Ping the network (or call any lightweight public API).
         """
         try:
-            await self.request(CONSTANTS.PING_URL)
+            await self.api_request(path=CONSTANTS.PING_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -314,7 +309,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         order_result = None
         api_params = {
-            "symbol": OrderBookDataSource.convert_to_exchange_trading_pair(trading_pair),
+            "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair),
             "side": "BUY" if trade_type is TradeType.BUY else "SELL",
             "type": "LIMIT" if order_type is OrderType.LIMIT else "MARKET",
             "quantity": f"{amount}",
@@ -342,12 +337,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         )
 
         try:
-            order_result = await self.request(
+            order_result = await self.api_request(
                 path=CONSTANTS.ORDER_URL,
-                params=api_params,
+                data=api_params,
                 method=RESTMethod.POST,
                 add_timestamp=True,
-                is_signed=True,
+                is_auth_required=True,
             )
 
             order_update: OrderUpdate = OrderUpdate(
@@ -514,12 +509,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "symbol": trading_pair
             }
-            response = await self.request(
+            response = await self.api_request(
                 path=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL,
                 params=params,
                 method=RESTMethod.DELETE,
                 add_timestamp=True,
-                is_signed=True
+                is_auth_required=True,
             )
             if response.get("code") == 200:
                 for order_id in list(self._client_order_tracker.active_orders.keys()):
@@ -565,13 +560,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             params = {
                 "origClientOrderId": client_order_id,
-                "symbol": OrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)
+                "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)
             }
-            response = await self.request(
+            response = await self.api_request(
                 path=CONSTANTS.ORDER_URL,
                 params=params,
                 method=RESTMethod.DELETE,
-                is_signed=True,
+                is_auth_required=True,
                 add_timestamp=True,
                 return_err=True,
             )
@@ -863,7 +858,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         last_tick = int(self._last_timestamp / 60.0)
         current_tick = int(self.current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self.request(path=CONSTANTS.EXCHANGE_INFO_URL, method=RESTMethod.GET, is_signed=False)
+            exchange_info = await self.api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
+                                                   method=RESTMethod.GET,
+                                                   )
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -883,7 +880,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         for rule in rules:
             try:
                 if rule["contractType"] == "PERPETUAL":
-                    trading_pair = OrderBookDataSource.convert_from_exchange_trading_pair(rule["symbol"])
+                    trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(rule["symbol"])
                     filters = rule["filters"]
                     filt_dict = {fil["filterType"]: fil for fil in filters}
 
@@ -1003,10 +1000,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self.request(path=CONSTANTS.ACCOUNT_INFO_URL,
-                                          is_signed=True,
-                                          add_timestamp=True,
-                                          api_version=CONSTANTS.API_VERSION_V2)
+        account_info = await self.api_request(path=CONSTANTS.ACCOUNT_INFO_URL,
+                                              is_auth_required=True,
+                                              add_timestamp=True,
+                                              api_version=CONSTANTS.API_VERSION_V2,
+                                              )
         assets = account_info.get("assets")
         for asset in assets:
             asset_name = asset.get("asset")
@@ -1022,10 +1020,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             del self._account_balances[asset_name]
 
     async def _update_positions(self):
-        positions = await self.request(path=CONSTANTS.POSITION_INFORMATION_URL,
-                                       add_timestamp=True,
-                                       is_signed=True,
-                                       api_version=CONSTANTS.API_VERSION_V2)
+        positions = await self.api_request(path=CONSTANTS.POSITION_INFORMATION_URL,
+                                           add_timestamp=True,
+                                           is_auth_required=True,
+                                           api_version=CONSTANTS.API_VERSION_V2,
+                                           )
         for position in positions:
             trading_pair = position.get("symbol")
             position_side = PositionSide[position.get("positionSide")]
@@ -1036,7 +1035,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             pos_key = self.position_key(trading_pair, position_side)
             if amount != 0:
                 self._account_positions[pos_key] = Position(
-                    trading_pair=OrderBookDataSource.convert_from_exchange_trading_pair(trading_pair),
+                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(trading_pair),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
@@ -1056,10 +1055,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
-                self.request(
+                self.api_request(
                     path=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                    params={"symbol": OrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)},
-                    is_signed=True,
+                    params={"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)},
+                    is_auth_required=True,
                     add_timestamp=True,
                 )
                 for trading_pair in trading_pairs
@@ -1101,15 +1100,15 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         if current_tick > last_tick and len(self._client_order_tracker.active_orders) > 0:
             tracked_orders = list(self._client_order_tracker.active_orders.values())
             tasks = [
-                self.request(
+                self.api_request(
                     path=CONSTANTS.ORDER_URL,
                     params={
-                        "symbol": OrderBookDataSource.convert_to_exchange_trading_pair(order.trading_pair),
+                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(order.trading_pair),
                         "origClientOrderId": order.client_order_id
                     },
                     method=RESTMethod.GET,
                     add_timestamp=True,
-                    is_signed=True,
+                    is_auth_required=True,
                     return_err=True,
                 )
                 for order in tracked_orders
@@ -1140,7 +1139,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     continue
 
                 new_order_update: OrderUpdate = OrderUpdate(
-                    trading_pair=OrderBookDataSource.convert_from_exchange_trading_pair(order_update["symbol"]),
+                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(order_update["symbol"]),
                     update_timestamp=order_update["updateTime"],
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
@@ -1163,9 +1162,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         leverage:
             Leverage level to be set
         """
-        params = {"symbol": OrderBookDataSource.convert_to_exchange_trading_pair(trading_pair), "leverage": leverage}
-        set_leverage = await self.request(
-            path=CONSTANTS.SET_LEVERAGE_URL, params=params, method=RESTMethod.POST, add_timestamp=True, is_signed=True
+        params = {"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair), "leverage": leverage}
+        set_leverage = await self.api_request(
+            path=CONSTANTS.SET_LEVERAGE_URL,
+            data=params,
+            method=RESTMethod.POST,
+            add_timestamp=True,
+            is_auth_required=True,
         )
         if set_leverage["leverage"] == leverage:
             self._leverage[trading_pair] = leverage
@@ -1181,16 +1184,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         funding_payment_tasks = []
         for pair in self._trading_pairs:
             funding_payment_tasks.append(
-                self.request(
+                self.api_request(
                     path=CONSTANTS.GET_INCOME_HISTORY_URL,
                     params={
-                        "symbol": OrderBookDataSource.convert_to_exchange_trading_pair(pair),
+                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(pair),
                         "incomeType": "FUNDING_FEE",
                         "startTime": int(startTime * 1000),
                     },
                     method=RESTMethod.GET,
                     add_timestamp=True,
-                    is_signed=True,
+                    is_auth_required=True,
                 )
             )
         funding_payment_results = await safe_gather(*funding_payment_tasks, return_exceptions=True)
@@ -1198,7 +1201,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             for funding_payment in funding_payments:
                 payment = Decimal(funding_payment["income"])
                 action = "paid" if payment < 0 else "received"
-                trading_pair = OrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
+                trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
                 if payment != Decimal("0"):
                     self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
                     self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
@@ -1214,12 +1217,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "dualSidePosition": position_mode.value
             }
-            response = await self.request(
+            response = await self.api_request(
                 method=RESTMethod.POST,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
-                params=params,
+                data=params,
                 add_timestamp=True,
-                is_signed=True,
+                is_auth_required=True,
                 limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
                 return_err=True
             )
@@ -1237,11 +1240,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
-            response = await self.request(
+            response = await self.api_request(
                 method=RESTMethod.GET,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 add_timestamp=True,
-                is_signed=True,
+                is_auth_required=True,
                 limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
                 return_err=True
             )
@@ -1266,32 +1269,39 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
-    async def request(self,
-                      path: str,
-                      params: Optional[Dict[str, Any]] = None,
-                      method: RESTMethod = RESTMethod.GET,
-                      add_timestamp: bool = False,
-                      is_signed: bool = False,
-                      return_err: bool = False,
-                      api_version: str = CONSTANTS.API_VERSION,
-                      limit_id: Optional[str] = None):
-        params = params or {}
+    async def api_request(self,
+                          path: str,
+                          params: Optional[Dict[str, Any]] = None,
+                          data: Optional[Dict[str, Any]] = None,
+                          method: RESTMethod = RESTMethod.GET,
+                          add_timestamp: bool = False,
+                          is_auth_required: bool = False,
+                          return_err: bool = False,
+                          api_version: str = CONSTANTS.API_VERSION,
+                          limit_id: Optional[str] = None):
+
         rest_assistant = await self._get_rest_assistant()
         async with self._throttler.execute_task(limit_id=limit_id if limit_id else path):
             try:
                 if add_timestamp:
-                    params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
-                    params["recvWindow"] = f"{20000}"
-                query = urlencode(sorted(params.items()))
-                if is_signed:
-                    query = self._auth.extend_query_with_authentication_info(query=query)
+                    if method == RESTMethod.POST:
+                        data = data or {}
+                        data["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
+                        data["recvWindow"] = f"{20000}"
+                    else:
+                        params = params or {}
+                        params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
+                        params["recvWindow"] = f"{20000}"
 
                 url = utils.rest_url(path, self._domain, api_version)
 
                 request = RESTRequest(
                     method=method,
-                    url=f"{url}?{query}",
-                    headers={"X-MBX-APIKEY": self._api_key},
+                    url=url,
+                    params=params,
+                    data=data,
+                    is_auth_required=is_auth_required,
+                    throttler_limit_id=limit_id if limit_id else path
                 )
                 response = await rest_assistant.call(request=request)
 

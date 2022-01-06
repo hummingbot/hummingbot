@@ -48,12 +48,12 @@ BINANCE_USER_STREAM_ENDPOINT = "/listenKey"
 
 # Order Statuses
 ORDER_STATE = {
-    # "PENDING_NEW": OrderState.PENDING_CREATE,
     "NEW": OrderState.OPEN,
     "FILLED": OrderState.FILLED,
     "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
     "CANCELED": OrderState.CANCELLED,
-    # "FAILED": OrderState.FAILED,
+    "EXPIRED": OrderState.CANCELLED,
+    "REJECTED": OrderState.FAILED,
 }
 
 # Rate Limit Type
