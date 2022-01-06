@@ -614,14 +614,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
-                proposal = None
                 if self._create_timestamp <= self._current_timestamp:
                     # Measure order book liquidity
                     self.c_measure_order_book_liquidity()
 
                 self._hanging_orders_tracker.process_tick()
+
+                # Needs to be executed at all times to not to have active order leftovers after a trading session ends
                 self.c_cancel_active_orders_on_max_age_limit()
-                self.c_cancel_active_orders(proposal)
+
                 self._execution_state.process_tick(timestamp, self)
 
             else:
