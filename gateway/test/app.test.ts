@@ -14,6 +14,7 @@ describe('verify swagger docs', () => {
         './docs/swagger/eth-uniswap-routes.yml',
         './docs/swagger/avalanche-routes.yml',
         './docs/swagger/avalanche-pangolin-routes.yml',
+        './docs/swagger/wallet-routes.yml',
       ]
     );
     const documentedRoutes = Object.keys(swaggerDocument.paths).sort();
