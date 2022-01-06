@@ -32,11 +32,6 @@ from hummingbot.logger import HummingbotLogger
 
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
-    DIFF_STREAM_ID = 1
-    TRADE_STREAM_ID = 2
-    FUNDING_INFO_STREAM_ID = 3
-    HEARTBEAT_TIME_INTERVAL = 30.0
-
     _bpobds_logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, str] = {}
 
@@ -143,9 +138,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs(
         domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None
     ) -> List[str]:
-        OrderBookDataSource = BinancePerpetualAPIOrderBookDataSource
+        ob_source_cls = BinancePerpetualAPIOrderBookDataSource
         trading_pair_list: List[str] = []
-        symbols_map = await OrderBookDataSource.trading_pair_symbol_map(domain=domain, throttler=throttler)
+        symbols_map = await ob_source_cls.trading_pair_symbol_map(domain=domain, throttler=throttler)
         trading_pair_list.extend(list(symbols_map.values()))
 
         return trading_pair_list
@@ -169,16 +164,16 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_snapshot(
         trading_pair: str, limit: int = 1000, domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, Any]:
-        OrderBookDataSource = BinancePerpetualAPIOrderBookDataSource
+        ob_source_cls = BinancePerpetualAPIOrderBookDataSource
         try:
             api_factory = utils.build_api_factory()
             rest_assistant = await api_factory.get_rest_assistant()
 
-            params = {"symbol": OrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)}
+            params = {"symbol": ob_source_cls.convert_to_exchange_trading_pair(trading_pair)}
             if limit != 0:
                 params.update({"limit": str(limit)})
             url = utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain)
-            throttler = throttler or OrderBookDataSource._get_throttler_instance()
+            throttler = throttler or ob_source_cls._get_throttler_instance()
             async with throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_REST_URL):
                 request = RESTRequest(
                     method=RESTMethod.GET,
@@ -254,12 +249,12 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _subscribe_to_order_book_streams(self) -> WSAssistant:
         url = f"{utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
         ws: WSAssistant = await self._get_ws_assistant()
-        await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
 
         stream_id_channel_pairs = [
-            (self.DIFF_STREAM_ID, "@depth"),
-            (self.TRADE_STREAM_ID, "@aggTrade"),
-            (self.FUNDING_INFO_STREAM_ID, "@markPrice"),
+            (CONSTANTS.DIFF_STREAM_ID, "@depth"),
+            (CONSTANTS.TRADE_STREAM_ID, "@aggTrade"),
+            (CONSTANTS.FUNDING_INFO_STREAM_ID, "@markPrice"),
         ]
         for stream_id, channel in stream_id_channel_pairs:
             payload = {
@@ -285,11 +280,11 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if "result" in msg.data:
                         continue
                     if "@depth" in msg.data["stream"]:
-                        self._message_queue[self.DIFF_STREAM_ID].put_nowait(msg)
+                        self._message_queue[CONSTANTS.DIFF_STREAM_ID].put_nowait(msg)
                     elif "@aggTrade" in msg.data["stream"]:
-                        self._message_queue[self.TRADE_STREAM_ID].put_nowait(msg)
+                        self._message_queue[CONSTANTS.TRADE_STREAM_ID].put_nowait(msg)
                     elif "@markPrice" in msg.data["stream"]:
-                        self._message_queue[self.FUNDING_INFO_STREAM_ID].put_nowait(msg)
+                        self._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID].put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -302,7 +297,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
-            msg = await self._message_queue[self.DIFF_STREAM_ID].get()
+            msg = await self._message_queue[CONSTANTS.DIFF_STREAM_ID].get()
             timestamp: float = time.time()
             msg.data["data"]["s"] = self.convert_from_exchange_trading_pair(msg.data["data"]["s"])
             order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
@@ -312,7 +307,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
-            msg = await self._message_queue[self.TRADE_STREAM_ID].get()
+            msg = await self._message_queue[CONSTANTS.TRADE_STREAM_ID].get()
             msg.data["data"]["s"] = self.convert_from_exchange_trading_pair(msg.data["data"]["s"])
             trade_message: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg.data)
             output.put_nowait(trade_message)
@@ -344,7 +339,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                funding_info_message: WSResponse = await self._message_queue[self.FUNDING_INFO_STREAM_ID].get()
+                funding_info_message: WSResponse = await self._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID].get()
                 data: Dict[str, Any] = funding_info_message.data["data"]
 
                 trading_pair: str = self.convert_from_exchange_trading_pair(data["s"])
