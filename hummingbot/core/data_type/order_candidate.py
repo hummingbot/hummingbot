@@ -35,6 +35,7 @@ class OrderCandidate:
     price: Decimal
     order_collateral: Optional[TokenAmount] = field(default=None, init=False)
     percent_fee_collateral: Optional[TokenAmount] = field(default=None, init=False)
+    percent_fee_value: Optional[TokenAmount] = field(default=None, init=False)
     fixed_fee_collaterals: List[TokenAmount] = field(default=list, init=False)
     potential_returns: Optional[TokenAmount] = field(default=None, init=False)
     resized: bool = field(default=False, init=False)
@@ -73,7 +74,9 @@ class OrderCandidate:
         fee = self._get_fee(exchange)
         self._populate_percent_fee_collateral_entry(exchange, fee)
         self._populate_fixed_fee_collateral_entries(fee)
-        self._populate_potential_returns_entry(exchange, fee)
+        self._populate_potential_returns_entry(exchange)
+        self._populate_percent_fee_value(exchange, fee)
+        self._apply_fee_impact_on_potential_returns(exchange, fee)
 
     def adjust_from_balances(self, available_balances: Dict[str, Decimal]):
         if not self.is_zero_order:
@@ -118,11 +121,24 @@ class OrderCandidate:
             self.fixed_fee_collaterals.append(
                 TokenAmount(token, amount))
 
-    def _populate_potential_returns_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
+    def _populate_potential_returns_entry(self, exchange: 'ExchangeBase'):
         r_token = self._get_returns_token(exchange)
         if r_token is not None:
             r_amount = self._get_returns_amount(exchange)
             self.potential_returns = TokenAmount(r_token, r_amount)
+
+    def _populate_percent_fee_value(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
+        cost_impact = fee.get_fee_impact_on_order_cost(self, exchange)
+        if cost_impact is not None:
+            self.percent_fee_value = cost_impact
+        else:
+            returns_impact = fee.get_fee_impact_on_order_returns(self, exchange)
+            if returns_impact is not None:
+                impact_token = self.potential_returns.token
+                self.percent_fee_value = TokenAmount(impact_token, returns_impact)
+
+    def _apply_fee_impact_on_potential_returns(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
+        if self.potential_returns is not None:
             impact = fee.get_fee_impact_on_order_returns(self, exchange)
             if impact is not None:
                 self.potential_returns.amount -= impact
@@ -237,11 +253,14 @@ class OrderCandidate:
             self.order_collateral.amount *= scaler
         if self.percent_fee_collateral is not None:
             self.percent_fee_collateral.amount *= scaler
+        if self.percent_fee_value is not None:
+            self.percent_fee_value.amount *= scaler
         if self.potential_returns is not None:
             self.potential_returns.amount *= scaler
         if self.is_zero_order:
             self.order_collateral = None
             self.percent_fee_collateral = None
+            self.percent_fee_value = None
             self.fixed_fee_collaterals = []
             self.potential_returns = None
         self.resized = True
@@ -270,13 +289,23 @@ class PerpetualOrderCandidate(OrderCandidate):
 
     def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         if not self.position_close:
-            leverage = self.leverage
             super()._populate_percent_fee_collateral_entry(exchange, fee)
             if (
                 self.percent_fee_collateral is not None
                 and self.percent_fee_collateral.token == self.order_collateral.token
             ):
+                leverage = self.leverage
                 self.percent_fee_collateral.amount *= leverage
+
+    def _populate_percent_fee_value(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
+        if not self.position_close:
+            super()._populate_percent_fee_value(exchange, fee)
+            if (
+                self.percent_fee_value is not None
+                and self.percent_fee_value.token == self.order_collateral.token
+            ):
+                leverage = self.leverage
+                self.percent_fee_value.amount *= leverage
 
     def _get_returns_token(self, exchange: 'ExchangeBase') -> Optional[str]:
         if self.position_close:

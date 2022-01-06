@@ -38,6 +38,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.base_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("10"), populated_candidate.potential_returns.amount)
@@ -57,6 +59,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.base_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("10"), populated_candidate.potential_returns.amount)
@@ -82,6 +86,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, populated_candidate.order_collateral.token)
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertIsNone(populated_candidate.percent_fee_collateral)
+        self.assertEqual(self.base_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.1"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.base_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("9.90"), populated_candidate.potential_returns.amount)
@@ -100,6 +106,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.base_asset, populated_candidate.order_collateral.token)
         self.assertEqual(Decimal("10"), populated_candidate.order_collateral.amount)
         self.assertIsNone(populated_candidate.percent_fee_collateral)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.quote_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("19.8"), populated_candidate.potential_returns.amount)
@@ -137,6 +145,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertEqual(pfc_token, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(pfc_token, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.base_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("10"), populated_candidate.potential_returns.amount)
@@ -162,6 +172,7 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, populated_candidate.order_collateral.token)
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertIsNone(populated_candidate.percent_fee_collateral)
+        self.assertIsNone(populated_candidate.percent_fee_value)
         self.assertEqual(1, len(populated_candidate.fixed_fee_collaterals))
 
         fixed_fee_collateral = populated_candidate.fixed_fee_collaterals[0]
@@ -188,6 +199,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), adjusted_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), adjusted_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), adjusted_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertEqual(self.base_asset, adjusted_candidate.potential_returns.token)
         self.assertEqual(Decimal("10"), adjusted_candidate.potential_returns.amount)
@@ -208,6 +221,7 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(0, adjusted_candidate.amount)
         self.assertIsNone(adjusted_candidate.order_collateral)
         self.assertIsNone(adjusted_candidate.percent_fee_collateral)
+        self.assertIsNone(adjusted_candidate.percent_fee_value)
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertIsNone(adjusted_candidate.potential_returns)
 
@@ -238,6 +252,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("9.9"), adjusted_candidate.order_collateral.amount)  # 4.95 * 2
         self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.099"), adjusted_candidate.percent_fee_collateral.amount)  # 9.9 * 0.01
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.099"), adjusted_candidate.percent_fee_value.amount)  # 9.9 * 0.01
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertEqual(self.base_asset, adjusted_candidate.potential_returns.token)
         self.assertEqual(Decimal("4.95"), adjusted_candidate.potential_returns.amount)
@@ -259,6 +275,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.base_asset, adjusted_candidate.order_collateral.token)
         self.assertEqual(Decimal("5"), adjusted_candidate.order_collateral.amount)
         self.assertIsNone(adjusted_candidate.percent_fee_collateral)
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.1"), adjusted_candidate.percent_fee_value.amount)  # 10 * 0.01
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertEqual(self.quote_asset, adjusted_candidate.potential_returns.token)
         self.assertEqual(Decimal("9.9"), adjusted_candidate.potential_returns.amount)  # 10 * 0.99
@@ -285,6 +303,7 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, adjusted_candidate.order_collateral.token)
         self.assertEqual(Decimal("10"), adjusted_candidate.order_collateral.amount)
         self.assertIsNone(adjusted_candidate.percent_fee_collateral)
+        self.assertIsNone(adjusted_candidate.percent_fee_value)
         self.assertEqual(1, len(adjusted_candidate.fixed_fee_collaterals))
 
         fixed_fee_collateral = adjusted_candidate.fixed_fee_collaterals[0]
@@ -340,6 +359,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), adjusted_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("1"), adjusted_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("1"), adjusted_candidate.percent_fee_value.amount)
         self.assertEqual(1, len(adjusted_candidate.fixed_fee_collaterals))
 
         fixed_fee_collateral = adjusted_candidate.fixed_fee_collaterals[0]
@@ -386,6 +407,8 @@ class BudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), adjusted_candidate.order_collateral.amount)
         self.assertEqual(fc_token, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), adjusted_candidate.percent_fee_collateral.amount)
+        self.assertEqual(fc_token, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), adjusted_candidate.percent_fee_value.amount)
         self.assertEqual(1, len(adjusted_candidate.fixed_fee_collaterals))
 
         fixed_fee_collateral = adjusted_candidate.fixed_fee_collaterals[0]
