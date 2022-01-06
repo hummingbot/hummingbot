@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
@@ -43,15 +44,15 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(
         self,
-        api_key: str, domain: str = "binance_perpetual",
+        auth: BinancePerpetualAuth,
+        domain: str = "binance_perpetual",
         throttler: Optional[AsyncThrottler] = None,
         api_factory: Optional[WebAssistantsFactory] = None
     ):
         super().__init__()
-        self._api_factory: WebAssistantsFactory = api_factory or utils.build_api_factory()
+        self._api_factory: WebAssistantsFactory = api_factory or utils.build_api_factory(auth=auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
-        self._api_key: str = api_key
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._domain = domain
@@ -83,7 +84,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             request = RESTRequest(
                 method=RESTMethod.POST,
                 url=utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, self._domain),
-                headers={"X-MBX-APIKEY": self._api_key},
             )
             response = await rest_assistant.call(request=request)
 
@@ -104,7 +104,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             request = RESTRequest(
                 method=RESTMethod.PUT,
                 url=url,
-                headers={"X-MBX-APIKEY": self._api_key},
                 params={"listenKey": self._current_listen_key}
             )
             response = await rest_assistant.call(request=request)
