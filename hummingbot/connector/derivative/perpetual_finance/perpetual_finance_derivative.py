@@ -22,6 +22,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -361,7 +362,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                             amount=tracked_order.amount,
                             price=tracked_order.price,
                         )
-                        fee.flat_fees.append(("XDAI", Decimal(str(update_result["receipt"]["gasUsed"]))))
+                        fee.flat_fees.append(TokenAmount("XDAI", Decimal(str(update_result["receipt"]["gasUsed"]))))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
