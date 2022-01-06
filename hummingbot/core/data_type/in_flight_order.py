@@ -362,6 +362,7 @@ class InFlightOrder:
         )
         self.cumulative_fee_paid += fee_paid
 
+        self.last_trade_id = trade_id
         self.last_filled_price = trade_update.fill_price
         self.last_filled_amount = trade_update.fill_base_amount
         self.last_fee_paid = fee_paid

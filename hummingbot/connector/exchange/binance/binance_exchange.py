@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.binance.binance_order_book_tracker import Bin
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.utils import build_api_factory, TradeFillOrderDetails
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
@@ -90,6 +90,7 @@ class BinanceExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
+        self._last_trades_poll_binance_timestamp = 0
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
     @classmethod
@@ -456,8 +457,8 @@ class BinanceExchange(ExchangeBase):
             order_type=order_type)
 
         if amount < trading_rule.min_order_size:
-            self.logger().warning(f"Buy order amount {amount} is lower than the minimum order size "
-                                  f"{trading_rule.min_order_size}. The order will not be created.")
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
+                                  f" size {trading_rule.min_order_size}. The order will not be created.")
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
@@ -607,10 +608,10 @@ class BinanceExchange(ExchangeBase):
         while True:
             try:
                 await self._poll_notifier.wait()
+                await self._update_time_synchronizer()
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_fills_from_trades(),
-                    self._update_time_synchronizer(),
                 )
                 await self._update_order_status()
                 self._last_poll_timestamp = self.current_timestamp
@@ -784,19 +785,26 @@ class BinanceExchange(ExchangeBase):
 
         if (long_interval_current_tick > long_interval_last_tick
                 or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-
+            query_time = int(self._last_trades_poll_binance_timestamp * 1e3)
+            self._last_trades_poll_binance_timestamp = self._binance_time_synchronizer.time()
             order_by_exchange_id_map = {}
             for order in self._order_tracker.all_orders.values():
                 order_by_exchange_id_map[order.exchange_order_id] = order
 
+            tasks = []
             trading_pairs = self._order_book_tracker._trading_pairs
-            tasks = [self._api_request(
-                method="get",
-                path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)},
-                is_auth_required=True)
-                for trading_pair in trading_pairs]
+            for trading_pair in trading_pairs:
+                params = {
+                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+                }
+                if self._last_poll_timestamp > 0:
+                    params["startTime"] = query_time
+                tasks.append(self._api_request(
+                    method="get",
+                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                    params=params,
+                    is_auth_required=True))
+
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
 
@@ -828,18 +836,21 @@ class BinanceExchange(ExchangeBase):
                         self._order_tracker.process_trade_update(trade_update)
                     elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
                         # This is a fill of an order registered in the DB but not tracked any more
+                        self._current_trade_fills.add(TradeFillOrderDetails(
+                            market=self.display_name,
+                            exchange_trade_id=str(trade["id"]),
+                            symbol=trading_pair))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
-                                float(trade["time"]) * 1e-3,
-                                self._exchange_order_ids.get(str(trade["orderId"]), None),
-                                trading_pair,
-                                TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
-                                # defaulting to this value since trade info lacks field
-                                Decimal(trade["price"]),
-                                Decimal(trade["qty"]),
-                                TradeFee(
+                                timestamp=float(trade["time"]) * 1e-3,
+                                order_id=self._exchange_order_ids.get(str(trade["orderId"]), None),
+                                trading_pair=trading_pair,
+                                trade_type=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
+                                order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
+                                price=Decimal(trade["price"]),
+                                amount=Decimal(trade["qty"]),
+                                trade_fee=TradeFee(
                                     percent=Decimal(0.0),
                                     flat_fees=[(trade["commissionAsset"],
                                                 Decimal(trade["commission"]))]
