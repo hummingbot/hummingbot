@@ -1071,7 +1071,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     if order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
                         trade_update: TradeUpdate = TradeUpdate(
-                            trade_id=trade["id"],
+                            trade_id=str(trade["id"]),
                             client_order_id=tracked_order.client_order_id,
                             exchange_order_id=trade["orderId"],
                             trading_pair=tracked_order.trading_pair,

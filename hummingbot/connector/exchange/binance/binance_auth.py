@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import time
 from collections import OrderedDict
 
 from typing import (
@@ -28,7 +27,8 @@ class BinanceAuth(AuthBase):
             request.params = self.add_auth_to_params(params=request.params)
 
         headers = {}
-        headers.update(request.headers)
+        if request.headers is not None:
+            headers.update(request.headers)
         headers.update(self.header_for_authentication())
         request.headers = headers
 
@@ -57,7 +57,3 @@ class BinanceAuth(AuthBase):
         encoded_params_str = urlencode(params)
         digest = hmac.new(self.secret_key.encode("utf8"), encoded_params_str.encode("utf8"), hashlib.sha256).hexdigest()
         return digest
-
-    def _time(self):
-        # This method is added just to make it possible to have deterministic results in test cases
-        return time.time()
