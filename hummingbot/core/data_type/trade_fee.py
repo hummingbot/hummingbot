@@ -111,7 +111,7 @@ class AddedToCostTradeFee(TradeFeeBase):
                 fee_amount = size * exchange_rate * self.percent
             else:  # self.percent_token == order_candidate.order_collateral.token
                 fee_amount = order_candidate.order_collateral.amount * self.percent
-            ret = (fee_token, fee_amount)
+            ret = TokenAmount(fee_token, fee_amount)
         return ret
 
     def get_fee_impact_on_order_returns(

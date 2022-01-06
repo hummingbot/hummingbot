@@ -39,6 +39,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertIsNone(populated_candidate.potential_returns)  # order results in position open
 
@@ -57,6 +59,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertIsNone(populated_candidate.potential_returns)  # order results in position open
 
@@ -76,6 +80,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertIsNone(populated_candidate.potential_returns)  # order results in position open
 
@@ -94,6 +100,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertIsNone(populated_candidate.potential_returns)  # order results in position open
 
@@ -113,6 +121,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), populated_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertIsNone(populated_candidate.potential_returns)  # order results in position open
 
@@ -150,6 +160,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), populated_candidate.order_collateral.amount)
         self.assertEqual(pfc_token, populated_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_collateral.amount)
+        self.assertEqual(pfc_token, populated_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.4"), populated_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertIsNone(populated_candidate.potential_returns)  # order results in position open
 
@@ -168,6 +180,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
 
         self.assertIsNone(populated_candidate.order_collateral)  # the collateral is the contract itself
         self.assertIsNone(populated_candidate.percent_fee_collateral)
+        self.assertIsNone(populated_candidate.percent_fee_value)
         self.assertEqual(0, len(populated_candidate.fixed_fee_collaterals))
         self.assertEqual(self.quote_asset, populated_candidate.potential_returns.token)
         self.assertEqual(Decimal("19.8"), populated_candidate.potential_returns.amount)
@@ -190,6 +203,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("20"), adjusted_candidate.order_collateral.amount)
         self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.2"), adjusted_candidate.percent_fee_collateral.amount)
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.2"), adjusted_candidate.percent_fee_value.amount)
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertIsNone(adjusted_candidate.potential_returns)  # order results in position open
 
@@ -219,6 +234,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("9.9"), adjusted_candidate.order_collateral.amount)  # 4.95 * 2
         self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.099"), adjusted_candidate.percent_fee_collateral.amount)  # 9.9 * 0.01
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.099"), adjusted_candidate.percent_fee_value.amount)  # 9.9 * 0.01
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertIsNone(adjusted_candidate.potential_returns)  # order results in position open
 
@@ -248,5 +265,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(Decimal("9.9"), adjusted_candidate.order_collateral.amount)  # 4.95 * 2
         self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_collateral.token)
         self.assertEqual(Decimal("0.099"), adjusted_candidate.percent_fee_collateral.amount)  # 9.9 * 0.01
+        self.assertEqual(self.quote_asset, adjusted_candidate.percent_fee_value.token)
+        self.assertEqual(Decimal("0.099"), adjusted_candidate.percent_fee_value.amount)  # 9.9 * 0.01
         self.assertEqual(0, len(adjusted_candidate.fixed_fee_collaterals))
         self.assertIsNone(adjusted_candidate.potential_returns)  # order results in position open
