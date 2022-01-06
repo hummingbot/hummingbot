@@ -75,7 +75,6 @@ async function getConnectionInformation(connector: EthereumBase) {
 }
 
 app.get('/config', (_req: Request, res: Response<any, any>) => {
-  // res.status(200).json(ConfigManager.config);
   res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
 });
 
