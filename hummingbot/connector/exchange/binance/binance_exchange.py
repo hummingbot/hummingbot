@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.binance.binance_order_book_tracker import Bin
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import build_api_factory, TradeFillOrderDetails
+from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
@@ -44,6 +44,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -69,8 +70,11 @@ class BinanceExchange(ExchangeBase):
         self._binance_time_synchronizer = TimeSynchronizer()
         super().__init__()
         self._trading_required = trading_required
-        self._auth = BinanceAuth(api_key=binance_api_key, secret_key=binance_api_secret)
-        self._api_factory = build_api_factory()
+        self._auth = BinanceAuth(
+            api_key=binance_api_key,
+            secret_key=binance_api_secret,
+            time_provider=self._binance_time_synchronizer)
+        self._api_factory = WebAssistantsFactory(auth=self._auth)
         self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._order_book_tracker = BinanceOrderBookTracker(
@@ -217,7 +221,7 @@ class BinanceExchange(ExchangeBase):
         """
         try:
             await self._api_request(
-                method="get",
+                method=RESTMethod.GET,
                 path_url=CONSTANTS.PING_PATH_URL,
             )
         except asyncio.CancelledError:
@@ -485,7 +489,7 @@ class BinanceExchange(ExchangeBase):
 
         try:
             order_result = await self._api_request(
-                method="post",
+                method=RESTMethod.POST,
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 data=api_params,
                 is_auth_required=True)
@@ -575,7 +579,7 @@ class BinanceExchange(ExchangeBase):
                     "origClientOrderId": order_id,
                 }
                 cancel_result = await self._api_request(
-                    method="delete",
+                    method=RESTMethod.DELETE,
                     path_url=CONSTANTS.ORDER_PATH_URL,
                     params=api_params,
                     is_auth_required=True)
@@ -646,7 +650,7 @@ class BinanceExchange(ExchangeBase):
 
     async def _update_trading_rules(self):
         exchange_info = await self._api_request(
-            method="get",
+            method=RESTMethod.GET,
             path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
@@ -800,7 +804,7 @@ class BinanceExchange(ExchangeBase):
                 if self._last_poll_timestamp > 0:
                     params["startTime"] = query_time
                 tasks.append(self._api_request(
-                    method="get",
+                    method=RESTMethod.GET,
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
                     params=params,
                     is_auth_required=True))
@@ -870,7 +874,7 @@ class BinanceExchange(ExchangeBase):
         if current_tick > last_tick and len(tracked_orders) > 0:
 
             tasks = [self._api_request(
-                method="get",
+                method=RESTMethod.GET,
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params={
                     "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(o.trading_pair),
@@ -940,7 +944,7 @@ class BinanceExchange(ExchangeBase):
 
         try:
             account_info = await self._api_request(
-                method="get",
+                method=RESTMethod.GET,
                 path_url=CONSTANTS.ACCOUNTS_PATH_URL,
                 is_auth_required=True)
 
@@ -972,31 +976,22 @@ class BinanceExchange(ExchangeBase):
             raise
 
     async def _api_request(self,
-                           method,
-                           path_url,
+                           method: RESTMethod,
+                           path_url: str,
                            params: Optional[Dict[str, Any]] = None,
-                           data=None,
+                           data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
 
-        headers = {}
+        headers = {
+            "Content-Type": "application/json" if method == RESTMethod.POST else "application/x-www-form-urlencoded"}
         client = await self._get_rest_assistant()
 
         if is_auth_required:
             url = binance_utils.private_rest_url(path_url, domain=self._domain)
-            headers = self._auth.get_auth_headers(request_type=method)
-            if method.upper() == "POST":
-                data = self._auth.add_auth_to_params(
-                    params=data,
-                    current_time=self._binance_time_synchronizer.time())
-            else:
-                params = self._auth.add_auth_to_params(
-                    params=params,
-                    current_time=self._binance_time_synchronizer.time())
         else:
             url = binance_utils.public_rest_url(path_url, domain=self._domain)
-            headers = self._auth.get_headers(request_type=method)
 
-        request = RESTRequest(method=RESTMethod[method.upper()],
+        request = RESTRequest(method=method,
                               url=url,
                               data=data,
                               params=params,
@@ -1021,7 +1016,7 @@ class BinanceExchange(ExchangeBase):
 
     async def _get_current_server_time(self):
         response = await self._api_request(
-            method="get",
+            method=RESTMethod.GET,
             path_url=CONSTANTS.SERVER_TIME_PATH_URL,
         )
         return response["serverTime"]

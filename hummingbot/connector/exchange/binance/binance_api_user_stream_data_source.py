@@ -97,7 +97,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _get_listen_key(self):
         rest_assistant = await self._get_rest_assistant()
         url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-        request = RESTRequest(method=RESTMethod.POST, url=url, headers={"X-MBX-APIKEY": self._auth.api_key})
+        request = RESTRequest(method=RESTMethod.POST, url=url, headers=self._auth.header_for_authentication())
 
         async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
             response: RESTResponse = await rest_assistant.call(request=request)
@@ -111,7 +111,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._get_rest_assistant()
         url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
         request = RESTRequest(method=RESTMethod.PUT, url=url,
-                              headers={"X-MBX-APIKEY": self._auth.api_key},
+                              headers=self._auth.header_for_authentication(),
                               params={"listenKey": self._current_listen_key})
 
         async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
