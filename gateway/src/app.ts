@@ -143,7 +143,6 @@ export const startGateway = async () => {
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-
     const swaggerDocument = SwaggerManager.generateSwaggerJson(
       './docs/swagger/swagger.yml',
       './docs/swagger/definitions.yml',
@@ -153,6 +152,7 @@ export const startGateway = async () => {
         './docs/swagger/eth-uniswap-routes.yml',
         './docs/swagger/avalanche-routes.yml',
         './docs/swagger/avalanche-pangolin-routes.yml',
+        './docs/swagger/wallet-routes.yml',
       ]
     );
 
