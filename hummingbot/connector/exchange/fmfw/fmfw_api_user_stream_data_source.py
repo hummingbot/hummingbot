@@ -106,13 +106,6 @@ class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                     await ws.send(ujson.dumps(subscribe_request))
 
-                    # subscribe_request: Dict[str, any] = {
-                    #     "method": "spot_cancel_orders",
-                    #     "params": {},
-                    #     "id": 123
-                    # }
-                    # await ws.send(ujson.dumps(subscribe_request))
-
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         output.put_nowait(msg)

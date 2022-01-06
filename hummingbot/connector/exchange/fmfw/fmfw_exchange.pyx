@@ -264,7 +264,6 @@ cdef class FmfwExchange(ExchangeBase):
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
-            #('267',event_message)
             try:
                 if 'params' in event_message.keys():
                     execution_data=[]
@@ -274,7 +273,6 @@ cdef class FmfwExchange(ExchangeBase):
                     elif event_method =='spot_orders':
                         execution_data = event_message["params"]
                     for update_order in execution_data:
-                        #print('276 update_order',update_order)
                     # Refer to https://docs.kucoin.com/#private-order-change-events
                         execution_status = update_order["status"]
                         #print('execution_status',execution_status)
@@ -288,8 +286,7 @@ cdef class FmfwExchange(ExchangeBase):
                             self.logger().debug(f"Event: {event_message}")
                             continue
 
-                        if (execution_status == "new") :
-                            #print('289')
+                        if execution_status == "new" :
                             execute_amount_diff =Decimal(update_order["quantity_cumulative"])
                             execute_price = Decimal(update_order["price"])
                             tracked_order.executed_amount_base = execute_amount_diff
@@ -315,7 +312,7 @@ cdef class FmfwExchange(ExchangeBase):
                                                     ),
                                                     tracked_order.exchange_order_id
                                                 ))
-                        if execution_status == "partiallyFilled" or execution_status == "filled":
+                        elif execution_status == "filled" or execution_status == "partiallyFilled":
                             #print('315 here ')
                             tracked_order.last_state = "DONE"
                             execute_amount_diff = Decimal(update_order["quantity"])-Decimal(update_order["quantity_cumulative"])
@@ -353,8 +350,7 @@ cdef class FmfwExchange(ExchangeBase):
                                                                             tracked_order.order_type,
                                                                             exchange_order_id=tracked_order.exchange_order_id))
                             self.c_stop_tracking_order(tracked_order.client_order_id)
-                        elif execution_status == "filled" or execution_type == "canceled":
-                            #print('352 here')
+                        elif execution_status == "canceled":
                             tracked_order.last_state = "CANCEL"
                             self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -476,7 +472,7 @@ cdef class FmfwExchange(ExchangeBase):
         return trading_rules
 
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
-        path_url = f"/api/3/spot/order/{exchange_order_id}"
+        path_url = f"/api/3/spot/history/order?client_order_id={exchange_order_id}"
         return await self._api_request("get", path_url=path_url, is_auth_required=True)
 
     async def _update_order_status(self):
@@ -488,11 +484,10 @@ cdef class FmfwExchange(ExchangeBase):
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             for tracked_order in tracked_orders:
-                #print('493 tracked_order : ',tracked_order)
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 order_update = await self.get_order_status(exchange_order_id)
                 client_order_id = tracked_order.client_order_id
-                #print('496',order_update)
+                order_update=order_update[0]
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -501,28 +496,18 @@ cdef class FmfwExchange(ExchangeBase):
                                         f"The order has either been filled or canceled."
                     )
                     continue
-
-                order_state = False
-                if order_update["status"] == 'new':
-                    order_state = True
-                
-                #print('511 order status : ', order_state)
-                if order_state:
-                    continue
-
-                # Calculate the newly executed amount for this update.
-                if order_update["status"] == "new":
-                    if order_state:
-                        tracked_order.last_state = "DEAL"
-                    else:
-                        tracked_order.last_state = "DONE"
-                else:
-                    tracked_order.last_state = "CANCEL" # API isn't detailed enough assuming dealSize
-
                 order_status = order_update["status"]
+            
+                if order_status == 'new':
+                    tracked_order.last_state = "DEAL"
+                elif order_status == 'filled' or order_status == 'partiallyFilled':
+                    tracked_order.last_state = "DONE"
+                elif order_status == "canceled":
+                    tracked_order.last_state = "CANCEL" 
+
+
                 order_type = tracked_order.order_type.name.lower()
                 trade_type = tracked_order.trade_type.name.lower()
-                #print('526 here')
                 execute_price = Decimal(order_update["quantity"]) - Decimal(order_update["quantity_cumulative"])
                 execute_amount_diff = s_decimal_0
 
@@ -555,15 +540,15 @@ cdef class FmfwExchange(ExchangeBase):
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-                if order_status == "filled":
+                if order_status == "filled" or order_status == "partiallyFilled":
                     if order_update["quantity"] == order_update["quantity_cumulative"]:  # Order COMPLETED
                         tracked_order.last_state = "CLOSED"
                         self.logger().info(f"The {order_type}-{trade_type} "
                                            f"{client_order_id} has completed according to FMFW order status API.")
 
                         if tracked_order.trade_type is TradeType.BUY:
-                            self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                            f"according to order status API.")
+                            #self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                            #f"according to order status API.")
                             self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                                 BuyOrderCompletedEvent(self._current_timestamp,
                                                                         tracked_order.client_order_id,
@@ -576,8 +561,8 @@ cdef class FmfwExchange(ExchangeBase):
                                                                         tracked_order.order_type,
                                                                         exchange_order_id=tracked_order.exchange_order_id))
                         else:
-                            self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                            f"according to order status API.")
+                            #self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                            #f"according to order status API.")
                             self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                                 SellOrderCompletedEvent(self._current_timestamp,
                                                                         tracked_order.client_order_id,
@@ -590,7 +575,7 @@ cdef class FmfwExchange(ExchangeBase):
                                                                         tracked_order.order_type,
                                                                         exchange_order_id=tracked_order.exchange_order_id))
 
-                else:
+                elif order_status == "canceled":
                     tracked_order.last_state = "CANCELLED"
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
@@ -661,7 +646,7 @@ cdef class FmfwExchange(ExchangeBase):
         path_url = "/api/3/spot/order"
         side = "buy" if is_buy else "sell"
         params = {
-            "price": str(price),
+            "price": str(8.7),
             "side": side,
             "client_order_id":order_id,
             'quantity': str(amount),
@@ -856,13 +841,13 @@ cdef class FmfwExchange(ExchangeBase):
                 #print('response>>>>>>>>>',response)
                 if response is not None:
                     # Handle failed cancelled orders
+                    #print('859',response,tracked_order)
                     if isinstance(response, Exception):
                         self.logger().error(f"Failed to cancel order {tracked_order.client_order_id}. Response: {response}",
                                             exc_info=True,
                                             )
                         cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
                     # Handles successfully cancelled orders
-
                     elif tracked_order.exchange_order_id == response['client_order_id']:
                         if tracked_order.client_order_id in self._in_flight_orders:
                             tracked_order.last_state = "CANCEL"
