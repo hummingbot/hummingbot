@@ -972,10 +972,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         while True:
             try:
                 await self._poll_notifier.wait()
+                await self._update_time_synchronizer()
                 await safe_gather(
                     self._update_balances(),
                     self._update_positions(),
-                    self._update_time_synchronizer(),
                 )
                 await self._update_order_fills_from_trades(),
                 await self._update_order_status()

@@ -716,7 +716,97 @@ class BinanceExchangeTests(TestCase):
                          fill_event.trade_fee.flat_fees)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(float(trade_fill["time"]) * 1e-3, fill_event.timestamp)
+        self.assertEqual(float(trade_fill_non_tracked_order["time"]) * 1e-3, fill_event.timestamp)
+        self.assertEqual("OID99", fill_event.order_id)
+        self.assertEqual(self.trading_pair, fill_event.trading_pair)
+        self.assertEqual(TradeType.BUY, fill_event.trade_type)
+        self.assertEqual(OrderType.LIMIT, fill_event.order_type)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([(trade_fill_non_tracked_order["commissionAsset"],
+                           Decimal(trade_fill_non_tracked_order["commission"]))],
+                         fill_event.trade_fee.flat_fees)
+        self.assertTrue(self._is_logged(
+            "INFO",
+            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+        ))
+
+    @aioresponses()
+    def test_update_order_fills_request_parameters(self, mock_api):
+        self.exchange._set_current_timestamp(0)
+        self.exchange._last_poll_timestamp = -1
+
+        url = binance_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = []
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        trades_request = next(((key, value) for key, value in mock_api.requests.items()
+                               if key[1].human_repr().startswith(url)))
+        request_params = trades_request[1][0].kwargs["params"]
+        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
+        self.assertNotIn("startTime", request_params)
+        self._validate_auth_credentials_for_request(trades_request[1][0])
+
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_trades_poll_binance_timestamp = 10
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        trades_request = [(key, value) for key, value in mock_api.requests.items()
+                          if key[1].human_repr().startswith(url)][1]
+        request_params = trades_request[1][0].kwargs["params"]
+        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
+        self.assertEqual(10 * 1e3, request_params["startTime"])
+        self._validate_auth_credentials_for_request(trades_request[1][0])
+
+    @aioresponses()
+    def test_update_order_fills_from_trades_with_repeated_fill_triggers_only_one_event(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+
+        url = binance_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        trade_fill_non_tracked_order = {
+            "symbol": self.exchange_trading_pair,
+            "id": 30000,
+            "orderId": 99999,
+            "orderListId": -1,
+            "price": "4.00000100",
+            "qty": "12.00000000",
+            "quoteQty": "48.000012",
+            "commission": "10.10000000",
+            "commissionAsset": "BNB",
+            "time": 1499865549590,
+            "isBuyer": True,
+            "isMaker": False,
+            "isBestMatch": True
+        }
+
+        mock_response = [trade_fill_non_tracked_order, trade_fill_non_tracked_order]
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.exchange.add_exchange_order_ids_from_market_recorder(
+            {str(trade_fill_non_tracked_order["orderId"]): "OID99"})
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        trades_request = next(((key, value) for key, value in mock_api.requests.items()
+                               if key[1].human_repr().startswith(url)))
+        request_params = trades_request[1][0].kwargs["params"]
+        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
+        self._validate_auth_credentials_for_request(trades_request[1][0])
+
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(float(trade_fill_non_tracked_order["time"]) * 1e-3, fill_event.timestamp)
         self.assertEqual("OID99", fill_event.order_id)
         self.assertEqual(self.trading_pair, fill_event.trading_pair)
         self.assertEqual(TradeType.BUY, fill_event.trade_type)
