@@ -102,12 +102,10 @@ coverage.xml
 # misc
 /gateway/coverage/
 /gateway/logs/
-/gateway/package-lock.json
 *.srl
 *.key
 *.crt
 *.log
-*.lock
 
 # Debug console
 .debug_console_ssh_host_key
