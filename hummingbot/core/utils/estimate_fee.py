@@ -6,6 +6,7 @@ from hummingbot.core.data_type.trade_fee import (
     DeductedFromReturnsTradeFee,
     TradeFeeBase,
     TradeFeeSchema,
+    TokenAmount,
 )
 from hummingbot.core.event.events import OrderType, PositionAction, TradeType
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
@@ -100,10 +101,18 @@ def _superimpose_overrides(exchange: str, trade_fee_schema: TradeFeeSchema):
         fee_overrides_config_map.get(f"{exchange}_maker_fixed_fees").value
         or trade_fee_schema.maker_fixed_fees
     )
+    trade_fee_schema.maker_fixed_fees = [
+        TokenAmount(*maker_fixed_fee)
+        for maker_fixed_fee in trade_fee_schema.maker_fixed_fees
+    ]
     trade_fee_schema.taker_fixed_fees = (
         fee_overrides_config_map.get(f"{exchange}_taker_fixed_fees").value
         or trade_fee_schema.taker_fixed_fees
     )
+    trade_fee_schema.taker_fixed_fees = [
+        TokenAmount(*taker_fixed_fee)
+        for taker_fixed_fee in trade_fee_schema.taker_fixed_fees
+    ]
     trade_fee_schema.validate_schema()
     return trade_fee_schema
 
