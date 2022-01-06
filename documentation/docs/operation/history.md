@@ -112,23 +112,3 @@ The **Return %** (bottom navbar) matches the calculated return on **History** af
 
 ![ ](/assets/img/same_return.png)
 
-## Profit & loss
-
-The `pnl` command shows consolidated performance for all running bots in the same Binance account. This command can be useful when participating in Liquidity Mining campaigns.
-
-![](/assets/img/pnl-command.png)
-
-| Optional Argument      | Description                                      |
-| :--------------------- | :----------------------------------------------- |
-| `--days`               | How many days in the past (can be decimal value) |
-| `--market`             | The market you want to see pnl                   |
-| `--open_order_markets` | See pnl from current open order markets          |
-
-### Adding trading pairs
-
-If your desired Binance trading pair(s) does not show in the output, you can add them in two ways:
-
-1. Edit `binance_markets` list in `conf_global.yml` located in the `conf` folder
-2. Run `config binance_markets` from the Hummingbot terminal
-
-
