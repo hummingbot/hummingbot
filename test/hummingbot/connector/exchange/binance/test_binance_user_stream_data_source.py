@@ -10,7 +10,7 @@ from typing import (
     Dict,
     Optional,
 )
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 import hummingbot.connector.exchange.binance.binance_utils as utils
@@ -43,8 +43,10 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant = NetworkMockingAssistant()
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.mock_time_provider = MagicMock()
+        self.mock_time_provider.time.return_value = 1000
         self.data_source = BinanceAPIUserStreamDataSource(
-            auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET"),
+            auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
             domain=self.domain,
             throttler=self.throttler
         )

@@ -1179,9 +1179,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0.5, in_flight_orders["OID1"].last_filled_amount)
         self.assertEqual(0, in_flight_orders["OID1"].last_fee_paid)
         self.assertEqual(1, in_flight_orders["OID1"].last_update_timestamp)
-        self.assertEqual(-1, in_flight_orders["OID1"].last_trade_id)
+        self.assertEqual(str(trades[0]["id"]), in_flight_orders["OID1"].last_trade_id)
 
-        self.assertTrue(698759 in in_flight_orders["OID1"].order_fills.keys())
+        self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
