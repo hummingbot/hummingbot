@@ -54,7 +54,7 @@ const encodedPrivateKey = {
 
 describe('POST /wallet/add', () => {
   it('return 200 for well formed ethereum request', async () => {
-    patch(eth, 'getWallet', () => {
+    patch(eth, 'getWalletFromPrivateKey', () => {
       return {
         address: twoAddress,
       };
@@ -75,7 +75,7 @@ describe('POST /wallet/add', () => {
   });
 
   it('return 200 for well formed avalanche request', async () => {
-    patch(avalanche, 'getWallet', () => {
+    patch(avalanche, 'getWalletFromPrivateKey', () => {
       return {
         address: twoAddress,
       };
@@ -97,7 +97,7 @@ describe('POST /wallet/add', () => {
   });
 
   it('return 404 for ill-formed request', async () => {
-    patch(avalanche, 'getWallet', () => {
+    patch(avalanche, 'getWalletFromPrivateKey', () => {
       return {
         address: twoAddress,
       };
@@ -117,7 +117,7 @@ describe('POST /wallet/add', () => {
 
 describe('DELETE /wallet/remove', () => {
   it('return 200 for well formed ethereum request', async () => {
-    patch(eth, 'getWallet', () => {
+    patch(eth, 'getWalletFromPrivateKey', () => {
       return {
         address: twoAddress,
       };
@@ -155,7 +155,7 @@ describe('DELETE /wallet/remove', () => {
 
 describe('GET /wallet', () => {
   it('return 200 for well formed ethereum request', async () => {
-    patch(eth, 'getWallet', () => {
+    patch(eth, 'getWalletFromPrivateKey', () => {
       return {
         address: twoAddress,
       };

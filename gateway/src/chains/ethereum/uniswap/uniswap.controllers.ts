@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js-light';
 import { BigNumber, Wallet } from 'ethers';
 import {
   HttpException,
@@ -111,7 +112,7 @@ export async function trade(
 
   let wallet: Wallet;
   try {
-    wallet = ethereumish.getWallet(req.privateKey);
+    wallet = await ethereumish.getWallet(req.address);
   } catch (err) {
     throw new HttpException(
       500,
@@ -156,7 +157,7 @@ export async function trade(
     const price = result.trade.executionPrice.invert();
     if (
       limitPrice &&
-      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+      new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
     )
       throw new HttpException(
         500,
@@ -206,7 +207,7 @@ export async function trade(
     const price = result.trade.executionPrice;
     if (
       limitPrice &&
-      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+      new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
     )
       throw new HttpException(
         500,

@@ -13,6 +13,8 @@ import { TokenListType, TokenValue } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
 import { EvmTxStorage } from './evm.tx-storage';
+import fse from 'fs-extra';
+import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 
 // information about an Ethereum token
 export interface Token {
@@ -26,6 +28,8 @@ export interface Token {
 export type NewBlockHandler = (bn: number) => void;
 
 export type NewDebugMsgHandler = (msg: any) => void;
+
+const walletPath = './conf/wallets';
 
 export class EthereumBase {
   private _provider;
@@ -149,18 +153,39 @@ export class EthereumBase {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
-  // returns Wallet for a private key
-  getWallet(privateKey: string): Wallet {
+  getWalletFromPrivateKey(privateKey: string): Wallet {
     return new Wallet(privateKey, this._provider);
+  }
+  // returns Wallet for a public key
+  async getWallet(address: string): Promise<Wallet> {
+    const path = `${walletPath}/${this.chainName}`;
+
+    const encryptedPrivateKey: string = await fse.readFile(
+      `${path}/${address}.json`,
+      'utf8'
+    );
+
+    const passphrase = ConfigManagerCertPassphrase.readPassphrase();
+    if (!passphrase) {
+      throw new Error('missing passphrase');
+    }
+    return await this.decrypt(encryptedPrivateKey, passphrase);
   }
 
   encrypt(privateKey: string, password: string): Promise<string> {
-    const wallet = this.getWallet(privateKey);
+    const wallet = this.getWalletFromPrivateKey(privateKey);
     return wallet.encrypt(password);
   }
 
-  decrypt(encryptedPrivateKey: string, password: string): Promise<Wallet> {
-    return Wallet.fromEncryptedJson(encryptedPrivateKey, password);
+  async decrypt(
+    encryptedPrivateKey: string,
+    password: string
+  ): Promise<Wallet> {
+    const wallet = await Wallet.fromEncryptedJson(
+      encryptedPrivateKey,
+      password
+    );
+    return wallet.connect(this._provider);
   }
 
   // returns the Native balance, convert BigNumber to string

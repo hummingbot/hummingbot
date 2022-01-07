@@ -16,6 +16,8 @@ afterEach(() => {
   unpatch();
 });
 
+const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
+
 const patchGetWallet = () => {
   patch(UniswapRoutes.ethereum, 'getWallet', () => {
     return {
@@ -132,6 +134,17 @@ const patchExecuteTrade = () => {
     return { nonce: 21, hash: '000000000000000' };
   });
 };
+
+describe('GET /uniswap', () => {
+  it('should return 200', async () => {
+    patchInit();
+    await request(app)
+      .get(`/eth/uniswap`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
 
 describe('POST /eth/uniswap/price', () => {
   it('should return 200 for BUY', async () => {
@@ -326,8 +339,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
       })
@@ -346,8 +358,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
       })
       .set('Accept', 'application/json')
@@ -362,8 +373,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -392,8 +402,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
       })
@@ -412,8 +421,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -431,8 +439,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         limitPrice: '999999999999999999999',
@@ -449,8 +456,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         limitPrice: '999999999999999999999',
@@ -467,8 +473,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         limitPrice: '9',
@@ -485,8 +490,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         limitPrice: '9',
@@ -503,7 +507,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: 10000,
-        privateKey: 'da8',
+        address: 'da8',
         side: 'comprar',
       })
       .set('Accept', 'application/json')
@@ -525,8 +529,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'SELL',
         nonce: 21,
         maxFeePerGas: '5000000000',
@@ -552,8 +555,7 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        address,
         side: 'BUY',
         nonce: 21,
         maxFeePerGas: '5000000000',

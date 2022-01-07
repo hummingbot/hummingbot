@@ -16,6 +16,7 @@ import {
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
+import { EthereumBase } from './services/ethereum-base';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -42,8 +43,38 @@ app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
+app.get('/status', async (_req: Request, res: Response) => {
+  const avalanche = AvalancheRoutes.avalanche;
+  const ethereum = EthereumRoutes.ethereum;
+  const connectedNetworks = [];
+  try {
+    const avalancheNetwork = await getConnectionInformation(avalanche);
+    connectedNetworks.push(avalancheNetwork);
+  } catch (err) {
+    logger.error(err);
+  }
+  try {
+    const ethNetwork = await getConnectionInformation(ethereum);
+    connectedNetworks.push(ethNetwork);
+  } catch (err) {
+    logger.error(err);
+  }
+
+  res.status(200).json({
+    connectedNetworks,
+  });
+});
+
+async function getConnectionInformation(connector: EthereumBase) {
+  return {
+    chainName: connector.chainName,
+    chainId: connector.chainId,
+    rpcUrl: connector.rpcUrl,
+    currentBlockNumber: await connector.getCurrentBlockNumber(),
+  };
+}
+
 app.get('/config', (_req: Request, res: Response<any, any>) => {
-  // res.status(200).json(ConfigManager.config);
   res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
 });
 
@@ -111,7 +142,6 @@ export const startGateway = async () => {
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-
     const swaggerDocument = SwaggerManager.generateSwaggerJson(
       './docs/swagger/swagger.yml',
       './docs/swagger/definitions.yml',
@@ -121,12 +151,12 @@ export const startGateway = async () => {
         './docs/swagger/eth-uniswap-routes.yml',
         './docs/swagger/avalanche-routes.yml',
         './docs/swagger/avalanche-pangolin-routes.yml',
+        './docs/swagger/wallet-routes.yml',
       ]
     );
 
     // mount swagger api docs
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
     server = await app.listen(port);
   } else {
     server = await addHttps(app).listen(port);
