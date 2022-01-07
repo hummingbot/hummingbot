@@ -14,6 +14,7 @@ from aioresponses.core import aioresponses
 from typing import Any, Awaitable, List, Dict, Optional, Callable
 from unittest.mock import patch, AsyncMock
 
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -577,7 +578,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(
+            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
+        )
 
         complete_fill = {
             "e": "ORDER_TRADE_UPDATE",
@@ -631,7 +634,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
+        self.assertEqual([TokenAmount(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
                          fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
@@ -707,7 +710,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(
+            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
+        )
 
         complete_fill = {
             "e": "ORDER_TRADE_UPDATE",
@@ -761,7 +766,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
+        self.assertEqual([TokenAmount(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
                          fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
@@ -837,7 +842,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(
+            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
+        )
 
         complete_fill = {
             "e": "ORDER_TRADE_UPDATE",

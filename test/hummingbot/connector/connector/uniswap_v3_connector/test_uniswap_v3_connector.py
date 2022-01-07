@@ -8,10 +8,10 @@ from unittest.mock import patch, AsyncMock
 import aiohttp
 from aioresponses import aioresponses
 
-from hummingbot.client.config.fee_overrides_config_map import \
-    fee_overrides_config_map
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_connector import UniswapV3Connector
+from hummingbot.core.data_type.trade_fee import TokenAmount
 
 
 class UniswapV3ConnectorTest(unittest.TestCase):
@@ -61,8 +61,8 @@ class UniswapV3ConnectorTest(unittest.TestCase):
         )
 
         self.assertEqual(
-            fee_overrides_config_map["uniswap_v3_maker_fixed_fees"].value, [("ETH", Decimal(str("2")))]
+            fee_overrides_config_map["uniswap_v3_maker_fixed_fees"].value, [TokenAmount("ETH", Decimal(str("2")))]
         )
         self.assertEqual(
-            fee_overrides_config_map["uniswap_v3_taker_fixed_fees"].value, [("ETH", Decimal(str("2")))]
+            fee_overrides_config_map["uniswap_v3_taker_fixed_fees"].value, [TokenAmount("ETH", Decimal(str("2")))]
         )
