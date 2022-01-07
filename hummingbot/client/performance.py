@@ -202,9 +202,11 @@ class PerformanceMetrics:
                         self.fees[quote] = s_decimal_0
                     self.fees[quote] += Decimal(trade.price * trade.amount * trade.trade_fee["percent"])
                 for flat_fee in trade.trade_fee.get("flat_fees", []):
-                    if flat_fee.token not in self.fees:
-                        self.fees[flat_fee.token] = s_decimal_0
-                    self.fees[flat_fee.token] += Decimal(flat_fee.amount)
+                    token = flat_fee.get("token") if isinstance(flat_fee, dict) else flat_fee.token
+                    amount = flat_fee.get("amount") if isinstance(flat_fee, dict) else flat_fee.amount
+                    if token not in self.fees:
+                        self.fees[token] = s_decimal_0
+                    self.fees[token] += Decimal(amount)
             else:  # assume this is Trade object
                 if trade.trade_fee.percent is not None and trade.trade_fee.percent > 0:
                     if quote not in self.fees:
