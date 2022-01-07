@@ -31,8 +31,7 @@ class BinancePerpetualAuth(AuthBase):
             payload = urlencode(dict(request.data.items()))
             request.data["signature"] = self.generate_signature_from_payload(payload=payload)
 
-        if request.is_auth_required:
-            request.headers = {"X-MBX-APIKEY": self._api_key}
+        request.headers = {"X-MBX-APIKEY": self._api_key}
 
         return request
 
