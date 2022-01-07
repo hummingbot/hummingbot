@@ -118,6 +118,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             api_factory=self._api_factory)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
+        self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
+        self._funding_fee_poll_notifier = asyncio.Event()
         self._order_not_found_records = defaultdict(int)
         self._last_timestamp = 0
         self._trading_rules = {}
@@ -128,7 +130,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._funding_fee_polling_task = None
         self._user_stream_tracker_task = None
         self._last_poll_timestamp = 0
-        self._funding_payment_span = [0, 30]
         self._budget_checker = PerpetualBudgetChecker(self)
         self._client_order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
@@ -229,6 +230,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._poll_notifier = asyncio.Event()
+        self._funding_fee_poll_notifier = asyncio.Event()
 
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
@@ -809,6 +811,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
+        if now >= self._next_funding_fee_timestamp + CONSTANTS.FUNDING_SETTLEMENT_DURATION[1]:
+            self._funding_fee_poll_notifier.set()
+
         self._last_timestamp = timestamp
 
     # MARKET AND ACCOUNT INFO ---
@@ -879,8 +884,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return_val: list = []
         for rule in rules:
             try:
-                if rule["contractType"] == "PERPETUAL":
-                    trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(rule["symbol"])
+                if rule["contractType"] == "PERPETUAL" and rule["status"] == "TRADING":
+                    trading_pair = f"{rule['baseAsset']}-{rule['quoteAsset']}"
                     filters = rule["filters"]
                     filt_dict = {fil["filterType"]: fil for fil in filters}
 
@@ -941,32 +946,72 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
-        int_ts = int(self.current_timestamp)
+        int_ts = int(time.time())
         eight_hours = 8 * 60 * 60
         mod = int_ts % eight_hours
         return float(int_ts - mod + eight_hours)
 
+    async def _fetch_funding_payment(self, trading_pair: str) -> bool:
+        """
+        Fetches the funding settlement details of all the active trading pairs and processes the responses.
+        Triggers a FundingPaymentCompleted event as required.
+        """
+        try:
+            response = await self.api_request(
+                path=CONSTANTS.GET_INCOME_HISTORY_URL,
+                params={
+                    "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair),
+                    "incomeType": "FUNDING_FEE",
+                    "startTime": self._next_funding_fee_timestamp - 3600,  # We provide a buffer time of 1hr.
+                },
+                method=RESTMethod.GET,
+                add_timestamp=True,
+                is_auth_required=True,
+            )
+
+            for funding_payment in response:
+                payment = Decimal(funding_payment["income"])
+                action = "paid" if payment < 0 else "received"
+                trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
+                if payment != Decimal("0"):
+                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                    self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                                       FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
+                                                                    market=self.name,
+                                                                    funding_rate=self.get_funding_info[trading_pair].rate,
+                                                                    trading_pair=trading_pair,
+                                                                    amount=payment))
+            return True
+        except Exception as e:
+            self.logger().error(f"Unexpected error occurred fetching funding payment for {trading_pair}. Error: {e}",
+                                exc_info=True)
+            return False
+
     async def _funding_fee_polling_loop(self):
-        # get our first funding time
-        next_funding_fee_timestamp = self.get_next_funding_timestamp()
-
-        # funding payment loop
+        """
+        Periodically calls _fetch_funding_payment(), responsible for handling all funding payments.
+        """
         while True:
-            # wait for funding timestamp plus payment span
-            if self.current_timestamp > next_funding_fee_timestamp + self._funding_payment_span[1]:
-                # get a start time to query funding payments
-                startTime = next_funding_fee_timestamp - self._funding_payment_span[0]
-                try:
-                    # generate funding payment events
-                    await self.get_funding_payment(startTime)
-                    next_funding_fee_timestamp = self.get_next_funding_timestamp()
-                except Exception:
-                    self.logger().error("Unexpected error whilst retrieving funding payments. Retrying after 10 seconds... ",
-                                        exc_info=True)
-                    await self._sleep(10.0)
-                    continue
+            try:
+                await self._funding_fee_poll_notifier.wait()
 
-            await self._sleep(CONSTANTS.ONE_HOUR)
+                tasks = []
+                for trading_pair in self._trading_pairs:
+                    tasks.append(
+                        asyncio.create_task(self._fetch_funding_payment(trading_pair=trading_pair))
+                    )
+                # Only when all tasks is successful would the event notifier be resetted
+                responses: List[bool] = await safe_gather(*tasks)
+                if all(responses):
+                    self._funding_fee_poll_notifier = asyncio.Event()
+                    self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error whilst retrieving funding payments. "
+                                    f"Error: {e} ",
+                                    exc_info=True)
 
     async def _status_polling_loop(self):
         """
@@ -1179,37 +1224,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         safe_ensure_future(self._set_leverage(trading_pair, leverage))
-
-    async def get_funding_payment(self, startTime: float):
-        funding_payment_tasks = []
-        for pair in self._trading_pairs:
-            funding_payment_tasks.append(
-                self.api_request(
-                    path=CONSTANTS.GET_INCOME_HISTORY_URL,
-                    params={
-                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(pair),
-                        "incomeType": "FUNDING_FEE",
-                        "startTime": int(startTime * 1000),
-                    },
-                    method=RESTMethod.GET,
-                    add_timestamp=True,
-                    is_auth_required=True,
-                )
-            )
-        funding_payment_results = await safe_gather(*funding_payment_tasks, return_exceptions=True)
-        for funding_payments in funding_payment_results:
-            for funding_payment in funding_payments:
-                payment = Decimal(funding_payment["income"])
-                action = "paid" if payment < 0 else "received"
-                trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
-                if payment != Decimal("0"):
-                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                    self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
-                                       FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
-                                                                    market=self.name,
-                                                                    funding_rate=self._funding_info[trading_pair].rate,
-                                                                    trading_pair=trading_pair,
-                                                                    amount=payment))
 
     async def _set_position_mode(self, position_mode: PositionMode):
         initial_mode = await self._get_position_mode()

@@ -46,6 +46,9 @@ POSITION_INFORMATION_URL = "/positionRisk"
 # Private API Endpoints
 BINANCE_USER_STREAM_ENDPOINT = "/listenKey"
 
+# Funding Settlement Time Span
+FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after snapshot
+
 # Order Statuses
 ORDER_STATE = {
     "NEW": OrderState.OPEN,
