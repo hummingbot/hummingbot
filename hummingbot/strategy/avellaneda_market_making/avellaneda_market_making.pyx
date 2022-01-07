@@ -1230,6 +1230,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
+                print("Is within tolerance")
+            else:
+                print("Not within tolerance")
 
         if not to_defer_canceling:
             self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
