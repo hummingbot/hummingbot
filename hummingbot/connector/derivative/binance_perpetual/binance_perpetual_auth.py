@@ -25,16 +25,14 @@ class BinancePerpetualAuth(AuthBase):
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         payload: Optional[str] = None
         if request.params is not None:
-            payload = urlencode(sorted(request.params.items()))
+            payload = urlencode(dict(request.params.items()))
+            request.params["signature"] = self.generate_signature_from_payload(payload=payload)
         if request.data is not None:
-            payload = urlencode(sorted(request.data.items()))
+            payload = urlencode(dict(request.data.items()))
+            request.data["signature"] = self.generate_signature_from_payload(payload=payload)
 
-        if payload is not None:
-            signature = self.generate_signature_from_payload(payload=payload)
-            request.url = f"{request.url}?{payload}&signature={signature}"
-
-        request.params = None
-        request.data = None
+        if request.is_auth_required:
+            request.headers = {"X-MBX-APIKEY": self._api_key}
 
         return request
 

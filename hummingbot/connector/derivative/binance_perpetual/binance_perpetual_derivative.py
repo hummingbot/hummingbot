@@ -1286,12 +1286,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if add_timestamp:
                     if method == RESTMethod.POST:
                         data = data or {}
-                        data["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
                         data["recvWindow"] = f"{20000}"
+                        data["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
                     else:
                         params = params or {}
-                        params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
                         params["recvWindow"] = f"{20000}"
+                        params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
 
                 url = utils.rest_url(path, self._domain, api_version)
 
@@ -1311,7 +1311,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         return error_response
                     else:
                         raise IOError(f"Error executing request {method.name} {path}. HTTP status is {response.status}. "
-                                      f"Error: {response}")
+                                      f"Error: {error_response}")
                 return await response.json()
             except Exception as e:
                 if "Timestamp for this request" in str(e):
