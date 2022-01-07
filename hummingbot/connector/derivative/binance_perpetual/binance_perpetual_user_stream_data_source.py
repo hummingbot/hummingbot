@@ -84,15 +84,15 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             request = RESTRequest(
                 method=RESTMethod.POST,
                 url=utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, self._domain),
+                is_auth_required=True,
             )
             response = await rest_assistant.call(request=request)
-
+            data: Dict[str, str] = await response.json()
             if response.status != 200:
                 raise IOError(
                     f"Error fetching Binance Perpetual user stream listen key. "
-                    f"HTTP status is {response.status}."
+                    f"HTTP status is {response.status}. Error: {data}"
                 )
-            data: Dict[str, str] = await response.json()
             return data["listenKey"]
 
     async def ping_listen_key(self) -> bool:
