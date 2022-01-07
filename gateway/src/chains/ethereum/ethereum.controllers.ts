@@ -41,9 +41,9 @@ export async function nonce(
   ethereum: Ethereumish,
   req: EthereumNonceRequest
 ): Promise<EthereumNonceResponse> {
-  // get the address via the private key since we generally use the private
+  // get the address via the public key since we generally use the public
   // key to interact with gateway and the address is not part of the user config
-  const wallet = ethereum.getWallet(req.privateKey);
+  const wallet = await ethereum.getWallet(req.address);
   const nonce = await ethereum.nonceManager.getNonce(wallet.address);
   return { nonce };
 }
@@ -68,7 +68,7 @@ export async function allowances(
   req: EthereumAllowancesRequest
 ): Promise<EthereumAllowancesResponse | string> {
   const initTime = Date.now();
-  const wallet = ethereumish.getWallet(req.privateKey);
+  const wallet = await ethereumish.getWallet(req.address);
   const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
   const spender = ethereumish.getSpender(req.spender);
 
@@ -108,7 +108,7 @@ export async function balances(
 
   let wallet: Wallet;
   try {
-    wallet = ethereumish.getWallet(req.privateKey);
+    wallet = await ethereumish.getWallet(req.address);
   } catch (err) {
     throw new HttpException(
       500,
@@ -184,19 +184,13 @@ export async function approve(
   ethereumish: Ethereumish,
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
-  const {
-    amount,
-    nonce,
-    privateKey,
-    token,
-    maxFeePerGas,
-    maxPriorityFeePerGas,
-  } = req;
+  const { amount, nonce, address, token, maxFeePerGas, maxPriorityFeePerGas } =
+    req;
   const spender = ethereumish.getSpender(req.spender);
   const initTime = Date.now();
   let wallet: Wallet;
   try {
-    wallet = ethereumish.getWallet(privateKey);
+    wallet = await ethereumish.getWallet(address);
   } catch (err) {
     throw new HttpException(
       500,
@@ -362,8 +356,8 @@ export async function poll(
     } else {
       // tx has been processed
       txBlock = txReceipt.blockNumber;
-      txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
-      if (txStatus === 0) {
+      txStatus = typeof txReceipt.status === 'number' ? 1 : -1;
+      if (txReceipt.status === 0) {
         const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
         const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
         if (gasUsed / gasLimit > 0.9) {
@@ -395,7 +389,7 @@ export async function cancel(
   const initTime = Date.now();
   let wallet: Wallet;
   try {
-    wallet = ethereumish.getWallet(req.privateKey);
+    wallet = await ethereumish.getWallet(req.address);
   } catch (err) {
     throw new HttpException(
       500,

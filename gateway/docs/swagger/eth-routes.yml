@@ -119,3 +119,24 @@ paths:
           schema:
             $ref: '#/definitions/EthereumPollResponse'
   
+  /eth/cancel:
+    post:
+      tags:
+        - 'eth'
+      summary: 'Cancel Ethereum transaction'
+      operationId: 'cancel'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumCancelRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumCancelResponse'
+  

@@ -14,15 +14,16 @@
     "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/src/index.js",
-    "copy-files": "copyfiles -a 'src/**/schema/*.json' 'test/services/data/**/*.*' dist",
+    "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'test/services/data/**/*.*' dist",
     "test:unit": "jest --verbose --forceExit ./test/",
     "test:cov": "jest --coverage --forceExit ./test/",
-    "test:scripts": "jest --verbose ./test-scripts/"
+    "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
   "dependencies": {
     "@ethersproject/experimental": "^5.3.0",
-    "@types/fs-extra": "^9.0.13",
     "@pangolindex/sdk": "^1.1.0",
+    "@types/fs-extra": "^9.0.13",
+    "@types/lodash": "^4.14.178",
     "@uniswap/sdk": "^3.0.3",
     "@uniswap/sdk-core": "^3.0.0",
     "@uniswap/v3-core": "^1.0.0",
@@ -35,6 +36,7 @@
     "body-parser": "^1.19.0",
     "copyfiles": "^2.4.1",
     "dayjs": "^1.10.6",
+    "decimal.js-light": "^2.5.1",
     "ethers": "^5.4.1",
     "express": "^4.17.1",
     "express-ipfilter": "^1.2.0",
@@ -43,6 +45,7 @@
     "js-yaml": "^4.1.0",
     "level": "^7.0.1",
     "level-party": "^5.1.1",
+    "lodash": "^4.17.21",
     "swagger-ui-express": "^4.1.6",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5"

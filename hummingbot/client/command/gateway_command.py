@@ -5,7 +5,9 @@ import ssl
 import json
 import shutil
 import ruamel.yaml
+import pandas as pd
 from os import listdir, path
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_namespace_keys,
@@ -30,7 +32,9 @@ class GatewayCommand:
                 value: str = None):
         if option == "create":
             safe_ensure_future(self.create_gateway())
-        if option == "config":
+        elif option == "status":
+            safe_ensure_future(self.gateway_status())
+        elif option == "config":
             if value:
                 safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
             else:
@@ -174,8 +178,21 @@ class GatewayCommand:
                 self.logger().info(f"Pull Id: {new_id}, Status: {pull_log['status']}")
                 last_id = new_id
 
+    async def _gateway_status(self):
+        if self._gateway_monitor.network_status == NetworkStatus.CONNECTED:
+            try:
+                status = await self._gateway_monitor.get_gateway_status()
+                self._notify(pd.DataFrame(status))
+            except Exception:
+                self._notify("\nError: Unable to fetch status of connected Gateway server.")
+        else:
+            self._notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
+
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
+
+    async def gateway_status(self):
+        safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
     async def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
