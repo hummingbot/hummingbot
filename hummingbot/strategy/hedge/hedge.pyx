@@ -71,7 +71,7 @@ cdef class HedgeStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._position_mode = PositionMode.HEDGE if position_mode == "Hedge" else PositionMode.ONEWAY
         self._leverage = leverage
-        self.c_add_markets([exchanges.maker, exchanges.taker])
+        self.c_add_markets([exchanges.taker])
         self._last_trade_time = {}
         self._shadow_taker_balance = {}
         self._update_shadow_balance_interval = 600

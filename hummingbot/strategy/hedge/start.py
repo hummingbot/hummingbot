@@ -1,3 +1,4 @@
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.hedge.hedge_config_map import hedge_config_map as c_map
 from hummingbot.strategy.hedge.hedge import HedgeStrategy
@@ -17,7 +18,8 @@ def start(self):
     max_order_age = c_map.get("max_order_age").value
     minimum_trade = c_map.get("minimum_trade").value
     hedge_interval = c_map.get("hedge_interval").value
-    self._initialize_markets([(maker_exchange, []), (taker_exchange, taker_markets)])
+    example_maker_pair = AllConnectorSettings.get_example_pairs().get(maker_exchange)
+    self._initialize_markets([(maker_exchange, [example_maker_pair]), (taker_exchange, taker_markets)])
     exchanges = ExchangePairTuple(maker=self.markets[maker_exchange], taker=self.markets[taker_exchange])
 
     market_infos = {}
