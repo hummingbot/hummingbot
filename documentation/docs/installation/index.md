@@ -8,13 +8,19 @@ Approximately once a month, we publish an official release of Hummingbot onto th
 
 ## Installation options
 
+### 🌎 Test-Drive (web)
+
+You can initially try out `hummingbot` in your browser without installing anything by simply visiting the
+[Test-Drive](https://hummingbot.io/en/test-drive/) page.
+
 ### 💻 Binary (Mac/Windows)
 
-Download and run the binary installer to install the latest release of Hummingbot:
+!!! warning
+    Binary releases are no longer maintained. The last available version is 0.46.
 
-[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.44.0_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.44.0.dmg){ .md-button }
+Download and run the binary installer to install the last available binary release of Hummingbot:
 
-Read the binary installation guide: [Install Hummingbot on MacOS/Windows](./binary)
+[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.46.0_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.46.0.dmg){ .md-button }
 
 ### 🐳 Docker
 

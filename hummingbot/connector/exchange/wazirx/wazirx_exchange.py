@@ -574,7 +574,7 @@ class WazirxExchange(ExchangeBase):
                     for order_trade in order_trades:
                         trade_msg = {
                             "order_id": ex_order_id,
-                            "trade_id": order_trade["id"],
+                            "trade_id": str(order_trade["id"]),
                             "traded_price": order_trade["price"],
                             "traded_quantity": order_trade["qty"],
                             "quote_quantity": order_trade["quoteQty"],
@@ -670,8 +670,8 @@ class WazirxExchange(ExchangeBase):
                     order_trades = await self._api_request("get", CONSTANTS.MY_TRADES_PATH_URL, api_params, True)
                     for order_trade in order_trades:
                         trade_msg = {
-                            "order_id": response["id"],
-                            "trade_id": order_trade["id"],
+                            "order_id": str(response["id"]),
+                            "trade_id": str(order_trade["id"]),
                             "traded_price": order_trade["price"],
                             "traded_quantity": order_trade["qty"],
                             "quote_quantity": order_trade["quoteQty"],
@@ -860,8 +860,8 @@ class WazirxExchange(ExchangeBase):
                 if "ownTrade" in stream:
                     trade_evt = event_message["data"]
                     trade_msg = {
-                        "trade_id": trade_evt["t"],
-                        "order_id": trade_evt["o"],
+                        "trade_id": str(trade_evt["t"]),
+                        "order_id": str(trade_evt["o"]),
                         "traded_price": trade_evt["p"],
                         "traded_quantity": trade_evt["q"],
                         "fee_currency": trade_evt["U"].upper(),

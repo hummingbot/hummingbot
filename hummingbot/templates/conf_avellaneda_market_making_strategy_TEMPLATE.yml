@@ -2,7 +2,7 @@
 ###       Avellaneda market making strategy config    ###
 ########################################################
 
-template_version: 7
+template_version: 8
 strategy: null
 
 # Exchange and token parameters.
@@ -10,6 +10,15 @@ exchange: null
 
 # Token trading pair for the exchange, e.g. BTC-USDT
 market: null
+
+# Type of execution timeframe
+execution_timeframe: null
+
+# Start time for running between specified times of a day or between specified dates
+start_time: null
+
+# End time for running between specified times of a day or between specified dates
+end_time: null
 
 # Time in seconds before cancelling and placing new orders.
 # If the value is 60, the bot cancels active orders and placing new ones after a minute.
@@ -65,7 +74,6 @@ order_override: null
 # Avellaneda - Stoikov algorithm parameters
 risk_factor: 1
 order_amount_shape_factor: 0
-closing_time: null
 min_spread: 0
 
 # Buffer size used to store historic samples and calculate volatility

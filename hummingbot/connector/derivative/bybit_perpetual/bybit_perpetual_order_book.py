@@ -1,20 +1,21 @@
 import logging
 from decimal import Decimal
 
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
-
-from sqlalchemy.engine import RowProxy
 from typing import (
-    Optional,
+    Any,
     Dict,
-    List, Any)
+    List,
+    Optional,
+)
 
-from hummingbot.core.event.events import TradeType
-from hummingbot.logger import HummingbotLogger
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
+    OrderBookMessage,
+    OrderBookMessageType,
 )
+from hummingbot.core.event.events import TradeType
+from hummingbot.logger import HummingbotLogger
 
 
 class BybitPerpetualOrderBook(OrderBook):
@@ -70,21 +71,6 @@ class BybitPerpetualOrderBook(OrderBook):
         )
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of snapshot data into standard OrderBookMessage format
-        :param record: a row of snapshot data from the database
-        :param metadata: extra information
-        :return: OrderBookMessage
-        """
-        return OrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=record.json,
-            timestamp=record.timestamp
-        )
-
-    @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
@@ -122,21 +108,6 @@ class BybitPerpetualOrderBook(OrderBook):
         )
 
     @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of diff data into standard OrderBookMessage format
-        :param record: a row of diff data from the database
-        :param metadata: extra information
-        :return: OrderBookMessage
-        """
-        return OrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=record.json,
-            timestamp=record.timestamp
-        )
-
-    @classmethod
     def trade_message_from_exchange(cls,
                                     msg: Dict[str, Any],
                                     timestamp: Optional[float] = None,
@@ -166,21 +137,6 @@ class BybitPerpetualOrderBook(OrderBook):
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of trade data into standard OrderBookMessage format
-        :param record: a row of trade data from the database
-        :param metadata: extra information
-        :return: OrderBookMessage
-        """
-        return OrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod

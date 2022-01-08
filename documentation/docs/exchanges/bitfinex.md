@@ -16,6 +16,7 @@ tags:
 * Transaction fees: https://www.bitfinex.com/fees/
 * Minimum order size: https://support.bitfinex.com/hc/en-us/articles/115003283709-What-is-the-minimum-order-size-on-Bitfinex-
 * Creating API keys: https://support.bitfinex.com/hc/en-us/articles/115003363429-How-to-create-and-revoke-a-Bitfinex-API-Key-
+* Referral link: https://bitfinex.com/?refcode=-dxCUrjvc
 
 ## 👷 Maintenance
 

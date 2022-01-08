@@ -17,6 +17,7 @@ tags:
 * Transaction fees: https://ascendex.com/en/feerate/transactionfee-traderate
 * Minimum order size: https://ascendex.com/en/help-center/articles/360025991074
 * Creating API keys: https://ascendex.com/en/help-center/articles/4405542558099
+* Referral link: https://ascendex.com/register?inviteCode=UEIXNXKW
 
 ## 👷 Maintenance
 

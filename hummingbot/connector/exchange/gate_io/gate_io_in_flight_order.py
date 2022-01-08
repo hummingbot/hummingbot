@@ -29,7 +29,6 @@ class GateIoInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_update_id_set = set()
-        self.order_update_id_set = set()
         self.cancelled_event = asyncio.Event()
 
     @property
@@ -58,7 +57,7 @@ class GateIoInFlightOrder(InFlightOrderBase):
             getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
             Decimal(data["amount"]),
-            data["last_state"]
+            data["last_state"],
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -73,25 +72,26 @@ class GateIoInFlightOrder(InFlightOrderBase):
         return: True if the order gets updated otherwise False
         Example Trade:
         {
-            "id": 5736713,
-            "user_id": 1000001,
-            "order_id": "30784428",
-            "currency_pair": "BTC_USDT",
-            "create_time": 1605176741,
-            "create_time_ms": "1605176741123.456",
-            "side": "sell",
-            "amount": "1.00000000",
-            "role": "taker",
-            "price": "10000.00000000",
-            "fee": "0.00200000000000",
+            "id": 1234567890,
+            "user_id": 1234567,
+            "order_id": "96780687179",
+            "currency_pair": "ETH_USDT",
+            "create_time": 1637764970,
+            "create_time_ms": "1637764970928.48",
+            "side": "buy",
+            "amount": "0.005",
+            "role": "maker",
+            "price": "4191.1",
+            "fee": "0.000009",
+            "fee_currency": "ETH",
             "point_fee": "0",
-            "gt_fee": "0"
+            "gt_fee": "0",
+            "text": "t-HBOT-B-EHUT1637764969004024",
         }
         """
-        # Using time as ID here to avoid conflicts with order updates - order updates will take priority.
-        trade_id_ms = str(str(trade_update["create_time_ms"]).split('.')[0])
+
         trade_id = str(trade_update["id"])
-        if trade_id in self.trade_update_id_set or trade_id_ms in self.order_update_id_set:
+        if trade_id in self.trade_update_id_set:
             # trade already recorded
             return False
 
@@ -104,71 +104,6 @@ class GateIoInFlightOrder(InFlightOrderBase):
             # No trades executed yet.
             return False
         self.fee_paid += Decimal(str(trade_update.get("fee", "0")))
-        self.executed_amount_quote += (Decimal(str(trade_update.get("price", "0"))) *
-                                       trade_executed_base)
-        if not self.fee_asset:
-            self.fee_asset = self.quote_asset
-        return True
-
-    def update_with_order_update(self, order_update: Dict[str, Any]) -> bool:
-        """
-        Updates the in flight order with order update (from private/get-order-detail end point)
-        return: True if the order gets updated otherwise False
-        Example Order:
-        {
-            "id": "52109248977",
-            "text": "3",
-            "create_time": "1622638707",
-            "update_time": "1622638807",
-            "currency_pair": "BTC_USDT",
-            "type": "limit",
-            "account": "spot",
-            "side": "buy",
-            "amount": "0.001",
-            "price": "1999.8",
-            "time_in_force": "gtc",
-            "left": "0.001",
-            "filled_total": "0",
-            "fee": "0",
-            "fee_currency": "BTC",
-            "point_fee": "0",
-            "gt_fee": "0",
-            "gt_discount": true,
-            "rebated_fee": "0",
-            "rebated_fee_currency": "BTC",
-            "create_time_ms": "1622638707326",
-            "update_time_ms": "1622638807635",
-            ... optional params
-            "status": "open",
-            "event": "finish"
-            "iceberg": "0",
-            "fill_price": "0",
-            "user": 5660412,
-        }
-        """
-        # Update order execution status
-        self.last_state = order_update.get("status", order_update.get("event"))
-
-        if 'filled_total' not in order_update:
-            return False
-
-        trade_id_ms = str(str(order_update["update_time_ms"]).split('.')[0])
-        if trade_id_ms in self.order_update_id_set:
-            # trade already recorded
-            return False
-
-        # Set executed amounts
-        executed_amount_quote = Decimal(str(order_update["filled_total"]))
-        executed_price = Decimal(str(order_update.get("fill_price", "0")))
-        if executed_amount_quote <= s_decimal_0 or executed_price <= s_decimal_0:
-            # Skip these.
-            return False
-
-        self.order_update_id_set.add(trade_id_ms)
-
-        self.executed_amount_quote = executed_amount_quote
-        self.executed_amount_base = self.executed_amount_quote / executed_price
-        self.fee_paid = Decimal(str(order_update.get("fee")))
-        if not self.fee_asset:
-            self.fee_asset = order_update.get("fee_currency", self.quote_asset)
+        self.executed_amount_quote += Decimal(str(trade_update.get("price", "0"))) * trade_executed_base
+        self.fee_asset = trade_update["fee_currency"]
         return True

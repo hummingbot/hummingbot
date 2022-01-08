@@ -4,9 +4,9 @@
 
 The **_UML Diagram_**, given above, illustrates the relations between `UserStreamTracker` and its subsidiary classes.
 
-The `UserStreamTracker` responsibility is to fetch user account data and queues it accordingly.
+The responsibility of `UserStreamTracker` is to fetch user account data and queue it accordingly to be processed by the `Exchange` class.
 
-`UserStreamTracker` contains subsidiary classes that help maintain the real-time wallet/holdings balance and open orders of a user. Namely, the classes required are:
+`UserStreamTracker` contains subsidiary classes that help maintain the real-time wallet/holdings balance, orders and positions of a user. Namely, the classes required are:
 
 - `UserStreamTrackerDataSource`
 - `UserStreamTracker`
@@ -22,23 +22,27 @@ The `UserStreamTracker` responsibility is to fetch user account data and queues 
 The `UserStreamTrackerDataSource` class is responsible for initializing a WebSocket connection to obtain user order, trade, and balances updates.
 Implementing an exchange connector would require you to create its own data source that extends from the `UserStreamTrackerDataSource` base class here.
 
+!!! note
+    Do use the websocket client provided by the  `aiohttp` package.
+
 Below are some variable(s) and its respective description that you might find useful when creating a connector:
 
-| Variable(s)       | Type            | Description                                                                          |
-| ----------------- | --------------- | ------------------------------------------------------------------------------------ |
-| `_domain`         | `Optional[str]` | Denotes the base domain for all REST API requests and WS connections.                |
-| `_last_recv_time` | `float`         | The timestamp(in ms) of the last user data message received by the websocket client. |
-| `_auth`           | `Auth`          | The `Auth` class used by the `UserStreamTrackerDataSource`.                          |
+| Variable(s)       | Type            | Description                                                                                                                   |
+| ----------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `_domain`         | `Optional[str]` | Denotes the base domain for all REST API requests and WS connections.                                                         |
+| `_last_recv_time` | `float`         | The timestamp(in ms) of the last user data message received by the websocket client. Should be updated even on PING messages. |
+| `_auth`           | `Auth`          | The `Auth` class used by the `UserStreamTrackerDataSource`.                                                                   |
 
 !!! tip
-    For an example on `_domain` you can refer to [Binance](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_user_stream_tracker.py) or [ProBit](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/probit/probit_user_stream_tracker.py).
+    For an example on how `_domain` is propagated throughout the connector, you can refer to [Binance](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_exchange.pyx) or [Ndax](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_exchange.py).
+    Notice that `_domain` is passed along from `Exchange` to `OrderBookTracker` and `UserStreamTracker` and subsequently to `OrderBookTrackerDataSource` and `UserStreamTrackerDataSource`.
 
 The following details the **required** functions in `UserStreamTrackerDataSource`: <br/>
 
 ### `last_recv_time`
 
-A property function that retrieves the timestamp(in ms) of the last user data message received by the WebSocket client.
-Should be updated(using python's `time.time()` or using the message timestamp) everytime message is received from the WebSocket.<br/>
+A property attribute that retrieves the timestamp (in ms) of the last user data message received by the WebSocket client.
+Should be updated (using python's `time.time()` or using the message timestamp) everytime a message is received from the WebSocket.<br/>
 
 **Input Parameter:** None <br/>
 **Expected Output(s):** `float`
@@ -46,10 +50,13 @@ Should be updated(using python's `time.time()` or using the message timestamp) e
 ### `listen_for_user_stream`
 
 An **_abstract_** function from the `UserTrackerDataSource` base class that **must** be implemented.
-Subscribes to all relevant user channels via web socket, and keeps the connection open for incoming messages.<br/>
+Subscribes to all relevant user channels via websocket, and keeps the connection open for incoming messages.<br/>
 
 **Input Parameter:** ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` <br/>
 **Expected Output(s):** None
+
+!!! note
+    Additional logic might need to be included to keep this connection alive. Refer to any keep-alive procedure as defined in the exchange's API documentation.
 
 ## UserStreamTracker
 
@@ -104,7 +111,7 @@ Hence it would only make sense to have a dedicated module to handle the generati
 The `Auth` class is responsible for creating the necessary request headers and/or data bodies necessary to authenticate said request/WebSocket connection.
 
 !!! note
-    Although mainly used in the `Exchange` class, it is generally required here in the `UserStreamTrackerDataSource`.
+    Although mainly used in the `Exchange` class, it might be required in the `UserStreamTrackerDataSource` to authenticate the websocket connection.
 
 Below are some variable(s) and its respective description that you might find useful when creating a connector:
 
@@ -115,6 +122,9 @@ Below are some variable(s) and its respective description that you might find us
 | `passphrase` | `Optional[str]` | The passphrase associated to said API key. An optional variable depending on the exchange specifications. |
 | `domain`     | `Optional[str]` | Denotes the base domain for all REST API requests and WS connections.                                     |
 | `auth_token` | `Optional[str]` | The OAuth token associated to a user. An optional variable depending on the exchange specifications.      |
+
+!!! note
+    The `Auth` class is not restricted to the above attributes. Depending on the Exchanges, more attributes might be required. See [`NdaxAuth`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_auth.py), where an additional attribute `uid` is required as part of the signature generation process.
 
 The following details the **required** functions to be implemented in `Auth`:
 
