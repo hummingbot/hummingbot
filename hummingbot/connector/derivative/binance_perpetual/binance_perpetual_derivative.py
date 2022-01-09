@@ -949,7 +949,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         int_ts = int(time.time())
         eight_hours = 8 * 60 * 60
         mod = int_ts % eight_hours
-        return float(int_ts - mod + eight_hours)
+        return int(int_ts - mod + eight_hours)
 
     async def _fetch_funding_payment(self, trading_pair: str) -> bool:
         """
