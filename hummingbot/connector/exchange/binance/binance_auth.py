@@ -21,6 +21,11 @@ class BinanceAuth(AuthBase):
         self.time_provider = time_provider
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
+        the required parameter in the request header.
+        :param request: the request to be configured for authenticated interaction
+        """
         if request.method == RESTMethod.POST:
             request.data = self.add_auth_to_params(params=request.data)
         else:
@@ -35,6 +40,10 @@ class BinanceAuth(AuthBase):
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. Binance does not use this
+        functionality
+        """
         return request  # pass-through
 
     def add_auth_to_params(self,

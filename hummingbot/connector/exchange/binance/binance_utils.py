@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Any, Dict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
@@ -14,6 +13,12 @@ DEFAULT_FEES = [0.1, 0.1]
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    """
+    Creates a client order id for a new order
+    :param is_buy: True if the order is a buy order, False otherwise
+    :param trading_pair: the trading pair the order will be operating with
+    :return: an identifier for the new order to be used in the client
+    """
     side = "B" if is_buy else "S"
     symbols = trading_pair.split("-")
     base = symbols[0].upper()
@@ -23,19 +28,32 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     return f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}-{side}{base_str}{quote_str}{get_tracking_nonce()}"
 
 
-def get_utc_timestamp(days_ago: float = 0.) -> float:
-    return datetime.utcnow().replace(tzinfo=timezone.utc).timestamp() - (60. * 60. * 24. * days_ago)
-
-
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
     return exchange_info.get("status", None) == "TRADING" and "SPOT" in exchange_info.get("permissions", list())
 
 
 def public_rest_url(path_url: str, domain: str = "com") -> str:
+    """
+    Creates a full URL for provided public REST endpoint
+    :param path_url: a public REST endpoint
+    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :return: the full URL to the endpoint
+    """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
 
 
 def private_rest_url(path_url: str, domain: str = "com") -> str:
+    """
+    Creates a full URL for provided private REST endpoint
+    :param path_url: a private REST endpoint
+    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :return: the full URL to the endpoint
+    """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PRIVATE_API_VERSION + path_url
 
 

@@ -20,13 +20,7 @@ from hummingbot.logger import HummingbotLogger
 
 
 class BinanceOrderBookTracker(OrderBookTracker):
-    _bobt_logger: Optional[HummingbotLogger] = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._bobt_logger is None:
-            cls._bobt_logger = logging.getLogger(__name__)
-        return cls._bobt_logger
+    _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None,
@@ -50,26 +44,31 @@ class BinanceOrderBookTracker(OrderBookTracker):
 
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
-    @property
-    def exchange_name(self) -> str:
-        if self._domain == "com":
-            return "binance"
-        else:
-            return f"binance_{self._domain}"
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     def start(self):
+        """
+        Starts the background task that connects to the exchange and listens to order book updates and trade events.
+        """
         super().start()
         self._order_book_stream_listener_task = safe_ensure_future(
             self._data_source.listen_for_subscriptions()
         )
 
     def stop(self):
+        """
+        Stops the background task
+        """
         self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
         super().stop()
 
     async def _order_book_diff_router(self):
         """
-        Route the real-time order book diff messages to the correct order book.
+        Routes the real-time order book diff messages to the correct order book.
         """
         last_message_timestamp: float = time.time()
         messages_queued: int = 0

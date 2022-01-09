@@ -59,11 +59,20 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @property
     def last_recv_time(self) -> float:
+        """
+        Returns the time of the last received message
+        :return: the timestamp of the last received message in seconds
+        """
         if self._ws_assistant:
             return self._ws_assistant.last_recv_time
         return -1
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        Connects to the user private channel in the exchange using a websocket connection. With the established
+        connection listens to all balance events and order updates provided by the exchange, and stores them in the
+        output queue
+        """
         ws = None
         while True:
             try:
