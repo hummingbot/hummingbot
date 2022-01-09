@@ -200,6 +200,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                     "baseAsset": self.base_asset,
                     "quoteAsset": self.quote_asset,
                     "marginAsset": margin_asset,
+                    "status": "TRADING",
                     "filters": [
                         {
                             "filterType": "PRICE_FILTER",
