@@ -51,15 +51,6 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         else:
             raise NotImplementedError
 
-    def test_exchange_name(self):
-        # Default domain
-        self.assertEqual("binance", self.tracker.exchange_name)
-
-        mock_domain = "TEST"
-        mock_tracker = BinanceOrderBookTracker(trading_pairs=[self.trading_pair],
-                                               domain=mock_domain)
-        self.assertEqual(f"binance_{mock_domain}", mock_tracker.exchange_name)
-
     def test_order_book_diff_router_trading_pair_not_found_append_to_saved_message_queue(self):
         expected_msg: OrderBookMessage = OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,

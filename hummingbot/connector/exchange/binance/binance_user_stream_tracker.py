@@ -16,13 +16,7 @@ from hummingbot.logger import HummingbotLogger
 
 
 class BinanceUserStreamTracker(UserStreamTracker):
-    _bust_logger: Optional[HummingbotLogger] = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._bust_logger is None:
-            cls._bust_logger = logging.getLogger(__name__)
-        return cls._bust_logger
+    _logger: Optional[HummingbotLogger] = None
 
     def __init__(self, auth: BinanceAuth, domain: str = "com", throttler: Optional[AsyncThrottler] = None):
         super().__init__()
@@ -33,20 +27,27 @@ class BinanceUserStreamTracker(UserStreamTracker):
         self._domain = domain
         self._throttler = throttler
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
+        """
+        Returns the instance of the data source that listens to the private user channel to receive updates from the
+        exchange. If the instance is not initialized it will be created.
+        :return: the user stream instance that is listening to user updates from the server using the private channel
+        """
         if not self._data_source:
             self._data_source = BinanceAPIUserStreamDataSource(auth=self._auth, domain=self._domain, throttler=self._throttler)
         return self._data_source
 
-    @property
-    def exchange_name(self) -> str:
-        if self._domain == "com":
-            return "binance"
-        else:
-            return f"binance_{self._domain}"
-
     async def start(self):
+        """
+        Starts the background task that connects to the exchange and listens to user activity updates
+        """
         self._user_stream_tracking_task = safe_ensure_future(
             self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
         )

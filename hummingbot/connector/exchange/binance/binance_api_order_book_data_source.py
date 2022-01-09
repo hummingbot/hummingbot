@@ -94,7 +94,13 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     @async_ttl_cache(ttl=2, maxsize=1)
-    async def get_all_mid_prices(domain="com") -> Optional[Decimal]:
+    async def get_all_mid_prices(domain="com") -> Dict[str, Decimal]:
+        """
+        Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
+        required by the market price strategy.
+        :param domain: Domain to use for the connection with the exchange (either "com" or "us"). Default value is "com"
+        :return: Dictionary with the trading pair as key, and the mid price as value
+        """
         local_api_factory = build_api_factory()
         rest_assistant = await local_api_factory.get_rest_assistant()
         throttler = BinanceAPIOrderBookDataSource._get_throttler_instance()
@@ -127,6 +133,15 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None
     ):
+        """
+        Returns the internal map used to translate trading pairs from and to the exchange notation.
+        In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
+        `trading_pair_associated_to_exchange_symbol`
+        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
+        :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :return: bidirectional mapping between trading pair exchange notation and client notation
+        """
         if domain not in cls._trading_pair_symbol_map or not cls._trading_pair_symbol_map[domain]:
             await cls._init_trading_pair_symbols(domain, api_factory, throttler)
 
@@ -139,6 +154,14 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
     ) -> str:
+        """
+        Used to translate a trading pair from the client notation to the exchange notation
+        :param trading_pair: trading pair in client notation
+        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
+        :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :return: trading pair in exchange notation
+        """
         symbol_map = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(
             domain=domain,
             api_factory=api_factory,
@@ -151,7 +174,14 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             domain="com",
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None) -> str:
-
+        """
+        Used to translate a trading pair from the exchange notation to the client notation
+        :param symbol: trading pair in exchange notation
+        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
+        :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :return: trading pair in client notation
+        """
         symbol_map = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(
             domain=domain,
             api_factory=api_factory,
@@ -160,10 +190,20 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs(domain="com") -> List[str]:
+        """
+        Returns a list of all known trading pairs enabled to operate with
+        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :return: list of trading pairs in client notation
+        """
         mapping = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain)
         return list(mapping.values())
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        """
+        Creates a local instance of the exchange order book for a particular trading pair
+        :param trading_pair: the trading pair for which the order book has to be retrieved
+        :return: a local copy of the current order book in the exchange
+        """
         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
@@ -176,6 +216,11 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return order_book
 
     async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        Reads the trade events queue. For each event creates a trade message instance and adds it to the output queue
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created trade messages
+        """
         message_queue = self._message_queue[self.TRADE_EVENT_TYPE]
         while True:
             try:
@@ -195,6 +240,12 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().exception("Unexpected error when processing public trade updates from exchange")
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        Reads the order diffs events queue. For each event creates a diff message instance and adds it to the
+        output queue
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created diff messages
+        """
         message_queue = self._message_queue[self.DIFF_EVENT_TYPE]
         while True:
             try:
@@ -212,6 +263,13 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().exception("Unexpected error when processing public order book updates from exchange")
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        This method runs continuously and request the full order book content from the exchange every hour.
+        The method uses the REST API from the exchange because it does not provide an endpoint to get the full order
+        book through websocket. With the information creates a snapshot messages that is added to the output queue
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created snapshot messages
+        """
         while True:
             try:
                 for trading_pair in self._trading_pairs:
@@ -242,6 +300,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._sleep(5.0)
 
     async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
         ws = None
         while True:
             try:
@@ -273,7 +335,12 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self,
             trading_pair: str,
             limit: int = 1000) -> Dict[str, Any]:
-
+        """
+        Retrieves a copy of the full order book from the exchange, for a particular trading pair.
+        :param trading_pair: the trading pair for which the order book will be retrieved
+        :param limit: the depth of the order book to retrieve
+        :return: the response from the exchange (JSON dictionary)
+        """
         rest_assistant = await self._get_rest_assistant()
         params = {
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair)
@@ -294,6 +361,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return data
 
     async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+        :param ws: the websocket assistant used to connect to the exchange
+        """
         try:
             payload = {
                 "method": "SUBSCRIBE",
