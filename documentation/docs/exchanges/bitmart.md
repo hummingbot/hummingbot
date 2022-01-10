@@ -16,6 +16,7 @@ tags:
 - Transaction fees: https://support.bmx.fund/hc/en-us/articles/360002043633-Fees
 - Minimum order size: 
 - Creating API keys: https://support.bmx.fund/hc/en-us/articles/360016076854-How-to-Create-An-API
+- Referral link: https://www.bitmart.com/en?r=UM6fQV
 
 ## 👷 Maintenance
 
@@ -29,6 +30,7 @@ Run `connect bitmart` in order to enter your API keys:
 ```
 Enter your BitMart API key >>>
 Enter your BitMart secret key >>>
+Enter your BitMart API Memo >>>
 ```
 
 If connection is successful:

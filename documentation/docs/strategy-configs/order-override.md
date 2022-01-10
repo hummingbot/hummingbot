@@ -12,7 +12,7 @@ The user provides orders to override the orders placed by the `order_amount` and
 
 Since this is a feature designed for advanced users, it is not configurable from the Hummingbot client. Instead, follow the steps below to set up the `order_override` parameter:
 
-1. Edit the strategy config file located in the Hummingbot `conf` folder using a text editor. <br/>See [Where are my config and log files?](https://hummingbot.zendesk.com/hc/en-us/articles/900005206343-Where-is-my-config-and-log-file-) in the FAQ page for more information.
+1. Edit the strategy config file located in the Hummingbot `conf` folder using a text editor. <br/>See [Where are my config and log files?](https://docs.hummingbot.io/operation/log-files/) in the FAQ page for more information.
 2. The input should be in a dictionary format, and the key is user-defined.<br/>Make sure there is a space between the colon ( : ) and open bracket ( [ ) as shown in the [Sample Configuration](#sample-configuration) then save your changes.
 3. For the changes to take effect, perform any of the following:
    - Run `stop` command, `import` the config file again, and then `start`

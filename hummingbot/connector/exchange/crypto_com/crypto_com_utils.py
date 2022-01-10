@@ -2,7 +2,7 @@ import math
 from typing import Dict, List
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
-from . import crypto_com_constants as Constants
+from . import crypto_com_constants as CONSTANTS
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -71,7 +71,11 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
 
 
 def get_api_reason(code: str) -> str:
-    return Constants.API_REASONS.get(int(code), code)
+    return CONSTANTS.API_REASONS.get(int(code), code)
+
+
+def get_rest_url(path_url: str, api_version: str = CONSTANTS.API_VERSION) -> str:
+    return f"{CONSTANTS.REST_URL}{api_version}{path_url}"
 
 
 KEYS = {

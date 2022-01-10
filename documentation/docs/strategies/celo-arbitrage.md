@@ -31,7 +31,7 @@ It executes offsetting buy and sell orders in both markets in order to capture a
 
 ## 🛠️ Strategy configs
 
-[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/amm_arb/amm_arb_config_map.py)
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/celo_arb/celo_arb_config_map.py)
 
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
@@ -43,4 +43,4 @@ It executes offsetting buy and sell orders in both markets in order to capture a
 
 ## 📓 Description
 
-[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/amm_arb/amm_arb.py)
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/celo_arb/celo_arb.pyx)

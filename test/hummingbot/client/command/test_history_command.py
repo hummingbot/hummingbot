@@ -1,10 +1,12 @@
 import asyncio
 import time
 import unittest
+from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable, List
 from unittest.mock import patch, MagicMock, AsyncMock
 
+from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.core.event.events import TradeFee
@@ -16,19 +18,30 @@ class HistoryCommandTest(unittest.TestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
     def setUp(self, _: MagicMock) -> None:
         super().setUp()
-        self.app = HummingbotApplication()
         self.ev_loop = asyncio.get_event_loop()
-        self.cli_mock_assistant = CLIMockingAssistant()
+
+        self.async_run_with_timeout(read_system_configs_from_yml())
+
+        self.app = HummingbotApplication()
+
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
+        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
+        self.reset_global_config()
         super().tearDown()
+
+    def reset_global_config(self):
+        for key, value in self.global_config_backup.items():
+            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
+
         return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -78,9 +91,7 @@ class HistoryCommandTest(unittest.TestCase):
         return trades
 
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_current_balances")
-    def test_history_report_raises_on_get_current_balances_network_timeout(
-        self, get_current_balances_mock: AsyncMock
-    ):
+    def test_history_report_raises_on_get_current_balances_network_timeout(self, get_current_balances_mock: AsyncMock):
         get_current_balances_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         global_config_map["other_commands_timeout"].value = 0.01
         trades = self.get_trades()

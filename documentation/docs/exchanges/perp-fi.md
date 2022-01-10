@@ -1,33 +1,36 @@
-# Perpetual Finance
+---
+tags:
+- amm exchange connector
+- ethereum dex
+---
+
+# `perp_fi`
 
 !!! note
-    This connector has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues with this connector to our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
+    This connector supports a deprecated version of Perpetual Protocol on the xDAI blockchain. This connector will be refactored as part of the [Gateway V2 redesign](/developers/gateway) and will be updated to support Perpetual Protocol on the Arbitrum blockchain afterwards.
 
-Perpetual Protocol is a decentralized perpetual contract trading protocol for every asset, with a Uniswap-inspired Virtual Automated Market Makers (Virtual AMMs) and a built-in Staking Reserve, which backs and secures the Virtual AMMs.
+## 📁 Folders
 
-!!! warning
-    Currently, [Perpetual Finance](/connectors/perp-fi/) could not be used on Binary Installers since it would need a [gateway](/installation/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+* [Gateway - Routes](https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/perpetual_finance.route.js)
+* [Gateway - Service](https://github.com/CoinAlpha/gateway-api/blob/master/src/services/perpetual_finance.js)
 
-## Prerequisites
+## ℹ️ Exchange Info
 
-- Ethereum wallet (refer to our guide [here](/operation/connect-exchange/#setup-ethereum-wallet))
-- Hummingbot Gateway (done after connecting to Perpetual Finance)
-- Some xDai asset in the wallet for gas
-- xUSDC - all trades are funded and settled in xUSDC. You can obtain xUSDC by depositing USDC and receiving the xUSDC equivalent on the Perpetual Finance exchange [here](https://perp.exchange)
+**Perpetual Protocol** 
+[Website](https://perp.fi/) | [CoinMarketCap](https://coinmarketcap.com/currencies/perpetual-protocol/) | [CoinGecko](https://www.coingecko.com/en/coins/perpetual-protocol)
 
-## Connecting to Perpetual Finance
+* API docs: https://docs.perp.fi/
+* Fees: https://docs.perp.fi/faqs/trading-faq#what-are-the-fees-charged-by-perpetual-protocol-when-trading
 
-When creating Hummingbot Gateway, it picks up the Ethereum settings in the global config file, which we can set up in the Hummingbot client.
+## 👷 Maintenance
 
-1. Run the command `connect ethereum` in the Hummingbot client
-2. Enter your wallet private key
-3. Enter Ethereum node address (starts with https://)
-4. Enter the WebSocket connection address of your Ethereum node (starts with wss://)
+* Release added: [0.37.0](/release-notes/0.37.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
-![](/assets/img/connect-ethereum.gif)
+## 🔑 Connection
 
-## Install Hummingbot Gateway
+## 🔑 Connection
 
-After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
+First, follow the instructions to install and run [Hummingbot Gateway](/protocols/gateway/).
 
-- [Hummingbot Gateway Installation](/installation/gateway/)
+Since this exchange is an xDAI-based decentralized exchange (DEX), run `connect xdai` in order to connect your wallet to the xDAI blockchain.
