@@ -883,8 +883,8 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
         self.assertIsNone(buy_event.fee_asset)
-        self.assertEqual(Decimal(order_status["executedQty"]), buy_event.base_asset_amount)
-        self.assertEqual(Decimal(order_status["cummulativeQuoteQty"]), buy_event.quote_asset_amount)
+        self.assertEqual(Decimal(0), buy_event.base_asset_amount)
+        self.assertEqual(Decimal(0), buy_event.quote_asset_amount)
         self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
@@ -1022,9 +1022,8 @@ class BinanceExchangeTests(TestCase):
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={int(order_status['updateTime'])}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                f"trade_id=None, fill_price=None, executed_amount_base=Decimal('0.0'), "
-                f"executed_amount_quote=Decimal('0.0'), fee_asset=None, cumulative_fee_paid=None, "
-                f"trade_fee_percent=None)")
+                f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
+                f"fee_asset=None, cumulative_fee_paid=None, trade_fee_percent=None)")
         )
 
     @aioresponses()

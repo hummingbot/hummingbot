@@ -753,8 +753,6 @@ class BinanceExchange(ExchangeBase):
                             new_state=CONSTANTS.ORDER_STATE[event_message["X"]],
                             client_order_id=client_order_id,
                             exchange_order_id=str(event_message["i"]),
-                            executed_amount_base=Decimal(event_message["z"]),
-                            executed_amount_quote=Decimal(event_message["Z"]),
                         )
                         self._order_tracker.process_order_update(order_update=order_update)
 
@@ -919,8 +917,6 @@ class BinanceExchange(ExchangeBase):
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=int(order_update["updateTime"]),
                         new_state=new_state,
-                        executed_amount_base=Decimal(order_update["executedQty"]),
-                        executed_amount_quote=Decimal(order_update["cummulativeQuoteQty"]),
                     )
                     self._order_tracker.process_order_update(update)
 
