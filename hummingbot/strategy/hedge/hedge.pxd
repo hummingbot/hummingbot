@@ -20,6 +20,8 @@ cdef class HedgeStrategy(StrategyBase):
         float _hedge_interval
         object _slippage
         object _max_order_age
+        double _create_timestamp
+        double _cancel_timestamp
 
     cdef object check_and_hedge_asset(self,
                                       str maker_asset,

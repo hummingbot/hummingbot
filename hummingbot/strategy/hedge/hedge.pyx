@@ -79,6 +79,9 @@ cdef class HedgeStrategy(StrategyBase):
         self._slippage = slippage
         self._max_order_age = max_order_age
 
+        self._create_timestamp = 0 #ek added
+        self._cancel_timestamp = 0 #ek added
+
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
@@ -228,6 +231,7 @@ cdef class HedgeStrategy(StrategyBase):
                                            price)
         if position_updated:
             self._last_trade_time["last updated"]=self._current_timestamp
+        self._create_timestamp = self._current_timestamp + self._hedge_interval # ek added
 
     def wallet_df(self) -> pd.DataFrame:
         data=[]
@@ -354,7 +358,10 @@ cdef class HedgeStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            self.update_wallet()
+            #self.update_wallet()
+            # ek added next two lines
+            if self._create_timestamp <= self._current_timestamp:
+                self.update_wallet()
 
         finally:
             self._last_timestamp=timestamp

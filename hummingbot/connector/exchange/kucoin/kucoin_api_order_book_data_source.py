@@ -1,3 +1,5 @@
+# ek ver 2
+
 from itertools import islice
 import aiohttp
 from aiohttp import WSMsgType
@@ -86,14 +88,19 @@ class KucoinWSConnectionIterator:
             cls._kwsci_logger = logging.getLogger(__name__)
         return cls._kwsci_logger
 
-    def __init__(self, stream_type: StreamType, trading_pairs: Set[str], throttler: AsyncThrottler):
+    def __init__(self, 
+                 stream_type: StreamType, 
+                 trading_pairs: Set[str], 
+                 throttler: AsyncThrottler,
+                 ws: aiohttp.ClientWebSocketResponse = None
+                 ):
         self._ping_task: Optional[asyncio.Task] = None
         self._stream_type: StreamType = stream_type
         self._trading_pairs: Set[str] = trading_pairs
         self._throttler = throttler
         self._last_nonce: int = int(time.time() * 1e3)
         self._client: Optional[aiohttp.ClientSession] = None
-        self._websocket: Optional[aiohttp.ClientWebSocketResponse] = None
+        self._websocket: Optional[aiohttp.ClientWebSocketResponse] = ws
 
     def __del__(self):
         if self._client:
@@ -186,6 +193,10 @@ class KucoinWSConnectionIterator:
     def websocket(self) -> Optional[aiohttp.ClientWebSocketResponse]:
         return self._websocket
 
+    @websocket.setter
+    def websocket(self, ws: aiohttp.ClientWebSocketResponse):
+        self._websocket = ws
+
     @property
     def ping_task(self) -> Optional[asyncio.Task]:
         return self._ping_task
@@ -208,7 +219,7 @@ class KucoinWSConnectionIterator:
                     await self._websocket.send_json(ping_msg)
             await asyncio.sleep(interval_secs)
 
-    async def _inner_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
+    async def iter_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can disconnect.
         try:
             while True:
@@ -216,40 +227,19 @@ class KucoinWSConnectionIterator:
                     msg = await ws.receive()
                     if msg.type == WSMsgType.CLOSED:
                         raise ConnectionError
-                    yield msg.data
+                    formattedMsg: Dict[str, any] = json.loads(msg.data)
+                    yield formattedMsg
         except asyncio.TimeoutError:
             self.logger().warning(f"Message recv() timed out. "
                                   f"Stream type = {self.stream_type},"
                                   f"Trading pairs = {self.trading_pairs}.")
             raise
-
-    async def __aiter__(self) -> AsyncIterable[Dict[str, any]]:
-        if self._websocket is not None:
-            raise EnvironmentError("Iterator already in use.")
-
-        # Get connection info and connect to Kucoin websocket.
-        ping_task: Optional[asyncio.Task] = None
-
-        try:
-            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
-                url = await self.ws_connection_url()
-            async with self._client.ws_connect(url, autoping=True, heartbeat=CONSTANTS.WS_PING_HEARTBEAT) as ws:
-                self._websocket = ws
-
-                # Subscribe to the initial topic.
-                await self.subscribe(self.stream_type, self.trading_pairs)
-
-                # Start the ping task
-                ping_task = safe_ensure_future(self._ping_loop(self.PING_INTERVAL))
-
-                # Get messages
-                async for raw_msg in self._inner_messages(self._websocket):
-                    msg: Dict[str, any] = json.loads(raw_msg)
-                    yield msg
-        finally:
-            # Clean up.
-            if ping_task is not None:
-                ping_task.cancel()
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when parsing websocket payload. "
+                                  f"Error: {e}")
+            raise
+        #finally:
+        #    await ws.close()
 
 
 class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -264,9 +254,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     class TaskEntry:
         __slots__ = ("__weakref__", "_trading_pairs", "_task", "_message_iterator")
 
-        def __init__(self, trading_pairs: Set[str], task: asyncio.Task):
+        def __init__(self, trading_pairs: Set[str]):
             self._trading_pairs: Set[str] = trading_pairs.copy()
-            self._task: asyncio.Task = task
             self._message_iterator: Optional[KucoinWSConnectionIterator] = None
 
         @property
@@ -423,10 +412,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                         output: asyncio.Queue,
                                         task_index: int,
                                         market_subset: str):
-        self._tasks[stream_type][task_index] = self.TaskEntry(
-            set(market_subset.split(',')),
-            safe_ensure_future(self._collect_and_decode_messages_loop(stream_type, task_index, output))
-        )
+        self._tasks[stream_type][task_index] = self.TaskEntry( set(market_subset.split(',')) )
 
     async def _refresh_subscriptions(self, stream_type: StreamType, output: asyncio.Queue):
         """
@@ -470,6 +456,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                      output=output,
                                                      task_index=new_index,
                                                      market_subset=market)
+                safe_ensure_future(self._collect_and_decode_messages_loop(stream_type, task_index, output))
 
         # update the trading pairs set for all task entries that have pending updates.
         for (stream_type, task_index), trading_pairs in pending_trading_pair_updates.items():
@@ -477,9 +464,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def _stop_update_tasks(self, stream_type: StreamType):
         if stream_type in self._tasks:
-            for task_index in self._tasks[stream_type]:
-                if not self._tasks[stream_type][task_index].task.done():
-                    self._tasks[stream_type][task_index].task.cancel()
+            #for task_index in self._tasks[stream_type]:
+            #    if not self._tasks[stream_type][task_index].task.done():
+            #        self._tasks[stream_type][task_index].task.cancel()
             del self._tasks[stream_type]
 
     async def _collect_and_decode_messages_loop(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
@@ -488,8 +475,18 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 kucoin_msg_iterator: KucoinWSConnectionIterator = KucoinWSConnectionIterator(
                     stream_type, self._tasks[stream_type][task_index].trading_pairs, self._throttler
                 )
+
+                #async with self._throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+                url = await kucoin_msg_iterator.ws_connection_url() # need to grab the proper websocket url (w/token)
+
+                ws = await aiohttp.ClientSession().ws_connect(url, autoping=True, heartbeat=CONSTANTS.WS_PING_HEARTBEAT)
+                kucoin_msg_iterator.websocket = ws
                 self._tasks[stream_type][task_index].message_iterator = kucoin_msg_iterator
-                async for raw_msg in kucoin_msg_iterator:
+
+                # Subscribe to the initial topic.
+                await kucoin_msg_iterator.subscribe(stream_type, self._tasks[stream_type][task_index].trading_pairs)
+
+                async for raw_msg in kucoin_msg_iterator.iter_messages(ws):
                     msg_type: str = raw_msg.get("type", "")
                     if msg_type in {"ack", "welcome", "pong"}:
                         pass
@@ -523,6 +520,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
                 await asyncio.sleep(5.0)
             finally:
+                ws and await ws.close()
                 if stream_type in self._tasks:
                     if task_index in self._tasks:
                         self._tasks[stream_type][task_index].message_iterator = None
