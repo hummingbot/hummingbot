@@ -14,8 +14,10 @@ from aioresponses.core import aioresponses
 from typing import Any, Awaitable, List, Dict, Optional, Callable
 from unittest.mock import patch, AsyncMock
 
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import BinancePerpetualAPIOrderBookDataSource
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import \
+    BinancePerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import \
+    BinancePerpetualDerivative
 
 from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.event.event_logger import EventLogger
@@ -27,7 +29,7 @@ from hummingbot.core.event.events import (
     PositionAction,
     PositionMode,
     SellOrderCompletedEvent,
-    TradeType,
+    TradeType
 )
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -77,7 +79,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.mocking_assistant = NetworkMockingAssistant()
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
-
         self._initialize_event_loggers()
 
     def tearDown(self) -> None:
@@ -89,12 +90,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.sell_order_completed_logger = EventLogger()
         self.order_cancelled_logger = EventLogger()
         self.order_filled_logger = EventLogger()
+        self.funding_payment_completed_logger = EventLogger()
 
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
             (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger)]
+            (MarketEvent.OrderFilled, self.order_filled_logger),
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -167,15 +170,20 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         }
         return account_update
 
+    def _get_income_history_dict(self) -> List:
+        income_history = [{
+            "income": 1,
+            "symbol": self.trading_pair,
+            "time": self.start_timestamp,
+        }]
+        return income_history
+
     def _get_funding_info_dict(self) -> Dict[str, Any]:
         funding_info = {
-            "data": {
-                "s": self.symbol,
-                "i": "1",
-                "p": "10",
-                "T": "200",
-                "r": "1"
-            }
+            "indexPrice": 1000,
+            "markPrice": 1001,
+            "nextFundingTime": self.start_timestamp + 8 * 60 * 60,
+            "lastFundingRate": 1010
         }
         return funding_info
 
@@ -1447,3 +1455,72 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged("ERROR",
                                         "Unable to set leverage."))
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
+    def test_fetch_funding_payment_successful(self, req_mock, mock_map):
+        # Prepare mocks
+        mock_map.return_value = self._get_trading_pair_symbol_map()
+        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
+                                        f"{self.base_asset}-{self.quote_asset}")]
+        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
+
+        income_history = self._get_income_history_dict()
+
+        url = utils.rest_url(
+            CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url_income_history, body=json.dumps(income_history))
+
+        funding_info = self._get_funding_info_dict()
+
+        url = utils.rest_url(
+            CONSTANTS.MARK_PRICE_URL, domain=self.domain
+        )
+        regex_url_funding_info = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url_funding_info, body=json.dumps(funding_info))
+
+        # Fetch from exchange with REST API - safe_ensure_future, not immediately
+        self.async_run_with_timeout(self.exchange._fetch_funding_payment(self.trading_pair))
+
+        req_mock.get(regex_url_income_history, body=json.dumps(income_history))
+
+        # Fetch once received
+        self.async_run_with_timeout(self.exchange._fetch_funding_payment(self.trading_pair))
+
+        self.assertTrue(len(self.funding_payment_completed_logger.event_log) == 1)
+
+        funding_info_logged = self.funding_payment_completed_logger.event_log[0]
+
+        self.assertTrue(funding_info_logged.trading_pair == f"{self.base_asset}-{self.quote_asset}")
+
+        self.assertEqual(funding_info_logged.funding_rate, funding_info["lastFundingRate"])
+        self.assertEqual(funding_info_logged.amount, income_history[0]["income"])
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
+    def test_fetch_funding_payment_failed(self, req_mock, mock_map):
+        # Prepare mocks
+        mock_map.return_value = self._get_trading_pair_symbol_map()
+        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
+                                        f"{self.base_asset}-{self.quote_asset}")]
+        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
+
+        url = utils.rest_url(
+            CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url_income_history, exception=Exception)
+
+        self.async_run_with_timeout(self.exchange._fetch_funding_payment(self.trading_pair))
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            f"Unexpected error occurred fetching funding payment for {self.trading_pair}. Error: "
+        ))
