@@ -12,10 +12,11 @@ tags:
 **gate_io** 
 [Website](https://www.gate.io/en/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/gate-io/) | [CoinGecko](https://www.coingecko.com/en/exchanges/gate-io)
 
-* API docs: https://www.gate.io/docs/apiv4/en/#gate-api-v4-v4-22-0
+* API docs: https://www.gate.io/docs/apiv4/en/index.html
 * Transaction fees: https://www.gate.io/fee
 * Minimum order size: https://support.gate.io/hc/en-us/articles/360000808414-What-is-minimum-order-size-
 * Creating API keys: https://support.gate.io/hc/en-us/articles/900000114363-What-are-APIKey-and-APIV4keys-for-
+* Referral link: https://www.gate.io/signup/5868285
 
 ## 👷 Maintenance
 
@@ -38,6 +39,6 @@ You are now connected to gate_io.
 
 ## 🪙 Fees
 
-Hummingbot assumes 0.2% maker fees and 0.2% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/gate_io/gate_io_utils.py#L22)).
+Hummingbot assumes 0.2% maker fees and 0.2% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/gate_io/gate_io_utils.py#L21)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).

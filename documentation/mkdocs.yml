@@ -80,7 +80,7 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
   - assets/js/config.js
   # - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
-  
+
 # Extensions
 markdown_extensions:
   - admonition
@@ -118,7 +118,6 @@ nav:
     - Home: index.md
     - Installation:
       - Installation: installation/index.md
-      - Binary (Mac/Win): installation/binary.md
       - Docker: installation/docker.md
       - Source: installation/source.md
       - Raspberry Pi: installation/raspberry-pi.md
@@ -144,9 +143,11 @@ nav:
       - Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
       - Arbitrage: strategies/arbitrage.md
+      - Aroon Oscillator: strategies/aroon-oscillator.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
       - Celo Arbitrage: strategies/celo-arbitrage.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+      - Hedge: strategies/hedge.md
       - Liquidity Mining: strategies/liquidity-mining.md
       - Perpetual Market Making: strategies/perpetual-market-making.md
       - Pure Market Making: strategies/pure-market-making.md
@@ -170,7 +171,6 @@ nav:
       - CoinZoom: exchanges/coinzoom.md
       - Crypto.com : exchanges/crypto-com.md
       - Digifinex: exchanges/digifinex.md
-      - dYdX: exchanges/dydx.md
       - dYdX Perpetual: exchanges/dydx-perpetual.md
       - FTX: exchanges/ftx.md
       - Gate.io: exchanges/gate-io.md
@@ -181,14 +181,15 @@ nav:
       - Kraken: exchanges/kraken.md
       - Liquid: exchanges/liquid.md
       - Loopring: exchanges/loopring.md
+      - MEXC: exchanges/mexc.md 
       - NDAX: exchanges/ndax.md
       - OKEx: exchanges/okex.md
-      - Perpetual Finance: exchanges/perp-fi.md
+      - Perpetual Protocol: exchanges/perp-fi.md
       - ProBit Global: exchanges/probit.md
       - ProBit Korea: exchanges/probit-korea.md
-      - Terra: exchanges/terra.md
       - Uniswap: exchanges/uniswap.md
-      - Uniswap-v3: exchanges/uniswap-v3.md
+      - Uniswap V3: exchanges/uniswap-v3.md
+      - WazirX: exchanges/wazirx.md
     - Protocol Connectors:
       - Protocol Connectors: protocols/index.md
       - Gateway: protocols/gateway.md
@@ -198,10 +199,11 @@ nav:
     - Global Configs:
       - Global Configs: global-configs/index.md
       - Balance Limit: global-configs/balance-limit.md
+      - Color Settings: global-configs/color-settings.md
       - External Database: global-configs/external-db.md
       - Kill Switch: global-configs/kill-switch.md
       - Override Fees: global-configs/override-fees.md
-      - Paper Trading Mode: global-configs/paper-trade.md
+      - Paper Trade: global-configs/paper-trade.md
       - Rate Limits Share Pct: global-configs/rate-limits-share-pct.md
       - Telegram Integration: global-configs/telegram.md
       - Strategy Autostart: global-configs/strategy-autostart.md
@@ -226,8 +228,9 @@ nav:
     - Glossary: glossary.md
   - Developers:
       - Developers: developers/index.md
-      - Hummingbot Architecture: developers/architecture.md
       - Contribution Guidelines: developers/contributions.md
+      - Architecture: developers/architecture.md
+      - Gateway: developers/gateway.md
       - Connectors:
         - Developing Connectors: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
@@ -235,7 +238,7 @@ nav:
           - Connector Requirements: developers/connectors/requirements/index.md
           - Task 1 - OrderBookTracker & Data Source: developers/connectors/requirements/task1.md
           - Task 2 - UserStreamTracker & Authentication: developers/connectors/requirements/task2.md
-          - Task 3 - Exchange Connector & InFlightOrder: developers/connectors/requirements/task3.md
+          - Task 3 - Exchange/Derivative Connector & InFlightOrder: developers/connectors/requirements/task3.md
           - Task 4 - Configuration & Additional Functions: developers/connectors/requirements/task4.md
           - Debug and Testing: developers/connectors/requirements/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
@@ -256,7 +259,10 @@ nav:
     - FAQ: about/faq.md
   - Release Notes:
     - Release Notes: release-notes/index.md
+    - 0.46.0: release-notes/0.46.0.md
+    - 0.45.0: release-notes/0.45.0.md
     - 0.44.0: release-notes/0.44.0.md
+    - 0.43.1: release-notes/0.43.1.md
     - 0.43.0: release-notes/0.43.0.md
     - 0.42.0: release-notes/0.42.0.md
     - 0.41.0: release-notes/0.41.0.md

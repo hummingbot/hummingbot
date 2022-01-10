@@ -3,7 +3,7 @@ import logging
 import asyncio
 import pandas as pd
 from typing import List, Dict, Tuple, Optional, Any
-from hummingbot.client.settings import ETH_WALLET_CONNECTORS
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
@@ -335,8 +335,8 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        if self._market_info_1.market.name in ETH_WALLET_CONNECTORS or \
-                self._market_info_2.market.name in ETH_WALLET_CONNECTORS:
+        if self._market_info_1.market.name in AllConnectorSettings.get_eth_wallet_connector_names() or \
+                self._market_info_2.market.name in AllConnectorSettings.get_eth_wallet_connector_names():
             self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
 
     def stop(self, clock: Clock):
@@ -350,13 +350,13 @@ class AmmArbStrategy(StrategyPyBase):
     async def quote_in_eth_rate_fetch_loop(self):
         while True:
             try:
-                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
+                if self._market_info_1.market.name in AllConnectorSettings.get_eth_wallet_connector_names() and \
                         "WETH" not in self._market_info_1.trading_pair.split("-"):
                     self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "
                                           f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
 
-                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
+                if self._market_info_2.market.name in AllConnectorSettings.get_eth_wallet_connector_names() and \
                         "WETH" not in self._market_info_2.trading_pair.split("-"):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "

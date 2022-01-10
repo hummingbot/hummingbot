@@ -16,6 +16,7 @@ tags:
 * Creating API keys: https://www.binance.com/en/support/faq/360002502072
 * Trading rules: https://www.binance.com/en/futures/trading-rules/perpetual
 * Leverage and margin: https://www.binance.com/en/support/faq/360033162192
+* Referral link: https://www.binance.com/en/futures/ref/hummingbot
 
 !!! note "Enable Futures"
     Ensure that the option **Enable Futures** is checked when you create your API key. If you don't see this option, you may need to open a Binance Futures account first.
@@ -44,6 +45,6 @@ You are now connected to binance_perpetual.
 
 ## 🪙 Fees
 
-Hummingbot assumes 0.02% maker fees and 0.04% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_utils.py#L10)).
+Hummingbot assumes 0.02% maker fees and 0.04% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/binance_perpetual/binance_perpetual_utils.py#L18)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).

@@ -13,7 +13,6 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
     get_strategy_config_map
@@ -71,7 +70,9 @@ class StatusCommand:
         return "\n".join(lines)
 
     async def strategy_status(self, live: bool = False):
-        paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
+        active_paper_exchanges = [exchange for exchange in self.markets.keys() if exchange.endswith("paper_trade")]
+
+        paper_trade = "\n  Paper Trading Active: All orders are simulated, and no real orders are placed." if len(active_paper_exchanges) > 0 \
             else ""
         app_warning = self.application_warning()
         app_warning = "" if app_warning is None else app_warning
@@ -98,7 +99,7 @@ class StatusCommand:
             err_msg = await self.validate_n_connect_celo(True)
             if err_msg is not None:
                 invalid_conns["celo"] = err_msg
-        if not global_config_map.get("paper_trade_enabled").value:
+        if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
             await self.update_all_secure_configs()
             connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
@@ -132,6 +133,7 @@ class StatusCommand:
                     await self.cls_display_delay(
                         await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 1
                     )
+                self.app.live_updates = False
                 self._notify("Stopped live status display update.")
             else:
                 self._notify(await self.strategy_status())
@@ -170,29 +172,6 @@ class StatusCommand:
         if invalid_conns or missing_configs:
             return False
 
-        if self.wallet is not None:
-            # Only check node url when a wallet has been initialized
-            eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
-            if not eth_node_valid:
-                self._notify('  - Node check: Bad ethereum rpc url. '
-                             'Please re-configure by entering "config ethereum_rpc_url"')
-                return False
-            elif notify_success:
-                self._notify("  - Node check: Ethereum node running and current.")
-
-            if self.wallet.network_status is NetworkStatus.CONNECTED:
-                if self._trading_required:
-                    has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-                    if not has_minimum_eth:
-                        self._notify("  - ETH wallet check: Not enough ETH in wallet. "
-                                     "A small amount of Ether is required for sending transactions on "
-                                     "Decentralized Exchanges")
-                        return False
-                    elif notify_success:
-                        self._notify("  - ETH wallet check: Minimum ETH requirement satisfied")
-            else:
-                self._notify("  - ETH wallet check: ETH wallet is not connected.")
-
         loading_markets: List[ConnectorBase] = []
         for market in self.markets.values():
             if not market.ready:
@@ -222,18 +201,6 @@ class StatusCommand:
             for offline_market in offline_markets:
                 self._notify(f"  - Connector check: {offline_market} is currently offline.")
             return False
-
-        # Paper trade mode is currently not available for connectors other than exchanges.
-        # Todo: This check is hard coded at the moment, when we get a clearer direction on how we should handle this,
-        # this section will need updating.
-        if global_config_map.get("paper_trade_enabled").value:
-            if "balancer" in required_exchanges and \
-                    str(global_config_map.get("ethereum_chain_name").value).lower() != "kovan":
-                self._notify("Error: Paper trade mode is not available on balancer at the moment.")
-                return False
-            if "binance_perpetual" in required_exchanges:
-                self._notify("Error: Paper trade mode is not available on binance_perpetual at the moment.")
-                return False
 
         self.application_warning()
         self._notify("  - All checks: Confirmed.")

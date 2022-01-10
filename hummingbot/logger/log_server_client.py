@@ -7,10 +7,8 @@ from typing import (
 )
 import aiohttp
 
-from hummingbot.core.network_base import (
-    NetworkBase,
-    NetworkStatus
-)
+from hummingbot.core.network_base import NetworkBase
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_retry import async_retry
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger

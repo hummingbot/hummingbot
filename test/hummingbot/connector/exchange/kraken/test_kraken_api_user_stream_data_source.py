@@ -9,8 +9,10 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -22,11 +24,12 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.api_tier = KrakenAPITier.STARTER
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
         not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
         kraken_auth = KrakenAuth(api_key="someKey", secret_key=not_a_real_secret)
         self.data_source = KrakenAPIUserStreamDataSource(self.throttler, kraken_auth)
@@ -107,7 +110,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.assertEqual(ret, resp["result"]["token"])
 
     @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream(self, mocked_api, ws_connect_mock):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.GET_TOKEN_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -119,7 +122,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
 
         resp = self.get_open_orders_mock()
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
@@ -127,7 +130,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.assertEqual(ret, resp)
 
         resp = self.get_own_trades_mock()
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())

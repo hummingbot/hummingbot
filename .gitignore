@@ -38,6 +38,7 @@ __pycache__
 /hummingbot/wallet/*.cpp
 /hummingbot/wallet/ethereum/*.c
 /hummingbot/wallet/ethereum/*.cpp
+/test/**/*.cpp
 /build
 
 # Local files
@@ -73,3 +74,6 @@ gateway.env
 /cover/
 /coverage_html_report/
 coverage.xml
+
+# Debug console
+.debug_console_ssh_host_key

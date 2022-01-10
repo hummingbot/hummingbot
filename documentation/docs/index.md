@@ -5,7 +5,7 @@ Welcome 👋 to the official documentation for Hummingbot, open source software 
 New to Hummingbot? Start here!
 
 - [Installation](/installation): Install Hummingbot on various platforms
-- [Basic Operations](/operations): Basic commands and actions in Hummingbot
+- [Basic Operations](/operation): Basic commands and actions in Hummingbot
 
 ## 📚 Reference
 
@@ -40,7 +40,7 @@ Hummingbot is a general source framework for crypto algorithmic trading. We welc
 
 ## 🙋‍♂️ Getting help
 
-Check out the [Troubleshooting FAQ](/faq/troubleshooting) to see if your question has already been answered.
+Check out the [Troubleshooting FAQ](/troubleshooting) to see if your question has already been answered.
 
 !!! warning "Official channels"
     Only the channels listed below are officially maintained and staffed by the Hummingbot core team. Currently, we do not moderate any other communities on Telegram, Slack, or other platforms. Please beware of potential scams or frauds on any unofficial communities.
@@ -64,9 +64,11 @@ Mandarin speakers can also visit the **中文** channel in our Discord server fo
 
 The [Hummingbot YouTube channel](https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA) features videos that teach you how to use Hummingbot, how market making and other trading strategies work, and interviews with members of the Hummingbot community.
 
-### Github
+### GitHub
 
-The [Hummingbot Github repository](https://github.com/coinalpha/hummingbot) is a monorepo that contains the codebase for Hummingbot, Hummingbot Gateway, and this documentation.
+The [Hummingbot GitHub repository](https://github.com/coinalpha/hummingbot) is a monorepo that contains the codebase for Hummingbot, Hummingbot Gateway, and this documentation.
+
+[中文 wiki](https://github.com/coinalpha/hummingbot_chinese) is our GitHub page translated into Mandarin Chinese which contains general information about Hummingbot.
 
 For bugs not yet listed in GitHub, please submit a [Bug Report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=%5BBUG%5D). **Please follow the template and include detailed descriptions of the bug, steps to reproduction, supporting artifacts such as screenshots, logs, configuration settings, and suggested fixes, if any.**
 
