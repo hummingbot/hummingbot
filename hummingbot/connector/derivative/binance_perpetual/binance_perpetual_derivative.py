@@ -974,13 +974,15 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 action = "paid" if payment < 0 else "received"
                 trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
                 if payment != Decimal("0"):
-                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                    self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
-                                       FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
-                                                                    market=self.name,
-                                                                    funding_rate=self.get_funding_info[trading_pair].rate,
-                                                                    trading_pair=trading_pair,
-                                                                    amount=payment))
+                    funding_info = self.get_funding_info(trading_pair)
+                    if funding_info is not None:
+                        self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                        self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                                           FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
+                                                                        market=self.name,
+                                                                        funding_rate=funding_info.rate,
+                                                                        trading_pair=trading_pair,
+                                                                        amount=payment))
             return True
         except Exception as e:
             self.logger().error(f"Unexpected error occurred fetching funding payment for {trading_pair}. Error: {e}",
