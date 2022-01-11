@@ -118,4 +118,25 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/EthereumPollResponse'
+
+  /avalanche/cancel:
+    post:
+      tags:
+        - 'avalanche'
+      summary: 'Cancel Avalanche transaction'
+      operationId: 'cancel'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumCancelRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumCancelResponse'
   
