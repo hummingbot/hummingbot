@@ -16,8 +16,7 @@ import {
   SolanaPollRequest,
   SolanaPollResponse,
   SolanaTokenResponse,
-  GetSolanaTokenRequest,
-  PostSolanaTokenRequest,
+  SolanaTokenRequest,
 } from './solana.requests';
 import {
   validateSolanaGetTokenRequest,
@@ -69,7 +68,7 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        req: Request<{}, {}, GetSolanaTokenRequest>,
+        req: Request<{}, {}, SolanaTokenRequest>,
         res: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
@@ -84,7 +83,7 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        req: Request<{}, {}, PostSolanaTokenRequest>,
+        req: Request<{}, {}, SolanaTokenRequest>,
         res: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {

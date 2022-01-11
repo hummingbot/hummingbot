@@ -5,9 +5,8 @@ import {
   SolanaBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  GetSolanaTokenRequest,
+  SolanaTokenRequest,
   SolanaTokenResponse,
-  PostSolanaTokenRequest,
 } from './solana.requests';
 import { Solanaish } from './solana';
 import { PublicKey } from '@solana/web3.js';
@@ -78,7 +77,7 @@ export async function poll(
 
 export async function token(
   solanaish: Solanaish,
-  req: GetSolanaTokenRequest
+  req: SolanaTokenRequest
 ): Promise<SolanaTokenResponse> {
   const initTime = Date.now();
   const tokenInfo = solanaish.getTokenForSymbol(req.token);
@@ -115,7 +114,7 @@ export async function token(
 
 export async function getOrCreateTokenAccount(
   solanaish: Solanaish,
-  req: PostSolanaTokenRequest
+  req: SolanaTokenRequest
 ): Promise<SolanaTokenResponse> {
   const initTime = Date.now();
   const tokenInfo = solanaish.getTokenForSymbol(req.token);
