@@ -83,6 +83,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def _initialize_event_loggers(self):
@@ -173,7 +174,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def _get_income_history_dict(self) -> List:
         income_history = [{
             "income": 1,
-            "symbol": self.trading_pair,
+            "symbol": self.symbol,
             "time": self.start_timestamp,
         }]
         return income_history
@@ -234,9 +235,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         return mocked_exchange_info
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_existing_account_position_detected_on_positions_update(self, req_mock, mock_map):
+    def test_existing_account_position_detected_on_positions_update(self, req_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
@@ -244,9 +244,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
         req_mock.get(regex_url, body=json.dumps(positions))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -256,9 +253,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(pos.trading_pair.replace("-", ""), self.symbol)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_account_position_updated_on_positions_update(self, req_mock, mock_map):
+    def test_account_position_updated_on_positions_update(self, req_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
@@ -266,9 +262,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
         req_mock.get(regex_url, body=json.dumps(positions))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -286,18 +279,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(pos.amount, 2)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_new_account_position_detected_on_positions_update(self, req_mock, mock_map):
+    def test_new_account_position_detected_on_positions_update(self, req_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps([]))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -312,9 +301,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 1)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_closed_account_position_removed_on_positions_update(self, req_mock, mock_map):
+    def test_closed_account_position_removed_on_positions_update(self, req_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
@@ -322,9 +310,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
         req_mock.get(regex_url, body=json.dumps(positions))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -340,16 +325,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_new_account_position_detected_on_stream_event(self, mock_api, mock_map, ws_connect_mock):
+    def test_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
@@ -373,18 +354,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_account_position_updated_on_stream_event(self, mock_api, mock_map, ws_connect_mock):
+    def test_account_position_updated_on_stream_event(self, mock_api, ws_connect_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -414,18 +391,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_closed_account_position_removed_on_stream_event(self, mock_api, mock_map, ws_connect_mock):
+    def test_closed_account_position_removed_on_stream_event(self, mock_api, ws_connect_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
         url = utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -1261,14 +1234,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualDerivative.current_timestamp")
-    def test_update_order_status_successful(self, req_mock, mock_timestamp, mock_map):
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
-                                        f"{self.base_asset}-{self.quote_asset}")]
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
+    def test_update_order_status_successful(self, req_mock, mock_timestamp):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
 
         self.exchange._last_poll_timestamp = 0
         mock_timestamp.return_value = 1
@@ -1348,57 +1316,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative.current_timestamp")
-    def test_update_order_status_does_not_exist(self, req_mock, mock_timestamp, mock_map):
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
-                                        f"{self.base_asset}-{self.quote_asset}")]
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
-
-        self.exchange._last_poll_timestamp = 0
-        mock_timestamp.return_value = 1
-
-        self.exchange.start_tracking_order(
-            order_id="OID1",
-            exchange_order_id="8886774",
-            trading_pair=self.trading_pair,
-            trading_type=TradeType.SELL,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-            leverage=1,
-            position=PositionAction.OPEN,
-        )
-
-        order = {
-            "code": -2013,
-            "msg": "Order does not exist.",
-        }
-
-        url = utils.rest_url(
-            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        req_mock.get(regex_url, body=json.dumps(order))
-
-        # After 1st failure, order is not removed from inflight orders
-        self.async_run_with_timeout(self.exchange._update_order_status())
-        in_flight_orders = self.exchange._client_order_tracker.active_orders
-        self.assertTrue("OID1" in in_flight_orders)
-
-        # Needs to fail ORDER_NOT_EXIST_CONFIRMATION_COUNT times to be removed from inflight orders
-        req_mock.get(regex_url, body=json.dumps(order))
-        self.async_run_with_timeout(self.exchange._update_order_status())
-        req_mock.get(regex_url, body=json.dumps(order))
-        self.async_run_with_timeout(self.exchange._update_order_status())
-        in_flight_orders = self.exchange._client_order_tracker.active_orders
-        self.assertTrue("OID1" not in in_flight_orders)
-
-    @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
     def test_set_leverage_successful(self, req_mock, mock_map):
         mock_map.return_value = self._get_trading_pair_symbol_map()
         mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
@@ -1457,14 +1374,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                                         "Unable to set leverage."))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_fetch_funding_payment_successful(self, req_mock, mock_map):
-        # Prepare mocks
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
-                                        f"{self.base_asset}-{self.quote_asset}")]
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
+    def test_fetch_funding_payment_successful(self, req_mock):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.symbol: self.trading_pair}
 
         income_history = self._get_income_history_dict()
 
