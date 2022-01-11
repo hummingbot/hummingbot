@@ -165,11 +165,11 @@ describe('GET /solana/token', () => {
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
 
-  it('should return 501 when token not found', async () => {
+  it('should return 500 when token not found', async () => {
     await request(app)
       .get(`/solana/token`)
       .send({ token: 'not found', address: publicKey })
-      .expect(501);
+      .expect(500);
   });
   it('should return 404 when parameters are invalid', async () => {
     await request(app).get(`/solana/token`).send({}).expect(404);
@@ -256,7 +256,12 @@ describe('POST /solana/token', () => {
       )
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
-
+  it('should return 500 when token not found', async () => {
+    await request(app)
+      .post(`/solana/token`)
+      .send({ token: 'not found', address: publicKey })
+      .expect(500);
+  });
   it('should return 404 when parameters are invalid', async () => {
     await request(app).post(`/solana/token`).send({}).expect(404);
   });
