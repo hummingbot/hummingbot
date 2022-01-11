@@ -1,3 +1,5 @@
+import os
+import socket
 import time
 import unittest
 from unittest.mock import patch
@@ -61,15 +63,16 @@ class BinanceUtilTestCases(unittest.TestCase):
     def test_client_order_id_generation(self, nonce_mock):
         nonce = int(time.time() * 1e6)
         nonce_mock.return_value = nonce
+        client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
 
         client_order_id = utils.get_new_client_order_id(is_buy=True, trading_pair=self.hb_trading_pair)
         expected_id = (f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}-{'B'}"
                        f"{self.base_asset[0]}{self.base_asset[-1]}{self.quote_asset[0]}{self.quote_asset[-1]}"
-                       f"{nonce}")
+                       f"{client_instance_id}{nonce}")
         self.assertEqual(expected_id, client_order_id)
 
         client_order_id = utils.get_new_client_order_id(is_buy=False, trading_pair=self.hb_trading_pair)
         expected_id = (f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}-{'S'}"
                        f"{self.base_asset[0]}{self.base_asset[-1]}{self.quote_asset[0]}{self.quote_asset[-1]}"
-                       f"{nonce}")
+                       f"{client_instance_id}{nonce}")
         self.assertEqual(expected_id, client_order_id)
