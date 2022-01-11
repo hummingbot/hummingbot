@@ -50,11 +50,13 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         for task in self.async_tasks:
             task.cancel()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def handle(self, record):
@@ -154,6 +156,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_init_trading_pair_symbols_failure(self, mock_api):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -185,6 +188,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_trading_pair_symbol_map_dictionary_not_initialized(self, mock_api):
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: Dict[str, Any] = {
@@ -204,35 +208,24 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, len(self.data_source._trading_pair_symbol_map))
 
     def test_trading_pair_symbol_map_dictionary_initialized(self):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
         result = self.async_run_with_timeout(self.data_source.trading_pair_symbol_map(domain=self.domain))
         self.assertEqual(1, len(result))
 
     def test_convert_from_exchange_trading_pair_not_found(self):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         unknown_pair = "UNKNOWN-PAIR"
-        with self.assertRaisesRegex(
-            ValueError, f"There is no symbol mapping for exchange trading pair: {unknown_pair}"
-        ):
+        with self.assertRaisesRegex(ValueError, f"There is no symbol mapping for exchange trading pair {unknown_pair}"):
             self.data_source.convert_from_exchange_trading_pair(unknown_pair)
 
     def test_convert_from_exchange_trading_pair_successful(self):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         result = self.data_source.convert_from_exchange_trading_pair(self.ex_trading_pair)
         self.assertEqual(result, self.trading_pair)
 
     def test_convert_to_exchange_trading_pair_not_found(self):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         unknown_pair = "UNKNOWN-PAIR"
         with self.assertRaisesRegex(ValueError, f"There is no symbol mapping for trading pair {unknown_pair}"):
             self.data_source.convert_to_exchange_trading_pair(unknown_pair)
 
     def test_convert_to_exchange_trading_pair_successful(self):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         result = self.data_source.convert_to_exchange_trading_pair(self.trading_pair)
         self.assertEqual(result, self.ex_trading_pair)
 
@@ -285,8 +278,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info_from_exchange_error_response(self, mock_api):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         url = utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -298,8 +289,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info_from_exchange_successful(self, mock_api):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         url = utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -326,9 +315,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-        # Simulate that _trading_pair_symbol_map has been initialized
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
-
         self.assertNotIn(self.trading_pair, self.data_source._funding_info)
 
         url = utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
@@ -393,7 +379,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_successful(self, mock_ws):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
         msg_queue_diffs: asyncio.Queue = asyncio.Queue()
         msg_queue_trades: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -515,7 +500,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_funding_info_invalid_trading_pair(self, mock_ws):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
@@ -545,7 +529,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertNotIn(self.trading_pair, self.data_source.funding_info)
 
     def test_listen_for_funding_info_cancelled_error_raised(self):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError
@@ -558,8 +541,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_funding_info_logs_exception(self, mock_sleep):
 
         mock_sleep.side_effect = lambda _: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
-
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.ex_trading_pair: self.trading_pair}
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = lambda: (self._raise_exception_and_unlock_test_with_event(Exception("TEST ERROR")))
