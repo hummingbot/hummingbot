@@ -159,6 +159,7 @@ export const startGateway = async () => {
         './docs/swagger/avalanche-routes.yml',
         './docs/swagger/avalanche-pangolin-routes.yml',
         './docs/swagger/wallet-routes.yml',
+        './docs/swagger/solana-routes.yml',
       ]
     );
 
