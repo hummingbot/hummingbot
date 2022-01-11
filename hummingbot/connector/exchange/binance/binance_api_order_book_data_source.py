@@ -152,10 +152,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :return: bidirectional mapping between trading pair exchange notation and client notation
         """
-        if domain not in cls._trading_pair_symbol_map or not cls._trading_pair_symbol_map[domain]:
+        if not cls.trading_pair_symbol_map_ready(domain=domain):
             async with cls._mapping_initialization_lock:
                 # Check condition again (could have been initialized while waiting for the lock to be released)
-                if domain not in cls._trading_pair_symbol_map or not cls._trading_pair_symbol_map[domain]:
+                if not cls.trading_pair_symbol_map_ready(domain=domain):
                     await cls._init_trading_pair_symbols(domain, api_factory, throttler)
 
         return cls._trading_pair_symbol_map[domain]
@@ -461,7 +461,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             throttler: Optional[AsyncThrottler] = None):
         """
         Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
-
         """
         mapping = bidict()
 
@@ -479,7 +478,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
                         mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
         except Exception as ex:
-            cls.logger().error(f"There was an error requesting exchange infor ({str(ex)})")
+            cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
 
         cls._trading_pair_symbol_map[domain] = mapping
 
