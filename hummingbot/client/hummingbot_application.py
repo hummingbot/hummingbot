@@ -174,9 +174,12 @@ class HummingbotApplication(*commands):
                     if not hasattr(args, "func"):
                         self.app.handle_tab_command(self, command_split[0], kwargs)
                     else:
-                        f = args.func
-                        del kwargs["func"]
-                        f(**kwargs)
+                        if len(command_split) > 1 and command_split[1] in ["-h", "--help"]:
+                            self.help(command_split[0])
+                        else:
+                            f = args.func
+                            del kwargs["func"]
+                            f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self._notify(str(e))
