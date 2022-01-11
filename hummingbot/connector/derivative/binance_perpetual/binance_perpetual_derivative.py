@@ -29,6 +29,7 @@ from hummingbot.connector.exchange.binance.binance_time import BinanceTime
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -248,7 +249,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         the network connection. Ping the network (or call any lightweight public API).
         """
         try:
-            await self.api_request(path=CONSTANTS.PING_URL)
+            await self.__api_request(path=CONSTANTS.PING_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -256,7 +257,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return NetworkStatus.CONNECTED
 
     # ORDER PLACE AND CANCEL EXECUTIONS ---
-    async def create_order(
+    async def __create_order(
         self,
         trade_type: TradeType,
         order_id: str,
@@ -328,7 +329,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         )
 
         try:
-            order_result = await self.api_request(
+            order_result = await self.__api_request(
                 path=CONSTANTS.ORDER_URL,
                 data=api_params,
                 method=RESTMethod.POST,
@@ -343,7 +344,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 client_order_id=order_id,
                 exchange_order_id=str(order_result["orderId"]),
             )
-            # Since POST /order endpoint is synchrounous, we can update exchange_order_id and last_state of tracked order.
+            # Since POST /order endpoint is synchrounous, we can update exchange_order_id and
+            # last_state of tracked order.
             self._client_order_tracker.process_order_update(order_update)
 
         except asyncio.CancelledError:
@@ -363,21 +365,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
             # This should call stop_tracking_order
             self._client_order_tracker.process_order_update(order_update)
-
-    async def execute_buy(self,
-                          order_id: str,
-                          trading_pair: str,
-                          amount: Decimal,
-                          order_type: OrderType,
-                          position_action: PositionAction,
-                          price: Optional[Decimal] = s_decimal_NaN):
-        return await self.create_order(TradeType.BUY,
-                                       order_id,
-                                       trading_pair,
-                                       amount,
-                                       order_type,
-                                       position_action,
-                                       price)
 
     def buy(
         self,
@@ -407,28 +394,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("buy", t_pair)
-        safe_ensure_future(self.execute_buy(order_id,
-                                            trading_pair,
-                                            amount,
-                                            order_type,
-                                            kwargs["position_action"],
-                                            price))
+        safe_ensure_future(
+            self.__create_order(TradeType.BUY,
+                                order_id,
+                                trading_pair,
+                                amount,
+                                order_type,
+                                kwargs["position_action"],
+                                price)
+        )
         return order_id
-
-    async def execute_sell(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           order_type: OrderType,
-                           position_action: PositionAction,
-                           price: Optional[Decimal] = s_decimal_NaN):
-        return await self.create_order(TradeType.SELL,
-                                       order_id,
-                                       trading_pair,
-                                       amount,
-                                       order_type,
-                                       position_action,
-                                       price)
 
     def sell(
         self,
@@ -459,7 +434,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("sell", t_pair)
         safe_ensure_future(
-            self.execute_sell(order_id, trading_pair, amount, order_type, kwargs["position_action"], price)
+            self.__create_order(TradeType.SELL,
+                                order_id,
+                                trading_pair,
+                                amount,
+                                order_type,
+                                kwargs["position_action"],
+                                price)
         )
         return order_id
 
@@ -475,7 +456,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             How long to wait before checking whether the orders were cancelled
         """
         incomplete_orders = [order for order in self._client_order_tracker.active_orders.values() if not order.is_done]
-        tasks = [self.execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
+        tasks = [self.__execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
         successful_cancellations = []
         failed_cancellations = []
 
@@ -500,7 +481,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "symbol": trading_pair
             }
-            response = await self.api_request(
+            response = await self.__api_request(
                 path=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL,
                 params=params,
                 method=RESTMethod.DELETE,
@@ -520,7 +501,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         The function that takes in the trading pair and client order ID
         from the strategy as inputs and proceeds to a cancel the order
-        by calling the execute_cancel() function.
+        by calling the __execute_cancel() function.
 
         Parameters
         ----------
@@ -529,10 +510,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         client_order_id:
             Client order ID
         """
-        safe_ensure_future(self.execute_cancel(trading_pair, client_order_id))
+        safe_ensure_future(self.__execute_cancel(trading_pair, client_order_id))
         return client_order_id
 
-    async def execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
+    async def __execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
         """
         Cancels the specified in-flight order and returns the client order ID.
 
@@ -544,7 +525,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             Client order ID
         """
         try:
-            # Checks if order is not being tracked or order is waiting for created confirmation. If so, ignores cancel request.
+            # Checks if order is not being tracked or order is waiting for created confirmation.
+            # If so, ignores cancel request.
             tracked_order: Optional[InFlightOrder] = self._client_order_tracker.fetch_order(client_order_id)
             if not tracked_order or tracked_order.is_pending_create:
                 return
@@ -553,7 +535,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "origClientOrderId": client_order_id,
                 "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)
             }
-            response = await self.api_request(
+            response = await self.__api_request(
                 path=CONSTANTS.ORDER_URL,
                 params=params,
                 method=RESTMethod.DELETE,
@@ -850,9 +832,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         last_tick = int(self._last_timestamp / 60.0)
         current_tick = int(self.current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self.api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
-                                                   method=RESTMethod.GET,
-                                                   )
+            exchange_info = await self.__api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
+                                                     method=RESTMethod.GET,
+                                                     )
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -872,7 +854,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         for rule in rules:
             try:
                 if rule["contractType"] == "PERPETUAL" and rule["status"] == "TRADING":
-                    trading_pair = f"{rule['baseAsset']}-{rule['quoteAsset']}"
+                    trading_pair = combine_to_hb_trading_pair(rule["baseAsset"], rule["quoteAsset"])
                     filters = rule["filters"]
                     filt_dict = {fil["filterType"]: fil for fil in filters}
 
@@ -944,7 +926,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         Triggers a FundingPaymentCompleted event as required.
         """
         try:
-            response = await self.api_request(
+            response = await self.__api_request(
                 path=CONSTANTS.GET_INCOME_HISTORY_URL,
                 params={
                     "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair),
@@ -959,7 +941,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             for funding_payment in response:
                 payment = Decimal(funding_payment["income"])
                 action = "paid" if payment < 0 else "received"
-                trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(funding_payment["symbol"])
+                trading_pair = BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(
+                    funding_payment["symbol"]
+                )
                 if payment != Decimal("0"):
                     funding_info = self.get_funding_info(trading_pair)
                     if funding_info is not None:
@@ -1034,11 +1018,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self.api_request(path=CONSTANTS.ACCOUNT_INFO_URL,
-                                              is_auth_required=True,
-                                              add_timestamp=True,
-                                              api_version=CONSTANTS.API_VERSION_V2,
-                                              )
+        account_info = await self.__api_request(path=CONSTANTS.ACCOUNT_INFO_URL,
+                                                is_auth_required=True,
+                                                add_timestamp=True,
+                                                api_version=CONSTANTS.API_VERSION_V2,
+                                                )
         assets = account_info.get("assets")
         for asset in assets:
             asset_name = asset.get("asset")
@@ -1054,11 +1038,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             del self._account_balances[asset_name]
 
     async def _update_positions(self):
-        positions = await self.api_request(path=CONSTANTS.POSITION_INFORMATION_URL,
-                                           add_timestamp=True,
-                                           is_auth_required=True,
-                                           api_version=CONSTANTS.API_VERSION_V2,
-                                           )
+        positions = await self.__api_request(path=CONSTANTS.POSITION_INFORMATION_URL,
+                                             add_timestamp=True,
+                                             is_auth_required=True,
+                                             api_version=CONSTANTS.API_VERSION_V2,
+                                             )
         for position in positions:
             trading_pair = position.get("symbol")
             position_side = PositionSide[position.get("positionSide")]
@@ -1069,7 +1053,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             pos_key = self.position_key(trading_pair, position_side)
             if amount != 0:
                 self._account_positions[pos_key] = Position(
-                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(trading_pair),
+                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(
+                        trading_pair
+                    ),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
@@ -1089,9 +1075,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
-                self.api_request(
+                self.__api_request(
                     path=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                    params={"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)},
+                    params={"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(
+                        trading_pair)
+                    },
                     is_auth_required=True,
                     add_timestamp=True,
                 )
@@ -1134,10 +1122,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         if current_tick > last_tick and len(self._client_order_tracker.active_orders) > 0:
             tracked_orders = list(self._client_order_tracker.active_orders.values())
             tasks = [
-                self.api_request(
+                self.__api_request(
                     path=CONSTANTS.ORDER_URL,
                     params={
-                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(order.trading_pair),
+                        "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(
+                            order.trading_pair
+                        ),
                         "origClientOrderId": order.client_order_id
                     },
                     method=RESTMethod.GET,
@@ -1165,7 +1155,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     continue
 
                 new_order_update: OrderUpdate = OrderUpdate(
-                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(order_update["symbol"]),
+                    trading_pair=BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(
+                        order_update["symbol"]
+                    ),
                     update_timestamp=order_update["updateTime"],
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
@@ -1188,8 +1180,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         leverage:
             Leverage level to be set
         """
-        params = {"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair), "leverage": leverage}
-        set_leverage = await self.api_request(
+        params = {"symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair),
+                  "leverage": leverage}
+        set_leverage = await self.__api_request(
             path=CONSTANTS.SET_LEVERAGE_URL,
             data=params,
             method=RESTMethod.POST,
@@ -1212,7 +1205,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "dualSidePosition": position_mode.value
             }
-            response = await self.api_request(
+            response = await self.__api_request(
                 method=RESTMethod.POST,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 data=params,
@@ -1235,7 +1228,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
-            response = await self.api_request(
+            response = await self.__api_request(
                 method=RESTMethod.GET,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 add_timestamp=True,
@@ -1264,16 +1257,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
-    async def api_request(self,
-                          path: str,
-                          params: Optional[Dict[str, Any]] = None,
-                          data: Optional[Dict[str, Any]] = None,
-                          method: RESTMethod = RESTMethod.GET,
-                          add_timestamp: bool = False,
-                          is_auth_required: bool = False,
-                          return_err: bool = False,
-                          api_version: str = CONSTANTS.API_VERSION,
-                          limit_id: Optional[str] = None):
+    async def __api_request(self,
+                            path: str,
+                            params: Optional[Dict[str, Any]] = None,
+                            data: Optional[Dict[str, Any]] = None,
+                            method: RESTMethod = RESTMethod.GET,
+                            add_timestamp: bool = False,
+                            is_auth_required: bool = False,
+                            return_err: bool = False,
+                            api_version: str = CONSTANTS.API_VERSION,
+                            limit_id: Optional[str] = None):
 
         rest_assistant = await self._get_rest_assistant()
         async with self._throttler.execute_task(limit_id=limit_id if limit_id else path):
@@ -1305,7 +1298,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     if return_err:
                         return error_response
                     else:
-                        raise IOError(f"Error executing request {method.name} {path}. HTTP status is {response.status}. "
+                        raise IOError(f"Error executing request {method.name} {path}. "
+                                      f"HTTP status is {response.status}. "
                                       f"Error: {error_response}")
                 return await response.json()
             except Exception as e:
