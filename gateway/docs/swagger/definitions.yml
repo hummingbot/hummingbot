@@ -562,7 +562,7 @@ definitions:
         example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
       token:
         type: 'string'
-        exmaple: 'MNGO'
+        example: 'MNGO'
 
   SolanaTokenResponse:
     type: 'object'
