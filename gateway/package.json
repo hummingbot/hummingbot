@@ -39,7 +39,6 @@
     "body-parser": "^1.19.0",
     "bs58": "^4.0.1",
     "copyfiles": "^2.4.1",
-    "crypto-js": "^4.1.1",
     "dayjs": "^1.10.6",
     "decimal.js-light": "^2.5.1",
     "ethers": "^5.4.1",
