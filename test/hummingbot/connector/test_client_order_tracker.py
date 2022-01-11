@@ -718,3 +718,48 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.process_trade_update(trade_update)
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
+
+    def test_process_order_not_found_invalid_order(self):
+        self.assertEqual(0, len(self.tracker.active_orders))
+
+        unknown_order_id = "UNKNOWN_ORDER_ID"
+        self.tracker.process_order_not_found(unknown_order_id)
+
+        self._is_logged("DEBUG", f"Order is not/no longer being tracked ({unknown_order_id})")
+
+    def test_process_order_not_found_does_not_exceed_limit(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        self.tracker.process_order_not_found(order.client_order_id)
+
+        self.assertIn(order.client_order_id, self.tracker.active_orders)
+        self.assertIn(order.client_order_id, self.tracker._order_not_found_records)
+        self.assertEqual(1, self.tracker._order_not_found_records[order.client_order_id])
+
+    def test_process_order_not_found_exceeded_limit(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        self.tracker._order_not_found_records[order.client_order_id] = 3
+        self.tracker.process_order_not_found(order.client_order_id)
+
+        self.assertNotIn(order.client_order_id, self.tracker.active_orders)

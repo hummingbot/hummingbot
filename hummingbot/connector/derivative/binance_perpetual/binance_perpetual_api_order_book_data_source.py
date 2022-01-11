@@ -129,7 +129,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 data = await response.json()
                 # fetch d["pair"] for binance perpetual
                 cls._trading_pair_symbol_map = {
-                    d["pair"]: (combine_to_hb_trading_pair(d['baseAsset'], d['quoteAsset']))
+                    d["pair"]: (combine_to_hb_trading_pair(d["baseAsset"], d["quoteAsset"]))
                     for d in data["symbols"]
                     if d["status"] == "TRADING"
                 }
@@ -147,7 +147,10 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     def convert_from_exchange_trading_pair(cls, exchange_trading_pair: str) -> Optional[str]:
-        return cls._trading_pair_symbol_map[exchange_trading_pair]
+        if exchange_trading_pair in cls._trading_pair_symbol_map:
+            return cls._trading_pair_symbol_map[exchange_trading_pair]
+        else:
+            raise ValueError(f"There is no symbol mapping for exchange trading pair {exchange_trading_pair}")
 
     @classmethod
     def convert_to_exchange_trading_pair(cls, hb_trading_pair: str) -> str:
@@ -323,7 +326,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     output.put_nowait(snapshot_msg)
                     self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                delta = (CONSTANTS.ONE_HOUR - time.time() % CONSTANTS.ONE_HOUR)
+                delta = CONSTANTS.ONE_HOUR - time.time() % CONSTANTS.ONE_HOUR
                 await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
@@ -334,7 +337,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._sleep(5.0)
 
     async def listen_for_funding_info(self):
-        """Listen for funding information events received through the websocket channel to update the respective
+        """
+        Listen for funding information events received through the websocket channel to update the respective
         FundingInfo for all active trading pairs.
         """
         while True:
@@ -362,5 +366,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Unexpected error occured updating funding information. Error: {str(e)}", exc_info=True
+                    f"Unexpected error occured updating funding information. Retrying in 5 seconds... Error: {str(e)}",
+                    exc_info=True,
                 )
+                await self._sleep(5.0)
