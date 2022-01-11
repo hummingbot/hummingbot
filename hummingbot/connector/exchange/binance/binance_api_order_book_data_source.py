@@ -47,6 +47,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
+    _mapping_initialization_lock = asyncio.Lock()
 
     def __init__(self,
                  trading_pairs: List[str],
@@ -127,6 +128,15 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return ret_val
 
     @classmethod
+    def trading_pair_symbol_map_ready(cls, domain: str = "com"):
+        """
+        Checks if the mapping from exchange symbols to client trading pairs has been initialized
+        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :return: True if the mapping has been initialized, False otherwise
+        """
+        return domain in cls._trading_pair_symbol_map and len(cls._trading_pair_symbol_map[domain]) > 0
+
+    @classmethod
     async def trading_pair_symbol_map(
             cls,
             domain: str = "com",
@@ -143,7 +153,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: bidirectional mapping between trading pair exchange notation and client notation
         """
         if domain not in cls._trading_pair_symbol_map or not cls._trading_pair_symbol_map[domain]:
-            await cls._init_trading_pair_symbols(domain, api_factory, throttler)
+            async with cls._mapping_initialization_lock:
+                # Check condition again (could have been initialized while waiting for the lock to be released)
+                if domain not in cls._trading_pair_symbol_map or not cls._trading_pair_symbol_map[domain]:
+                    await cls._init_trading_pair_symbols(domain, api_factory, throttler)
 
         return cls._trading_pair_symbol_map[domain]
 
@@ -229,7 +242,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if "result" in json_msg:
                     continue
                 trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    json_msg["s"])
+                    symbol=json_msg["s"],
+                    domain=self._domain,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler)
                 trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(
                     json_msg, {"trading_pair": trading_pair})
                 output.put_nowait(trade_msg)
@@ -253,7 +269,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if "result" in json_msg:
                     continue
                 trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    json_msg["s"])
+                    symbol=json_msg["s"],
+                    domain=self._domain,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler)
                 order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
                     json_msg, time.time(), {"trading_pair": trading_pair})
                 output.put_nowait(order_book_message)
@@ -343,7 +362,11 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         rest_assistant = await self._get_rest_assistant()
         params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair)
+            "symbol": await self.exchange_symbol_associated_to_pair(
+                trading_pair=trading_pair,
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler)
         }
         if limit != 0:
             params["limit"] = str(limit)
@@ -366,22 +389,26 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
+            trade_params = []
+            depth_params = []
+            for trading_pair in self._trading_pairs:
+                symbol = await self.exchange_symbol_associated_to_pair(
+                    trading_pair=trading_pair,
+                    domain=self._domain,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler)
+                trade_params.append(f"{symbol.lower()}@trade")
+                depth_params.append(f"{symbol.lower()}@depth@100ms")
             payload = {
                 "method": "SUBSCRIBE",
-                "params":
-                    [f"{(await self.exchange_symbol_associated_to_pair(trading_pair)).lower()}@trade"
-                        for trading_pair in self._trading_pairs],
+                "params": trade_params,
                 "id": 1
             }
             subscribe_trade_request: WSRequest = WSRequest(payload=payload)
 
             payload = {
                 "method": "SUBSCRIBE",
-                "params":
-                    [
-                        f"{(await self.exchange_symbol_associated_to_pair(trading_pair)).lower()}@depth@100ms"
-                        for trading_pair in self._trading_pairs
-                    ],
+                "params": depth_params,
                 "id": 2
             }
             subscribe_orderbook_request: WSRequest = WSRequest(payload=payload)
@@ -412,7 +439,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                      throttler: AsyncThrottler) -> float:
 
         url = binance_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
-        symbol = await cls.exchange_symbol_associated_to_pair(trading_pair)
+        symbol = await cls.exchange_symbol_associated_to_pair(
+            trading_pair=trading_pair,
+            domain=domain,
+            throttler=throttler)
         request = RESTRequest(
             method=RESTMethod.GET,
             url=f"{url}?symbol={symbol}")
@@ -434,7 +464,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         """
         mapping = bidict()
-        cls._trading_pair_symbol_map[domain] = mapping
 
         local_api_factory = api_factory or build_api_factory()
         rest_assistant = await local_api_factory.get_rest_assistant()
@@ -451,6 +480,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange infor ({str(ex)})")
+
+        cls._trading_pair_symbol_map[domain] = mapping
 
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:

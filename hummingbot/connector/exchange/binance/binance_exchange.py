@@ -155,6 +155,8 @@ class BinanceExchange(ExchangeBase):
         The key of each entry is the condition name, and the value is True if condition is ready, False otherwise.
         """
         return {
+            "symbols_mapping_initialized": BinanceAPIOrderBookDataSource.trading_pair_symbol_map_ready(
+                domain=self._domain),
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
@@ -477,7 +479,11 @@ class BinanceExchange(ExchangeBase):
         price_str = f"{price:f}"
         type_str = BinanceExchange.binance_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+            trading_pair=trading_pair,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler)
         api_params = {"symbol": symbol,
                       "side": side_str,
                       "quantity": amount_str,
@@ -573,7 +579,11 @@ class BinanceExchange(ExchangeBase):
         tracked_order = self._order_tracker.fetch_tracked_order(order_id)
         if tracked_order is not None:
             try:
-                symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+                symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                    trading_pair=trading_pair,
+                    domain=self._domain,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler)
                 api_params = {
                     "symbol": symbol,
                     "origClientOrderId": order_id,
@@ -688,7 +698,10 @@ class BinanceExchange(ExchangeBase):
         for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    rule.get("symbol"))
+                    symbol=rule.get("symbol"),
+                    domain=self._domain,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler)
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
@@ -797,7 +810,11 @@ class BinanceExchange(ExchangeBase):
             trading_pairs = self._order_book_tracker._trading_pairs
             for trading_pair in trading_pairs:
                 params = {
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                        trading_pair=trading_pair,
+                        domain=self._domain,
+                        api_factory=self._api_factory,
+                        throttler=self._throttler)
                 }
                 if self._last_poll_timestamp > 0:
                     params["startTime"] = query_time
@@ -875,7 +892,11 @@ class BinanceExchange(ExchangeBase):
                 method=RESTMethod.GET,
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params={
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(o.trading_pair),
+                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                        trading_pair=o.trading_pair,
+                        domain=self._domain,
+                        api_factory=self._api_factory,
+                        throttler=self._throttler),
                     "origClientOrderId": o.client_order_id},
                 is_auth_required=True) for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")

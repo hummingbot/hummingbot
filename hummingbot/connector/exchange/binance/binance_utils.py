@@ -1,3 +1,5 @@
+import os
+import socket
 from typing import Any, Dict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
@@ -25,7 +27,8 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     quote = symbols[1].upper()
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
-    return f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}-{side}{base_str}{quote_str}{get_tracking_nonce()}"
+    client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
+    return f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}-{side}{base_str}{quote_str}{client_instance_id}{get_tracking_nonce()}"
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

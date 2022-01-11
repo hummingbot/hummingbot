@@ -547,7 +547,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
-        int_ts = int(self.current_timestamp)
+        int_ts = int(self.current_timestamp) if self.current_timestamp > -1 else int(time.time())
         eight_hours = 8 * 60 * 60
         mod = int_ts % eight_hours
         return int(int_ts - mod + eight_hours)
