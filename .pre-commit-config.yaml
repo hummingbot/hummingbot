@@ -5,6 +5,7 @@ repos:
     - id: flake8
       types: ['file']
       files: \.(py|pyx|pxd)$
+    - id: detect-private-key
 -   repo: https://github.com/pre-commit/mirrors-eslint
     rev: v7.32.0
     hooks:
