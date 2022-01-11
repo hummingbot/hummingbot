@@ -39,8 +39,6 @@ from hummingbot.core.event.events import (
     FundingInfo,
     FundingPaymentCompletedEvent,
     MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
     OrderType,
     PositionAction,
     PositionMode,
@@ -59,15 +57,6 @@ bpm_logger = None
 
 
 class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset
-    MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
-    MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure
-    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure
-    MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled
-    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated
-    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated
     MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted
 
     API_CALL_TIMEOUT = 10.0
@@ -576,8 +565,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
                                     f"No cancellation needed.")
                 self.stop_tracking_order(client_order_id)
-                self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                   OrderCancelledEvent(self.current_timestamp, client_order_id))
                 return None
             return client_order_id
         except Exception as e:
@@ -1168,17 +1155,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if client_order_id not in self._client_order_tracker.all_orders:
                     continue
                 if isinstance(order_update, Exception) or "code" in order_update:
-                    # NO_SUCH_ORDER code
                     if not isinstance(order_update, Exception) and \
                        (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist."):
-                        self._order_not_found_records[client_order_id] += 1
-                        if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
-                            continue
-                        self.trigger_event(
-                            self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                            MarketOrderFailureEvent(self.current_timestamp, client_order_id, tracked_order.order_type),
-                        )
-                        self.stop_tracking_order(client_order_id)
+                        self._client_order_tracker.process_order_not_found(client_order_id)
                     else:
                         self.logger().network(
                             f"Error fetching status update for the order {client_order_id}: " f"{order_update}."
