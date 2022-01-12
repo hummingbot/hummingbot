@@ -1,29 +1,29 @@
-#!/usr/bin/env python
-import numpy
-import pandas as pd
+from datetime import datetime
 from typing import (
     Any,
     Dict,
     List,
     Optional,
 )
+
+import numpy
+import pandas as pd
 from sqlalchemy import (
+    BigInteger,
     Column,
     ForeignKey,
-    Text,
-    Integer,
     Index,
-    BigInteger,
-    Float,
-    JSON
+    Integer,
+    JSON,
+    Text,
 )
 from sqlalchemy.orm import (
     relationship,
     Session
 )
-from datetime import datetime
 
-from . import HummingbotBase
+from hummingbot.model import HummingbotBase
+from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
 
 class TradeFill(HummingbotBase):
@@ -49,8 +49,8 @@ class TradeFill(HummingbotBase):
     order_id = Column(Text, ForeignKey("Order.id"), nullable=False)
     trade_type = Column(Text, nullable=False)
     order_type = Column(Text, nullable=False)
-    price = Column(Float, nullable=False)
-    amount = Column(Float, nullable=False)
+    price = Column(SqliteDecimal(6), nullable=False)
+    amount = Column(SqliteDecimal(6), nullable=False)
     leverage = Column(Integer, nullable=False, default=1)
     trade_fee = Column(JSON, nullable=False)
     exchange_trade_id = Column(Text, nullable=False)
