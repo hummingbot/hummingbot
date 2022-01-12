@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import logging
 import time
+import warnings
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
@@ -48,12 +49,11 @@ from hummingbot.core.event.events import (
     PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
 
 
@@ -507,7 +507,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     # Execution Type: Trade => Filled
                     trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
                     if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
-                        flat_fees = ([(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
+                        flat_fees = ([TokenAmount(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
                                      if tracked_order.fee_asset
                                      else [])
                         order_filled_event = OrderFilledEvent(
@@ -519,7 +519,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
                             leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
-                            trade_fee=TradeFee(0.0, flat_fees),
+                            trade_fee=AddedToCostTradeFee(flat_fees=flat_fees),
                             exchange_trade_id=order_message.get("t"),
                             position=tracked_order.position
                         )
@@ -627,9 +627,15 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     # MARKET AND ACCOUNT INFO ---
     def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
-                amount: object, price: object):
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("binance_perpetual", is_maker)
+                amount: object, price: object, is_maker: Optional[bool] = None):
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         order_books: dict = self._order_book_tracker.order_books
@@ -869,13 +875,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                     order_type,
                                     Decimal(trade.get("price")),
                                     Decimal(trade.get("qty")),
-                                    self.get_fee(
-                                        tracked_order.base_asset,
-                                        tracked_order.quote_asset,
-                                        order_type,
-                                        tracked_order.trade_type,
-                                        Decimal(trade["price"]),
-                                        Decimal(trade["qty"])),
+                                    AddedToCostTradeFee(
+                                        flat_fees=[
+                                            TokenAmount(trade["commissionAsset"], abs(Decimal(trade["commission"])))
+                                        ]
+                                    ),
                                     exchange_trade_id=trade["id"],
                                     leverage=self._leverage[tracked_order.trading_pair],
                                     position=tracked_order.position

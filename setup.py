@@ -50,8 +50,7 @@ def main():
         "aiohttp",
         "aiokafka",
         "appdirs",
-        "appnope"
-        "sync-timeout",
+        "appnope",
         "cachetools",
         "certifi",
         "cryptography",
@@ -80,7 +79,7 @@ def main():
         "pyjwt",
         "pyperclip",
         "python-binance==0.7.5",
-        "python-dateutil"
+        "python-dateutil",
         "python-telegram-bot",
         "requests",
         "rsa",

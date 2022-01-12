@@ -29,7 +29,6 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent,
     FundingPaymentCompletedEvent,
     MarketEvent,
-    TradeFee,
     RangePositionInitiatedEvent,
     RangePositionUpdatedEvent,
 )
@@ -268,7 +267,7 @@ class MarketsRecorder:
                                                  price=float(evt.price) if evt.price == evt.price else 0,
                                                  amount=float(evt.amount),
                                                  leverage=evt.leverage if evt.leverage else 1,
-                                                 trade_fee=TradeFee.to_json(evt.trade_fee),
+                                                 trade_fee=evt.trade_fee.to_json(),
                                                  exchange_trade_id=evt.exchange_trade_id,
                                                  position=evt.position if evt.position else "NILL", )
         session.add(order_status)

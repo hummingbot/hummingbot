@@ -29,9 +29,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -156,34 +156,52 @@ class LiquidExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                            Decimal(4000))
+        maker_buy_trade_fee: AddedToCostTradeFee = self.market.get_fee("BTC",
+                                                                       "USD",
+                                                                       OrderType.LIMIT_MAKER,
+                                                                       TradeType.BUY,
+                                                                       Decimal(1),
+                                                                       Decimal(4000))
         self.assertGreater(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1))
+        taker_buy_trade_fee: AddedToCostTradeFee = self.market.get_fee(
+            "BTC", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1)
+        )
         self.assertGreater(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT_MAKER, TradeType.SELL, Decimal(1),
-                                                       Decimal(4000))
+        sell_trade_fee: AddedToCostTradeFee = self.market.get_fee("BTC",
+                                                                  "USD",
+                                                                  OrderType.LIMIT_MAKER,
+                                                                  TradeType.SELL,
+                                                                  Decimal(1),
+                                                                  Decimal(4000))
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["liquid_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
         fee_overrides_config_map["liquid_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["liquid_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
         fee_overrides_config_map["liquid_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, order_resp, get_resp):
