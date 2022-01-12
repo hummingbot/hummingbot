@@ -1086,7 +1086,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if (self._order_override is None) or (len(self._order_override) == 0):
             # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
             # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
-            q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
+
+            # q cannot be in absolute values - cannot be dependent on the size of the inventory or amount of base asset
+            # because it's a scaling factor
+            inventory = Decimal(str(self.c_calculate_inventory()))
+
+            if inventory == 0:
+                return
+
+            q_target = Decimal(str(self.c_calculate_target_inventory()))
+            q = (market.get_balance(self.base_asset) - q_target) / (inventory)
+
             if len(proposal.buys) > 0:
                 if q > 0:
                     for i, proposed in enumerate(proposal.buys):
