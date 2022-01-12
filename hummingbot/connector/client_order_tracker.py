@@ -3,7 +3,7 @@ import asyncio
 
 from collections import defaultdict
 from decimal import Decimal
-from typing import Dict, Optional, Callable
+from typing import Callable, Dict, Optional
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
