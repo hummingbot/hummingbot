@@ -141,6 +141,11 @@ class HummingbotApplication(*commands):
             if self.placeholder_mode:
                 pass
             else:
+                # Check if help is requested, if yes, print & terminate
+                if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
+                    self.help(command_split[0])
+                    return
+
                 shortcuts = global_config_map.get("command_shortcuts").value
                 shortcut = None
                 # see if we match against shortcut command
@@ -171,15 +176,12 @@ class HummingbotApplication(*commands):
                 else:
                     args = self.parser.parse_args(args=command_split)
                     kwargs = vars(args)
-                    if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
-                        self.help(command_split[0])
+                    if not hasattr(args, "func"):
+                        self.app.handle_tab_command(self, command_split[0], kwargs)
                     else:
-                        if not hasattr(args, "func"):
-                            self.app.handle_tab_command(self, command_split[0], kwargs)
-                        else:
-                            f = args.func
-                            del kwargs["func"]
-                            f(**kwargs)
+                        f = args.func
+                        del kwargs["func"]
+                        f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self._notify(str(e))
