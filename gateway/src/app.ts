@@ -2,9 +2,10 @@ import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { EthereumRoutes } from './chains/ethereum/ethereum.routes';
-import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
+import { UniswapRoutes } from './connectors/uniswap/uniswap/uniswap.routes';
+import { UniswapRoutes } from './trade/ethereum/uniswap/uniswap.routes';
 import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
-import { PangolinRoutes } from './chains/avalanche/pangolin/pangolin.routes';
+import { PangolinRoutes } from './connectors/pangolin/pangolin.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -31,6 +32,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // mount sub routers
+
+app.use('/trade', TradeRoutes.router);
+
 app.use('/avalanche', AvalancheRoutes.router);
 app.use('/avalanche/pangolin', PangolinRoutes.router);
 

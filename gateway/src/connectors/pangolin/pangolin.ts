@@ -1,4 +1,4 @@
-import { percentRegexp } from '../../../services/config-manager-v2';
+import { percentRegexp } from '../../services/config-manager-v2';
 import {
   BigNumber,
   Contract,
@@ -6,8 +6,8 @@ import {
   Transaction,
   Wallet,
 } from 'ethers';
-import { AvalancheConfig } from '../avalanche.config';
-import { Avalanche } from '../avalanche';
+import { AvalancheConfig } from '../../chains/avalanche/avalanche.config';
+import { Avalanche } from '../../chains/avalanche/avalanche';
 import { PangolinConfig } from './pangolin.config';
 import routerAbi from './IPangolinRouter.json';
 import {
@@ -18,11 +18,11 @@ import {
   TokenAmount,
   Trade,
 } from '@pangolindex/sdk';
-import { logger } from '../../../services/logger';
+import { logger } from '../../services/logger';
 import {
   ExpectedTrade,
   Uniswapish,
-} from '../../../services/uniswapish.interface';
+} from '../../services/uniswapish.interface';
 export class Pangolin implements Uniswapish {
   private static instance: Pangolin;
   private avalanche = Avalanche.getInstance();

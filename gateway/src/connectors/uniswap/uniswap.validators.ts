@@ -11,7 +11,7 @@ import {
   validateAddress,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
-} from '../ethereum.validators';
+} from '../../../chains/ethereum/ethereum.validators';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 

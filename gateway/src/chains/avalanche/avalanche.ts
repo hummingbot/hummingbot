@@ -4,7 +4,7 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { AvalancheConfig } from './avalanche.config';
 import { Provider } from '@ethersproject/abstract-provider';
-import { PangolinConfig } from './pangolin/pangolin.config';
+import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
 
 export class Avalanche extends EthereumBase implements Ethereumish {

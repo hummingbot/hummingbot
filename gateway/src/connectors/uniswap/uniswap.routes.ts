@@ -1,6 +1,10 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
+import { Ethereum } from '../../../chains/ethereum/ethereum';
+import { Uniswap } from './uniswap';
 import { asyncHandler } from '../../../services/error-handler';
-import { price, trade } from '../../ethereum/uniswap/uniswap.controllers';
+import { verifyEthereumIsAvailable } from '../../../chains/ethereum/ethereum-middlewares';
+import { verifyUniswapIsAvailable } from './uniswap-middlewares';
+import { price, trade } from './uniswap.controllers';
 
 import {
   UniswapPriceRequest,
@@ -8,36 +12,27 @@ import {
   UniswapTradeRequest,
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
-} from '../../ethereum/uniswap/uniswap.requests';
+} from './uniswap.requests';
 import {
   validateUniswapPriceRequest,
   validateUniswapTradeRequest,
-} from '../../ethereum/uniswap/uniswap.validators';
-import { Avalanche } from '../avalanche';
-import { AvalancheConfig } from '../avalanche.config';
-import { Pangolin } from './pangolin';
+} from './uniswap.validators';
+import { EthereumConfig } from '../../../chains/ethereum/ethereum.config';
 
-export namespace PangolinRoutes {
+export namespace UniswapRoutes {
   export const router = Router();
-  export const avalanche = Avalanche.getInstance();
-  export const pangolin = Pangolin.getInstance();
+  export const ethereum = Ethereum.getInstance();
+  export const uniswap = Uniswap.getInstance();
 
   router.use(
-    asyncHandler(async (_req: Request, _res: Response, next: NextFunction) => {
-      if (!avalanche.ready()) {
-        await avalanche.init();
-      }
-      if (!pangolin.ready()) {
-        await pangolin.init();
-      }
-      return next();
-    })
+    asyncHandler(verifyEthereumIsAvailable),
+    asyncHandler(verifyUniswapIsAvailable)
   );
 
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
-      network: AvalancheConfig.config.network.name,
-      uniswap_router: pangolin.router,
+      network: EthereumConfig.config.network.name,
+      uniswap_router: uniswap.router,
       connection: true,
       timestamp: Date.now(),
     });
@@ -51,7 +46,7 @@ export namespace PangolinRoutes {
         res: Response<UniswapPriceResponse, any>
       ) => {
         validateUniswapPriceRequest(req.body);
-        res.status(200).json(await price(avalanche, pangolin, req.body));
+        res.status(200).json(await price(ethereum, uniswap, req.body));
       }
     )
   );
@@ -64,7 +59,7 @@ export namespace PangolinRoutes {
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
         validateUniswapTradeRequest(req.body);
-        res.status(200).json(await trade(avalanche, pangolin, req.body));
+        res.status(200).json(await trade(ethereum, uniswap, req.body));
       }
     )
   );

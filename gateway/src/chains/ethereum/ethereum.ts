@@ -5,7 +5,7 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { EthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
-import { UniswapConfig } from './uniswap/uniswap.config';
+import { UniswapConfig } from '../../connectors/uniswap/uniswap/uniswap.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.

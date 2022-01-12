@@ -1,6 +1,6 @@
 import { Uniswap } from './uniswap';
 import { NextFunction, Request, Response } from 'express';
-import { NewUniswap } from '../../../connectors/uniswap/new_uniswap';
+import { NewUniswap } from './new_uniswap';
 
 export const verifyUniswapIsAvailable = async (
   _req: Request,
