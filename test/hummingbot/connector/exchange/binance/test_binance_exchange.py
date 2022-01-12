@@ -323,9 +323,6 @@ class BinanceExchangeTests(TestCase):
             )
         )
 
-    # TODO: test the sell order case
-    # TODO: test that create order raises CancelledError exception
-
     @aioresponses()
     def test_cancel_order_successfully(self, mock_api):
         request_sent_event = asyncio.Event()
@@ -428,8 +425,6 @@ class BinanceExchangeTests(TestCase):
                 f"There was a an error when requesting cancellation of order {order.client_order_id}"
             )
         )
-
-    # TODO: Add unit test to check cancellation raises CancelledError
 
     @aioresponses()
     def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
@@ -821,8 +816,6 @@ class BinanceExchangeTests(TestCase):
             "INFO",
             f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
         ))
-
-    # TODO: Test the history reconciliation failing case
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
