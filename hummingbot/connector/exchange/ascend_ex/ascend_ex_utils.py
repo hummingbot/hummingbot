@@ -19,7 +19,7 @@ HBOT_BROKER_ID = "HMBot"
 
 
 def get_rest_url_private(account_id: int) -> str:
-    return f"https://ascendex.com/{account_id}/api/pro/v1"
+    return f"https://ascendex.com/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
 
 
 def get_ws_url_private(account_id: int) -> str:
