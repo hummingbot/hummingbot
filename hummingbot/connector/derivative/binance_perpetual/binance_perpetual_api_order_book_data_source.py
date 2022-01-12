@@ -7,7 +7,7 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional
 
-from bidict import bidict
+from bidict import bidict, ValueDuplicationError
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
@@ -154,9 +154,12 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     data = await response.json()
                     # fetch d["pair"] for binance perpetual
                     for symbol_data in filter(utils.is_exchange_information_valid, data["symbols"]):
-                        mapping[symbol_data["pair"]] = combine_to_hb_trading_pair(
-                            symbol_data["baseAsset"],
-                            symbol_data["quoteAsset"])
+                        try:
+                            mapping[symbol_data["pair"]] = combine_to_hb_trading_pair(
+                                symbol_data["baseAsset"],
+                                symbol_data["quoteAsset"])
+                        except ValueDuplicationError:
+                            continue
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
 
