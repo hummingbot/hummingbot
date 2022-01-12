@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../../services/patch';
-import { PangolinRoutes } from '../../../../src/chains/avalanche/pangolin/pangolin.routes';
+import { PangolinRoutes } from '../../../../src/connectors/pangolin/pangolin.routes';
 import { app } from '../../../../src/app';
 
 afterEach(() => {

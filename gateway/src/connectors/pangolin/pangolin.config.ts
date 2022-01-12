@@ -1,4 +1,4 @@
-import { ConfigManagerV2 } from '../../../services/config-manager-v2';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export namespace PangolinConfig {
   export interface NetworkConfig {

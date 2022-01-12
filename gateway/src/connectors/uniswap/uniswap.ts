@@ -3,8 +3,8 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../../services/error-handler';
-import { EthereumConfig } from '../ethereum.config';
-import { Ethereum } from '../ethereum';
+import { EthereumConfig } from '../../../chains/ethereum/ethereum.config';
+import { Ethereum } from '../../../chains/ethereum/ethereum';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
 import { Contract, ContractInterface } from '@ethersproject/contracts';

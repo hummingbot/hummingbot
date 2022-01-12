@@ -10,27 +10,26 @@ import {
   allowances,
   balances,
   nonce,
-  //   poll,
-  //   cancel,
+  poll,
+  cancel,
 } from '../chains/ethereum/ethereum.controllers';
 import {
   AllowancesRequest,
+  AllowancesResponse,
   ApproveRequest,
   BalanceRequest,
+  BalanceResponse,
+  CancelRequest,
+  CancelResponse,
   NonceRequest,
+  NonceResponse,
+  PollRequest,
   PriceRequest,
+  PriceResponse,
 } from './trading.requests';
 import {
-  EthereumNonceResponse,
-  EthereumAllowancesResponse,
-  EthereumBalanceResponse,
   EthereumApproveResponse,
-  //   EthereumApproveRequest,
-  //   EthereumApproveResponse,
-  //   EthereumPollRequest,
-  //   EthereumPollResponse,
-  //   EthereumCancelRequest,
-  //   EthereumCancelResponse,
+  EthereumPollResponse,
 } from '../chains/ethereum/ethereum.requests';
 
 import {
@@ -38,21 +37,20 @@ import {
   validateEthereumApproveRequest,
   //   validateEthereumApproveRequest,
   validateEthereumBalanceRequest,
+  validateEthereumCancelRequest,
   //   validateEthereumCancelRequest,
   validateEthereumNonceRequest,
+  validateEthereumPollRequest,
   //   validateEthereumPollRequest,
 } from '../chains/ethereum/ethereum.validators';
 import { NewEthereum } from '../chains/ethereum/new_ethereum';
-import { UniswapPriceResponse } from '../chains/ethereum/uniswap/uniswap.requests';
-import { price } from '../chains/ethereum/uniswap/uniswap.controllers';
-import { NewUniswap } from '../connectors/uniswap/new_uniswap';
-import { verifyNewUniswapIsAvailable } from '../chains/ethereum/uniswap/uniswap-middlewares';
+import { price } from '../connectors/uniswap/uniswap/uniswap.controllers';
+import { NewUniswap } from '../connectors/uniswap/uniswap/new_uniswap';
+import { verifyNewUniswapIsAvailable } from '../connectors/uniswap/uniswap/uniswap-middlewares';
+import { validateUniswapPriceRequest } from '../connectors/uniswap/uniswap/uniswap.validators';
 
 export namespace TradingRoutes {
   export const router = Router();
-  export const reload = (): void => {
-    // ethereum = Ethereum.reload();
-  };
 
   router.use(asyncHandler(verifyNewEthereumIsAvailable));
   router.use(asyncHandler(verifyNewUniswapIsAvailable));
@@ -75,7 +73,7 @@ export namespace TradingRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, NonceRequest>,
-        res: Response<EthereumNonceResponse | string, {}>
+        res: Response<NonceResponse | string, {}>
       ) => {
         if (req.body.chain == 'ethereum') {
           validateEthereumNonceRequest(req.body);
@@ -91,7 +89,7 @@ export namespace TradingRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, AllowancesRequest>,
-        res: Response<EthereumAllowancesResponse | string, {}>
+        res: Response<AllowancesResponse | string, {}>
       ) => {
         if (req.body.chain == 'ethereum') {
           validateEthereumAllowancesRequest(req.body);
@@ -107,7 +105,7 @@ export namespace TradingRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, BalanceRequest>,
-        res: Response<EthereumBalanceResponse | string, {}>,
+        res: Response<BalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
         if (req.body.chain == 'ethereum') {
@@ -138,10 +136,11 @@ export namespace TradingRoutes {
     asyncHandler(
       async (
         req: Request<unknown, unknown, PriceRequest>,
-        res: Response<UniswapPriceResponse, any>
+        res: Response<PriceResponse, any>
       ) => {
         // validateUniswapPriceRequest(req.body);
         if (req.body.connector == 'uniswap' && req.body.chain == 'ethereum') {
+          validateUniswapPriceRequest(req.body);
           const ethereum = NewEthereum.getInstance(req.body.network);
           const uniswap = NewUniswap.getInstance(
             req.body.chain,
@@ -153,29 +152,35 @@ export namespace TradingRoutes {
     )
   );
 
-  //   router.post(
-  //     '/poll',
-  //     asyncHandler(
-  //       async (
-  //         req: Request<{}, {}, EthereumPollRequest>,
-  //         res: Response<EthereumPollResponse, {}>
-  //       ) => {
-  //         validateEthereumPollRequest(req.body);
-  //         res.status(200).json(await poll(ethereum, req.body));
-  //       }
-  //     )
-  //   );
+  router.post(
+    '/poll',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, PollRequest>,
+        res: Response<EthereumPollResponse, {}>
+      ) => {
+        if (req.body.chain == 'ethereum') {
+          const ethereum = NewEthereum.getInstance(req.body.network);
+          validateEthereumPollRequest(req.body);
+          res.status(200).json(await poll(ethereum, req.body));
+        }
+      }
+    )
+  );
 
-  //   router.post(
-  //     '/cancel',
-  //     asyncHandler(
-  //       async (
-  //         req: Request<{}, {}, EthereumCancelRequest>,
-  //         res: Response<EthereumCancelResponse, {}>
-  //       ) => {
-  //         validateEthereumCancelRequest(req.body);
-  //         res.status(200).json(await cancel(ethereum, req.body));
-  //       }
-  //     )
-  //   );
+  router.post(
+    '/cancel',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, CancelRequest>,
+        res: Response<CancelResponse, {}>
+      ) => {
+        if (req.body.chain == 'ethereum') {
+          const ethereum = NewEthereum.getInstance(req.body.network);
+          validateEthereumCancelRequest(req.body);
+          res.status(200).json(await cancel(ethereum, req.body));
+        }
+      }
+    )
+  );
 }
