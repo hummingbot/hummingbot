@@ -1345,7 +1345,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_not_filled_order_changed_to_hanging_order_after_refresh_time(self):
 
-        refresh_time = 30
+        # Refresh has to happend after filled_order_delay
+        refresh_time = 80
         filled_extension_time = 60
 
         self.market.set_balance("COINALPHA", 100)
@@ -1392,23 +1393,25 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Advance the clock some ticks and simulate market fill for limit sell
         self.clock.backtest_til(orders_creation_timestamp + 10)
         self.simulate_limit_order_fill(self.market, sell_order)
-
-        # The buy order should turn into a hanging when it reaches its refresh time
-        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
-        self.assertEqual(1, len(self.strategy.active_non_hanging_orders))
         self.assertEqual(buy_order.client_order_id,
                          self.strategy.active_non_hanging_orders[0].client_order_id)
 
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+
         # After refresh time the buy order that was candidate to hanging order should be turned into a hanging order
         self.clock.backtest_til(orders_creation_timestamp + refresh_time)
-        self.assertEqual(0, len(self.strategy.active_non_hanging_orders))
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
         self.assertEqual(buy_order.client_order_id,
                          list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
         # The new pair of orders should be created only after the fill delay time
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
-        self.assertEqual(0, len(self.strategy.active_non_hanging_orders))
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
         self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         # The hanging order should still be present
