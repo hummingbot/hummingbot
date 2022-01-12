@@ -17,12 +17,12 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
-    TradeFee,
     MarketEvent,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
@@ -82,7 +82,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.market: MockPaperExchange = MockPaperExchange(fee_percent=Decimal("25"))
+        trade_fee_schema = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
+        )
+        self.market: MockPaperExchange = MockPaperExchange(trade_fee_schema)
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
@@ -329,7 +332,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -353,7 +356,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -1043,12 +1046,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Calculate expected proposal
         proposal = deepcopy(initial_proposal)
         base_balance, quote_balance = self.strategy.get_adjusted_available_balance(self.strategy.active_orders)
-        buy_fee: TradeFee = self.market.get_fee(self.base_asset,
-                                                self.quote_asset,
-                                                OrderType.LIMIT,
-                                                TradeType.BUY,
-                                                proposal.buys[0].size,
-                                                proposal.buys[0].price)
+        buy_fee: AddedToCostTradeFee = self.market.get_fee(self.base_asset,
+                                                           self.quote_asset,
+                                                           OrderType.LIMIT,
+                                                           TradeType.BUY,
+                                                           proposal.buys[0].size,
+                                                           proposal.buys[0].price)
         buy_adjusted_amount: Decimal = quote_balance / (proposal.buys[0].price * (Decimal("1") + buy_fee.percent))
         expected_buy_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, buy_adjusted_amount)
         expected_sell_amount = self.market.quantize_order_amount(self.trading_pair, base_balance)
@@ -1342,7 +1345,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_not_filled_order_changed_to_hanging_order_after_refresh_time(self):
 
-        refresh_time = 30
+        # Refresh has to happend after filled_order_delay
+        refresh_time = 80
         filled_extension_time = 60
 
         self.market.set_balance("COINALPHA", 100)
@@ -1389,23 +1393,25 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Advance the clock some ticks and simulate market fill for limit sell
         self.clock.backtest_til(orders_creation_timestamp + 10)
         self.simulate_limit_order_fill(self.market, sell_order)
-
-        # The buy order should turn into a hanging when it reaches its refresh time
-        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
-        self.assertEqual(1, len(self.strategy.active_non_hanging_orders))
         self.assertEqual(buy_order.client_order_id,
                          self.strategy.active_non_hanging_orders[0].client_order_id)
 
+        # The buy order should turn into a hanging when it reaches its refresh time
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
+
         # After refresh time the buy order that was candidate to hanging order should be turned into a hanging order
         self.clock.backtest_til(orders_creation_timestamp + refresh_time)
-        self.assertEqual(0, len(self.strategy.active_non_hanging_orders))
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
         self.assertEqual(buy_order.client_order_id,
                          list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
         # The new pair of orders should be created only after the fill delay time
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
-        self.assertEqual(0, len(self.strategy.active_non_hanging_orders))
+        # New orders get created
+        self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
         self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         # The hanging order should still be present
