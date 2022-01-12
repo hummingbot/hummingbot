@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 
 from collections import namedtuple
-from typing import List
 from datetime import datetime
+from typing import List
+
 import pandas as pd
 
-from hummingbot.core.event.events import (
-    TradeType,
-    TradeFee,
-    OrderType,
-)
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type, market, timestamp, trade_fee")):
@@ -20,7 +18,7 @@ class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type,
     order_type: OrderType
     market: str
     timestamp: float
-    trade_fee: TradeFee
+    trade_fee: TradeFeeBase
 
     @classmethod
     def to_pandas(cls, trades: List):
