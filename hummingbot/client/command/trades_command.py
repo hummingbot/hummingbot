@@ -75,11 +75,11 @@ class TradesCommand:
             usd = await RateOracle.global_value(trade.trading_pair.split("-")[0], trade.amount)
             data.append([time, side, PerformanceMetrics.smart_round(trade.price), PerformanceMetrics.smart_round(trade.amount), round(usd)])
             for fee in trade.trade_fee.flat_fees:
-                if fee[0] not in fees:
-                    fees[fee[0]] = fee[1]
+                if fee.token not in fees:
+                    fees[fee.token] = fee.amount
                 else:
-                    fees[fee[0]] += fee[1]
-                fee_usd += await RateOracle.global_value(fee[0], fee[1])
+                    fees[fee.token] += fee.amount
+                fee_usd += await RateOracle.global_value(fee.token, fee.amount)
 
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)

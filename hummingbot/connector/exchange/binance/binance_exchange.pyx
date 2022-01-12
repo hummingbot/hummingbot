@@ -47,9 +47,9 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -296,25 +296,8 @@ cdef class BinanceExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
-        """
-        cdef:
-            object maker_trade_fee = Decimal("0.001")
-            object taker_trade_fee = Decimal("0.001")
-            str trading_pair = base_currency + quote_currency
-
-        if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
-
-        if trading_pair not in self._trade_fees:
-            # https://www.binance.com/en/fee/schedule
-            self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
-        else:
-            maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
-        return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
-        """
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee(self.name, is_maker)
 
@@ -427,10 +410,13 @@ cdef class BinanceExchange(ExchangeBase):
                                                          order_type,
                                                          Decimal(trade["price"]),
                                                          Decimal(trade["qty"]),
-                                                         TradeFee(
-                                                             percent=Decimal(0.0),
-                                                             flat_fees=[(trade["commissionAsset"],
-                                                                         Decimal(trade["commission"]))]
+                                                         AddedToCostTradeFee(
+                                                             flat_fees=[
+                                                                 TokenAmount(
+                                                                     trade["commissionAsset"],
+                                                                     Decimal(trade["commission"])
+                                                                 )
+                                                             ]
                                                          ),
                                                          exchange_trade_id=trade["id"]
                                                      ))
@@ -471,10 +457,13 @@ cdef class BinanceExchange(ExchangeBase):
                                                      OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
-                                                     TradeFee(
-                                                         percent=Decimal(0.0),
-                                                         flat_fees=[(trade["commissionAsset"],
-                                                                     Decimal(trade["commission"]))]
+                                                     AddedToCostTradeFee(
+                                                         flat_fees=[
+                                                             TokenAmount(
+                                                                 trade["commissionAsset"],
+                                                                 Decimal(trade["commission"])
+                                                             )
+                                                         ]
                                                      ),
                                                      exchange_trade_id=trade["id"]
                                                  ))
@@ -1084,8 +1073,9 @@ cdef class BinanceExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
