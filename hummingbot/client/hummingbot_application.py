@@ -171,11 +171,11 @@ class HummingbotApplication(*commands):
                 else:
                     args = self.parser.parse_args(args=command_split)
                     kwargs = vars(args)
-                    if not hasattr(args, "func"):
-                        self.app.handle_tab_command(self, command_split[0], kwargs)
+                    if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
+                        self.help(command_split[0])
                     else:
-                        if len(command_split) > 1 and command_split[1] in ["-h", "--help"]:
-                            self.help(command_split[0])
+                        if not hasattr(args, "func"):
+                            self.app.handle_tab_command(self, command_split[0], kwargs)
                         else:
                             f = args.func
                             del kwargs["func"]
