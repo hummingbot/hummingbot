@@ -171,16 +171,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             if not in_flight_order.is_done
         }
 
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
-
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         Restore in-flight orders from saved tracking states; this is such that the connector can pick up
@@ -549,7 +539,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
-        int_ts = int(self.current_timestamp) if self.current_timestamp > -1 else int(time.time())
+        int_ts = int(time.time())
         eight_hours = 8 * 60 * 60
         mod = int_ts % eight_hours
         return int(int_ts - mod + eight_hours)
@@ -594,6 +584,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._funding_fee_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = self._funding_fee_polling_task = None
+
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
+
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
