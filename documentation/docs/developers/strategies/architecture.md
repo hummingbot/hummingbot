@@ -5,7 +5,7 @@ All strategy classes are derived from the [`StrategyBase`](https://github.com/Co
 
 The concrete strategy classes included with Hummingbot, including [`ArbitrageStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx), [`CrossExchangeMarketMakingStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx), and [`PureMarketMakingStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/pure_market_making/pure_market_making.pyx) - are all child classes of `StrategyBase`.
 
-Each `StrategyBase` object may be managing multiple [`MarketBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/market_base.pyx) and [`WalletBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/wallet/wallet_base.pyx) objects.
+Each `StrategyBase` object may be managing multiple [`ConnectorBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/connector_base.pyx) and [`WalletBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/wallet/wallet_base.pyx) objects.
 
 ## How It Works
 
@@ -15,25 +15,25 @@ What this means is, a running strategy module is called every second via its `c_
 
 If you're reading or writing a strategy module, the `c_tick()` function should be treated as the entry point of a strategy module. If you're reading a strategy module's code, `c_tick()` should be where you start. If you're writing a new strategy module, `c_tick()` is also going to where you start writing the important bits of your strategy.
 
-## Markets
+## Connectors
 
-Each `StrategyBase` object may be associated with multiple markets.
+Each `StrategyBase` object may be associated with multiple connectors.
 
 - `cdef c_add_markets(self, list markets)`
 
-    Associates a list of `MarketBase` objects to this `StrategyBase` object.
+    Associates a list of `ConnectorBase` objects to this `StrategyBase` object.
 
 - `cdef c_remove_markets(self, list markets)`
 
-    Disassociates a list of `MarketBase` objects from this `StrategyBase` object.
+    Disassociates a list of `ConnectorBase` objects from this `StrategyBase` object.
 
 - `active_markets` property
 
-    List of `MarketBase` objects currently associated with this `StrategyBase` object.
+    List of `ConnectorBase` objects currently associated with this `StrategyBase` object.
 
 ## Market Event Interfaces
 
-The `StrategyBase` class comes with a set of interface functions for handling market events from associated `MarketBase` objects, which may be overridded by child classes to receive and process market events.
+The `StrategyBase` class comes with a set of interface functions for handling market events from associated `ConnectorBase` objects, which may be overridded by child classes to receive and process market events.
 
 The event interface functions are as follows:
 
@@ -73,7 +73,7 @@ The event interface functions are as follows:
 
 `StrategyBase` includes pre-defined logic for creating and cancelling trading orders - which are the primary ways for a strategy to interact with associated markets.
 
-It is highly encouraged to use these functions to create and remove orders, rather than calling functions like `c_buy()` and `c_sell()` on `MarketBase` objects directly - since the functions from `StrategyBase` provides order tracking functionalities as well.
+It is highly encouraged to use these functions to create and remove orders, rather than calling functions like `c_buy()` and `c_sell()` in `ConnectorBase` objects directly - since the functions from `StrategyBase` provides order tracking functionalities as well.
 
 ### Place order
 ```cython
@@ -97,7 +97,7 @@ Creates a buy or a sell order in the market specified by `market_trading_pair_tu
 
 **Arguments**
 
-- **market_trading_pair_tuple**: a [`MarketTradingPairTuple`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) object specifying the `MarketBase` object and trading pair to create the order for.
+- **market_trading_pair_tuple**: a [`MarketTradingPairTuple`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) object specifying the `ConnectorBase` object and trading pair to create the order for.
 - **amount**: a `Decimal` object, specifying the order size in terms of the base asset.
 - **order_type**: an optional [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) enum specifying the order type. Default value is `OrderType.MARKET`.
 - **price**: an optional `Decimal` object, specifying the price for a limit order. This parameter is ignored if `order_type` is not `OrderType.LIMIT` or `OrderType.LIMIT_MAKER`.
@@ -111,7 +111,7 @@ Cancels an active order from a market.
 
 **Arguments**
 
-- **market_pair**: a `MarketTradingPairTuple` object specifying the `MarketBase` object and the trading pair to cancel order from.
+- **market_pair**: a `MarketTradingPairTuple` object specifying the `ConnectorBase` object and the trading pair to cancel order from.
 - **order_id**: Order ID string returned from a previous call to order creation functions above.
 
 ## Order Tracking
@@ -128,7 +128,7 @@ Below are some of the user functions or properties under `OrderTracker` that you
 
     Returns a list of still active limit orders, with their market object.
 
-    Return type: `List[Tuple[MarketBase, LimitOrder]]`
+    Return type: `List[Tuple[ConnectorBase, LimitOrder]]`
 
 - `market_pair_to_active_orders` property
 
@@ -140,19 +140,19 @@ Below are some of the user functions or properties under `OrderTracker` that you
 
     Returns a list of active limit bid orders, with their market object.
 
-    Return type: `List[Tuple[MarketBase, LimitOrder]]`
+    Return type: `List[Tuple[ConnectorBase, LimitOrder]]`
 
 - `active_asks` property
 
     Returns a list of active limit ask orders, with their market object.
 
-    Return type: `List[Tuple[MarketBase, LimitOrder]]`
+    Return type: `List[Tuple[ConnectorBase, LimitOrder]]`
 
 - `tracked_taker_orders` property
 
     Returns a list of in-flight or active market orders, with their market object. This is useful for decentralized exchanges where market orders may take a minute to settle due to block delay.
 
-    Return type: `List[Tuple[MarketBase, MarketOrder]]`
+    Return type: `List[Tuple[ConnectorBase, MarketOrder]]`
 
 - `in_flight_cancels` property
 
