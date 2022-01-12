@@ -12,3 +12,8 @@ repos:
     -   id: eslint
         files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
         types: [file]
+-   repo: https://github.com/CoinAlpha/git-hooks
+    rev: main
+    hooks:
+    -   id: detect-wallet-private-key
+        types: [file]
