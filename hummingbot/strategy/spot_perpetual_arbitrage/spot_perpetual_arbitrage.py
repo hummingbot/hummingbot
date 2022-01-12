@@ -6,13 +6,12 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-from hummingbot.connector.budget_checker import OrderCandidate
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
 from hummingbot.connector.derivative.position import Position
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     OrderType,
@@ -24,9 +23,8 @@ from hummingbot.core.event.events import (
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposal, ArbProposalSide
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-
-from .arb_proposal import ArbProposal, ArbProposalSide
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -307,6 +305,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         budget_checker = market_info.market.budget_checker
         order_candidate = OrderCandidate(
             trading_pair=market_info.trading_pair,
+            is_maker=False,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
             amount=order_amount,
@@ -317,9 +316,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         if adjusted_candidate_order.amount < order_amount:
             self.logger().info(
-                f"Cannot arbitrage, {proposal_side.market_info.market.display_name}"
-                f" {adjusted_candidate_order.collateral_token} balance ({adjusted_candidate_order.collateral_amount})"
-                f" is below required to place the order amount {order_amount}."
+                f"Cannot arbitrage, {proposal_side.market_info.market.display_name} balance"
+                f" is insufficient to place the order candidate {order_candidate}."
             )
             return False
 
@@ -345,6 +343,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         order_candidate = PerpetualOrderCandidate(
             trading_pair=market_info.trading_pair,
+            is_maker=False,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
             amount=order_amount,
@@ -357,9 +356,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         if adjusted_candidate_order.amount < order_amount:
             self.logger().info(
-                f"Cannot arbitrage, {proposal_side.market_info.market.display_name}"
-                f" {adjusted_candidate_order.collateral_token} balance ({adjusted_candidate_order.collateral_amount})"
-                f" is below required to place the order amount {order_amount}."
+                f"Cannot arbitrage, {proposal_side.market_info.market.display_name} balance"
+                f" is insufficient to place the order candidate {order_candidate}."
             )
             return False
 

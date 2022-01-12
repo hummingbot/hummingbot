@@ -21,9 +21,9 @@ from hummingbot.core.event.events import (
     RangePositionFailureEvent,
     RangePositionUpdatedEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
@@ -140,7 +140,7 @@ class UniswapV3Connector(UniswapConnector):
                         tracked_order.order_type,
                         Decimal(str(tracked_order.price)),
                         Decimal(str(tracked_order.amount)),
-                        TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                        AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]),
                         exchange_trade_id=order_id
                     )
                 )
@@ -576,9 +576,12 @@ class UniswapV3Connector(UniswapConnector):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
-                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
-                    fee_overrides_config_map["uniswap_maker_fee_amount"].value = Decimal(str(gas_cost))
-                    fee_overrides_config_map["uniswap_taker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["uniswap_v3_maker_fixed_fees"].value = [
+                        TokenAmount("ETH", Decimal(str(gas_cost)))
+                    ]
+                    fee_overrides_config_map["uniswap_v3_taker_fixed_fees"].value = [
+                        TokenAmount("ETH", Decimal(str(gas_cost)))
+                    ]
                     return Decimal(str(price))
         except asyncio.CancelledError:
             raise

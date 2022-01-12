@@ -17,12 +17,12 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
-    TradeFee,
     MarketEvent,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
@@ -82,7 +82,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.market: MockPaperExchange = MockPaperExchange(fee_percent=Decimal("25"))
+        trade_fee_schema = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
+        )
+        self.market: MockPaperExchange = MockPaperExchange(trade_fee_schema)
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
@@ -329,7 +332,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -353,7 +356,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -1043,12 +1046,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Calculate expected proposal
         proposal = deepcopy(initial_proposal)
         base_balance, quote_balance = self.strategy.get_adjusted_available_balance(self.strategy.active_orders)
-        buy_fee: TradeFee = self.market.get_fee(self.base_asset,
-                                                self.quote_asset,
-                                                OrderType.LIMIT,
-                                                TradeType.BUY,
-                                                proposal.buys[0].size,
-                                                proposal.buys[0].price)
+        buy_fee: AddedToCostTradeFee = self.market.get_fee(self.base_asset,
+                                                           self.quote_asset,
+                                                           OrderType.LIMIT,
+                                                           TradeType.BUY,
+                                                           proposal.buys[0].size,
+                                                           proposal.buys[0].price)
         buy_adjusted_amount: Decimal = quote_balance / (proposal.buys[0].price * (Decimal("1") + buy_fee.percent))
         expected_buy_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, buy_adjusted_amount)
         expected_sell_amount = self.market.quantize_order_amount(self.trading_pair, base_balance)
