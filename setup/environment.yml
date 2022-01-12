@@ -30,6 +30,7 @@ dependencies:
     - 0x-order-utils==4.0.0
     - aiohttp==3.7.4.post0
     - aiokafka==0.7.1
+    - aioprocessing==2.0.0
     - aioresponses==0.7.2
     - appdirs==1.4.3
     - async-timeout==3.0.1
