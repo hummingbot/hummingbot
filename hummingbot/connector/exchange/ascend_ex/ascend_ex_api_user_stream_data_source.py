@@ -85,7 +85,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "ch": "order:cash"
                 }
 
-                async with aiohttp.ClientSession().ws_connect(f"{get_ws_url_private(accountGroup)}", headers=headers) as ws:
+                async with aiohttp.ClientSession().ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
                     try:
                         async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                             await ws.send_json(payload)
