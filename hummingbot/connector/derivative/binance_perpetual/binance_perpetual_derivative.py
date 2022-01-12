@@ -1335,12 +1335,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             raise
 
     async def _get_current_server_time(self):
-        response = await self.request(
+        response = await self.__api_request(
             method=RESTMethod.GET,
-            path=CONSTANTS.CHANGE_POSITION_MODE_URL,
-            add_timestamp=True,
-            is_signed=True,
-            return_err=True
+            path=CONSTANTS.SERVER_TIME_PATH_URL,
         )
         return response["serverTime"]
 
