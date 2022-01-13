@@ -12,12 +12,12 @@ import {
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE,
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
-} from '../../../services/error-handler';
+} from '../../services/error-handler';
 import {
   latency,
   gasCostInEthString,
   stringWithDecimalToBigNumber,
-} from '../../../services/base';
+} from '../../services/base';
 import {
   UniswapPriceRequest,
   UniswapPriceResponse,
@@ -25,11 +25,8 @@ import {
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
-import { Ethereumish } from '../../../services/ethereumish.interface';
-import {
-  ExpectedTrade,
-  Uniswapish,
-} from '../../../services/uniswapish.interface';
+import { Ethereumish } from '../../services/ethereumish.interface';
+import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
 
 export async function price(
   ethereumish: Ethereumish,

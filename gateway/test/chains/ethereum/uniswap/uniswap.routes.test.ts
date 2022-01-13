@@ -1,7 +1,7 @@
 import express from 'express';
 import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { UniswapRoutes } from '../../../../src/connectors/uniswap/uniswap/uniswap.routes';
+import { UniswapRoutes } from '../../../../src/connectors/uniswap/uniswap.routes';
 import { patch, unpatch } from '../../../services/patch';
 
 let app: Express;

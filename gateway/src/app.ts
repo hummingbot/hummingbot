@@ -2,10 +2,9 @@ import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { EthereumRoutes } from './chains/ethereum/ethereum.routes';
-import { UniswapRoutes } from './connectors/uniswap/uniswap/uniswap.routes';
-import { UniswapRoutes } from './trade/ethereum/uniswap/uniswap.routes';
+// import { UniswapRoutes } from './connectors/uniswap/uniswap.routes';
 import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
-import { PangolinRoutes } from './connectors/pangolin/pangolin.routes';
+// import { PangolinRoutes } from './connectors/pangolin/pangolin.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -33,14 +32,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // mount sub routers
 
-app.use('/trade', TradeRoutes.router);
+// app.use('/avalanche', AvalancheRoutes.router);
+// app.use('/avalanche/pangolin', PangolinRoutes.router);
 
-app.use('/avalanche', AvalancheRoutes.router);
-app.use('/avalanche/pangolin', PangolinRoutes.router);
-
-app.use('/eth', EthereumRoutes.router);
+// app.use('/eth', EthereumRoutes.router);
 app.use('/trading', TradingRoutes.router);
-app.use('/eth/uniswap', UniswapRoutes.router);
+// app.use('/eth/uniswap', UniswapRoutes.router);
 
 app.use('/wallet', WalletRoutes.router);
 
@@ -164,7 +161,11 @@ export const startGateway = async () => {
 
     // mount swagger api docs
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-    server = await app.listen(port);
+    try {
+      server = await app.listen(port);
+    } catch (error) {
+      console.log(error);
+    }
   } else {
     server = await addHttps(app).listen(port);
     logger.info('The server is secured behind HTTPS.');
