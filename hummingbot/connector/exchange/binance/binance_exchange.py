@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import warnings
 
 from decimal import Decimal
 from typing import (
@@ -29,11 +30,11 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
     OrderType,
-    TradeFee,
     TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
@@ -41,7 +42,6 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -357,7 +357,8 @@ class BinanceExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         Calculates the estimated fee an order would pay based on the connector configuration
         :param base_currency: the order base currency
@@ -369,8 +370,14 @@ class BinanceExchange(ExchangeBase):
         :return: the estimated fee for the order
         """
 
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return estimate_fee(self.name, is_maker)
+        warnings.warn(
+            "The 'get_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'get_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -869,12 +876,15 @@ class BinanceExchange(ExchangeBase):
                                 order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
                                 price=Decimal(trade["price"]),
                                 amount=Decimal(trade["qty"]),
-                                trade_fee=TradeFee(
-                                    percent=Decimal(0.0),
-                                    flat_fees=[(trade["commissionAsset"],
-                                                Decimal(trade["commission"]))]
+                                trade_fee=AddedToCostTradeFee(
+                                    flat_fees=[
+                                        TokenAmount(
+                                            trade["commissionAsset"],
+                                            Decimal(trade["commission"])
+                                        )
+                                    ]
                                 ),
-                                exchange_trade_id=trade["id"]
+                                exchange_trade_id=str(trade["id"])
                             ))
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
