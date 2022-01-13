@@ -49,9 +49,9 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
 from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
@@ -254,14 +254,15 @@ cdef class KrakenExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_rules(self):
         cdef:
@@ -502,7 +503,14 @@ cdef class KrakenExchange(ExchangeBase):
                                                                   tracked_order.order_type,
                                                                   Decimal(trade.get("price")),
                                                                   Decimal(trade.get("vol")),
-                                                                  TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
+                                                                  AddedToCostTradeFee(
+                                                                      flat_fees=[
+                                                                          TokenAmount(
+                                                                              tracked_order.fee_asset,
+                                                                              Decimal((trade.get("fee"))),
+                                                                          )
+                                                                      ]
+                                                                  ),
                                                                   trade.get("trade_id")))
 
                             if tracked_order.is_done:
@@ -1125,8 +1133,9 @@ cdef class KrakenExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

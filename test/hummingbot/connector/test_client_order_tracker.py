@@ -1,22 +1,22 @@
 import asyncio
 import unittest
-
 from decimal import Decimal
 from typing import List, Optional
 from unittest.mock import patch
 
-from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
+    AddedToCostTradeFee,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
-    TradeFee,
-    TradeType,
+    TradeType
 )
 
 
@@ -552,7 +552,9 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), [(self.base_asset, fee_paid)]))
+        self.assertEqual(
+            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, fee_paid)])
+        )
 
     def test_process_trade_update_trigger_filled_event_trade_fee_percent(self):
         order: InFlightOrder = InFlightOrder(
@@ -598,7 +600,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(self.trade_fee_percent, []))
+        self.assertEqual(order_filled_event.trade_fee, AddedToCostTradeFee(self.trade_fee_percent))
 
     def test_process_trade_update_trigger_filled_event_update_status_when_completely_filled(self):
         order: InFlightOrder = InFlightOrder(
@@ -658,7 +660,9 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), [(self.base_asset, fee_paid)]))
+        self.assertEqual(
+            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, fee_paid)])
+        )
 
         self.assertEqual(order_completed_event.order_id, order.client_order_id)
         self.assertEqual(order_completed_event.exchange_order_id, order.exchange_order_id)

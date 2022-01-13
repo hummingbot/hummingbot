@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -203,8 +204,8 @@ class BittrexExchangeTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(order.quote_asset, Decimal(partial_fill["deltas"][0]["commission"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(order.quote_asset, Decimal(partial_fill["deltas"][0]["commission"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
@@ -245,8 +246,8 @@ class BittrexExchangeTest(unittest.TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(order.quote_asset, Decimal(complete_fill["deltas"][0]["commission"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(order.quote_asset, Decimal(complete_fill["deltas"][0]["commission"]))],
                          fill_event.trade_fee.flat_fees)
 
         # The order should be marked as complete only when the "done" event arrives, not with the fill event
@@ -338,8 +339,10 @@ class BittrexExchangeTest(unittest.TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(order.quote_asset, Decimal(complete_fill["commission"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual(
+            [TokenAmount(order.quote_asset, Decimal(complete_fill["commission"]))], fill_event.trade_fee.flat_fees
+        )
         self.assertTrue(self._is_logged(
             "INFO",
             f"Filled {Decimal(complete_fill['quantity'])} out of {order.amount} of the "

@@ -6,6 +6,7 @@ from unittest import TestCase
 from unittest.mock import AsyncMock
 
 from hummingbot.connector.exchange.ftx.ftx_exchange import FtxExchange
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -128,8 +129,8 @@ class FtxExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["feeCurrency"], Decimal(partial_fill["fee"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(partial_fill["feeCurrency"], Decimal(partial_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
@@ -172,8 +173,8 @@ class FtxExchangeTests(TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["feeCurrency"], Decimal(complete_fill["fee"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(complete_fill["feeCurrency"], Decimal(complete_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
 
         # Complete events are not produced by fill notifivations, only by order updates
@@ -262,8 +263,8 @@ class FtxExchangeTests(TestCase):
         self.assertEqual(Decimal("10"), order.fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["feeCurrency"], Decimal(complete_fill["fee"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(complete_fill["feeCurrency"], Decimal(complete_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
