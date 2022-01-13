@@ -42,7 +42,7 @@ class AscendExUtilsTests(TestCase):
         account_id = "1234"
 
         url = utils.get_rest_url_private(account_id=account_id)
-        self.assertEqual(f"https://ascendex.com/{account_id}/api/pro/v1", url)
+        self.assertEqual(f"https://ascendex.com/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining", url)
 
     def test_get_ws_url_private(self):
         account_id = "1234"
