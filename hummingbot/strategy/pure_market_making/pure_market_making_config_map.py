@@ -207,10 +207,18 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v),
                   default=0),
-    "order_level_spread":
-        ConfigVar(key="order_level_spread",
-                  prompt="Enter the price increments (as percentage) for subsequent "
+    "bid_order_level_spread":
+        ConfigVar(key="bid_order_level_spread",
+                  prompt="Enter the price increments (as percentage) for subsequent bid "
                          "orders? (Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  default=Decimal("1")),
+    "ask_order_level_spread":
+        ConfigVar(key="ask_order_level_spread",
+                  prompt="Enter the price increments (as percentage) for subsequent "
+                         "ask orders? (Enter 1 to indicate 1%) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),

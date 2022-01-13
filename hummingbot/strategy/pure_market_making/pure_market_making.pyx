@@ -66,7 +66,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     ask_spread: Decimal,
                     order_amount: Decimal,
                     order_levels: int = 1,
-                    order_level_spread: Decimal = s_decimal_zero,
+                    bid_order_level_spread: Decimal = s_decimal_zero,
+                    ask_order_level_spread: Decimal = s_decimal_zero,
                     order_level_amount: Decimal = s_decimal_zero,
                     order_refresh_time: float = 30.0,
                     max_order_age: float = 1800.0,
@@ -108,7 +109,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_levels = order_levels
         self._buy_levels = order_levels
         self._sell_levels = order_levels
-        self._order_level_spread = order_level_spread
+        self._bid_order_level_spread = bid_order_level_spread
+        self._ask_order_level_spread = ask_order_level_spread
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
         self._max_order_age = max_order_age
@@ -232,12 +234,20 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_level_amount = value
 
     @property
-    def order_level_spread(self) -> Decimal:
-        return self._order_level_spread
+    def bid_order_level_spread(self) -> Decimal:
+        return self._bid_order_level_spread
 
-    @order_level_spread.setter
-    def order_level_spread(self, value: Decimal):
-        self._order_level_spread = value
+    @bid_order_level_spread.setter
+    def bid_order_level_spread(self, value: Decimal):
+        self._bid_order_level_spread = value
+
+    @property
+    def ask_order_level_spread(self) -> Decimal:
+        return self._ask_order_level_spread
+
+    @ask_order_level_spread.setter
+    def ask_order_level_spread(self, value: Decimal):
+        self._ask_order_level_spread = value
 
     @property
     def inventory_skew_enabled(self) -> bool:
@@ -770,7 +780,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         else:
             if not buy_reference_price.is_nan():
                 for level in range(0, self._buy_levels):
-                    price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+                    price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._bid_order_level_spread))
                     price = market.c_quantize_order_price(self.trading_pair, price)
                     size = self._order_amount + (self._order_level_amount * level)
                     size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -778,7 +788,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         buys.append(PriceSize(price, size))
             if not sell_reference_price.is_nan():
                 for level in range(0, self._sell_levels):
-                    price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+                    price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._ask_order_level_spread))
                     price = market.c_quantize_order_price(self.trading_pair, price)
                     size = self._order_amount + (self._order_level_amount * level)
                     size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -965,7 +975,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.buys = sorted(proposal.buys, key = lambda p: p.price, reverse = True)
             lower_buy_price = min(proposal.buys[0].price, price_above_bid)
             for i, proposed in enumerate(proposal.buys):
-                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.order_level_spread * i)
+                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.bid_order_level_spread * i)
 
         if len(proposal.sells) > 0:
             # Get the top ask price in the market using order_optimization_depth and your sell order volume
@@ -983,7 +993,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.sells = sorted(proposal.sells, key = lambda p: p.price)
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
             for i, proposed in enumerate(proposal.sells):
-                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.order_level_spread * i)
+                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.ask_order_level_spread * i)
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
