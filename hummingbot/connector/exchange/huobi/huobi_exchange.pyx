@@ -41,9 +41,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -332,16 +332,9 @@ cdef class HuobiExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         # https://www.hbg.com/en-us/about/fee/
-        """
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["huobi_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["huobi_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=Decimal("0.002"))
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("huobi", is_maker)
 
@@ -638,7 +631,8 @@ cdef class HuobiExchange(ExchangeBase):
                 fee_amount = fee.fee_amount_in_quote(
                     tracked_order.trading_pair,
                     tracked_order.price,
-                    tracked_order.amount)
+                    tracked_order.amount,
+                    self)
             else:
                 fee_asset = tracked_order.fee_asset
                 fee_amount = tracked_order.fee_paid
@@ -690,9 +684,11 @@ cdef class HuobiExchange(ExchangeBase):
                                      tracked_order.order_type,
                                      execute_price,
                                      execute_amount_diff,
-                                     TradeFee(0.0,
-                                              [(tracked_order.fee_asset,
-                                                Decimal(trade_event["transactFee"]))]),
+                                     AddedToCostTradeFee(
+                                         flat_fees=[
+                                             TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))
+                                         ]
+                                     ),
                                      exchange_trade_id=order_id
                                  ))
 
@@ -1050,8 +1046,9 @@ cdef class HuobiExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
