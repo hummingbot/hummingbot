@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { Ethereum } from '../../../chains/ethereum/ethereum';
+import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Uniswap } from './uniswap';
-import { asyncHandler } from '../../../services/error-handler';
-import { verifyEthereumIsAvailable } from '../../../chains/ethereum/ethereum-middlewares';
+import { asyncHandler } from '../../services/error-handler';
+import { verifyEthereumIsAvailable } from '../../chains/ethereum/ethereum-middlewares';
 import { verifyUniswapIsAvailable } from './uniswap-middlewares';
 import { price, trade } from './uniswap.controllers';
 
@@ -17,7 +17,7 @@ import {
   validateUniswapPriceRequest,
   validateUniswapTradeRequest,
 } from './uniswap.validators';
-import { EthereumConfig } from '../../../chains/ethereum/ethereum.config';
+import { EthereumConfig } from '../../chains/ethereum/ethereum.config';
 
 export namespace UniswapRoutes {
   export const router = Router();

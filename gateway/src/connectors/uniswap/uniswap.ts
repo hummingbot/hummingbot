@@ -2,9 +2,9 @@ import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../../services/error-handler';
-import { EthereumConfig } from '../../../chains/ethereum/ethereum.config';
-import { Ethereum } from '../../../chains/ethereum/ethereum';
+} from '../../services/error-handler';
+import { EthereumConfig } from '../../chains/ethereum/ethereum.config';
+import { Ethereum } from '../../chains/ethereum/ethereum';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
@@ -17,12 +17,9 @@ import {
   Trade,
 } from '@uniswap/sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
-import { logger } from '../../../services/logger';
-import {
-  ExpectedTrade,
-  Uniswapish,
-} from '../../../services/uniswapish.interface';
-import { percentRegexp } from '../../../services/config-manager-v2';
+import { logger } from '../../services/logger';
+import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
+import { percentRegexp } from '../../services/config-manager-v2';
 export class Uniswap implements Uniswapish {
   private static instance: Uniswap;
   private ethereum: Ethereum = Ethereum.getInstance();

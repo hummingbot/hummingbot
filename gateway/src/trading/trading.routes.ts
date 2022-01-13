@@ -26,6 +26,9 @@ import {
   PollRequest,
   PriceRequest,
   PriceResponse,
+  TradeErrorResponse,
+  TradeRequest,
+  TradeResponse,
 } from './trading.requests';
 import {
   EthereumApproveResponse,
@@ -44,29 +47,19 @@ import {
   //   validateEthereumPollRequest,
 } from '../chains/ethereum/ethereum.validators';
 import { NewEthereum } from '../chains/ethereum/new_ethereum';
-import { price } from '../connectors/uniswap/uniswap/uniswap.controllers';
-import { NewUniswap } from '../connectors/uniswap/uniswap/new_uniswap';
-import { verifyNewUniswapIsAvailable } from '../connectors/uniswap/uniswap/uniswap-middlewares';
-import { validateUniswapPriceRequest } from '../connectors/uniswap/uniswap/uniswap.validators';
+import { price, trade } from '../connectors/uniswap/uniswap.controllers';
+import { NewUniswap } from '../connectors/uniswap/new_uniswap';
+import { verifyNewUniswapIsAvailable } from '../connectors/uniswap/uniswap-middlewares';
+import {
+  validatePriceRequest,
+  validateTradeRequest,
+} from '../connectors/uniswap/uniswap.validators';
 
 export namespace TradingRoutes {
   export const router = Router();
 
   router.use(asyncHandler(verifyNewEthereumIsAvailable));
   router.use(asyncHandler(verifyNewUniswapIsAvailable));
-
-  //   router.get(
-  //     '/',
-  //     asyncHandler(async (_req: Request, res: Response) => {
-  //       const rpcUrl = EthereumConfig.config.network.nodeURL;
-  //       res.status(200).json({
-  //         network: EthereumConfig.config.network,
-  //         rpcUrl: rpcUrl,
-  //         connection: true,
-  //         timestamp: Date.now(),
-  //       });
-  //     })
-  //   );
 
   router.post(
     '/nonce',
@@ -179,6 +172,26 @@ export namespace TradingRoutes {
           const ethereum = NewEthereum.getInstance(req.body.network);
           validateEthereumCancelRequest(req.body);
           res.status(200).json(await cancel(ethereum, req.body));
+        }
+      }
+    )
+  );
+
+  router.post(
+    '/trade',
+    asyncHandler(
+      async (
+        req: Request<unknown, unknown, TradeRequest>,
+        res: Response<TradeResponse | TradeErrorResponse, any>
+      ) => {
+        validateTradeRequest(req.body);
+        if (req.body.connector == 'uniswap' && req.body.chain == 'ethereum') {
+          const ethereum = NewEthereum.getInstance(req.body.network);
+          const uniswap = NewUniswap.getInstance(
+            req.body.chain,
+            req.body.network
+          );
+          res.status(200).json(await trade(ethereum, uniswap, req.body));
         }
       }
     )

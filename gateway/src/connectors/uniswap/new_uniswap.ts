@@ -2,7 +2,7 @@ import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../../services/error-handler';
+} from '../../services/error-handler';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
@@ -15,10 +15,10 @@ import {
   Trade,
 } from '@uniswap/sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
-import { logger } from '../../../services/logger';
-import { ExpectedTrade, Uniswapish } from '../../../services/uniswapish.interface';
-import { percentRegexp } from '../../../services/config-manager-v2';
-import { NewEthereum } from '../../../chains/ethereum/new_ethereum';
+import { logger } from '../../services/logger';
+import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
+import { percentRegexp } from '../../services/config-manager-v2';
+import { NewEthereum } from '../../chains/ethereum/new_ethereum';
 export class NewUniswap implements Uniswapish {
   private static _instances: { [name: string]: NewUniswap };
   private ethereum: NewEthereum;

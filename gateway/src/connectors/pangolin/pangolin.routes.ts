@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { asyncHandler } from '../../services/error-handler';
-import { price, trade } from '../../../connectors/uniswap/uniswap/uniswap.controllers';
+import { price, trade } from '../../connectors/uniswap/uniswap.controllers';
 
 import {
   UniswapPriceRequest,
@@ -8,11 +8,11 @@ import {
   UniswapTradeRequest,
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
-} from '../../../connectors/uniswap/uniswap/uniswap.requests';
+} from '../../connectors/uniswap/uniswap.requests';
 import {
-  validateUniswapPriceRequest,
+  validatePriceRequest,
   validateUniswapTradeRequest,
-} from '../../../connectors/uniswap/uniswap/uniswap.validators';
+} from '../../connectors/uniswap/uniswap.validators';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { AvalancheConfig } from '../../chains/avalanche/avalanche.config';
 import { Pangolin } from './pangolin';
