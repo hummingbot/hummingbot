@@ -85,9 +85,7 @@ class ConvertPriceAndAmountColumnsToBigint(DatabaseTransformation):
 
     trade_fill_migration_queries = [
         ('create table TradeFill_dg_tmp'
-         '(id INTEGER not null'
-         '		primary key,'
-         '	config_file_path TEXT not null,'
+         '(	config_file_path TEXT not null,'
          '	strategy TEXT not null,'
          '	market TEXT not null,'
          '	symbol TEXT not null,'
@@ -103,14 +101,16 @@ class ConvertPriceAndAmountColumnsToBigint(DatabaseTransformation):
          '	leverage INTEGER not null,'
          '	trade_fee JSON not null,'
          '	exchange_trade_id TEXT not null,'
-         '	position TEXT'
+         '	position TEXT,'
+         '	constraint TradeFill_pk'
+         '	primary key (market, order_id, exchange_trade_id)'
          ');'),
-        ('insert into TradeFill_dg_tmp(id, config_file_path, strategy, market, symbol, base_asset, '
+        ('insert into TradeFill_dg_tmp(config_file_path, strategy, market, symbol, base_asset, '
          'quote_asset, timestamp, order_id, trade_type, order_type, price, amount, leverage, '
          'trade_fee, exchange_trade_id, position) '
-         'select id, config_file_path, strategy, market, symbol, base_asset, quote_asset, timestamp, '
+         'select config_file_path, strategy, market, symbol, base_asset, quote_asset, timestamp, '
          'order_id, trade_type, order_type, CAST(price * 1000000 AS INTEGER), '
-         'CAST(amount * 1000000 AS INTEGER), leverage, trade_fee, exchange_trade_id, position '
+         "CAST(amount * 1000000 AS INTEGER), leverage, trade_fee, exchange_trade_id || '_' || id, position "
          'from TradeFill;'),
         'drop table TradeFill;',
         'alter table TradeFill_dg_tmp rename to TradeFill;',
