@@ -335,7 +335,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 for trading_pair in self._trading_pairs:
-                    snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, domain=self._domain, throttler=self._throttler, api_factory=self._api_factory)
+snapshot: Dict[str, Any] = await self.get_snapshot(
+    trading_pair, domain=self._domain, throttler=self._throttler, api_factory=self._api_factory
+)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
                         snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
