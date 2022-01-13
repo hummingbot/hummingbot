@@ -1,21 +1,26 @@
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.event.events import TradeFeeType
 from hummingbot.client.config.config_methods import new_fee_config_var
 
 
 def fee_overrides_dict():
     all_dict = {}
     # all_connector_types = get_exchanges_and_derivatives()
-    for name, setting in AllConnectorSettings.get_connector_settings().items():
-        key_suffix = None
-        if setting.fee_type is TradeFeeType.Percent:
-            key_suffix = "fee"
-        elif setting.fee_type is TradeFeeType.FlatFee:
-            key_suffix = "fee_amount"
-        maker_key = f"{name}_maker_{key_suffix}"
-        taker_key = f"{name}_taker_{key_suffix}"
-        all_dict.update({maker_key: new_fee_config_var(maker_key)})
-        all_dict.update({taker_key: new_fee_config_var(taker_key)})
+    for name in AllConnectorSettings.get_connector_settings().keys():
+        all_dict.update({f"{name}_percent_fee_token": new_fee_config_var(f"{name}_percent_fee_token", type_str="str")})
+        all_dict.update(
+            {f"{name}_maker_percent_fee": new_fee_config_var(f"{name}_maker_percent_fee", type_str="decimal")}
+        )
+        all_dict.update(
+            {f"{name}_taker_percent_fee": new_fee_config_var(f"{name}_taker_percent_fee", type_str="decimal")}
+        )
+        fee_application = f"{name}_buy_percent_fee_deducted_from_returns"
+        all_dict.update({fee_application: new_fee_config_var(fee_application, type_str="bool")})
+        all_dict.update(
+            {f"{name}_maker_fixed_fees": new_fee_config_var(f"{name}_maker_fixed_fees", type_str="list")}
+        )
+        all_dict.update(
+            {f"{name}_taker_fixed_fees": new_fee_config_var(f"{name}_taker_fixed_fees", type_str="list")}
+        )
     return all_dict
 
 

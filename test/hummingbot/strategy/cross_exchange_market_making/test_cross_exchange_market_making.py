@@ -20,9 +20,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCreatedEvent,
     SellOrderCompletedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
@@ -157,7 +157,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     OrderType.LIMIT,
                     limit_order.price,
                     limit_order.quantity,
-                    TradeFee(Decimal(0)),
+                    AddedToCostTradeFee(Decimal(0)),
                 ),
             )
             market.trigger_event(
@@ -198,7 +198,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     OrderType.LIMIT,
                     limit_order.price,
                     limit_order.quantity,
-                    TradeFee(Decimal(0)),
+                    AddedToCostTradeFee(Decimal(0)),
                 ),
             )
             market.trigger_event(

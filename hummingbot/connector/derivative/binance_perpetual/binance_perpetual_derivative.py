@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import warnings
 
 from async_timeout import timeout
 from collections import defaultdict
@@ -43,11 +44,10 @@ from hummingbot.core.event.events import (
     PositionAction,
     PositionMode,
     PositionSide,
-    TradeType
+    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -248,13 +248,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("buy", t_pair)
         safe_ensure_future(
-            self.__create_order(TradeType.BUY,
-                                order_id,
-                                trading_pair,
-                                amount,
-                                order_type,
-                                kwargs["position_action"],
-                                price)
+            self._create_order(TradeType.BUY,
+                               order_id,
+                               trading_pair,
+                               amount,
+                               order_type,
+                               kwargs["position_action"],
+                               price)
         )
         return order_id
 
@@ -287,13 +287,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("sell", t_pair)
         safe_ensure_future(
-            self.__create_order(TradeType.SELL,
-                                order_id,
-                                trading_pair,
-                                amount,
-                                order_type,
-                                kwargs["position_action"],
-                                price)
+            self._create_order(TradeType.SELL,
+                               order_id,
+                               trading_pair,
+                               amount,
+                               order_type,
+                               kwargs["position_action"],
+                               price)
         )
         return order_id
 
@@ -309,7 +309,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             How long to wait before checking whether the orders were cancelled
         """
         incomplete_orders = [order for order in self._client_order_tracker.active_orders.values() if not order.is_done]
-        tasks = [self.__execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
+        tasks = [self._execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
         successful_cancellations = []
         failed_cancellations = []
 
@@ -354,7 +354,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         The function that takes in the trading pair and client order ID
         from the strategy as inputs and proceeds to a cancel the order
-        by calling the __execute_cancel() function.
+        by calling the _execute_cancel() function.
 
         Parameters
         ----------
@@ -363,7 +363,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         client_order_id:
             Client order ID
         """
-        safe_ensure_future(self.__execute_cancel(trading_pair, client_order_id))
+        safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
         return client_order_id
 
     def quantize_order_amount(self, trading_pair: str, amount: object, price: object = Decimal(0)):
@@ -486,7 +486,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     # MARKET AND ACCOUNT INFO ---
     def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
-                amount: object, price: object):
+                amount: object, price: object, is_maker: Optional[bool] = None):
         """
         To get trading fee, this function is simplified by using a fee override configuration.
         Most parameters to this function are ignored except order_type. Use OrderType.LIMIT_MAKER to specify
@@ -507,8 +507,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price in which the order will be placed
         """
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("binance_perpetual", is_maker)
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         """
@@ -1119,7 +1125,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return self._position_mode
 
     # ORDER PLACE AND CANCEL EXECUTIONS ---
-    async def __create_order(
+    async def _create_order(
             self,
             trade_type: TradeType,
             order_id: str,
@@ -1231,7 +1237,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             # This should call stop_tracking_order
             self._client_order_tracker.process_order_update(order_update)
 
-    async def __execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
         """
         Cancels the specified in-flight order and returns the client order ID.
 
