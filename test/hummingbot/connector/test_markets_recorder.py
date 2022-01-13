@@ -7,10 +7,16 @@ from sqlalchemy import create_engine
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import TradeType, OrderType, BuyOrderCreatedEvent, MarketEvent, OrderFilledEvent, \
-    BuyOrderCompletedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderFilledEvent,
+    OrderType,
+    TradeType,
+)
 from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import SQLConnectionType, SQLConnectionManager
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
 
 

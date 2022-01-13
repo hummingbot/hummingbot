@@ -10,11 +10,11 @@ from os.path import join
 
 import pandas as pd
 
-from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
     save_to_yml,
 )
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -26,8 +26,8 @@ from hummingbot.client.ui.style import load_style
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.inventory_cost import InventoryCost
-from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
+from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
