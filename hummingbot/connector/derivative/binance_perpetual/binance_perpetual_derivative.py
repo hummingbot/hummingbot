@@ -45,14 +45,10 @@ from hummingbot.core.event.events import (
     PositionAction,
     PositionMode,
     PositionSide,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -600,7 +596,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._funding_fee_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = self._funding_fee_polling_task = None
-            
+
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:
             self._rest_assistant = await self._api_factory.get_rest_assistant()
@@ -610,7 +606,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
-
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
