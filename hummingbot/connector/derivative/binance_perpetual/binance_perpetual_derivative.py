@@ -254,13 +254,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("buy", t_pair)
         safe_ensure_future(
-            self.__create_order(TradeType.BUY,
-                                order_id,
-                                trading_pair,
-                                amount,
-                                order_type,
-                                kwargs["position_action"],
-                                price)
+            self._create_order(TradeType.BUY,
+                               order_id,
+                               trading_pair,
+                               amount,
+                               order_type,
+                               kwargs["position_action"],
+                               price)
         )
         return order_id
 
@@ -293,13 +293,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         t_pair: str = trading_pair
         order_id: str = utils.get_client_order_id("sell", t_pair)
         safe_ensure_future(
-            self.__create_order(TradeType.SELL,
-                                order_id,
-                                trading_pair,
-                                amount,
-                                order_type,
-                                kwargs["position_action"],
-                                price)
+            self._create_order(TradeType.SELL,
+                               order_id,
+                               trading_pair,
+                               amount,
+                               order_type,
+                               kwargs["position_action"],
+                               price)
         )
         return order_id
 
@@ -315,7 +315,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             How long to wait before checking whether the orders were cancelled
         """
         incomplete_orders = [order for order in self._client_order_tracker.active_orders.values() if not order.is_done]
-        tasks = [self.__execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
+        tasks = [self._execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
         successful_cancellations = []
         failed_cancellations = []
 
@@ -360,7 +360,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         The function that takes in the trading pair and client order ID
         from the strategy as inputs and proceeds to a cancel the order
-        by calling the __execute_cancel() function.
+        by calling the _execute_cancel() function.
 
         Parameters
         ----------
@@ -369,7 +369,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         client_order_id:
             Client order ID
         """
-        safe_ensure_future(self.__execute_cancel(trading_pair, client_order_id))
+        safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
         return client_order_id
 
     def quantize_order_amount(self, trading_pair: str, amount: object, price: object = Decimal(0)):
@@ -1117,7 +1117,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         await asyncio.sleep(delay)
 
     # ORDER PLACE AND CANCEL EXECUTIONS ---
-    async def __create_order(
+    async def _create_order(
         self,
         trade_type: TradeType,
         order_id: str,
@@ -1226,7 +1226,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             # This should call stop_tracking_order
             self._client_order_tracker.process_order_update(order_update)
 
-    async def __execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
         """
         Cancels the specified in-flight order and returns the client order ID.
 
@@ -1241,9 +1241,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             # Checks if order is not being tracked or order is waiting for created confirmation.
             # If so, ignores cancel request.
             tracked_order: Optional[InFlightOrder] = self._client_order_tracker.fetch_order(client_order_id)
+            print("XXX 0")
             if not tracked_order or tracked_order.is_pending_create:
+                print("XXX 1")
                 return
 
+            print("XXX 2")
             params = {
                 "origClientOrderId": client_order_id,
                 "symbol": BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(trading_pair)
