@@ -79,7 +79,7 @@ def main():
         "psutil",
         "pyjwt",
         "pyperclip",
-        "python-dateutil"
+        "python-dateutil",
         "python-telegram-bot",
         "requests",
         "rsa",
