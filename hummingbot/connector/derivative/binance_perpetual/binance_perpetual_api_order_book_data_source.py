@@ -75,14 +75,19 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
+    async def get_last_traded_prices(cls,
+                                     trading_pairs: List[str],
+                                     domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
-    async def get_last_traded_price(cls, trading_pair: str, domain: str = CONSTANTS.DOMAIN) -> float:
-        api_factory = utils.build_api_factory()
+    async def get_last_traded_price(cls,
+                                    trading_pair: str,
+                                    domain: str = CONSTANTS.DOMAIN,
+                                    api_factory: WebAssistantsFactory = None) -> float:
+        api_factory = api_factory or utils.build_api_factory()
         rest_assistant = await api_factory.get_rest_assistant()
 
         throttler = cls._get_throttler_instance()
@@ -102,18 +107,24 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def trading_pair_symbol_map(
-        cls, domain: Optional[str] = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None
+        cls,
+        domain: Optional[str] = CONSTANTS.DOMAIN,
+        throttler: Optional[AsyncThrottler] = None,
+        api_factory: WebAssistantsFactory = None
     ) -> Dict[str, str]:
         if not cls._trading_pair_symbol_map:
-            await cls.init_trading_pair_symbols(domain, throttler)
+            await cls.init_trading_pair_symbols(domain, throttler, api_factory)
         return cls._trading_pair_symbol_map
 
     @classmethod
     async def init_trading_pair_symbols(
-        cls, domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None
+        cls,
+        domain: str = CONSTANTS.DOMAIN,
+        throttler: Optional[AsyncThrottler] = None,
+        api_factory: WebAssistantsFactory = None
     ):
         """Initialize _trading_pair_symbol_map class variable"""
-        api_factory = utils.build_api_factory()
+        api_factory = api_factory or utils.build_api_factory()
         rest_assistant = await api_factory.get_rest_assistant()
 
         url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=domain)
@@ -136,11 +147,13 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs(
-        domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None
+        domain: str = CONSTANTS.DOMAIN,
+        throttler: Optional[AsyncThrottler] = None,
+        api_factory: WebAssistantsFactory = None
     ) -> List[str]:
         ob_source_cls = BinancePerpetualAPIOrderBookDataSource
         trading_pair_list: List[str] = []
-        symbols_map = await ob_source_cls.trading_pair_symbol_map(domain=domain, throttler=throttler)
+        symbols_map = await ob_source_cls.trading_pair_symbol_map(domain=domain, throttler=throttler, api_factory=api_factory)
         trading_pair_list.extend(list(symbols_map.values()))
 
         return trading_pair_list
@@ -165,11 +178,15 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(
-        trading_pair: str, limit: int = 1000, domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None
+        trading_pair: str,
+        limit: int = 1000,
+        domain: str = CONSTANTS.DOMAIN,
+        throttler: Optional[AsyncThrottler] = None,
+        api_factory: WebAssistantsFactory = None
     ) -> Dict[str, Any]:
         ob_source_cls = BinancePerpetualAPIOrderBookDataSource
         try:
-            api_factory = utils.build_api_factory()
+            api_factory = api_factory or utils.build_api_factory()
             rest_assistant = await api_factory.get_rest_assistant()
 
             params = {"symbol": ob_source_cls.convert_to_exchange_trading_pair(trading_pair)}
@@ -194,7 +211,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000, self._domain, self._throttler)
+        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000, self._domain, self._throttler, self._api_factory)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
@@ -213,8 +230,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: Funding Information of the given trading pair
         :rtype: FundingInfo
         """
-        api_factory = utils.build_api_factory()
-        rest_assistant = await api_factory.get_rest_assistant()
+        rest_assistant = await self._api_factory.get_rest_assistant()
 
         params = {"symbol": self.convert_to_exchange_trading_pair(trading_pair)}
 
@@ -319,7 +335,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 for trading_pair in self._trading_pairs:
-                    snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, domain=self._domain)
+                    snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, domain=self._domain, throttler=self._throttler, api_factory=self._api_factory)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
                         snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
