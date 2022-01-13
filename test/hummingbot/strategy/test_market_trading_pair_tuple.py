@@ -19,9 +19,9 @@ from hummingbot.core.event.events import (
     OrderType,
     PriceType,
     SellOrderCompletedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
@@ -90,7 +90,7 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal(0.0))
+                AddedToCostTradeFee(Decimal(0.0))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -114,7 +114,7 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal(0.0))
+                AddedToCostTradeFee(Decimal(0.0))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,

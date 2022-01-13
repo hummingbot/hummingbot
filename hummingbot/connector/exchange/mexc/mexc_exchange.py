@@ -1,63 +1,49 @@
 import asyncio
+import logging
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
+from urllib.parse import quote, urljoin
 
 import aiohttp
-import logging
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
 import ujson
 
+from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
+from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
+from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
+from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
+from hummingbot.connector.exchange.mexc.mexc_user_stream_tracker import MexcUserStreamTracker
+from hummingbot.connector.exchange.mexc.mexc_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    num_to_increment,
+    ws_order_status_convert_to_str
+)
+from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from urllib.parse import quote, urljoin
-
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
-from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
-from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.exchange_base import (
-    ExchangeBase,
-    s_decimal_NaN
-)
-from hummingbot.connector.exchange.mexc.mexc_user_stream_tracker import MexcUserStreamTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
-
-from hummingbot.connector.exchange.mexc.mexc_utils import (
-    convert_to_exchange_trading_pair,
-    num_to_increment,
-    convert_from_exchange_trading_pair, ws_order_status_convert_to_str
-)
-
-from decimal import Decimal
+from hummingbot.logger import HummingbotLogger
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -944,9 +930,10 @@ class MexcExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def get_deal_detail_fee(self, order_id: str) -> Dict[str, Any]:
         params = {
