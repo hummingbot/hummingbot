@@ -86,11 +86,11 @@ class MarketsRecorderTests(TestCase):
                     position="NILL")
                 session.add(trade_fill_record)
 
-            fill_id = trade_fill_record.id
+            fill_id = trade_fill_record.exchange_trade_id
 
         trades = recorder.get_trades_for_config("test_config")
         self.assertEqual(1, len(trades))
-        self.assertEqual(fill_id, trades[0].id)
+        self.assertEqual(fill_id, trades[0].exchange_trade_id)
 
     def test_create_order_event_creates_order_record(self):
         recorder = MarketsRecorder(

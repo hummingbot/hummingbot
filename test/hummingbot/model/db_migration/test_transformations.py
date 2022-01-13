@@ -26,6 +26,9 @@ class ConvertPriceAndAmountColumnsToBigintTests(TestCase):
         self.assertEquals('alter table Order_dg_tmp rename to "Order";', executed_queries[3])
 
         self.assertIn("create table TradeFill_dg_tmp", executed_queries[8])
+        self.assertNotIn("id INTEGER", executed_queries[8])
+        self.assertIn("constraint TradeFill_pk", executed_queries[8])
+        self.assertIn("primary key (market, order_id, exchange_trade_id)", executed_queries[8])
         self.assertIn("CAST(amount * 1000000 AS INTEGER)", executed_queries[9])
         self.assertIn("CAST(price * 1000000 AS INTEGER", executed_queries[9])
         self.assertEquals('drop table TradeFill;', executed_queries[10])

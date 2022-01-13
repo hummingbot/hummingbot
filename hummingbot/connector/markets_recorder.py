@@ -249,6 +249,7 @@ class MarketsRecorder:
                 order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                         timestamp=timestamp,
                                                         status=event_type.name)
+
                 trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
                                                          strategy=self.strategy_name,
                                                          market=market.display_name,
@@ -316,7 +317,7 @@ class MarketsRecorder:
         csv_filename = "trades_" + trade.config_file_path[:-4] + ".csv"
         csv_path = os.path.join(data_path(), csv_filename)
 
-        field_names = ("id",)  # id field should be first
+        field_names = ("exchange_trade_id",)  # id field should be first
         field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
                                                              self._is_primitive_type(getattr(trade, attr)) and
                                                              (attr not in field_names)))
