@@ -21,8 +21,8 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     OrderCancelledEvent,
     TradeType,
-    TradeFee,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange.loopring.loopring_exchange import LoopringExchange
 from hummingbot.connector.exchange_base import OrderType
 # from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
@@ -110,7 +110,9 @@ class LoopringExchangeUnitTest(unittest.TestCase):
     # ====================================================
 
     def test_get_fee(self):
-        limit_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.SELL, 10000, 1)
+        limit_trade_fee: AddedToCostTradeFee = self.market.get_fee(
+            "ETH", "USDT", OrderType.LIMIT, TradeType.SELL, 10000, 1
+        )
         self.assertLess(limit_trade_fee.percent, 0.01)
 
     def test_get_balances(self):

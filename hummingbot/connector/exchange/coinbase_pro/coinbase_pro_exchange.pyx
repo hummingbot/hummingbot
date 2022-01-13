@@ -36,9 +36,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
-    TradeType
+    TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -316,7 +316,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         *required
         function to calculate fees for a particular order
@@ -324,16 +325,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
-        """
-        cdef:
-            object maker_fee = self._maker_fee_percentage
-            object taker_fee = self._taker_fee_percentage
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("coinbase_pro", is_maker)
 
@@ -597,7 +588,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                  tracked_order.order_type,
                                                  execute_price,
                                                  execute_amount_diff,
-                                                 TradeFee(tracked_order.fee_rate_from_trade_update(content), []),
+                                                 AddedToCostTradeFee(
+                                                     percent=tracked_order.fee_rate_from_trade_update(content)
+                                                 ),
                                                  exchange_trade_id=content["trade_id"]
                                              ))
 
@@ -1080,8 +1073,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

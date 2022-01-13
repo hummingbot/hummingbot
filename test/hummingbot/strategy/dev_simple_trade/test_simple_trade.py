@@ -17,9 +17,9 @@ from hummingbot.core.event.events import (
     OrderType,
     OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    TradeFee
+    SellOrderCompletedEvent
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
@@ -133,7 +133,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -157,7 +157,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,

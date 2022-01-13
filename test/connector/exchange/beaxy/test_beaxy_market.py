@@ -25,7 +25,6 @@ from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerF
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent, SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
     BuyOrderCompletedEvent,
     OrderFilledEvent,
@@ -35,6 +34,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange.beaxy.beaxy_exchange import BeaxyExchange
 from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
 from typing import (
@@ -190,29 +190,29 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
         self.assertGreater(len(balances), 0)
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
+        limit_fee: AddedToCostTradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: AddedToCostTradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["beaxy_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("BTC", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("BTC", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0025"), taker_fee.percent)
         fee_overrides_config_map["beaxy_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("BTC", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("BTC", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["beaxy_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("BTC", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("BTC", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), maker_fee.percent)
         fee_overrides_config_map["beaxy_maker_fee"].value = Decimal('0.75')
-        maker_fee: TradeFee = self.market.get_fee("BTC", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("BTC", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), maker_fee.percent)
 
     def place_order(self, is_buy, trading_pair, amount, order_type, price, ws_resps=[]):

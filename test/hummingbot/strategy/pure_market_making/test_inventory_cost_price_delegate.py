@@ -2,7 +2,8 @@ import unittest
 from decimal import Decimal
 
 from hummingbot.core.event.events import OrderFilledEvent, TradeType
-from hummingbot.core.event.events import TradeFee, OrderType
+from hummingbot.core.event.events import OrderType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -41,7 +42,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
             order_type=OrderType.LIMIT,
             price=price,
             amount=amount,
-            trade_fee=TradeFee(percent=Decimal("0"), flat_fees=[]),
+            trade_fee=AddedToCostTradeFee(percent=Decimal("0"), flat_fees=[]),
         )
         # first event creates DB record
         self.delegate.process_order_fill_event(event)
@@ -82,7 +83,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
             order_type=OrderType.LIMIT,
             price=price_sell,
             amount=amount_sell,
-            trade_fee=TradeFee(percent=Decimal("0"), flat_fees=[]),
+            trade_fee=AddedToCostTradeFee(percent=Decimal("0"), flat_fees=[]),
         )
 
         self.delegate.process_order_fill_event(event)
@@ -105,7 +106,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
             order_type=OrderType.LIMIT,
             price=price,
             amount=amount,
-            trade_fee=TradeFee(percent=Decimal("0"), flat_fees=[]),
+            trade_fee=AddedToCostTradeFee(percent=Decimal("0"), flat_fees=[]),
         )
         with self.assertRaises(RuntimeError):
             self.delegate.process_order_fill_event(event)
