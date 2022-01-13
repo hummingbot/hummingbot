@@ -973,7 +973,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([], fill_event.trade_fee.flat_fees)
+        self.assertEqual([TokenAmount(token=None, amount=Decimal('0'))], fill_event.trade_fee.flat_fees)
 
     def test_order_event_with_cancelled_status_marks_order_as_cancelled(self):
         self.exchange.start_tracking_order(
