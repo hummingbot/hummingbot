@@ -31,9 +31,9 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
@@ -446,13 +446,14 @@ cdef class KucoinExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         trading_pair = f"{base_currency}-{quote_currency}"
         if trading_pair in self._trading_fees:
             fees_data = self._trading_fees[trading_pair]
             fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
-            fee = TradeFee(percent=fee_value)
+            fee = AddedToCostTradeFee(percent=fee_value)
         else:
             safe_ensure_future(self._update_trading_fee(trading_pair))
             fee = estimate_fee("kucoin", is_maker)
@@ -1021,8 +1022,9 @@ cdef class KucoinExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

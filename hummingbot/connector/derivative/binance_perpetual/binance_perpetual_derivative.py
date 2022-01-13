@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import warnings
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
@@ -44,8 +45,11 @@ from hummingbot.core.event.events import (
     PositionAction,
     PositionMode,
     PositionSide,
-    TradeType
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -492,7 +496,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     # MARKET AND ACCOUNT INFO ---
     def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
-                amount: object, price: object):
+                amount: object, price: object, is_maker: Optional[bool] = None):
         """
         To get trading fee, this function is simplified by using a fee override configuration.
         Most parameters to this function are ignored except order_type. Use OrderType.LIMIT_MAKER to specify
@@ -513,8 +517,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price in which the order will be placed
         """
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("binance_perpetual", is_maker)
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         """
@@ -672,7 +682,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
 
             self._client_order_tracker.process_order_update(order_update)
-
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
             # update balances
