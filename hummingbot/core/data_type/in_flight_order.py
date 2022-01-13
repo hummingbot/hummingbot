@@ -247,7 +247,6 @@ class InFlightOrder:
         )
 
     @property
-
     def latest_trade_fee(self) -> AddedToCostTradeFee:
         trade_fee: AddedToCostTradeFee = (
             AddedToCostTradeFee(percent=self.trade_fee_percent)
