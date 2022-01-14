@@ -1,12 +1,11 @@
 import asyncio
+from decimal import Decimal
+from os.path import join
 from typing import (
     Any,
     List,
     TYPE_CHECKING,
 )
-
-from decimal import Decimal
-from os.path import join
 
 import pandas as pd
 
