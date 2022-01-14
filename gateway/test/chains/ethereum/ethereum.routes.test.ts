@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import {
   NETWORK_ERROR_CODE,
   RATE_LIMIT_ERROR_CODE,
@@ -107,7 +107,7 @@ const patchApproveERC20 = (tx_type?: string) => {
 
 describe('GET /eth', () => {
   it('should return 200', async () => {
-    await request(app)
+    await request(gatewayApp)
       .get(`/eth`)
       .expect('Content-Type', /json/)
       .expect(200)
@@ -126,7 +126,7 @@ describe('POST /eth/allowances', () => {
     });
     patchGetERC20Allowance();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/allowances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -142,7 +142,7 @@ describe('POST /eth/allowances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/allowances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -163,7 +163,7 @@ describe('POST /eth/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/balances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -185,7 +185,7 @@ describe('POST /eth/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/balances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -207,7 +207,7 @@ describe('POST /eth/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/balances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -219,7 +219,7 @@ describe('POST /eth/balances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/balances`)
       .send({
         address: 'da857cbda0ba96757fed842617a4',
@@ -233,7 +233,7 @@ describe('POST /eth/nonce', () => {
     patchGetWallet();
     patchGetNonce();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/nonce`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -245,7 +245,7 @@ describe('POST /eth/nonce', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/nonce`)
       .send({
         address: 'da857cbda0ba96757fed842617a4',
@@ -264,7 +264,7 @@ describe('POST /eth/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/approve`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -282,7 +282,7 @@ describe('POST /eth/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/approve`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -304,7 +304,7 @@ describe('POST /eth/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/approve`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -320,7 +320,7 @@ describe('POST /eth/approve', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/approve`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -343,7 +343,7 @@ describe('POST /eth/cancel', () => {
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/cancel`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -360,7 +360,7 @@ describe('POST /eth/cancel', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/eth/cancel`)
       .send({
         address: '',
@@ -378,7 +378,7 @@ describe('POST /eth/poll', () => {
       throw error;
     });
 
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -393,7 +393,7 @@ describe('POST /eth/poll', () => {
       throw new Error();
     });
 
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -406,7 +406,7 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -420,7 +420,7 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -433,7 +433,7 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -446,7 +446,7 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionSuccesful);
     patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
     });
@@ -469,7 +469,7 @@ describe('POST /eth/poll', () => {
       };
       throw error;
     });
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -484,7 +484,7 @@ describe('POST /eth/poll', () => {
       error.code = -32006;
       throw error;
     });
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -510,7 +510,7 @@ describe('overwrite existing transaction', () => {
     };
 
     patchApproveERC20('overwritten_tx');
-    const tx_1 = await request(app)
+    const tx_1 = await request(gatewayApp)
       .post(`/eth/approve`)
       .send(requestParam)
       .set('Accept', 'application/json')
@@ -519,7 +519,7 @@ describe('overwrite existing transaction', () => {
 
     patchApproveERC20(); // patch to return different tx_hash
     requestParam.maxPriorityFeePerGas = '8000000000'; // we only increase maxPriorityFeePerGas
-    const tx_2 = await request(app)
+    const tx_2 = await request(gatewayApp)
       .post(`/eth/approve`)
       .send(requestParam)
       .set('Accept', 'application/json')
@@ -530,7 +530,7 @@ describe('overwrite existing transaction', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res_1 = await request(app).post('/eth/poll').send({
+    const res_1 = await request(gatewayApp).post('/eth/poll').send({
       txHash: tx_1.body.approval.hash,
     });
     expect(res_1.statusCode).toEqual(200);
@@ -540,7 +540,7 @@ describe('overwrite existing transaction', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionSuccesful);
     patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
-    const res_2 = await request(app).post('/eth/poll').send({
+    const res_2 = await request(gatewayApp).post('/eth/poll').send({
       txHash: tx_2.body.approval.hash,
     });
     expect(res_2.statusCode).toEqual(200);

@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../../services/patch';
 import { PangolinRoutes } from '../../../../src/chains/avalanche/pangolin/pangolin.routes';
-import { app } from '../../../../src/app';
+import { gatewayApp } from '../../../../src/app';
 
 afterEach(() => {
   unpatch();
@@ -124,7 +124,7 @@ const patchExecuteTrade = () => {
 
 describe('GET /avalanche/pangolin/', () => {
   it('should get 200 OK', async () => {
-    await request(app)
+    await request(gatewayApp)
       .get(`/avalanche/pangolin`)
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -143,7 +143,7 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetNonce();
     patchExecuteTrade();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/price`)
       .send({
         quote: 'WAVAX',
@@ -168,7 +168,7 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetNonce();
     patchExecuteTrade();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/price`)
       .send({
         quote: 'WAVAX',
@@ -201,7 +201,7 @@ describe('POST /avalanche/pangolin/price', () => {
     });
     patchGetTokenByAddress();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/price`)
       .send({
         quote: 'DOGE',
@@ -231,7 +231,7 @@ describe('POST /avalanche/pangolin/price', () => {
     });
     patchGetTokenByAddress();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/price`)
       .send({
         quote: 'WAVAX',
@@ -257,7 +257,7 @@ describe('POST /avalanche/pangolin/trade', () => {
   };
   it('should return 200 for BUY', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -276,7 +276,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -291,7 +291,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -319,7 +319,7 @@ describe('POST /avalanche/pangolin/trade', () => {
   };
   it('should return 200 for SELL', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -338,7 +338,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -355,7 +355,7 @@ describe('POST /avalanche/pangolin/trade', () => {
   });
 
   it('should return 404 when parameters are incorrect', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -384,7 +384,7 @@ describe('POST /avalanche/pangolin/trade', () => {
       }
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WETH',
@@ -416,7 +416,7 @@ describe('POST /avalanche/pangolin/trade', () => {
       }
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'BITCOIN',
@@ -434,7 +434,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -451,7 +451,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -468,7 +468,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for SELL with price less than limitPrice', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
@@ -485,7 +485,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 200 for BUY with price less than limitPrice', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/pangolin/trade`)
       .send({
         quote: 'WAVAX',
