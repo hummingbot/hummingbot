@@ -4,22 +4,24 @@ import statistics
 import time
 
 from collections import deque
-from typing import Awaitable, Deque, Optional
+from typing import Awaitable, Deque
 
 from hummingbot.logger import HummingbotLogger
 
 
 class TimeSynchronizer:
     """
-    Used to monkey patch Binance client's time module to adjust request timestamp when needed
+    Used to synchronize the local time with the server's time.
+    This class is useful when timestamp-based signatures are required by the exchange for authentication.
+    Upon receiving a timestamped message from the server, use `update_server_time_offset_with_time_provider`
+    to synchronize local time with the server's time.
     """
+
     NaN = float("nan")
     _logger = None
 
-    def __init__(self, check_interval: float = 60.0):
+    def __init__(self):
         self._time_offset_ms: Deque[float] = deque(maxlen=5)
-        self._set_server_time_offset_task: Optional[asyncio.Task] = None
-        self._last_update_local_time: float = self.NaN
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -59,7 +61,6 @@ class TimeSynchronizer:
             local_server_time_pre_image_ms: float = (local_before_ms + local_after_ms) / 2.0
             time_offset_ms: float = server_time_ms - local_server_time_pre_image_ms
             self.add_time_offset_ms_sample(time_offset_ms)
-            self._last_update_local_time = local_after_ms
         except asyncio.CancelledError:
             raise
         except Exception:

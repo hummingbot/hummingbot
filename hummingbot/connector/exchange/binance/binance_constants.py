@@ -58,6 +58,10 @@ ORDER_STATE = {
     "EXPIRED": OrderState.FAILED,
 }
 
+# Websocket event types
+DIFF_EVENT_TYPE = "depthUpdate"
+TRADE_EVENT_TYPE = "trade"
+
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
