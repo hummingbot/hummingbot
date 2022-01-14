@@ -869,16 +869,16 @@ class BinanceExchange(ExchangeBase):
         if current_tick > last_tick and len(tracked_orders) > 0:
 
             tasks = [self._api_request(
-                method=RESTMethod.GET,
-                path_url=CONSTANTS.ORDER_PATH_URL,
-                params={
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                        trading_pair=o.trading_pair,
-                        domain=self._domain,
-                        api_factory=self._api_factory,
-                        throttler=self._throttler),
-                    "origClientOrderId": o.client_order_id},
-                is_auth_required=True) for o in tracked_orders]
+                     method=RESTMethod.GET,
+                     path_url=CONSTANTS.ORDER_PATH_URL,
+                     params={
+                         "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                             trading_pair=o.trading_pair,
+                             domain=self._domain,
+                             api_factory=self._api_factory,
+                             throttler=self._throttler),
+                         "origClientOrderId": o.client_order_id},
+                     is_auth_required=True) for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
