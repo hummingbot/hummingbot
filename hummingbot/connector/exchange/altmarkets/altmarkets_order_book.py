@@ -1,18 +1,20 @@
-#!/usr/bin/env python
-
 import logging
-from sqlalchemy.engine import RowProxy
+
 from typing import (
-    Optional,
+    Any,
     Dict,
-    List, Any)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
+    List,
+    Optional,
 )
+
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_message import AltmarketsOrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import (
+    OrderBookMessage,
+    OrderBookMessageType,
+)
+from hummingbot.logger import HummingbotLogger
 
 _logger = None
 
@@ -47,20 +49,6 @@ class AltmarketsOrderBook(OrderBook):
         )
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of snapshot data into standard OrderBookMessage format
-        :param record: a row of snapshot data from the database
-        :return: AltmarketsOrderBookMessage
-        """
-        return AltmarketsOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=record.json,
-            timestamp=record.timestamp
-        )
-
-    @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
@@ -82,20 +70,6 @@ class AltmarketsOrderBook(OrderBook):
         )
 
     @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of diff data into standard OrderBookMessage format
-        :param record: a row of diff data from the database
-        :return: AltmarketsOrderBookMessage
-        """
-        return AltmarketsOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=record.json,
-            timestamp=record.timestamp
-        )
-
-    @classmethod
     def trade_message_from_exchange(cls,
                                     msg: Dict[str, Any],
                                     timestamp: Optional[float] = None,
@@ -111,7 +85,7 @@ class AltmarketsOrderBook(OrderBook):
 
         msg.update({
             "trade_id": str(msg.get("tid")),
-            "trade_type": 1.0 if msg.get("taker_type") == "buy" else 2.0,
+            "trade_type": 1.0 if msg.get("taker_type") == "buy" else 2.0 if msg.get("taker_type") == "sell" else None,
             "price": msg.get("price"),
             "amount": msg.get("amount"),
         })
@@ -120,20 +94,6 @@ class AltmarketsOrderBook(OrderBook):
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of trade data into standard OrderBookMessage format
-        :param record: a row of trade data from the database
-        :return: AltmarketsOrderBookMessage
-        """
-        return AltmarketsOrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod

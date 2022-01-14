@@ -24,7 +24,7 @@ class AltmarketsInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "submitted"):
+                 initial_state: str = "local"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -49,6 +49,15 @@ class AltmarketsInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in Constants.ORDER_STATES['CANCEL']
+
+    @property
+    def is_local(self) -> bool:
+        return self.last_state == "local"
+
+    def update_exchange_order_id(self, exchange_id: str):
+        super().update_exchange_order_id(exchange_id)
+        if self.is_local:
+            self.last_state = "submitted"
 
     # @property
     # def order_type_description(self) -> str:

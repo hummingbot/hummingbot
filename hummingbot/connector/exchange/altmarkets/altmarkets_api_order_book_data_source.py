@@ -5,7 +5,15 @@ import time
 import pandas as pd
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
+
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
+from .altmarkets_utils import (
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair,
+    AltmarketsAPIError,
+)
+
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -15,12 +23,6 @@ from .altmarkets_constants import Constants
 from .altmarkets_active_order_tracker import AltmarketsActiveOrderTracker
 from .altmarkets_order_book import AltmarketsOrderBook
 from .altmarkets_websocket import AltmarketsWebsocket
-from .altmarkets_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-    api_call_with_retries,
-    AltmarketsAPIError,
-)
 
 
 class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -37,9 +39,21 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  trading_pairs: List[str] = None,
                  ):
         super().__init__(trading_pairs)
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler: AsyncThrottler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
+
+    def _time(self):
+        """ Function created to enable patching during unit tests execution.
+        :return: current time
+        """
+        return time.time()
+
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
@@ -53,20 +67,20 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = throttler or cls._get_throttler_instance()
         results = {}
         if len(trading_pairs) > 3:
-            tickers: List[Dict[Any]] = await api_call_with_retries("GET",
-                                                                   Constants.ENDPOINT["TICKER"],
-                                                                   throttler=throttler,
-                                                                   limit_id=Constants.RL_ID_TICKER)
+            tickers: List[Dict[Any]] = await http_utils.api_call_with_retries(method="GET",
+                                                                              endpoint=Constants.ENDPOINT["TICKER"],
+                                                                              throttler=throttler,
+                                                                              limit_id=Constants.RL_ID_TICKER)
         for trading_pair in trading_pairs:
             ex_pair: str = convert_to_exchange_trading_pair(trading_pair)
             if len(trading_pairs) > 3:
                 ticker: Dict[Any] = tickers[ex_pair]
             else:
                 url_endpoint = Constants.ENDPOINT["TICKER_SINGLE"].format(trading_pair=ex_pair)
-                ticker: Dict[Any] = await api_call_with_retries("GET",
-                                                                url_endpoint,
-                                                                throttler=throttler,
-                                                                limit_id=Constants.RL_ID_TICKER)
+                ticker: Dict[Any] = await http_utils.api_call_with_retries(method="GET",
+                                                                           endpoint=url_endpoint,
+                                                                           throttler=throttler,
+                                                                           limit_id=Constants.RL_ID_TICKER)
             results[trading_pair]: Decimal = Decimal(str(ticker["ticker"]["last"]))
         return results
 
@@ -74,9 +88,9 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs(cls, throttler: Optional[AsyncThrottler] = None) -> List[str]:
         throttler = throttler or cls._get_throttler_instance()
         try:
-            symbols: List[Dict[str, Any]] = await api_call_with_retries("GET",
-                                                                        Constants.ENDPOINT["SYMBOL"],
-                                                                        throttler=throttler)
+            symbols: List[Dict[str, Any]] = await http_utils.api_call_with_retries(method="GET",
+                                                                                   endpoint=Constants.ENDPOINT["SYMBOL"],
+                                                                                   throttler=throttler)
             return [
                 symbol["name"].replace("/", "-") for symbol in symbols
                 if symbol['state'] == "enabled"
@@ -97,10 +111,11 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
             endpoint = Constants.ENDPOINT["ORDER_BOOK"].format(trading_pair=ex_pair)
-            orderbook_response: Dict[Any] = await api_call_with_retries("GET", endpoint,
-                                                                        params={"limit": 300},
-                                                                        throttler=throttler,
-                                                                        limit_id=Constants.RL_ID_ORDER_BOOK)
+            orderbook_response: Dict[Any] = await http_utils.api_call_with_retries(method="GET",
+                                                                                   endpoint=endpoint,
+                                                                                   params={"limit": 300},
+                                                                                   throttler=throttler,
+                                                                                   limit_id=Constants.RL_ID_ORDER_BOOK)
             return orderbook_response
         except AltmarketsAPIError as e:
             err = e.error_payload.get('errors', e.error_payload)
@@ -109,8 +124,8 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 f"HTTP status is {e.error_payload['status']}. Error is {err.get('message', str(err))}.")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
-        snapshot_timestamp: float = time.time()
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
+        snapshot_timestamp: float = self._time()
         snapshot_msg: OrderBookMessage = AltmarketsOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
@@ -147,7 +162,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 continue
                             trading_pair = convert_from_exchange_trading_pair(split_key[0])
                             for trade in response[msg_key]["trades"]:
-                                trade_timestamp: int = int(trade.get('date', time.time()))
+                                trade_timestamp: int = int(trade.get('date', self._time()))
                                 trade_msg: OrderBookMessage = AltmarketsOrderBook.trade_message_from_exchange(
                                     trade,
                                     trade_timestamp,
@@ -158,7 +173,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Trades: Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(Constants.MESSAGE_TIMEOUT)
+                await self._sleep(Constants.MESSAGE_TIMEOUT)
             finally:
                 await ws.disconnect()
 
@@ -192,7 +207,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
                                 continue
                             order_book_data: str = response.get(msg_key, None)
-                            timestamp: int = int(time.time())
+                            timestamp: int = int(self._time())
                             trading_pair: str = convert_from_exchange_trading_pair(split_key[0])
 
                             orderbook_msg: OrderBookMessage = order_book_msg_cls(
@@ -208,7 +223,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "Unexpected error with WebSocket connection.", exc_info=True,
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection.")
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 await ws.disconnect()
 
@@ -219,32 +234,26 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 for trading_pair in self._trading_pairs:
-                    try:
-                        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = int(snapshot["timestamp"])
-                        snapshot_msg: OrderBookMessage = AltmarketsOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
-                        output.put_nowait(snapshot_msg)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above API rate limits.
-                        await asyncio.sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().network(
-                            "Unexpected error with WebSocket connection.", exc_info=True,
-                            app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection.")
-                        await asyncio.sleep(5.0)
+                    snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair,
+                                                                              throttler=self._throttler)
+                    snapshot_timestamp: int = int(snapshot["timestamp"])
+                    snapshot_msg: OrderBookMessage = AltmarketsOrderBook.snapshot_message_from_exchange(
+                        snapshot,
+                        snapshot_timestamp,
+                        metadata={"trading_pair": trading_pair}
+                    )
+                    output.put_nowait(snapshot_msg)
+                    self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                delta: float = next_hour.timestamp() - self._time()
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                self.logger().error("Unexpected error occurred listening for orderbook snapshots. Retrying in 5 secs...")
+                self.logger().network(
+                    "Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs...", exc_info=True,
+                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                    "Check network connection.")
+                await self._sleep(5.0)

@@ -11,7 +11,6 @@ import asyncio
 import aiohttp
 import math
 import time
-import ujson
 import traceback
 from async_timeout import timeout
 
@@ -34,20 +33,19 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_tracker import AltmarketsOrderBookTracker
 from hummingbot.connector.exchange.altmarkets.altmarkets_user_stream_tracker import AltmarketsUserStreamTracker
 from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
 from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
+import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
 from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
-    aiohttp_response_with_errors,
-    retry_sleep_time,
     str_date_to_ts,
     AltmarketsAPIError,
 )
@@ -317,7 +315,7 @@ class AltmarketsExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            try_count: int = 0,
-                           limit_id: Optional[str] = None) -> Dict[str, Any]:
+                           limit_id: Optional[str] = None):
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -327,42 +325,27 @@ class AltmarketsExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        limit_id = limit_id or endpoint
-        async with self._throttler.execute_task(limit_id):
-            url = f"{Constants.REST_URL}/{endpoint}"
-            shared_client = await self._http_client()
-            # Turn `params` into either GET params or POST body data
-            qs_params: dict = params if method.upper() == "GET" else None
-            req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
-            # Generate auth headers if needed.
-            headers: dict = {"Content-Type": "application/json", "User-Agent": Constants.USER_AGENT}
-            if is_auth_required:
-                headers: dict = self._altmarkets_auth.get_headers()
-            # Build request coro
-            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                                  params=qs_params, data=req_params,
-                                                  timeout=Constants.API_CALL_TIMEOUT)
-            http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-            if request_errors or parsed_response is None:
-                if try_count < Constants.API_MAX_RETRIES:
-                    try_count += 1
-                    time_sleep = retry_sleep_time(try_count)
-                    suppress_msgs = ['Forbidden']
-                    if (parsed_response is not None and parsed_response not in suppress_msgs) or try_count > 1:
-                        str_msg = parsed_response if parsed_response is not None else ""
-                        self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                           f"Retrying in {time_sleep:.0f}s. {str_msg}")
-                    await asyncio.sleep(time_sleep)
-                    return await self._api_request(method=method, endpoint=endpoint, params=params,
-                                                   is_auth_required=is_auth_required, try_count=try_count,
-                                                   limit_id=limit_id)
-                else:
-                    raise AltmarketsAPIError({"errors": parsed_response, "status": http_status})
-            if "errors" in parsed_response or "error" in parsed_response:
-                if "error" in parsed_response and "errors" not in parsed_response:
-                    parsed_response['errors'] = parsed_response['error']
-                raise AltmarketsAPIError(parsed_response)
-            return parsed_response
+        shared_client = await self._http_client()
+
+        # Generate auth headers if needed.
+        headers = {}
+        if is_auth_required:
+            headers.update(self._altmarkets_auth.get_headers())
+
+        parsed_response = await http_utils.api_call_with_retries(
+            method=method,
+            endpoint=endpoint,
+            extra_headers=headers,
+            params=params,
+            shared_client=shared_client,
+            throttler=self._throttler,
+            limit_id=limit_id or endpoint,
+            try_count=try_count)
+
+        if "errors" in parsed_response or "error" in parsed_response:
+            parsed_response['errors'] = parsed_response.get('errors', parsed_response.get('error'))
+            raise AltmarketsAPIError(parsed_response)
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -529,7 +512,7 @@ class AltmarketsExchange(ExchangeBase):
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> CancellationResult:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -541,28 +524,34 @@ class AltmarketsExchange(ExchangeBase):
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                try:
-                    async with timeout(6):
-                        await tracked_order.get_exchange_order_id()
-                except Exception:
-                    order_state = "reject"
-            exchange_order_id = tracked_order.exchange_order_id
-            response = await self._api_request("POST",
-                                               Constants.ENDPOINT["ORDER_DELETE"].format(id=exchange_order_id),
-                                               is_auth_required=True,
-                                               limit_id=Constants.RL_ID_ORDER_DELETE)
-            if isinstance(response, dict):
-                order_state = response.get("state", None)
+                self.logger().warning(f"Failed to cancel order {order_id}. Order not found in inflight orders.")
+            elif not tracked_order.is_local:
+                if tracked_order.exchange_order_id is None:
+                    try:
+                        async with timeout(6):
+                            await tracked_order.get_exchange_order_id()
+                    except Exception:
+                        order_state = "reject"
+                exchange_order_id = tracked_order.exchange_order_id
+                response = await self._api_request("POST",
+                                                   Constants.ENDPOINT["ORDER_DELETE"].format(id=exchange_order_id),
+                                                   is_auth_required=True,
+                                                   limit_id=Constants.RL_ID_ORDER_DELETE)
+                if isinstance(response, dict):
+                    order_state = response.get("state", None)
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+                               " The action will be retried later.")
+            errors_found = {"message": "Timeout during order cancellation"}
         except AltmarketsAPIError as e:
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
                 order_state = errors_found.get("state", None)
             if order_state is None or 'market.order.invaild_id_or_uuid' in errors_found:
                 self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
+
         if order_state in Constants.ORDER_STATES['CANCEL_WAIT'] or \
                 self._order_not_found_records.get(order_id, 0) >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
@@ -572,12 +561,14 @@ class AltmarketsExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             return CancellationResult(order_id, True)
         else:
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {errors_found.get('message', errors_found)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
-                                f"Check API key and network connection."
-            )
+            if not tracked_order or not tracked_order.is_local:
+                err_msg = errors_found.get('message', errors_found) if isinstance(errors_found, dict) else errors_found
+                self.logger().network(
+                    f"Failed to cancel order - {order_id}: {err_msg}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
+                                    f"Check API key and network connection."
+                )
             return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):
@@ -623,6 +614,21 @@ class AltmarketsExchange(ExchangeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+    def stop_tracking_order_exceed_not_found_limit(self, tracked_order: AltmarketsInFlightOrder):
+        """
+        Increments and checks if the tracked order has exceed the ORDER_NOT_EXIST_CONFIRMATION_COUNT limit.
+        If true, Triggers a MarketOrderFailureEvent and stops tracking the order.
+        """
+        client_order_id = tracked_order.client_order_id
+        self._order_not_found_records[client_order_id] = self._order_not_found_records.get(client_order_id, 0) + 1
+        if self._order_not_found_records[client_order_id] >= self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+            # Wait until the order not found error have repeated a few times before actually treating
+            # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(
+                                   self.current_timestamp, client_order_id, tracked_order.order_type))
+            self.stop_tracking_order(client_order_id)
+
     async def _update_order_status(self):
         """
         Calls REST API to get status update for each in-flight order.
@@ -648,20 +654,10 @@ class AltmarketsExchange(ExchangeBase):
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             responses = await safe_gather(*tasks, return_exceptions=True)
             for response, tracked_order in zip(responses, tracked_orders):
-                client_order_id = tracked_order.client_order_id
                 if isinstance(response, AltmarketsAPIError):
                     err = response.error_payload.get('errors', response.error_payload)
                     if "record.not_found" in err:
-                        self._order_not_found_records[client_order_id] = \
-                            self._order_not_found_records.get(client_order_id, 0) + 1
-                        if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
-                            # Wait until the order not found error have repeated a few times before actually treating
-                            # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                            continue
-                        self.trigger_event(MarketEvent.OrderFailure,
-                                           MarketOrderFailureEvent(
-                                               self.current_timestamp, client_order_id, tracked_order.order_type))
-                        self.stop_tracking_order(client_order_id)
+                        self.stop_tracking_order_exceed_not_found_limit(tracked_order=tracked_order)
                     else:
                         continue
                 elif "id" not in response:
@@ -697,7 +693,6 @@ class AltmarketsExchange(ExchangeBase):
 
         tracked_orders = list(self._in_flight_orders.values())
         track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
-
         if not track_order:
             return
         tracked_order = track_order[0]
@@ -711,7 +706,7 @@ class AltmarketsExchange(ExchangeBase):
             raise e
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
-        elif tracked_order.is_cancelled:
+        if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
             self.stop_tracking_order(tracked_order.client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
@@ -775,13 +770,13 @@ class AltmarketsExchange(ExchangeBase):
                 tracked_order.order_type,
                 executed_price,
                 tracked_order.executed_amount_base,
-                TradeFee(percent=update_msg["trade_fee"]),
+                AddedToCostTradeFee(percent=update_msg["trade_fee"]),
                 update_msg.get("exchange_trade_id", update_msg.get("id", update_msg.get("order_id")))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
                 tracked_order.executed_amount_base >= tracked_order.amount or \
-                tracked_order.is_done:
+                (not tracked_order.is_cancelled and tracked_order.is_done):
             tracked_order.last_state = "FILLED"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
@@ -810,6 +805,7 @@ class AltmarketsExchange(ExchangeBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
+        cancel_all_failed = False
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         open_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
@@ -821,8 +817,14 @@ class AltmarketsExchange(ExchangeBase):
             async with timeout(timeout_seconds):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
+            cancel_all_failed = True
+        for cancellation_result in cancellation_results:
+            if not cancellation_result.success:
+                cancel_all_failed = True
+                break
+        if cancel_all_failed:
             self.logger().network(
-                "Unexpected error cancelling orders.", exc_info=True,
+                "Failed to cancel all orders, unexpected error.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )
@@ -851,14 +853,15 @@ class AltmarketsExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -905,9 +908,6 @@ class AltmarketsExchange(ExchangeBase):
 
     # This is currently unused, but looks like a future addition.
     async def get_open_orders(self) -> List[OpenOrder]:
-        tracked_orders = list(self._in_flight_orders.values())
-        # for order in tracked_orders:
-        #     await order.get_exchange_order_id()
         result = await self._api_request("GET",
                                          Constants.ENDPOINT["USER_ORDERS"],
                                          is_auth_required=True,
@@ -918,12 +918,7 @@ class AltmarketsExchange(ExchangeBase):
                 # Skip done orders
                 continue
             exchange_order_id = str(order["id"])
-            # AltMarkets doesn't support client order ids yet so we must find it from the tracked orders.
-            track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
-            if not track_order or len(track_order) < 1:
-                # Skip untracked orders
-                continue
-            client_order_id = track_order[0].client_order_id
+            client_order_id = order["client_id"]
             if order["ord_type"] != OrderType.LIMIT.name.lower():
                 self.logger().info(f"Unsupported order type found: {order['type']}")
                 # Skip and report non-limit orders
