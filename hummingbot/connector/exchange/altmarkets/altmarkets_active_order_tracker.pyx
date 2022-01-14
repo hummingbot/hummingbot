@@ -46,7 +46,7 @@ cdef class AltmarketsActiveOrderTracker:
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, quantity
-        amount = float(entry[1]) if len(entry[1].replace('.', '')) > 0 else 0.0
+        amount = float(entry[1]) if len(str(entry[1]).replace('.', '')) > 0 else 0.0
         return float(entry[0]), amount
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):

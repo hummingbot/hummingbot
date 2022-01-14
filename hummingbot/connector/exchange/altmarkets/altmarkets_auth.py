@@ -16,6 +16,14 @@ class AltmarketsAuth():
         # POSIX epoch for nonce
         self.date_epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
+    def _nonce(self):
+        """ Function created to enable patching during unit tests execution.
+        :return: time based nonce
+        """
+        date_now = datetime.now(timezone.utc)
+        posix_timestamp_millis = int(((date_now - self.date_epoch) // timedelta(microseconds=1)) // 1000)
+        return str(posix_timestamp_millis)
+
     def generate_signature(self, auth_payload) -> (Dict[str, Any]):
         """
         Generates a HS256 signature from the payload.
@@ -32,9 +40,7 @@ class AltmarketsAuth():
         :return: a dictionary of auth headers
         """
         # Must use UTC timestamps for nonce, can't use tracking nonce
-        date_now = datetime.now(timezone.utc)
-        posix_timestamp_millis = int(((date_now - self.date_epoch) // timedelta(microseconds=1)) // 1000)
-        nonce = str(posix_timestamp_millis)
+        nonce = self._nonce()
         auth_payload = nonce + self.api_key
         signature = self.generate_signature(auth_payload)
         return {
