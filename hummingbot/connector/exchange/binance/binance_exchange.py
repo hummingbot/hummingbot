@@ -392,24 +392,8 @@ class BinanceExchange(ExchangeBase):
         :return: the id assigned by the connector to the order (the client id)
         """
         new_order_id = binance_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
-        safe_ensure_future(self.execute_buy(new_order_id, trading_pair, amount, order_type, price))
+        safe_ensure_future(self._create_order(TradeType.BUY, new_order_id, trading_pair, amount, order_type, price))
         return new_order_id
-
-    async def execute_buy(self,
-                          order_id: str,
-                          trading_pair: str,
-                          amount: Decimal,
-                          order_type: OrderType,
-                          price: Optional[Decimal] = s_decimal_NaN):
-        """
-        Creates a buy order using the parameters to configure it
-        :param order_id: the id that should be assigned to the order (the client id)
-        :param trading_pair: the token pair to operate with
-        :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
-        :param price: the order price
-        """
-        return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -422,32 +406,57 @@ class BinanceExchange(ExchangeBase):
         :return: the id assigned by the connector to the order (the client id)
         """
         order_id = binance_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
-        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
+        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_sell(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           order_type: OrderType,
-                           price: Optional[Decimal] = Decimal("NaN")):
+    def cancel(self, trading_pair: str, order_id: str):
         """
-        Creates a sell order using the parameters to configure it
-        :param order_id: the id that should be assigned to the order (the client id)
-        :param trading_pair: the token pair to operate with
-        :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
-        :param price: the order price
+        Creates a promise to cancel an order in the exchange
+        :param trading_pair: the trading pair the order to cancel operates with
+        :param order_id: the client id of the order to cancel
+        :return: the client id of the order to cancel
         """
-        return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
+        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
+        return order_id
 
-    async def create_order(self,
-                           trade_type: TradeType,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           order_type: OrderType,
-                           price: Optional[Decimal] = Decimal("NaN")):
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        """
+        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
+        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
+        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        successful_cancellations = []
+
+        try:
+            async with timeout(timeout_seconds):
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cr in cancellation_results:
+                    if isinstance(cr, Exception):
+                        continue
+                    if isinstance(cr, dict) and "origClientOrderId" in cr:
+                        client_order_id = cr.get("origClientOrderId")
+                        order_id_set.remove(client_order_id)
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
+        except Exception:
+            self.logger().network(
+                "Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
+            )
+
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
+
+    async def _create_order(self,
+                            trade_type: TradeType,
+                            order_id: str,
+                            trading_pair: str,
+                            amount: Decimal,
+                            order_type: OrderType,
+                            price: Optional[Decimal] = Decimal("NaN")):
         """
         Creates a an order in the exchange using the parameters to configure it
         :param trade_type: the side of the order (BUY of SELL)
@@ -538,48 +547,7 @@ class BinanceExchange(ExchangeBase):
             )
             self._order_tracker.process_order_update(order_update)
 
-    def cancel(self, trading_pair: str, order_id: str):
-        """
-        Creates a promise to cancel an order in the exchange
-        :param trading_pair: the trading pair the order to cancel operates with
-        :param order_id: the client id of the order to cancel
-        :return: the client id of the order to cancel
-        """
-        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
-        return order_id
-
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        """
-        Cancels all currently active orders. The cancellations are performed in parallel tasks.
-        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
-        """
-        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
-        tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
-
-        try:
-            async with timeout(timeout_seconds):
-                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cr in cancellation_results:
-                    if isinstance(cr, Exception):
-                        continue
-                    if isinstance(cr, dict) and "origClientOrderId" in cr:
-                        client_order_id = cr.get("origClientOrderId")
-                        order_id_set.remove(client_order_id)
-                        successful_cancellations.append(CancellationResult(client_order_id, True))
-        except Exception:
-            self.logger().network(
-                "Unexpected error cancelling orders.",
-                exc_info=True,
-                app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
-            )
-
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
-
-    async def execute_cancel(self, trading_pair: str, order_id: str):
+    async def _execute_cancel(self, trading_pair: str, order_id: str):
         """
         Requests the exchange to cancel an active order
         :param trading_pair: the trading pair the order to cancel operates with

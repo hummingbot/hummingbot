@@ -194,11 +194,12 @@ class BinanceExchangeTests(TestCase):
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange.execute_buy(order_id="OID1",
-                                      trading_pair=self.trading_pair,
-                                      amount=Decimal("100"),
-                                      order_type=OrderType.LIMIT,
-                                      price=Decimal("10000")))
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("10000")))
         self.async_run_with_timeout(request_sent_event.wait())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -242,11 +243,12 @@ class BinanceExchangeTests(TestCase):
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange.execute_buy(order_id="OID1",
-                                      trading_pair=self.trading_pair,
-                                      amount=Decimal("100"),
-                                      order_type=OrderType.LIMIT,
-                                      price=Decimal("10000")))
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("10000")))
         self.async_run_with_timeout(request_sent_event.wait())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -285,18 +287,20 @@ class BinanceExchangeTests(TestCase):
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange.execute_buy(order_id="OID1",
-                                      trading_pair=self.trading_pair,
-                                      amount=Decimal("0.0001"),
-                                      order_type=OrderType.LIMIT,
-                                      price=Decimal("0.0000001")))
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("0.0001"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("0.0000001")))
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         asyncio.get_event_loop().create_task(
-            self.exchange.execute_buy(order_id="OID2",
-                                      trading_pair=self.trading_pair,
-                                      amount=Decimal("100"),
-                                      order_type=OrderType.LIMIT,
-                                      price=Decimal("10000")))
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID2",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("10000")))
 
         self.async_run_with_timeout(request_sent_event.wait())
 

@@ -12,7 +12,6 @@ from typing import (
     Optional,
 )
 
-import pandas as pd
 from bidict import bidict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
@@ -42,8 +41,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
-    DIFF_EVENT_TYPE = "depthUpdate"
-    TRADE_EVENT_TYPE = "trade"
+    ONE_HOUR = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
@@ -234,7 +232,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ev_loop: the event loop the method will run in
         :param output: a queue to add the created trade messages
         """
-        message_queue = self._message_queue[self.TRADE_EVENT_TYPE]
+        message_queue = self._message_queue[CONSTANTS.TRADE_EVENT_TYPE]
         while True:
             try:
                 json_msg = await message_queue.get()
@@ -262,7 +260,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ev_loop: the event loop the method will run in
         :param output: a queue to add the created diff messages
         """
-        message_queue = self._message_queue[self.DIFF_EVENT_TYPE]
+        message_queue = self._message_queue[CONSTANTS.DIFF_EVENT_TYPE]
         while True:
             try:
                 json_msg = await message_queue.get()
@@ -308,10 +306,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
                                             exc_info=True)
                         await self._sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await self._sleep(delta)
+                await self._sleep(self.ONE_HOUR)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -336,7 +331,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if "result" in data:
                         continue
                     event_type = data.get("e")
-                    if event_type in [self.DIFF_EVENT_TYPE, self.TRADE_EVENT_TYPE]:
+                    if event_type in [CONSTANTS.DIFF_EVENT_TYPE, CONSTANTS.TRADE_EVENT_TYPE]:
                         self._message_queue[event_type].put_nowait(data)
 
             except asyncio.CancelledError:
