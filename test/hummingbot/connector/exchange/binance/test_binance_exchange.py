@@ -16,6 +16,7 @@ from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchan
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -707,7 +708,7 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(Decimal(trade_fill["price"]), fill_event.price)
         self.assertEqual(Decimal(trade_fill["qty"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(trade_fill["commissionAsset"], Decimal(trade_fill["commission"]))],
+        self.assertEqual([TokenAmount(trade_fill["commissionAsset"], Decimal(trade_fill["commission"]))],
                          fill_event.trade_fee.flat_fees)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
@@ -719,9 +720,11 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
         self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(trade_fill_non_tracked_order["commissionAsset"],
-                           Decimal(trade_fill_non_tracked_order["commission"]))],
-                         fill_event.trade_fee.flat_fees)
+        self.assertEqual([
+            TokenAmount(
+                trade_fill_non_tracked_order["commissionAsset"],
+                Decimal(trade_fill_non_tracked_order["commission"]))],
+            fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
             f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
@@ -809,9 +812,10 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
         self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(trade_fill_non_tracked_order["commissionAsset"],
-                           Decimal(trade_fill_non_tracked_order["commission"]))],
-                         fill_event.trade_fee.flat_fees)
+        self.assertEqual([
+            TokenAmount(trade_fill_non_tracked_order["commissionAsset"],
+                        Decimal(trade_fill_non_tracked_order["commission"]))],
+            fill_event.trade_fee.flat_fees)
         self.assertTrue(self._is_logged(
             "INFO",
             f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
@@ -1367,8 +1371,9 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(Decimal(event_message["L"]), fill_event.price)
         self.assertEqual(Decimal(event_message["l"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([(event_message["N"], Decimal(event_message["n"]))],
-                         fill_event.trade_fee.flat_fees)
+        self.assertEqual([
+            TokenAmount(event_message["N"], Decimal(event_message["n"]))],
+            fill_event.trade_fee.flat_fees)
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
         self.assertEqual(int(self.exchange.current_timestamp * 1e3), buy_event.timestamp)

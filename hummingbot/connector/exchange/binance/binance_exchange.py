@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-import warnings
 
 from decimal import Decimal
 from typing import (
@@ -30,7 +29,11 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.data_type.trade_fee import (
+    DeductedFromReturnsTradeFee,
+    TokenAmount,
+    TradeFeeBase,
+)
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
@@ -358,7 +361,7 @@ class BinanceExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+                is_maker: Optional[bool] = None) -> TradeFeeBase:
         """
         Calculates the estimated fee an order would pay based on the connector configuration
         :param base_currency: the order base currency
@@ -370,14 +373,13 @@ class BinanceExchange(ExchangeBase):
         :return: the estimated fee for the order
         """
 
-        warnings.warn(
-            "The 'get_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        raise DeprecationWarning(
-            "The 'get_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
-        )
+        """
+        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
+        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
+        maker order.
+        """
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -876,7 +878,7 @@ class BinanceExchange(ExchangeBase):
                                 order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
                                 price=Decimal(trade["price"]),
                                 amount=Decimal(trade["qty"]),
-                                trade_fee=AddedToCostTradeFee(
+                                trade_fee=DeductedFromReturnsTradeFee(
                                     flat_fees=[
                                         TokenAmount(
                                             trade["commissionAsset"],
