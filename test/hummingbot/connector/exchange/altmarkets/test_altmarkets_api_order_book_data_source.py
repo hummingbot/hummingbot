@@ -61,6 +61,10 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
+    def test_throttler_rates(self):
+        self.assertEqual(str(self.throttler._rate_limits[0]), str(self.data_source._get_throttler_instance()._rate_limits[0]))
+        self.assertEqual(str(self.throttler._rate_limits[-1]), str(self.data_source._get_throttler_instance()._rate_limits[-1]))
+
     @aioresponses()
     def test_get_last_traded_prices(self, mock_api):
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['TICKER_SINGLE'].format(trading_pair=self.exchange_trading_pair)}"
@@ -73,6 +77,37 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
 
         self.assertIn(self.trading_pair, results)
         self.assertEqual(Decimal("51234.56"), results[self.trading_pair])
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    def test_get_last_traded_prices_multiple(self, mock_api, retry_sleep_time_mock):
+        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+        url = f"{Constants.REST_URL}/{Constants.ENDPOINT['TICKER']}"
+        resp = {
+            f"{self.exchange_trading_pair}": {
+                "ticker": {"last": 51234.56}
+            },
+            "rogerbtc": {
+                "ticker": {"last": 0.00000002}
+            },
+            "btcusdt": {
+                "ticker": {"last": 51234.56}
+            },
+            "hbotbtc": {
+                "ticker": {"last": 0.9}
+            },
+        }
+        mock_api.get(url, body=json.dumps(resp))
+
+        results = self.async_run_with_timeout(AltmarketsAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=[self.trading_pair, 'rogerbtc', 'btcusdt', 'hbotbtc'],
+            throttler=self.throttler))
+
+        self.assertIn(self.trading_pair, results)
+        self.assertEqual(Decimal("51234.56"), results[self.trading_pair])
+        self.assertEqual(Decimal("0.00000002"), results["rogerbtc"])
+        self.assertEqual(Decimal("51234.56"), results["btcusdt"])
+        self.assertEqual(Decimal("0.9"), results["hbotbtc"])
 
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
@@ -95,6 +130,19 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertIn(self.trading_pair, results)
         self.assertIn("ROGER-BTC", results)
 
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    def test_fetch_trading_pairs_returns_empty_on_error(self, mock_api, retry_sleep_time_mock):
+        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+        url = f"{Constants.REST_URL}/{Constants.ENDPOINT['SYMBOL']}"
+        for i in range(Constants.API_MAX_RETRIES):
+            mock_api.get(url, body=json.dumps([{"noname": "empty"}]))
+
+        results = self.async_run_with_timeout(AltmarketsAPIOrderBookDataSource.fetch_trading_pairs(
+            throttler=self.throttler))
+
+        self.assertEqual(0, len(results))
+
     @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
     @aioresponses()
     def test_get_new_order_book(self, time_mock, mock_api):
@@ -111,6 +159,22 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
             self.data_source.get_new_order_book(self.trading_pair))
 
         self.assertEqual(1234567899 * 1e3, order_book.snapshot_uid)
+
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @aioresponses()
+    def test_get_new_order_book_raises_error(self, retry_sleep_time_mock, time_mock, mock_api):
+        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+        time_mock.return_value = 1234567899
+        url = f"{Constants.REST_URL}/" \
+              f"{Constants.ENDPOINT['ORDER_BOOK'].format(trading_pair=self.exchange_trading_pair)}" \
+              "?limit=300"
+        for i in range(Constants.API_MAX_RETRIES):
+            mock_api.get(url, body=json.dumps({"errors": {"message": "Dummy error."}, "status": 500}))
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(
+                self.data_source.get_new_order_book(self.trading_pair))
 
     def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self):
         trades_queue = asyncio.Queue()
@@ -221,6 +285,50 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual('3333', trade_message.trade_id)
         self.assertEqual(self.trading_pair, trade_message.trading_pair)
 
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_trades_unrecognised(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=received_messages))
+
+        message = {
+            "hbotusdttrades": {}
+        }
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(received_messages.get())
+
+        self.assertTrue(self._is_logged("INFO",
+                                        "Unrecognized message received from Altmarkets websocket: {'hbotusdttrades': {}}"))
+
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_trades_handles_exception(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=received_messages))
+
+        message = {
+            "hbotusdt.trades": {
+                "tradess": []
+            }
+        }
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(received_messages.get())
+
+        self.assertTrue(self._is_logged("ERROR",
+                                        "Trades: Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
+
     @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diff(self, ws_connect_mock, time_mock):
@@ -232,15 +340,15 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
             "hbotusdt.ob-inc": {
                 "timestamp": 1234567890,
                 "asks": [
-                    ["2", 0],
-                    ["1", 0],
-                    ["4", 7222.08, 6.92321326],
-                    ["6", 7219.2, 0.69259752]],
+                    [7220.08, 0],
+                    [7221.08, 0],
+                    [7222.08, 6.92321326],
+                    [7219.2, 0.69259752]],
                 "bids": [
-                    ["9", 0],
-                    ["5", 0],
-                    ["7", 7193.27, 6.95094164],
-                    ["8", 7196.15, 0.69481598]]
+                    [7190.27, 0],
+                    [7192.27, 0],
+                    [7193.27, 6.95094164],
+                    [7196.15, 0.69481598]]
             }
         }
 
@@ -259,3 +367,88 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(int(1234567890 * 1e3), diff_message.update_id)
         self.assertEqual(-1, diff_message.trade_id)
         self.assertEqual(self.trading_pair, diff_message.trading_pair)
+
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_snapshot(self, ws_connect_mock, time_mock):
+        time_mock.return_value = 1234567890
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        message = {
+            "hbotusdt.ob-snap": {
+                "timestamp": 1234567890,
+                "asks": [
+                    [7220.08, 6.92321326],
+                    [7221.08, 6.92321326],
+                    [7222.08, 6.92321326],
+                    [7219.2, 0.69259752]],
+                "bids": [
+                    [7190.27, 6.95094164],
+                    [7192.27, 6.95094164],
+                    [7193.27, 6.95094164],
+                    [7196.15, 0.69481598]]
+            }
+        }
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=received_messages))
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        diff_message = self.async_run_with_timeout(received_messages.get())
+
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, diff_message.type)
+        self.assertEqual(4, len(diff_message.content.get("bids")))
+        self.assertEqual(4, len(diff_message.content.get("asks")))
+        self.assertEqual(1234567890, diff_message.timestamp)
+        self.assertEqual(int(1234567890 * 1e3), diff_message.update_id)
+        self.assertEqual(-1, diff_message.trade_id)
+        self.assertEqual(self.trading_pair, diff_message.trading_pair)
+
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diff_unrecognised(self, ws_connect_mock, time_mock):
+        time_mock.return_value = 1234567890
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        message = {
+            "snapcracklepop": {}
+        }
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=received_messages))
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(received_messages.get())
+
+        self.assertTrue(self._is_logged("INFO",
+                                        "Unrecognized message received from Altmarkets websocket: {'snapcracklepop': {}}"))
+
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diff_handles_exception(self, ws_connect_mock, time_mock):
+        time_mock.return_value = "NaN"
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        message = {
+            ".ob-snap": {}
+        }
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=received_messages))
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(received_messages.get())
+
+        self.assertTrue(self._is_logged("NETWORK",
+                                        "Unexpected error with WebSocket connection."))
