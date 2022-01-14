@@ -272,7 +272,7 @@ class BinanceExchangeTests(TestCase):
         )
 
     @aioresponses()
-    def test_create_order_fails_when_trding_rule_error_and_raises_failure_event(self, mock_api):
+    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
