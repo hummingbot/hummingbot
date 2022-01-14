@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../services/patch';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import {
   NETWORK_ERROR_CODE,
   OUT_OF_GAS_ERROR_CODE,
@@ -20,7 +20,7 @@ afterEach(unpatch);
 
 describe('GET /avalanche', () => {
   it('should return 200', async () => {
-    await request(app)
+    await request(gatewayApp)
       .get(`/avalanche`)
       .expect('Content-Type', /json/)
       .expect(200)
@@ -97,7 +97,7 @@ describe('POST /avalanche/nonce', () => {
     patchGetWallet();
     patchGetNonce();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/nonce`)
       .send({
         address,
@@ -109,7 +109,7 @@ describe('POST /avalanche/nonce', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/nonce`)
       .send({
         address: 'da857cbda0ba96757fed842617a4',
@@ -128,7 +128,7 @@ describe('POST /avalanche/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/approve`)
       .send({
         address,
@@ -145,7 +145,7 @@ describe('POST /avalanche/approve', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/approve`)
       .send({
         address,
@@ -168,7 +168,7 @@ describe('POST /avalanche/allowances', () => {
     });
     patchGetERC20Allowance();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/allowances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -194,7 +194,7 @@ describe('POST /avalanche/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/balances`)
       .send({
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -219,7 +219,7 @@ describe('POST /avalanche/cancel', () => {
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/cancel`)
       .send({
         address,
@@ -236,7 +236,7 @@ describe('POST /avalanche/cancel', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/avalanche/cancel`)
       .send({
         address: '',
@@ -254,7 +254,7 @@ describe('POST /avalanche/poll', () => {
       throw error;
     });
 
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -269,7 +269,7 @@ describe('POST /avalanche/poll', () => {
       throw new Error();
     });
 
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -282,7 +282,7 @@ describe('POST /avalanche/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => transactionOutOfGas);
     patch(avalanche, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -296,7 +296,7 @@ describe('POST /avalanche/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => transactionOutOfGas);
     patch(avalanche, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -309,7 +309,7 @@ describe('POST /avalanche/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => null);
     patch(avalanche, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -326,7 +326,7 @@ describe('POST /avalanche/poll', () => {
       'getTransactionReceipt',
       () => transactionSuccesfulReceipt
     );
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
     });
@@ -341,7 +341,7 @@ describe('POST /avalanche/poll', () => {
       error.code = -32006;
       throw error;
     });
-    const res = await request(app).post('/avalanche/poll').send({
+    const res = await request(gatewayApp).post('/avalanche/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
