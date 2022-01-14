@@ -8,8 +8,12 @@ from typing import (
     Coroutine,
     List,
 )
+import types
+import docker
 import os
 import subprocess
+from multiprocessing import Process
+import aioprocessing
 
 from hummingbot import (
     check_dev_mode,
@@ -61,9 +65,12 @@ def autofix_permissions(user_group_spec: str):
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
     subprocess.run(f"cd '{project_home}' && "
                    f"sudo chown -R {user_group_spec} conf/ data/ logs/", capture_output=True, shell=True)
+    uid, gid = user_group_spec.split(':')
+    os.setgid(int(gid))
+    os.setuid(int(uid))
 
 
-async def quick_start(args):
+async def quick_start(args, docker_pipe, docker_pipe_event):
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
@@ -82,7 +89,7 @@ async def quick_start(args):
 
     AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
-    hb = HummingbotApplication.main_application()
+    hb = HummingbotApplication.main_application(docker_conn=docker_pipe, docker_pipe_event=docker_pipe_event)
     # Todo: validate strategy and config_file_name before assinging
 
     if config_file_name is not None:
@@ -121,7 +128,7 @@ async def quick_start(args):
         await safe_gather(*tasks)
 
 
-def main():
+def main(docker_pipe, docker_pipe_event):
     args = CmdlineParser().parse_args()
 
     # Parse environment variables from Dockerfile.
@@ -139,8 +146,48 @@ def main():
         if not login_prompt():
             return
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args))
+    asyncio.get_event_loop().run_until_complete(quick_start(args, docker_pipe, docker_pipe_event))
+
+
+def start_docker(queue, event):
+    docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
+    while True:
+        try:
+            try:
+                method, kwargs = queue.recv()
+            except Exception:
+                break
+            if isinstance(kwargs, list):
+                response = getattr(docker_client, method)(kwargs[0], **kwargs[1])
+            else:
+                response = getattr(docker_client, method)(**kwargs)
+
+            if isinstance(response, types.GeneratorType):
+                event.set()
+                for stream in response:
+                    queue.send(stream)
+                queue.send(None)
+                event.clear()
+            else:
+                queue.send(response)
+        except Exception as e:
+            queue.send(e)
 
 
 if __name__ == "__main__":
-    main()
+    # IPC pipe
+    client, dock = aioprocessing.AioPipe()
+    event = aioprocessing.AioEvent()
+
+    # fork app
+    p = Process(target=start_docker, args=(client, event,))
+    p.start()
+
+    main(dock, event)
+
+    # stop ipc
+    dock.send(None)
+    client.close()
+    dock.close()
+
+    p.join()
