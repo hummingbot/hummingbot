@@ -171,7 +171,14 @@ export const startGateway = async () => {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     gatewayServer = await gatewayApp.listen(port);
   } else {
-    gatewayServer = await addHttps(gatewayApp).listen(port);
+    try {
+      gatewayServer = await addHttps(gatewayApp).listen(port);
+    } catch (e) {
+      logger.error(
+        `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
+      );
+      process.exit(1);
+    }
     logger.info('The gateway server is secured behind HTTPS.');
   }
 
