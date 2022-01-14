@@ -3,10 +3,8 @@ import asyncio
 import aiohttp
 import ssl
 import json
-import shutil
-import ruamel.yaml
 import pandas as pd
-from os import listdir, path
+from os import path
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
@@ -79,75 +77,26 @@ class GatewayCommand:
         self.app.change_prompt(prompt=">>> ")
 
     async def _create_gateway(self):
-        gateway_conf_path = path.join(root_path(), "gateway/conf")
+
+        gateway_conf_path = path.join(root_path(), "gateway_conf")
         certificate_path = cert_path()
         log_path = path.join(root_path(), "logs")
         docker_repo = "coinalpha/hummingbot"
         gateway_container_name = "gateway-v2_container"
 
-        if len(listdir(gateway_conf_path)) > 1:
-            self.app.clear_input()
-            self.placeholder_mode = True
-            self.app.hide_input = True
-            clear_gateway = await self.app.prompt(prompt="Gateway configurations detected. Would you like to erase? (Yes/No) >>> ")
-            if clear_gateway is not None and clear_gateway in ["Y", "y", "Yes", "yes"]:
-                self._notify("Erasing existing Gateway configurations...")
-                shutil.move(path.join(gateway_conf_path, "samples"), "/tmp")
-                shutil.rmtree(gateway_conf_path)
-                shutil.move("/tmp/samples", path.join(gateway_conf_path, "samples"))
-            self.placeholder_mode = False
-            self.app.hide_input = False
-            self.app.change_prompt(prompt=">>> ")
-
-        if len(listdir(gateway_conf_path)) == 1:
-            self._notify("Initiating Gateway configurations from sample files...")
-            shutil.copytree(path.join(gateway_conf_path, "samples"), gateway_conf_path, dirs_exist_ok=True)
-            self.app.clear_input()
-            self.placeholder_mode = True
-            self.app.hide_input = True
-            # prompt for questions about infura key
-            use_infura = await self.app.prompt(prompt="Would you like to connect to Ethereum network using Infura? (Yes/No) >>> ")
-            yaml_parser = ruamel.yaml.YAML()
-            ethereum_conf_path = path.join(gateway_conf_path, "ethereum.yml")
-            if use_infura is not None and use_infura in ["Y", "y", "Yes", "yes"]:
-                infura_key = await self.app.prompt(prompt="Enter your Infura API key >>> ")
-                try:
-                    with open(ethereum_conf_path) as stream:
-                        data = yaml_parser.load(stream) or {}
-                        for key in data["networks"]:
-                            data["networks"][key]["nodeApiKey"] = infura_key
-                        with open(ethereum_conf_path, "w+") as outfile:
-                            yaml_parser.dump(data, outfile)
-                except Exception as e:
-                    self.logger().error("Error writing configs: %s" % (str(e),), exc_info=True)
-            else:
-                node_rpc = await self.app.prompt(prompt="Enter node rpc url to use to connect to Ethereum mainnet  >>> ")
-                try:
-                    with open(ethereum_conf_path) as stream:
-                        data = yaml_parser.load(stream) or {}
-                        data["networks"]["mainnet"]["nodeURL"] = node_rpc
-                        with open(ethereum_conf_path, "w+") as outfile:
-                            yaml_parser.dump(data, outfile)
-                except Exception:
-                    self.logger().error("Error updating Ethereum mainnet rpc url.")
-            self.placeholder_mode = False
-            self.app.hide_input = False
-            self.app.change_prompt(prompt=">>> ")
-
         # remove existing container(s)
         try:
-            old_container = self._docker_client.containers(all=True,
-                                                           filters={"name": gateway_container_name})
+            old_container = await self.docker_ipc(("containers", {"all": True, "filters": {"name": gateway_container_name}}))
             for container in old_container:
                 self._notify(f"Removing existing gateway container with id {container['Id']}...")
-                self._docker_client.remove_container(container["Id"], force=True)
+                await self.docker_ipc(("remove_container", [container["Id"], {"force": True}]))
         except Exception:
             pass  # silently ignore exception
 
         await self._generate_certs()  # create cert if not available
         self._notify("Pulling Gateway docker image...")
         try:
-            await asyncio.get_running_loop().run_in_executor(None, self.pull_gateway_docker, docker_repo)
+            await self.pull_gateway_docker(docker_repo)
             self.logger().info("Done pulling Gateway docker image.")
         except Exception as e:
             self._notify("Error pulling Gateway docker image. Try again.")
@@ -156,23 +105,27 @@ class GatewayCommand:
                                   app_warning_msg=str(e))
             return
         self._notify("Creating new Gateway docker container...")
-        container_id = self._docker_client.create_container(image = f"{docker_repo}:gateway-v2",
-                                                            name = gateway_container_name,
-                                                            ports = [5000],
-                                                            volumes=[gateway_conf_path, certificate_path, log_path],
-                                                            host_config=self._docker_client.create_host_config(
-                                                                port_bindings={5000: 5000},
-                                                                binds={gateway_conf_path: {'bind': '/usr/src/app/conf/',
-                                                                                           'mode': 'rw'},
-                                                                       certificate_path: {'bind': '/usr/src/app/certs/',
-                                                                                          'mode': 'rw'},
-                                                                       log_path: {'bind': '/usr/src/app/logs/',
-                                                                                  'mode': 'rw'}}))
+        host_config = await self.docker_ipc(("create_host_config",
+                                             {"port_bindings": {5000: 5000},
+                                              "binds": {"gateway_conf_path": {"bind": "/usr/src/app/conf/",
+                                                                              "mode": "rw"},
+                                                        "certificate_path": {"bind": "/usr/src/app/certs/",
+                                                                             "mode": "rw"},
+                                                        "log_path": {"bind": "/usr/src/app/logs/",
+                                                                             "mode": "rw"}}}))
+        container_id = await self.docker_ipc(("create_container",
+                                              {"image": f"{docker_repo}:gateway-v2",
+                                               "name": gateway_container_name,
+                                               "ports": [5000],
+                                               "volumes": [gateway_conf_path, certificate_path, log_path],
+                                               "host_config": host_config}))
         self._notify(f"New Gateway docker container id is {container_id['Id']}.")
 
-    def pull_gateway_docker(self, docker_repo):
+    async def pull_gateway_docker(self, docker_repo):
         last_id = ""
-        for pull_log in self._docker_client.pull(docker_repo, tag="gateway-v2", stream=True, decode=True):
+        pull_generator = self.docker_ipc_with_generator(("pull",
+                                                         [docker_repo, {"tag": "gateway-v2", "stream": True, "decode": True}]))
+        async for pull_log in pull_generator:
             new_id = pull_log["id"] if pull_log.get("id") else last_id
             if last_id != new_id:
                 self.logger().info(f"Pull Id: {new_id}, Status: {pull_log['status']}")
@@ -280,3 +233,21 @@ class GatewayCommand:
         config = await self.get_gateway_configuration()
         build_config_namespace_keys(self.gateway_config_keys, config)
         self.app.input_field.completer = load_completer(self)
+
+    def get_ipc_info(self):
+        return self._docker_conn, self._docker_pipe_event
+
+    async def docker_ipc(self, data):
+        pipe, event = self.get_ipc_info()
+        pipe.send(data)
+        return await pipe.coro_recv()
+
+    async def docker_ipc_with_generator(self, data):
+        pipe, event = self.get_ipc_info()
+        pipe.send(data)
+
+        while True:
+            data = await pipe.coro_recv()
+            if not data and not event.is_set():
+                return
+            yield data
