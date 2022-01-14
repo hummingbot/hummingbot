@@ -45,7 +45,8 @@ printf "%30s %5s\n" "Config files:" "├── $FOLDER/hummingbot_conf"
 printf "%30s %5s\n" "Log files:" "├── $FOLDER/hummingbot_logs"
 printf "%30s %5s\n" "Trade and data files:" "├── $FOLDER/hummingbot_data"
 printf "%30s %5s\n" "Scripts files:" "├── $FOLDER/hummingbot_scripts"
-printf "%30s %5s\n" "Cert files:" "└── $FOLDER/hummingbot_certs"
+printf "%30s %5s\n" "Cert files:" "├── $FOLDER/hummingbot_certs"
+printf "%30s %5s\n" "Gateway config files:" "└── $FOLDER/gateway_conf"
 echo
 
 prompt_proceed () {
@@ -69,6 +70,7 @@ create_instance () {
  mkdir $FOLDER/hummingbot_data
  mkdir $FOLDER/hummingbot_scripts
  mkdir $FOLDER/hummingbot_certs
+ mkdir $FOLDER/gateway_conf
  # 3) Set required permissions to save hummingbot password the first time
  sudo chmod a+rw $FOLDER/hummingbot_conf
  # 4) Launch a new instance of hummingbot
@@ -80,6 +82,8 @@ create_instance () {
  --mount "type=bind,source=$FOLDER/hummingbot_data,destination=/data/" \
  --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/" \
  --mount "type=bind,source=$FOLDER/hummingbot_certs,destination=/certs/" \
+ --mount "type=bind,source=$FOLDER/gateway_conf,destination=/gateway_conf/"
+ --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
  coinalpha/hummingbot:$TAG
 }
 
