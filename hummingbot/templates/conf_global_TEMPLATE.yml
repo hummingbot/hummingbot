@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 36
+template_version: 37
 
 # Exchange configs
 
@@ -33,6 +33,9 @@ bybit_api_secret: null
 
 bybit_testnet_api_key: null
 bybit_testnet_api_secret: null
+
+btc_markets_api_key: null
+btc_markets_secret_key: null
 
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
