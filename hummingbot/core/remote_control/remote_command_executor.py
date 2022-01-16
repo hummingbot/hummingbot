@@ -131,6 +131,12 @@ class RemoteCommandExecutor(PubSub):
         finally:
             await self.disconnect()
 
+    def _finish_processing_event_hook(self):
+        """
+        Used for mock callbacks.
+        """
+        pass
+
     async def _process_event(self, event):
         """
         Process and handle incoming events
@@ -179,7 +185,7 @@ class RemoteCommandExecutor(PubSub):
         if not self._disable_console_commands and remote_event.command:
             self._hb.app.log(f"\n[Remote Command Executor] {command_log_string}")
 
-            # if the command does starts with any disabled commands
+            # if the command starts with any disabled commands
             if any([remote_event.command.lower().startswith(dc) for dc in DISABLED_COMMANDS]):
                 return
             else:
@@ -206,6 +212,7 @@ class RemoteCommandExecutor(PubSub):
     def broadcast(self, remote_event):
         # Only broadcast `RemoteCmdEvent` objects.
         if not isinstance(remote_event, RemoteCmdEvent):
+            self.logger().warning("Remote Command Executor can only broadcast RemoteCmdEvent objects.")
             return
         safe_ensure_future(self._emit(remote_event), loop=self._ev_loop)
         return True
@@ -220,6 +227,8 @@ class RemoteCommandExecutor(PubSub):
                     except Exception as e:
                         self._hb.app.log(f"\n[Remote Command Executor] Error: {e}")
                         self.logger().error(f"Remote Command Executor error: {e}", exc_info=True)
+                    # Used for mock callbacks
+                    self._finish_processing_event_hook()
             except asyncio.CancelledError:
                 raise
             except (websockets.exceptions.InvalidStatusCode, socket.gaierror):
@@ -248,6 +257,6 @@ class RemoteCommandExecutor(PubSub):
             self._rce_task = None
 
     # Only used for testing websocket data in the test suite.
-    async def _on_message(self) -> AsyncIterable[Any]:
-        async for msg in self._messages():
-            yield msg
+    # async def _on_message(self) -> AsyncIterable[Any]:
+    #     async for msg in self._messages():
+    #         yield msg
