@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import { patch, unpatch } from '../../services/patch';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
@@ -64,7 +64,7 @@ describe('POST /wallet/add', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
@@ -85,7 +85,7 @@ describe('POST /wallet/add', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
@@ -107,7 +107,7 @@ describe('POST /wallet/add', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/wallet/add`)
       .send({})
       .expect('Content-Type', /json/)
@@ -127,7 +127,7 @@ describe('DELETE /wallet/remove', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
@@ -137,7 +137,7 @@ describe('DELETE /wallet/remove', () => {
       .expect('Content-Type', /json/)
       .expect(200);
 
-    await request(app)
+    await request(gatewayApp)
       .delete(`/wallet/remove`)
       .send({
         address: twoAddress,
@@ -149,7 +149,7 @@ describe('DELETE /wallet/remove', () => {
   });
 
   it('return 404 for ill-formed request', async () => {
-    await request(app).delete(`/wallet/delete`).send({}).expect(404);
+    await request(gatewayApp).delete(`/wallet/delete`).send({}).expect(404);
   });
 });
 
@@ -165,7 +165,7 @@ describe('GET /wallet', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
@@ -174,7 +174,7 @@ describe('GET /wallet', () => {
       .expect('Content-Type', /json/)
       .expect(200);
 
-    await request(app)
+    await request(gatewayApp)
       .get(`/wallet`)
       .expect('Content-Type', /json/)
       .expect(200)
