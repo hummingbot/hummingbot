@@ -31,9 +31,6 @@ Fmfw_PRIVATE_TOPICS = [
     "/account/balance",
 ]
 
-api_key = 'Jt-QoNtyvTacKE4gWRj85_uPCH118WBP'
-secret_key = 'k2rA8qEdrMxAXl4KBqoHx5-51CxD3mmN'
-
 
 class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
@@ -80,11 +77,10 @@ class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 async with websockets.connect(FMFW_USER_STREAM_ENDPOINT) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-
                     timestamp = int(time.time() * 1000)
                     message = str(timestamp)
 
-                    sign = HMAC(key=secret_key.encode(),
+                    sign = HMAC(key=self._fmfw_auth.secret_key.encode(),
                                 msg=message.encode(),
                                 digestmod=sha256).hexdigest()
 
@@ -92,7 +88,7 @@ class FmfwAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         "method": "login",
                         "params": {
                             "type": "HS256",
-                            "api_key": api_key,
+                            "api_key": self._fmfw_auth.api_key,
                             "timestamp": timestamp,
                             "signature": sign
                         }

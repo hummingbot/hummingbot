@@ -646,7 +646,7 @@ cdef class FmfwExchange(ExchangeBase):
         path_url = "/api/3/spot/order"
         side = "buy" if is_buy else "sell"
         params = {
-            "price": str(8.7),
+            "price": str(price),
             "side": side,
             "client_order_id":order_id,
             'quantity': str(amount),
