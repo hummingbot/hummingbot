@@ -68,6 +68,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 headers = {
                     **self._ascend_ex_auth.get_headers(),
                     **self._ascend_ex_auth.get_auth_headers("info"),
+                    **self._ascend_ex_auth.get_hb_id_headers(),
                 }
                 async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
                     response = await self._shared_client.get(
@@ -75,7 +76,10 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     )
                 info = await response.json()
                 accountGroup = info.get("data").get("accountGroup")
-                headers = self._ascend_ex_auth.get_auth_headers("stream")
+                headers = {
+                    **self._ascend_ex_auth.get_auth_headers("stream"),
+                    **self._ascend_ex_auth.get_hb_id_headers(),
+                }
                 payload = {
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": "order:cash"

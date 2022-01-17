@@ -54,8 +54,11 @@ class WSAssistant:
         request = await self._authenticate(request)
         await self._connection.send(request)
 
-    async def iter_messages(self) -> AsyncGenerator[WSResponse, None]:
-        """This generator stops on `WSDelegate.disconnect()`."""
+    async def ping(self):
+        await self._connection.ping()
+
+    async def iter_messages(self) -> AsyncGenerator[Optional[WSResponse], None]:
+        """Will yield None and stop if `WSDelegate.disconnect()` is called while waiting for a response."""
         while self._connection.connected:
             response = await self._connection.receive()
             if response is not None:
