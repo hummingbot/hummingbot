@@ -19,10 +19,7 @@ import {
   Trade,
 } from '@pangolindex/sdk';
 import { logger } from '../../services/logger';
-import {
-  ExpectedTrade,
-  Uniswapish,
-} from '../../services/uniswapish.interface';
+import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
 export class Pangolin implements Uniswapish {
   private static instance: Pangolin;
   private avalanche = Avalanche.getInstance();

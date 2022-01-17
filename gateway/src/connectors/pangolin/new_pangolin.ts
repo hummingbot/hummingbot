@@ -60,7 +60,8 @@ export class NewPangolin implements Uniswapish {
   }
 
   public async init() {
-    if (this._chain == 'avalanche' && !this.avalanche.ready()) throw new Error('Avalanche is not available');
+    if (this._chain == 'avalanche' && !this.avalanche.ready())
+      throw new Error('Avalanche is not available');
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
