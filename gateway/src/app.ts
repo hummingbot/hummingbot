@@ -139,6 +139,12 @@ app.use(
 
 export const startGateway = async () => {
   const port = ConfigManagerV2.getInstance().get('server.port');
+  if (!ConfigManagerV2.getInstance().get('server.id')) {
+    ConfigManagerV2.getInstance().set(
+      'server.id',
+      Math.random().toString(16).substr(2, 14)
+    );
+  }
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
@@ -159,7 +165,14 @@ export const startGateway = async () => {
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
     server = await app.listen(port);
   } else {
-    server = await addHttps(app).listen(port);
+    try {
+      server = await addHttps(app).listen(port);
+    } catch (e) {
+      logger.error(
+        `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
+      );
+      process.exit(1);
+    }
     logger.info('The server is secured behind HTTPS.');
   }
 };
