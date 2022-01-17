@@ -33,7 +33,7 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         if parser is None:
             return []
         subcommands = parser._optionals._option_string_actions.keys()
-        filtered = list(filter(lambda sub: sub.startswith("--") and sub != "--help", subcommands))
+        filtered = list(filter(lambda sub: sub.startswith("--"), subcommands))
         return filtered
 
 
