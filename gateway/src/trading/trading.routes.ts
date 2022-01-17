@@ -4,7 +4,8 @@ import { NextFunction, Router, Request, Response } from 'express';
 // import { Ethereum } from './ethereum';
 // import { EthereumConfig } from './ethereum.config';
 // import { ConfigManager } from '../../services/config-manager';
-import { verifyNewEthereumIsAvailable } from '../chains/ethereum/ethereum-middlewares';
+// import { verifyNewEthereumIsAvailable } from '../chains/ethereum/ethereum-middlewares';
+// import { verifyNewAvalancheIsAvailable } from '../chains/avalanche/avalanche-middlewares';
 import { asyncHandler } from '../services/error-handler';
 import {
   approve,
@@ -52,30 +53,47 @@ import { NewAvalanche } from '../chains/avalanche/new_avalanche';
 import { price, trade } from '../connectors/uniswap/uniswap.controllers';
 import { NewUniswap } from '../connectors/uniswap/new_uniswap';
 import { NewPangolin } from '../connectors/pangolin/new_pangolin';
-import { verifyNewUniswapIsAvailable } from '../connectors/uniswap/uniswap-middlewares';
+// import { verifyNewUniswapIsAvailable } from '../connectors/uniswap/uniswap-middlewares';
 import {
   validatePriceRequest,
   validateTradeRequest,
 } from '../connectors/uniswap/uniswap.validators';
+import { Ethereumish } from '../services/ethereumish.interface';
 
 export namespace TradingRoutes {
   export const router = Router();
 
-  router.use(asyncHandler(verifyNewEthereumIsAvailable));
-  router.use(asyncHandler(verifyNewUniswapIsAvailable));
+  // router.use(asyncHandler(verifyNewEthereumIsAvailable));
+  // // router.use(asyncHandler(verifyNewAvalancheIsAvailable));
+  // router.use(asyncHandler(verifyNewUniswapIsAvailable));
 
-  function getChain(chain: string, network: string) {
-    if (chain === 'ethereum') return NewEthereum.getInstance(network);
-    else if (chain === 'avalanche') return NewAvalanche.getInstance(network);
+  async function getChain(chain: string, network: string) {
+    let chainInstance: Ethereumish;
+    if (chain === 'ethereum') chainInstance = NewEthereum.getInstance(network);
+    else if (chain === 'avalanche')
+      chainInstance = NewAvalanche.getInstance(network);
     else throw new Error('unsupported chain');
+    if (!chainInstance.ready()) {
+      await chainInstance.init();
+    }
+    return chainInstance;
   }
 
-  function getConnector(chain: string, network: string, connector: string) {
+  async function getConnector(
+    chain: string,
+    network: string,
+    connector: string
+  ) {
+    let connectorInstance: any;
     if (chain === 'ethereum' && connector === 'uniswap')
-      return NewUniswap.getInstance(chain, network);
+      connectorInstance = NewUniswap.getInstance(chain, network);
     else if (chain === 'avalanche' && connector === 'pangolin')
-      return NewPangolin.getInstance(chain, network);
-    else throw new Error('unsupported chain or network');
+      connectorInstance = NewPangolin.getInstance(chain, network);
+    else throw new Error('unsupported chain or connector');
+    if (!connectorInstance.ready()) {
+      await connectorInstance.init();
+    }
+    return connectorInstance;
   }
 
   router.post(
@@ -86,7 +104,7 @@ export namespace TradingRoutes {
         res: Response<NonceResponse | string, {}>
       ) => {
         validateNonceRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
+        const chain = await getChain(req.body.chain, req.body.network);
         res.status(200).json(await nonce(chain, req.body));
       }
     )
@@ -100,7 +118,7 @@ export namespace TradingRoutes {
         res: Response<AllowancesResponse | string, {}>
       ) => {
         validateAllowancesRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
+        const chain = await getChain(req.body.chain, req.body.network);
         res.status(200).json(await allowances(chain, req.body));
       }
     )
@@ -115,7 +133,7 @@ export namespace TradingRoutes {
         _next: NextFunction
       ) => {
         validateBalanceRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
+        const chain = await getChain(req.body.chain, req.body.network);
         res.status(200).json(await balances(chain, req.body));
       }
     )
@@ -129,7 +147,7 @@ export namespace TradingRoutes {
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
         validateApproveRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
+        const chain = await getChain(req.body.chain, req.body.network);
         res.status(200).json(await approve(chain, req.body));
       }
     )
@@ -143,8 +161,8 @@ export namespace TradingRoutes {
         res: Response<PriceResponse, any>
       ) => {
         validatePriceRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
-        const connector = getConnector(
+        const chain = await getChain(req.body.chain, req.body.network);
+        const connector = await getConnector(
           req.body.chain,
           req.body.network,
           req.body.connector
@@ -161,8 +179,11 @@ export namespace TradingRoutes {
         req: Request<{}, {}, PollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
+        console.log('validate');
         validatePollRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
+        console.log('get chain');
+        const chain = await getChain(req.body.chain, req.body.network);
+        console.log('poll');
         res.status(200).json(await poll(chain, req.body));
       }
     )
@@ -175,11 +196,9 @@ export namespace TradingRoutes {
         req: Request<{}, {}, CancelRequest>,
         res: Response<CancelResponse, {}>
       ) => {
-        if (req.body.chain == 'ethereum') {
-          const ethereum = NewEthereum.getInstance(req.body.network);
-          validateCancelRequest(req.body);
-          res.status(200).json(await cancel(ethereum, req.body));
-        }
+        validateCancelRequest(req.body);
+        const chain = await getChain(req.body.chain, req.body.network);
+        res.status(200).json(await cancel(chain, req.body));
       }
     )
   );
@@ -192,8 +211,8 @@ export namespace TradingRoutes {
         res: Response<TradeResponse | TradeErrorResponse, any>
       ) => {
         validateTradeRequest(req.body);
-        const chain = getChain(req.body.chain, req.body.network);
-        const connector = getConnector(
+        const chain = await getChain(req.body.chain, req.body.network);
+        const connector = await getConnector(
           req.body.chain,
           req.body.network,
           req.body.connector
