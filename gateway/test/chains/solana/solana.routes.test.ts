@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../services/patch';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import { Solana } from '../../../src/chains/solana/solana';
 import { publicKey, privateKey } from './solana.validators.test';
 import { tokenSymbols, txHash } from '../../services/validators.test';
@@ -39,7 +39,7 @@ const patchGetKeypair = () => {
 
 describe('GET /solana', () => {
   it('should return 200', async () => {
-    request(app)
+    request(gatewayApp)
       .get(`/solana`)
       .expect('Content-Type', /json/)
       .expect(200)
@@ -64,7 +64,7 @@ describe('POST /solana/balances', () => {
     patchGetKeypair();
     patchGetBalances();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/solana/balances`)
       .send({ address: publicKey, tokenSymbols })
       .expect('Content-Type', /json/)
@@ -81,7 +81,7 @@ describe('POST /solana/balances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app).post(`/solana/balances`).send({}).expect(404);
+    await request(gatewayApp).post(`/solana/balances`).send({}).expect(404);
   });
 });
 
@@ -102,7 +102,7 @@ describe('GET /solana/token', () => {
     });
     patchGetSplBalance();
 
-    await request(app)
+    await request(gatewayApp)
       .get(`/solana/token`)
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
@@ -123,7 +123,7 @@ describe('GET /solana/token', () => {
       throw new Error(`Token account not initialized`);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .get(`/solana/token`)
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
@@ -146,7 +146,7 @@ describe('GET /solana/token', () => {
     patchGetTokenAccount();
     patchGetSplBalance();
 
-    await request(app)
+    await request(gatewayApp)
       .get(`/solana/token`)
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
@@ -166,13 +166,13 @@ describe('GET /solana/token', () => {
   });
 
   it('should return 500 when token not found', async () => {
-    await request(app)
+    await request(gatewayApp)
       .get(`/solana/token`)
       .send({ token: 'not found', address: publicKey })
       .expect(500);
   });
   it('should return 404 when parameters are invalid', async () => {
-    await request(app).get(`/solana/token`).send({}).expect(404);
+    await request(gatewayApp).get(`/solana/token`).send({}).expect(404);
   });
 });
 
@@ -192,7 +192,7 @@ describe('POST /solana/token', () => {
     patchGetKeypair();
     patchGetSplBalance();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/solana/token`)
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
@@ -214,7 +214,7 @@ describe('POST /solana/token', () => {
       throw new Error(`Token account not initialized`);
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/solana/token`)
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
@@ -238,7 +238,7 @@ describe('POST /solana/token', () => {
     patchGetKeypair();
     patchGetSplBalance();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/solana/token`)
       .send({ token: tokenSymbols[0], address: publicKey })
       .expect('Content-Type', /json/)
@@ -257,13 +257,13 @@ describe('POST /solana/token', () => {
       .expect((res) => expect(res.body.amount).toBe('0.000123456'));
   });
   it('should return 500 when token not found', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/solana/token`)
       .send({ token: 'not found', address: publicKey })
       .expect(500);
   });
   it('should return 404 when parameters are invalid', async () => {
-    await request(app).post(`/solana/token`).send({}).expect(404);
+    await request(gatewayApp).post(`/solana/token`).send({}).expect(404);
   });
 });
 
@@ -281,7 +281,7 @@ describe('POST /solana/poll', () => {
     patchGetCurrentBlockNumber();
     patchGetTransaction();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/solana/poll`)
       .send({ txHash })
       .expect('Content-Type', /json/)
@@ -299,6 +299,6 @@ describe('POST /solana/poll', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app).post(`/solana/poll`).send({}).expect(404);
+    await request(gatewayApp).post(`/solana/poll`).send({}).expect(404);
   });
 });
