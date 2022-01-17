@@ -4,7 +4,7 @@ from typing import Dict, Any
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ms_timestamp
 
 
-class AscendExAuth():
+class AscendExAuth:
     """
     Auth class required by AscendEx API
     Learn more at https://ascendex.github.io/ascendex-pro-api/#authenticate-a-restful-request
@@ -37,7 +37,8 @@ class AscendExAuth():
             "x-auth-timestamp": timestamp,
         }
 
-    def get_headers(self) -> Dict[str, Any]:
+    @staticmethod
+    def get_headers() -> Dict[str, Any]:
         """
         Generates generic headers required by AscendEx
         :return: a dictionary of headers
@@ -46,4 +47,11 @@ class AscendExAuth():
         return {
             "Accept": "application/json",
             "Content-Type": 'application/json',
+        }
+
+    @staticmethod
+    def get_hb_id_headers() -> Dict[str, Any]:
+        """Headers signature to identify user as an HB liquidity provider."""
+        return {
+            "request-source": "hummingbot-liq-mining",
         }

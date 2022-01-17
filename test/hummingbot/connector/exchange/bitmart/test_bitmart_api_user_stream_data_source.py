@@ -4,6 +4,7 @@ import unittest
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 
+from typing import Awaitable, Any, Dict
 from unittest.mock import patch, AsyncMock
 
 from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
@@ -52,6 +53,10 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
     def handle(self, record):
         self.log_records.append(record)
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
@@ -59,8 +64,32 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
     def _raise_exception(self, exception_class):
         raise exception_class
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
+        mock_response: Dict[Any] = {
+            "data": [
+                {
+                    "symbol": "BTC_USDT",
+                    "side": "buy",
+                    "type": "market",
+                    "notional": "",
+                    "size": "1.0000000000",
+                    "ms_t": "1609926028000",
+                    "price": "46100.0000000000",
+                    "filled_notional": "46100.0000000000",
+                    "filled_size": "1.0000000000",
+                    "margin_trading": "0",
+                    "state": "2",
+                    "order_id": "2147857398",
+                    "order_type": "0",
+                    "last_fill_time": "1609926039226",
+                    "last_fill_price": "46100.00000",
+                    "last_fill_count": "1.00000"
+                }
+            ],
+            "table": "spot/user/order"
+        }
+
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         initial_last_recv_time = self.data_source.last_recv_time
@@ -69,42 +98,44 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
             self.data_source.listen_for_user_stream(self.ev_loop,
                                                     messages))
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
             json.dumps({"event": "login"}))
 
         # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(mock_response))
 
         first_received_message = self.ev_loop.run_until_complete(messages.get())
 
-        self.assertEqual('dummyMessage', first_received_message)
+        self.assertEqual(mock_response, first_received_message)
 
         self.assertTrue(self._is_logged('INFO', "Authenticating to User Stream..."))
         self.assertTrue(self._is_logged('INFO', "Successfully authenticated to User Stream."))
         self.assertTrue(self._is_logged('INFO', "Successfully subscribed to all Private channels."))
 
-        sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(ws_connect_mock.return_value)
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
+
         self.assertEqual(2, len(sent_messages))
-        auth_req = json.loads(sent_messages[0])
-        sub_req = json.loads(sent_messages[1])
+        auth_req = sent_messages[0]
+        sub_req = sent_messages[1]
         self.assertTrue("op" in auth_req and "args" in auth_req and "testAPIKey" in auth_req["args"])
         self.assertEqual({"op": "subscribe", "args": ["spot/user/order:HBOT_USDT"]},
                          sub_req)
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_fails_when_authentication_fails(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.closed = False
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_user_stream(self.ev_loop,
                                                     messages))
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
             json.dumps({"errorCode": "test code", "errorMessage": "test err message"})
         )
@@ -117,7 +148,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_initialization(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.side_effect = asyncio.CancelledError
@@ -128,14 +159,14 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
                                                         messages))
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(asyncio.CancelledError)
-            if "testAPIKey" in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(
+            if "testAPIKey" in sent_message["args"]
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(
                 sent_message))
 
         with self.assertRaises(asyncio.CancelledError):
@@ -144,43 +175,48 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
                                                         messages))
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_events_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(asyncio.CancelledError)
-            if "order:HBOT_USDT" in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(sent_message)
+            if "spot/user/order:HBOT_USDT" in sent_message["args"]
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message)
         )
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_user_stream(self.ev_loop,
                                                         messages))
             # Add the authentication response for the websocket
-            self.mocking_assistant.add_websocket_text_message(
+            self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,
                 json.dumps({"event": "login"})
             )
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_initialization(self, ws_connect_mock):
+        messages = asyncio.Queue()
         ws_connect_mock.side_effect = Exception
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.data_source._init_websocket_connection())
-            self.ev_loop.run_until_complete(self.listening_task)
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occured with BitMart WebSocket Connection"))
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, messages))
+            try:
+                self.async_run_with_timeout(self.listening_task)
+            except asyncio.TimeoutError:
+                raise
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. Retrying after 30 seconds..."))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(Exception)
-            if "testAPIKey" in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(sent_message))
+            if "testAPIKey" in sent_message["args"]
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message))
         # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.closed = False
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         try:
@@ -195,16 +231,17 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_during_events_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(Exception)
-            if "order:HBOT_USDT" in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(sent_message)
+            if "spot/user/order:HBOT_USDT" in sent_message["args"]
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message)
         )
         # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.closed = False
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         try:
@@ -212,86 +249,13 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
                 self.data_source.listen_for_user_stream(self.ev_loop,
                                                         messages))
             # Add the authentication response for the websocket
-            self.mocking_assistant.add_websocket_text_message(
+            self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,
                 json.dumps({"event": "login"}))
-            self.ev_loop.run_until_complete(self.listening_task)
+            self.async_run_with_timeout(self.listening_task)
         except Exception:
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Error occured during subscribing to Bitmart private channels."))
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
-
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_listening_process_invalid_json_message_logged(self, ws_connect_mock):
-        messages = asyncio.Queue()
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        # Make the close function raise an exception to finish the execution
-        ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
-
-        try:
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_user_stream(self.ev_loop,
-                                                        messages))
-            # Add the authentication response for the websocket
-            self.mocking_assistant.add_websocket_text_message(
-                ws_connect_mock.return_value,
-                json.dumps({"event": "login"}))
-            # Add invalid json message
-            self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, 'invalid message')
-            self.ev_loop.run_until_complete(self.listening_task)
-        except Exception:
-            pass
-
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error when parsing BitMart user_stream message. "))
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
-                                                 "Retrying after 30 seconds..."))
-
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_listen_for_user_stream_inner_messages_recv_timeout(self, ws_connect_mock):
-        self.data_source.MESSAGE_TIMEOUT = 0.1
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.ping.side_effect = lambda: done_callback_event.set()
-
-        # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
-            ws_connect_mock.return_value,
-            json.dumps({"event": "login"}))
-
-        done_callback_event = asyncio.Event()
-        message_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop,
-                                                    message_queue)
-        )
-
-        self.ev_loop.run_until_complete(done_callback_event.wait())
-
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_listen_for_user_stream_inner_messages_recv_timeout_ping_timeout(self, ws_connect_mock):
-        self.data_source.PING_TIMEOUT = 0.1
-        self.data_source.MESSAGE_TIMEOUT = 0.1
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.close.side_effect = lambda: done_callback_event.set()
-        ws_connect_mock.return_value.ping.side_effect = NetworkMockingAssistant.async_partial(
-            self.mocking_assistant._get_next_websocket_text_message, ws_connect_mock.return_value
-        )
-
-        # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
-            ws_connect_mock.return_value,
-            json.dumps({"event": "login"}))
-
-        done_callback_event = asyncio.Event()
-        message_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop,
-                                                    message_queue)
-        )
-
-        self.ev_loop.run_until_complete(done_callback_event.wait())
-
-        self.assertTrue(self._is_logged("WARNING", "WebSocket ping timed out. Going to reconnect..."))

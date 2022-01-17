@@ -4,7 +4,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "ascend_ex"
 REST_URL = "https://ascendex.com/api/pro/v1"
-WS_URL = "wss://ascendex.com/0/api/pro/v1/stream"
+WS_URL = "wss://ascendex.com:443/api/pro/v1/websocket-for-hummingbot-liq-mining/stream"
 
 # REST API ENDPOINTS
 ORDER_PATH_URL = "cash/order"

@@ -1,20 +1,20 @@
-#!/usr/bin/env python
-import numpy
 from typing import (
     Dict,
     Any
 )
+
+import numpy
 from sqlalchemy import (
-    Column,
-    Text,
-    Index,
     BigInteger,
+    Column,
+    Index,
     Integer,
-    Float
+    Text,
 )
 from sqlalchemy.orm import relationship
 
-from . import HummingbotBase
+from hummingbot.model import HummingbotBase
+from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
 
 class Order(HummingbotBase):
@@ -37,9 +37,9 @@ class Order(HummingbotBase):
     quote_asset = Column(Text, nullable=False)
     creation_timestamp = Column(BigInteger, nullable=False)
     order_type = Column(Text, nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(SqliteDecimal(6), nullable=False)
     leverage = Column(Integer, nullable=False, default=1)
-    price = Column(Float, nullable=False)
+    price = Column(SqliteDecimal(6), nullable=False)
     last_status = Column(Text, nullable=False)
     last_update_timestamp = Column(BigInteger, nullable=False)
     exchange_order_id = Column(Text, nullable=True)
