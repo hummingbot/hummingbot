@@ -176,14 +176,24 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(
                 self.data_source.get_new_order_book(self.trading_pair))
 
-    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self):
+    @aioresponses()
+    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_get):
         trades_queue = asyncio.Queue()
-        task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=trades_queue))
+
+        endpoint = Constants.ENDPOINT['ORDER_BOOK'].format(trading_pair=r'[\w]+')
+        re_url = f"{Constants.REST_URL}/{endpoint}"
+        regex_url = re.compile(re_url)
+        resp = {"timestamp": 1234567899,
+                "bids": [],
+                "asks": []}
+        mock_get.get(regex_url, body=json.dumps(resp))
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_order_book_snapshots(ev_loop=asyncio.get_event_loop(), output=trades_queue))
 
         with self.assertRaises(asyncio.CancelledError):
-            task.cancel()
-            self.ev_loop.run_until_complete(task)
+            self.listening_task.cancel()
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
 
     @aioresponses()
     @patch(

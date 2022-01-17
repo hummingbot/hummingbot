@@ -46,8 +46,8 @@ class Constants:
     }
 
     ORDER_STATES = {
-        "DONE": {"done", "cancel", "partial-canceled"},
-        "FAIL": {"cancel", "reject"},
+        "DONE": {"done", "cancel", "partial-canceled", "reject", "fail"},
+        "FAIL": {"reject", "fail"},
         "OPEN": {"submitted", "wait", "pending"},
         "CANCEL": {"partial-canceled", "cancel"},
         "CANCEL_WAIT": {'wait', 'cancel', 'done', 'reject'},
