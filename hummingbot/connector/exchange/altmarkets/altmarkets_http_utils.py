@@ -4,6 +4,7 @@ import random
 
 from typing import (
     Any,
+    Callable,
     Dict,
     Optional,
 )
@@ -55,6 +56,7 @@ async def aiohttp_response_with_errors(request_coroutine):
 
 async def api_call_with_retries(method,
                                 endpoint,
+                                auth_headers: Optional[Callable] = None,
                                 extra_headers: Optional[Dict[str, str]] = None,
                                 params: Optional[Dict[str, Any]] = None,
                                 shared_client=None,
@@ -66,6 +68,8 @@ async def api_call_with_retries(method,
     headers = {"Content-Type": "application/json", "User-Agent": Constants.USER_AGENT}
     if extra_headers:
         headers.update(extra_headers)
+    if auth_headers:
+        headers.update(auth_headers())
     http_client = shared_client or aiohttp.ClientSession()
     http_throttler = throttler or AsyncThrottler(Constants.RATE_LIMITS)
     _limit_id = limit_id or endpoint

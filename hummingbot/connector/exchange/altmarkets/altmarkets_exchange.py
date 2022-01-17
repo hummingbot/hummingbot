@@ -327,15 +327,10 @@ class AltmarketsExchange(ExchangeBase):
         """
         shared_client = await self._http_client()
 
-        # Generate auth headers if needed.
-        headers = {}
-        if is_auth_required:
-            headers.update(self._altmarkets_auth.get_headers())
-
         parsed_response = await http_utils.api_call_with_retries(
             method=method,
             endpoint=endpoint,
-            extra_headers=headers,
+            auth_headers=self._altmarkets_auth.get_headers if is_auth_required else None,
             params=params,
             shared_client=shared_client,
             throttler=self._throttler,
@@ -627,6 +622,7 @@ class AltmarketsExchange(ExchangeBase):
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp, client_order_id, tracked_order.order_type))
+            tracked_order.last_state = "fail"
             self.stop_tracking_order(client_order_id)
 
     async def _update_order_status(self):
@@ -717,6 +713,7 @@ class AltmarketsExchange(ExchangeBase):
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+            tracked_order.last_state = "fail"
             self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _process_trade_message(self, trade_msg: Dict[str, Any]):
@@ -777,7 +774,7 @@ class AltmarketsExchange(ExchangeBase):
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
                 tracked_order.executed_amount_base >= tracked_order.amount or \
                 (not tracked_order.is_cancelled and tracked_order.is_done):
-            tracked_order.last_state = "FILLED"
+            tracked_order.last_state = "done"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
                                f"according to order status API.")
@@ -785,7 +782,6 @@ class AltmarketsExchange(ExchangeBase):
                 else MarketEvent.SellOrderCompleted
             event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
                 else SellOrderCompletedEvent
-            await asyncio.sleep(0.1)
             self.trigger_event(event_tag,
                                event_class(self.current_timestamp,
                                            tracked_order.client_order_id,

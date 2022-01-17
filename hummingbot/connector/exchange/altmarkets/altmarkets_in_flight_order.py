@@ -33,7 +33,7 @@ class AltmarketsInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
+            initial_state,
         )
         self.trade_id_set = set()
         self.cancelled_event = asyncio.Event()
