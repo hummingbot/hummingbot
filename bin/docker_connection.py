@@ -1,8 +1,11 @@
 import docker
 import types
+import aioprocessing
+from typing import Union, Any, Tuple, Dict, List
 
 
-def start_docker(queue, event):
+def start_docker(queue: aioprocessing.AioConnection,
+                 event: Tuple[str, Union[Dict[str, Any], List[Union[str, Dict[str, Any]]]]]):
     docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
     while True:
         try:
