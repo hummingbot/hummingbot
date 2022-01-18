@@ -8,8 +8,6 @@ from typing import (
     Coroutine,
     List,
 )
-import types
-import docker
 import os
 import subprocess
 from multiprocessing import Process
@@ -37,6 +35,8 @@ from bin.hummingbot import (
 )
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
+
+from docker_connection import start_docker
 
 
 class CmdlineParser(argparse.ArgumentParser):
@@ -149,45 +149,22 @@ def main(docker_pipe, docker_pipe_event):
     asyncio.get_event_loop().run_until_complete(quick_start(args, docker_pipe, docker_pipe_event))
 
 
-def start_docker(queue, event):
-    docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
-    while True:
-        try:
-            try:
-                method, kwargs = queue.recv()
-            except Exception:
-                break
-            if isinstance(kwargs, list):
-                response = getattr(docker_client, method)(kwargs[0], **kwargs[1])
-            else:
-                response = getattr(docker_client, method)(**kwargs)
-
-            if isinstance(response, types.GeneratorType):
-                event.set()
-                for stream in response:
-                    queue.send(stream)
-                queue.send(None)
-                event.clear()
-            else:
-                queue.send(response)
-        except Exception as e:
-            queue.send(e)
-
-
 if __name__ == "__main__":
-    # IPC pipe
-    client, dock = aioprocessing.AioPipe()
-    event = aioprocessing.AioEvent()
+    try:
+        # IPC pipe
+        client, dock = aioprocessing.AioPipe()
+        event = aioprocessing.AioEvent()
 
-    # fork app
-    p = Process(target=start_docker, args=(client, event,))
-    p.start()
+        # fork app
+        p = Process(target=start_docker, args=(client, event,))
+        p.start()
 
-    main(dock, event)
+        main(dock, event)
 
-    # stop ipc
-    dock.send(None)
-    client.close()
-    dock.close()
+    finally:
+        # stop ipc
+        dock.send(None)
+        client.close()
+        dock.close()
 
-    p.join()
+        p.join()
