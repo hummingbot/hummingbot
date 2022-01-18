@@ -1,6 +1,6 @@
 import { StatusRequest, StatusResponse } from './chain.requests';
-import { Avalanche } from './avalanche/avalanche';
-import { Ethereum } from './ethereum/ethereum';
+import { NewAvalanche } from './avalanche/new_avalanche';
+import { NewEthereum } from './ethereum/new_ethereum';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
@@ -13,13 +13,13 @@ export async function getStatus(req: StatusRequest): Promise<StatusResponse> {
   let rpcUrl: string;
   let currentBlockNumber: number;
   if (req.chain === 'avalanche') {
-    const avalanche = Avalanche.getInstance();
+    const avalanche = NewAvalanche.getInstance(req.chain);
     chain = avalanche.chain;
     chainId = avalanche.chainId;
     rpcUrl = avalanche.rpcUrl;
     currentBlockNumber = await avalanche.getCurrentBlockNumber();
   } else if (req.chain === 'ethereum') {
-    const ethereum = Ethereum.getInstance();
+    const ethereum = NewEthereum.getInstance(req.chain);
     chain = ethereum.chain;
     chainId = ethereum.chainId;
     rpcUrl = ethereum.rpcUrl;
