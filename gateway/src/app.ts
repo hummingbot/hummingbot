@@ -119,10 +119,7 @@ export const startSwagger = async () => {
     './docs/swagger/definitions.yml',
     [
       './docs/swagger/main-routes.yml',
-      './docs/swagger/eth-routes.yml',
-      './docs/swagger/eth-uniswap-routes.yml',
-      './docs/swagger/avalanche-routes.yml',
-      './docs/swagger/avalanche-pangolin-routes.yml',
+      './docs/swagger/trading-routes.yml',
       './docs/swagger/wallet-routes.yml',
     ]
   );

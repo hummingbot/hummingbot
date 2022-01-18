@@ -1,11 +1,6 @@
 /* eslint-disable no-inner-declarations */
 /* eslint-disable @typescript-eslint/ban-types */
 import { NextFunction, Router, Request, Response } from 'express';
-// import { Ethereum } from './ethereum';
-// import { EthereumConfig } from './ethereum.config';
-// import { ConfigManager } from '../../services/config-manager';
-// import { verifyNewEthereumIsAvailable } from '../chains/ethereum/ethereum-middlewares';
-// import { verifyNewAvalancheIsAvailable } from '../chains/avalanche/avalanche-middlewares';
 import { asyncHandler } from '../services/error-handler';
 import {
   approve,
@@ -19,6 +14,7 @@ import {
   AllowancesRequest,
   AllowancesResponse,
   ApproveRequest,
+  ApproveResponse,
   BalanceRequest,
   BalanceResponse,
   CancelRequest,
@@ -26,34 +22,27 @@ import {
   NonceRequest,
   NonceResponse,
   PollRequest,
+  PollResponse,
   PriceRequest,
   PriceResponse,
   TradeErrorResponse,
   TradeRequest,
   TradeResponse,
 } from './trading.requests';
-import {
-  EthereumApproveResponse,
-  EthereumPollResponse,
-} from '../chains/ethereum/ethereum.requests';
 
 import {
   validateAllowancesRequest,
   validateApproveRequest,
-  //   validateEthereumApproveRequest,
   validateBalanceRequest,
   validateCancelRequest,
-  //   validateEthereumCancelRequest,
   validateNonceRequest,
   validatePollRequest,
-  //   validateEthereumPollRequest,
 } from '../chains/ethereum/ethereum.validators';
 import { NewEthereum } from '../chains/ethereum/new_ethereum';
 import { NewAvalanche } from '../chains/avalanche/new_avalanche';
 import { price, trade } from '../connectors/uniswap/uniswap.controllers';
 import { NewUniswap } from '../connectors/uniswap/new_uniswap';
 import { NewPangolin } from '../connectors/pangolin/new_pangolin';
-// import { verifyNewUniswapIsAvailable } from '../connectors/uniswap/uniswap-middlewares';
 import {
   validatePriceRequest,
   validateTradeRequest,
@@ -62,10 +51,6 @@ import { Ethereumish } from '../services/ethereumish.interface';
 
 export namespace TradingRoutes {
   export const router = Router();
-
-  // router.use(asyncHandler(verifyNewEthereumIsAvailable));
-  // // router.use(asyncHandler(verifyNewAvalancheIsAvailable));
-  // router.use(asyncHandler(verifyNewUniswapIsAvailable));
 
   async function getChain(chain: string, network: string) {
     let chainInstance: Ethereumish;
@@ -144,7 +129,7 @@ export namespace TradingRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, ApproveRequest>,
-        res: Response<EthereumApproveResponse | string, {}>
+        res: Response<ApproveResponse | string, {}>
       ) => {
         validateApproveRequest(req.body);
         const chain = await getChain(req.body.chain, req.body.network);
@@ -165,7 +150,7 @@ export namespace TradingRoutes {
         const connector = await getConnector(
           req.body.chain,
           req.body.network,
-          req.body.connector
+          req.body.connector || ''
         );
         res.status(200).json(await price(chain, connector, req.body));
       }
@@ -177,13 +162,10 @@ export namespace TradingRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, PollRequest>,
-        res: Response<EthereumPollResponse, {}>
+        res: Response<PollResponse, {}>
       ) => {
-        console.log('validate');
         validatePollRequest(req.body);
-        console.log('get chain');
         const chain = await getChain(req.body.chain, req.body.network);
-        console.log('poll');
         res.status(200).json(await poll(chain, req.body));
       }
     )
@@ -215,7 +197,7 @@ export namespace TradingRoutes {
         const connector = await getConnector(
           req.body.chain,
           req.body.network,
-          req.body.connector
+          req.body.connector || ''
         );
         res.status(200).json(await trade(chain, connector, req.body));
       }
