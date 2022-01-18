@@ -20,16 +20,25 @@ export const validatePrivateKey: Validator = mkValidator(
   (val) => typeof val === 'string' && isPrivateKey(val)
 );
 
-export const invalidChainNameError: string =
-  'chainName must be "ethereum" or "avalanche"';
+export const invalidChainError: string =
+  'chain must be "ethereum" or "avalanche"';
+
+export const invalidNetworkError: string =
+  'expected a string for the network key';
 
 export const invalidAddressError: string = 'address must be a string';
 
-export const validateChainName: Validator = mkValidator(
-  'chainName',
-  invalidChainNameError,
+export const validateChain: Validator = mkValidator(
+  'chain',
+  invalidChainError,
   (val) =>
     typeof val === 'string' && (val === 'ethereum' || val === 'avalanche')
+);
+
+export const validateNetwork: Validator = mkValidator(
+  'network',
+  invalidNetworkError,
+  (val) => typeof val === 'string'
 );
 
 export const validateAddress: Validator = mkValidator(
@@ -40,9 +49,10 @@ export const validateAddress: Validator = mkValidator(
 
 export const validateAddWalletRequest: RequestValidator = mkRequestValidator([
   validatePrivateKey,
-  validateChainName,
+  validateChain,
+  validateNetwork,
 ]);
 
 export const validateRemoveWalletRequest: RequestValidator = mkRequestValidator(
-  [validateAddress, validateChainName]
+  [validateAddress, validateChain]
 );

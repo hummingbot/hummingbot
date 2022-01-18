@@ -156,9 +156,7 @@ export async function balances(
   };
 }
 
-const toEthereumTransaction = (
-  transaction: Transaction
-): CustomTransaction => {
+const toEthereumTransaction = (transaction: Transaction): CustomTransaction => {
   let maxFeePerGas = null;
   if (transaction.maxFeePerGas) {
     maxFeePerGas = transaction.maxFeePerGas.toString();
