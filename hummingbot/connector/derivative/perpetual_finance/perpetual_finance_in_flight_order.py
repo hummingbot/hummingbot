@@ -1,12 +1,16 @@
 from decimal import Decimal
 from typing import (
+    Any,
+    Dict,
+    List,
     Optional,
 )
+
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 class PerpetualFinanceInFlightOrder(InFlightOrderBase):
@@ -20,7 +24,8 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  leverage: int,
                  position: str,
-                 initial_state: str = "OPEN"):
+                 initial_state: str = "OPEN",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -30,6 +35,7 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
             price,
             amount,
             initial_state,
+            creation_timestamp
         )
         self.leverage = leverage
         self.position = position
@@ -45,3 +51,26 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
+
+    def to_json(self):
+        json = super().to_json()
+        json.update({
+            "leverage": self.leverage,
+            "position": self.position,
+        })
+        return json
+
+    @classmethod
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
+        arguments.insert(-2, int(data["leverage"]))
+        arguments.insert(-2, data["position"])
+        return arguments
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        """
+        :param data: json data from API
+        :return: formatted InFlightOrder
+        """
+        return cls._basic_from_json(data)

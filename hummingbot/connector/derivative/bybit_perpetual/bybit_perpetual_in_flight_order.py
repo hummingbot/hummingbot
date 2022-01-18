@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import (
     Any,
     Dict,
-    Optional, List,
+    List,
+    Optional,
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
@@ -23,7 +24,8 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  leverage: int,
                  position: str,
-                 initial_state: str = "Created"):
+                 initial_state: str = "Created",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -33,6 +35,7 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
             price,
             amount,
             initial_state,
+            creation_timestamp
         )
         self.fee_asset = self.quote_asset if self.quote_asset == "USDT" else self.base_asset
         self.trade_id_set = set()
@@ -74,8 +77,8 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
     @classmethod
     def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
         arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
-        arguments.insert(-1, int(data["leverage"]))
-        arguments.insert(-1, data["position"])
+        arguments.insert(-2, int(data["leverage"]))
+        arguments.insert(-2, data["position"])
         return arguments
 
     @classmethod

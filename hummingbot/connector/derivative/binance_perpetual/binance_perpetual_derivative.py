@@ -15,14 +15,14 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource
 )
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import (
+    BinancePerpetualAuth
+)
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
     BinancePerpetualOrderBookTracker
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
     BinancePerpetualUserStreamTracker
-)
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import (
-    BinancePerpetualAuth
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -405,16 +405,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def start_tracking_order(
-            self,
-            order_id: str,
-            trading_pair: str,
-            trading_type: TradeType,
-            price: Decimal,
-            amount: Decimal,
-            order_type: OrderType,
-            leverage: int,
-            position: str,
-            exchange_order_id: Optional[str] = None,
+        self,
+        order_id: str,
+        trading_pair: str,
+        trading_type: TradeType,
+        price: Decimal,
+        amount: Decimal,
+        order_type: OrderType,
+        leverage: int,
+        position: PositionAction,
+        exchange_order_id: Optional[str] = None,
     ):
         """
         Starts tracking an order by calling the appropriate method in the Client Order Tracker
@@ -451,6 +451,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 amount=amount,
                 leverage=leverage,
                 position=position,
+                timestamp=int(self.current_timestamp)
             )
         )
 
