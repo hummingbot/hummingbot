@@ -39,6 +39,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.log_records = []
 
         self.connector = ConnectorBase()
+        self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 
         self.tracker.logger().setLevel(1)
@@ -492,7 +493,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.assertTrue(
             self._is_logged(
-                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled. "
+                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled."
             )
         )
 

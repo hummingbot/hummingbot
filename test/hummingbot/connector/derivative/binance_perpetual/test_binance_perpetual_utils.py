@@ -1,4 +1,6 @@
 import asyncio
+import os
+import socket
 import unittest
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
@@ -56,10 +58,11 @@ class BinancePerpetualUtilsUnitTests(unittest.TestCase):
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.get_tracking_nonce")
     def test_get_client_order_id(self, mock_nonce):
         mock_nonce.return_value = int("1" * 16)
+        client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
 
         result = utils.get_client_order_id("buy", self.trading_pair)
 
-        expected_client_order_id = f"{BROKER_ID}-BCAHT{int('1'*16)}"
+        expected_client_order_id = f"{BROKER_ID}-BCAHT{client_instance_id}{int('1'*16)}"
 
         self.assertEqual(result, expected_client_order_id)
 

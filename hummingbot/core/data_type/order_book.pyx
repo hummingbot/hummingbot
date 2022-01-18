@@ -484,10 +484,6 @@ cdef class OrderBook(PubSub):
     def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         pass
 
-    @classmethod
-    def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
-        pass
-
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         replay_position = bisect.bisect_right(diffs, snapshot)
         replay_diffs = diffs[replay_position:]

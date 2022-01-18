@@ -1,14 +1,17 @@
+import asyncio
 import unittest
-from unittest import mock
+
 from decimal import Decimal
 from typing import Dict
-import asyncio
+from unittest import mock
 
+from bidict import bidict
 from yarl import URL
 
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from .fixture import Fixture
 
 
@@ -17,6 +20,17 @@ class RateOracleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
+        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
+            "com": bidict(
+                {"ETHBTC": "ETH-BTC",
+                 "LTCBTC": "LTC-BTC",
+                 "BTCUSDT": "BTC-USDT",
+                 "SCRTBTC": "SCRT-BTC"}),
+            "us": bidict(
+                {"BTCUSD": "BTC-USD",
+                 "ETHUSD": "ETH-USD"})
+        }
+
         cls.web_app = MockWebServer.get_instance()
         cls.web_app.add_host_to_mock(URL(RateOracle.binance_price_url).host)
         cls.web_app.add_host_to_mock(URL(RateOracle.binance_us_price_url).host)
@@ -60,6 +74,7 @@ class RateOracleTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         cls.web_app.stop()
         cls._patcher.stop()
 
@@ -111,7 +126,7 @@ class RateOracleTest(unittest.TestCase):
     async def _test_get_binance_prices(self):
         com_prices = await RateOracle.get_binance_prices_by_domain(RateOracle.binance_price_url)
         self._assert_rate_dict(com_prices)
-        us_prices = await RateOracle.get_binance_prices_by_domain(RateOracle.binance_us_price_url, "USD")
+        us_prices = await RateOracle.get_binance_prices_by_domain(RateOracle.binance_us_price_url, "USD", domain="us")
         self._assert_rate_dict(us_prices)
         self.assertGreater(len(us_prices), 1)
         quotes = {p.split("-")[1] for p in us_prices}

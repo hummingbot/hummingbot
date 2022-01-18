@@ -1,6 +1,4 @@
 # distutils: language=c++
-
-
 from typing import Optional
 
 from hummingbot.core.clock import Clock
@@ -40,3 +38,9 @@ cdef class TimeIterator(PubSub):
 
     def stop(self, clock: Clock):
         self.c_stop(clock)
+
+    def _set_current_timestamp(self, timestamp: float):
+        """
+        Method added to be used only for unit testing purposes
+        """
+        self._current_timestamp = timestamp
