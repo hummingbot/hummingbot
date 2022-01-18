@@ -1514,9 +1514,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_create_order_successful(self, req_mock, mock_map):
+    def test_create_order_successful(self, req_mock):
         url = utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
@@ -1526,11 +1524,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                            "status": "NEW",
                            "orderId": "8886774"}
         req_mock.post(regex_url, body=json.dumps(create_response))
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
-                                        f"{self.base_asset}-{self.quote_asset}")]
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         margin_asset = self.quote_asset
         mocked_response = self._get_exchange_info_mock_response(margin_asset)
@@ -1548,20 +1541,13 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map")
-    def test_create_order_exception(self, req_mock, mock_map):
+    def test_create_order_exception(self, req_mock):
         url = utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.post(regex_url, exception=Exception())
-
-        mock_map.return_value = self._get_trading_pair_symbol_map()
-        mock_map.items.return_value = [(f"{self.base_asset}{self.quote_asset}",
-                                        f"{self.base_asset}-{self.quote_asset}")]
-        mock_map.__getitem__.return_value = f"{self.base_asset}-{self.quote_asset}"
 
         margin_asset = self.quote_asset
         mocked_response = self._get_exchange_info_mock_response(margin_asset)
