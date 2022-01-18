@@ -1,10 +1,9 @@
 import logging
 import asyncio
-import time
 
 from collections import defaultdict
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -91,7 +90,7 @@ class ClientOrderTracker:
         """
         Returns current timestamp in milliseconds.
         """
-        return int(time.time() * 1e3)
+        return int(self._connector.current_timestamp * 1e3)
 
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
@@ -120,7 +119,7 @@ class ClientOrderTracker:
 
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
+        event_class: Callable = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
         self._connector.trigger_event(
             event_tag,
             event_class(
@@ -221,7 +220,7 @@ class ClientOrderTracker:
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
             self.logger().info(
-                f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled. "
+                f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled."
             )
 
         elif tracked_order.is_failure:

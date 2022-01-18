@@ -27,6 +27,7 @@ EXCHANGE_INFO_URL = "/exchangeInfo"
 RECENT_TRADES_URL = "/trades"
 PING_URL = "/ping"
 MARK_PRICE_URL = "/premiumIndex"
+SERVER_TIME_PATH_URL = "/time"
 
 # Private API v1 Endpoints
 ORDER_URL = "/order"
@@ -96,6 +97,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=BINANCE_USER_STREAM_ENDPOINT, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
