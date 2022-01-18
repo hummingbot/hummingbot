@@ -60,7 +60,6 @@ The log pane on the right can be shown or hidden in two ways:
 
 ![Hide Log Pane](/assets/img/hide-log-pane.gif)
 
-
 ## Tabs
 
 Users can now open another tab in the left pane of Hummingbot where the log pane is supposed to be upon entering a command associated with the Tabs feature. Users can now switch between the `log pane` and the new tab they have opened simulateneously.
