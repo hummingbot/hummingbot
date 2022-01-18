@@ -1,5 +1,5 @@
 jest.useFakeTimers();
-import { app } from '../src/app';
+import { gatewayApp } from '../src/app';
 import { SwaggerManager } from '../src/services/swagger-manager';
 import { difference } from 'lodash';
 
@@ -20,9 +20,9 @@ describe('verify swagger docs', () => {
     const documentedRoutes = Object.keys(swaggerDocument.paths).sort();
 
     const allRoutes: any[] = [];
-    app._router.stack.forEach(function (middleware: any) {
+    gatewayApp._router.stack.forEach(function (middleware: any) {
       if (middleware.route) {
-        // routes registered directly on the app
+        // routes registered directly on the gatewayApp
         allRoutes.push(middleware.route.path);
       } else if (middleware.name === 'router') {
         const parentPath = middleware.regexp

@@ -50,7 +50,9 @@ export const validateAddress: Validator = mkValidator(
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'uniswap' || isAddress(val))
+  (val) =>
+    typeof val === 'string' &&
+    (val === 'uniswap' || val === 'pangolin' || isAddress(val))
 );
 
 // confirm that tokenSymbols is an array of strings
