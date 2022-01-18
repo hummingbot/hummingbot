@@ -1,10 +1,11 @@
 import asyncio
 import json
+from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import patch
 
-from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
+from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -15,6 +16,10 @@ class NdaxWebSocketAdaptorTests(TestCase):
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
     @patch("aiohttp.ClientSession.ws_connect")
     def test_sending_messages_increment_message_number(self, mock_ws):
         sent_messages = []
@@ -24,14 +29,14 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         adaptor = NdaxWebSocketAdaptor(throttler, websocket=mock_ws.return_value)
         payload = {}
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
-                                                                         payload=payload,
-                                                                         limit_id=CONSTANTS.WS_PING_ID))
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
-                                                                         payload=payload,
-                                                                         limit_id=CONSTANTS.WS_PING_ID))
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
-                                                                         payload=payload))
+        self.async_run_with_timeout(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
+                                                         payload=payload,
+                                                         limit_id=CONSTANTS.WS_PING_ID))
+        self.async_run_with_timeout(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
+                                                         payload=payload,
+                                                         limit_id=CONSTANTS.WS_PING_ID))
+        self.async_run_with_timeout(adaptor.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+                                                         payload=payload))
         self.assertEqual(3, len(sent_messages))
 
         message = sent_messages[0]
@@ -50,9 +55,9 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         adaptor = NdaxWebSocketAdaptor(throttler, websocket=mock_ws.return_value)
         payload = {"TestElement1": "Value1", "TestElement2": "Value2"}
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
-                                                                         payload=payload,
-                                                                         limit_id=CONSTANTS.WS_PING_ID))
+        self.async_run_with_timeout(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
+                                                         payload=payload,
+                                                         limit_id=CONSTANTS.WS_PING_ID))
 
         self.assertEqual(1, len(sent_messages))
         message = sent_messages[0]
@@ -70,7 +75,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, 'test message')
 
         adaptor = NdaxWebSocketAdaptor(throttler, websocket=mock_ws.return_value)
-        received_message = asyncio.get_event_loop().run_until_complete(adaptor.receive())
+        received_message = self.async_run_with_timeout(adaptor.receive())
 
         self.assertEqual('test message', received_message.data)
 
@@ -80,7 +85,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         adaptor = NdaxWebSocketAdaptor(throttler, websocket=mock_ws.return_value)
-        asyncio.get_event_loop().run_until_complete(adaptor.close())
+        self.async_run_with_timeout(adaptor.close())
 
         self.assertEquals(1, mock_ws.return_value.close.await_count)
 

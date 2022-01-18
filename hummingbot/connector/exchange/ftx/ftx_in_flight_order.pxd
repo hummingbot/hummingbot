@@ -4,3 +4,4 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
     cdef:
         public double created_at
         public object state
+        object trade_id_set

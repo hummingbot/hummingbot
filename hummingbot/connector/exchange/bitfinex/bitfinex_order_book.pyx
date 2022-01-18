@@ -2,9 +2,8 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from sqlalchemy.engine import RowProxy
-import ujson
 
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import BitfinexOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
@@ -12,8 +11,6 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
-    BitfinexOrderBookMessage
 
 _logger = None
 
@@ -56,27 +53,6 @@ cdef class BitfinexOrderBook(OrderBook):
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp or msg_time)
-
-    @classmethod
-    def snapshot_message_from_db(cls,
-                                 record: RowProxy,
-                                 metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return BitfinexOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=msg,
-            timestamp=record.timestamp * 1e-3
-        )
-
-    @classmethod
-    def diff_message_from_db(cls,
-                             record: RowProxy,
-                             metadata: Optional[Dict] = None) -> OrderBookMessage:
-        return BitfinexOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=record.json,
-            timestamp=record.timestamp * 1e-3
-        )
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict] = None):

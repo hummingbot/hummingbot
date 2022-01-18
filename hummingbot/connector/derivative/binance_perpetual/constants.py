@@ -1,4 +1,5 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "binance_perpetual"
 
@@ -25,6 +26,8 @@ TICKER_PRICE_CHANGE_URL = "/ticker/24hr"
 EXCHANGE_INFO_URL = "/exchangeInfo"
 RECENT_TRADES_URL = "/trades"
 PING_URL = "/ping"
+MARK_PRICE_URL = "/premiumIndex"
+SERVER_TIME_PATH_URL = "/time"
 
 # Private API v1 Endpoints
 ORDER_URL = "/order"
@@ -41,16 +44,34 @@ GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 ACCOUNT_INFO_URL = "/account"
 POSITION_INFORMATION_URL = "/positionRisk"
 
-
 # Private API Endpoints
 BINANCE_USER_STREAM_ENDPOINT = "/listenKey"
+
+# Funding Settlement Time Span
+FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after snapshot
+
+# Order Statuses
+ORDER_STATE = {
+    "NEW": OrderState.OPEN,
+    "FILLED": OrderState.FILLED,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
+    "CANCELED": OrderState.CANCELLED,
+    "EXPIRED": OrderState.CANCELLED,
+    "REJECTED": OrderState.FAILED,
+}
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 ORDERS_1MIN = "ORDERS_1MIN"
 ORDERS_1SEC = "ORDERS_1SEC"
 
+DIFF_STREAM_ID = 1
+TRADE_STREAM_ID = 2
+FUNDING_INFO_STREAM_ID = 3
+HEARTBEAT_TIME_INTERVAL = 30.0
+
 # Rate Limit time intervals
+ONE_HOUR = 3600
 ONE_MINUTE = 60
 ONE_SECOND = 1
 ONE_DAY = 86400
@@ -77,6 +98,8 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
                              LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
@@ -97,4 +120,6 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]

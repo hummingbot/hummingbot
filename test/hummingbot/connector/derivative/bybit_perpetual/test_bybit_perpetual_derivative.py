@@ -1065,13 +1065,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(cancellation_results[0].order_id == "O1" and not cancellation_results[0].success)
 
     def test_fee_estimation(self):
-        fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.LIMIT,
-                                     order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
-        self.assertEqual(Decimal("-0.00025"), fee.percent)
-
-        fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.MARKET,
-                                     order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
-        self.assertEqual(Decimal("0.00075"), fee.percent)
+        with self.assertRaises(DeprecationWarning):
+            self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.LIMIT,
+                                   order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
 
     def test_connector_ready_status(self):
         self.assertFalse(self.connector.ready)
@@ -1869,9 +1865,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(order.order_type, order_filled_events[1].order_type)
         self.assertEqual(Decimal(44000), order_filled_events[1].price)
         self.assertEqual(Decimal(0.2), order_filled_events[1].amount)
-        self.assertEqual(0, order_filled_events[1].trade_fee.percent)
-        self.assertEqual(self.quote_asset, order_filled_events[1].trade_fee.flat_fees[0][0])
-        self.assertEqual(Decimal("0.0000001"), order_filled_events[1].trade_fee.flat_fees[0][1])
+        self.assertEqual(Decimal("0"), order_filled_events[1].trade_fee.percent)
+        self.assertEqual(self.quote_asset, order_filled_events[1].trade_fee.flat_fees[0].token)
+        self.assertEqual(Decimal("0.0000001"), order_filled_events[1].trade_fee.flat_fees[0].amount)
         self.assertEqual("256e5ef8-abfe-5772-971b-f944e15e0d69", order_filled_events[1].exchange_trade_id)
 
         self.assertTrue(self._is_logged("INFO", "The BUY order O1 has completed according to order status API"))
