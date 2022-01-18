@@ -419,25 +419,26 @@ class AltmarketsExchange(ExchangeBase):
         """
         trading_rule = self._trading_rules[trading_pair]
 
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, s_decimal_0 if math.isnan(price) else price)
-        if amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
-        order_type_str = order_type.name.lower().split("_")[0]
-        api_params = {"market": convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name.lower(),
-                      "ord_type": order_type_str,
-                      # "price": f"{price:f}",
-                      "client_id": order_id,
-                      "volume": f"{amount:f}",
-                      }
-        if order_type is not OrderType.MARKET:
-            api_params['price'] = f"{price:f}"
-        # if order_type is OrderType.LIMIT_MAKER:
-        #     api_params["postOnly"] = "true"
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
         try:
+            amount = self.quantize_order_amount(trading_pair, amount)
+            price = self.quantize_order_price(trading_pair, s_decimal_0 if math.isnan(price) else price)
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+            order_type_str = order_type.name.lower().split("_")[0]
+            api_params = {"market": convert_to_exchange_trading_pair(trading_pair),
+                          "side": trade_type.name.lower(),
+                          "ord_type": order_type_str,
+                          # "price": f"{price:f}",
+                          "client_id": order_id,
+                          "volume": f"{amount:f}",
+                          }
+            if order_type is not OrderType.MARKET:
+                api_params['price'] = f"{price:f}"
+            # if order_type is OrderType.LIMIT_MAKER:
+            #     api_params["postOnly"] = "true"
+            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
+
             order_result = await self._api_request("POST",
                                                    Constants.ENDPOINT["ORDER_CREATE"],
                                                    params=api_params,
