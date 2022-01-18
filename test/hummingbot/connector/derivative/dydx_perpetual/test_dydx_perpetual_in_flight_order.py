@@ -1,27 +1,15 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrder
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_status import DydxPerpetualOrderStatus
 from hummingbot.core.event.events import OrderType, TradeType
 
 
-class KrakenInFlightOrderTests(TestCase):
-    def test_order_is_local_after_creation(self):
-        order = KrakenInFlightOrder(
-            client_order_id="someId",
-            exchange_order_id=None,
-            trading_pair="BTC-USDT",
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            price=Decimal(45000),
-            amount=Decimal(1),
-            userref=1,
-        )
-
-        self.assertTrue(order.is_local)
+class DydxPerpetualInFlightOrderTests(TestCase):
 
     def test_serialize_order_to_json(self):
-        order = KrakenInFlightOrder(
+        order = DydxPerpetualInFlightOrder(
             client_order_id="OID1",
             exchange_order_id="EOID1",
             trading_pair="COINALPHA-HBOT",
@@ -29,9 +17,13 @@ class KrakenInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(1000),
             amount=Decimal(1),
-            userref=2,
-            initial_state="OPEN",
-            creation_timestamp=1640001112
+            initial_state=DydxPerpetualOrderStatus.PENDING,
+            filled_size=Decimal("0.1"),
+            filled_volume=Decimal("110"),
+            filled_fee=Decimal(10),
+            created_at=1640001112,
+            leverage=1,
+            position="Position"
         )
 
         expected_json = {
@@ -43,12 +35,16 @@ class KrakenInFlightOrderTests(TestCase):
             "price": str(order.price),
             "amount": str(order.amount),
             "last_state": order.last_state,
+            "status": order.status.name,
             "executed_amount_base": str(order.executed_amount_base),
             "executed_amount_quote": str(order.executed_amount_quote),
             "fee_asset": order.fee_asset,
             "fee_paid": str(order.fee_paid),
             "creation_timestamp": order.creation_timestamp,
-            "userref": order.userref,
+            "leverage": order.leverage,
+            "position": order.position,
+            "fills": [],
+            "_last_executed_amount_from_order_status": str(order._last_executed_amount_from_order_status),
         }
 
         self.assertEqual(expected_json, order.to_json())
@@ -62,16 +58,20 @@ class KrakenInFlightOrderTests(TestCase):
             "trade_type": TradeType.BUY.name,
             "price": "1000",
             "amount": "1",
-            "last_state": "OPEN",
+            "last_state": DydxPerpetualOrderStatus.OPEN.name,
+            "status": DydxPerpetualOrderStatus.OPEN.name,
             "executed_amount_base": "0.1",
             "executed_amount_quote": "110",
             "fee_asset": "BNB",
             "fee_paid": "10",
             "creation_timestamp": 1640001112,
-            "userref": 2,
+            "leverage": 1,
+            "position": "Position",
+            "fills": [],
+            "_last_executed_amount_from_order_status": "0.1",
         }
 
-        order: KrakenInFlightOrder = KrakenInFlightOrder.from_json(json)
+        order: DydxPerpetualInFlightOrder = DydxPerpetualInFlightOrder.from_json(json)
 
         self.assertEqual(json["client_order_id"], order.client_order_id)
         self.assertEqual(json["exchange_order_id"], order.exchange_order_id)
@@ -84,6 +84,11 @@ class KrakenInFlightOrderTests(TestCase):
         self.assertEqual(Decimal(json["executed_amount_quote"]), order.executed_amount_quote)
         self.assertEqual(json["fee_asset"], order.fee_asset)
         self.assertEqual(Decimal(json["fee_paid"]), order.fee_paid)
-        self.assertEqual(json["last_state"], order.last_state)
+        self.assertEqual(DydxPerpetualOrderStatus[json["status"]], order.status)
         self.assertEqual(json["creation_timestamp"], order.creation_timestamp)
-        self.assertEqual(json["userref"], order.userref)
+        self.assertEqual(json["leverage"], order.leverage)
+        self.assertEqual(json["position"], order.position)
+        self.assertEqual(0, len(order.fills))
+        self.assertEqual(
+            Decimal(json["_last_executed_amount_from_order_status"]),
+            order._last_executed_amount_from_order_status)

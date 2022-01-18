@@ -26,7 +26,8 @@ cdef class InFlightOrderBase:
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str):
+                 initial_state: str,
+                 creation_timestamp: int = -1):
 
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
@@ -42,21 +43,23 @@ cdef class InFlightOrderBase:
         self.last_state = initial_state
         self.exchange_order_id_update_event = asyncio.Event()
         self.completely_filled_event = asyncio.Event()
+        self._creation_timestamp = creation_timestamp
 
     def __repr__(self) -> str:
-        return f"InFlightOrder(" \
-               f"client_order_id='{self.client_order_id}', " \
-               f"exchange_order_id='{self.exchange_order_id}', " \
-               f"trading_pair='{self.trading_pair}', " \
-               f"order_type={self.order_type}, " \
-               f"trade_type={self.trade_type}, " \
-               f"price={self.price}, " \
-               f"amount={self.amount}, " \
-               f"executed_amount_base={self.executed_amount_base}, " \
-               f"executed_amount_quote={self.executed_amount_quote}, " \
-               f"fee_asset='{self.fee_asset}', " \
-               f"fee_paid={self.fee_paid}, " \
-               f"last_state='{self.last_state}')"
+        return (f"InFlightOrder("
+                f"client_order_id='{self.client_order_id}', "
+                f"exchange_order_id='{self.exchange_order_id}', "
+                f"creation_timestamp={self._creation_timestamp}, "
+                f"trading_pair='{self.trading_pair}', "
+                f"order_type={self.order_type}, "
+                f"trade_type={self.trade_type}, "
+                f"price={self.price}, "
+                f"amount={self.amount}, "
+                f"executed_amount_base={self.executed_amount_base}, "
+                f"executed_amount_quote={self.executed_amount_quote}, "
+                f"fee_asset='{self.fee_asset}', "
+                f"fee_paid={self.fee_paid}, "
+                f"last_state='{self.last_state}')")
 
     @property
     def is_done(self) -> bool:
@@ -77,6 +80,14 @@ cdef class InFlightOrderBase:
     @property
     def quote_asset(self) -> str:
         return self.trading_pair.split("-")[1]
+
+    @property
+    def creation_timestamp(self) -> int:
+        if self._creation_timestamp > 0:
+            timestamp = self._creation_timestamp
+        else:
+            timestamp = self._creation_timestamp_from_order_id()
+        return timestamp
 
     def update_exchange_order_id(self, exchange_id: str):
         self.exchange_order_id = exchange_id
@@ -112,7 +123,8 @@ cdef class InFlightOrderBase:
             "executed_amount_quote": str(self.executed_amount_quote),
             "fee_asset": self.fee_asset,
             "fee_paid": str(self.fee_paid),
-            "last_state": self.last_state
+            "last_state": self.last_state,
+            "creation_timestamp": self.creation_timestamp
         }
 
     @classmethod
@@ -125,7 +137,8 @@ cdef class InFlightOrderBase:
             getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
             Decimal(data["amount"]),
-            data["last_state"]]
+            data["last_state"],
+            data["creation_timestamp"]]
 
     @classmethod
     def _basic_from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -151,3 +164,11 @@ cdef class InFlightOrderBase:
 
     async def wait_until_completely_filled(self):
         await self.completely_filled_event.wait()
+
+    def _creation_timestamp_from_order_id(self) -> int:
+        timestamp = -1
+        if len(self.client_order_id) > 16:
+            nonce_component = self.client_order_id[-16:]
+            timestamp = int(nonce_component) if nonce_component.isnumeric() else -1
+            start_timestamp = int(timestamp)
+        return timestamp

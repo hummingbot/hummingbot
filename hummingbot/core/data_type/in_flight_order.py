@@ -63,15 +63,16 @@ class InFlightOrder:
         order_type: OrderType,
         trade_type: TradeType,
         amount: Decimal,
+        timestamp: int,
         price: Optional[Decimal] = None,
         exchange_order_id: Optional[str] = None,
         initial_state: OrderState = OrderState.PENDING_CREATE,
         leverage: int = 1,
         position: PositionAction = PositionAction.NIL,
         trade_fee_percent: Decimal = None,
-        timestamp: int = -1,
     ) -> None:
         self.client_order_id = client_order_id
+        self._creation_timestamp = timestamp
         self.trading_pair = trading_pair
         self.order_type = order_type
         self.trade_type = trade_type
@@ -121,6 +122,7 @@ class InFlightOrder:
                 self.last_filled_price,
                 self.last_filled_amount,
                 self.last_fee_paid,
+                self._creation_timestamp,
                 self.last_update_timestamp,
             )
         )
@@ -175,6 +177,10 @@ class InFlightOrder:
         return self.current_state == OrderState.CANCELLED
 
     @property
+    def creation_timestamp(self) -> int:
+        return self._creation_timestamp
+
+    @property
     def average_executed_price(self) -> Optional[Decimal]:
         executed_value: Decimal = s_decimal_0
         total_base_amount: Decimal = s_decimal_0
@@ -203,6 +209,7 @@ class InFlightOrder:
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
+            timestamp=data["creation_timestamp"]
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -229,7 +236,8 @@ class InFlightOrder:
             "fee_paid": str(self.cumulative_fee_paid),
             "last_state": str(self.current_state.value),
             "leverage": str(self.leverage),
-            "position": self.position.value
+            "position": self.position.value,
+            "creation_timestamp": self.creation_timestamp
         }
 
     def to_limit_order(self) -> LimitOrder:

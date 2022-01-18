@@ -1,15 +1,15 @@
 from decimal import Decimal
-from typing import (
-    Optional,
-)
+from typing import Optional, Dict, Any
+
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 class TerraInFlightOrder(InFlightOrderBase):
+
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -18,7 +18,8 @@ class TerraInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "OPEN"):
+                 initial_state: str = "OPEN",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -28,6 +29,7 @@ class TerraInFlightOrder(InFlightOrderBase):
             price,
             amount,
             initial_state,
+            creation_timestamp
         )
         self.trade_id_set = set()
 
@@ -42,3 +44,7 @@ class TerraInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        return cls._basic_from_json(data)
