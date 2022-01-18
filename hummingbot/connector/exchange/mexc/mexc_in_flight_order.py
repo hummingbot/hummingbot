@@ -4,12 +4,11 @@ from typing import (
     Dict,
 )
 
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 class MexcInFlightOrder(InFlightOrderBase):
@@ -21,7 +20,8 @@ class MexcInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "NEW",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -30,7 +30,8 @@ class MexcInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
+            initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
+            creation_timestamp
         )
         self.fee_asset = self.quote_asset
 
@@ -55,19 +56,4 @@ class MexcInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        retval = MexcInFlightOrder(
-            client_order_id=data["client_order_id"],
-            exchange_order_id=data["exchange_order_id"],
-            trading_pair=data["trading_pair"],
-            order_type=getattr(OrderType, data["order_type"]),
-            trade_type=getattr(TradeType, data["trade_type"]),
-            price=Decimal(data["price"]),
-            amount=Decimal(data["amount"]),
-            initial_state=data["last_state"]
-        )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
+        return cls._basic_from_json(data)

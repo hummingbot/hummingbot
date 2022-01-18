@@ -404,16 +404,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def start_tracking_order(
-            self,
-            order_id: str,
-            trading_pair: str,
-            trading_type: TradeType,
-            price: Decimal,
-            amount: Decimal,
-            order_type: OrderType,
-            leverage: int,
-            position: str,
-            exchange_order_id: Optional[str] = None,
+        self,
+        order_id: str,
+        trading_pair: str,
+        trading_type: TradeType,
+        price: Decimal,
+        amount: Decimal,
+        order_type: OrderType,
+        leverage: int,
+        position: PositionAction,
+        exchange_order_id: Optional[str] = None,
     ):
         """
         Starts tracking an order by calling the appropriate method in the Client Order Tracker
@@ -450,6 +450,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 amount=amount,
                 leverage=leverage,
                 position=position,
+                timestamp=int(self.current_timestamp)
             )
         )
 

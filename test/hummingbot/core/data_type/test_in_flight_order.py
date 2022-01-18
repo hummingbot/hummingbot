@@ -248,6 +248,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             "last_state": "0",
             "leverage": "1",
             "position": "NIL",
+            "creation_timestamp": 1640001112
         }
 
         expected_order: InFlightOrder = InFlightOrder(
@@ -258,6 +259,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            timestamp=1640001112
         )
 
         order_from_json = InFlightOrder.from_json(order_json)
@@ -271,6 +273,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            timestamp=1640001112
         )
 
         order_json = order.to_json()
@@ -291,6 +294,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(order_json["last_state"], str(order.current_state.value))
         self.assertEqual(order_json["leverage"], str(order.leverage))
         self.assertEqual(order_json["position"], order.position.value)
+        self.assertEqual(order_json["creation_timestamp"], order.creation_timestamp)
 
     def test_to_limit_order(self):
         order: InFlightOrder = InFlightOrder(
