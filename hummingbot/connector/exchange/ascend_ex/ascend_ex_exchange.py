@@ -8,11 +8,11 @@ from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
@@ -23,17 +23,18 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import (
-    OrderType, TradeType
-)
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.event.events import (
+    OrderType,
+    TradeType
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -620,6 +621,7 @@ class AscendExExchange(ExchangePyBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
+                timestamp=int(self.current_timestamp)
             )
         )
 

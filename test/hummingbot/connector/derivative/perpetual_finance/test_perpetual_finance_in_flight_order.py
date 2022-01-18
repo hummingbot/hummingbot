@@ -1,27 +1,15 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrder
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import \
+    PerpetualFinanceInFlightOrder
 from hummingbot.core.event.events import OrderType, TradeType
 
 
-class KrakenInFlightOrderTests(TestCase):
-    def test_order_is_local_after_creation(self):
-        order = KrakenInFlightOrder(
-            client_order_id="someId",
-            exchange_order_id=None,
-            trading_pair="BTC-USDT",
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            price=Decimal(45000),
-            amount=Decimal(1),
-            userref=1,
-        )
-
-        self.assertTrue(order.is_local)
+class PerpetualFinanceInFlightOrderTests(TestCase):
 
     def test_serialize_order_to_json(self):
-        order = KrakenInFlightOrder(
+        order = PerpetualFinanceInFlightOrder(
             client_order_id="OID1",
             exchange_order_id="EOID1",
             trading_pair="COINALPHA-HBOT",
@@ -29,8 +17,9 @@ class KrakenInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(1000),
             amount=Decimal(1),
-            userref=2,
             initial_state="OPEN",
+            leverage=1,
+            position="Position",
             creation_timestamp=1640001112
         )
 
@@ -48,7 +37,8 @@ class KrakenInFlightOrderTests(TestCase):
             "fee_asset": order.fee_asset,
             "fee_paid": str(order.fee_paid),
             "creation_timestamp": order.creation_timestamp,
-            "userref": order.userref,
+            "leverage": order.leverage,
+            "position": order.position,
         }
 
         self.assertEqual(expected_json, order.to_json())
@@ -68,10 +58,11 @@ class KrakenInFlightOrderTests(TestCase):
             "fee_asset": "BNB",
             "fee_paid": "10",
             "creation_timestamp": 1640001112,
-            "userref": 2,
+            "leverage": 1,
+            "position": "Position",
         }
 
-        order: KrakenInFlightOrder = KrakenInFlightOrder.from_json(json)
+        order: PerpetualFinanceInFlightOrder = PerpetualFinanceInFlightOrder.from_json(json)
 
         self.assertEqual(json["client_order_id"], order.client_order_id)
         self.assertEqual(json["exchange_order_id"], order.exchange_order_id)
@@ -86,4 +77,5 @@ class KrakenInFlightOrderTests(TestCase):
         self.assertEqual(Decimal(json["fee_paid"]), order.fee_paid)
         self.assertEqual(json["last_state"], order.last_state)
         self.assertEqual(json["creation_timestamp"], order.creation_timestamp)
-        self.assertEqual(json["userref"], order.userref)
+        self.assertEqual(json["leverage"], order.leverage)
+        self.assertEqual(json["position"], order.position)
