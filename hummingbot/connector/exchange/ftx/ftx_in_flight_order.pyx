@@ -1,13 +1,10 @@
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 
-from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.connector.exchange.ftx.ftx_exchange import FtxExchange
 from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee, MarketEvent)
+from hummingbot.core.event.events import (MarketEvent, OrderType, TradeType)
 
-import logging
 
 cdef class FtxInFlightOrder(InFlightOrderBase):
     def __init__(self,
@@ -32,6 +29,8 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         )
         self.created_at = created_at
         self.state = FtxOrderStatus.new
+        self.trade_id_set = set()
+        self.fee_asset = self.quote_asset if order_type == OrderType.MARKET else self.base_asset
 
     def __repr__(self) -> str:
         return f"super().__repr__()" \
@@ -65,25 +64,17 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         return f"{order_type} {side}"
 
     @classmethod
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        parameters = super()._instance_creation_parameters_from_json(data)
+        creation_timestamp = float(data["created_at"] if "created_at" in data else 0)
+        parameters.insert(-1, creation_timestamp)
+        return parameters
+
+    @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            FtxInFlightOrder retval = FtxInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["trading_pair"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                float(data["created_at"] if "created_at" in data else 0),
-                data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
+        retval = cls._basic_from_json(data)
         retval.state = FtxOrderStatus[retval.last_state]
+        retval.check_filled_condition()
         return retval
 
     def update(self, data: Dict[str, Any]) -> List[Any]:
@@ -102,10 +93,6 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         diff_base: Decimal = overall_executed_base - old_executed_base
         diff_quote: Decimal = overall_executed_quote - old_executed_quote
 
-        if diff_base > 0:
-            diff_price: Decimal = diff_quote / diff_base
-            events.append((MarketEvent.OrderFilled, diff_base, diff_price, None))
-
         if not self.is_done and new_status == FtxOrderStatus.closed:
             if overall_remaining_size > 0:
                 events.append((MarketEvent.OrderCancelled, None, None, None))
@@ -116,10 +103,33 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
         self.state = new_status
         self.last_state = new_status.name
-        self.executed_amount_base = overall_executed_base
-        self.executed_amount_quote = overall_executed_quote
 
         return events
 
     def update_fees(self, new_fee: Decimal):
         self.fee_paid += new_fee
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_update: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["tradeId"]
+        if (str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set):
+            return False
+
+        self.trade_id_set.add(trade_id)
+        trade_amount = Decimal(str(trade_update["size"]))
+        trade_price = Decimal(str(trade_update["price"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+
+        self.fee_paid += Decimal(str(trade_update["fee"]))
+        self.fee_asset = trade_update["feeCurrency"]
+
+        self.check_filled_condition()
+
+        return True

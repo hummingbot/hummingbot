@@ -13,7 +13,8 @@ from hummingbot.core.clock import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (MarketEvent, OrderType, BuyOrderCreatedEvent, BuyOrderCompletedEvent,
-                                          SellOrderCreatedEvent, SellOrderCompletedEvent, TradeFee)
+                                          SellOrderCreatedEvent, SellOrderCompletedEvent)
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
@@ -101,7 +102,7 @@ class AmmArbUnitTest(unittest.TestCase):
         cls._clock = cls.stack.enter_context(cls.clock)
         cls._patcher = unittest.mock.patch("hummingbot.strategy.amm_arb.data_types.estimate_fee")
         cls._url_mock = cls._patcher.start()
-        cls._url_mock.return_value = TradeFee(percent=0, flat_fees=[])
+        cls._url_mock.return_value = AddedToCostTradeFee(percent=0, flat_fees=[])
 
     @classmethod
     def tearDownClass(cls) -> None:

@@ -4,18 +4,16 @@ generate a dictionary of exchange names to ConnectorSettings.
 """
 
 import importlib
-from os import scandir
-from os.path import (
-    realpath,
-    join,
-)
-from enum import Enum
 from decimal import Decimal
-from typing import List, NamedTuple, Dict, Any, Optional, Set
-from hummingbot import get_strategy_list
+from enum import Enum
+from os import scandir
+from os.path import join, realpath
 from pathlib import Path
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
+
+from hummingbot import get_strategy_list
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.event.events import TradeFeeType
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Global variables
 required_exchanges: List[str] = []
@@ -63,9 +61,7 @@ class ConnectorSetting(NamedTuple):
     example_pair: str
     centralised: bool
     use_ethereum_wallet: bool
-    fee_type: TradeFeeType
-    fee_token: str
-    default_fees: List[Decimal]
+    trade_fee_schema: TradeFeeSchema
     config_keys: Dict[str, ConfigVar]
     is_sub_domain: bool
     parent_name: str
@@ -135,19 +131,15 @@ class AllConnectorSettings:
                     util_module = importlib.import_module(path)
                 except ModuleNotFoundError:
                     continue
-                fee_type = TradeFeeType.Percent
-                fee_type_setting = getattr(util_module, "FEE_TYPE", None)
-                if fee_type_setting is not None:
-                    fee_type = TradeFeeType[fee_type_setting]
+                trade_fee_schema = getattr(util_module, "DEFAULT_FEES", None)
+                trade_fee_schema = cls._validate_trade_fee_schema(connector_dir.name, trade_fee_schema)
                 cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
                     name=connector_dir.name,
                     type=ConnectorType[type_dir.name.capitalize()],
                     centralised=getattr(util_module, "CENTRALIZED", True),
                     example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
                     use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
-                    fee_type=fee_type,
-                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
-                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
+                    trade_fee_schema=trade_fee_schema,
                     config_keys=getattr(util_module, "KEYS", {}),
                     is_sub_domain=False,
                     parent_name=None,
@@ -157,6 +149,8 @@ class AllConnectorSettings:
                 # Adds other domains of connector
                 other_domains = getattr(util_module, "OTHER_DOMAINS", [])
                 for domain in other_domains:
+                    trade_fee_schema = getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain]
+                    trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_schema)
                     parent = cls.all_connector_settings[connector_dir.name]
                     cls.all_connector_settings[domain] = ConnectorSetting(
                         name=domain,
@@ -164,9 +158,7 @@ class AllConnectorSettings:
                         centralised=parent.centralised,
                         example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
                         use_ethereum_wallet=parent.use_ethereum_wallet,
-                        fee_type=parent.fee_type,
-                        fee_token=parent.fee_token,
-                        default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],
+                        trade_fee_schema=trade_fee_schema,
                         config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
                         is_sub_domain=True,
                         parent_name=parent.name,
@@ -187,9 +179,7 @@ class AllConnectorSettings:
                     centralised=base_connector_settings.centralised,
                     example_pair=base_connector_settings.example_pair,
                     use_ethereum_wallet=base_connector_settings.use_ethereum_wallet,
-                    fee_type=base_connector_settings.fee_type,
-                    fee_token=base_connector_settings.fee_token,
-                    default_fees=base_connector_settings.default_fees,
+                    trade_fee_schema=base_connector_settings.trade_fee_schema,
                     config_keys=base_connector_settings.config_keys,
                     is_sub_domain=False,
                     parent_name=base_connector_settings.name,
@@ -235,6 +225,24 @@ class AllConnectorSettings:
     @classmethod
     def get_example_assets(cls) -> Dict[str, str]:
         return {name: cs.example_pair.split("-")[0] for name, cs in cls.get_connector_settings().items()}
+
+    @staticmethod
+    def _validate_trade_fee_schema(
+        exchange_name: str, trade_fee_schema: Optional[Union[TradeFeeSchema, List[float]]]
+    ) -> TradeFeeSchema:
+        if not isinstance(trade_fee_schema, TradeFeeSchema):
+            # backward compatibility
+            maker_percent_fee_decimal = (
+                Decimal(str(trade_fee_schema[0])) / Decimal("100") if trade_fee_schema is not None else Decimal("0")
+            )
+            taker_percent_fee_decimal = (
+                Decimal(str(trade_fee_schema[1])) / Decimal("100") if trade_fee_schema is not None else Decimal("0")
+            )
+            trade_fee_schema = TradeFeeSchema(
+                maker_percent_fee_decimal=maker_percent_fee_decimal,
+                taker_percent_fee_decimal=taker_percent_fee_decimal,
+            )
+        return trade_fee_schema
 
 
 def ethereum_wallet_required() -> bool:

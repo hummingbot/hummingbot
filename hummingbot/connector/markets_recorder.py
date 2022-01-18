@@ -1,14 +1,9 @@
-#!/usr/bin/env python
-import os.path
-import pandas as pd
-from shutil import move
 import asyncio
-from sqlalchemy.orm import (
-    Session,
-    Query
-)
-import time
+import os.path
 import threading
+import time
+from decimal import Decimal
+from shutil import move
 from typing import (
     Dict,
     List,
@@ -17,25 +12,28 @@ from typing import (
     Union,
 )
 
+import pandas as pd
+from sqlalchemy.orm import Query, Session
+
 from hummingbot import data_path
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    OrderFilledEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
-    FundingPaymentCompletedEvent,
-    MarketEvent,
-    TradeFee,
+    OrderFilledEvent,
     RangePositionInitiatedEvent,
     RangePositionUpdatedEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
 )
-from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
@@ -43,7 +41,6 @@ from hummingbot.model.range_position import RangePosition
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.model.funding_payment import FundingPayment
 
 
 class MarketsRecorder:
@@ -61,7 +58,7 @@ class MarketsRecorder:
             raise EnvironmentError("MarketsRecorded can only be initialized from the main thread.")
 
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        self._sql: SQLConnectionManager = sql
+        self._sql_manager: SQLConnectionManager = sql
         self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
@@ -103,12 +100,8 @@ class MarketsRecorder:
         ]
 
     @property
-    def sql(self) -> SQLConnectionManager:
-        return self._sql
-
-    @property
-    def session(self) -> Session:
-        return self._sql.get_shared_session()
+    def sql_manager(self) -> SQLConnectionManager:
+        return self._sql_manager
 
     @property
     def config_file_path(self) -> str:
@@ -135,34 +128,33 @@ class MarketsRecorder:
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,
                                          number_of_rows: Optional[int] = None) -> List[Order]:
-        session: Session = self.session
-        filters = [Order.config_file_path == config_file_path,
-                   Order.market == market.display_name]
-        if with_exchange_order_id_present:
-            filters.append(Order.exchange_order_id.isnot(None))
-        query: Query = (session
-                        .query(Order)
-                        .filter(*filters)
-                        .order_by(Order.creation_timestamp))
-        if number_of_rows is None:
-            return query.all()
-        else:
-            return query.limit(number_of_rows).all()
+        with self._sql_manager.get_new_session() as session:
+            filters = [Order.config_file_path == config_file_path,
+                       Order.market == market.display_name]
+            if with_exchange_order_id_present:
+                filters.append(Order.exchange_order_id.isnot(None))
+            query: Query = (session
+                            .query(Order)
+                            .filter(*filters)
+                            .order_by(Order.creation_timestamp))
+            if number_of_rows is None:
+                return query.all()
+            else:
+                return query.limit(number_of_rows).all()
 
     def get_trades_for_config(self, config_file_path: str, number_of_rows: Optional[int] = None) -> List[TradeFill]:
-        session: Session = self.session
-        query: Query = (session
-                        .query(TradeFill)
-                        .filter(TradeFill.config_file_path == config_file_path)
-                        .order_by(TradeFill.timestamp.desc()))
-        if number_of_rows is None:
-            return query.all()
-        else:
-            return query.limit(number_of_rows).all()
+        with self._sql_manager.get_new_session() as session:
+            query: Query = (session
+                            .query(TradeFill)
+                            .filter(TradeFill.config_file_path == config_file_path)
+                            .order_by(TradeFill.timestamp.desc()))
+            if number_of_rows is None:
+                return query.all()
+            else:
+                return query.limit(number_of_rows).all()
 
-    def save_market_states(self, config_file_path: str, market: ConnectorBase, no_commit: bool = False):
-        session: Session = self.session
-        market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
+    def save_market_states(self, config_file_path: str, market: ConnectorBase, session: Session):
+        market_states: Optional[MarketState] = self.get_market_states(config_file_path, market, session=session)
         timestamp: int = self.db_timestamp
 
         if market_states is not None:
@@ -175,17 +167,17 @@ class MarketsRecorder:
                                         saved_state=market.tracking_states)
             session.add(market_states)
 
-        if not no_commit:
-            session.commit()
-
     def restore_market_states(self, config_file_path: str, market: ConnectorBase):
-        market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
+        with self._sql_manager.get_new_session() as session:
+            market_states: Optional[MarketState] = self.get_market_states(config_file_path, market, session=session)
 
-        if market_states is not None:
-            market.restore_tracking_states(market_states.saved_state)
+            if market_states is not None:
+                market.restore_tracking_states(market_states.saved_state)
 
-    def get_market_states(self, config_file_path: str, market: ConnectorBase) -> Optional[MarketState]:
-        session: Session = self.session
+    def get_market_states(self,
+                          config_file_path: str,
+                          market: ConnectorBase,
+                          session: Session) -> Optional[MarketState]:
         query: Query = (session
                         .query(MarketState)
                         .filter(MarketState.config_file_path == config_file_path,
@@ -201,34 +193,35 @@ class MarketsRecorder:
             self._ev_loop.call_soon_threadsafe(self._did_create_order, event_tag, market, evt)
             return
 
-        session: Session = self.session
         base_asset, quote_asset = evt.trading_pair.split("-")
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
-        order_record: Order = Order(id=evt.order_id,
-                                    config_file_path=self._config_file_path,
-                                    strategy=self._strategy_name,
-                                    market=market.display_name,
-                                    symbol=evt.trading_pair,
-                                    base_asset=base_asset,
-                                    quote_asset=quote_asset,
-                                    creation_timestamp=timestamp,
-                                    order_type=evt.type.name,
-                                    amount=float(evt.amount),
-                                    leverage=evt.leverage if evt.leverage else 1,
-                                    price=float(evt.price) if evt.price == evt.price else 0,
-                                    position=evt.position if evt.position else "NILL",
-                                    last_status=event_type.name,
-                                    last_update_timestamp=timestamp,
-                                    exchange_order_id=evt.exchange_order_id)
-        order_status: OrderStatus = OrderStatus(order=order_record,
-                                                timestamp=timestamp,
-                                                status=event_type.name)
-        session.add(order_record)
-        session.add(order_status)
-        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id: evt.order_id})
-        self.save_market_states(self._config_file_path, market, no_commit=True)
-        session.commit()
+
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                order_record: Order = Order(id=evt.order_id,
+                                            config_file_path=self._config_file_path,
+                                            strategy=self._strategy_name,
+                                            market=market.display_name,
+                                            symbol=evt.trading_pair,
+                                            base_asset=base_asset,
+                                            quote_asset=quote_asset,
+                                            creation_timestamp=timestamp,
+                                            order_type=evt.type.name,
+                                            amount=Decimal(evt.amount),
+                                            leverage=evt.leverage if evt.leverage else 1,
+                                            price=Decimal(evt.price) if evt.price == evt.price else Decimal(0),
+                                            position=evt.position if evt.position else "NILL",
+                                            last_status=event_type.name,
+                                            last_update_timestamp=timestamp,
+                                            exchange_order_id=evt.exchange_order_id)
+                order_status: OrderStatus = OrderStatus(order=order_record,
+                                                        timestamp=timestamp,
+                                                        status=event_type.name)
+                session.add(order_record)
+                session.add(order_status)
+                market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id: evt.order_id})
+                self.save_market_states(self._config_file_path, market, session=session)
 
     def _did_fill_order(self,
                         event_tag: int,
@@ -238,47 +231,49 @@ class MarketsRecorder:
             self._ev_loop.call_soon_threadsafe(self._did_fill_order, event_tag, market, evt)
             return
 
-        session: Session = self.session
         base_asset, quote_asset = evt.trading_pair.split("-")
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
 
-        # Try to find the order record, and update it if necessary.
-        order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
-        if order_record is not None:
-            order_record.last_status = event_type.name
-            order_record.last_update_timestamp = timestamp
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                # Try to find the order record, and update it if necessary.
+                order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
+                if order_record is not None:
+                    order_record.last_status = event_type.name
+                    order_record.last_update_timestamp = timestamp
 
-        # Order status and trade fill record should be added even if the order record is not found, because it's
-        # possible for fill event to come in before the order created event for market orders.
-        order_status: OrderStatus = OrderStatus(order_id=order_id,
-                                                timestamp=timestamp,
-                                                status=event_type.name)
-        trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
-                                                 strategy=self.strategy_name,
-                                                 market=market.display_name,
-                                                 symbol=evt.trading_pair,
-                                                 base_asset=base_asset,
-                                                 quote_asset=quote_asset,
-                                                 timestamp=timestamp,
-                                                 order_id=order_id,
-                                                 trade_type=evt.trade_type.name,
-                                                 order_type=evt.order_type.name,
-                                                 price=float(evt.price) if evt.price == evt.price else 0,
-                                                 amount=float(evt.amount),
-                                                 leverage=evt.leverage if evt.leverage else 1,
-                                                 trade_fee=TradeFee.to_json(evt.trade_fee),
-                                                 exchange_trade_id=evt.exchange_trade_id,
-                                                 position=evt.position if evt.position else "NILL", )
-        session.add(order_status)
-        session.add(trade_fill_record)
-        self.save_market_states(self._config_file_path, market, no_commit=True)
-        session.commit()
-        market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market,
-                                                                           trade_fill_record.exchange_trade_id,
-                                                                           trade_fill_record.symbol)})
-        self.append_to_csv(trade_fill_record)
+                # Order status and trade fill record should be added even if the order record is not found, because it's
+                # possible for fill event to come in before the order created event for market orders.
+                order_status: OrderStatus = OrderStatus(order_id=order_id,
+                                                        timestamp=timestamp,
+                                                        status=event_type.name)
+
+                trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
+                                                         strategy=self.strategy_name,
+                                                         market=market.display_name,
+                                                         symbol=evt.trading_pair,
+                                                         base_asset=base_asset,
+                                                         quote_asset=quote_asset,
+                                                         timestamp=timestamp,
+                                                         order_id=order_id,
+                                                         trade_type=evt.trade_type.name,
+                                                         order_type=evt.order_type.name,
+                                                         price=Decimal(evt.price) if evt.price == evt.price else Decimal(0),
+                                                         amount=Decimal(evt.amount),
+                                                         leverage=evt.leverage if evt.leverage else 1,
+                                                         trade_fee=evt.trade_fee.to_json(),
+                                                         exchange_trade_id=evt.exchange_trade_id,
+                                                         position=evt.position if evt.position else "NILL", )
+                session.add(order_status)
+                session.add(trade_fill_record)
+                self.save_market_states(self._config_file_path, market, session=session)
+
+                market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market,
+                                                                                   trade_fill_record.exchange_trade_id,
+                                                                                   trade_fill_record.symbol)})
+                self.append_to_csv(trade_fill_record)
 
     def _did_complete_funding_payment(self,
                                       event_tag: int,
@@ -291,19 +286,19 @@ class MarketsRecorder:
         session: Session = self.session
         timestamp: float = evt.timestamp
 
-        # Try to find the funding payment has been recorded already.
-        payment_record: Optional[FundingPayment] = session.query(FundingPayment).filter(
-            FundingPayment.timestamp == timestamp).one_or_none()
-        if payment_record is None:
-            funding_payment_record: FundingPayment = FundingPayment(timestamp=timestamp,
-                                                                    config_file_path=self.config_file_path,
-                                                                    market=market.display_name,
-                                                                    rate=evt.funding_rate,
-                                                                    symbol=evt.trading_pair,
-                                                                    amount=float(evt.amount))
-            session.add(funding_payment_record)
-            session.commit()
-            # self.append_to_csv(funding_payment_record)
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                # Try to find the funding payment has been recorded already.
+                payment_record: Optional[FundingPayment] = session.query(FundingPayment).filter(
+                    FundingPayment.timestamp == timestamp).one_or_none()
+                if payment_record is None:
+                    funding_payment_record: FundingPayment = FundingPayment(timestamp=timestamp,
+                                                                            config_file_path=self.config_file_path,
+                                                                            market=market.display_name,
+                                                                            rate=evt.funding_rate,
+                                                                            symbol=evt.trading_pair,
+                                                                            amount=float(evt.amount))
+                    session.add(funding_payment_record)
 
     @staticmethod
     def _is_primitive_type(obj: object) -> bool:
@@ -322,7 +317,7 @@ class MarketsRecorder:
         csv_filename = "trades_" + trade.config_file_path[:-4] + ".csv"
         csv_path = os.path.join(data_path(), csv_filename)
 
-        field_names = ("id",)  # id field should be first
+        field_names = ("exchange_trade_id",)  # id field should be first
         field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
                                                              self._is_primitive_type(getattr(trade, attr)) and
                                                              (attr not in field_names)))
@@ -356,23 +351,22 @@ class MarketsRecorder:
             self._ev_loop.call_soon_threadsafe(self._update_order_status, event_tag, market, evt)
             return
 
-        session: Session = self.session
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
-        order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
 
-        if order_record is not None:
-            order_record.last_status = event_type.name
-            order_record.last_update_timestamp = timestamp
-            order_status: OrderStatus = OrderStatus(order_id=order_id,
-                                                    timestamp=timestamp,
-                                                    status=event_type.name)
-            session.add(order_status)
-            self.save_market_states(self._config_file_path, market, no_commit=True)
-            session.commit()
-        else:
-            session.rollback()
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                order_record: Optional[Order] = session.query(Order).filter(Order.id == order_id).one_or_none()
+
+                if order_record is not None:
+                    order_record.last_status = event_type.name
+                    order_record.last_update_timestamp = timestamp
+                    order_status: OrderStatus = OrderStatus(order_id=order_id,
+                                                            timestamp=timestamp,
+                                                            status=event_type.name)
+                    session.add(order_status)
+                    self.save_market_states(self._config_file_path, market, session=session)
 
     def _did_cancel_order(self,
                           event_tag: int,
@@ -406,25 +400,26 @@ class MarketsRecorder:
             self._ev_loop.call_soon_threadsafe(self._did_initiate_range_position, event_tag, connector, evt)
             return
 
-        session: Session = self.session
         timestamp: int = self.db_timestamp
-        r_pos: RangePosition = RangePosition(hb_id=evt.hb_id,
-                                             config_file_path=self._config_file_path,
-                                             strategy=self._strategy_name,
-                                             tx_hash=evt.tx_hash,
-                                             connector=connector.display_name,
-                                             trading_pair=evt.trading_pair,
-                                             fee_tier=str(evt.fee_tier),
-                                             lower_price=float(evt.lower_price),
-                                             upper_price=float(evt.upper_price),
-                                             base_amount=float(evt.base_amount),
-                                             quote_amount=float(evt.quote_amount),
-                                             status=evt.status,
-                                             creation_timestamp=timestamp,
-                                             last_update_timestamp=timestamp)
-        session.add(r_pos)
-        self.save_market_states(self._config_file_path, connector, no_commit=True)
-        session.commit()
+
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                r_pos: RangePosition = RangePosition(hb_id=evt.hb_id,
+                                                     config_file_path=self._config_file_path,
+                                                     strategy=self._strategy_name,
+                                                     tx_hash=evt.tx_hash,
+                                                     connector=connector.display_name,
+                                                     trading_pair=evt.trading_pair,
+                                                     fee_tier=str(evt.fee_tier),
+                                                     lower_price=float(evt.lower_price),
+                                                     upper_price=float(evt.upper_price),
+                                                     base_amount=float(evt.base_amount),
+                                                     quote_amount=float(evt.quote_amount),
+                                                     status=evt.status,
+                                                     creation_timestamp=timestamp,
+                                                     last_update_timestamp=timestamp)
+                session.add(r_pos)
+                self.save_market_states(self._config_file_path, connector, session=session)
 
     def _did_update_range_position(self,
                                    event_tag: int,
@@ -434,20 +429,20 @@ class MarketsRecorder:
             self._ev_loop.call_soon_threadsafe(self._did_update_range_position, event_tag, connector, evt)
             return
 
-        session: Session = self.session
         timestamp: int = self.db_timestamp
 
-        rp_record: Optional[RangePosition] = session.query(RangePosition).filter(
-            RangePosition.hb_id == evt.hb_id).one_or_none()
-        if rp_record is not None:
-            rp_update: RangePositionUpdate = RangePositionUpdate(hb_id=evt.hb_id,
-                                                                 timestamp=timestamp,
-                                                                 tx_hash=evt.tx_hash,
-                                                                 token_id=evt.token_id,
-                                                                 base_amount=float(evt.base_amount),
-                                                                 quote_amount=float(evt.quote_amount),
-                                                                 status=evt.status,
-                                                                 )
-            session.add(rp_update)
-            self.save_market_states(self._config_file_path, connector, no_commit=True)
-            session.commit()
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                rp_record: Optional[RangePosition] = session.query(RangePosition).filter(
+                    RangePosition.hb_id == evt.hb_id).one_or_none()
+                if rp_record is not None:
+                    rp_update: RangePositionUpdate = RangePositionUpdate(hb_id=evt.hb_id,
+                                                                         timestamp=timestamp,
+                                                                         tx_hash=evt.tx_hash,
+                                                                         token_id=evt.token_id,
+                                                                         base_amount=float(evt.base_amount),
+                                                                         quote_amount=float(evt.quote_amount),
+                                                                         status=evt.status,
+                                                                         )
+                    session.add(rp_update)
+                    self.save_market_states(self._config_file_path, connector, session=session)

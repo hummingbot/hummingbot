@@ -141,6 +141,11 @@ class HummingbotApplication(*commands):
             if self.placeholder_mode:
                 pass
             else:
+                # Check if help is requested, if yes, print & terminate
+                if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
+                    self.help(command_split[0])
+                    return
+
                 shortcuts = global_config_map.get("command_shortcuts").value
                 shortcut = None
                 # see if we match against shortcut command

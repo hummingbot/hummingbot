@@ -50,8 +50,8 @@ def main():
         "aiohttp",
         "aiokafka",
         "appdirs",
-        "appnope"
-        "sync-timeout",
+        "appnope",
+        "bidict",
         "cachetools",
         "certifi",
         "cryptography",
@@ -79,8 +79,7 @@ def main():
         "psutil",
         "pyjwt",
         "pyperclip",
-        "python-binance==0.7.5",
-        "python-dateutil"
+        "python-dateutil",
         "python-telegram-bot",
         "requests",
         "rsa",
@@ -90,6 +89,7 @@ def main():
         "simplejson",
         "six",
         "sqlalchemy",
+        "sync-timeout",
         "tzlocal",
         "ujson",
         "web3",
