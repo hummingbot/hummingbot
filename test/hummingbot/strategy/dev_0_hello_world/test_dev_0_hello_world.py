@@ -2,17 +2,13 @@
 import asyncio
 import unittest
 import pandas as pd
-
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    QuantizationParams
-)
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
 from hummingbot.strategy.dev_0_hello_world import HelloWorldStrategy
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class Dev0HelloWorldUnitTest(unittest.TestCase):
@@ -28,7 +24,7 @@ class Dev0HelloWorldUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.tick_size, cls.start_timestamp, cls.end_timestamp)
-        cls.market: BacktestMarket = BacktestMarket()
+        cls.market: MockPaperExchange = MockPaperExchange()
         cls.strategy: HelloWorldStrategy = HelloWorldStrategy(
             exchange=cls.market,
             trading_pair=cls.trading_pair,
@@ -47,17 +43,12 @@ class Dev0HelloWorldUnitTest(unittest.TestCase):
         # Simulate Order Book being populated
         quote_balance = 5000
 
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(
-            trading_pair=self.trading_pair,
-            base_currency=self.base_asset,
-            quote_currency=self.quote_asset,
-        )
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
-        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
-                                                max_price=200, price_step_size=1, volume_step_size=10)
-        self.market.add_data(self.maker_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("HBOT", quote_balance)
         self.market.set_quantization_param(

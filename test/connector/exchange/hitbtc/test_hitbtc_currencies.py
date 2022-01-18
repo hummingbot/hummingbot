@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import sys
 import asyncio
 import unittest
@@ -6,10 +5,11 @@ import aiohttp
 import logging
 from os.path import join, realpath
 from typing import Dict, Any
+
+from hummingbot.connector.exchange.hitbtc.hitbtc_api_order_book_data_source import HitbtcAPIOrderBookDataSource
+from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import aiohttp_response_with_errors
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
-from hummingbot.connector.exchange.hitbtc.hitbtc_utils import convert_from_exchange_trading_pair
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -34,7 +34,8 @@ class TestAuth(unittest.TestCase):
         pairs = [i['id'] for i in result]
         unmatched_pairs = []
         for pair in pairs:
-            matched_pair = convert_from_exchange_trading_pair(pair)
+            matched_pair = asyncio.get_event_loop().run_until_complete(
+                HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(pair))
             if matched_pair is None:
                 matched_pair_split = None
                 print(f"\nUnmatched pair: {pair}\n")

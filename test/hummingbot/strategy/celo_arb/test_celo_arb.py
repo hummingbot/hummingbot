@@ -5,11 +5,6 @@ import pandas as pd
 import unittest
 import mock
 from nose.plugins.attrib import attr
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.clock import (
     Clock,
@@ -21,8 +16,9 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_profits
 from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
-from hummingbot.market.celo.celo_cli import CeloCLI
-
+from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -49,7 +45,7 @@ class CeloArbUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if MOCK_CELO_COMMANDS:
-            cls._patcher = mock.patch("hummingbot.market.celo.celo_cli.command")
+            cls._patcher = mock.patch("hummingbot.connector.other.celo.celo_cli.command")
             cls._mock = cls._patcher.start()
             cls._mock.side_effect = mock_command
 
@@ -61,12 +57,9 @@ class CeloArbUnitTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
+        self.market: MockPaperExchange = MockPaperExchange()
 
-        self.market_data = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
-        self.market_data.set_balanced_order_book(10, 5, 15, 0.1, 1)
-
-        self.market.add_data(self.market_data)
+        self.market.set_balanced_order_book(self.trading_pair, 10, 5, 15, 0.1, 1)
 
         self.market.set_balance(self.base_asset, 500)
         self.market.set_balance(self.quote_asset, 500)
@@ -117,12 +110,12 @@ class CeloArbUnitTest(unittest.TestCase):
         # At Celo 9.95 CUSD will get you 1 CELO, so the profit is 0%
         celo_buy_trade = trade_profits[0]
         self.assertTrue(celo_buy_trade.is_celo_buy)
-        # Can sell at CTP at 9.95
-        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.95"))
+        # Can sell at CTP at 9.9499
+        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.9499"))
         # Can buy at celo for 9.95
         self.assertEqual(celo_buy_trade.celo_price, Decimal("9.95"))
-        # profit is 0
-        self.assertEqual(celo_buy_trade.profit, Decimal("0"))
+        # profit is almost 0
+        self.assertAlmostEqual(celo_buy_trade.profit, Decimal('-0.00001005'))
 
         # Buy price at CTP (counter party) 1 CELO at 10.05 USD
         # at Celo 1 CELO will get you 10.5 USD, so the profit is (10.5 - 10.05)/10.05 = 0.0447761194
@@ -151,13 +144,13 @@ class CeloArbUnitTest(unittest.TestCase):
 
         celo_sell_trade = trade_profits[1]
         self.assertFalse(celo_sell_trade.is_celo_buy)
-        # VWAP Buy price (5 CELO) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.17
-        self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.17"))
+        # VWAP Buy price (5 CELO) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.169
+        self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.169"))
         self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.25"))
         # Can sell price celo at 10.1 each
         self.assertEqual(celo_sell_trade.celo_price, Decimal("10.1"))
-        # profit = (10.1 - 10.17)/10.17 = -0.00688298918
-        self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00688298918"))
+        # profit = (10.1 - 10.17)/10.17 = -0.00678532795
+        self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00678532795"))
 
     def test_profitable_celo_sell_trade(self):
         order_amount = Decimal("1")

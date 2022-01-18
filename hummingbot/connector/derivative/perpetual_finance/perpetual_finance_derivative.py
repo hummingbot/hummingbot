@@ -1,45 +1,50 @@
-import logging
-from decimal import Decimal
 import asyncio
-import aiohttp
-from typing import Dict, Any, List, Optional
-import json
-import time
-import ssl
 import copy
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.core.event.events import TradeFee
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    MarketOrderFailureEvent,
-    FundingPaymentCompletedEvent,
-    OrderFilledEvent,
-    OrderType,
-    TradeType,
-    PositionSide,
-    PositionAction,
-    FundingInfo
+import json
+import logging
+import ssl
+import time
+import warnings
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+import aiohttp
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import (
+    PerpetualFinanceInFlightOrder
 )
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import PerpetualFinanceInFlightOrder
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.derivative.position import Position
-
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
+)
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -91,6 +96,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
         self._poll_notifier = None
         self._funding_payment_span = [120, 120]
         self._fundingPayment = {}
+        self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
     def name(self):
@@ -102,6 +108,10 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
         ]
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     async def load_metadata(self):
         status = await self._api_request("get", "perpfi/")
@@ -332,7 +342,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                                                "perpfi/receipt",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
+            for update_result, tracked_order in zip(update_results, tracked_orders):
                 self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
                 if isinstance(update_result, Exception):
                     raise update_result
@@ -341,8 +351,18 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                     continue
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
-                        fee = estimate_fee("perpetual_finance", False)
-                        fee = TradeFee(fee.percent, [("XDAI", Decimal(str(update_result["receipt"]["gasUsed"])))])
+                        fee = build_perpetual_trade_fee(
+                            exchange=self.name,
+                            is_maker=True,
+                            position_action=PositionAction[tracked_order.position],
+                            base_currency=tracked_order.base_asset,
+                            quote_currency=tracked_order.quote_asset,
+                            order_type=tracked_order.order_type,
+                            order_side=tracked_order.trade_type,
+                            amount=tracked_order.amount,
+                            price=tracked_order.price,
+                        )
+                        fee.flat_fees.append(TokenAmount("XDAI", Decimal(str(update_result["receipt"]["gasUsed"]))))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
@@ -377,7 +397,8 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                                                        tracked_order.executed_amount_quote,
                                                        float(fee.fee_amount_in_quote(tracked_order.trading_pair,
                                                                                      Decimal(str(tracked_order.price)),
-                                                                                     Decimal(str(tracked_order.amount)))),  # this ignores the gas fee, which is fine for now
+                                                                                     Decimal(str(tracked_order.amount)),
+                                                                                     self)),  # this ignores the gas fee, which is fine for now
                                                        tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:
@@ -627,3 +648,28 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
     @property
     def in_flight_orders(self) -> Dict[str, PerpetualFinanceInFlightOrder]:
         return self._in_flight_orders
+
+    def get_fee(self,
+                base_currency: Optional[str] = None,
+                quote_currency: Optional[str] = None,
+                order_type: Optional[OrderType] = None,
+                order_side: Optional[TradeType] = None,
+                amount: Optional[Decimal] = None,
+                price: Decimal = s_decimal_0,
+                is_maker: Optional[bool] = None):
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        _, quote = self.split_trading_pair(trading_pair)
+        return quote
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        _, quote = self.split_trading_pair(trading_pair)
+        return quote

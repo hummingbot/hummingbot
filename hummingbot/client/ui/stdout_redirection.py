@@ -94,3 +94,10 @@ class StdoutProxy(object):
         """
         with self._lock:
             self._flush()
+
+    @staticmethod
+    def isatty() -> bool:
+        return False
+
+    def fileno(self) -> int:
+        return self.original_stdout.fileno()

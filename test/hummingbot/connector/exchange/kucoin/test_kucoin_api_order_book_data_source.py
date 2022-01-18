@@ -1,20 +1,26 @@
+import aiohttp
+from aioresponses import aioresponses
 import json
 import re
 import unittest
 import asyncio
-from typing import Awaitable, Dict, AsyncIterable
+from typing import (
+    AsyncIterable,
+    Awaitable,
+    Dict,
+)
 from unittest.mock import patch, AsyncMock
 
-import aiohttp
-from aioresponses import aioresponses
-
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import (
-    KucoinWSConnectionIterator, KucoinAPIOrderBookDataSource, StreamType
+    KucoinAPIOrderBookDataSource,
+    KucoinWSConnectionIterator,
+    StreamType
 )
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -56,11 +62,10 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
         mock_api.post(url, status=500)
 
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
+            self.async_run_with_timeout(self.conn_iterator.ws_connection_url())
 
     @aioresponses()
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_get_ws_connection_context_success(self, mock_api, ws_connect_mock):
+    def test_get_ws_connection_context_success(self, mock_api):
         url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
         resp_data = {
             "data": {
@@ -74,16 +79,14 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
         }
         mock_api.post(url, body=json.dumps(resp_data))
 
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
-        self.assertEqual(self.conn_iterator.websocket, ws_connect_mock.return_value)
+        ret = self.async_run_with_timeout(self.conn_iterator.ws_connection_url())
+        self.assertTrue("ws://someEndpoint?token=someToken&acceptUserMessage=true", ret)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_update_subscription(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_json_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-        self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
+        self.conn_iterator._websocket = ws_connect_mock.return_value
 
         self.async_run_with_timeout(
             self.conn_iterator.update_subscription(StreamType.Depth, {self.trading_pair}, subscribe=True)
@@ -100,13 +103,13 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_subscribe(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws = self.ev_loop.run_until_complete(ws_connect_mock())
+        ws = ws_connect_mock.return_value
         ws_json_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         conn_iterator = KucoinWSConnectionIterator(
             StreamType.Trade, {self.trading_pair}, AsyncThrottler(CONSTANTS.RATE_LIMITS)
         )
-        conn_iterator._ws = ws
+        conn_iterator._websocket = ws
 
         self.async_run_with_timeout(conn_iterator.subscribe(StreamType.Depth, {self.trading_pair}))
 
@@ -117,13 +120,13 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_unsubscribe(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws = self.ev_loop.run_until_complete(ws_connect_mock())
+        ws = ws_connect_mock.return_value
         ws_json_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         conn_iterator = KucoinWSConnectionIterator(
             StreamType.Trade, {self.trading_pair}, AsyncThrottler(CONSTANTS.RATE_LIMITS)
         )
-        conn_iterator._ws = ws
+        conn_iterator._websocket = ws
 
         self.async_run_with_timeout(conn_iterator.unsubscribe(StreamType.Depth, {self.trading_pair}))
 
@@ -132,31 +135,7 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
         self.assertEqual(msg["type"], "unsubscribe")
 
     @aioresponses()
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_close_ws_connection(self, mock_api, ws_connect_mock):
-        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
-        resp_data = {
-            "data": {
-                "instanceServers": [
-                    {
-                        "endpoint": self.ws_endpoint,
-                    }
-                ],
-                "token": "someToken",
-            }
-        }
-        mock_api.post(url, body=json.dumps(resp_data))
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
-        self.async_run_with_timeout(self.conn_iterator.close_ws_connection())
-
-        self.assertEqual(None, self.conn_iterator.websocket)
-        self.assertEqual(None, self.conn_iterator._client)
-
-    @aioresponses()
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_iteration(self, mock_api, ws_connect_mock):
         url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
         resp_data = {
@@ -171,11 +150,11 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
         }
         mock_api.post(url, body=json.dumps(resp_data))
 
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_mock = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.__aenter__.return_value = ws_mock
+
         msg_data = {"someKey": "someValue"}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(msg_data),
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(websocket_mock=ws_mock, message=json.dumps(msg_data))
 
         msg = self.async_run_with_timeout(self.anext(self.conn_iterator.__aiter__()))
 
@@ -297,3 +276,109 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
         ret = self.async_run_with_timeout(coroutine=self.ob_data_source.get_new_order_book(self.trading_pair))
 
         self.assertTrue(isinstance(ret, OrderBook))
+
+    @aioresponses()
+    @patch("aiohttp.client.ClientSession.ws_connect")
+    def test_order_book_diff_symbol_transformed_correctly(self, mock_api, ws_connect_mock):
+        base_asset = "WAXP"
+        quote_asset = "USDT"
+
+        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
+        resp_data = {
+            "data": {
+                "instanceServers": [
+                    {
+                        "endpoint": self.ws_endpoint,
+                    }
+                ],
+                "token": "someToken",
+            }
+        }
+        mock_api.post(url, body=json.dumps(resp_data))
+
+        ws_mock = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.__aenter__.return_value = ws_mock
+
+        data_source = KucoinAPIOrderBookDataSource(self.throttler, [f"_{base_asset}-{quote_asset}"])
+        received_messages = asyncio.Queue()
+
+        diff_response = {
+            "type": "message",
+            "topic": "/market/level2:WAX-USDT",
+            "subject": "trade.l2update",
+            "data": {
+                "sequenceStart": 1545896669105,
+                "sequenceEnd": 1545896669106,
+                "symbol": "WAX-USDT",
+                "changes": {
+                    "asks": [["0.1997", "1000", "1545896669105"]],
+                    "bids": [["0.1993", "2000", "1545896669106"]]
+                }
+            }
+        }
+
+        self.mocking_assistant.add_websocket_aiohttp_message(websocket_mock=ws_mock, message=json.dumps(diff_response))
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            data_source.listen_for_order_book_diffs(asyncio.get_event_loop(), received_messages))
+
+        diff_message = self.async_run_with_timeout(received_messages.get())
+
+        self.assertEqual(OrderBookMessageType.DIFF, diff_message.type)
+        self.assertEqual(diff_response["data"]["sequenceStart"], diff_message.first_update_id)
+        self.assertEqual(f"{base_asset}-{quote_asset}", diff_message.trading_pair)
+
+    @aioresponses()
+    @patch("aiohttp.client.ClientSession.ws_connect")
+    def test_trade_event_symbol_transformed_correctly(self, mock_api, ws_connect_mock):
+        base_asset = "WAXP"
+        quote_asset = "USDT"
+
+        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
+        resp_data = {
+            "data": {
+                "instanceServers": [
+                    {
+                        "endpoint": self.ws_endpoint,
+                    }
+                ],
+                "token": "someToken",
+            }
+        }
+        mock_api.post(url, body=json.dumps(resp_data))
+
+        ws_mock = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.__aenter__.return_value = ws_mock
+
+        data_source = KucoinAPIOrderBookDataSource(self.throttler, [f"_{base_asset}-{quote_asset}"])
+        received_messages = asyncio.Queue()
+
+        response = {
+            "type": "message",
+            "topic": "/market/match:WAX-USDT",
+            "subject": "trade.l3match",
+            "data": {
+                "sequence": "1545896669145",
+                "type": "match",
+                "symbol": "WAX-USDT",
+                "side": "buy",
+                "price": "0.08200000000000000000",
+                "size": "0.01022222000000000000",
+                "tradeId": "5c24c5da03aa673885cd67aa",
+                "takerOrderId": "5c24c5d903aa6772d55b371e",
+                "makerOrderId": "5c2187d003aa677bd09d5c93",
+                "time": "1545913818099033203"
+            }
+        }
+
+        self.mocking_assistant.add_websocket_aiohttp_message(websocket_mock=ws_mock, message=json.dumps(response))
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            data_source.listen_for_trades(asyncio.get_event_loop(), received_messages))
+
+        trade_message = self.async_run_with_timeout(received_messages.get())
+
+        self.assertEqual(OrderBookMessageType.TRADE, trade_message.type)
+        self.assertEqual(-1, trade_message.update_id)
+        self.assertEqual(response["data"]["tradeId"], trade_message.trade_id)
+        self.assertEqual(f"{base_asset}-{quote_asset}", trade_message.trading_pair)

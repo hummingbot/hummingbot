@@ -11,3 +11,5 @@ cdef class TradingRule:
         public object min_order_value                  # Calculated min base asset value based on the minimum accepted trade value (e.g. 0.078LTC is ~50,000 Satoshis)
         public bint supports_limit_orders              # if limit order is allowed for this trading pair
         public bint supports_market_orders             # if market order is allowed for this trading pair
+        public object buy_order_collateral_token       # Indicates the collateral token used for buy orders
+        public object sell_order_collateral_token      # Indicates the collateral token used for sell orders

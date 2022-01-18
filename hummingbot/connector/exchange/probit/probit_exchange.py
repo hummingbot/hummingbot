@@ -39,9 +39,9 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -84,11 +84,14 @@ class ProbitExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._shared_client = aiohttp.ClientSession()
         self._probit_auth = ProbitAuth(probit_api_key, probit_secret_key, domain=domain)
-        self._order_book_tracker = ProbitOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
-        self._user_stream_tracker = ProbitUserStreamTracker(self._probit_auth, trading_pairs, domain=domain)
-        self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
+        self._order_book_tracker = ProbitOrderBookTracker(
+            trading_pairs=trading_pairs, domain=domain, shared_client=self._shared_client
+        )
+        self._user_stream_tracker = ProbitUserStreamTracker(
+            self._probit_auth, trading_pairs, domain, self._shared_client
+        )
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, ProbitInFlightOrder]
@@ -771,7 +774,9 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(order_msg["price"])),
                 Decimal(str(order_msg["quantity"])),
-                TradeFee(0.0, [(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]),
+                AddedToCostTradeFee(
+                    flat_fees=[TokenAmount(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]
+                ),
                 exchange_trade_id=order_msg["id"]
             )
         )
@@ -900,14 +905,15 @@ class ProbitExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

@@ -1,0 +1,40 @@
+########################################################
+###       Hedge strategy config               ###
+########################################################
+
+template_version: 4
+strategy: null
+
+# The following configuations are only required for the
+# hedge strategy
+
+# Exchange and market and asset parameters
+# The exchange to monitor to run this strategy.
+maker_exchange: null
+
+# The list of assets to hedge, comma separated, e.g. LTC,ETH
+maker_assets: null
+
+# The exchange to hedge the asset.
+taker_exchange: null
+
+# The list of markets to hedge the assets on the perpetual market, comma separated, e.g. LTC-USDT,ETH-USDT
+taker_markets: null
+
+# The ratio to hedge on the hedge market. e.g 0.5 means 50% of all position will be hedged
+hedge_ratio: null
+
+# leverage to use on the hedge market
+leverage: null
+
+# Check position every how many seconds
+hedge_interval: null
+
+# The minimum amount in hedge asset (e.g USDT,BTC) to execute the hedge.
+minimum_trade: null
+
+# max slippage for hedge
+slippage: null
+
+# amount of time pass to retry submiting limit order again
+max_order_age: null

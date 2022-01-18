@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from decimal import Decimal
 import ruamel.yaml
@@ -31,10 +30,9 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
-    CONNECTOR_SETTINGS
+    AllConnectorSettings,
 )
 from hummingbot.client.config.security import Security
-from hummingbot.core.utils.market_price import get_last_price
 from hummingbot import get_strategy_list
 from eth_account import Account
 
@@ -101,7 +99,7 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
 def cvar_json_migration(cvar: ConfigVar, cvar_value: Any) -> Any:
     """
     A special function to migrate json config variable when its json type changes, for paper_trade_account_balance
-    and min_quote_order_amount, they were List but change to Dict.
+    and min_quote_order_amount (deprecated), they were List but change to Dict.
     """
     if cvar.key in ("paper_trade_account_balance", "min_quote_order_amount") and isinstance(cvar_value, List):
         results = {}
@@ -174,7 +172,7 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
-    conn_setting = CONNECTOR_SETTINGS[connector_name]
+    conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
     mod = __import__(conn_setting.module_path(),
                      fromlist=[conn_setting.class_name()])
     return getattr(mod, conn_setting.class_name())
@@ -243,9 +241,12 @@ async def update_strategy_config_map_from_file(yml_path: str) -> str:
 
 async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
-        with open(yml_path) as stream:
-            data = yaml_parser.load(stream) or {}
-            conf_version = data.get("template_version", 0)
+        data = {}
+        conf_version = -1
+        if isfile(yml_path):
+            with open(yml_path) as stream:
+                data = yaml_parser.load(stream) or {}
+                conf_version = data.get("template_version", 0)
 
         with open(template_file_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -265,7 +266,7 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
                 cvar.value = Security.decrypted_value(key)
                 continue
 
-            val_in_file = data.get(key)
+            val_in_file = data.get(key, None)
             if (val_in_file is None or val_in_file == "") and cvar.default is not None:
                 cvar.value = cvar.default
                 continue
@@ -365,30 +366,6 @@ async def create_yml_files():
                         pass
                 if conf_version < template_version:
                     shutil.copy(template_path, conf_path)
-
-
-def default_min_quote(quote_asset: str) -> (str, Decimal):
-    result_quote, result_amount = "USD", Decimal("11")
-    min_quote_config = global_config_map["min_quote_order_amount"].value
-    if min_quote_config is not None and quote_asset in min_quote_config:
-        result_quote, result_amount = quote_asset, Decimal(str(min_quote_config[quote_asset]))
-    return result_quote, result_amount
-
-
-async def minimum_order_amount(exchange: str, trading_pair: str) -> Decimal:
-    base_asset, quote_asset = trading_pair.split("-")
-    default_quote_asset, default_amount = default_min_quote(quote_asset)
-    quote_amount = Decimal("0")
-    if default_quote_asset == quote_asset:
-        timeout = float(global_config_map["create_command_timeout"].value)
-        try:
-            mid_price = await asyncio.wait_for(get_last_price(exchange, trading_pair), timeout)
-        except asyncio.TimeoutError:
-            quote_amount = Decimal("0")
-        else:
-            if mid_price is not None:
-                quote_amount = default_amount / mid_price
-    return round(quote_amount, 4)
 
 
 def default_strategy_file_path(strategy: str) -> str:

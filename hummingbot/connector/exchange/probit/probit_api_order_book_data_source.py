@@ -1,11 +1,13 @@
 #!/usr/bin/env python
+from collections import defaultdict
+
 import aiohttp
 import asyncio
 import logging
 import pandas as pd
 import time
 import ujson
-import websockets
+from aiohttp import WSMessage, WSMsgType
 
 import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
 
@@ -25,10 +27,11 @@ from hummingbot.connector.exchange.probit.probit_order_book import ProbitOrderBo
 
 
 class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
-    SNAPSHOT_TIMEOUT = 10.0
+    HEARTBEAT_PING_INTERVAL = 10.0
+
+    TRADE_FILTER_ID = "recent_trades"
+    DIFF_FILTER_ID = "order_books"
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -38,51 +41,70 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None, domain: str = "com"):
+    def __init__(
+        self,
+        trading_pairs: List[str] = None,
+        domain: str = "com",
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
         super().__init__(trading_pairs)
+        self._shared_client = shared_client or self._get_session_instance()
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
 
+        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "com") -> Dict[str, float]:
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
+    async def get_last_traded_prices(
+        cls, trading_pairs: List[str], domain: str = "com", client: Optional[aiohttp.ClientSession] = None
+    ) -> Dict[str, float]:
         result = {}
-        async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.TICKER_URL.format(domain)}") as response:
-                if response.status == 200:
-                    resp_json = await response.json()
-                    if "data" in resp_json:
-                        for market in resp_json["data"]:
-                            if market["market_id"] in trading_pairs:
-                                result[market["market_id"]] = float(market["last"])
+        client = client or cls._get_session_instance()
+        async with client.get(f"{CONSTANTS.TICKER_URL.format(domain)}") as response:
+            if response.status == 200:
+                resp_json = await response.json()
+                if "data" in resp_json:
+                    for market in resp_json["data"]:
+                        if market["market_id"] in trading_pairs:
+                            result[market["market_id"]] = float(market["last"])
 
         return result
 
     @staticmethod
-    async def fetch_trading_pairs(domain: str = "com") -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.MARKETS_URL.format(domain)}") as response:
-                if response.status == 200:
-                    resp_json: Dict[str, Any] = await response.json()
-                    return [market["id"] for market in resp_json["data"] if market["closed"] is False]
-                return []
+    async def fetch_trading_pairs(domain: str = "com", client: Optional[aiohttp.ClientSession] = None) -> List[str]:
+        client = client or ProbitAPIOrderBookDataSource._get_session_instance()
+        async with client.get(f"{CONSTANTS.MARKETS_URL.format(domain)}") as response:
+            if response.status == 200:
+                resp_json: Dict[str, Any] = await response.json()
+                return [market["id"] for market in resp_json["data"] if market["closed"] is False]
+            return []
 
     @staticmethod
-    async def get_order_book_data(trading_pair: str, domain: str = "com") -> Dict[str, any]:
+    async def get_order_book_data(
+        trading_pair: str, domain: str = "com", client: Optional[aiohttp.ClientSession] = None
+    ) -> Dict[str, any]:
         """
         Get whole orderbook
         """
-        async with aiohttp.ClientSession() as client:
-            async with client.get(url=f"{CONSTANTS.ORDER_BOOK_URL.format(domain)}",
-                                  params={"market_id": trading_pair}) as response:
-                if response.status != 200:
-                    raise IOError(
-                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL.format(domain)}. "
-                        f"HTTP {response.status}. Response: {await response.json()}"
-                    )
-                return await response.json()
+        client = client or ProbitAPIOrderBookDataSource._get_session_instance()
+        async with client.get(url=f"{CONSTANTS.ORDER_BOOK_URL.format(domain)}",
+                              params={"market_id": trading_pair}) as response:
+            if response.status != 200:
+                raise IOError(
+                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL.format(domain)}. "
+                    f"HTTP {response.status}. Response: {await response.json()}"
+                )
+            return await response.json()
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
+        snapshot: Dict[str, Any] = await self.get_order_book_data(
+            trading_pair, domain=self._domain, client=self._shared_client
+        )
         snapshot_timestamp: int = int(time.time() * 1e3)
         snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
             snapshot,
@@ -94,108 +116,118 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _iter_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         try:
             while True:
-                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                yield msg
-        except asyncio.TimeoutError:
-            await asyncio.wait_for(ws.ping(), timeout=self.PING_TIMEOUT)
-        except websockets.exceptions.ConnectionClosed:
-            return
+                msg: WSMessage = await ws.receive()
+                if msg.type == WSMsgType.CLOSED:
+                    raise ConnectionError
+                yield msg.data
+        except Exception:
+            self.logger().error("Unexpected error occurred iterating through websocket messages.",
+                                exc_info=True)
+            raise
         finally:
             await ws.close()
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_subscriptions(self):
+        ws = None
+        while True:
+            try:
+                ws = await self._shared_client.ws_connect(
+                    url=CONSTANTS.WSS_URL.format(self._domain),
+                    heartbeat=self.HEARTBEAT_PING_INTERVAL,
+                    receive_timeout=self.MESSAGE_TIMEOUT,
+                )
+                await self._subscribe_to_order_book_streams(ws)
+                async for raw_msg in self._iter_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    if self.TRADE_FILTER_ID in msg:
+                        self._message_queue[self.TRADE_FILTER_ID].put_nowait(msg)
+                    if self.DIFF_FILTER_ID in msg:
+                        self._message_queue[self.DIFF_FILTER_ID].put_nowait(msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error occurred when listening to order book streams. "
+                                    "Retrying in 5 seconds...",
+                                    exc_info=True)
+                await self._sleep(5.0)
+            finally:
+                ws and await ws.close()
+
+    async def _subscribe_to_order_book_streams(self, ws: aiohttp.ClientWebSocketResponse):
+        try:
+            for trading_pair in self._trading_pairs:
+                params: Dict[str, Any] = {
+                    "channel": "marketdata",
+                    "filter": [self.TRADE_FILTER_ID, self.DIFF_FILTER_ID],
+                    "interval": 100,
+                    "market_id": trading_pair,
+                    "type": "subscribe"
+                }
+                await ws.send_json(params)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...")
+            raise
+
+    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for trades using websocket trade channel
         """
+        msg_queue = self._message_queue[self.TRADE_FILTER_ID]
         while True:
             try:
-                async with websockets.connect(uri=CONSTANTS.WSS_URL.format(self._domain)) as ws:
-                    for trading_pair in self._trading_pairs:
-                        params: Dict[str, Any] = {
-                            "channel": "marketdata",
-                            "filter": ["recent_trades"],
-                            "interval": 100,
-                            "market_id": trading_pair,
-                            "type": "subscribe"
-                        }
-                        await ws.send(ujson.dumps(params))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg_timestamp: int = int(time.time() * 1e3)
-                        msg = ujson.loads(raw_msg)
-                        if "recent_trades" not in msg:
-                            # Unrecognized response from "recent_trades" channel
-                            continue
+                msg = await msg_queue.get()
+                msg_timestamp: int = int(time.time() * 1e3)
 
-                        if "reset" in msg and msg["reset"] is True:
-                            # Ignores first response from "recent_trades" channel. This response details the last 100 trades.
-                            continue
-                        for trade_entry in msg["recent_trades"]:
-                            trade_msg: OrderBookMessage = ProbitOrderBook.trade_message_from_exchange(
-                                msg=trade_entry,
-                                timestamp=msg_timestamp,
-                                metadata={"market_id": msg["market_id"]})
-                            output.put_nowait(trade_msg)
+                if "reset" in msg and msg["reset"] is True:
+                    # Ignores first response from "recent_trades" channel. This response details the last 100 trades.
+                    continue
+                for trade_entry in msg["recent_trades"]:
+                    trade_msg: OrderBookMessage = ProbitOrderBook.trade_message_from_exchange(
+                        msg=trade_entry,
+                        timestamp=msg_timestamp,
+                        metadata={"market_id": msg["market_id"]})
+                    output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
-            finally:
-                await ws.close()
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook diffs using websocket book channel
         """
+        msg_queue = self._message_queue[self.DIFF_FILTER_ID]
+        msg = None
         while True:
             try:
-                async with websockets.connect(uri=CONSTANTS.WSS_URL.format(self._domain)) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for trading_pair in self._trading_pairs:
-                        params: Dict[str, Any] = {
-                            "channel": "marketdata",
-                            "filter": ["order_books"],
-                            "interval": 100,
-                            "market_id": trading_pair,
-                            "type": "subscribe"
-                        }
-                        await ws.send(ujson.dumps(params))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg_timestamp: int = int(time.time() * 1e3)
-                        msg: Dict[str, Any] = ujson.loads(raw_msg)
-                        if "order_books" not in msg:
-                            # Unrecognized response from "order_books" channel
-                            continue
-                        if "reset" in msg and msg["reset"] is True:
-                            # First response from websocket is a snapshot. This is only when reset = True
-                            snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
-                                msg=msg,
-                                timestamp=msg_timestamp,
-                            )
-                            output.put_nowait(snapshot_msg)
-                        else:
-                            diff_msg: OrderBookMessage = ProbitOrderBook.diff_message_from_exchange(
-                                msg=msg,
-                                timestamp=msg_timestamp,
-                                metadata={"market_id": msg["market_id"]}
-                            )
-                            output.put_nowait(diff_msg)
+                msg = await msg_queue.get()
+                msg_timestamp = int(time.time() * 1e3)
+
+                if "reset" in msg and msg["reset"] is True:
+                    # First response from websocket is a snapshot. This is only when reset = True
+                    snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
+                        msg=msg,
+                        timestamp=msg_timestamp,
+                    )
+                    output.put_nowait(snapshot_msg)
+                else:
+                    diff_msg: OrderBookMessage = ProbitOrderBook.diff_message_from_exchange(
+                        msg=msg,
+                        timestamp=msg_timestamp,
+                        metadata={"market_id": msg["market_id"]}
+                    )
+                    output.put_nowait(diff_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unexpected error with WebSocket connection.",
-                    exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection."
+                self.logger().error(
+                    f"Error while parsing OrderBookMessage from ws message {msg}", exc_info=True
                 )
-                await asyncio.sleep(30.0)
-            finally:
-                await ws.close()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -205,7 +237,9 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, domain=self._domain)
+                        snapshot: Dict[str, any] = await self.get_order_book_data(
+                            trading_pair, domain=self._domain, client=self._shared_client
+                        )
                         snapshot_timestamp: int = int(time.time() * 1e3)
                         snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
                             msg=snapshot,

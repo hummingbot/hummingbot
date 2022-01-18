@@ -1,20 +1,12 @@
 #!/usr/bin/env python
 
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
-from .gate_io_utils import (
-    convert_from_exchange_trading_pair,
-)
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+
+from .gate_io_utils import convert_from_exchange_trading_pair
 
 
 class GateIoOrderBookMessage(OrderBookMessage):
@@ -34,13 +26,6 @@ class GateIoOrderBookMessage(OrderBookMessage):
         return super(GateIoOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
         )
-
-    @property
-    def update_id(self) -> int:
-        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            return int(self.timestamp * 1e3)
-        else:
-            return -1
 
     @property
     def trade_id(self) -> int:
@@ -69,13 +54,17 @@ class GateIoOrderBookMessage(OrderBookMessage):
         raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     def __eq__(self, other) -> bool:
-        return self.type == other.type and self.timestamp == other.timestamp
+        return (type(self) == type(other)
+                and self.type == other.type
+                and self.update_id == other.update_id
+                and self.timestamp == other.timestamp)
+
+    def __hash__(self):
+        return hash((self.type, self.update_id, self.timestamp))
 
     def __lt__(self, other) -> bool:
-        if self.timestamp != other.timestamp:
-            return self.timestamp < other.timestamp
-        else:
-            """
-            If timestamp is the same, the ordering is snapshot < diff < trade
-            """
-            return self.type.value < other.type.value
+        return (self.update_id < other.update_id or
+                (self.update_id == other.update_id and self.timestamp < other.timestamp) or
+                (self.update_id == other.update_id and
+                 self.timestamp == other.timestamp
+                 and self.type.value < other.type.value))

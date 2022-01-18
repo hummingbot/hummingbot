@@ -23,9 +23,7 @@ def start(self):
         return
 
     market_names: List[Tuple[str, List[str]]] = [(secondary_exchange, [secondary_trading_pair])]
-    self._initialize_wallet(token_trading_pairs=list(secondary_assets))
     self._initialize_markets(market_names)
-    self.assets = set(secondary_assets)
 
     secondary_data = [self.markets[secondary_exchange], secondary_trading_pair] + list(secondary_assets)
     market_info = MarketTradingPairTuple(*secondary_data)

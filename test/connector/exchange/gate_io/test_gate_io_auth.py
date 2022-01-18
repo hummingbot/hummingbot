@@ -9,7 +9,7 @@ import ujson
 from os.path import join, realpath
 from typing import Dict, Any
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.connector.exchange.gate_io.gate_io_utils import aiohttp_response_with_errors
+from hummingbot.connector.exchange.gate_io.gate_io_utils import rest_response_with_errors
 from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
@@ -45,7 +45,7 @@ class TestAuth(unittest.TestCase):
             'price': '0.0000001',
         })
         headers = self.auth.get_headers("POST", f"{CONSTANTS.REST_URL_AUTH}/{endpoint}", order_params)
-        http_status, response, request_errors = await aiohttp_response_with_errors(
+        http_status, response, request_errors = await rest_response_with_errors(
             http_client.request(
                 method='POST', url=f"{CONSTANTS.REST_URL}/{endpoint}", headers=headers, data=order_params
             )

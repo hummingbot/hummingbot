@@ -1,3 +1,5 @@
+import math
+
 from decimal import Decimal
 from typing import (
     Any,
@@ -98,34 +100,28 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         super().update_exchange_order_id(exchange_id)
         self.last_state = "new"
 
-    def update_with_execution_report(self, execution_report: Dict[str, Any]):
-        trade_id = execution_report["t"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(execution_report["l"])
-        last_commission_amount = Decimal(execution_report["n"])
-        last_commission_asset = execution_report["N"]
-        last_order_state = execution_report["X"]
-        last_executed_price = Decimal(execution_report["L"])
-        executed_amount_quote = last_executed_price * last_executed_quantity
-        self.executed_amount_base += last_executed_quantity
-        self.executed_amount_quote += executed_amount_quote
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
+    def _mark_as_filled(self):
+        """
+        Updates the status of the InFlightOrder as filled.
+        Note: Should only be called when order is completely filled.
+        """
+        self.last_state = "closed"
 
-    def update_with_trade_update(self, trade_update: Dict[str, Any]):
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updartes the InFlightOrder with the trade update (from WebSocket API ownTrades stream)
+        :return: True if the order gets updated otherwise False
+        """
         trade_id = trade_update["trade_id"]
         if str(trade_update["ordertxid"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
-            return
+            return False
         self.trade_id_set.add(trade_id)
         self.executed_amount_base += Decimal(trade_update["vol"])
         self.fee_paid += Decimal(trade_update["fee"])
         self.executed_amount_quote += Decimal(trade_update["vol"]) * Decimal(trade_update["price"])
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
-        return trade_update
+        if (math.isclose(self.executed_amount_base, self.amount) or self.executed_amount_base >= self.amount):
+            self._mark_as_filled()
+        return True

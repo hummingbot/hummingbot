@@ -3,7 +3,6 @@ import unittest
 import conf
 import asyncio
 import aiohttp
-import pandas as pd
 from typing import (
     List,
     Optional,
@@ -28,19 +27,6 @@ class BeaxyApiOrderBookDataSourceUnitTest(unittest.TestCase):
 
     def run_async(self, task):
         return self.ev_loop.run_until_complete(task)
-
-    def test_get_active_exchange_markets(self):
-        all_markets_df: pd.DataFrame = self.run_async(self.data_source.get_active_exchange_markets())
-
-        # Check DF type
-        self.assertIsInstance(all_markets_df, pd.DataFrame)
-
-        # Check DF order, make sure it's sorted by USDVolume col in desending order
-        usd_volumes = all_markets_df.loc[:, 'USDVolume'].to_list()
-        self.assertListEqual(
-            usd_volumes,
-            sorted(usd_volumes, reverse=True),
-            "The output usd volumes should remain the same after being sorted again")
 
     def test_get_trading_pairs(self):
         trading_pairs: Optional[List[str]] = self.run_async(self.data_source.get_trading_pairs())

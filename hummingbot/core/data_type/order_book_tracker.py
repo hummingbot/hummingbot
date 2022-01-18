@@ -246,7 +246,7 @@ class OrderBookTracker(ABC):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, trading_pair: str):
-        past_diffs_window: Deque[OrderBookMessage] = deque()
+        past_diffs_window: Deque[OrderBookMessage] = deque(maxlen=self.PAST_DIFF_WINDOW_SIZE)
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
@@ -260,8 +260,6 @@ class OrderBookTracker(ABC):
                 if message.type is OrderBookMessageType.DIFF:
                     order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     past_diffs_window.append(message)
-                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                        past_diffs_window.popleft()
                     diff_messages_accepted += 1
 
                     # Output some statistics periodically.

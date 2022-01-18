@@ -1,49 +1,44 @@
-import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
-from decimal import Decimal
 import asyncio
+import copy
 import json
-import aiohttp
+import logging
 import math
-import time
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils import estimate_fee
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.bitmart.bitmart_order_book_tracker import BitmartOrderBookTracker
-from hummingbot.connector.exchange.bitmart.bitmart_user_stream_tracker import BitmartUserStreamTracker
+from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
+from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import BitmartInFlightOrder
-from hummingbot.connector.exchange.bitmart import bitmart_utils
-from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.connector.exchange.bitmart.bitmart_order_book_tracker import BitmartOrderBookTracker
+from hummingbot.connector.exchange.bitmart.bitmart_user_stream_tracker import BitmartUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.logger import HummingbotLogger
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -56,10 +51,9 @@ class BitmartExchange(ExchangeBase):
     trading functionality.
     """
     API_CALL_TIMEOUT = 10.0
-    SHORT_POLL_INTERVAL = 1.0
+    POLL_INTERVAL = 1.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADE_STATUS_MIN_INTERVAL = 10.0
-    LONG_POLL_INTERVAL = 1.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -73,7 +67,7 @@ class BitmartExchange(ExchangeBase):
                  bitmart_secret_key: str,
                  bitmart_memo: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True
+                 trading_required: bool = True,
                  ):
         """
         :param bitmart_api_key: The API key to connect to private BitMart APIs.
@@ -82,6 +76,8 @@ class BitmartExchange(ExchangeBase):
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
+        self._api_factory = bitmart_utils.build_api_factory()
+        self._rest_assistant = None
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
@@ -105,6 +101,7 @@ class BitmartExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -231,20 +228,24 @@ class BitmartExchange(ExchangeBase):
         the network connection. Simply ping the network (or call any light weight public API).
         """
         try:
-            await self._api_request("get", CONSTANTS.CHECK_NETWORK_PATH_URL)
+            request = RESTRequest(
+                method=RESTMethod.GET,
+                url=f"{CONSTANTS.REST_URL}/{CONSTANTS.CHECK_NETWORK_PATH_URL}",
+            )
+            rest_assistant = await self._get_rest_assistant()
+            response = await rest_assistant.call(request=request)
+            if response.status != 200:
+                raise Exception
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
 
     async def _trading_rules_polling_loop(self):
         """
@@ -264,7 +265,14 @@ class BitmartExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        symbols_details = await self._api_request("get", path_url=CONSTANTS.GET_TRADING_RULES_PATH_URL)
+        request = RESTRequest(
+            method=RESTMethod.GET,
+            url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_RULES_PATH_URL}",
+        )
+        rest_assistant = await self._get_rest_assistant()
+        response = await rest_assistant.call(request=request)
+
+        symbols_details: Dict[str, Any] = await response.json()
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(symbols_details)
 
@@ -319,7 +327,7 @@ class BitmartExchange(ExchangeBase):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {},
+                           params: Optional[Dict[str, Any]] = None,
                            auth_type: str = None) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
@@ -329,17 +337,31 @@ class BitmartExchange(ExchangeBase):
         :param auth_type: Type of Authorization header to send in request, from {"SIGNED", "KEYED", None}
         :returns A response in json format.
         """
+        params = params or {}
         async with self._throttler.execute_task(path_url):
             url = f"{CONSTANTS.REST_URL}/{path_url}"
-            client = await self._http_client()
 
             headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
 
             if method == "get":
-                response = await client.get(url, params=params, headers=headers)
+                request = RESTRequest(
+                    method=RESTMethod.GET,
+                    url=url,
+                    headers=headers,
+                    params=params
+                )
+                rest_assistant = await self._get_rest_assistant()
+                response = await rest_assistant.call(request=request)
             elif method == "post":
                 post_json = json.dumps(params)
-                response = await client.post(url, data=post_json, headers=headers)
+                request = RESTRequest(
+                    method=RESTMethod.POST,
+                    url=url,
+                    headers=headers,
+                    data=post_json
+                )
+                rest_assistant = await self._get_rest_assistant()
+                response = await rest_assistant.call(request=request)
             else:
                 raise NotImplementedError
 
@@ -538,7 +560,7 @@ class BitmartExchange(ExchangeBase):
                 "SIGNED"
             )
 
-            # result = True is a successful cancel, False indicates fcancel failed due to already cancelled or matched
+            # result = True is a successful cancel, False indicates cancel failed due to already cancelled or matched
             if "result" in response["data"] and not response["data"]["result"]:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order was already matched or cancelled on the exchange.")
             return order_id
@@ -559,13 +581,13 @@ class BitmartExchange(ExchangeBase):
         """
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
+                self._poll_notifier.clear()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -593,6 +615,9 @@ class BitmartExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_order_status(self):
         """
@@ -689,7 +714,7 @@ class BitmartExchange(ExchangeBase):
                 delta_trade_price,
                 delta_trade_amount,
                 # TradeFee(0.0, [(trade_msg["fee_coin_name"], Decimal(str(trade_msg["fees"])))]),
-                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 exchange_trade_id=trade_id
             )
         )
@@ -738,7 +763,7 @@ class BitmartExchange(ExchangeBase):
                 tracked_order.order_type,
                 delta_trade_price,
                 delta_trade_amount,
-                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 exchange_trade_id=trade_id
             )
         )
@@ -814,12 +839,8 @@ class BitmartExchange(ExchangeBase):
         Is called automatically by the clock for each clock's tick (1 second by default).
         It checks if status polling task is due for execution.
         """
-        now = time.time()
-        poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 60.0
-                         else self.LONG_POLL_INTERVAL)
-        last_tick = int(self._last_timestamp / poll_interval)
-        current_tick = int(timestamp / poll_interval)
+        last_tick = int(self._last_timestamp / self.POLL_INTERVAL)
+        current_tick = int(timestamp / self.POLL_INTERVAL)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -831,14 +852,15 @@ class BitmartExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -873,24 +895,26 @@ class BitmartExchange(ExchangeBase):
                 await asyncio.sleep(5.0)
 
     async def get_open_orders(self) -> List[OpenOrder]:
-        """
-        Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        BitmartAPIUserStreamDataSource.
-        """
-
         if self._trading_pairs is None:
             raise Exception("get_open_orders can only be used when trading_pairs are specified.")
 
-        tasks = []
+        page_len = 100
+        responses = []
         for trading_pair in self._trading_pairs:
-            for page in range(1, 6):
-                tasks.append(self._api_request("get", CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
-                                               {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
-                                                "offset": page,
-                                                "limit": 100,
-                                                "status": "9"},
-                                               "KEYED"))
-        responses = await safe_gather(*tasks, return_exceptions=True)
+            page = 1
+            while True:
+                response = await self._api_request("get", CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
+                                                   {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
+                                                    "offset": page,
+                                                    "limit": page_len,
+                                                    "status": "9"},
+                                                   "KEYED")
+                responses.append(response)
+                count = len(response["data"]["orders"])
+                if count < page_len:
+                    break
+                else:
+                    page += 1
 
         for order in self._in_flight_orders.values():
             await order.get_exchange_order_id()

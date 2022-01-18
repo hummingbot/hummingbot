@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 from decimal import Decimal
 import importlib
-from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 
 
@@ -12,9 +12,9 @@ async def get_binance_mid_price(trading_pair: str) -> Dict[str, Decimal]:
 
 
 async def get_last_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
-    if exchange in CONNECTOR_SETTINGS:
-        conn_setting = CONNECTOR_SETTINGS[exchange]
-        if CONNECTOR_SETTINGS[exchange].type in (ConnectorType.Exchange, ConnectorType.Derivative):
+    if exchange in AllConnectorSettings.get_connector_settings():
+        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
+        if AllConnectorSettings.get_connector_settings()[exchange].type in (ConnectorType.Exchange, ConnectorType.Derivative):
             module_name = f"{conn_setting.base_name()}_api_order_book_data_source"
             class_name = "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + \
                          "APIOrderBookDataSource"

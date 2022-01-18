@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import (
-    Tuple,
-    List,
-    Dict,
-    NamedTuple,
-    Optional)
-from dataclasses import dataclass
+from typing import Dict, List, NamedTuple, Optional
+
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-
-
-class WalletEvent(Enum):
-    ReceivedAsset = 5
-    BalanceChanged = 6
-    WrappedEth = 7
-    UnwrappedEth = 8
-    GasUsed = 9
-    TokenApproved = 10
-    TransactionFailure = 99
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
 class MarketEvent(Enum):
@@ -42,25 +29,8 @@ class MarketEvent(Enum):
     RangePositionFailure = 304
 
 
-class NewBlocksWatcherEvent(Enum):
-    NewBlocks = 401
-
-
-class IncomingEthWatcherEvent(Enum):
-    ReceivedEther = 501
-
-
-class ERC20WatcherEvent(Enum):
-    ReceivedToken = 601
-    ApprovedToken = 602
-
-
 class OrderBookEvent(Enum):
     TradeEvent = 901
-
-
-class ZeroExEvent(Enum):
-    Fill = 1001
 
 
 class RemoteEvent(Enum):
@@ -85,6 +55,7 @@ class OrderType(Enum):
 class PositionAction(Enum):
     OPEN = "OPEN"
     CLOSE = "CLOSE"
+    NIL = "NIL"
 
 
 # For Derivatives Exchanges
@@ -127,60 +98,6 @@ class MarketOrderFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
     order_type: OrderType
-
-
-class WalletReceivedAssetEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    from_address: str
-    to_address: str
-    asset_name: str
-    amount_received: Decimal
-    raw_amount_received: int
-
-
-class WalletWrappedEthEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    address: str
-    amount: Decimal
-    raw_amount: int
-
-
-class WalletUnwrappedEthEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    address: str
-    amount: Decimal
-    raw_amount: int
-
-
-class ZeroExFillEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    maker_address: str
-    fee_recipient_address: str
-    maker_asset_data: bytes
-    taker_asset_data: bytes
-    maker_fee_asset_data: bytes
-    taker_fee_asset_data: bytes
-    order_hash: str
-    taker_address: str
-    sender_address: str
-    maker_asset_filled_amount: Decimal
-    taker_asset_filled_amount: Decimal
-    maker_fee_paid: Decimal
-    taker_fee_paid: Decimal
-    protocol_fee_paid: Decimal
-
-
-class MarketReceivedAssetEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    from_address: str
-    to_address: str
-    asset_name: str
-    amount_received: float
 
 
 @dataclass
@@ -232,80 +149,6 @@ class FundingPaymentCompletedEvent:
     funding_rate: Decimal
 
 
-class MarketWithdrawAssetEvent(NamedTuple):
-    timestamp: float
-    tracking_id: str
-    to_address: str
-    asset_name: str
-    amount: Decimal
-    fee_amount: Decimal
-
-
-class EthereumGasUsedEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    gas_price_gwei: float
-    gas_price_raw: int
-    gas_used: int
-    eth_amount: float
-    eth_amount_raw: int
-
-
-class TokenApprovedEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    owner_address: str
-    spender_address: str
-    asset_name: str
-    amount: float
-    raw_amount: int
-
-
-class TradeFeeType(Enum):
-    Percent = 1
-    FlatFee = 2
-
-
-def interchangeable(token_a: str, token_b: str) -> bool:
-    interchangeable_tokens = {"WETH", "ETH", "WBTC", "BTC"}
-    if token_a == token_b:
-        return True
-    return {token_a, token_b} <= interchangeable_tokens
-
-
-class TradeFee(NamedTuple):
-    percent: Decimal  # 0.1 = 10%
-    flat_fees: List[Tuple[str, Decimal]] = []  # list of (asset, amount) ie: ("ETH", 0.05)
-
-    @classmethod
-    def to_json(cls, trade_fee: "TradeFee") -> Dict[str, any]:
-        return {
-            "percent": float(trade_fee.percent),
-            "flat_fees": [{"asset": asset, "amount": float(amount)}
-                          for asset, amount in trade_fee.flat_fees]
-        }
-
-    @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "TradeFee":
-        return TradeFee(
-            Decimal(data["percent"]),
-            [(fee_entry["asset"], Decimal(fee_entry["amount"]))
-             for fee_entry in data["flat_fees"]]
-        )
-
-    def fee_amount_in_quote(self, trading_pair: str, price: Decimal, order_amount: Decimal):
-        fee_amount = Decimal("0")
-        if self.percent > 0:
-            fee_amount = (price * order_amount) * self.percent
-        base, quote = trading_pair.split("-")
-        for flat_fee in self.flat_fees:
-            if interchangeable(flat_fee[0], base):
-                fee_amount += (flat_fee[1] * price)
-            elif interchangeable(flat_fee[0], quote):
-                fee_amount += flat_fee[1]
-        return fee_amount
-
-
 class OrderBookTradeEvent(NamedTuple):
     trading_pair: str
     timestamp: float
@@ -322,10 +165,10 @@ class OrderFilledEvent(NamedTuple):
     order_type: OrderType
     price: Decimal
     amount: Decimal
-    trade_fee: TradeFee
+    trade_fee: TradeFeeBase
     exchange_trade_id: str = ""
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = "NIL"
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -334,7 +177,7 @@ class OrderFilledEvent(NamedTuple):
                                                  trading_pair: str,
                                                  trade_type: TradeType,
                                                  order_type: OrderType,
-                                                 trade_fee: TradeFee,
+                                                 trade_fee: TradeFeeBase,
                                                  order_book_rows: List[OrderBookRow],
                                                  exchange_trade_id: str = "") -> List["OrderFilledEvent"]:
         return [
@@ -356,7 +199,7 @@ class OrderFilledEvent(NamedTuple):
             OrderType[execution_report["o"]],
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
-            TradeFee(percent=Decimal(0.0), flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),
+            AddedToCostTradeFee(flat_fees=[TokenAmount(execution_report["N"], Decimal(execution_report["n"]))]),
             exchange_trade_id=execution_report["t"]
         )
 

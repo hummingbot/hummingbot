@@ -8,15 +8,12 @@ from hummingbot.client.config.config_validators import (
 from hummingbot.client.config.config_helpers import parse_cvar_value
 import hummingbot.client.settings as settings
 from decimal import Decimal
-from hummingbot.client.config.config_helpers import (
-    minimum_order_amount
-)
 from typing import Optional
 
 
 def maker_trading_pair_prompt():
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
-    example = settings.EXAMPLE_PAIRS.get(maker_market)
+    example = settings.AllConnectorSettings.get_example_pairs().get(maker_market)
     return "Enter the token trading pair you would like to trade on maker market: %s%s >>> " % (
         maker_market,
         f" (e.g. {example})" if example else "",
@@ -25,7 +22,7 @@ def maker_trading_pair_prompt():
 
 def taker_trading_pair_prompt():
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
-    example = settings.EXAMPLE_PAIRS.get(taker_market)
+    example = settings.AllConnectorSettings.get_example_pairs().get(taker_market)
     return "Enter the token trading pair you would like to trade on taker market: %s%s >>> " % (
         taker_market,
         f" (e.g. {example})" if example else "",
@@ -49,23 +46,10 @@ def validate_taker_market_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(taker_market, value)
 
 
-async def order_amount_prompt() -> str:
-    maker_exchange = cross_exchange_market_making_config_map["maker_market"].value
+def order_amount_prompt() -> str:
     trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(maker_exchange, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
-
-
-async def validate_order_amount(value: str) -> Optional[str]:
-    try:
-        maker_exchange = cross_exchange_market_making_config_map.get("maker_market").value
-        trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
-        min_amount = await minimum_order_amount(maker_exchange, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
-        return "Invalid order amount."
+    return f"What is the amount of {base_asset} per order? >>> "
 
 
 def taker_market_on_validated(value: str):
@@ -138,7 +122,7 @@ cross_exchange_market_making_config_map = {
         prompt=order_amount_prompt,
         prompt_on_new=True,
         type_str="decimal",
-        validator=validate_order_amount,
+        validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
@@ -242,4 +226,13 @@ cross_exchange_market_making_config_map = {
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
+    "slippage_buffer": ConfigVar(
+        key="slippage_buffer",
+        prompt="How much buffer do you want to add to the price to account for slippage for taker orders "
+               "Enter 1 to indicate 1% >>> ",
+        prompt_on_new=True,
+        default=Decimal("5"),
+        type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=True)
+    )
 }

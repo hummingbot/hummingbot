@@ -1,6 +1,7 @@
 # distutils: language=c++
 cimport numpy as np
 
+
 cdef class GateIoActiveOrderTracker:
     cdef dict _active_bids
     cdef dict _active_asks

@@ -6,7 +6,8 @@ from typing import (
     Dict,
 )
 
-from hummingbot.core.network_base import NetworkBase, NetworkStatus
+from hummingbot.core.network_base import NetworkBase
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 
 

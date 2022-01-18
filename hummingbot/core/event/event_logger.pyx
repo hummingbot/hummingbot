@@ -1,6 +1,6 @@
-#!/usr/bin/env python
-
 import asyncio
+from collections import deque
+
 from async_timeout import timeout
 from typing import (
     List,
@@ -8,26 +8,31 @@ from typing import (
 )
 
 from hummingbot.core.event.event_listener cimport EventListener
-
+from hummingbot.core.event.events import OrderFilledEvent
 
 cdef class EventLogger(EventListener):
     def __init__(self, event_source: Optional[str] = None):
         super().__init__()
         self._event_source = event_source
-        self._logged_events = []
+        # We limit the amount of events we keep reference to the most recent ones
+        # But we keep all references to order fill events, because they are required for PnL calculation
+        self._generic_logged_events = deque(maxlen=50)
+        self._order_filled_logged_events = deque()
+        self._logged_events = {OrderFilledEvent: self._order_filled_logged_events}
         self._waiting = {}
         self._wait_returns = {}
 
     @property
     def event_log(self) -> List[any]:
-        return self._logged_events.copy()
+        return list(self._generic_logged_events) + list(self._order_filled_logged_events)
 
     @property
     def event_source(self) -> str:
         return self._event_source
 
     def clear(self):
-        self._logged_events.clear()
+        self._generic_logged_events.clear()
+        self._order_filled_logged_events.clear()
 
     async def wait_for(self, event_type, timeout_seconds: float = 180):
         notifier = asyncio.Event()
@@ -45,7 +50,7 @@ cdef class EventLogger(EventListener):
         self.c_call(event_object)
 
     cdef c_call(self, object event_object):
-        self._logged_events.append(event_object)
+        self._logged_events.get(type(event_object), self._generic_logged_events).append(event_object)
         event_object_type = type(event_object)
 
         should_notify = []

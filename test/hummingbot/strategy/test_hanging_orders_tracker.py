@@ -57,7 +57,7 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         strategy = MagicMock()
         type(strategy).max_order_age = PropertyMock(return_value=1800.0)
-        type(strategy).order_refresh_time = PropertyMock(return_value=45.0)
+
         strategy.get_price.return_value = self.current_market_price
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="BTC-USDT")

@@ -21,7 +21,6 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
@@ -44,8 +43,8 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
     OrderType,
-    TradeFee,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -240,9 +239,6 @@ cdef class LoopringExchange(ExchangeBase):
             if loopring_flight_order.order_type is OrderType.LIMIT:
                 retval.append(loopring_flight_order.to_limit_order())
         return retval
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await LoopringAPIOrderBookDataSource.get_active_exchange_markets()
 
     # ----------------------------------------
     # Account Balances
@@ -527,7 +523,8 @@ cdef class LoopringExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("loopring", is_maker)
 
@@ -621,7 +618,9 @@ cdef class LoopringExchange(ExchangeBase):
                                                       tracked_order.order_type,
                                                       new_price,
                                                       new_amount,
-                                                      TradeFee(Decimal(0), [(tracked_order.fee_asset, new_fee)]),
+                                                      AddedToCostTradeFee(
+                                                          flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]
+                                                      ),
                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,
@@ -970,5 +969,6 @@ cdef class LoopringExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)

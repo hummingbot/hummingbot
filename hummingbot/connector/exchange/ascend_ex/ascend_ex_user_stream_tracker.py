@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+import aiohttp
 import logging
 
 from typing import (
@@ -10,7 +11,7 @@ from typing import (
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_user_stream_data_source import \
     AscendExAPIUserStreamDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.data_type.user_stream_tracker import (
@@ -34,10 +35,12 @@ class AscendExUserStreamTracker(UserStreamTracker):
         return cls._logger
 
     def __init__(self,
-                 throttler: AsyncThrottler,
+                 shared_client: Optional[aiohttp.ClientSession] = None,
+                 throttler: Optional[AsyncThrottler] = None,
                  ascend_ex_auth: Optional[AscendExAuth] = None,
                  trading_pairs: Optional[List[str]] = None):
         super().__init__()
+        self._shared_client = shared_client
         self._throttler = throttler
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs: List[str] = trading_pairs or []
@@ -54,7 +57,8 @@ class AscendExUserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             self._data_source = AscendExAPIUserStreamDataSource(
-                self._throttler,
+                shared_client=self._shared_client,
+                throttler=self._throttler,
                 ascend_ex_auth=self._ascend_ex_auth,
                 trading_pairs=self._trading_pairs
             )
@@ -66,7 +70,7 @@ class AscendExUserStreamTracker(UserStreamTracker):
         *required
         Name of the current exchange
         """
-        return EXCHANGE_NAME
+        return CONSTANTS.EXCHANGE_NAME
 
     async def start(self):
         """

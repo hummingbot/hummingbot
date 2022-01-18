@@ -72,3 +72,18 @@ class TwapConfigMapTests(TestCase):
         twap_config_map_module.set_order_delay_default()
 
         self.assertEqual(twap_config_map_module.twap_config_map.get("order_delay_time").default, 86400.0)
+
+    def test_order_step_size(self):
+        # Test order_step_size with a non-decimal value
+        text = twap_config_map_module.validate_order_step_size("a!")
+        self.assertEqual(text, "a! is not in decimal format.")
+
+        # Test order_step_size below zero value
+        negative_value = twap_config_map_module.validate_order_step_size("-1")
+        self.assertEqual(negative_value, "Value must be more than 0.")
+
+        # Test order_step_size value greater than target_asset_amount
+        twap_config_map_module.twap_config_map.get("target_asset_amount").value = Decimal("1.0")
+        validate_order_step_size = twap_config_map_module.validate_order_step_size("1.1")
+        self.assertEqual(validate_order_step_size,
+                         "Order step size cannot be greater than the total trade amount.")

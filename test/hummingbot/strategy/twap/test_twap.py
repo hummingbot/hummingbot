@@ -7,14 +7,6 @@ import logging
 import pandas as pd
 from typing import List
 import unittest
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    AssetType,
-    Market,
-    MarketConfig,
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -28,15 +20,17 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
-    TradeFee,
     OrderCancelledEvent,
     MarketOrderFailureEvent,
     OrderExpiredEvent
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import TwapTradeStrategy
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -58,14 +52,13 @@ class TWAPUnitTest(unittest.TestCase):
         self.log_records = []
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.order_delay_time = 15
         self.cancel_order_wait_time = 45
-        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
-                                                max_price=200, price_step_size=1, volume_step_size=10)
-        self.market.add_data(self.maker_data)
+        self.market.set_balanced_order_book(trading_pair=self.maker_trading_pairs[0],
+                                            mid_price=self.mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 50000)
         self.market.set_balance("QETH", 500)
@@ -120,12 +113,11 @@ class TWAPUnitTest(unittest.TestCase):
                    for record in self.log_records)
 
     @staticmethod
-    def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
+    def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder):
         quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
         base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
-        config: MarketConfig = market.config
 
         if limit_order.is_buy:
             market.set_balance(quote_currency, market.get_balance(quote_currency) - quote_currency_traded)
@@ -138,14 +130,14 @@ class TWAPUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
+                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
                 Decimal("0"),
@@ -162,14 +154,14 @@ class TWAPUnitTest(unittest.TestCase):
                 OrderType.LIMIT,
                 limit_order.price,
                 limit_order.quantity,
-                TradeFee(Decimal("0"))
+                AddedToCostTradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
+                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
                 Decimal("0"),
@@ -412,14 +404,14 @@ class TWAPUnitTest(unittest.TestCase):
                                "    Order size: 1 COINALPHA\n"
                                "    Execution type: run continuously\n\n"
                                "  Markets:\n"
-                               "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
-                               "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
+                               "                Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                               "    0  MockPaperExchange  COINALPHA-WETH            99.5           100.5        100\n\n"
                                "  Assets:\n"
-                               "             Exchange      Asset  Total Balance  Available Balance\n"
-                               "    0  BacktestMarket  COINALPHA         "
+                               "                Exchange      Asset  Total Balance  Available Balance\n"
+                               "    0  MockPaperExchange  COINALPHA         "
                                f"{base_balance:.2f}             "
                                f"{available_base_balance:.2f}\n"
-                               "    1  BacktestMarket       WETH       "
+                               "    1  MockPaperExchange       WETH       "
                                f"{quote_balance:.2f}           "
                                f"{available_quote_balance:.2f}\n\n"
                                "  No active maker orders.\n\n"
@@ -433,14 +425,14 @@ class TWAPUnitTest(unittest.TestCase):
                                 "    Order size: 1.67 COINALPHA\n"
                                 "    Execution type: run continuously\n\n"
                                 "  Markets:\n"
-                                "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
-                                "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
+                                "                Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                                "    0  MockPaperExchange  COINALPHA-WETH            99.5           100.5        100\n\n"
                                 "  Assets:\n"
-                                "             Exchange      Asset  Total Balance  Available Balance\n"
-                                "    0  BacktestMarket  COINALPHA         "
+                                "                Exchange      Asset  Total Balance  Available Balance\n"
+                                "    0  MockPaperExchange  COINALPHA         "
                                 f"{base_balance:.2f}             "
                                 f"{available_base_balance:.2f}\n"
-                                "    1  BacktestMarket       WETH       "
+                                "    1  MockPaperExchange       WETH       "
                                 f"{quote_balance:.2f}           "
                                 f"{available_quote_balance:.2f}\n\n"
                                 "  Active orders:\n"

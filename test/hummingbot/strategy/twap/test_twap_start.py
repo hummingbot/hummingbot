@@ -1,5 +1,5 @@
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
 
 import hummingbot.strategy.twap.start as twap_start_module
 import hummingbot.strategy.twap.twap_config_map as twap_config_map_module
@@ -12,7 +12,6 @@ class TwapStartTest(unittest.TestCase):
 
         self.strategy = None
         self.markets = {"binance": None}
-        self.assets = set()
         self.notifications = []
         self.log_errors = []
 
@@ -35,9 +34,6 @@ class TwapStartTest(unittest.TestCase):
         if self.raise_exception_for_market_assets_initialization:
             raise ValueError("ValueError for testing")
         return [trading_pair.split('-') for trading_pair in trading_pairs]
-
-    def _initialize_wallet(self, token_trading_pairs):
-        pass
 
     def _initialize_markets(self, market_names):
         if self.raise_exception_for_market_initialization:

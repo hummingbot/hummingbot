@@ -9,9 +9,7 @@ from prompt_toolkit.document import Document
 from os import listdir
 from os.path import isfile, join, exists
 from hummingbot.client.settings import (
-    CONNECTOR_SETTINGS,
-    EXCHANGES,
-    DERIVATIVES,
+    AllConnectorSettings,
     STRATEGIES,
     CONF_FILE_PATH,
     SCRIPTS_PATH,
@@ -30,8 +28,8 @@ def file_name_list(path, file_extension):
     return sorted([f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)])
 
 
-SPOT_PROTOCOL_CONNECTOR = {x.name for x in CONNECTOR_SETTINGS.values() if x.type == ConnectorType.Connector}
-DERIVATIVE_PROTOCOL_CONNECTOR = {x.name for x in CONNECTOR_SETTINGS.values() if x.type == ConnectorType.Derivative and not x.centralised}
+SPOT_PROTOCOL_CONNECTOR = {x.name for x in AllConnectorSettings.get_connector_settings().values() if x.type == ConnectorType.Connector}
+DERIVATIVE_PROTOCOL_CONNECTOR = {x.name for x in AllConnectorSettings.get_connector_settings().values() if x.type == ConnectorType.Derivative and not x.centralised}
 
 
 class HummingbotCompleter(Completer):
@@ -40,11 +38,12 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._exchange_completer = WordCompleter(sorted(CONNECTOR_SETTINGS.keys()), ignore_case=True)
-        self._spot_completer = WordCompleter(sorted(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
-        self._spot_exchange_completer = WordCompleter(sorted(EXCHANGES), ignore_case=True)
-        self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
-        self._derivative_exchange_completer = WordCompleter(DERIVATIVES.difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
+        self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
+        self._spot_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
+        self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
+        self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
+        self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
+        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
@@ -70,7 +69,7 @@ class HummingbotCompleter(Completer):
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = ""
-        for exchange in sorted(list(CONNECTOR_SETTINGS.keys()), key=len, reverse=True):
+        for exchange in sorted(list(AllConnectorSettings.get_connector_settings().keys()), key=len, reverse=True):
             if exchange in self.prompt_text:
                 market = exchange
                 break
@@ -122,6 +121,10 @@ class HummingbotCompleter(Completer):
 
     def _complete_spot_connectors(self, document: Document) -> bool:
         return "spot" in self.prompt_text
+
+    def _complete_trading_timeframe(self, document: Document) -> bool:
+        return any(x for x in ("trading timeframe", "execution timeframe")
+                   if x in self.prompt_text.lower())
 
     def _complete_export_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -196,6 +199,10 @@ class HummingbotCompleter(Completer):
             else:
                 for c in self._spot_exchange_completer.get_completions(document, complete_event):
                     yield c
+
+        elif self._complete_trading_timeframe(document):
+            for c in self._trading_timeframe_completer.get_completions(document, complete_event):
+                yield c
 
         elif self._complete_connect_options(document):
             for c in self._connect_option_completer.get_completions(document, complete_event):

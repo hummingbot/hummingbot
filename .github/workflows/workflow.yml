@@ -120,7 +120,7 @@ jobs:
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           coverage xml
-          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=75 coverage.xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1

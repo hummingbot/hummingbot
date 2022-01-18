@@ -72,32 +72,6 @@ def translate_asset(asset_name: str) -> str:
     return asset_name
 
 
-def translate_assets(hb_trading_pair: str) -> str:
-    skip_pairs = [
-        'USDT-GUSD'
-    ]
-    if hb_trading_pair in skip_pairs:
-        return hb_trading_pair
-    assets = hb_trading_pair.split('-')
-    for x in range(len(assets)):
-        assets[x] = translate_asset(assets[x])
-    return '-'.join(assets)
-
-
-def convert_from_exchange_trading_pair(ex_trading_pair: str) -> Optional[str]:
-    regex_match = split_trading_pair(ex_trading_pair)
-    if regex_match is None:
-        return None
-    # HitBTC uses uppercase (BTCUSDT)
-    base_asset, quote_asset = split_trading_pair(ex_trading_pair)
-    return translate_assets(f"{base_asset.upper()}-{quote_asset.upper()}")
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    # HitBTC uses uppercase (BTCUSDT)
-    return translate_assets(hb_trading_pair).replace("-", "").upper()
-
-
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
     symbols = trading_pair.split("-")

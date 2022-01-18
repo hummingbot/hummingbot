@@ -1,16 +1,13 @@
-# -*- coding: utf-8 -*-
-
 import logging
-from typing import Dict, Optional, Any, List
-from decimal import Decimal
 
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import TradeType
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from decimal import Decimal
+from typing import Dict, Optional, Any, List
 
 from hummingbot.connector.exchange.beaxy.beaxy_order_book_message import BeaxyOrderBookMessage
-from hummingbot.connector.exchange.beaxy.beaxy_misc import symbol_to_trading_pair
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.event.events import TradeType
+from hummingbot.logger import HummingbotLogger
 
 
 _bxob_logger = None
@@ -65,7 +62,7 @@ cdef class BeaxyOrderBook(OrderBook):
             msg.update(metadata)
         ts = msg['timestamp']
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            'trading_pair': symbol_to_trading_pair(msg['symbol']),
+            'trading_pair': msg['trading_pair'],
             'trade_type': float(TradeType.SELL.value) if msg['side'] == 'SELL' else float(TradeType.BUY.value),
             'price': Decimal(str(msg['price'])),
             'update_id': ts,

@@ -1,8 +1,8 @@
+import aiohttp
 import asyncio
 import logging
 import time
 import ujson
-import websockets
 
 from typing import (
     Any,
@@ -27,9 +27,10 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: AsyncThrottler, auth_assistant: NdaxAuth, domain: Optional[str] = None):
+    def __init__(self, throttler: AsyncThrottler, auth_assistant: NdaxAuth, shared_client: Optional[aiohttp.ClientSession] = None, domain: Optional[str] = None):
         super().__init__()
-        self._websocket_client: Optional[NdaxWebSocketAdaptor] = None
+        self._shared_client = shared_client or self._get_session_instance()
+        self._ws_adaptor = None
         self._auth_assistant: NdaxAuth = auth_assistant
         self._last_recv_time: float = 0
         self._account_id: Optional[int] = None
@@ -41,15 +42,20 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
     async def _init_websocket_connection(self) -> NdaxWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            if self._websocket_client is None:
-                ws = await websockets.connect(ndax_utils.wss_url(self._domain))
-                self._websocket_client = NdaxWebSocketAdaptor(throttler=self._throttler, websocket=ws)
-            return self._websocket_client
+            if self._ws_adaptor is None:
+                ws = await self._shared_client.ws_connect(ndax_utils.wss_url(self._domain))
+                self._ws_adaptor = NdaxWebSocketAdaptor(throttler=self._throttler, websocket=ws)
+            return self._ws_adaptor
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -65,8 +71,8 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             auth_payload: Dict[str, Any] = self._auth_assistant.get_ws_auth_payload()
             async with self._throttler.execute_task(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME):
                 await ws.send_request(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, auth_payload)
-            auth_resp = await ws.recv()
-            auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp)
+            auth_resp = await ws.receive()
+            auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp.data)
 
             if not auth_payload["Authenticated"]:
                 self.logger().error(f"Response: {auth_payload}",
@@ -127,7 +133,7 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     f"Unexpected error with NDAX WebSocket connection. Retrying in 30 seconds. ({ex})",
                     exc_info=True
                 )
-                if self._websocket_client is not None:
-                    await self._websocket_client.close()
-                    self._websocket_client = None
+                if self._ws_adaptor is not None:
+                    await self._ws_adaptor.close()
+                    self._ws_adaptor = None
                 await asyncio.sleep(30.0)

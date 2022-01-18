@@ -1,6 +1,7 @@
 import argparse
 from typing import (
     List,
+    Any
 )
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
@@ -32,11 +33,11 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         if parser is None:
             return []
         subcommands = parser._optionals._option_string_actions.keys()
-        filtered = list(filter(lambda sub: sub.startswith("--") and sub != "--help", subcommands))
+        filtered = list(filter(lambda sub: sub.startswith("--"), subcommands))
         return filtered
 
 
-def load_parser(hummingbot) -> ThrowingArgumentParser:
+def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
@@ -75,29 +76,6 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     stop_parser = subparsers.add_parser('stop', help="Stop the current bot")
     stop_parser.set_defaults(func=hummingbot.stop)
 
-    open_orders_parser = subparsers.add_parser('open_orders', help="Show all active open orders")
-    open_orders_parser.add_argument("-f", "--full_report", default=False, action="store_true",
-                                    dest="full_report", help="Show full report with size comparison")
-    open_orders_parser.set_defaults(func=hummingbot.open_orders)
-
-    trades_parser = subparsers.add_parser('trades', help="Show trades")
-    trades_parser.add_argument("-d", "--days", type=float, default=1., dest="days",
-                               help="How many days in the past (can be decimal value)")
-    trades_parser.add_argument("-m", "--market", default=None,
-                               dest="market", help="The market you want to see trades.")
-    trades_parser.add_argument("-o", "--open_order_markets", default=False, action="store_true",
-                               dest="open_order_markets", help="See trades from current open order markets.")
-    trades_parser.set_defaults(func=hummingbot.trades)
-
-    pnl_parser = subparsers.add_parser('pnl', help="Show profits and losses")
-    pnl_parser.add_argument("-d", "--days", type=float, default=1., dest="days",
-                            help="How many days in the past (can be decimal value)")
-    pnl_parser.add_argument("-m", "--market", default=None,
-                            dest="market", help="The market you want to see trades.")
-    pnl_parser.add_argument("-o", "--open_order_markets", default=False, action="store_true",
-                            dest="open_order_markets", help="See PnL from current open order markets.")
-    pnl_parser.set_defaults(func=hummingbot.pnl)
-
     status_parser = subparsers.add_parser("status", help="Get the market status of the current bot")
     status_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show status updates")
     status_parser.set_defaults(func=hummingbot.status)
@@ -122,19 +100,9 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
-    paper_trade_parser = subparsers.add_parser("paper_trade", help="Toggle paper trade mode on and off")
-    paper_trade_parser.set_defaults(func=hummingbot.paper_trade)
-
     export_parser = subparsers.add_parser("export", help="Export secure information")
     export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices")
     export_parser.set_defaults(func=hummingbot.export)
-
-    order_book_parser = subparsers.add_parser("order_book", help="Display current order book")
-    order_book_parser.add_argument("--lines", type=int, default=5, dest="lines", help="Number of lines to display")
-    order_book_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
-    order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
-    order_book_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show order book updates")
-    order_book_parser.set_defaults(func=hummingbot.order_book)
 
     ticker_parser = subparsers.add_parser("ticker", help="Show market ticker of current order book")
     ticker_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show ticker updates")
@@ -164,5 +132,12 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     rate_parser.add_argument("-t", "--token", default=None,
                              dest="token", help="The token you want to see its value.")
     rate_parser.set_defaults(func=hummingbot.rate)
+
+    for name, command_tab in command_tabs.items():
+        o_parser = subparsers.add_parser(name, help=command_tab.tab_class.get_command_help_message())
+        for arg_name, arg_properties in command_tab.tab_class.get_command_arguments().items():
+            o_parser.add_argument(arg_name, **arg_properties)
+        o_parser.add_argument("-c", "--close", default=False, action="store_true", dest="close",
+                              help=f"To close the {name} tab.")
 
     return parser

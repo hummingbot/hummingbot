@@ -9,8 +9,10 @@ from unittest.mock import patch, AsyncMock
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -23,11 +25,12 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.api_tier = KrakenAPITier.STARTER
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
         self.data_source = KrakenAPIOrderBookDataSource(self.throttler, trading_pairs=[self.trading_pair])
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
@@ -243,17 +246,17 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         self.assertTrue(len(resp) == 1)
         self.assertIn(self.trading_pair, resp)
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_trade_data_mock()
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
         )
         output_queue = asyncio.Queue()
 
         self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
-        self.mocking_assistant.run_until_all_text_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
         msg = output_queue.get_nowait()

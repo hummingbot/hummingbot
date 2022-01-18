@@ -1,14 +1,13 @@
 from decimal import Decimal
-from typing import List, Dict
-
-import pandas as pd
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import OrderType, TradeType, TradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import OrderType, TradeType
 
 s_decimal_NaN = Decimal("nan")
 
@@ -58,9 +57,6 @@ class MockExchange(ExchangeBase):
     def limit_orders(self) -> List[LimitOrder]:
         pass
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        pass
-
     def c_stop_tracking_order(self, order_id):
         pass
 
@@ -79,7 +75,8 @@ class MockExchange(ExchangeBase):
         pass
 
     def get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
-                amount: Decimal, price: Decimal = s_decimal_NaN) -> TradeFee:
+                amount: Decimal, price: Decimal = s_decimal_NaN, is_maker: Optional[bool] = None
+                ) -> AddedToCostTradeFee:
         pass
 
     _ready = False

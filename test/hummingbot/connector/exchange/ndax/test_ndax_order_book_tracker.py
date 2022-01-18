@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import unittest
 import asyncio
 from decimal import Decimal
@@ -30,7 +28,7 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self.tracker: NdaxOrderBookTracker = NdaxOrderBookTracker(throttler, [self.trading_pair])
+        self.tracker: NdaxOrderBookTracker = NdaxOrderBookTracker(throttler=throttler, trading_pairs=[self.trading_pair])
         self.tracking_task = None
 
         # Simulate start()

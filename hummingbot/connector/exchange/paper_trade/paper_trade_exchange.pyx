@@ -14,7 +14,9 @@ import random
 from typing import (
     Dict,
     List,
-    Tuple)
+    Optional,
+    Tuple,
+)
 from cython.operator cimport(
     postincrement as inc,
     dereference as deref,
@@ -56,24 +58,19 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.estimate_fee import estimate_fee, build_trade_fee
 
 from .market_config import (
     MarketConfig,
     AssetType
 )
+from ...budget_checker import BudgetChecker
+
 ptm_logger = None
 s_decimal_0 = Decimal(0)
 
 
 cdef class QuantizationParams:
-    cdef:
-        str trading_pair
-        int price_precision
-        int price_decimals
-        int order_size_precision
-        int order_size_decimals
-
     def __init__(self,
                  str trading_pair,
                  int price_precision,
@@ -175,6 +172,7 @@ cdef class PaperTradeExchange(ExchangeBase):
     def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
+        self._budget_checker = BudgetChecker(exchange=self)
         super(ExchangeBase, self).__init__()
         self._account_balances = {}
         self._account_available_balances = {}
@@ -187,6 +185,14 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
+
+    @property
+    def order_book_tracker(self) -> OrderBookTracker:
+        return self._order_book_tracker
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     @classmethod
     def random_order_id(cls, order_side: str, trading_pair: str) -> str:
@@ -828,9 +834,6 @@ cdef class PaperTradeExchange(ExchangeBase):
     cdef object c_get_available_balance(self, str currency):
         return self.available_balances.get(currency.upper(), s_decimal_0)
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await self._order_book_tracker.data_source.get_active_exchange_markets()
-
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         cdef:
             LimitOrders *limit_orders_map_ptr
@@ -904,8 +907,18 @@ cdef class PaperTradeExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
-        return estimate_fee(self.name, order_type is OrderType.LIMIT)
+                          object price,
+                          object is_maker = None):
+        return build_trade_fee(
+            self.name,
+            is_maker=is_maker if is_maker is not None else order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER],
+            base_currency=base_asset,
+            quote_currency=quote_asset,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
+        )
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:
@@ -956,7 +969,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                         object price=s_decimal_0):
         amount = Decimal('%.7g' % amount)  # hard code to round to 8 significant digits
         if amount <= 1e-7:
-            amount = 0
+            amount = Decimal("0")
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
@@ -994,8 +1007,9 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_0):
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_0,
+                is_maker: Optional[bool] = None):
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
@@ -1011,3 +1025,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   event):
         await asyncio.sleep(0.01)
         self.c_trigger_event(event_tag, event)
+
+    @property
+    def config(self) -> MarketConfig:
+        return self._config

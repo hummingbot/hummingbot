@@ -56,9 +56,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
 
-    # These are exchanges where you're expected to expire orders instead of actively cancelling them.
-    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
-
     @classmethod
     def logger(cls):
         global pmm_logger
@@ -563,12 +560,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
 
-            if not is_hanging_order:
-                amount_orig = self._order_amount + ((level - 1) * self._order_level_amount)
-                level = ""
+            if is_hanging_order:
+                level_for_calculation = lvl_buy if order.is_buy else lvl_sell
+                amount_orig = self._order_amount + ((level_for_calculation - 1) * self._order_level_amount)
+                level = "hang"
             else:
                 amount_orig = ""
-                level = "hang"
+
             data.append([
                 level,
                 "buy" if order.is_buy else "sell",
@@ -668,13 +666,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._hanging_orders_tracker.register_events(self.active_markets)
 
-        # start tracking any restored limit order
-        restored_order_ids = self.c_track_restored_orders(self.market_info)
-        # make restored order hanging orders
-        for order_id in restored_order_ids:
-            order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
-            if order:
-                self._hanging_orders_tracker.add_order(order)
+        if self._hanging_orders_enabled:
+            # start tracking any restored limit order
+            restored_order_ids = self.c_track_restored_orders(self.market_info)
+            # make restored order hanging orders
+            for order_id in restored_order_ids:
+                order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
+                if order:
+                    self._hanging_orders_tracker.add_order(order)
+                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
 
     cdef c_stop(self, Clock clock):
         self._hanging_orders_tracker.unregister_events(self.active_markets)
@@ -876,10 +876,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def adjusted_available_balance_for_orders_budget_constrain(self):
         candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
-        all_limit_orders = []
+        non_hanging = []
         if self.market_info in self._sb_order_tracker.get_limit_orders():
-            all_limit_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
-        all_non_hanging_orders = list(set(all_limit_orders) - set(candidate_hanging_orders))
+            all_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
+            non_hanging = [order for order in all_orders
+                           if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)]
+        all_non_hanging_orders = list(set(non_hanging) - set(candidate_hanging_orders))
         return self.c_get_adjusted_available_balance(all_non_hanging_orders)
 
     cdef c_apply_budget_constraint(self, object proposal):
@@ -1136,10 +1138,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         """
         if self._cancel_timestamp > self._current_timestamp:
             return
-        if not global_config_map.get("0x_active_cancels").value:
-            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
-                return
 
         cdef:
             list active_orders = self.active_non_hanging_orders
@@ -1195,11 +1193,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
-            double expiration_seconds = (self._order_refresh_time
-                                         if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                                             (self._market_info.market.name == "bamboo_relay" and
-                                              not self._market_info.market.use_coordinator))
-                                         else NaN)
+            double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
         # Number of pair of orders to track for hanging orders

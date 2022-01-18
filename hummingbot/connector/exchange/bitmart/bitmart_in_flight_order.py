@@ -1,16 +1,10 @@
-from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
 import asyncio
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from decimal import Decimal
+from typing import Any, Dict, Optional, Tuple
+
 from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 class BitmartInFlightOrder(InFlightOrderBase):
@@ -80,7 +74,7 @@ class BitmartInFlightOrder(InFlightOrderBase):
         retval.last_state = data["last_state"]
         return retval
 
-    def update_with_trade_update_rest(self, trade_update: Dict[str, Any]) -> bool:
+    def update_with_trade_update_rest(self, trade_update: Dict[str, Any]) -> Tuple[Decimal, Decimal, str]:
         """
         Updates the in flight order with trade update (from trade message REST API)
         return: True if the order gets updated otherwise False
@@ -97,9 +91,9 @@ class BitmartInFlightOrder(InFlightOrderBase):
         delta_trade_price = (executed_amount_quote - self.executed_amount_quote) / delta_trade_amount
         self.executed_amount_quote = executed_amount_quote
 
-        return (delta_trade_amount, delta_trade_price, trade_id)
+        return delta_trade_amount, delta_trade_price, trade_id
 
-    def update_with_order_update_ws(self, trade_update: Dict[str, Any]) -> bool:
+    def update_with_order_update_ws(self, trade_update: Dict[str, Any]) -> Tuple[Decimal, Decimal, str]:
         """
         Updates the in flight order with trade update (from order message WebSocket API)
         return: True if the order gets updated otherwise False
@@ -116,4 +110,4 @@ class BitmartInFlightOrder(InFlightOrderBase):
         delta_trade_price = (executed_amount_quote - self.executed_amount_quote) / delta_trade_amount
         self.executed_amount_quote = executed_amount_quote
 
-        return (delta_trade_amount, delta_trade_price, trade_id)
+        return delta_trade_amount, delta_trade_price, trade_id

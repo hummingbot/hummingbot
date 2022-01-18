@@ -1,58 +1,59 @@
 import aiohttp
 import asyncio
-from async_timeout import timeout
-from decimal import Decimal
+import copy
 import json
 import logging
 import math
-import pandas as pd
 import sys
-import copy
+
+from async_timeout import timeout
+from decimal import Decimal
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    AsyncIterable,
 )
+
 from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange.liquid.constants import Constants
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
+from hummingbot.connector.exchange.liquid.liquid_in_flight_order import LiquidInFlightOrder
+from hummingbot.connector.exchange.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.connector.exchange.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
-    TradeType,
-    TradeFee,
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    MarketOrderFailureEvent
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.liquid.constants import Constants
-from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
-from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
-from hummingbot.connector.exchange.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
-from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.event.events import OrderType
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.exchange.liquid.liquid_in_flight_order import LiquidInFlightOrder
-from hummingbot.connector.exchange.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -192,6 +193,10 @@ cdef class LiquidExchange(ExchangeBase):
     def in_flight_orders(self) -> Dict[str, LiquidInFlightOrder]:
         return self._in_flight_orders
 
+    @property
+    def user_stream_tracker(self) -> LiquidUserStreamTracker:
+        return self._user_stream_tracker
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         *required
@@ -202,14 +207,6 @@ cdef class LiquidExchange(ExchangeBase):
             key: LiquidInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        """
-        *required
-        Used by the discovery strategy to read order books of all actively trading markets,
-        and find opportunities to profit
-        """
-        return await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
         """
@@ -322,23 +319,8 @@ cdef class LiquidExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
-        """
-        *required
-        function to calculate fees for a particular order
-        :returns: TradeFee class that includes fee percentage and flat fees
-        """
-        """
-        cdef:
-            object maker_fee = Decimal("0.0010")
-            object taker_fee = Decimal("0.0010")
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["liquid_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("liquid", is_maker)
 
@@ -503,10 +485,11 @@ cdef class LiquidExchange(ExchangeBase):
                 # Find the corresponding rule based on currency
                 rule = trading_rules.get(currency)
 
+                min_base_increment = math.pow(10, -rule.get("assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
+
                 min_order_size = rule.get("minimum_order_quantity")
                 if not min_order_size:
-                    min_order_size = math.pow(10, -rule.get(
-                        "assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
+                    min_order_size = min_base_increment
 
                 min_price_increment = product.get("tick_size")
                 if not min_price_increment or min_price_increment == "0.0":
@@ -514,12 +497,13 @@ cdef class LiquidExchange(ExchangeBase):
                         "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
 
                 retval.append(TradingRule(trading_pair,
-                                          min_price_increment=Decimal(min_price_increment),
-                                          min_order_size=Decimal(min_order_size),
-                                          max_order_size=Decimal(sys.maxsize),  # Liquid doesn't specify max order size
+                                          min_price_increment=Decimal(str(min_price_increment)),
+                                          min_base_amount_increment=Decimal(str(min_base_increment)),
+                                          min_order_size=Decimal(str(min_order_size)),
+                                          max_order_size=Decimal(str(sys.maxsize)),  # Liquid doesn't specify max order size
                                           supports_market_orders=None))  # Not sure if Liquid has equivalent info
             except Exception:
-                self.logger().error(f"Error parsing the trading_pair rule {rule}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading_pair rule {trading_pair}. Skipping.", exc_info=True)
         return retval
 
     async def _update_order_status(self):
@@ -761,13 +745,14 @@ cdef class LiquidExchange(ExchangeBase):
                 if tracked_order is None:
                     continue
 
-                order_type_description = tracked_order.order_type_description
-                execute_price = Decimal(content["price"])
-                execute_amount_diff = Decimal(content["filled_quantity"])
+                execute_amount_diff = Decimal(str(content["filled_quantity"])) - tracked_order.executed_amount_base
+                fee_diff = Decimal(str(content["order_fee"])) - tracked_order.fee_paid
+                updated = tracked_order.update_with_trade_update(content)
 
-                if execute_amount_diff > s_decimal_0:
+                if updated:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {tracked_order.client_order_id} according to Liquid user stream.")
+                                       f"{tracked_order.order_type_description} order {tracked_order.client_order_id} "
+                                       f"according to Liquid user stream.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
                                              self._current_timestamp,
@@ -775,15 +760,10 @@ cdef class LiquidExchange(ExchangeBase):
                                              tracked_order.trading_pair,
                                              tracked_order.trade_type,
                                              tracked_order.order_type,
-                                             execute_price,
+                                             Decimal(content["price"]),
                                              execute_amount_diff,
-                                             self.c_get_fee(
-                                                 tracked_order.base_asset,
-                                                 tracked_order.quote_asset,
-                                                 tracked_order.order_type,
-                                                 tracked_order.trade_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
+                                             AddedToCostTradeFee(
+                                                 flat_fees=[TokenAmount(tracked_order.fee_asset, fee_diff)]
                                              ),
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
@@ -1180,6 +1160,15 @@ cdef class LiquidExchange(ExchangeBase):
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
 
+    def start_tracking_order(self,
+                             order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        self.c_start_tracking_order(order_id, trading_pair, order_type, trade_type, price, amount)
+
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str trading_pair,
@@ -1232,10 +1221,7 @@ cdef class LiquidExchange(ExchangeBase):
         """
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-
-        # Liquid is using the min_order_size as max_precision
-        # Order size must be a multiple of the min_order_size
-        return trading_rule.min_order_size
+        return Decimal(trading_rule.min_base_amount_increment)
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         """
@@ -1279,8 +1265,9 @@ cdef class LiquidExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

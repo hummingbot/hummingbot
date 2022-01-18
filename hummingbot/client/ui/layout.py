@@ -1,24 +1,24 @@
-#!/usr/bin/env python
-
 from os.path import join, realpath, dirname
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
+from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
-    VSplit,
-    HSplit,
-    Window,
-    FloatContainer,
     Float,
+    FloatContainer,
+    HSplit,
+    VSplit,
+    Window,
     WindowAlign,
+    ConditionalContainer,
 )
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.widgets import SearchToolbar
+from prompt_toolkit.widgets import Box, Button, SearchToolbar
+from typing import Dict
 
-from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
+from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
+from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
@@ -56,12 +56,11 @@ HEADER = """
                                             , */
 
 
-██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
-██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
-███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
-██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
-██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
-╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
+██   ██ ██    ██ ███    ███ ███    ███ ██ ███    ██  ██████  ██████   ██████  ████████
+██   ██ ██    ██ ████  ████ ████  ████ ██ ████   ██ ██       ██   ██ ██    ██    ██
+███████ ██    ██ ██ ████ ██ ██ ████ ██ ██ ██ ██  ██ ██   ███ ██████  ██    ██    ██
+██   ██ ██    ██ ██  ██  ██ ██  ██  ██ ██ ██  ██ ██ ██    ██ ██   ██ ██    ██    ██
+██   ██  ██████  ██      ██ ██      ██ ██ ██   ████  ██████  ██████   ██████     ██
 
 =======================================================================================
 Welcome to Hummingbot, an open source software client that helps you build and run
@@ -106,12 +105,13 @@ def create_output_field():
         scrollbar=True,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
         initial_text=HEADER,
+        lexer=FormattedTextLexer()
     )
 
 
 def create_timer():
     return TextArea(
-        style='class:title',
+        style='class:footer',
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -122,7 +122,7 @@ def create_timer():
 
 def create_process_monitor():
     return TextArea(
-        style='class:title',
+        style='class:footer',
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -133,7 +133,7 @@ def create_process_monitor():
 
 def create_trade_monitor():
     return TextArea(
-        style='class:title',
+        style='class:footer',
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -150,7 +150,7 @@ def create_search_field() -> SearchToolbar:
 def create_log_field(search_field: SearchToolbar):
     return TextArea(
         style='class:log-field',
-        text="Running logs\n",
+        text="Running Logs\n",
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
@@ -161,22 +161,44 @@ def create_log_field(search_field: SearchToolbar):
     )
 
 
+def create_live_field():
+    return TextArea(
+        style='class:log-field',
+        focus_on_click=False,
+        read_only=False,
+        scrollbar=True,
+        max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
+    )
+
+
+def create_log_toggle(function):
+    return Button(
+        text='> log pane',
+        width=13,
+        handler=function,
+        left_symbol='',
+        right_symbol='',
+    )
+
+
+def create_tab_button(text, function, margin=2, left_symbol=' ', right_symbol=' '):
+    return Button(
+        text=text,
+        width=len(text) + margin,
+        handler=function,
+        left_symbol=left_symbol,
+        right_symbol=right_symbol
+    )
+
+
 def get_version():
-    return [("class:title", f"Version: {version}")]
-
-
-def get_paper_trade_status():
-    from hummingbot.client.config.global_config_map import global_config_map
-    enabled = global_config_map["paper_trade_enabled"].value is True
-    paper_trade_status = "ON" if enabled else "OFF"
-    style = "class:primary" if enabled else "class:warning"
-    return [(style, f"paper_trade_mode: {paper_trade_status}")]
+    return [("class:header", f"Version: {version}")]
 
 
 def get_active_strategy():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    style = "class:primary"
+    style = "class:log-field"
     return [(style, f"Strategy: {hb.strategy_name}")]
 
 
@@ -199,54 +221,71 @@ def get_active_strategy():
 def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    style = "class:primary"
+    style = "class:log-field"
     return [(style, f"Strategy File: {hb._strategy_file_name}")]
 
 
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
                     log_field: TextArea,
+                    right_pane_toggle: Button,
+                    log_field_button: Button,
                     search_field: SearchToolbar,
                     timer: TextArea,
                     process_monitor: TextArea,
-                    trade_monitor: TextArea):
-    root_container = HSplit([
-        VSplit([
-            Window(FormattedTextControl(get_version), style="class:title"),
-            Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
-            Window(FormattedTextControl(get_active_strategy), style="class:title"),
-            # Window(FormattedTextControl(get_active_markets), style="class:title"),
-            # Window(FormattedTextControl(get_script_file), style="class:title"),
-            Window(FormattedTextControl(get_strategy_file), style="class:title"),
-        ], height=1),
-        VSplit([
-            FloatContainer(
-                HSplit([
-                    output_field,
-                    Window(height=1, char='-', style='class:primary'),
-                    input_field,
-                ]),
-                [
-                    # Completion menus.
-                    Float(xcursor=True,
-                          ycursor=True,
-                          transparent=True,
-                          content=CompletionsMenu(
-                              max_height=16,
-                              scroll_offset=1)),
-                ]
-            ),
-            Window(width=1, char='|', style='class:primary'),
-            HSplit([
-                log_field,
-                search_field,
-            ]),
-        ]),
-        VSplit([
-            trade_monitor,
-            process_monitor,
-            timer,
-        ], height=1),
+                    trade_monitor: TextArea,
+                    command_tabs: Dict[str, CommandTab],
+                    ):
+    components = {}
 
+    components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
+    components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
+    components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
+    components["item_top_toggle"] = right_pane_toggle
+    components["pane_top"] = VSplit([components["item_top_version"],
+                                     components["item_top_active"],
+                                     components["item_top_file"],
+                                     components["item_top_toggle"]], height=1)
+    components["pane_bottom"] = VSplit([trade_monitor,
+                                        process_monitor,
+                                        timer], height=1)
+    output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output-field")
+    input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input-field")
+    components["pane_left"] = HSplit([output_pane, input_pane], width=Dimension(weight=1))
+    if all(not t.is_selected for t in command_tabs.values()):
+        log_field_button.window.style = "class:tab_button.focused"
+    else:
+        log_field_button.window.style = "class:tab_button"
+    tab_buttons = [log_field_button]
+    for tab in sorted(command_tabs.values(), key=lambda x: x.tab_index):
+        if tab.button is not None:
+            if tab.is_selected:
+                tab.button.window.style = "class:tab_button.focused"
+            else:
+                tab.button.window.style = "class:tab_button"
+            tab.close_button.window.style = tab.button.window.style
+            tab_buttons.append(VSplit([tab.button, tab.close_button]))
+    pane_right_field = log_field
+    focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_selected]
+    if focused_right_field:
+        pane_right_field = focused_right_field[0]
+    components["pane_right_top"] = VSplit(tab_buttons, height=1, style="class:log-field", padding_char=" ", padding=2)
+    components["pane_right"] = ConditionalContainer(
+        Box(body=HSplit([components["pane_right_top"], pane_right_field, search_field], width=Dimension(weight=1)),
+            padding=0, padding_left=2, style="class:log-field"),
+        filter=True
+    )
+    components["hint_menus"] = [Float(xcursor=True,
+                                      ycursor=True,
+                                      transparent=True,
+                                      content=CompletionsMenu(max_height=16,
+                                                              scroll_offset=1))]
+
+    root_container = HSplit([
+        components["pane_top"],
+        VSplit(
+            [FloatContainer(components["pane_left"], components["hint_menus"]),
+             components["pane_right"]]),
+        components["pane_bottom"],
     ])
-    return Layout(root_container, focused_element=input_field)
+    return Layout(root_container, focused_element=input_field), components

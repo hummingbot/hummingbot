@@ -1,42 +1,47 @@
 import asyncio
 import logging
+
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, AsyncIterable
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-import pandas as pd
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
+from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    OrderFilledEvent,
-    TradeType, TradeFee,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
+)
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
-from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
-from hummingbot.connector.exchange.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
-from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
-from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
-from hummingbot.market.market_base import NaN
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
+NaN = float("nan")
 
 
 cdef class BittrexExchangeTransactionTracker(TransactionTracker):
@@ -148,14 +153,15 @@ cdef class BittrexExchange(ExchangeBase):
     def in_flight_orders(self) -> Dict[str, BittrexInFlightOrder]:
         return self._in_flight_orders
 
+    @property
+    def user_stream_tracker(self) -> BittrexUserStreamTracker:
+        return self._user_stream_tracker
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
             key: BittrexInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BittrexAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
@@ -179,20 +185,10 @@ cdef class BittrexExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
-        """
-        cdef:
-            object maker_fee = Decimal(0.0025)
-            object taker_fee = Decimal(0.0025)
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
-
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("bittrex", is_maker)
 
@@ -224,7 +220,6 @@ cdef class BittrexExchange(ExchangeBase):
     def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         cdef:
             list retval = []
-            object min_btc_value = Decimal("0.0005")
 
             object eth_btc_price = Decimal(market_dict["ETH-BTC"]["lastTradeRate"])
             object btc_usd_price = Decimal(market_dict["BTC-USD"]["lastTradeRate"])
@@ -239,26 +234,13 @@ cdef class BittrexExchange(ExchangeBase):
 
                 # skip offline trading pair
                 if market.get("status") != "OFFLINE":
-                    # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
-                    # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
-                    if last_trade_rate != 0:
-                        min_order_value = (
-                            min_btc_value / last_trade_rate if market.get("quoteCurrencySymbol") == "BTC" else
-                            min_btc_value / eth_btc_price / last_trade_rate if market.get("quoteCurrencySymbol") == "ETH" else
-                            min_btc_value * btc_usd_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USD" else
-                            min_btc_value * btc_usdt_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USDT" else
-                            min_btc_value
-                        ) * Decimal("1.01")  # Compensates for possible fluctuations
-                    else:
-                        min_order_value = s_decimal_0
 
                     # Trading Rules info from Bittrex API response
                     retval.append(TradingRule(trading_pair,
                                               min_order_size=Decimal(min_trade_size),
                                               min_price_increment=Decimal(f"1e-{precision}"),
                                               min_base_amount_increment=Decimal(f"1e-{precision}"),
-                                              min_quote_amount_increment=Decimal(f"1e-{precision}"),
-                                              min_order_value=Decimal(min_order_value),
+                                              min_quote_amount_increment=Decimal(f"1e-{precision}")
                                               ))
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                     # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
@@ -278,10 +260,6 @@ cdef class BittrexExchange(ExchangeBase):
             market_list = await self._api_request("GET", path_url=market_path_url)
 
             ticker_list = await self._api_request("GET", path_url=ticker_path_url)
-            # A temp fix, Bittrex refers to CELO as CGLD on their tickers end point, but CELO on markets end point.
-            # I think this will be rectified by Bittrex soon.
-            for item in ticker_list:
-                item["symbol"] = item["symbol"].replace("CGLD-", "CELO-")
             ticker_data = {item["symbol"]: item for item in ticker_list}
 
             result_list = [
@@ -499,106 +477,123 @@ cdef class BittrexExchange(ExchangeBase):
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "order":  # Updates track order status
-                    order = content["delta"]
-                    order_status = order["status"]
-                    order_id = order["id"]
-
-                    tracked_order = None
-                    for o in self._in_flight_orders.values():
-                        exchange_order_id = await o.get_exchange_order_id()
-                        if exchange_order_id == order_id:
-                            tracked_order = o
-                            break
-
-                    if tracked_order is None:
-                        continue
-
-                    order_type_description = tracked_order.order_type_description
-                    execute_price = Decimal(order["limit"])
-                    executed_amount_diff = s_decimal_0
-
-                    tracked_order.fee_paid = Decimal(order["commission"])
-                    remaining_size = Decimal(order["quantity"]) - Decimal(order["fillQuantity"])
-                    new_confirmed_amount = tracked_order.amount - remaining_size
-                    executed_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += Decimal(executed_amount_diff * execute_price)
-
-                    if executed_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
-                                           f"{order_type_description} order {tracked_order.client_order_id}. - ws")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 executed_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     executed_amount_diff
-                                                 )
-                                             ))
-
-                    if order_status == "CLOSED":
-                        if order["quantity"] == order["fillQuantity"]:
-                            tracked_order.last_state = "done"
-                            if tracked_order.trade_type is TradeType.BUY:
-                                self.logger().info(f"The BUY order {tracked_order.client_order_id} has completed "
-                                                   f"according to order delta websocket API.")
-                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                     BuyOrderCompletedEvent(
-                                                         self._current_timestamp,
-                                                         tracked_order.client_order_id,
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         tracked_order.fee_asset or tracked_order.quote_asset,
-                                                         tracked_order.executed_amount_base,
-                                                         tracked_order.executed_amount_quote,
-                                                         tracked_order.fee_paid,
-                                                         tracked_order.order_type
-                                                     ))
-                            elif tracked_order.trade_type is TradeType.SELL:
-                                self.logger().info(f"The SELL order {tracked_order.client_order_id} has completed "
-                                                   f"according to Order Delta WebSocket API.")
-                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                     SellOrderCompletedEvent(
-                                                         self._current_timestamp,
-                                                         tracked_order.client_order_id,
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         tracked_order.fee_asset or tracked_order.quote_asset,
-                                                         tracked_order.executed_amount_base,
-                                                         tracked_order.executed_amount_quote,
-                                                         tracked_order.fee_paid,
-                                                         tracked_order.order_type
-                                                     ))
-                            self.c_stop_tracking_order(tracked_order.client_order_id)
-                            continue
-
-                        else:  # CANCEL
-                            self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
-                                               f"according to Order Delta WebSocket API.")
-                            tracked_order.last_state = "cancelled"
-                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                 OrderCancelledEvent(self._current_timestamp,
-                                                                     tracked_order.client_order_id))
-                            self.c_stop_tracking_order(tracked_order.client_order_id)
-                else:
-                    # Ignores all other user stream message types
-                    continue
+                    safe_ensure_future(self._process_order_update_event(stream_message))
+                elif event_type == "execution":
+                    safe_ensure_future(self._process_execution_event(stream_message))
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def _process_order_update_event(self, stream_message: Dict[str, Any]):
+        content = stream_message["content"]
+        order = content["delta"]
+        order_status = order["status"]
+        order_id = order["id"]
+        tracked_order: BittrexInFlightOrder = None
+
+        for o in self._in_flight_orders.values():
+            exchange_order_id = await o.get_exchange_order_id()
+            if exchange_order_id == order_id:
+                tracked_order = o
+                break
+
+        if tracked_order and order_status == "CLOSED":
+            if order["quantity"] == order["fillQuantity"]:
+                tracked_order.last_state = "done"
+                event = (self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
+                         if tracked_order.trade_type == TradeType.BUY
+                         else self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG)
+                event_class = (BuyOrderCompletedEvent
+                               if tracked_order.trade_type == TradeType.BUY
+                               else SellOrderCompletedEvent)
+
+                try:
+                    await asyncio.wait_for(tracked_order.wait_until_completely_filled(), timeout=1)
+                except asyncio.TimeoutError:
+                    fee_asset = tracked_order.quote_asset
+                    fee = self.get_fee(
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        tracked_order.order_type,
+                        tracked_order.trade_type,
+                        tracked_order.amount,
+                        tracked_order.price)
+                    fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair,
+                                                         tracked_order.price,
+                                                         tracked_order.amount,
+                                                         self)
+                else:
+                    fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
+                    fee_amount = tracked_order.fee_paid
+
+                self.logger().info(f"The {tracked_order.trade_type.name} order {tracked_order.client_order_id} "
+                                   f"has completed according to order delta websocket API.")
+                self.c_trigger_event(event,
+                                     event_class(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.base_asset,
+                                         tracked_order.quote_asset,
+                                         fee_asset,
+                                         tracked_order.executed_amount_base,
+                                         tracked_order.executed_amount_quote,
+                                         fee_amount,
+                                         tracked_order.order_type
+                                     ))
+                self.c_stop_tracking_order(tracked_order.client_order_id)
+
+            else:  # CANCEL
+                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                                   f"according to Order Delta WebSocket API.")
+                tracked_order.last_state = "cancelled"
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp,
+                                                         tracked_order.client_order_id))
+                self.c_stop_tracking_order(tracked_order.client_order_id)
+
+    async def _process_execution_event(self, stream_message: Dict[str, Any]):
+        content = stream_message["content"]
+        events = content["deltas"]
+
+        for execution_event in events:
+            order_id = execution_event["orderId"]
+
+            tracked_order = None
+            for order in self._in_flight_orders.values():
+                exchange_order_id = await order.get_exchange_order_id()
+                if exchange_order_id == order_id:
+                    tracked_order = order
+                    break
+
+            if tracked_order:
+                updated = tracked_order.update_with_trade_update(execution_event)
+
+                if updated:
+                    self.logger().info(f"Filled {Decimal(execution_event['quantity'])} out of "
+                                       f"{tracked_order.amount} of the "
+                                       f"{tracked_order.order_type_description} order "
+                                       f"{tracked_order.client_order_id}. - ws")
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                         OrderFilledEvent(
+                                             self._current_timestamp,
+                                             tracked_order.client_order_id,
+                                             tracked_order.trading_pair,
+                                             tracked_order.trade_type,
+                                             tracked_order.order_type,
+                                             Decimal(execution_event["rate"]),
+                                             Decimal(execution_event["quantity"]),
+                                             AddedToCostTradeFee(
+                                                 flat_fees=[
+                                                     TokenAmount(
+                                                         tracked_order.fee_asset, Decimal(execution_event["commission"])
+                                                     )
+                                                 ]
+                                             ),
+                                             exchange_trade_id=execution_event["id"]
+                                         ))
 
     async def _status_polling_loop(self):
         while True:
@@ -696,9 +691,6 @@ cdef class BittrexExchange(ExchangeBase):
 
         global s_decimal_0
         if quantized_amount < trading_rule.min_order_size:
-            return s_decimal_0
-
-        if quantized_amount < trading_rule.min_order_value:
             return s_decimal_0
 
         return quantized_amount
@@ -1088,8 +1080,9 @@ cdef class BittrexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

@@ -14,6 +14,8 @@ WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realt
 
 REST_API_VERSION = "v2"
 
+HBOT_BROKER_ID = "HBOT"
+
 # REST API Public Endpoints
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
@@ -86,3 +88,6 @@ LINEAR_PRIVATE_BUCKET_100_LIMIT_ID = "LinearPrivateBucket100"
 LINEAR_PRIVATE_BUCKET_600_LIMIT_ID = "LinearPrivateBucket600"
 LINEAR_PRIVATE_BUCKET_75_LIMIT_ID = "LinearPrivateBucket75"
 LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID = "LinearPrivateBucket120A"
+
+# Request error codes
+ORDER_NOT_EXISTS_ERROR_CODE = 130010

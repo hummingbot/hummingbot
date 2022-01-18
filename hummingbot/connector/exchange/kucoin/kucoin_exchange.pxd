@@ -14,12 +14,15 @@ cdef class KucoinExchange(ExchangeBase):
         double _last_poll_timestamp
         double _last_timestamp
         object _throttler
+        list _trading_pairs
         object _poll_notifier
         double _poll_interval
         object _shared_client
         public object _status_polling_task
         dict _trading_rules
         public object _trading_rules_polling_task
+        dict _trading_fees
+        public object _trading_fees_polling_task
         TransactionTracker _tx_tracker
         object _user_stream_tracker
         public object _user_stream_tracker_task

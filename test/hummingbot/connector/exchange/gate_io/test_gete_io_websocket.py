@@ -71,7 +71,7 @@ class GateIoWebsocketTest(unittest.TestCase):
         self.assertEqual(mock_event, ret["event"])
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ping_sent_pong_ignored(self, mock_ws):
+    def test_ping_sent_ping_ignored(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.closed = False
 
@@ -79,7 +79,7 @@ class GateIoWebsocketTest(unittest.TestCase):
         async_iter = self.ws.on_message()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, message="", message_type=aiohttp.WSMsgType.PONG  # should be ignored
+            mock_ws.return_value, message="", message_type=aiohttp.WSMsgType.PING  # should be ignored
         )
         mock_event = "somEvent"
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -88,7 +88,7 @@ class GateIoWebsocketTest(unittest.TestCase):
 
         ret = self.async_run_with_timeout(async_iter.__anext__(), timeout=1)
 
-        mock_ws.return_value.ping.assert_called()
+        mock_ws.return_value.pong.assert_called()
         self.assertEqual(mock_event, ret["event"])
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)

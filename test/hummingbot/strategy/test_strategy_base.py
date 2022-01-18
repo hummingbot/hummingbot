@@ -14,12 +14,6 @@ from typing import (
     Union,
     Tuple,
 )
-
-
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import QuantizationParams
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -33,12 +27,13 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 ms_logger = None
 
 
-class MockBacktestMarket(BacktestMarket):
+class ExtendedMockPaperExchange(MockPaperExchange):
 
     def __init__(self):
         super().__init__()
@@ -77,16 +72,15 @@ class StrategyBaseUnitTests(unittest.TestCase):
         cls.trading_pair = "COINALPHA-HBOT"
 
     def setUp(self):
-        self.market: MockBacktestMarket = MockBacktestMarket()
+        self.market: ExtendedMockPaperExchange = ExtendedMockPaperExchange()
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
 
-        self.order_book_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, *self.trading_pair.split("-"))
         self.mid_price = 100
-        self.order_book_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
-                                                     max_price=200, price_step_size=1, volume_step_size=10)
-        self.market.add_data(self.order_book_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 5000)
         self.market.set_balance("QETH", 500)
@@ -141,7 +135,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
         self.assertEqual(1, len(self.strategy.active_markets))
 
-        new_market: BacktestMarket = BacktestMarket()
+        new_market: MockPaperExchange = MockPaperExchange()
         self.strategy.add_markets([new_market])
 
         self.assertEqual(2, len(self.strategy.active_markets))

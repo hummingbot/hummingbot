@@ -13,13 +13,11 @@ from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition
-
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import QuantizationParams
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
-class ExtendedBacktestMarket(BacktestMarket):
+class ExtendedMockPaperExchange(MockPaperExchange):
     def __init__(self):
         super().__init__()
         self._trading_pairs = ["ETH-USDT"]
@@ -70,24 +68,23 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
     market_infos: Dict[str, MarketTradingPairTuple] = {}
 
     @staticmethod
-    def create_market(trading_pairs: List[str], mid_price, balances: Dict[str, int]) -> (BacktestMarket, Dict[str, MarketTradingPairTuple]):
+    def create_market(trading_pairs: List[str], mid_price, balances: Dict[str, int]) -> (MockPaperExchange, Dict[str, MarketTradingPairTuple]):
         """
         Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
         """
-        market: ExtendedBacktestMarket = ExtendedBacktestMarket()
+        market: ExtendedMockPaperExchange = ExtendedMockPaperExchange()
         market_infos: Dict[str, MarketTradingPairTuple] = {}
 
         for trading_pair in trading_pairs:
             base_asset = trading_pair.split("-")[0]
             quote_asset = trading_pair.split("-")[1]
 
-            book_data: MockOrderBookLoader = MockOrderBookLoader(trading_pair, base_asset, quote_asset)
-            book_data.set_balanced_order_book(mid_price=mid_price,
-                                              min_price=1,
-                                              max_price=200,
-                                              price_step_size=1,
-                                              volume_step_size=10)
-            market.add_data(book_data)
+            market.set_balanced_order_book(trading_pair=trading_pair,
+                                           mid_price=mid_price,
+                                           min_price=1,
+                                           max_price=200,
+                                           price_step_size=1,
+                                           volume_step_size=10)
             market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
             market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
 

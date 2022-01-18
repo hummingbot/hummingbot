@@ -24,11 +24,6 @@ class TestOkexAPIOrderBookDataSource(unittest.TestCase):
         self.mocked_trading_pairs = ["BTC-USDT", "ETH-USDT"]
         self.order_book_data_source = OkexAPIOrderBookDataSource(self.mocked_trading_pairs)
 
-    def test_example_market(self):
-        ev_loop = asyncio.get_event_loop()
-        # TODO this is currently executing the call, how to mock this?
-        ev_loop.run_until_complete(OkexAPIOrderBookDataSource.get_active_exchange_markets())
-
     def test_get_snapshot(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?

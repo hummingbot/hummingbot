@@ -14,7 +14,6 @@ class LiquidityMiningStartTest(unittest.TestCase):
         super().setUp()
         self.strategy = None
         self.markets = {"binance": ExchangeBase()}
-        self.assets = set()
         self.notifications = []
         self.log_errors = []
         assign_config_default(strategy_cmap)
@@ -37,9 +36,6 @@ class LiquidityMiningStartTest(unittest.TestCase):
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
-
-    def _initialize_wallet(self, token_trading_pairs):
-        pass
 
     def _initialize_markets(self, market_names):
         pass

@@ -84,6 +84,10 @@ cdef class OrderTracker(TimeIterator):
                 for order in order_map.values()]
 
     @property
+    def tracked_limit_orders_map(self) -> Dict[ConnectorBase, Dict[str, LimitOrder]]:
+        return self._tracked_limit_orders
+
+    @property
     def tracked_limit_orders_data_frame(self) -> List[pd.DataFrame]:
         limit_orders = [
             [market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id,

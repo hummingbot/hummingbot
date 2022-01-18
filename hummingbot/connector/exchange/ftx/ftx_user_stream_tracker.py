@@ -2,12 +2,14 @@
 
 import asyncio
 import logging
-from typing import Optional, List
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from typing import List, Optional
+
 from hummingbot.connector.exchange.ftx.ftx_api_user_stream_data_source import FtxAPIUserStreamDataSource
 from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class FtxUserStreamTracker(UserStreamTracker):
@@ -44,7 +46,7 @@ class FtxUserStreamTracker(UserStreamTracker):
         return "ftx"
 
     async def start(self):
-        self._user_stream_tracking_task = asyncio.ensure_future(
+        self._user_stream_tracking_task = safe_ensure_future(
             self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
         )
         await asyncio.gather(self._user_stream_tracking_task)
