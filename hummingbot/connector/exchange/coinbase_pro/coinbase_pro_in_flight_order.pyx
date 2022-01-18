@@ -14,7 +14,8 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "open"):
+                 initial_state: str = "open",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -24,6 +25,7 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
             price,
             amount,
             initial_state,
+            creation_timestamp
         )
 
         self.trade_id_set = set()
@@ -57,23 +59,7 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
         :param data: json data from API
         :return: formatted InFlightOrder
         """
-        cdef:
-            CoinbaseProInFlightOrder retval = CoinbaseProInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["trading_pair"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
+        return cls._basic_from_json(data)
 
     def fee_rate_from_trade_update(self, trade_update: Dict[str, Any]) -> Decimal:
         maker_fee_rate = Decimal(str(trade_update.get("maker_fee_rate", "0")))

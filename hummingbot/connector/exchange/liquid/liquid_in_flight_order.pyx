@@ -21,7 +21,8 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "live"):
+                 initial_state: str = "live",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -30,7 +31,8 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state
+            initial_state,
+            creation_timestamp
         )
         self.trade_id_set = set()
 

@@ -4,11 +4,11 @@ from typing import (
     Dict
 )
 
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 cdef class HuobiInFlightOrder(InFlightOrderBase):
@@ -20,7 +20,8 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "submitted"):
+                 initial_state: str = "submitted",
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -29,7 +30,8 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
+            initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
+            creation_timestamp
         )
 
         self.trade_id_set = set()
