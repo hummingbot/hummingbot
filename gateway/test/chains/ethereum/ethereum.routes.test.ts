@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { NewEthereum } from '../../../src/chains/ethereum/new_ethereum';
 import { patch, unpatch } from '../../services/patch';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import {
   NETWORK_ERROR_CODE,
   RATE_LIMIT_ERROR_CODE,
@@ -116,7 +116,7 @@ describe('POST /trading/allowances', () => {
     });
     patchGetERC20Allowance();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/allowances`)
       .send({
         chain: 'ethereum',
@@ -134,7 +134,7 @@ describe('POST /trading/allowances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/allowances`)
       .send({
         chain: 'ethereum',
@@ -157,7 +157,7 @@ describe('POST /trading/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/balances`)
       .send({
         chain: 'ethereum',
@@ -181,7 +181,7 @@ describe('POST /trading/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/balances`)
       .send({
         chain: 'ethereum',
@@ -205,7 +205,7 @@ describe('POST /trading/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/balances`)
       .send({
         chain: 'ethereum',
@@ -219,7 +219,7 @@ describe('POST /trading/balances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/balances`)
       .send({
         chain: 'ethereum',
@@ -235,7 +235,7 @@ describe('POST /trading/nonce', () => {
     patchGetWallet();
     patchGetNonce();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/nonce`)
       .send({
         chain: 'ethereum',
@@ -249,7 +249,7 @@ describe('POST /trading/nonce', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/nonce`)
       .send({
         chain: 'ethereum',
@@ -270,7 +270,7 @@ describe('POST /trading/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/approve`)
       .send({
         chain: 'ethereum',
@@ -290,7 +290,7 @@ describe('POST /trading/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/approve`)
       .send({
         chain: 'ethereum',
@@ -314,7 +314,7 @@ describe('POST /trading/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/approve`)
       .send({
         chain: 'ethereum',
@@ -332,7 +332,7 @@ describe('POST /trading/approve', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/approve`)
       .send({
         chain: 'ethereum',
@@ -357,7 +357,7 @@ describe('POST /trading/cancel', () => {
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/cancel`)
       .send({
         chain: 'ethereum',
@@ -376,7 +376,7 @@ describe('POST /trading/cancel', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/cancel`)
       .send({
         chain: 'ethereum',
@@ -396,7 +396,7 @@ describe('POST /trading/poll', () => {
       throw error;
     });
 
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -413,7 +413,7 @@ describe('POST /trading/poll', () => {
       throw new Error();
     });
 
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
@@ -426,7 +426,7 @@ describe('POST /trading/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -442,7 +442,7 @@ describe('POST /trading/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -457,7 +457,7 @@ describe('POST /trading/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -472,7 +472,7 @@ describe('POST /trading/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionSuccesful);
     patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -497,7 +497,7 @@ describe('POST /trading/poll', () => {
       };
       throw error;
     });
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -514,7 +514,7 @@ describe('POST /trading/poll', () => {
       error.code = -32006;
       throw error;
     });
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash:
@@ -544,7 +544,7 @@ describe('overwrite existing transaction', () => {
     };
 
     patchApproveERC20('overwritten_tx');
-    const tx_1 = await request(app)
+    const tx_1 = await request(gatewayApp)
       .post(`/trading/approve`)
       .send(requestParam)
       .set('Accept', 'application/json')
@@ -553,7 +553,7 @@ describe('overwrite existing transaction', () => {
 
     patchApproveERC20(); // patch to return different tx_hash
     requestParam.maxPriorityFeePerGas = '8000000000'; // we only increase maxPriorityFeePerGas
-    const tx_2 = await request(app)
+    const tx_2 = await request(gatewayApp)
       .post(`/trading/approve`)
       .send(requestParam)
       .set('Accept', 'application/json')
@@ -564,7 +564,7 @@ describe('overwrite existing transaction', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res_1 = await request(app).post('/trading/poll').send({
+    const res_1 = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash: tx_1.body.approval.hash,
@@ -576,7 +576,7 @@ describe('overwrite existing transaction', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionSuccesful);
     patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
-    const res_2 = await request(app).post('/trading/poll').send({
+    const res_2 = await request(gatewayApp).post('/trading/poll').send({
       chain: 'ethereum',
       network: 'kovan',
       txHash: tx_2.body.approval.hash,

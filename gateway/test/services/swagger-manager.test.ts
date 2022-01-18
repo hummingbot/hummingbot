@@ -1,6 +1,5 @@
 import { SwaggerManager } from '../../src/services/swagger-manager';
 import { patch, unpatch } from './patch';
-// import yaml from 'js-yaml';
 import fs from 'fs';
 
 import 'jest-extended';
