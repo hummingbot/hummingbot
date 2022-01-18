@@ -16,6 +16,7 @@ from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_c
 from hummingbot import cert_path, root_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from typing import Dict, Any, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
 if TYPE_CHECKING:
@@ -56,20 +57,24 @@ class GatewayCommand:
             self._notify("\nUnable to ping gateway.")
 
     async def _generate_certs(self,  # type: HummingbotApplication
+                              from_client_password: bool = False
                               ):
-        if certs_files_exist():
-            self._notify(f"Gateway SSL certification files exist in {cert_path()}.")
-            self._notify("To create new certification files, please first manually delete those files.")
-            return
-        self.app.clear_input()
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        while True:
-            pass_phase = await self.app.prompt(prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
-                                               is_password=True)
-            if pass_phase is not None and len(pass_phase) > 0:
-                break
-            self._notify("Error: Invalid pass phase")
+        if not from_client_password:
+            if certs_files_exist():
+                self._notify(f"Gateway SSL certification files exist in {cert_path()}.")
+                self._notify("To create new certification files, please first manually delete those files.")
+                return
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            while True:
+                pass_phase = await self.app.prompt(prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                                                   is_password=True)
+                if pass_phase is not None and len(pass_phase) > 0:
+                    break
+                self._notify("Error: Invalid pass phase")
+        else:
+            pass_phase = Security.password
         create_self_sign_certs(pass_phase)
         self._notify(f"Gateway SSL certification files are created in {cert_path()}.")
         self.placeholder_mode = False
@@ -93,7 +98,7 @@ class GatewayCommand:
         except Exception:
             pass  # silently ignore exception
 
-        await self._generate_certs()  # create cert if not available
+        await self._generate_certs(from_client_password=True)  # create cert
         self._notify("Pulling Gateway docker image...")
         try:
             await self.pull_gateway_docker(docker_repo)
