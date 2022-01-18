@@ -8,8 +8,8 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from dateutil.parser import parse as dateparse
-
 from dydx3.errors import DydxApiError
+
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
@@ -28,14 +28,26 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.event.events import (BuyOrderCompletedEvent, BuyOrderCreatedEvent, FundingInfo,
-                                          FundingPaymentCompletedEvent, MarketEvent, MarketOrderFailureEvent,
-                                          OrderCancelledEvent, OrderExpiredEvent, OrderFilledEvent, OrderType,
-                                          PositionAction, PositionMode, PositionSide, SellOrderCompletedEvent,
-                                          SellOrderCreatedEvent, TradeType)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderExpiredEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -482,7 +494,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if exchange_order_id is None:
                 # Note, we have no way of canceling an order or querying for information about the order
                 # without an exchange_order_id
-                if in_flight_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                if in_flight_order.creation_timestamp < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # We'll just have to assume that this order doesn't exist
                     self.stop_tracking_order(in_flight_order.client_order_id)
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
@@ -494,7 +506,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         except DydxApiError as e:
             if f"Order with specified id: {exchange_order_id} could not be found" in str(e):
-                if in_flight_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                if in_flight_order.creation_timestamp < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order didn't exist on exchange, mark this as canceled
                     self.stop_tracking_order(in_flight_order.client_order_id)
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
@@ -1055,7 +1067,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             dydx_order_id = tracked_order.exchange_order_id
             if dydx_order_id is None:
                 # This order is still pending acknowledgement from the exchange
-                if tracked_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                if tracked_order.creation_timestamp < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # this order should have a dydx_order_id at this point. If it doesn't, we should cancel it
                     # as we won't be able to poll for updates
                     try:
@@ -1078,7 +1090,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
                 # is reasonably old, mark the orde as cancelled
                 if "could not be found" in str(dydx_order_request["msg"]):
-                    if tracked_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                    if tracked_order.creation_timestamp < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                         try:
                             self.cancel_order(client_order_id)
                         except Exception:

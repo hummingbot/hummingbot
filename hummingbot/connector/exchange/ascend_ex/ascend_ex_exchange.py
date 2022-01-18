@@ -616,6 +616,7 @@ class AscendExExchange(ExchangePyBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
+                timestamp=int(self.current_timestamp)
             )
         )
 

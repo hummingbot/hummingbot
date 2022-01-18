@@ -27,7 +27,8 @@ class NdaxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = WORKING_LOCAL_STATUS):
+                 initial_state: str = WORKING_LOCAL_STATUS,
+                 creation_timestamp: int = -1):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -37,6 +38,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
             price,
             amount,
             initial_state,
+            creation_timestamp
         )
         self.fee_asset = self.base_asset if self.trade_type is TradeType.BUY else self.quote_asset
         self.trade_id_set = set()
