@@ -12,7 +12,8 @@ import {
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
-// import { EthereumBase } from './services/ethereum-base';
+import { StatusRequest, StatusResponse } from './chains/chain.requests';
+import { getStatus } from './chains/chain.controllers';
 import { TradingRoutes } from './trading/trading.routes';
 
 const swaggerUi = require('swagger-ui-express');
@@ -36,37 +37,15 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-gatewayApp.get('/status', async (_req: Request, res: Response) => {
-  // const avalanche = AvalancheRoutes.avalanche;
-  // const ethereum = EthereumRoutes.ethereum;
-  // const connectedNetworks = [];
-  // try {
-  //   const avalancheNetwork = await getConnectionInformation(avalanche);
-  //   connectedNetworks.push(avalancheNetwork);
-  // } catch (err) {
-  //   logger.error(err);
-  // }
-  // try {
-  //   const ethNetwork = await getConnectionInformation(ethereum);
-  //   connectedNetworks.push(ethNetwork);
-  // } catch (err) {
-  //   logger.error(err);
-  // }
-  res.status(200);
-
-  // res.status(200).json({
-  //   connectedNetworks,
-  // });
-});
-
-// async function getConnectionInformation(connector: EthereumBase) {
-//   return {
-//     chainName: connector.chainName,
-//     chainId: connector.chainId,
-//     rpcUrl: connector.rpcUrl,
-//     currentBlockNumber: await connector.getCurrentBlockNumber(),
-//   };
-// }
+gatewayApp.get(
+  '/status',
+  async (
+    req: Request<{}, {}, StatusRequest>,
+    res: Response<StatusResponse, {}>
+  ) => {
+    res.status(200).json(await getStatus(req.body));
+  }
+);
 
 gatewayApp.get('/config', (_req: Request, res: Response<any, any>) => {
   res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
