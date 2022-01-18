@@ -21,8 +21,9 @@
   },
   "dependencies": {
     "@ethersproject/experimental": "^5.3.0",
-    "@types/fs-extra": "^9.0.13",
     "@pangolindex/sdk": "^1.1.0",
+    "@types/fs-extra": "^9.0.13",
+    "@types/lodash": "^4.14.178",
     "@uniswap/sdk": "^3.0.3",
     "@uniswap/sdk-core": "^3.0.0",
     "@uniswap/v3-core": "^1.0.0",
@@ -44,6 +45,7 @@
     "js-yaml": "^4.1.0",
     "level": "^7.0.1",
     "level-party": "^5.1.1",
+    "lodash": "^4.17.21",
     "swagger-ui-express": "^4.1.6",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5"

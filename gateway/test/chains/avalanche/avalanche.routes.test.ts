@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../services/patch';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import {
   NETWORK_ERROR_CODE,
   OUT_OF_GAS_ERROR_CODE,
@@ -17,6 +17,16 @@ import { NewAvalanche } from '../../../src/chains/avalanche/new_avalanche';
 
 const avalanche = NewAvalanche.getInstance('fuji');
 afterEach(unpatch);
+
+describe('GET /avalanche', () => {
+  it('should return 200', async () => {
+    await request(gatewayApp)
+      .get(`/avalanche`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
@@ -87,7 +97,7 @@ describe('POST /trading/nonce', () => {
     patchGetWallet();
     patchGetNonce();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/nonce`)
       .send({
         chain: 'avalanche',
@@ -101,7 +111,7 @@ describe('POST /trading/nonce', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/nonce`)
       .send({
         chain: 'avalanche',
@@ -122,7 +132,7 @@ describe('POST /trading/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/approve`)
       .send({
         chain: 'avalanche',
@@ -140,7 +150,7 @@ describe('POST /trading/approve', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/approve`)
       .send({
         chain: 'avalanche',
@@ -165,7 +175,7 @@ describe('POST /trading/allowances', () => {
     });
     patchGetERC20Allowance();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/allowances`)
       .send({
         chain: 'avalanche',
@@ -193,7 +203,7 @@ describe('POST /trading/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/balances`)
       .send({
         chain: 'avalanche',
@@ -220,7 +230,7 @@ describe('POST /trading/cancel', () => {
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/cancel`)
       .send({
         chain: 'avalanche',
@@ -239,7 +249,7 @@ describe('POST /trading/cancel', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/cancel`)
       .send({
         chain: 'avalanche',
@@ -259,7 +269,7 @@ describe('POST /trading/poll', () => {
       throw error;
     });
 
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -276,7 +286,7 @@ describe('POST /trading/poll', () => {
       throw new Error();
     });
 
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -291,7 +301,7 @@ describe('POST /trading/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => transactionOutOfGas);
     patch(avalanche, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -307,7 +317,7 @@ describe('POST /trading/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => transactionOutOfGas);
     patch(avalanche, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -322,7 +332,7 @@ describe('POST /trading/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => null);
     patch(avalanche, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -341,7 +351,7 @@ describe('POST /trading/poll', () => {
       'getTransactionReceipt',
       () => transactionSuccesfulReceipt
     );
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -358,7 +368,7 @@ describe('POST /trading/poll', () => {
       error.code = -32006;
       throw error;
     });
-    const res = await request(app).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/trading/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:

@@ -27,3 +27,10 @@ paths:
             $ref: '#/definitions/ConfigUpdateRequest'
       responses:
         '200'
+  /status:
+    get:
+      summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses:
+        '200'

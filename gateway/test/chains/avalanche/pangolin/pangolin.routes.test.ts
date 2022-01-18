@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../../services/patch';
-import { app } from '../../../../src/app';
+import { gatewayApp } from '../../../../src/app';
 import { NewAvalanche } from '../../../../src/chains/avalanche/new_avalanche';
 import { NewPangolin } from '../../../../src/connectors/pangolin/new_pangolin';
 let avalanche: NewAvalanche;
@@ -141,7 +141,7 @@ describe('POST /trading/price', () => {
     patchGetNonce();
     patchExecuteTrade();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/price`)
       .send({
         chain: 'avalanche',
@@ -169,7 +169,7 @@ describe('POST /trading/price', () => {
     patchGetNonce();
     patchExecuteTrade();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/price`)
       .send({
         chain: 'avalanche',
@@ -205,7 +205,7 @@ describe('POST /trading/price', () => {
     });
     patchGetTokenByAddress();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/price`)
       .send({
         chain: 'avalanche',
@@ -238,7 +238,7 @@ describe('POST /trading/price', () => {
     });
     patchGetTokenByAddress();
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/price`)
       .send({
         chain: 'avalanche',
@@ -267,7 +267,7 @@ describe('POST /trading/trade', () => {
   };
   it('should return 200 for BUY', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -289,7 +289,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -307,7 +307,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -338,7 +338,7 @@ describe('POST /trading/trade', () => {
   };
   it('should return 200 for SELL', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -360,7 +360,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -380,7 +380,7 @@ describe('POST /trading/trade', () => {
   });
 
   it('should return 404 when parameters are incorrect', async () => {
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -412,7 +412,7 @@ describe('POST /trading/trade', () => {
       }
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -447,7 +447,7 @@ describe('POST /trading/trade', () => {
       }
     });
 
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -468,7 +468,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -488,7 +488,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -508,7 +508,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for SELL with price less than limitPrice', async () => {
     patchForSell();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
@@ -528,7 +528,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 200 for BUY with price less than limitPrice', async () => {
     patchForBuy();
-    await request(app)
+    await request(gatewayApp)
       .post(`/trading/trade`)
       .send({
         chain: 'avalanche',
