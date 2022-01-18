@@ -136,7 +136,7 @@ class HummingbotApplication(*commands):
             self.app.to_stop_config = False
 
         raw_command = raw_command.lower().strip()
-        command_split = raw_command.split()
+        command_split = raw_command.split(maxsplit=2)
         try:
             if self.placeholder_mode:
                 pass
