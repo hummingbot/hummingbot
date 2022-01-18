@@ -3,7 +3,7 @@ import axios from 'axios';
 import { logger } from '../../services/logger';
 import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
-import { EthereumConfig } from './ethereum.config';
+import { EthereumConfig, getNewEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
@@ -11,8 +11,8 @@ import { Ethereumish } from '../../services/ethereumish.interface';
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 
-export class Ethereum extends EthereumBase implements Ethereumish {
-  private static _instance: Ethereum;
+export class NewEthereum extends EthereumBase implements Ethereumish {
+  private static _instances: { [name: string]: NewEthereum };
   private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
@@ -21,17 +21,17 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _requestCount: number;
   private _metricsLogInterval: number;
 
-  private constructor() {
-    const config = EthereumConfig.config.network;
+  private constructor(network: string) {
+    const config = getNewEthereumConfig('ethereum', network);
     super(
       'ethereum',
-      config.chainID,
-      config.nodeURL + EthereumConfig.config.nodeAPIKey,
-      config.tokenListSource,
-      config.tokenListType,
+      config.network.chainID,
+      config.network.nodeURL + EthereumConfig.config.nodeAPIKey,
+      config.network.tokenListSource,
+      config.network.tokenListType,
       EthereumConfig.config.manualGasPrice
     );
-    this._chain = EthereumConfig.config.network.name;
+    this._chain = network;
     this._nativeTokenSymbol = EthereumConfig.config.nativeCurrencySymbol;
     this._ethGasStationUrl =
       EthereumConfig.ethGasStationConfig.gasStationURL +
@@ -49,18 +49,21 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
-  public static getInstance(): Ethereum {
-    if (!Ethereum._instance) {
-      Ethereum._instance = new Ethereum();
+  public static getInstance(network: string): NewEthereum {
+    if (NewEthereum._instances === undefined) {
+      NewEthereum._instances = {};
+    }
+    if (!(network in NewEthereum._instances)) {
+      NewEthereum._instances[network] = new NewEthereum(network);
     }
 
-    return Ethereum._instance;
+    return NewEthereum._instances[network];
   }
 
-  public static reload(): Ethereum {
-    Ethereum._instance = new Ethereum();
-    return Ethereum._instance;
-  }
+  // public static reload(): Ethereum {
+  //   Ethereum._instance = new Ethereum();
+  //   return Ethereum._instance;
+  // }
 
   public requestCounter(msg: any): void {
     if (msg.action === 'request') this._requestCount += 1;

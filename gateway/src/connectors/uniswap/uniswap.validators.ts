@@ -4,14 +4,14 @@ import {
   mkRequestValidator,
   RequestValidator,
   Validator,
-} from '../../../services/validators';
+} from '../../services/validators';
 
 import {
   validateNonce,
   validateAddress,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
-} from '../ethereum.validators';
+} from '../../chains/ethereum/ethereum.validators';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
@@ -57,20 +57,21 @@ export const validateLimitPrice: Validator = mkValidator(
   true
 );
 
-export const validateUniswapPriceRequest: RequestValidator = mkRequestValidator(
-  [validateQuote, validateBase, validateAmount, validateSide]
-);
+export const validatePriceRequest: RequestValidator = mkRequestValidator([
+  validateQuote,
+  validateBase,
+  validateAmount,
+  validateSide,
+]);
 
-export const validateUniswapTradeRequest: RequestValidator = mkRequestValidator(
-  [
-    validateQuote,
-    validateBase,
-    validateAmount,
-    validateAddress,
-    validateSide,
-    validateLimitPrice,
-    validateNonce,
-    validateMaxFeePerGas,
-    validateMaxPriorityFeePerGas,
-  ]
-);
+export const validateTradeRequest: RequestValidator = mkRequestValidator([
+  validateQuote,
+  validateBase,
+  validateAmount,
+  validateAddress,
+  validateSide,
+  validateLimitPrice,
+  validateNonce,
+  validateMaxFeePerGas,
+  validateMaxPriorityFeePerGas,
+]);

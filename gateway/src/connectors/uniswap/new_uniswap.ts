@@ -2,9 +2,7 @@ import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../../services/error-handler';
-import { EthereumConfig } from '../ethereum.config';
-import { Ethereum } from '../ethereum';
+} from '../../services/error-handler';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
@@ -17,15 +15,14 @@ import {
   Trade,
 } from '@uniswap/sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
-import { logger } from '../../../services/logger';
-import {
-  ExpectedTrade,
-  Uniswapish,
-} from '../../../services/uniswapish.interface';
-import { percentRegexp } from '../../../services/config-manager-v2';
-export class Uniswap implements Uniswapish {
-  private static instance: Uniswap;
-  private ethereum: Ethereum = Ethereum.getInstance();
+import { logger } from '../../services/logger';
+import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
+import { percentRegexp } from '../../services/config-manager-v2';
+import { NewEthereum } from '../../chains/ethereum/new_ethereum';
+export class NewUniswap implements Uniswapish {
+  private static _instances: { [name: string]: NewUniswap };
+  private ethereum: NewEthereum;
+  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -34,21 +31,26 @@ export class Uniswap implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor() {
+  private constructor(chain: string, network: string) {
+    this._chain = chain;
     const config = UniswapConfig.config;
-    this.chainId = EthereumConfig.config.network.chainID;
+    this.ethereum = NewEthereum.getInstance(network);
+    this.chainId = this.ethereum.chainId;
     this._ttl = UniswapConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimit = UniswapConfig.config.gasLimit;
     this._router = config.uniswapV2RouterAddress;
   }
 
-  public static getInstance(): Uniswap {
-    if (!Uniswap.instance) {
-      Uniswap.instance = new Uniswap();
+  public static getInstance(chain: string, network: string): NewUniswap {
+    if (NewUniswap._instances === undefined) {
+      NewUniswap._instances = {};
+    }
+    if (!(chain + network in NewUniswap._instances)) {
+      NewUniswap._instances[chain + network] = new NewUniswap(chain, network);
     }
 
-    return Uniswap.instance;
+    return NewUniswap._instances[chain + network];
   }
 
   public getTokenByAddress(address: string): Token {
@@ -56,12 +58,12 @@ export class Uniswap implements Uniswapish {
   }
 
   public async init() {
-    if (!Ethereum.getInstance().ready())
+    if (this._chain == 'ethereum' && !this.ethereum.ready())
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
-    for (const token of Ethereum.getInstance().storedTokenList) {
+    for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,

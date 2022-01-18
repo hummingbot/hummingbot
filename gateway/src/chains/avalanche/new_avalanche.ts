@@ -2,39 +2,41 @@ import abi from '../../services/ethereum.abi.json';
 import { logger } from '../../services/logger';
 import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
-import { AvalancheConfig } from './avalanche.config';
+import { getNewEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
 
-export class Avalanche extends EthereumBase implements Ethereumish {
-  private static _instance: Avalanche;
+export class NewAvalanche extends EthereumBase implements Ethereumish {
+  private static _instances: { [name: string]: NewAvalanche };
   private _gasPrice: number;
   private _nativeTokenSymbol: string;
   private _chain: string;
 
-  private constructor() {
-    const config = AvalancheConfig.config.network;
-
+  private constructor(network: string) {
+    const config = getAvalancheConfig('avalanche', network);
     super(
       'avalanche',
-      config.chainID,
-      config.nodeURL,
-      config.tokenListSource,
-      config.tokenListType,
-      AvalancheConfig.config.manualGasPrice
+      config.network.chainID,
+      config.network.nodeURL,
+      config.network.tokenListSource,
+      config.network.tokenListType,
+      config.manualGasPrice
     );
-    this._chain = AvalancheConfig.config.network.name;
-    this._nativeTokenSymbol = AvalancheConfig.config.nativeCurrencySymbol;
-    this._gasPrice = AvalancheConfig.config.manualGasPrice;
+    this._chain = config.network.name;
+    this._nativeTokenSymbol = config.nativeCurrencySymbol;
+    this._gasPrice = config.manualGasPrice;
   }
 
-  public static getInstance(): Avalanche {
-    if (!Avalanche._instance) {
-      Avalanche._instance = new Avalanche();
+  public static getInstance(network: string): NewAvalanche {
+    if (NewAvalanche._instances === undefined) {
+      NewAvalanche._instances = {};
+    }
+    if (!(network in NewAvalanche._instances)) {
+      NewAvalanche._instances[network] = new NewAvalanche(network);
     }
 
-    return Avalanche._instance;
+    return NewAvalanche._instances[network];
   }
 
   // getters

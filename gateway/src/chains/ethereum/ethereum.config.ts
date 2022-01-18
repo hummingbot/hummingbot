@@ -65,3 +65,34 @@ export function getEthereumConfig(chainName: string): Config {
     ),
   };
 }
+
+export function getNewEthereumConfig(
+  chainName: string,
+  networkName: string
+): Config {
+  const network = networkName;
+  return {
+    network: {
+      name: network,
+      chainID: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.chainID'
+      ),
+      nodeURL: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.nodeURL'
+      ),
+      tokenListType: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.tokenListType'
+      ),
+      tokenListSource: ConfigManagerV2.getInstance().get(
+        chainName + '.networks.' + network + '.tokenListSource'
+      ),
+    },
+    nodeAPIKey: ConfigManagerV2.getInstance().get(chainName + '.nodeAPIKey'),
+    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
+      chainName + '.nativeCurrencySymbol'
+    ),
+    manualGasPrice: ConfigManagerV2.getInstance().get(
+      chainName + '.manualGasPrice'
+    ),
+  };
+}
