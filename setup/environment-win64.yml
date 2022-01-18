@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - bidict
   - certifi=2021.5.30
   - coverage=5.5
   - intel-openmp=2021.3.0
@@ -56,7 +57,6 @@ dependencies:
     - pyjwt==1.7.1
     - pyperclip==1.7.0
     - pytest==4.6.11
-    - python-binance==0.7.5
     - python-telegram-bot==12.4.2
     - requests==2.22.0
     - rsa==4.7

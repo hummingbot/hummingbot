@@ -1,6 +1,8 @@
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+import os
+import socket
+from typing import Any, Dict, Optional
 
-from typing import Optional
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -39,7 +41,10 @@ def get_client_order_id(order_side: str, trading_pair: object):
     symbols: str = trading_pair.split("-")
     base: str = symbols[0].upper()
     quote: str = symbols[1].upper()
-    return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
+    base_str = f"{base[0]}{base[-1]}"
+    quote_str = f"{quote[0]}{quote[-1]}"
+    client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
+    return f"{BROKER_ID}-{order_side.upper()[0]}{base_str}{quote_str}{client_instance_id}{nonce}"
 
 
 def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):
@@ -55,6 +60,15 @@ def wss_url(endpoint: str, domain: str = "binance_perpetual"):
 def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(auth=auth, rest_pre_processors=[BinancePerpetualRESTPreProcessor()])
     return api_factory
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return exchange_info.get("status", None) == "TRADING"
 
 
 KEYS = {

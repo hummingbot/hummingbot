@@ -160,8 +160,10 @@ class InFlightOrder:
     def is_filled(self) -> bool:
         return (
             self.current_state == OrderState.FILLED
-            or math.isclose(self.executed_amount_base, self.amount)
-            or self.executed_amount_base >= self.amount
+            or (self.amount != s_decimal_0
+                and (math.isclose(self.executed_amount_base, self.amount)
+                     or self.executed_amount_base >= self.amount)
+                )
         )
 
     @property
@@ -361,6 +363,7 @@ class InFlightOrder:
         )
         self.cumulative_fee_paid += fee_paid
 
+        self.last_trade_id = trade_id
         self.last_filled_price = trade_update.fill_price
         self.last_filled_amount = trade_update.fill_base_amount
         self.last_fee_paid = fee_paid
