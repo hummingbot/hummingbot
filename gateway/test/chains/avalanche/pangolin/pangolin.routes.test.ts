@@ -1,7 +1,17 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../../services/patch';
-import { PangolinRoutes } from '../../../../src/chains/avalanche/pangolin/pangolin.routes';
 import { app } from '../../../../src/app';
+import { NewAvalanche } from '../../../../src/chains/avalanche/new_avalanche';
+import { NewPangolin } from '../../../../src/connectors/pangolin/new_pangolin';
+let avalanche: NewAvalanche;
+let pangolin: NewPangolin;
+
+beforeAll(async () => {
+  avalanche = NewAvalanche.getInstance('fuji');
+  await avalanche.init();
+  pangolin = NewPangolin.getInstance('avalanche', 'fuji');
+  await pangolin.init();
+});
 
 afterEach(() => {
   unpatch();
@@ -10,7 +20,7 @@ afterEach(() => {
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
 const patchGetWallet = () => {
-  patch(PangolinRoutes.avalanche, 'getWallet', () => {
+  patch(avalanche, 'getWallet', () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
@@ -18,7 +28,7 @@ const patchGetWallet = () => {
 };
 
 const patchStoredTokenList = () => {
-  patch(PangolinRoutes.avalanche, 'tokenList', () => {
+  patch(avalanche, 'tokenList', () => {
     return [
       {
         chainId: 43114,
@@ -39,7 +49,7 @@ const patchStoredTokenList = () => {
 };
 
 const patchGetTokenBySymbol = () => {
-  patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+  patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
     if (symbol === 'WETH') {
       return {
         chainId: 43114,
@@ -61,25 +71,23 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchGetTokenByAddress = () => {
-  patch(PangolinRoutes.pangolin, 'getTokenByAddress', (address: string) => {
-    return address
-      ? {
-          chainId: 43114,
-          name: 'WETH',
-          symbol: 'WETH',
-          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-          decimals: 18,
-        }
-      : undefined;
+  patch(pangolin, 'getTokenByAddress', () => {
+    return {
+      chainId: 43114,
+      name: 'WETH',
+      symbol: 'WETH',
+      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+      decimals: 18,
+    };
   });
 };
 
 const patchGasPrice = () => {
-  patch(PangolinRoutes.avalanche, 'gasPrice', () => 100);
+  patch(avalanche, 'gasPrice', () => 100);
 };
 
 const patchPriceSwapOut = () => {
-  patch(PangolinRoutes.pangolin, 'priceSwapOut', () => {
+  patch(pangolin, 'priceSwapOut', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -97,7 +105,7 @@ const patchPriceSwapOut = () => {
 };
 
 const patchPriceSwapIn = () => {
-  patch(PangolinRoutes.pangolin, 'priceSwapIn', () => {
+  patch(pangolin, 'priceSwapIn', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -113,26 +121,16 @@ const patchPriceSwapIn = () => {
 };
 
 const patchGetNonce = () => {
-  patch(PangolinRoutes.avalanche.nonceManager, 'getNonce', () => 21);
+  patch(avalanche.nonceManager, 'getNonce', () => 21);
 };
 
 const patchExecuteTrade = () => {
-  patch(PangolinRoutes.pangolin, 'executeTrade', () => {
+  patch(pangolin, 'executeTrade', () => {
     return { nonce: 21, hash: '000000000000000' };
   });
 };
 
-describe('GET /avalanche/pangolin/', () => {
-  it('should get 200 OK', async () => {
-    await request(app)
-      .get(`/avalanche/pangolin`)
-      .set('Accept', 'application/json')
-      .expect('Content-Type', /json/)
-      .expect(200);
-  });
-});
-
-describe('POST /avalanche/pangolin/price', () => {
+describe('POST /trading/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
     patchStoredTokenList();
@@ -144,8 +142,11 @@ describe('POST /avalanche/pangolin/price', () => {
     patchExecuteTrade();
 
     await request(app)
-      .post(`/avalanche/pangolin/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -169,8 +170,11 @@ describe('POST /avalanche/pangolin/price', () => {
     patchExecuteTrade();
 
     await request(app)
-      .post(`/avalanche/pangolin/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -186,7 +190,7 @@ describe('POST /avalanche/pangolin/price', () => {
   it('should return 500 for unrecognized quote symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
-    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
       if (symbol === 'WETH') {
         return {
           chainId: 43114,
@@ -202,8 +206,11 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/avalanche/pangolin/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'DOGE',
         base: 'WETH',
         amount: '10000',
@@ -216,7 +223,7 @@ describe('POST /avalanche/pangolin/price', () => {
   it('should return 500 for unrecognized base symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
-    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
       if (symbol === 'WETH') {
         return {
           chainId: 43114,
@@ -232,8 +239,11 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/avalanche/pangolin/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'SHIBA',
         amount: '10000',
@@ -244,7 +254,7 @@ describe('POST /avalanche/pangolin/price', () => {
   });
 });
 
-describe('POST /avalanche/pangolin/trade', () => {
+describe('POST /trading/trade', () => {
   const patchForBuy = () => {
     patchGetWallet();
     patchStoredTokenList();
@@ -258,8 +268,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for BUY', async () => {
     patchForBuy();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -277,8 +290,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -292,8 +308,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForBuy();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -320,8 +339,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for SELL', async () => {
     patchForSell();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -339,8 +361,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForSell();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -356,8 +381,11 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 404 when parameters are incorrect', async () => {
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: 10000,
@@ -370,7 +398,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 500 when base token is unknown', async () => {
     patchForSell();
-    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
       if (symbol === 'WETH') {
         return {
           chainId: 43114,
@@ -385,8 +413,11 @@ describe('POST /avalanche/pangolin/trade', () => {
     });
 
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WETH',
         base: 'BITCOIN',
         amount: '10000',
@@ -402,7 +433,7 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   it('should return 500 when quote token is unknown', async () => {
     patchForSell();
-    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+    patch(avalanche, 'getTokenBySymbol', (symbol: string) => {
       if (symbol === 'WETH') {
         return {
           chainId: 43114,
@@ -417,8 +448,11 @@ describe('POST /avalanche/pangolin/trade', () => {
     });
 
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'BITCOIN',
         base: 'WETH',
         amount: '10000',
@@ -435,8 +469,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -452,8 +489,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -469,8 +509,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for SELL with price less than limitPrice', async () => {
     patchForSell();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',
@@ -486,8 +529,11 @@ describe('POST /avalanche/pangolin/trade', () => {
   it('should return 200 for BUY with price less than limitPrice', async () => {
     patchForBuy();
     await request(app)
-      .post(`/avalanche/pangolin/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'avalanche',
+        network: 'fuji',
+        connector: 'pangolin',
         quote: 'WAVAX',
         base: 'WETH',
         amount: '10000',

@@ -7,7 +7,7 @@ import {
   validateSide,
   invalidLimitPriceError,
   validateLimitPrice,
-} from '../../../../src/chains/ethereum/uniswap/uniswap.validators';
+} from '../../../../src/connectors/uniswap/uniswap.validators';
 
 import { missingParameter } from '../../../../src/services/validators';
 
