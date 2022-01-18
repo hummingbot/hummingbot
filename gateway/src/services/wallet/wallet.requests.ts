@@ -1,10 +1,11 @@
 export interface AddWalletRequest {
-  chainName: string;
+  chain: string;
+  network: string;
   privateKey: string;
 }
 
 export interface RemoveWalletRequest {
-  chainName: string;
+  chain: string;
   address: string;
 }
 
