@@ -1,6 +1,6 @@
 import { patch, unpatch } from '../patch';
-import { Ethereum } from '../../../src/chains/ethereum/ethereum';
-import { Avalanche } from '../../../src/chains/avalanche/avalanche';
+import { NewEthereum } from '../../../src/chains/ethereum/new_ethereum';
+import { NewAvalanche } from '../../../src/chains/avalanche/new_avalanche';
 import {
   addWallet,
   getWallets,
@@ -14,19 +14,15 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 
-// import fse from 'fs-extra';
-
-let avalanche: Avalanche;
-let eth: Ethereum;
+let avalanche: NewAvalanche;
+let eth: NewEthereum;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  avalanche = Avalanche.getInstance();
-  await avalanche.init();
+  avalanche = NewAvalanche.getInstance('fuji');
 
-  eth = Ethereum.getInstance();
-  await eth.init();
+  eth = NewEthereum.getInstance('kovan');
 });
 
 beforeEach(() =>
@@ -74,9 +70,10 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'ethereum',
+      chain: 'ethereum',
+      network: 'kovan',
     });
 
     const wallets = await getWallets();
@@ -99,9 +96,10 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'avalanche',
+      chain: 'avalanche',
+      network: 'fuji',
     });
 
     const wallets = await getWallets();
@@ -115,9 +113,10 @@ describe('addWallet and getWallets', () => {
 
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
-      addWallet(eth, avalanche, {
+      addWallet({
         privateKey: onePrivateKey,
-        chainName: 'shibainu',
+        chain: 'shibainu',
+        network: 'doge',
       })
     ).rejects.toThrow(
       new HttpException(
@@ -142,12 +141,13 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'ethereum',
+      chain: 'ethereum',
+      network: 'kovan',
     });
 
-    await removeWallet({ chainName: 'ethereum', address: oneAddress });
+    await removeWallet({ chain: 'ethereum', address: oneAddress });
 
     const wallets = await getWallets();
 
