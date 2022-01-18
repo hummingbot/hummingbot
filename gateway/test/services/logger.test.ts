@@ -1,6 +1,10 @@
 import winston from 'winston';
 import { ConfigManagerV2 } from '../../src/services/config-manager-v2';
-import { logger, updateLoggerToStdout } from '../../src/services/logger';
+import {
+  logger,
+  updateLoggerToStdout,
+  telemetry,
+} from '../../src/services/logger';
 
 describe('Test logger', () => {
   it('updateLoggerToStdout works', (done) => {
@@ -14,5 +18,15 @@ describe('Test logger', () => {
     // Not sure why the below test doesn't on Github but passes on local
     // expect(logger.transports.some(ofTypeConsole)).toEqual(false);
     done();
+  });
+
+  it('test telemetry transport can be added', () => {
+    const initTransports = logger.transports.length;
+    if (!ConfigManagerV2.getInstance().get('telemetry.enabled')) {
+      ConfigManagerV2.getInstance().set('telemetry.enabled', true);
+      telemetry();
+      ConfigManagerV2.getInstance().set('telemetry.enabled', false);
+      expect(logger.transports.length).toEqual(initTransports + 1);
+    }
   });
 });
