@@ -39,6 +39,8 @@ describe('nonce', () => {
     });
     patch(eth.nonceManager, 'getNonce', () => 2);
     const n = await nonce(eth, {
+      chain: 'ethereum',
+      network: 'kovan',
       address: zeroAddress,
     });
     expect(n).toEqual({ nonce: 2 });
@@ -87,6 +89,8 @@ describe('allowances', () => {
     });
 
     const result = await allowances(eth, {
+      chain: 'ethereum',
+      network: 'kovan',
       address: zeroAddress,
       spender: uniswap,
       tokenSymbols: ['WETH'],
@@ -126,6 +130,8 @@ describe('approve', () => {
     });
 
     const result = await approve(eth, {
+      chain: 'ethereum',
+      network: 'kovan',
       address: zeroAddress,
       spender: uniswap,
       token: 'WETH',
@@ -145,6 +151,8 @@ describe('approve', () => {
 
     await expect(
       approve(eth, {
+        chain: 'ethereum',
+        network: 'kovan',
         address: zeroAddress,
         spender: uniswap,
         token: 'WETH',
@@ -175,6 +183,8 @@ describe('approve', () => {
 
     await expect(
       approve(eth, {
+        chain: 'ethereum',
+        network: 'kovan',
         address: zeroAddress,
         spender: uniswap,
         token: 'WETH',
@@ -197,7 +207,12 @@ describe('balances', () => {
     });
 
     await expect(
-      balances(eth, { address: zeroAddress, tokenSymbols: ['WETH', 'DAI'] })
+      balances(eth, {
+        chain: 'ethereum',
+        network: 'kovan',
+        address: zeroAddress,
+        tokenSymbols: ['WETH', 'DAI'],
+      })
     ).rejects.toThrow(
       new HttpException(
         500,
@@ -216,7 +231,12 @@ describe('cancel', () => {
     });
 
     await expect(
-      cancel(eth, { nonce: 123, address: zeroAddress })
+      cancel(eth, {
+        chain: 'ethereum',
+        network: 'kovan',
+        nonce: 123,
+        address: zeroAddress,
+      })
     ).rejects.toThrow(
       new HttpException(
         500,

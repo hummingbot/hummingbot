@@ -18,16 +18,6 @@ import { NewAvalanche } from '../../../src/chains/avalanche/new_avalanche';
 const avalanche = NewAvalanche.getInstance('fuji');
 afterEach(unpatch);
 
-describe('GET /avalanche', () => {
-  it('should return 200', async () => {
-    await request(gatewayApp)
-      .get(`/avalanche`)
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect((res) => expect(res.body.connection).toBe(true));
-  });
-});
-
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
 const patchGetWallet = () => {
