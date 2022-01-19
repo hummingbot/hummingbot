@@ -8,7 +8,8 @@ import {
   Wallet,
 } from 'ethers';
 import axios from 'axios';
-import fs from 'fs/promises';
+// import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
