@@ -623,6 +623,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # Needs to be executed at all times to not to have active order leftovers after a trading session ends
                 self.c_cancel_active_orders_on_max_age_limit()
 
+                # process_tick() is only called if within a trading timeframe
                 self._execution_state.process_tick(timestamp, self)
 
             else:
@@ -636,26 +637,31 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
-    def process_tick(self, timestamp: float):
+    def process_tick(self, timestamp: float, trading_allowed: bool):
         proposal = None
-        if self._create_timestamp <= self._current_timestamp:
-            # 1. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
-            self.c_calculate_reserved_price_and_optimal_spread()
-            # 2. Check if calculated prices make sense
-            if self._optimal_bid > 0 and self._optimal_ask > 0:
-                # 3. Create base order proposals
-                proposal = self.c_create_base_proposal()
-                # 4. Apply functions that modify orders amount
-                self.c_apply_order_amount_eta_transformation(proposal)
-                # 5. Apply functions that modify orders price
-                self.c_apply_order_price_modifiers(proposal)
-                # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                self.c_apply_budget_constraint(proposal)
+        if trading_allowed:
+            # Trading is allowed
+            if self._create_timestamp <= self._current_timestamp:
+                # 1. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
+                self.c_calculate_reserved_price_and_optimal_spread()
+                # 2. Check if calculated prices make sense
+                if self._optimal_bid > 0 and self._optimal_ask > 0:
+                    # 3. Create base order proposals
+                    proposal = self.c_create_base_proposal()
+                    # 4. Apply functions that modify orders amount
+                    self.c_apply_order_amount_eta_transformation(proposal)
+                    # 5. Apply functions that modify orders price
+                    self.c_apply_order_price_modifiers(proposal)
+                    # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                    self.c_apply_budget_constraint(proposal)
 
-                self.c_cancel_active_orders(proposal)
+                    self.c_cancel_active_orders(proposal)
 
-        if self.c_to_create_orders(proposal):
-            self.c_execute_orders_proposal(proposal)
+            if self.c_to_create_orders(proposal):
+                self.c_execute_orders_proposal(proposal)
+        else:
+            # Trading is not allowed
+            self.c_cancel_active_orders(proposal)
 
         if self._is_debug:
             self.dump_debug_variables()

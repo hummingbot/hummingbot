@@ -50,7 +50,7 @@ class RunAlwaysExecutionState(ConditionalExecutionState):
     def process_tick(self, timestamp: float, strategy: StrategyBase):
         self._closing_time = None
         self._time_left = None
-        strategy.process_tick(timestamp)
+        strategy.process_tick(timestamp, True)
 
 
 class RunInTimeConditionalExecutionState(ConditionalExecutionState):
@@ -87,9 +87,10 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
 
                 if self._start_timestamp.timestamp() <= timestamp < self._end_timestamp.timestamp():
                     self._time_left = max((self._end_timestamp.timestamp() - timestamp) * 1000, 0)
-                    strategy.process_tick(timestamp)
+                    strategy.process_tick(timestamp, True)
                 else:
                     self._time_left = 0
+                    strategy.process_tick(timestamp, False)
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
                                             f"and {self._end_timestamp.isoformat(sep=' ')})")
@@ -97,8 +98,9 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                 self._closing_time = None
                 self._time_left = None
                 if self._start_timestamp.timestamp() <= timestamp:
-                    strategy.process_tick(timestamp)
+                    strategy.process_tick(timestamp, True)
                 else:
+                    strategy.process_tick(timestamp, False)
                     strategy.logger().debug("Delayed start execution: tick will not be processed "
                                             f"(executing from {self._start_timestamp.isoformat(sep=' ')})")
         if isinstance(self._start_timestamp, time):
@@ -110,9 +112,10 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
 
                 if self._start_timestamp <= current_time < self._end_timestamp:
                     self._time_left = max((datetime.combine(datetime.today(), self._end_timestamp) - datetime.combine(datetime.today(), current_time)).total_seconds() * 1000, 0)
-                    strategy.process_tick(timestamp)
+                    strategy.process_tick(timestamp, True)
                 else:
                     self._time_left = 0
+                    strategy.process_tick(timestamp, False)
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp} "
                                             f"and {self._end_timestamp})")
