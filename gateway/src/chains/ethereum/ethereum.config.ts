@@ -24,7 +24,6 @@ export interface Config {
 }
 
 export namespace EthereumConfig {
-  export const config: Config = getEthereumConfig('ethereum');
   export const ethGasStationConfig: EthereumGasStationConfig = {
     enabled: ConfigManagerV2.getInstance().get('ethereumGasStation.enabled'),
     gasStationURL: ConfigManagerV2.getInstance().get(
@@ -38,35 +37,7 @@ export namespace EthereumConfig {
   };
 }
 
-export function getEthereumConfig(chainName: string): Config {
-  const network = ConfigManagerV2.getInstance().get(chainName + '.network');
-  return {
-    network: {
-      name: network,
-      chainID: ConfigManagerV2.getInstance().get(
-        chainName + '.networks.' + network + '.chainID'
-      ),
-      nodeURL: ConfigManagerV2.getInstance().get(
-        chainName + '.networks.' + network + '.nodeURL'
-      ),
-      tokenListType: ConfigManagerV2.getInstance().get(
-        chainName + '.networks.' + network + '.tokenListType'
-      ),
-      tokenListSource: ConfigManagerV2.getInstance().get(
-        chainName + '.networks.' + network + '.tokenListSource'
-      ),
-    },
-    nodeAPIKey: ConfigManagerV2.getInstance().get(chainName + '.nodeAPIKey'),
-    nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      chainName + '.nativeCurrencySymbol'
-    ),
-    manualGasPrice: ConfigManagerV2.getInstance().get(
-      chainName + '.manualGasPrice'
-    ),
-  };
-}
-
-export function getNewEthereumConfig(
+export function getEthereumConfig(
   chainName: string,
   networkName: string
 ): Config {

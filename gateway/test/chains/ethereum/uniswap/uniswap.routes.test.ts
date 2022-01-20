@@ -1,21 +1,21 @@
 import express from 'express';
 import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { NewEthereum } from '../../../../src/chains/ethereum/new_ethereum';
-import { NewUniswap } from '../../../../src/connectors/uniswap/new_uniswap';
+import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { TradingRoutes } from '../../../../src/trading/trading.routes';
 import { patch, unpatch } from '../../../services/patch';
 
 let app: Express;
-let ethereum: NewEthereum;
-let uniswap: NewUniswap;
+let ethereum: Ethereum;
+let uniswap: Uniswap;
 
 beforeAll(async () => {
   app = express();
   app.use(express.json());
-  ethereum = NewEthereum.getInstance('kovan');
+  ethereum = Ethereum.getInstance('kovan');
   await ethereum.init();
-  uniswap = NewUniswap.getInstance('ethereum', 'kovan');
+  uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
   app.use('/trading', TradingRoutes.router);
 });

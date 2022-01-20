@@ -1,5 +1,5 @@
 import { BigNumber } from 'ethers';
-import { NewEthereum } from '../../../src/chains/ethereum/new_ethereum';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
 import { Token } from '../../../src/services/ethereum-base';
 import {
@@ -19,9 +19,9 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
 } from '../../../src/services/error-handler';
 
-let eth: NewEthereum;
+let eth: Ethereum;
 beforeAll(async () => {
-  eth = NewEthereum.getInstance('kovan');
+  eth = Ethereum.getInstance('kovan');
   await eth.init();
 });
 

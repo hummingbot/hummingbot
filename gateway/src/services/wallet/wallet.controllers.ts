@@ -1,6 +1,6 @@
 import fse from 'fs-extra';
-import { NewAvalanche } from '../../chains/avalanche/new_avalanche';
-import { NewEthereum } from '../../chains/ethereum/new_ethereum';
+import { Avalanche } from '../../chains/avalanche/avalanche';
+import { Ethereum } from '../../chains/ethereum/ethereum';
 
 import {
   AddWalletRequest,
@@ -33,11 +33,11 @@ export async function addWallet(req: AddWalletRequest): Promise<void> {
   let address: string;
   let encryptedPrivateKey: string;
   if (req.chain === 'ethereum') {
-    const ethereum = NewEthereum.getInstance(req.network);
+    const ethereum = Ethereum.getInstance(req.network);
     address = ethereum.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await ethereum.encrypt(req.privateKey, passphrase);
   } else if (req.chain === 'avalanche') {
-    const avalanche = NewAvalanche.getInstance(req.network);
+    const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
   } else {

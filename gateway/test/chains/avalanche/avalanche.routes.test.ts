@@ -13,9 +13,9 @@ import * as transactionSuccesful from '../ethereum/fixtures/transaction-succesfu
 import * as transactionSuccesfulReceipt from '../ethereum//fixtures/transaction-succesful-receipt.json';
 import * as transactionOutOfGas from '../ethereum//fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from '../ethereum/fixtures/transaction-out-of-gas-receipt.json';
-import { NewAvalanche } from '../../../src/chains/avalanche/new_avalanche';
+import { Avalanche } from '../../../src/chains/avalanche/avalanche';
 
-const avalanche = NewAvalanche.getInstance('fuji');
+const avalanche = Avalanche.getInstance('fuji');
 afterEach(unpatch);
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';

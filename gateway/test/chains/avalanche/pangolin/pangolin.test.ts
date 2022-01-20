@@ -1,5 +1,5 @@
 jest.useFakeTimers();
-import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
+import { Pangolin } from '../../../../src/connectors/pangolin/pangolin';
 import { patch, unpatch } from '../../../services/patch';
 import {
   Fetcher,
@@ -9,31 +9,31 @@ import {
   TokenAmount,
   Trade,
   TradeType,
-} from '@uniswap/sdk';
+} from '@pangolindex/sdk';
 import { BigNumber } from 'ethers';
-import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 
-let ethereum: Ethereum;
-let uniswap: Uniswap;
+let avalanche: Avalanche;
+let pangolin: Pangolin;
 
-const WETH = new Token(
-  3,
-  '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-  18,
-  'WETH'
+const FUJISTABLE = new Token(
+  43113,
+  '0x2058ec2791dD28b6f67DB836ddf87534F4Bbdf22',
+  6,
+  'FUJISTABLE'
 );
-const DAI = new Token(
-  3,
-  '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+const FUJIMOON = new Token(
+  43113,
+  '0x97132C109c6816525F7f338DCb7435E1412A7668',
   18,
-  'DAI'
+  'FUJIMOON'
 );
 
 beforeAll(async () => {
-  ethereum = Ethereum.getInstance('kovan');
-  await ethereum.init();
-  uniswap = Uniswap.getInstance('ethereum', 'kovan');
-  await uniswap.init();
+  avalanche = Avalanche.getInstance('fuji');
+  await avalanche.init();
+  pangolin = Pangolin.getInstance('avalanche', 'fuji');
+  await pangolin.init();
 });
 
 afterEach(() => {
@@ -43,8 +43,9 @@ afterEach(() => {
 const patchFetchPairData = () => {
   patch(Fetcher, 'fetchPairData', () => {
     return new Pair(
-      new TokenAmount(WETH, '2000000000000000000'),
-      new TokenAmount(DAI, '1000000000000000000')
+      new TokenAmount(FUJISTABLE, '2000000000000000000'),
+      new TokenAmount(FUJIMOON, '1000000000000000000'),
+      3
     );
   });
 };
@@ -52,29 +53,30 @@ const patchFetchPairData = () => {
 const patchTrade = (key: string, error?: Error) => {
   patch(Trade, key, () => {
     if (error) return [];
-    const WETH_DAI = new Pair(
-      new TokenAmount(WETH, '2000000000000000000'),
-      new TokenAmount(DAI, '1000000000000000000')
+    const FUJISTABLE_FUJIMOON = new Pair(
+      new TokenAmount(FUJISTABLE, '2000000000000000000'),
+      new TokenAmount(FUJIMOON, '1000000000000000000'),
+      3
     );
-    console.log('el WETH_DAI es', WETH_DAI)
-    const DAI_TO_WETH = new Route([WETH_DAI], DAI);
+    const DAI_TO_WETH = new Route([FUJISTABLE_FUJIMOON], FUJIMOON);
     return [
       new Trade(
         DAI_TO_WETH,
-        new TokenAmount(DAI, '1000000000000000'),
-        TradeType.EXACT_INPUT
+        new TokenAmount(FUJIMOON, '1000000000000000'),
+        TradeType.EXACT_INPUT,
+        3
       ),
     ];
   });
 };
-describe('verify Uniswap priceSwapIn', () => {
+describe('verify pangolin priceSwapIn', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn');
 
-    const expectedTrade = await uniswap.priceSwapIn(
-      WETH,
-      DAI,
+    const expectedTrade = await pangolin.priceSwapIn(
+      FUJISTABLE,
+      FUJIMOON,
       BigNumber.from(1)
     );
     expect(expectedTrade).toHaveProperty('trade');
@@ -85,23 +87,23 @@ describe('verify Uniswap priceSwapIn', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
-    const expectedTrade = await uniswap.priceSwapIn(
-      WETH,
-      DAI,
+    const expectedTrade = await pangolin.priceSwapIn(
+      FUJISTABLE,
+      FUJIMOON,
       BigNumber.from(1)
     );
     expect(typeof expectedTrade).toBe('string');
   });
 });
 
-describe('verify Uniswap priceSwapOut', () => {
+describe('verify pangolin priceSwapOut', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut');
 
-    const expectedTrade = await uniswap.priceSwapOut(
-      WETH,
-      DAI,
+    const expectedTrade = await pangolin.priceSwapOut(
+      FUJISTABLE,
+      FUJIMOON,
       BigNumber.from(1)
     );
     expect(expectedTrade).toHaveProperty('trade');
@@ -112,9 +114,9 @@ describe('verify Uniswap priceSwapOut', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut', new Error('error getting trade'));
 
-    const expectedTrade = await uniswap.priceSwapOut(
-      WETH,
-      DAI,
+    const expectedTrade = await pangolin.priceSwapOut(
+      FUJISTABLE,
+      FUJIMOON,
       BigNumber.from(1)
     );
     expect(typeof expectedTrade).toBe('string');
