@@ -51,6 +51,15 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         else:
             raise NotImplementedError
 
+    def test_exchange_name(self):
+        self.assertEqual("binance", self.tracker.exchange_name)
+
+        us_tracker = BinanceOrderBookTracker(trading_pairs=[self.trading_pair],
+                                             domain="us",
+                                             throttler=self.throttler)
+
+        self.assertEqual("binance_us", us_tracker.exchange_name)
+
     def test_order_book_diff_router_trading_pair_not_found_append_to_saved_message_queue(self):
         expected_msg: OrderBookMessage = OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
