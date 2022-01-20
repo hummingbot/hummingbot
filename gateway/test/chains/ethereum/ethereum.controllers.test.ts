@@ -28,7 +28,7 @@ beforeAll(async () => {
 afterEach(() => unpatch());
 
 const zeroAddress =
-  '0000000000000000000000000000000000000000000000000000000000000000';
+  '0000000000000000000000000000000000000000000000000000000000000000'; // noqa: mock
 
 describe('nonce', () => {
   it('return a nonce for a wallet', async () => {

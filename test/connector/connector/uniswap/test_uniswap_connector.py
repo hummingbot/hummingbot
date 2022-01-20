@@ -60,7 +60,7 @@ class UniswapConnectorUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector: UniswapConnector = UniswapConnector(
             [trading_pair],
-            "0xdc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de",
+            "0xdc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de",  # noqa: mock
             "")
         print("Initializing CryptoCom market... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)

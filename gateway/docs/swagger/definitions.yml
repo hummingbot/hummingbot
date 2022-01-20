@@ -27,7 +27,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
 
   EthereumNonceResponse:
     type: 'object'
@@ -47,7 +47,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       spender:
         type: 'string'
         example: 'uniswap'
@@ -94,7 +94,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       tokenSymbols:
         type: 'array'
         items: 'string'
@@ -135,7 +135,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       spender:
         type: 'string'
         example: 'uniswap'
@@ -199,7 +199,7 @@ definitions:
     properties:
       txHash:
         type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
 
   EthereumPollResponse:
     type: 'object'
@@ -224,7 +224,7 @@ definitions:
         example: 28243911
       txHash:
         type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
       txStatus:
         type: 'number'
         example: 1
@@ -436,7 +436,7 @@ definitions:
         example: 0.5
       txHash:
         type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
 
   AddWalletRequest:
     type: 'object'
@@ -449,7 +449,7 @@ definitions:
         example: 'ethereum'
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
   
   RemoveWalletRequest:
     type: 'object'
