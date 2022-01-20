@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { NewEthereum } from '../../../src/chains/ethereum/new_ethereum';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
 import { gatewayApp } from '../../../src/app';
 import {
@@ -17,9 +17,9 @@ import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-r
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
 
-let eth: NewEthereum;
+let eth: Ethereum;
 beforeAll(async () => {
-  eth = NewEthereum.getInstance('kovan');
+  eth = Ethereum.getInstance('kovan');
   await eth.init();
 });
 

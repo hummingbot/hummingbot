@@ -38,11 +38,11 @@ import {
   validateNonceRequest,
   validatePollRequest,
 } from '../chains/ethereum/ethereum.validators';
-import { NewEthereum } from '../chains/ethereum/new_ethereum';
-import { NewAvalanche } from '../chains/avalanche/new_avalanche';
+import { Ethereum } from '../chains/ethereum/ethereum';
+import { Avalanche } from '../chains/avalanche/avalanche';
 import { price, trade } from '../connectors/uniswap/uniswap.controllers';
-import { NewUniswap } from '../connectors/uniswap/new_uniswap';
-import { NewPangolin } from '../connectors/pangolin/new_pangolin';
+import { Uniswap } from '../connectors/uniswap/uniswap';
+import { Pangolin } from '../connectors/pangolin/pangolin';
 import {
   validatePriceRequest,
   validateTradeRequest,
@@ -54,9 +54,9 @@ export namespace TradingRoutes {
 
   async function getChain(chain: string, network: string) {
     let chainInstance: Ethereumish;
-    if (chain === 'ethereum') chainInstance = NewEthereum.getInstance(network);
+    if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
     else if (chain === 'avalanche')
-      chainInstance = NewAvalanche.getInstance(network);
+      chainInstance = Avalanche.getInstance(network);
     else throw new Error('unsupported chain');
     if (!chainInstance.ready()) {
       await chainInstance.init();
@@ -71,9 +71,9 @@ export namespace TradingRoutes {
   ) {
     let connectorInstance: any;
     if (chain === 'ethereum' && connector === 'uniswap')
-      connectorInstance = NewUniswap.getInstance(chain, network);
+      connectorInstance = Uniswap.getInstance(chain, network);
     else if (chain === 'avalanche' && connector === 'pangolin')
-      connectorInstance = NewPangolin.getInstance(chain, network);
+      connectorInstance = Pangolin.getInstance(chain, network);
     else throw new Error('unsupported chain or connector');
     if (!connectorInstance.ready()) {
       await connectorInstance.init();

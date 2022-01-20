@@ -1,15 +1,15 @@
 import request from 'supertest';
 import { patch, unpatch } from '../../../services/patch';
 import { gatewayApp } from '../../../../src/app';
-import { NewAvalanche } from '../../../../src/chains/avalanche/new_avalanche';
-import { NewPangolin } from '../../../../src/connectors/pangolin/new_pangolin';
-let avalanche: NewAvalanche;
-let pangolin: NewPangolin;
+import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
+import { Pangolin } from '../../../../src/connectors/pangolin/pangolin';
+let avalanche: Avalanche;
+let pangolin: Pangolin;
 
 beforeAll(async () => {
-  avalanche = NewAvalanche.getInstance('fuji');
+  avalanche = Avalanche.getInstance('fuji');
   await avalanche.init();
-  pangolin = NewPangolin.getInstance('avalanche', 'fuji');
+  pangolin = Pangolin.getInstance('avalanche', 'fuji');
   await pangolin.init();
 });
 

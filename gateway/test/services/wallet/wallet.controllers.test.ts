@@ -1,6 +1,6 @@
 import { patch, unpatch } from '../patch';
-import { NewEthereum } from '../../../src/chains/ethereum/new_ethereum';
-import { NewAvalanche } from '../../../src/chains/avalanche/new_avalanche';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
+import { Avalanche } from '../../../src/chains/avalanche/avalanche';
 import {
   addWallet,
   getWallets,
@@ -14,15 +14,15 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 
-let avalanche: NewAvalanche;
-let eth: NewEthereum;
+let avalanche: Avalanche;
+let eth: Ethereum;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  avalanche = NewAvalanche.getInstance('fuji');
+  avalanche = Avalanche.getInstance('fuji');
 
-  eth = NewEthereum.getInstance('kovan');
+  eth = Ethereum.getInstance('kovan');
 });
 
 beforeEach(() =>
