@@ -64,7 +64,7 @@ class CmdlineParser(argparse.ArgumentParser):
 def autofix_permissions(user_group_spec: str):
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
     subprocess.run(f"cd '{project_home}' && "
-                   f"sudo chown -R {user_group_spec} conf/ data/ logs/", capture_output=True, shell=True)
+                   f"sudo chown -R {user_group_spec} conf/ data/ logs/ certs/", capture_output=True, shell=True)
     uid, gid = user_group_spec.split(':')
     os.setgid(int(gid))
     os.setuid(int(uid))
