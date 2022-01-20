@@ -72,14 +72,14 @@ create_instance () {
  # 3) Set required permissions to save hummingbot password the first time
  sudo chmod a+rw $FOLDER/hummingbot_conf
  # 4) Launch a new instance of hummingbot
- docker run -it --log-opt max-size=10m --log-opt max-file=5 \
+ docker run -it \
  --name $INSTANCE_NAME \
  --network host \
- --mount "type=bind,source=$FOLDER/hummingbot_conf,destination=/conf/" \
- --mount "type=bind,source=$FOLDER/hummingbot_logs,destination=/logs/" \
- --mount "type=bind,source=$FOLDER/hummingbot_data,destination=/data/" \
- --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/" \
- --mount "type=bind,source=$FOLDER/hummingbot_certs,destination=/certs/" \
+ -v "${FOLDER}"/hummingbot_conf:/conf:z \
+ -v "${FOLDER}"/hummingbot_logs:/logs:z \
+ -v "${FOLDER}"/hummingbot_data:/data:z \
+ -v "${FOLDER}"/hummingbot_scripts:/scripts:z \
+ -v "${FOLDER}"/hummingbot_certs:/certs:z \
  coinalpha/hummingbot:$TAG
 }
 
