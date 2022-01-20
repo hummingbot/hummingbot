@@ -112,12 +112,12 @@ class GatewayCommand:
         self._notify("Creating new Gateway docker container...")
         host_config = await self.docker_ipc(("create_host_config",
                                              {"port_bindings": {5000: 5000},
-                                              "binds": {"gateway_conf_path": {"bind": "/usr/src/app/conf/",
-                                                                              "mode": "rw"},
-                                                        "certificate_path": {"bind": "/usr/src/app/certs/",
-                                                                             "mode": "rw"},
-                                                        "log_path": {"bind": "/usr/src/app/logs/",
-                                                                             "mode": "rw"}}}))
+                                              "binds": {gateway_conf_path: {"bind": "/usr/src/app/conf/",
+                                                                            "mode": "rw"},
+                                                        certificate_path: {"bind": "/usr/src/app/certs/",
+                                                                           "mode": "rw"},
+                                                        log_path: {"bind": "/usr/src/app/logs/",
+                                                                           "mode": "rw"}}}))
         container_id = await self.docker_ipc(("create_container",
                                               {"image": f"{docker_repo}:gateway-v2",
                                                "name": gateway_container_name,
