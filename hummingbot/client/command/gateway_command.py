@@ -243,16 +243,26 @@ class GatewayCommand:
         return self._docker_conn, self._docker_pipe_event
 
     async def docker_ipc(self, data):
-        pipe, event = self.get_ipc_info()
-        pipe.send(data)
-        return await pipe.coro_recv()
+        try:
+            pipe, event = self.get_ipc_info()
+            pipe.send(data)
+            return await pipe.coro_recv()
+        except Exception as e:  # unable to communicate with docker socket
+            self._notify("\nError: Unable to communicate with docker socket. "
+                         "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            raise e
 
     async def docker_ipc_with_generator(self, data):
-        pipe, event = self.get_ipc_info()
-        pipe.send(data)
+        try:
+            pipe, event = self.get_ipc_info()
+            pipe.send(data)
 
-        while True:
-            data = await pipe.coro_recv()
-            if not data and not event.is_set():
-                return
-            yield data
+            while True:
+                data = await pipe.coro_recv()
+                if not data and not event.is_set():
+                    return
+                yield data
+        except Exception as e:  # unable to communicate with docker socket
+            self._notify("\nError: Unable to communicate with docker socket. "
+                         "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            raise e
