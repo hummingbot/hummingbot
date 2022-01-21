@@ -171,6 +171,10 @@ if __name__ == "__main__":
         main(dock, event)
 
     finally:
+        # clear pipe
+        if docker_client:
+            dock.send(None)
+
         # stop ipc
         client.close()
         dock.close()
