@@ -311,32 +311,35 @@ class TwapTradeStrategy(StrategyPyBase):
         finally:
             self._last_timestamp = timestamp
 
-    def process_tick(self, timestamp: float, trading_allowed: bool):
+    def process_tick(self, timestamp: float):
         """
         Clock tick entry point.
         For the TWAP strategy, this function simply checks for the readiness and connection status of markets, and
         then delegates the processing of each market info to process_market().
         """
-        if trading_allowed:
-            current_tick = timestamp // self._status_report_interval
-            last_tick = (self._last_timestamp // self._status_report_interval)
-            should_report_warnings = current_tick > last_tick
+        current_tick = timestamp // self._status_report_interval
+        last_tick = (self._last_timestamp // self._status_report_interval)
+        should_report_warnings = current_tick > last_tick
 
+        if not self._all_markets_ready:
+            self._all_markets_ready = all([market.ready for market in self.active_markets])
             if not self._all_markets_ready:
-                self._all_markets_ready = all([market.ready for market in self.active_markets])
-                if not self._all_markets_ready:
-                    # Markets not ready yet. Don't do anything.
-                    if should_report_warnings:
-                        self.logger().warning("Markets are not ready. No market making trades are permitted.")
-                    return
+                # Markets not ready yet. Don't do anything.
+                if should_report_warnings:
+                    self.logger().warning("Markets are not ready. No market making trades are permitted.")
+                return
 
-            if (should_report_warnings
-                    and not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets])):
-                self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
-                                      "making may be dangerous when markets or networks are unstable.")
+        if (should_report_warnings
+                and not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets])):
+            self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
+                                  "making may be dangerous when markets or networks are unstable.")
 
-            for market_info in self._market_infos.values():
-                self.process_market(market_info)
+        for market_info in self._market_infos.values():
+            self.process_market(market_info)
+
+    def cancel_active_orders(self):
+        # Nothing to do here
+        pass
 
     def place_orders_for_market(self, market_info):
         """
