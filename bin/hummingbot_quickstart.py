@@ -10,6 +10,7 @@ from typing import (
 )
 import os
 import subprocess
+import docker
 from multiprocessing import Process
 import aioprocessing
 
@@ -154,16 +155,23 @@ if __name__ == "__main__":
         # IPC pipe
         client, dock = aioprocessing.AioPipe()
         event = aioprocessing.AioEvent()
+        docker_client = None
+
+        try:
+            docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
+        except Exception:
+            # close pipe
+            client.close()
+            dock.close()
 
         # fork app
-        p = Process(target=start_docker, args=(client, event,))
+        p = Process(target=start_docker, args=(client, event, docker_client))
         p.start()
 
         main(dock, event)
 
     finally:
         # stop ipc
-        dock.send(None)
         client.close()
         dock.close()
 
