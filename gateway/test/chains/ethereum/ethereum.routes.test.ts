@@ -87,7 +87,7 @@ const patchApproveERC20 = (tx_type?: string) => {
     gasLimit: { toString: () => '100000' },
     to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
     value: { toString: () => '0' },
-    data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', // noqa: mock
     accessList: [],
     hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9', // noqa: mock
     v: 0,
@@ -98,7 +98,7 @@ const patchApproveERC20 = (tx_type?: string) => {
   };
   if (tx_type === 'overwritten_tx') {
     default_tx.hash =
-      '0x5a1ed682d0d7a58fbd7828bbf5994cd024feb8895d4da82c741ec4a191b9e849';
+      '0x5a1ed682d0d7a58fbd7828bbf5994cd024feb8895d4da82c741ec4a191b9e849'; // noqa: mock
   }
   patch(eth, 'approveERC20', () => {
     return default_tx;
@@ -422,7 +422,7 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getTransactionReceipt', () => null);
     const res = await request(app).post('/eth/poll').send({
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
     expect(res.statusCode).toEqual(200);
     expect(res.body.txReceipt).toEqual(null);
