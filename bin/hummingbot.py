@@ -101,6 +101,10 @@ if __name__ == "__main__":
             ev_loop.run_until_complete(main(dock, event))
 
     finally:
+        # clear pipe
+        if docker_client:
+            dock.send(None)
+
         # stop ipc
         client.close()
         dock.close()
