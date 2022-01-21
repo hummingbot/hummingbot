@@ -1,4 +1,4 @@
-import { percentRegexp } from '../../../services/config-manager-v2';
+import { percentRegexp } from '../../services/config-manager-v2';
 import {
   BigNumber,
   Contract,
@@ -6,8 +6,6 @@ import {
   Transaction,
   Wallet,
 } from 'ethers';
-import { AvalancheConfig } from '../avalanche.config';
-import { Avalanche } from '../avalanche';
 import { PangolinConfig } from './pangolin.config';
 import routerAbi from './IPangolinRouter.json';
 import {
@@ -18,14 +16,14 @@ import {
   TokenAmount,
   Trade,
 } from '@pangolindex/sdk';
-import { logger } from '../../../services/logger';
-import {
-  ExpectedTrade,
-  Uniswapish,
-} from '../../../services/uniswapish.interface';
+import { logger } from '../../services/logger';
+import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
+import { Avalanche } from '../../chains/avalanche/avalanche';
+
 export class Pangolin implements Uniswapish {
-  private static instance: Pangolin;
-  private avalanche = Avalanche.getInstance();
+  private static _instances: { [name: string]: Pangolin };
+  private avalanche: Avalanche;
+  private _chain: string;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -34,21 +32,26 @@ export class Pangolin implements Uniswapish {
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
-  private constructor() {
+  private constructor(chain: string, network: string) {
+    this._chain = chain;
     const config = PangolinConfig.config;
-    this.chainId = AvalancheConfig.config.network.chainID;
+    this.avalanche = Avalanche.getInstance(network);
+    this.chainId = this.avalanche.chainId;
     this._router = config.routerAddress;
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimit = config.gasLimit;
   }
 
-  public static getInstance(): Pangolin {
-    if (!Pangolin.instance) {
-      Pangolin.instance = new Pangolin();
+  public static getInstance(chain: string, network: string): Pangolin {
+    if (Pangolin._instances === undefined) {
+      Pangolin._instances = {};
+    }
+    if (!(chain + network in Pangolin._instances)) {
+      Pangolin._instances[chain + network] = new Pangolin(chain, network);
     }
 
-    return Pangolin.instance;
+    return Pangolin._instances[chain + network];
   }
 
   public getTokenByAddress(address: string): Token {
@@ -56,7 +59,8 @@ export class Pangolin implements Uniswapish {
   }
 
   public async init() {
-    if (!this.avalanche.ready()) throw new Error('Avalanche is not available');
+    if (this._chain == 'avalanche' && !this.avalanche.ready())
+      throw new Error('Avalanche is not available');
     for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,

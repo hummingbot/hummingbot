@@ -20,16 +20,24 @@ definitions:
         type: 'integer'
         example: 1636368085740
 
-  EthereumNonceRequest:
+  NonceRequest:
     type: 'object'
     required:
       - 'privateKey'
+      - 'chain'
+      - 'network'
     properties:
       privateKey:
         type: 'string'
         example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
 
-  EthereumNonceResponse:
+  NonceResponse:
     type: 'object'
     required:
       - 'nonce'
@@ -38,12 +46,14 @@ definitions:
         type: 'integer'
         example: 123
 
-  EthereumAllowancesRequest:
+  AllowancesRequest:
     type: 'object'
     required:
       - 'privateKey'
       - 'spender'
       - 'tokenSymbols'
+      - 'chain'
+      - 'network'
     properties:
       privateKey:
         type: 'string'
@@ -55,8 +65,14 @@ definitions:
         type: 'array'
         items: 'string'
         example: ['WETH', 'DAI']
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
 
-  EthereumAllowancesResponse:
+  AllowancesResponse:
     type: 'object'
     required:
       - 'network'
@@ -86,11 +102,13 @@ definitions:
             type: 'string'
         example: '{"WETH": "100","DAI": "300"}'
 
-  EthereumBalancesRequest:
+  BalancesRequest:
     type: 'object'
     required:
       - 'privateKey'
       - 'tokenSymbols'
+      - 'chain'
+      - 'network'
     properties:
       privateKey:
         type: 'string'
@@ -99,8 +117,14 @@ definitions:
         type: 'array'
         items: 'string'
         example: ['WETH', 'DAI']
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
 
-  EthereumBalancesResponse:
+  BalancesResponse:
     type: 'object'
     required:
       - 'network'
@@ -126,12 +150,14 @@ definitions:
             type: 'string'
         example: '{"ETH": "1.5", "WETH": "100","DAI": "300"}'
 
-  EthereumApproveRequest:
+  ApproveRequest:
     type: 'object'
     required:
       - 'privateKey'
       - 'spender'
       - 'token'
+      - 'chain'
+      - 'network'
     properties:
       privateKey:
         type: 'string'
@@ -154,8 +180,14 @@ definitions:
       maxPriorityFeePerGas:
         type: 'string'
         example: '5000000000'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
 
-  EthereumApproveResponse:
+  ApproveResponse:
     type: 'object'
     required:
       - 'network'
@@ -192,16 +224,24 @@ definitions:
         type: 'object'
         example: '{"type": 2,"chainId": 42,"nonce": 129,"maxPriorityFeePerGas": "94000000000","maxFeePerGas": "94000000000","gasPrice": null,"gasLimit": "100000","to": "0xd0A1E359811322d97991E03f863a0C30C2cF029C","value": "0","data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","accessList": [],"hash": "0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d","v": 1,"r": "0x47c517271885b7041d81bcd65cd050a5d6be3fbd67a8f1660ac8d7e68fc8221f","s": "0x7c62e114b2cb0eae6236b597fb4aacb01c51e56afd7f734e6039d83aa400ba82","from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5","confirmations": 0}'
 
-  EthereumPollRequest:
+  PollRequest:
     type: 'object'
     required:
       - 'txHash'
+      - 'chain'
+      - 'network'
     properties:
       txHash:
         type: 'string'
         example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
 
-  EthereumPollResponse:
+  PollResponse:
     type: 'object'
     required:
       - 'network'
@@ -257,13 +297,15 @@ definitions:
         type: 'integer'
         example: 1636368085740
 
-  UniswapPriceRequest:
+  PriceRequest:
     type: 'object'
     required:
       - 'quote'
       - 'base'
       - 'amount'
       - 'side'
+      - 'chain'
+      - 'network'
     properties:
       quote:
         type: 'string'
@@ -277,8 +319,14 @@ definitions:
       side:
         type: 'string'
         example: 'BUY'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
 
-  UniswapPriceResponse:
+  PriceResponse:
     type: 'object'
     required:
       - 'network'
@@ -326,13 +374,16 @@ definitions:
         type: 'string'
         example: '0.014466048000000000'
 
-  UniswapTradeRequest:
+  TradeRequest:
     type: 'object'
     required:
       - 'quote'
       - 'base'
       - 'amount'
       - 'side'
+      - 'chain'
+      - 'network'
+      - 'connector'
     properties:
       quote:
         type: 'string'
@@ -354,8 +405,17 @@ definitions:
         type: number
       maxPriorityFeePerGas:
         type: number
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
 
-  UniswapTradeResponse:
+  TradeResponse:
     type: 'object'
     required:
       - 'network'
@@ -405,11 +465,13 @@ definitions:
       txHash:
         type: 'string'
 
-  EthereumCancelRequest:
+  CancelRequest:
     type: 'object'
     required:
       - 'nonce'
       - 'address'
+      - 'chain'
+      - 'network'
     properties:
       nonce:
         type: 'integer'
@@ -417,8 +479,14 @@ definitions:
       address:
         type: 'string'
         example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
   
-  EthereumCancelResponse:
+  CancelResponse:
     type: 'object'
     required:
       - 'network'
