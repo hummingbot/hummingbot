@@ -2,9 +2,9 @@ import {
   invalidEthPrivateKeyError,
   isEthPrivateKey,
   validatePrivateKey,
-  invalidChainNameError,
+  invalidChainError,
   invalidAddressError,
-  validateChainName,
+  validateChain,
   validateAddress,
   isSolPrivateKey,
   invalidSolPrivateKeyError,
@@ -120,45 +120,45 @@ describe('validatePrivateKey', () => {
   });
 });
 
-describe('validateChainName', () => {
-  it('valid when chainName is ethereum', () => {
+describe('validateChain', () => {
+  it('valid when chain is ethereum', () => {
     expect(
-      validateChainName({
-        chainName: 'ethereum',
+      validateChain({
+        chain: 'ethereum',
       })
     ).toEqual([]);
   });
 
-  it('valid when chainName is avalanche', () => {
+  it('valid when chain is avalanche', () => {
     expect(
-      validateChainName({
-        chainName: 'avalanche',
+      validateChain({
+        chain: 'avalanche',
       })
     ).toEqual([]);
   });
 
-  it('valid when chainName is solana', () => {
+  it('valid when chain is solana', () => {
     expect(
-      validateChainName({
-        chainName: 'solana',
+      validateChain({
+        chain: 'solana',
       })
     ).toEqual([]);
   });
 
-  it('return error when req.chainName does not exist', () => {
+  it('return error when req.chain does not exist', () => {
     expect(
-      validateChainName({
+      validateChain({
         hello: 'world',
       })
-    ).toEqual([missingParameter('chainName')]);
+    ).toEqual([missingParameter('chain')]);
   });
 
-  it('return error when req.chainName is invalid', () => {
+  it('return error when req.chain is invalid', () => {
     expect(
-      validateChainName({
-        chainName: 'shibainu',
+      validateChain({
+        chain: 'shibainu',
       })
-    ).toEqual([invalidChainNameError]);
+    ).toEqual([invalidChainError]);
   });
 });
 

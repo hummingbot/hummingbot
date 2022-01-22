@@ -1,0 +1,7 @@
+{
+  "chain": "ethereum",
+  "network": "ropsten",
+  "address": "0x824Ab71A3b468Ec7467A47CbA6Bc03405b74c800",
+  "spender": "uniswap",
+  "tokenSymbols": ["WETH"]
+}

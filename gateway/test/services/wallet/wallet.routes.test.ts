@@ -12,11 +12,9 @@ let eth: Ethereum;
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  avalanche = Avalanche.getInstance();
-  await avalanche.init();
+  avalanche = Avalanche.getInstance('fuji');
 
-  eth = Ethereum.getInstance();
-  await eth.init();
+  eth = Ethereum.getInstance('kovan');
 });
 
 beforeEach(() =>
@@ -68,7 +66,8 @@ describe('POST /wallet/add', () => {
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
-        chainName: 'ethereum',
+        chain: 'ethereum',
+        network: 'kovan',
       })
       .expect('Content-Type', /json/)
       .expect(200);
@@ -89,7 +88,8 @@ describe('POST /wallet/add', () => {
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
-        chainName: 'avalanche',
+        chain: 'avalanche',
+        network: 'fuji',
       })
 
       .expect('Content-Type', /json/)
@@ -131,7 +131,8 @@ describe('DELETE /wallet/remove', () => {
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
-        chainName: 'ethereum',
+        chain: 'ethereum',
+        network: 'kovan',
       })
 
       .expect('Content-Type', /json/)
@@ -141,7 +142,7 @@ describe('DELETE /wallet/remove', () => {
       .delete(`/wallet/remove`)
       .send({
         address: twoAddress,
-        chainName: 'ethereum',
+        chain: 'ethereum',
       })
 
       .expect('Content-Type', /json/)
@@ -169,7 +170,8 @@ describe('GET /wallet', () => {
       .post(`/wallet/add`)
       .send({
         privateKey: twoPrivateKey,
-        chainName: 'ethereum',
+        chain: 'ethereum',
+        network: 'kovan',
       })
       .expect('Content-Type', /json/)
       .expect(200);

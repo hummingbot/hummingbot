@@ -1,10 +1,6 @@
 import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
-import { EthereumRoutes } from './chains/ethereum/ethereum.routes';
-import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
-import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
-import { PangolinRoutes } from './chains/avalanche/pangolin/pangolin.routes';
 import { SolanaRoutes } from './chains/solana/solana.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
@@ -17,7 +13,9 @@ import {
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
-import { EthereumBase } from './services/ethereum-base';
+import { StatusRequest, StatusResponse } from './chains/chain.requests';
+import { getStatus } from './chains/chain.controllers';
+import { TradingRoutes } from './trading/trading.routes';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -32,12 +30,7 @@ gatewayApp.use(express.json());
 gatewayApp.use(express.urlencoded({ extended: true }));
 
 // mount sub routers
-gatewayApp.use('/avalanche', AvalancheRoutes.router);
-gatewayApp.use('/avalanche/pangolin', PangolinRoutes.router);
-
-gatewayApp.use('/eth', EthereumRoutes.router);
-gatewayApp.use('/eth/uniswap', UniswapRoutes.router);
-
+gatewayApp.use('/trading', TradingRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 
 // mount sub routers
@@ -48,36 +41,15 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-gatewayApp.get('/status', async (_req: Request, res: Response) => {
-  const avalanche = AvalancheRoutes.avalanche;
-  const ethereum = EthereumRoutes.ethereum;
-  const connectedNetworks = [];
-  try {
-    const avalancheNetwork = await getConnectionInformation(avalanche);
-    connectedNetworks.push(avalancheNetwork);
-  } catch (err) {
-    logger.error(err);
+gatewayApp.get(
+  '/status',
+  async (
+    req: Request<{}, {}, StatusRequest>,
+    res: Response<StatusResponse, {}>
+  ) => {
+    res.status(200).json(await getStatus(req.body));
   }
-  try {
-    const ethNetwork = await getConnectionInformation(ethereum);
-    connectedNetworks.push(ethNetwork);
-  } catch (err) {
-    logger.error(err);
-  }
-
-  res.status(200).json({
-    connectedNetworks,
-  });
-});
-
-async function getConnectionInformation(connector: EthereumBase) {
-  return {
-    chainName: connector.chainName,
-    chainId: connector.chainId,
-    rpcUrl: connector.rpcUrl,
-    currentBlockNumber: await connector.getCurrentBlockNumber(),
-  };
-}
+);
 
 gatewayApp.get('/config', (_req: Request, res: Response<any, any>) => {
   res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
@@ -117,7 +89,7 @@ gatewayApp.post(
       updateLoggerToStdout();
 
       logger.info('Reloading Ethereum routes.');
-      EthereumRoutes.reload();
+      // EthereumRoutes.reload();
 
       logger.info('Reloading Solana routes.');
       SolanaRoutes.reload();
@@ -154,10 +126,7 @@ export const startSwagger = async () => {
     './docs/swagger/definitions.yml',
     [
       './docs/swagger/main-routes.yml',
-      './docs/swagger/eth-routes.yml',
-      './docs/swagger/eth-uniswap-routes.yml',
-      './docs/swagger/avalanche-routes.yml',
-      './docs/swagger/avalanche-pangolin-routes.yml',
+      './docs/swagger/trading-routes.yml',
       './docs/swagger/wallet-routes.yml',
       './docs/swagger/solana-routes.yml',
     ]

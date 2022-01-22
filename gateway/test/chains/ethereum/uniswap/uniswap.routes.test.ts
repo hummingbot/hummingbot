@@ -1,15 +1,23 @@
 import express from 'express';
 import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { UniswapRoutes } from '../../../../src/chains/ethereum/uniswap/uniswap.routes';
+import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
+import { TradingRoutes } from '../../../../src/trading/trading.routes';
 import { patch, unpatch } from '../../../services/patch';
 
 let app: Express;
+let ethereum: Ethereum;
+let uniswap: Uniswap;
 
 beforeAll(async () => {
   app = express();
   app.use(express.json());
-  app.use('/eth/uniswap', UniswapRoutes.router);
+  ethereum = Ethereum.getInstance('kovan');
+  await ethereum.init();
+  uniswap = Uniswap.getInstance('ethereum', 'kovan');
+  await uniswap.init();
+  app.use('/trading', TradingRoutes.router);
 });
 
 afterEach(() => {
@@ -19,7 +27,7 @@ afterEach(() => {
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
 const patchGetWallet = () => {
-  patch(UniswapRoutes.ethereum, 'getWallet', () => {
+  patch(ethereum, 'getWallet', () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
@@ -27,13 +35,13 @@ const patchGetWallet = () => {
 };
 
 const patchInit = () => {
-  patch(UniswapRoutes.uniswap, 'init', async () => {
+  patch(uniswap, 'init', async () => {
     return;
   });
 };
 
 const patchStoredTokenList = () => {
-  patch(UniswapRoutes.ethereum, 'tokenList', () => {
+  patch(ethereum, 'tokenList', () => {
     return [
       {
         chainId: 42,
@@ -54,7 +62,7 @@ const patchStoredTokenList = () => {
 };
 
 const patchGetTokenBySymbol = () => {
-  patch(UniswapRoutes.ethereum, 'getTokenBySymbol', (symbol: string) => {
+  patch(ethereum, 'getTokenBySymbol', (symbol: string) => {
     if (symbol === 'WETH') {
       return {
         chainId: 42,
@@ -76,7 +84,7 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchGetTokenByAddress = () => {
-  patch(UniswapRoutes.uniswap, 'getTokenByAddress', () => {
+  patch(uniswap, 'getTokenByAddress', () => {
     return {
       chainId: 42,
       name: 'WETH',
@@ -88,11 +96,11 @@ const patchGetTokenByAddress = () => {
 };
 
 const patchGasPrice = () => {
-  patch(UniswapRoutes.ethereum, 'gasPrice', () => 100);
+  patch(ethereum, 'gasPrice', () => 100);
 };
 
 const patchPriceSwapOut = () => {
-  patch(UniswapRoutes.uniswap, 'priceSwapOut', () => {
+  patch(uniswap, 'priceSwapOut', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -110,7 +118,7 @@ const patchPriceSwapOut = () => {
 };
 
 const patchPriceSwapIn = () => {
-  patch(UniswapRoutes.uniswap, 'priceSwapIn', () => {
+  patch(uniswap, 'priceSwapIn', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -126,27 +134,27 @@ const patchPriceSwapIn = () => {
 };
 
 const patchGetNonce = () => {
-  patch(UniswapRoutes.ethereum.nonceManager, 'getNonce', () => 21);
+  patch(ethereum.nonceManager, 'getNonce', () => 21);
 };
 
 const patchExecuteTrade = () => {
-  patch(UniswapRoutes.uniswap, 'executeTrade', () => {
+  patch(uniswap, 'executeTrade', () => {
     return { nonce: 21, hash: '000000000000000' };
   });
 };
 
-describe('GET /uniswap', () => {
-  it('should return 200', async () => {
-    patchInit();
-    await request(app)
-      .get(`/eth/uniswap`)
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect((res) => expect(res.body.connection).toBe(true));
-  });
-});
+// describe('GET /uniswap', () => {
+//   it('should return 200', async () => {
+//     patchInit();
+//     await request(app)
+//       .get(`/eth/uniswap`)
+//       .expect('Content-Type', /json/)
+//       .expect(200)
+//       .expect((res) => expect(res.body.connection).toBe(true));
+//   });
+// });
 
-describe('POST /eth/uniswap/price', () => {
+describe('POST /trading/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
     patchInit();
@@ -159,8 +167,11 @@ describe('POST /eth/uniswap/price', () => {
     patchExecuteTrade();
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -185,8 +196,11 @@ describe('POST /eth/uniswap/price', () => {
     patchExecuteTrade();
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -206,8 +220,11 @@ describe('POST /eth/uniswap/price', () => {
     patchGetTokenBySymbol();
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DOGE',
         base: 'WETH',
         amount: '10000',
@@ -225,8 +242,11 @@ describe('POST /eth/uniswap/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'SHIBA',
         amount: '10000',
@@ -244,8 +264,11 @@ describe('POST /eth/uniswap/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'SHIBA',
         amount: '10.000',
@@ -263,8 +286,11 @@ describe('POST /eth/uniswap/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'SHIBA',
         amount: '10.000',
@@ -280,13 +306,16 @@ describe('POST /eth/uniswap/price', () => {
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
-    patch(UniswapRoutes.uniswap, 'priceSwapIn', () => {
+    patch(uniswap, 'priceSwapIn', () => {
       return 'error';
     });
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DOGE',
         base: 'WETH',
         amount: '10000',
@@ -302,13 +331,16 @@ describe('POST /eth/uniswap/price', () => {
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
-    patch(UniswapRoutes.uniswap, 'priceSwapOut', () => {
+    patch(uniswap, 'priceSwapOut', () => {
       return 'error';
     });
 
     await request(app)
-      .post(`/eth/uniswap/price`)
+      .post(`/trading/price`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DOGE',
         base: 'WETH',
         amount: '10000',
@@ -319,7 +351,7 @@ describe('POST /eth/uniswap/price', () => {
   });
 });
 
-describe('POST /eth/uniswap/trade', () => {
+describe('POST /trading/trade', () => {
   const patchForBuy = () => {
     patchGetWallet();
     patchInit();
@@ -334,8 +366,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for BUY', async () => {
     patchForBuy();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -353,8 +388,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -368,8 +406,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForBuy();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -397,8 +438,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for SELL', async () => {
     patchForSell();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -416,8 +460,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForSell();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -434,8 +481,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -451,8 +501,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -468,8 +521,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 500 for BUY with price smaller than limitPrice', async () => {
     patchForBuy();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -485,8 +541,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 500 for SELL with price smaller than limitPrice', async () => {
     patchForSell();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -502,8 +561,11 @@ describe('POST /eth/uniswap/trade', () => {
   it('should return 404 when parameters are incorrect', async () => {
     patchInit();
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: 10000,
@@ -519,13 +581,16 @@ describe('POST /eth/uniswap/trade', () => {
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
-    patch(UniswapRoutes.uniswap, 'priceSwapIn', () => {
+    patch(uniswap, 'priceSwapIn', () => {
       return 'error';
     });
 
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
@@ -545,13 +610,16 @@ describe('POST /eth/uniswap/trade', () => {
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
-    patch(UniswapRoutes.uniswap, 'priceSwapOut', () => {
+    patch(uniswap, 'priceSwapOut', () => {
       return 'error';
     });
 
     await request(app)
-      .post(`/eth/uniswap/trade`)
+      .post(`/trading/trade`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',

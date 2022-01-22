@@ -1,0 +1,7 @@
+{
+  "chain": "ethereum",
+  "network": "kovan",
+  "address": "0x147b16Bb4fEfBa7ef1fcBC701A0b81c588dF190f",
+  "spender": "uniswap",
+  "tokenSymbols": ["DAI", "WETH"]
+}

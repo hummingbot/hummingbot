@@ -2,7 +2,6 @@
 import { Router, Request, Response } from 'express';
 
 import { asyncHandler } from '../error-handler';
-import { verifyEthereumIsAvailable } from '../../chains/ethereum/ethereum-middlewares';
 
 import { addWallet, removeWallet, getWallets } from './wallet.controllers';
 
@@ -19,7 +18,6 @@ import {
 
 export namespace WalletRoutes {
   export const router = Router();
-  router.use(asyncHandler(verifyEthereumIsAvailable));
 
   router.get(
     '/',
