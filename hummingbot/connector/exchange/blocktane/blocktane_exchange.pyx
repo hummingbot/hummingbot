@@ -321,12 +321,13 @@ cdef class BlocktaneExchange(ExchangeBase):
             cls = BuyOrderCreatedEvent
             tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG
         self.c_trigger_event(tag, cls(
-                             self._current_timestamp,
-                             tracked_order.order_type,
-                             tracked_order.trading_pair,
-                             tracked_order.amount,
-                             tracked_order.price,
-                             tracked_order.client_order_id))
+            self._current_timestamp,
+            tracked_order.order_type,
+            tracked_order.trading_pair,
+            tracked_order.amount,
+            tracked_order.price,
+            tracked_order.client_order_id,
+            tracked_order.creation_timestamp))
         self.logger().info(f"Created {tracked_order.order_type} {tracked_order.trade_type} {tracked_order.client_order_id} for "
                            f"{tracked_order.amount} {tracked_order.trading_pair}.")
 
@@ -344,14 +345,17 @@ cdef class BlocktaneExchange(ExchangeBase):
                 tracked_orders = list(self._in_flight_orders.values())
                 for tracked_order in tracked_orders:
                     client_order_id = tracked_order.client_order_id
-                    if tracked_order.last_state == "NEW" and tracked_order.creation_timestamp >= (int(time.time()) - self.ORDER_NOT_EXIST_WAIT_TIME):
-                        continue  # Don't query for orders that are waiting for a response from the API unless they are older then ORDER_NOT_EXIST_WAIT_TIME
+                    if (tracked_order.last_state == "NEW"
+                            and tracked_order.creation_timestamp >= (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
+                        continue
+                        # Don't query for orders that are waiting for a response from the API unless they
+                        # are older then ORDER_NOT_EXIST_WAIT_TIME
                     try:
                         order = await self.get_order(client_order_id)
                     except BlocktaneAPIException as e:
                         if e.status_code == 404:
                             if (not e.malformed and e.body == 'record.not_found' and
-                                    tracked_order.creation_timestamp < (int(time.time()) - self.ORDER_NOT_EXIST_WAIT_TIME)):
+                                    tracked_order.creation_timestamp < (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
                                 # This was an indeterminate order that may or may not have been live on the exchange
                                 # The exchange has informed us that this never became live on the exchange
                                 self.c_trigger_event(
@@ -674,7 +678,7 @@ cdef class BlocktaneExchange(ExchangeBase):
             trade_type,
             price,
             amount,
-            creation_timestamp=int(time.time())
+            creation_timestamp=time.time()
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -932,7 +936,7 @@ cdef class BlocktaneExchange(ExchangeBase):
             raise
         except Exception as err:
             if ("record.not_found" in str(err) and tracked_order is not None and
-                    tracked_order.creation_timestamp < (int(time.time()) - self.ORDER_NOT_EXIST_WAIT_TIME)):
+                    tracked_order.creation_timestamp < (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
                 # The order doesn't exist
                 self.logger().info(f"The order {order_id} does not exist on Blocktane. Marking as cancelled.")
                 self.c_stop_tracking_order(order_id)

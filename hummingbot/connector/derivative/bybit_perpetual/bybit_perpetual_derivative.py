@@ -382,7 +382,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             price=price,
             amount=amount,
             leverage=leverage,
-            position=position)
+            position=position,
+            creation_timestamp=self.current_timestamp)
 
     def stop_tracking_order(self, order_id: str):
         """
@@ -550,6 +551,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                order.amount,
                                order.price,
                                order.client_order_id,
+                               order.creation_timestamp,
                                exchange_order_id=order.exchange_order_id,
                                leverage=self._leverage[order.trading_pair],
                                position=order.position

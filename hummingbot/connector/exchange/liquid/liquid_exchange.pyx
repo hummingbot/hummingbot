@@ -1,12 +1,9 @@
-import aiohttp
 import asyncio
 import copy
 import json
 import logging
 import math
 import sys
-
-from async_timeout import timeout
 from decimal import Decimal
 from typing import (
     Any,
@@ -16,6 +13,8 @@ from typing import (
     Optional,
 )
 
+import aiohttp
+from async_timeout import timeout
 from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange.liquid.constants import Constants
@@ -31,6 +30,7 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -45,7 +45,6 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -912,7 +911,8 @@ cdef class LiquidExchange(ExchangeBase):
                                                       trading_pair,
                                                       decimal_amount,
                                                       decimal_price,
-                                                      order_id))
+                                                      order_id,
+                                                      tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -976,7 +976,8 @@ cdef class LiquidExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -1186,7 +1187,8 @@ cdef class LiquidExchange(ExchangeBase):
             order_type,
             trade_type,
             price,
-            amount
+            amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

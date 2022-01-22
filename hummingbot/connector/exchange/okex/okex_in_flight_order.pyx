@@ -1,8 +1,4 @@
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-)
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
@@ -20,8 +16,8 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "live",
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = "live"):
 
         super().__init__(
             client_order_id,
@@ -31,8 +27,8 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
-            creation_timestamp
         )
 
     @property
@@ -50,7 +46,3 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
     @property
     def is_open(self) -> bool:
         return self.last_state in {"live", "partially_filled"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        return cls._baisc_from_json(data)
