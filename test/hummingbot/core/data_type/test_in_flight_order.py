@@ -266,7 +266,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            timestamp=1640001112
         )
 
         order_from_json = InFlightOrder.from_json(order_json)
@@ -281,7 +280,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            timestamp=1640001112
         )
 
         order_json = order.to_json()
