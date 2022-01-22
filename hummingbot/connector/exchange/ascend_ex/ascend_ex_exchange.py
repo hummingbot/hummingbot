@@ -1,9 +1,7 @@
-import aiohttp
 import asyncio
 import json
 import logging
 import time
-
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
@@ -15,9 +13,10 @@ from typing import (
     Optional,
 )
 
+import aiohttp
+
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
@@ -621,7 +620,7 @@ class AscendExExchange(ExchangePyBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
-                timestamp=int(self.current_timestamp)
+                creation_timestamp=self.current_timestamp
             )
         )
 

@@ -1,11 +1,11 @@
 import asyncio
 import copy
 import math
-
-from async_timeout import timeout
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
+
+from async_timeout import timeout
 
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -63,7 +63,7 @@ class InFlightOrder:
         order_type: OrderType,
         trade_type: TradeType,
         amount: Decimal,
-        timestamp: int,
+        creation_timestamp: float,
         price: Optional[Decimal] = None,
         exchange_order_id: Optional[str] = None,
         initial_state: OrderState = OrderState.PENDING_CREATE,
@@ -72,7 +72,7 @@ class InFlightOrder:
         trade_fee_percent: Decimal = None,
     ) -> None:
         self.client_order_id = client_order_id
-        self._creation_timestamp = timestamp
+        self.creation_timestamp = creation_timestamp
         self.trading_pair = trading_pair
         self.order_type = order_type
         self.trade_type = trade_type
@@ -92,7 +92,7 @@ class InFlightOrder:
         self.last_filled_price: Decimal = s_decimal_0
         self.last_filled_amount: Decimal = s_decimal_0  # in base asset
         self.last_fee_paid: Decimal = s_decimal_0
-        self.last_update_timestamp: int = timestamp
+        self.last_update_timestamp: float = creation_timestamp
         self.last_trade_id = -1
 
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
@@ -122,7 +122,7 @@ class InFlightOrder:
                 self.last_filled_price,
                 self.last_filled_amount,
                 self.last_fee_paid,
-                self._creation_timestamp,
+                self.creation_timestamp,
                 self.last_update_timestamp,
             )
         )
@@ -177,10 +177,6 @@ class InFlightOrder:
         return self.current_state == OrderState.CANCELLED
 
     @property
-    def creation_timestamp(self) -> int:
-        return self._creation_timestamp
-
-    @property
     def average_executed_price(self) -> Optional[Decimal]:
         executed_value: Decimal = s_decimal_0
         total_base_amount: Decimal = s_decimal_0
@@ -209,7 +205,7 @@ class InFlightOrder:
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
-            timestamp=data["creation_timestamp"]
+            creation_timestamp=data.get("creation_timestamp", -1)
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -253,7 +249,8 @@ class InFlightOrder:
             quote_currency=self.quote_asset,
             price=self.price,
             quantity=self.amount,
-            filled_quantity=self.executed_amount_base
+            filled_quantity=self.executed_amount_base,
+            creation_timestamp=int(self.creation_timestamp * 1e6)
         )
 
     @property

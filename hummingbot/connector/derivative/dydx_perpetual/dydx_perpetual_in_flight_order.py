@@ -20,7 +20,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
                  filled_size: Decimal,
                  filled_volume: Decimal,
                  filled_fee: Decimal,
-                 created_at: int,
+                 created_at: float,
                  leverage: int,
                  position: str):
 
@@ -107,10 +107,14 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]):
-        order = cls._basic_from_json(data)
+        order = super().from_json(data)
 
         for fill in data["fills"]:
-            order.fills.add(DydxPerpetualFillReport(fill['id'], Decimal(fill['amount']), Decimal(fill['price']), Decimal(fill['fee'])))
+            order.fills.add(DydxPerpetualFillReport(
+                fill['id'],
+                Decimal(fill['amount']),
+                Decimal(fill['price']),
+                Decimal(fill['fee'])))
         order._last_executed_amount_from_order_status = Decimal(data['_last_executed_amount_from_order_status'])
 
         return order
@@ -120,7 +124,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
                         side: TradeType,
                         client_order_id: str,
                         order_type: OrderType,
-                        created_at: int,
+                        created_at: float,
                         hash: str,
                         trading_pair: str,
                         price: Decimal,

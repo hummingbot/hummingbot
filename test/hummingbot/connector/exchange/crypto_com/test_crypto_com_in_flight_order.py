@@ -1,15 +1,15 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import \
-    PerpetualFinanceInFlightOrder
+from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
+from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.event.events import OrderType, TradeType
 
 
-class PerpetualFinanceInFlightOrderTests(TestCase):
+class CryptoComInnFlightOrderTests(TestCase):
 
     def test_serialize_order_to_json(self):
-        order = PerpetualFinanceInFlightOrder(
+        order = CryptoComInFlightOrder(
             client_order_id="OID1",
             exchange_order_id="EOID1",
             trading_pair="COINALPHA-HBOT",
@@ -17,9 +17,7 @@ class PerpetualFinanceInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(1000),
             amount=Decimal(1),
-            initial_state="OPEN",
-            leverage=1,
-            position="Position",
+            initial_state=OrderState.PENDING_CREATE.name,
             creation_timestamp=1640001112.0
         )
 
@@ -31,14 +29,12 @@ class PerpetualFinanceInFlightOrderTests(TestCase):
             "trade_type": order.trade_type.name,
             "price": str(order.price),
             "amount": str(order.amount),
-            "last_state": order.last_state,
             "executed_amount_base": str(order.executed_amount_base),
             "executed_amount_quote": str(order.executed_amount_quote),
             "fee_asset": order.fee_asset,
             "fee_paid": str(order.fee_paid),
-            "creation_timestamp": order.creation_timestamp,
-            "leverage": order.leverage,
-            "position": order.position,
+            "last_state": order.last_state,
+            "creation_timestamp": order.creation_timestamp
         }
 
         self.assertEqual(expected_json, order.to_json())
@@ -46,23 +42,21 @@ class PerpetualFinanceInFlightOrderTests(TestCase):
     def test_deserialize_order_from_json(self):
         json = {
             "client_order_id": "OID1",
-            "exchange_order_id": "EOID1",
+            "exchange_order_id": "EOID",
             "trading_pair": "COINALPHA-HBOT",
             "order_type": OrderType.LIMIT.name,
             "trade_type": TradeType.BUY.name,
-            "price": "1000",
-            "amount": "1",
-            "last_state": "OPEN",
-            "executed_amount_base": "0.1",
-            "executed_amount_quote": "110",
+            "price": "1000.0",
+            "amount": "1.0",
+            "executed_amount_base": "0.5",
+            "executed_amount_quote": "510.0",
             "fee_asset": "BNB",
-            "fee_paid": "10",
-            "creation_timestamp": 1640001112.0,
-            "leverage": 1,
-            "position": "Position",
+            "fee_paid": "10.0",
+            "last_state": OrderState.PARTIALLY_FILLED.name,
+            "creation_timestamp": 1640001112.0
         }
 
-        order: PerpetualFinanceInFlightOrder = PerpetualFinanceInFlightOrder.from_json(json)
+        order = CryptoComInFlightOrder.from_json(json)
 
         self.assertEqual(json["client_order_id"], order.client_order_id)
         self.assertEqual(json["exchange_order_id"], order.exchange_order_id)
@@ -75,7 +69,5 @@ class PerpetualFinanceInFlightOrderTests(TestCase):
         self.assertEqual(Decimal(json["executed_amount_quote"]), order.executed_amount_quote)
         self.assertEqual(json["fee_asset"], order.fee_asset)
         self.assertEqual(Decimal(json["fee_paid"]), order.fee_paid)
-        self.assertEqual(json["last_state"], order.last_state)
+        self.assertEqual(OrderState.PARTIALLY_FILLED.name, order.last_state)
         self.assertEqual(json["creation_timestamp"], order.creation_timestamp)
-        self.assertEqual(json["leverage"], order.leverage)
-        self.assertEqual(json["position"], order.position)

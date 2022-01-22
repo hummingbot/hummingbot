@@ -1,48 +1,45 @@
-from decimal import Decimal
 import logging
-import pandas as pd
-import numpy as np
+import time
+from decimal import Decimal
+from math import (
+    ceil,
+    floor,
+)
 from typing import (
     List,
     Dict,
     Optional
 )
-from math import (
-    floor,
-    ceil
-)
-import time
-from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType, PriceType
-from hummingbot.core.data_type.limit_order cimport LimitOrder
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
+
+import numpy as np
+import pandas as pd
+
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import PriceType, TradeType
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
-
+from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
+from hummingbot.strategy.hanging_orders_tracker import (
+    CreatedPairOfOrders,
+    HangingOrdersTracker)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.strategy.utils import order_age
 from .data_types import (
     Proposal,
     PriceSize
 )
-from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
-
-from hummingbot.strategy.hanging_orders_tracker import (
-    CreatedPairOfOrders,
-    HangingOrdersTracker)
-
-from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
-from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
+from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
-from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
-from .inventory_cost_price_delegate import InventoryCostPriceDelegate
-
+from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -557,7 +554,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                age = pd.Timestamp(int(time.time() - (order.creation_timestamp/1e6)),
                                    unit='s').strftime('%H:%M:%S')
 
             if is_hanging_order:

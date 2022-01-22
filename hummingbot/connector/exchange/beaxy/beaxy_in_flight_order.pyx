@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderType, TradeType
@@ -15,8 +15,8 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
         trade_type: TradeType,
         price: Decimal,
         amount: Decimal,
+        creation_timestamp: float,
         initial_state: str = 'new',
-        creation_timestamp: int = -1
     ):
         super().__init__(
             client_order_id,
@@ -26,8 +26,8 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
 
     @property
@@ -51,11 +51,3 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
         order_type = 'market' if self.order_type is OrderType.MARKET else 'limit'
         side = 'buy' if self.trade_type == TradeType.BUY else 'sell'
         return f'{order_type} {side}'
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json()

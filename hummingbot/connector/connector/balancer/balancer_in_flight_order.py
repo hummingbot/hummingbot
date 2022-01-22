@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
@@ -17,9 +17,9 @@ class BalancerInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  gas_price: Decimal,
-                 initial_state: str = "OPEN",
-                 creation_timestamp: int = -1):
+                 initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -28,8 +28,8 @@ class BalancerInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.trade_id_set = set()
         self._gas_price = gas_price
@@ -53,3 +53,9 @@ class BalancerInFlightOrder(InFlightOrderBase):
     @gas_price.setter
     def gas_price(self, gas_price) -> Decimal:
         self._gas_price = gas_price
+
+    @classmethod
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
+        arguments.insert(-1, None)
+        return arguments

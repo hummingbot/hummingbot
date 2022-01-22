@@ -194,7 +194,7 @@ class MarketsRecorder:
             return
 
         base_asset, quote_asset = evt.trading_pair.split("-")
-        timestamp: int = self.db_timestamp
+        timestamp = int(evt.creation_timestamp * 1e3)
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
 
         with self._sql_manager.get_new_session() as session:
@@ -232,7 +232,7 @@ class MarketsRecorder:
             return
 
         base_asset, quote_asset = evt.trading_pair.split("-")
-        timestamp: int = self.db_timestamp
+        timestamp: int = int(evt.timestamp * 1e3) if evt.timestamp is not None else self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
 
@@ -325,7 +325,7 @@ class MarketsRecorder:
 
         # adding extra field "age"
         # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-        age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime(
+        age = pd.Timestamp(int((trade.timestamp * 1e-3) - (trade.order.creation_timestamp * 1e-6)), unit='s').strftime(
             '%H:%M:%S') if "//" not in trade.order_id else "n/a"
         field_names += ("age",)
         field_data += (age,)

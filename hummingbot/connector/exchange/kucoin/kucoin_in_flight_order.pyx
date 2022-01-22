@@ -1,7 +1,5 @@
 from decimal import Decimal
 from typing import (
-    Any,
-    Dict,
     Optional
 )
 
@@ -25,8 +23,8 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "LOCAL",
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = "LOCAL"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -35,8 +33,8 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
-            creation_timestamp
         )
 
     @property
@@ -54,7 +52,3 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
     @property
     def is_local(self) -> bool:
         return self.last_state in {"LOCAL"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        return cls._basic_from_json(data)
