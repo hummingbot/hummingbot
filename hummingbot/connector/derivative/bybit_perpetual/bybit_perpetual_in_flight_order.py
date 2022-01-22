@@ -22,8 +22,7 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
                  creation_timestamp: float,
                  leverage: int,
                  position: str,
-                 initial_state: str = "Created",
-                 creation_timestamp: int = -1):
+                 initial_state: str = "Created"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -34,7 +33,6 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
             amount,
             creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.fee_asset = self.quote_asset if self.quote_asset == "USDT" else self.base_asset
         self.trade_id_set = set()
@@ -76,8 +74,8 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
     @classmethod
     def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
         arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
-        arguments.insert(-2, int(data["leverage"]))
-        arguments.insert(-2, data["position"])
+        arguments.insert(-1, int(data["leverage"]))
+        arguments.insert(-1, data["position"])
         return arguments
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:

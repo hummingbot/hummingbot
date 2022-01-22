@@ -3,6 +3,7 @@ import logging
 import time
 import warnings
 from collections import defaultdict
+from async_timeout import timeout
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
