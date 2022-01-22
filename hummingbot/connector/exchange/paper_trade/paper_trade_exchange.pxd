@@ -56,7 +56,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price)
+                          object price,
+                          object is_maker=*)
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,

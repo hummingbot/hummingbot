@@ -3,7 +3,8 @@ import unittest
 import unittest.mock
 from decimal import Decimal
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import OrderType, TradeType, TradeFee
+from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.connector_base import ConnectorBase
 
 
@@ -26,7 +27,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls._patcher = unittest.mock.patch("hummingbot.connector.connector_base.estimate_fee")
         cls._url_mock = cls._patcher.start()
-        cls._url_mock.return_value = TradeFee(percent=Decimal("0"), flat_fees=[])
+        cls._url_mock.return_value = AddedToCostTradeFee(percent=Decimal("0"), flat_fees=[])
 
     @classmethod
     def tearDownClass(cls) -> None:

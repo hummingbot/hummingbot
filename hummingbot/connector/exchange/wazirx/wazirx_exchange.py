@@ -1,50 +1,43 @@
-import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
-from decimal import Decimal
 import asyncio
 import json
-import aiohttp
+import logging
 import math
 import time
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.wazirx.wazirx_order_book_tracker import WazirxOrderBookTracker
-from hummingbot.connector.exchange.wazirx.wazirx_user_stream_tracker import WazirxUserStreamTracker
+import aiohttp
+from async_timeout import timeout
+
+from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
+from hummingbot.connector.exchange.wazirx import wazirx_utils
 from hummingbot.connector.exchange.wazirx.wazirx_auth import WazirxAuth
 from hummingbot.connector.exchange.wazirx.wazirx_in_flight_order import WazirxInFlightOrder
-from hummingbot.connector.exchange.wazirx import wazirx_utils
-from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
+from hummingbot.connector.exchange.wazirx.wazirx_order_book_tracker import WazirxOrderBookTracker
+from hummingbot.connector.exchange.wazirx.wazirx_user_stream_tracker import WazirxUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from async_timeout import timeout
-from hummingbot.core.utils.async_utils import wait_til
-
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather, wait_til
+from hummingbot.logger import HummingbotLogger
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -745,7 +738,7 @@ class WazirxExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["traded_price"])),
                 Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
+                AddedToCostTradeFee(flat_fees=[TokenAmount(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["trade_id"]
             )
         )
@@ -823,14 +816,15 @@ class WazirxExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

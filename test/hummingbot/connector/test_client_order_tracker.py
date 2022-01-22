@@ -1,22 +1,22 @@
 import asyncio
 import unittest
-
 from decimal import Decimal
 from typing import List, Optional
 from unittest.mock import patch
 
-from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
+    AddedToCostTradeFee,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
-    TradeFee,
-    TradeType,
+    TradeType
 )
 
 
@@ -39,6 +39,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.log_records = []
 
         self.connector = ConnectorBase()
+        self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 
         self.tracker.logger().setLevel(1)
@@ -492,7 +493,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.assertTrue(
             self._is_logged(
-                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled. "
+                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled."
             )
         )
 
@@ -552,7 +553,9 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), [(self.base_asset, fee_paid)]))
+        self.assertEqual(
+            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, fee_paid)])
+        )
 
     def test_process_trade_update_trigger_filled_event_trade_fee_percent(self):
         order: InFlightOrder = InFlightOrder(
@@ -598,7 +601,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(self.trade_fee_percent, []))
+        self.assertEqual(order_filled_event.trade_fee, AddedToCostTradeFee(self.trade_fee_percent))
 
     def test_process_trade_update_trigger_filled_event_update_status_when_completely_filled(self):
         order: InFlightOrder = InFlightOrder(
@@ -658,7 +661,9 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.order_id, order.client_order_id)
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
-        self.assertEqual(order_filled_event.trade_fee, TradeFee(Decimal("0"), [(self.base_asset, fee_paid)]))
+        self.assertEqual(
+            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, fee_paid)])
+        )
 
         self.assertEqual(order_completed_event.order_id, order.client_order_id)
         self.assertEqual(order_completed_event.exchange_order_id, order.exchange_order_id)
@@ -717,3 +722,48 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.process_trade_update(trade_update)
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
+
+    def test_process_order_not_found_invalid_order(self):
+        self.assertEqual(0, len(self.tracker.active_orders))
+
+        unknown_order_id = "UNKNOWN_ORDER_ID"
+        self.tracker.process_order_not_found(unknown_order_id)
+
+        self._is_logged("DEBUG", f"Order is not/no longer being tracked ({unknown_order_id})")
+
+    def test_process_order_not_found_does_not_exceed_limit(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        self.tracker.process_order_not_found(order.client_order_id)
+
+        self.assertIn(order.client_order_id, self.tracker.active_orders)
+        self.assertIn(order.client_order_id, self.tracker._order_not_found_records)
+        self.assertEqual(1, self.tracker._order_not_found_records[order.client_order_id])
+
+    def test_process_order_not_found_exceeded_limit(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        self.tracker._order_not_found_records[order.client_order_id] = 3
+        self.tracker.process_order_not_found(order.client_order_id)
+
+        self.assertNotIn(order.client_order_id, self.tracker.active_orders)

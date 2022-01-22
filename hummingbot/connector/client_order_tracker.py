@@ -1,9 +1,9 @@
 import logging
 import asyncio
-import time
 
+from collections import defaultdict
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -37,6 +37,7 @@ class ClientOrderTracker:
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
     ]
+    ORDER_NOT_FOUND_COUNT_LIMIT = 3
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -61,6 +62,7 @@ class ClientOrderTracker:
 
         self._order_tracking_task: Optional[asyncio.Task] = None
         self._last_poll_timestamp: int = -1
+        self._order_not_found_records: Dict[str, int] = defaultdict(lambda: 0)
 
     @property
     def active_orders(self) -> Dict[str, InFlightOrder]:
@@ -88,7 +90,7 @@ class ClientOrderTracker:
         """
         Returns current timestamp in milliseconds.
         """
-        return int(time.time() * 1e3)
+        return int(self._connector.current_timestamp * 1e3)
 
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
@@ -117,7 +119,7 @@ class ClientOrderTracker:
 
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
+        event_class: Callable = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
         self._connector.trigger_event(
             event_tag,
             event_class(
@@ -153,7 +155,7 @@ class ClientOrderTracker:
                 price=order.last_filled_price,
                 amount=order.last_filled_amount,
                 trade_fee=order.latest_trade_fee,
-                exchange_trade_id=order.last_trade_id,
+                exchange_trade_id=str(order.last_trade_id),
                 leverage=int(order.leverage),
                 position=order.position.name,
             ),
@@ -218,7 +220,7 @@ class ClientOrderTracker:
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
             self.logger().info(
-                f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled. "
+                f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled."
             )
 
         elif tracked_order.is_failure:
@@ -261,3 +263,25 @@ class ClientOrderTracker:
             if updated:
                 self._trigger_order_fills(tracked_order, previous_executed_amount_base)
                 self._trigger_order_completion(tracked_order, trade_update)
+
+    def process_order_not_found(self, client_order_id: str):
+        """
+        Increments and checks if the order specified has exceeded the ORDER_NOT_FOUND_COUNT_LIMIT.
+        A failed event is triggered if necessary.
+
+        :param client_order_id: Client order id of an order.
+        :type client_order_id: str
+        """
+        # Only concerned with active orders.
+        tracked_order: Optional[InFlightOrder] = self.fetch_tracked_order(client_order_id=client_order_id)
+
+        if tracked_order is None:
+            self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
+
+        self._order_not_found_records[client_order_id] += 1
+
+        if self._order_not_found_records[client_order_id] > self.ORDER_NOT_FOUND_COUNT_LIMIT:
+            if not tracked_order.is_done:
+                tracked_order.current_state = OrderState.FAILED
+                self.stop_tracking_order(client_order_id=client_order_id)
+                self._trigger_failure_event(tracked_order)
