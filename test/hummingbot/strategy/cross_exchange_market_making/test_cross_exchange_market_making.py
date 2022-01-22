@@ -581,7 +581,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
             [self.market_pair],
-            order_size_taker_volume_factor=Decimal("1"),
             order_size_taker_balance_factor=Decimal("1"),
             order_size_portfolio_ratio_limit=Decimal("1"),
             min_profitability=Decimal("0.25"),
@@ -592,7 +591,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         strategy_with_slippage_buffer.init_params(
             [self.market_pair],
-            order_size_taker_volume_factor=Decimal("1"),
             order_size_taker_balance_factor=Decimal("1"),
             order_size_portfolio_ratio_limit=Decimal("1"),
             min_profitability=Decimal("0.25"),
@@ -637,7 +635,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         strategy_with_slippage_buffer.init_params(
             [self.market_pair],
-            order_size_taker_volume_factor=Decimal("1"),
             order_size_taker_balance_factor=Decimal("1"),
             order_size_portfolio_ratio_limit=Decimal("1"),
             min_profitability=Decimal("0.25"),

@@ -174,15 +174,6 @@ cross_exchange_market_making_config_map = {
         required_if=lambda: False,
         validator=lambda v: validate_decimal(v, min_value=0, inclusive=False)
     ),
-    "order_size_taker_volume_factor": ConfigVar(
-        key="order_size_taker_volume_factor",
-        prompt="What percentage of hedge-able volume would you like to be traded on the taker market? "
-               "(Enter 1 to indicate 1%) >>> ",
-        default=25,
-        type_str="decimal",
-        required_if=lambda: False,
-        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=False)
-    ),
     "order_size_taker_balance_factor": ConfigVar(
         key="order_size_taker_balance_factor",
         prompt="What percentage of asset balance would you like to use for hedging trades on the taker market? "
