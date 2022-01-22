@@ -1,11 +1,11 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
+from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
 from hummingbot.core.event.events import OrderType, TradeType
 
 
-class UniswapInFlightOrderTests(TestCase):
+class BalancerInFlightOrderTests(TestCase):
 
     def test_deserialize_order_from_json(self):
         json = {
@@ -21,10 +21,10 @@ class UniswapInFlightOrderTests(TestCase):
             "fee_asset": "BNB",
             "fee_paid": "10.0",
             "last_state": "OPEN",
-            "creation_timestamp": 1640001112
+            "creation_timestamp": 1640001112.0
         }
 
-        order = UniswapInFlightOrder.from_json(json)
+        order = BalancerInFlightOrder.from_json(json)
 
         self.assertEqual(json["client_order_id"], order.client_order_id)
         self.assertEqual(json["exchange_order_id"], order.exchange_order_id)
@@ -38,5 +38,5 @@ class UniswapInFlightOrderTests(TestCase):
         self.assertEqual(json["fee_asset"], order.fee_asset)
         self.assertEqual(Decimal(json["fee_paid"]), order.fee_paid)
         self.assertEqual(json["last_state"], order.last_state)
-        self.assertEqual(json["creation_timestamp"], order.creation_timestamp)
+        self.assertEqual(json["creation_timestamp"], 1640001112.0)
         self.assertIsNone(order.gas_price)

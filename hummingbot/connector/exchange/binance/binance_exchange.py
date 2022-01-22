@@ -297,6 +297,7 @@ class BinanceExchange(ExchangeBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
+                creation_timestamp=self.current_timestamp
             )
         )
 

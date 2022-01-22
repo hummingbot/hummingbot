@@ -2,9 +2,6 @@ import asyncio
 import copy
 import logging
 import time
-import requests
-import simplejson
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -15,6 +12,8 @@ from typing import (
 )
 
 import aiohttp
+import requests
+import simplejson
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
@@ -358,7 +357,7 @@ cdef class FtxExchange(ExchangeBase):
                     await self._update_inflight_order(tracked_order, order)
                 except RuntimeError as e:
                     if ("Order not found" in str(e)
-                            and tracked_order.creation_timestamp < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE)):
+                            and tracked_order.creation_timestamp < (time.time() - UNRECOGNIZED_ORDER_DEBOUCE)):
                         tracked_order.set_status("FAILURE")
                         self.c_trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
@@ -691,7 +690,8 @@ cdef class FtxExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
 
         except asyncio.CancelledError:
@@ -815,7 +815,8 @@ cdef class FtxExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
         except asyncio.CancelledError:
             raise

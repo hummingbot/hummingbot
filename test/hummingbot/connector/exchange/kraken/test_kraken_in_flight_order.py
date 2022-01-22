@@ -15,6 +15,7 @@ class KrakenInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(45000),
             amount=Decimal(1),
+            creation_timestamp=1640001112.0,
             userref=1,
         )
 
@@ -29,9 +30,9 @@ class KrakenInFlightOrderTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(1000),
             amount=Decimal(1),
+            creation_timestamp=1640001112.0,
             userref=2,
             initial_state="OPEN",
-            creation_timestamp=1640001112
         )
 
         expected_json = {
@@ -47,7 +48,7 @@ class KrakenInFlightOrderTests(TestCase):
             "executed_amount_quote": str(order.executed_amount_quote),
             "fee_asset": order.fee_asset,
             "fee_paid": str(order.fee_paid),
-            "creation_timestamp": order.creation_timestamp,
+            "creation_timestamp": 1640001112.0,
             "userref": order.userref,
         }
 
@@ -67,7 +68,7 @@ class KrakenInFlightOrderTests(TestCase):
             "executed_amount_quote": "110",
             "fee_asset": "BNB",
             "fee_paid": "10",
-            "creation_timestamp": 1640001112,
+            "creation_timestamp": 1640001112.0,
             "userref": 2,
         }
 

@@ -4,6 +4,7 @@ import asyncio
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, Optional
+
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -129,6 +130,7 @@ class ClientOrderTracker:
                 order.amount,
                 order.price,
                 order.client_order_id,
+                order.creation_timestamp,
                 exchange_order_id=order.exchange_order_id,
             ),
         )

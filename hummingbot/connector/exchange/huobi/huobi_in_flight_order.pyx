@@ -20,8 +20,8 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "submitted",
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = "submitted"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -30,8 +30,8 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
-            creation_timestamp
         )
 
         self.trade_id_set = set()
@@ -54,7 +54,7 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        order = cls._basic_from_json(data)
+        order = super().from_json(data)
         order.check_filled_condition()
         return order
 
