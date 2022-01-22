@@ -43,7 +43,9 @@ export const validateAddress: Validator = mkValidator(
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'uniswap' || isAddress(val))
+  (val) =>
+    typeof val === 'string' &&
+    (val === 'uniswap' || val === 'pangolin' || isAddress(val))
 );
 
 export const validateNonce: Validator = mkValidator(
@@ -69,29 +71,36 @@ export const validateMaxPriorityFeePerGas: Validator = mkValidator(
 
 // request types and corresponding validators
 
-export const validateEthereumNonceRequest: RequestValidator =
-  mkRequestValidator([validateAddress]);
+export const validateNonceRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+]);
 
-export const validateEthereumAllowancesRequest: RequestValidator =
-  mkRequestValidator([validateAddress, validateSpender, validateTokenSymbols]);
+export const validateAllowancesRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+  validateSpender,
+  validateTokenSymbols,
+]);
 
-export const validateEthereumBalanceRequest: RequestValidator =
-  mkRequestValidator([validateAddress, validateTokenSymbols]);
+export const validateBalanceRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+  validateTokenSymbols,
+]);
 
-export const validateEthereumApproveRequest: RequestValidator =
-  mkRequestValidator([
-    validateAddress,
-    validateSpender,
-    validateToken,
-    validateAmount,
-    validateNonce,
-    validateMaxFeePerGas,
-    validateMaxPriorityFeePerGas,
-  ]);
+export const validateApproveRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+  validateSpender,
+  validateToken,
+  validateAmount,
+  validateNonce,
+  validateMaxFeePerGas,
+  validateMaxPriorityFeePerGas,
+]);
 
-export const validateEthereumPollRequest: RequestValidator = mkRequestValidator(
-  [validateTxHash]
-);
+export const validatePollRequest: RequestValidator = mkRequestValidator([
+  validateTxHash,
+]);
 
-export const validateEthereumCancelRequest: RequestValidator =
-  mkRequestValidator([validateNonce, validateAddress]);
+export const validateCancelRequest: RequestValidator = mkRequestValidator([
+  validateNonce,
+  validateAddress,
+]);

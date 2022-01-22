@@ -14,19 +14,15 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 
-// import fse from 'fs-extra';
-
 let avalanche: Avalanche;
 let eth: Ethereum;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  avalanche = Avalanche.getInstance();
-  await avalanche.init();
+  avalanche = Avalanche.getInstance('fuji');
 
-  eth = Ethereum.getInstance();
-  await eth.init();
+  eth = Ethereum.getInstance('kovan');
 });
 
 beforeEach(() =>
@@ -76,7 +72,8 @@ describe('addWallet and getWallets', () => {
 
     await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'ethereum',
+      chain: 'ethereum',
+      network: 'kovan',
     });
 
     const wallets = await getWallets();
@@ -101,7 +98,8 @@ describe('addWallet and getWallets', () => {
 
     await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'avalanche',
+      chain: 'avalanche',
+      network: 'fuji',
     });
 
     const wallets = await getWallets();
@@ -117,7 +115,8 @@ describe('addWallet and getWallets', () => {
     await expect(
       addWallet({
         privateKey: onePrivateKey,
-        chainName: 'shibainu',
+        chain: 'shibainu',
+        network: 'doge',
       })
     ).rejects.toThrow(
       new HttpException(
@@ -144,10 +143,11 @@ describe('addWallet and getWallets', () => {
 
     await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'ethereum',
+      chain: 'ethereum',
+      network: 'kovan',
     });
 
-    await removeWallet({ chainName: 'ethereum', address: oneAddress });
+    await removeWallet({ chain: 'ethereum', address: oneAddress });
 
     const wallets = await getWallets();
 
