@@ -4,12 +4,10 @@ import json
 import logging
 import time
 import uuid
-
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
@@ -688,6 +686,7 @@ cdef class BitfinexExchange(ExchangeBase):
             trade_type,
             price,
             amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef str c_buy(self, str trading_pair, object amount,
@@ -756,7 +755,8 @@ cdef class BitfinexExchange(ExchangeBase):
                     trading_pair,
                     decimal_amount,
                     decimal_price,
-                    order_id
+                    order_id,
+                    tracked_order.creation_timestamp
                 )
             )
         except asyncio.CancelledError:
@@ -842,7 +842,8 @@ cdef class BitfinexExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:

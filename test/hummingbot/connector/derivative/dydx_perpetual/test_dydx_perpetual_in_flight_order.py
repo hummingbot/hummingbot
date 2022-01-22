@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_status import DydxPerpetualOrderStatus
 from hummingbot.core.event.events import OrderType, TradeType
@@ -21,7 +22,7 @@ class DydxPerpetualInFlightOrderTests(TestCase):
             filled_size=Decimal("0.1"),
             filled_volume=Decimal("110"),
             filled_fee=Decimal(10),
-            created_at=1640001112,
+            created_at=1640001112.0,
             leverage=1,
             position="Position"
         )
@@ -64,7 +65,7 @@ class DydxPerpetualInFlightOrderTests(TestCase):
             "executed_amount_quote": "110",
             "fee_asset": "BNB",
             "fee_paid": "10",
-            "creation_timestamp": 1640001112,
+            "creation_timestamp": 1640001112.0,
             "leverage": 1,
             "position": "Position",
             "fills": [],
@@ -92,3 +93,39 @@ class DydxPerpetualInFlightOrderTests(TestCase):
         self.assertEqual(
             Decimal(json["_last_executed_amount_from_order_status"]),
             order._last_executed_amount_from_order_status)
+
+    def test_deserialize_order_with_fills_from_json(self):
+        json = {
+            "client_order_id": "OID1",
+            "exchange_order_id": "EOID1",
+            "trading_pair": "COINALPHA-HBOT",
+            "order_type": OrderType.LIMIT.name,
+            "trade_type": TradeType.BUY.name,
+            "price": "1000",
+            "amount": "1",
+            "last_state": DydxPerpetualOrderStatus.OPEN.name,
+            "status": DydxPerpetualOrderStatus.OPEN.name,
+            "executed_amount_base": "0.1",
+            "executed_amount_quote": "110",
+            "fee_asset": "BNB",
+            "fee_paid": "10",
+            "creation_timestamp": 1640001112.0,
+            "leverage": 1,
+            "position": "Position",
+            "fills": [{
+                "id": "fill_id_1",
+                "amount": "2",
+                "price": "998.5",
+                "fee": "10",
+            }],
+            "_last_executed_amount_from_order_status": "0.1",
+        }
+
+        order: DydxPerpetualInFlightOrder = DydxPerpetualInFlightOrder.from_json(json)
+
+        self.assertEqual(1, len(order.fills))
+        fill: DydxPerpetualFillReport = next((fill for fill in order.fills))
+        self.assertEqual("fill_id_1", fill.id)
+        self.assertEqual(Decimal("2"), fill.amount)
+        self.assertEqual(Decimal("998.5"), fill.price)
+        self.assertEqual(Decimal("10"), fill.fee)

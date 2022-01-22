@@ -6,12 +6,14 @@ from typing import (
     List,
     Optional,
 )
+
+from async_timeout import timeout
+
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from async_timeout import timeout
 
 s_decimal_0 = Decimal(0)
 
@@ -26,8 +28,8 @@ cdef class InFlightOrderBase:
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str,
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str):
 
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
@@ -82,7 +84,7 @@ cdef class InFlightOrderBase:
         return self.trading_pair.split("-")[1]
 
     @property
-    def creation_timestamp(self) -> int:
+    def creation_timestamp(self) -> float:
         if self._creation_timestamp > 0:
             timestamp = self._creation_timestamp
         else:
@@ -107,7 +109,8 @@ cdef class InFlightOrderBase:
             self.base_asset,
             self.quote_asset,
             self.price,
-            self.amount
+            self.amount,
+            creation_timestamp=int(self.creation_timestamp * 1e6)
         )
 
     def to_json(self) -> Dict[str, Any]:
@@ -123,8 +126,8 @@ cdef class InFlightOrderBase:
             "executed_amount_quote": str(self.executed_amount_quote),
             "fee_asset": self.fee_asset,
             "fee_paid": str(self.fee_paid),
+            "creation_timestamp": self.creation_timestamp,
             "last_state": self.last_state,
-            "creation_timestamp": self.creation_timestamp
         }
 
     @classmethod
@@ -137,8 +140,8 @@ cdef class InFlightOrderBase:
             getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
             Decimal(data["amount"]),
-            data["last_state"],
-            data["creation_timestamp"]]
+            data.get("creation_timestamp", -1),
+            data["last_state"]]
 
     @classmethod
     def _basic_from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -156,7 +159,11 @@ cdef class InFlightOrderBase:
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        raise NotImplementedError
+        """
+        :param data: json data from API
+        :return: formatted InFlightOrder
+        """
+        return cls._basic_from_json(data)
 
     def check_filled_condition(self):
         if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0:
@@ -169,6 +176,7 @@ cdef class InFlightOrderBase:
         timestamp = -1
         if len(self.client_order_id) > 16:
             nonce_component = self.client_order_id[-16:]
-            timestamp = int(nonce_component) if nonce_component.isnumeric() else -1
+            timestamp_string = f"{nonce_component[:10]}.{nonce_component[-6:]}"
+            timestamp = float(timestamp_string) if nonce_component.isnumeric() else -1
             start_timestamp = int(timestamp)
         return timestamp

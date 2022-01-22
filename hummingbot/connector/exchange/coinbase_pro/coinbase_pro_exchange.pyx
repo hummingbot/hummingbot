@@ -14,8 +14,8 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order imp
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
+    build_coinbase_pro_web_assistant_factory,
     CoinbaseProRESTRequest,
-    build_coinbase_pro_web_assistant_factory
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -714,7 +714,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                       trading_pair,
                                                       decimal_amount,
                                                       decimal_price,
-                                                      order_id))
+                                                      order_id,
+                                                      tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -778,7 +779,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -995,6 +997,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
             trade_type,
             price,
             amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

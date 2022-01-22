@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.in_flight_order import OrderState
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.events import LimitOrderStatus, OrderType, TradeType
 
 
 class InFlightOrderBaseTests(TestCase):
@@ -18,7 +18,7 @@ class InFlightOrderBaseTests(TestCase):
             price=Decimal(1000),
             amount=Decimal(1),
             initial_state=OrderState.PENDING_CREATE.name,
-            creation_timestamp=1640001112
+            creation_timestamp=1640001112.0
         )
 
         expected_repr = ("InFlightOrder(client_order_id='OID1', exchange_order_id='EOID1', "
@@ -38,7 +38,7 @@ class InFlightOrderBaseTests(TestCase):
             price=Decimal(1000),
             amount=Decimal(1),
             initial_state=OrderState.PENDING_CREATE.name,
-            creation_timestamp=1640001112
+            creation_timestamp=1640001112.0
         )
 
         self.assertEqual(1640001112, order.creation_timestamp)
@@ -55,7 +55,7 @@ class InFlightOrderBaseTests(TestCase):
             initial_state=OrderState.PENDING_CREATE.name
         )
 
-        self.assertEqual(1640001112223334, order.creation_timestamp)
+        self.assertEqual(1640001112.223334, order.creation_timestamp)
 
     def test_serialize_order_to_json(self):
         order = InFlightOrderBase(
@@ -67,7 +67,7 @@ class InFlightOrderBaseTests(TestCase):
             price=Decimal(1000),
             amount=Decimal(1),
             initial_state=OrderState.PENDING_CREATE.name,
-            creation_timestamp=1640001112
+            creation_timestamp=1640001112.0
         )
 
         expected_json = {
@@ -102,10 +102,10 @@ class InFlightOrderBaseTests(TestCase):
             "fee_asset": "BNB",
             "fee_paid": "10.0",
             "last_state": OrderState.PARTIALLY_FILLED.name,
-            "creation_timestamp": 1640001112
+            "creation_timestamp": 1640001112.0
         }
 
-        order = InFlightOrderBase._basic_from_json(json)
+        order = InFlightOrderBase.from_json(json)
 
         self.assertEqual(json["client_order_id"], order.client_order_id)
         self.assertEqual(json["exchange_order_id"], order.exchange_order_id)
@@ -120,3 +120,29 @@ class InFlightOrderBaseTests(TestCase):
         self.assertEqual(Decimal(json["fee_paid"]), order.fee_paid)
         self.assertEqual(OrderState.PARTIALLY_FILLED.name, order.last_state)
         self.assertEqual(json["creation_timestamp"], order.creation_timestamp)
+
+    def test_to_limit_order(self):
+        order = InFlightOrderBase(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair="COINALPHA-HBOT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(1000),
+            amount=Decimal(1),
+            initial_state=OrderState.PENDING_CREATE.name,
+            creation_timestamp=1640001112.223330
+        )
+
+        limit_order = order.to_limit_order()
+
+        self.assertEqual("OID1", limit_order.client_order_id)
+        self.assertEqual("COINALPHA-HBOT", limit_order.trading_pair)
+        self.assertTrue(limit_order.is_buy)
+        self.assertEqual("COINALPHA", limit_order.base_currency)
+        self.assertEqual("HBOT", limit_order.quote_currency)
+        self.assertEqual(Decimal(1000), limit_order.price)
+        self.assertEqual(Decimal(1), limit_order.quantity)
+        self.assertTrue(limit_order.filled_quantity.is_nan())
+        self.assertEqual(1640001112223330, limit_order.creation_timestamp)
+        self.assertEqual(LimitOrderStatus.UNKNOWN, limit_order.status)

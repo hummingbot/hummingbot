@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (MarketEvent, OrderType, TradeType)
+from hummingbot.core.event.events import MarketEvent, OrderType, TradeType
 
 
 cdef class FtxInFlightOrder(InFlightOrderBase):
@@ -15,8 +15,8 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "new",
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = "new"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -25,8 +25,8 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.state = FtxOrderStatus.new
         self.trade_id_set = set()
@@ -56,7 +56,7 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        retval = cls._basic_from_json(data)
+        retval = super().from_json(data)
         retval.state = FtxOrderStatus[retval.last_state]
         retval.check_filled_condition()
         return retval

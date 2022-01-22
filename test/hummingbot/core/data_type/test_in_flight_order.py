@@ -74,6 +74,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -107,6 +108,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -121,6 +123,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -141,6 +144,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -169,6 +173,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -219,6 +224,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.assertIsNone(order.exchange_order_id)
@@ -258,8 +264,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            timestamp=1640001112
         )
 
         order_from_json = InFlightOrder.from_json(order_json)
@@ -272,8 +278,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
-            timestamp=1640001112
         )
 
         order_json = order.to_json()
@@ -303,6 +309,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.223334,
             price=Decimal("1.0"),
         )
 
@@ -315,6 +322,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
             quantity=Decimal("1000.0"),
             filled_quantity=Decimal("0"),
+            creation_timestamp=1640001112223334
         )
 
         limit_order = order.to_limit_order()
@@ -339,6 +347,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -363,7 +372,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(Decimal("0"), order.last_filled_price)
         self.assertEqual(Decimal("0"), order.last_filled_amount)
         self.assertEqual(Decimal("0"), order.last_fee_paid)
-        self.assertEqual(-1, order.last_update_timestamp)
+        self.assertEqual(order.creation_timestamp, order.last_update_timestamp)
 
     def test_update_with_order_update_open_order(self):
         order: InFlightOrder = InFlightOrder(
@@ -372,6 +381,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -400,6 +410,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -468,6 +479,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -492,6 +504,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -528,6 +541,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -567,6 +581,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 

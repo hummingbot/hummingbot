@@ -27,8 +27,8 @@ class NdaxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = WORKING_LOCAL_STATUS,
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = WORKING_LOCAL_STATUS):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -37,8 +37,8 @@ class NdaxInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.fee_asset = self.base_asset if self.trade_type is TradeType.BUY else self.quote_asset
         self.trade_id_set = set()
@@ -65,14 +65,6 @@ class NdaxInFlightOrder(InFlightOrderBase):
 
     def mark_as_filled(self):
         self.last_state = "FullyExecuted"
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json(data)
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """

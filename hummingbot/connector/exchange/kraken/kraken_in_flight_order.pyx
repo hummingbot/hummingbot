@@ -1,5 +1,4 @@
 import math
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -29,9 +28,9 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  userref: int,
-                 initial_state: str = "local",
-                 creation_timestamp: int = -1):
+                 initial_state: str = "local"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -40,8 +39,8 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.trade_id_set = set()
         self.userref = userref
@@ -63,17 +62,9 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         return self.last_state in {"canceled"}
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json(data)
-
-    @classmethod
     def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
         arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
-        arguments.insert(-2, data["userref"])
+        arguments.insert(-1, data["userref"])
         return arguments
 
     def to_json(self):
