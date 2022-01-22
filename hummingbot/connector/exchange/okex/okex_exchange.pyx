@@ -1,10 +1,7 @@
-import aiohttp
 import asyncio
-from decimal import Decimal
-from libc.stdint cimport int64_t
 import logging
-import pandas as pd
 import time
+from decimal import Decimal
 from typing import (
     Any,
     AsyncIterable,
@@ -12,49 +9,49 @@ from typing import (
     List,
     Optional,
 )
-import ujson
 
+import aiohttp
+import ujson
+from libc.stdint cimport int64_t
+
+from hummingbot.connector.exchange.okex.constants import *
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
+from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
+from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
+from hummingbot.connector.exchange_base import (
+    ExchangeBase,
+    s_decimal_NaN)
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketTransactionFailureEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
     TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
-from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
-from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
-from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.exchange_base import (
-    ExchangeBase,
-    s_decimal_NaN)
-from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
-
-from hummingbot.connector.exchange.okex.constants import *
-
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -714,7 +711,8 @@ cdef class OkexExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp
                                  ))
         except asyncio.CancelledError:
             raise
@@ -787,7 +785,8 @@ cdef class OkexExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp,
                                  ))
         except asyncio.CancelledError:
             raise
@@ -929,7 +928,8 @@ cdef class OkexExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

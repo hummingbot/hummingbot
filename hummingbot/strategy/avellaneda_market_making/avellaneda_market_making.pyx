@@ -16,26 +16,21 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.event.events import OrderType
-
+from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState
-)
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
+    PriceSize,
     Proposal,
-    PriceSize)
+)
 from hummingbot.strategy.hanging_orders_tracker import (
     CreatedPairOfOrders,
     HangingOrdersTracker)
@@ -43,7 +38,6 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
-from hummingbot.core.utils import map_df_to_str
 
 
 NaN = float("nan")
@@ -477,7 +471,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:]) / 1e6,
+                age = pd.Timestamp(int(time.time() - (order.creation_timestamp / 1e6)),
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = self._order_amount
             if is_hanging_order:

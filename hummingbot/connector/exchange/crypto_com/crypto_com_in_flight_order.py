@@ -22,8 +22,8 @@ class CryptoComInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "OPEN",
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -32,8 +32,8 @@ class CryptoComInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.trade_id_set = set()
         self.cancelled_event = asyncio.Event()
@@ -49,14 +49,6 @@ class CryptoComInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json(data)
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """

@@ -24,8 +24,9 @@ class K2InFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: int,
                  initial_state: str = "New",
-                 creation_timestamp: int = -1):
+                 ):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -34,8 +35,8 @@ class K2InFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
         self.last_executed_amount_base = Decimal("nan")
         self.trade_id_set = set()
@@ -52,15 +53,6 @@ class K2InFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"Cancelled", "Expired"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        Converts Order details into InFlightOrderBase object
-        :param data: json data from Private/GetOrders API endpoint
-        :return InFlightOrder obj
-        """
-        return cls._basic_from_json(data)
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """
