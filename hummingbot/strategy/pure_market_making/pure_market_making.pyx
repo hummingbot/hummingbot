@@ -552,7 +552,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
-            self.logger().info(f"\n>>>> creation timestamp {order.creation_timestamp}\n{order}")
             age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
 
             if is_hanging_order:
