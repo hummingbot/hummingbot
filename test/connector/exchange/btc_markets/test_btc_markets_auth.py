@@ -27,10 +27,7 @@ class TestAuth(unittest.TestCase):
         cls.auth = BtcMarketsAuth(api_key, secret_key)
 
     async def rest(self) -> Dict[Any, Any]:
-        nonce = get_ms_timestamp()
-        authdict = self.auth.generate_auth_dict("GET", f"{constants.REST_URL}/{constants.TIME_URL}", nonce)
-        headers = self.auth.generate_auth_headers(authdict)
-        http_client = aiohttp.ClientSession(headers=headers)
+        http_client = aiohttp.ClientSession()
         response = await http_client.get(f"{constants.REST_URL}/{constants.TIME_URL}")
         http_client.close()
         return await response.json()
@@ -46,8 +43,8 @@ class TestAuth(unittest.TestCase):
 
     async def rest_auth_balance(self) -> Dict[Any, Any]:
         nonce = get_ms_timestamp()
-        authdict = self.auth.generate_auth_dict("GET", f"{constants.REST_URL}/{constants.ACCOUNTS_URL}/me/balances",
-                                                nonce)
+        authdict = self.auth.generate_auth_dict("GET", f"{constants.ACCOUNTS_URL}/me/balances",
+                                                nonce, {})
         headers = self.auth.generate_auth_headers(authdict)
         http_client = aiohttp.ClientSession(headers=headers)
         response = await http_client.get(f"{constants.REST_URL}/{constants.ACCOUNTS_URL}/me/balances")
@@ -56,7 +53,7 @@ class TestAuth(unittest.TestCase):
 
     def test_rest_auth_balance(self):
         response = self.ev_loop.run_until_complete(self.rest_auth_balance())
-        if 'assetName' not in response:
+        if 'assetName' not in response[0]:
             print(f"Auth failed: response: {response}")
             assert False
         else:
