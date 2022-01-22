@@ -19,8 +19,6 @@ import {
 
 const walletPath = './conf/wallets';
 
-const ethereum = Ethereum.getInstance();
-const avalanche = Avalanche.getInstance();
 const solana = Solana.getInstance();
 
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
@@ -45,7 +43,7 @@ export async function addWallet(req: AddWalletRequest): Promise<void> {
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
-  } else if (req.chainName === 'solana') {
+  } else if (req.chain === 'solana') {
     address = solana
       .getKeypairFromPrivateKey(req.privateKey)
       .publicKey.toBase58();
