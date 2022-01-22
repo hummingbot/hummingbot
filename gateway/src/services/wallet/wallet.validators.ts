@@ -26,7 +26,7 @@ export const isSolPrivateKey = (str: string): boolean => {
 
 // given a request, look for a key called privateKey that is an Ethereum private key
 export const validatePrivateKey: Validator = mkBranchingValidator(
-  'chainName',
+  'chain',
   (req, key) => req[key] === 'solana',
   mkValidator(
     'privateKey',
