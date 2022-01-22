@@ -66,7 +66,7 @@ describe('validatePrivateKey', () => {
   it('valid when req.privateKey is an ethereum key', () => {
     expect(
       validatePrivateKey({
-        chainName: 'ethereum',
+        chain: 'ethereum',
         privateKey:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
       })
@@ -76,7 +76,7 @@ describe('validatePrivateKey', () => {
   it('valid when req.privateKey is a solana key', () => {
     expect(
       validatePrivateKey({
-        chainName: 'solana',
+        chain: 'solana',
         privateKey:
           '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
       })
@@ -86,25 +86,25 @@ describe('validatePrivateKey', () => {
   it('return error when req.privateKey does not exist', () => {
     expect(
       validatePrivateKey({
-        chainName: 'ethereum',
+        chain: 'ethereum',
         hello: 'world',
       })
     ).toEqual([missingParameter('privateKey')]);
   });
 
-  it('return error when req.chainName does not exist', () => {
+  it('return error when req.chain does not exist', () => {
     expect(
       validatePrivateKey({
         privateKey:
           '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
       })
-    ).toEqual([missingParameter('chainName')]);
+    ).toEqual([missingParameter('chain')]);
   });
 
   it('return error when req.privateKey is invalid ethereum key', () => {
     expect(
       validatePrivateKey({
-        chainName: 'ethereum',
+        chain: 'ethereum',
         privateKey: 'world',
       })
     ).toEqual([invalidEthPrivateKeyError]);
@@ -113,7 +113,7 @@ describe('validatePrivateKey', () => {
   it('return error when req.privateKey is invalid solana key', () => {
     expect(
       validatePrivateKey({
-        chainName: 'solana',
+        chain: 'solana',
         privateKey: 'world',
       })
     ).toEqual([invalidSolPrivateKeyError]);
