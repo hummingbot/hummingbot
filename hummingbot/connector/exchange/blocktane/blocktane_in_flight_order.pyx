@@ -1,8 +1,4 @@
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-)
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
@@ -22,8 +18,8 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "NEW",
-                 creation_timestamp: int = -1):
+                 creation_timestamp: float,
+                 initial_state: str = "NEW"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -32,8 +28,8 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
-            creation_timestamp
         )
 
     @property
@@ -47,7 +43,3 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        return cls._basic_from_json(data)

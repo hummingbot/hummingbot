@@ -2,15 +2,13 @@ import asyncio
 import logging
 import time
 import warnings
-
-from async_timeout import timeout
 from collections import defaultdict
+from async_timeout import timeout
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource
@@ -450,7 +448,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 amount=amount,
                 leverage=leverage,
                 position=position,
-                timestamp=int(self.current_timestamp)
+                creation_timestamp=self.current_timestamp
             )
         )
 

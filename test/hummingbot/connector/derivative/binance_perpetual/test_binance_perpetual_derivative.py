@@ -5,7 +5,7 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, List, Optional
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 from aioresponses.core import aioresponses
@@ -1150,11 +1150,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative.current_timestamp")
-    def test_update_order_fills_from_trades_failed(self, req_mock, mock_timestamp):
+    def test_update_order_fills_from_trades_failed(self, req_mock):
+        self.exchange._set_current_timestamp(1640001112.0)
         self.exchange._last_poll_timestamp = 0
-        mock_timestamp.return_value = 1
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1202,7 +1200,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0, in_flight_orders["OID1"].last_filled_price)
         self.assertEqual(0, in_flight_orders["OID1"].last_filled_amount)
         self.assertEqual(0, in_flight_orders["OID1"].last_fee_paid)
-        self.assertEqual(-1, in_flight_orders["OID1"].last_update_timestamp)
+        self.assertEqual(1640001112.0, in_flight_orders["OID1"].last_update_timestamp)
         self.assertEqual(-1, in_flight_orders["OID1"].last_trade_id)
 
         # Error was logged

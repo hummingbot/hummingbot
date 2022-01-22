@@ -22,7 +22,7 @@ class BybitPerpetualInFlightOrderTests(TestCase):
                 "fee_paid": "0",
                 "leverage": "10",
                 "position": "OPEN",
-                "creation_timestamp": 1640001112}
+                "creation_timestamp": 1640001112.0}
 
     def test_instance_creation(self):
         order = BybitPerpetualInFlightOrder(client_order_id="C1",
@@ -32,6 +32,7 @@ class BybitPerpetualInFlightOrderTests(TestCase):
                                             trade_type=TradeType.SELL,
                                             price=Decimal("35000"),
                                             amount=Decimal("1.1"),
+                                            creation_timestamp=1640001112.0,
                                             leverage=10,
                                             position=PositionAction.OPEN.name)
 
@@ -58,6 +59,7 @@ class BybitPerpetualInFlightOrderTests(TestCase):
                                             trade_type=TradeType.SELL,
                                             price=Decimal("35000"),
                                             amount=Decimal("1.1"),
+                                            creation_timestamp=1640001112.0,
                                             leverage=10,
                                             position=PositionAction.OPEN.name)
 
@@ -80,7 +82,7 @@ class BybitPerpetualInFlightOrderTests(TestCase):
         self.assertEqual("Created", order.last_state)
         self.assertEqual(10, order.leverage)
         self.assertEqual(PositionAction.OPEN.name, order.position)
-        self.assertEqual(1640001112, order.creation_timestamp)
+        self.assertEqual(1640001112.0, order.creation_timestamp)
 
     def test_is_done(self):
         order = BybitPerpetualInFlightOrder.from_json(self._example_json())
@@ -246,6 +248,7 @@ class BybitPerpetualInFlightOrderTests(TestCase):
                                             trade_type=TradeType.SELL,
                                             price=Decimal("35000"),
                                             amount=Decimal("1.1"),
+                                            creation_timestamp=1640001112.0,
                                             leverage=10,
                                             position=PositionAction.OPEN.name)
 
