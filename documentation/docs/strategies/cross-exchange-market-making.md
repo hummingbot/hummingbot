@@ -40,7 +40,6 @@ Also referred to as **liquidity mirroring** or **exchange remarketing**, this st
 | `limit_order_min_expiration` | decimal     | 130         | False       | How often do you want limit orders to expire (in seconds)?|
 | `top_depth_tolerance`        | decimal     | 0           | False       | What is your top depth tolerance? (in `base_asset`)|
 | `anti_hysteresis_duration`   | decimal     | 60          | False       | What is the minimum time interval you want limit orders to be adjusted? (in seconds)|
-| `order_size_taker_volume_factor`| decimal  | 25          | False       | What percentage of hedge-able volume would you like to be traded on the taker market?|
 | `order_size_taker_balance_factor`| decimal | 99.5        | False       | What percentage of asset balance would you like to use for hedging trades on the taker market?|
 | `order_size_portfolio_ratio_limit`| decimal| 16.67       | False       | What ratio of your total portfolio value would you like to trade on the maker and taker markets?|
 | `use_oracle_conversion_rate` | bool        | True        | False       | Do you want to use rate oracle on unmatched trading pairs?|

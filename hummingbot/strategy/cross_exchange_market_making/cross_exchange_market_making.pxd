@@ -15,7 +15,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         bint _adjust_orders_enabled
         dict _anti_hysteresis_timers
         object _min_profitability
-        object _order_size_taker_volume_factor
         object _order_size_taker_balance_factor
         object _order_size_portfolio_ratio_limit
         object _order_amount

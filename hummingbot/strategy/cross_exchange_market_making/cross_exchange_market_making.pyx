@@ -65,7 +65,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     market_pairs: List[CrossExchangeMarketPair],
                     min_profitability: Decimal,
                     order_amount: Optional[Decimal] = Decimal("0.0"),
-                    order_size_taker_volume_factor: Decimal = Decimal("0.25"),
                     order_size_taker_balance_factor: Decimal = Decimal("0.995"),
                     order_size_portfolio_ratio_limit: Decimal = Decimal("0.1667"),
                     limit_order_min_expiration: float = 130.0,
@@ -88,8 +87,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param market_pairs: list of cross exchange market pairs
         :param min_profitability: minimum profitability ratio threshold, for actively cancelling unprofitable orders
         :param order_amount: override the limit order trade size, in base asset unit
-        :param order_size_taker_volume_factor: maximum size limit of new limit orders, in terms of ratio of hedge-able
-                                               volume on taker side
         :param order_size_taker_balance_factor: maximum size limit of new limit orders, in terms of ratio of asset
                                                 balance available for hedging trade on taker side
         :param order_size_portfolio_ratio_limit: maximum size limit of new limit orders, in terms of ratio of total
@@ -106,8 +103,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
-        if not 0 <= order_size_taker_volume_factor <= 1:
-            raise ValueError(f"order_size_taker_volume_factor must be between 0 and 1.")
         if not 0 <= order_size_taker_balance_factor <= 1:
             raise ValueError(f"order_size_taker_balance_factor must be between 0 and 1.")
 
@@ -119,7 +114,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._taker_markets = set([market_pair.taker.market for market_pair in market_pairs])
         self._all_markets_ready = False
         self._min_profitability = min_profitability
-        self._order_size_taker_volume_factor = order_size_taker_volume_factor
         self._order_size_taker_balance_factor = order_size_taker_balance_factor
         self._order_amount = order_amount
         self._order_size_portfolio_ratio_limit = order_size_portfolio_ratio_limit
