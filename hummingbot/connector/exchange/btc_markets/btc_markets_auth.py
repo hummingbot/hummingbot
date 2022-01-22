@@ -3,7 +3,7 @@ import hmac
 import hashlib
 import json
 from typing import Dict, Any
-from hummingbot.connector.exchange.btc_markets.btc_markets_utils import get_ms_timestamp
+# from hummingbot.connector.exchange.btc_markets.btc_markets_utils import get_ms_timestamp
 
 
 class BtcMarketsAuth:
@@ -74,13 +74,13 @@ class BtcMarketsAuth:
         """
         Generates HTTP headers
         """
-        nonce = get_ms_timestamp()
+        # nonce = get_ms_timestamp()
         headers = {
             "Accept": "application/json",
             "Accept-Charset": "UTF-8",
             "Content-Type": "application/json",
             "BM-AUTH-APIKEY": self.api_key,
-            "BM-AUTH-TIMESTAMP": str(nonce),
+            "BM-AUTH-TIMESTAMP": str(data['nonce']),
             "BM-AUTH-SIGNATURE": data['sig']
             # "BM-AUTH-SIGNATURE": self.secret_key
         }
