@@ -124,10 +124,25 @@ cross_exchange_market_making_config_map = {
         type_str="decimal",
         validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
     ),
+    "min_order_amount": ConfigVar(
+        key="min_order_amount",
+        prompt="What is the minimum order amount required for bid or ask orders?",
+        prompt_on_new=True,
+        type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
+    ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
         prompt="Do you want to enable adjust order? (Yes/No) >>> ",
         default=True,
+        type_str="bool",
+        validator=validate_bool,
+        required_if=lambda: False,
+    ),
+    "top_depth_bias_switch": ConfigVar(
+        key="top_depth_bias_switch",
+        prompt="When enabled the price set on the maker side shall be equal to the top depth tolerance price when closer to the mid price than the min profitability calc (Yes/No) >>> ",
+        default=False,
         type_str="bool",
         validator=validate_bool,
         required_if=lambda: False,
@@ -161,6 +176,14 @@ cross_exchange_market_making_config_map = {
     "top_depth_tolerance": ConfigVar(
         key="top_depth_tolerance",
         prompt=top_depth_tolerance_prompt,
+        default=0,
+        type_str="decimal",
+        required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, min_value=0, inclusive=True)
+    ),
+    "top_depth_tolerance_taker": ConfigVar(
+        key="top_depth_tolerance_taker",
+        prompt="Percentage to be added to order amount when calculating taker price (e.g 10%)? >>> ",
         default=0,
         type_str="decimal",
         required_if=lambda: False,
@@ -234,5 +257,12 @@ cross_exchange_market_making_config_map = {
         default=Decimal("5"),
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=True)
-    )
+    ),
+    "volatility_buffer_size": ConfigVar(
+        key="volatility_buffer_size",
+        prompt="The period in seconds to calulate volatility over: ",
+        type_str="int",
+        default=120,
+        prompt_on_new=True
+    ),
 }
