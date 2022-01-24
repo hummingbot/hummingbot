@@ -28,7 +28,7 @@ class OrderState(Enum):
 
 class OrderUpdate(NamedTuple):
     trading_pair: str
-    update_timestamp: int  # milliseconds
+    update_timestamp: float  # seconds
     new_state: OrderState
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
@@ -46,7 +46,7 @@ class TradeUpdate(NamedTuple):
     client_order_id: str
     exchange_order_id: str
     trading_pair: str
-    fill_timestamp: int
+    fill_timestamp: float  # seconds
     fill_price: Decimal
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
@@ -318,7 +318,7 @@ class InFlightOrder:
                     else order_update.cumulative_fee_paid - prev_cumulative_fee_paid
                 )
                 # trade_id defaults to update timestamp if not provided
-                trade_id: str = order_update.trade_id or order_update.update_timestamp
+                trade_id: str = order_update.trade_id or str(int(order_update.update_timestamp * 1e3))
                 self.last_trade_id = trade_id
                 self.order_fills[trade_id] = TradeUpdate(
                     trade_id=trade_id,

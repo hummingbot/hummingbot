@@ -85,6 +85,10 @@ cdef class InFlightOrderBase:
 
     @property
     def creation_timestamp(self) -> float:
+        """
+        Returns the creation timestamp in seconds
+        :return: The creation timestamp
+        """
         if self._creation_timestamp > 0:
             timestamp = self._creation_timestamp
         else:
