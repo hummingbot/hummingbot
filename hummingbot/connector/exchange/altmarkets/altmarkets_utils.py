@@ -19,7 +19,7 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "ALTM-BTC"
 
-DEFAULT_FEES = [0.1, 0.2]
+DEFAULT_FEES = [0.25, 0.25]
 
 
 class AltmarketsAPIError(IOError):
