@@ -623,6 +623,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # Needs to be executed at all times to not to have active order leftovers after a trading session ends
                 self.c_cancel_active_orders_on_max_age_limit()
 
+                # process_tick() is only called if within a trading timeframe
                 self._execution_state.process_tick(timestamp, self)
 
             else:
@@ -638,6 +639,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def process_tick(self, timestamp: float):
         proposal = None
+        # Trading is allowed
         if self._create_timestamp <= self._current_timestamp:
             # 1. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
             self.c_calculate_reserved_price_and_optimal_spread()
@@ -1250,7 +1252,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         else:
             self.c_set_timers()
 
-    def cancel_active_orders(self, proposal: Proposal):
+    def cancel_active_orders(self, proposal: Proposal = None):
         return self.c_cancel_active_orders(proposal)
 
     cdef bint c_to_create_orders(self, object proposal):
