@@ -337,6 +337,10 @@ class TwapTradeStrategy(StrategyPyBase):
         for market_info in self._market_infos.values():
             self.process_market(market_info)
 
+    def cancel_active_orders(self):
+        # Nothing to do here
+        pass
+
     def place_orders_for_market(self, market_info):
         """
         Places an individual order specified by the user input if the user has enough balance and if the order quantity
