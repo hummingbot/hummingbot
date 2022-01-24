@@ -131,7 +131,12 @@ class AltmarketsInFlightOrder(InFlightOrderBase):
             # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
-        self.fee_paid += order_update.get("trade_fee") * self.executed_amount_base
+        # Check if trade fee has been sent
+        reported_fee_pct = order_update.get("maker_fee")
+        if reported_fee_pct:
+            self.fee_paid = Decimal(str(reported_fee_pct)) * self.executed_amount_base
+        else:
+            self.fee_paid = order_update.get("trade_fee") * self.executed_amount_base
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
         return True
@@ -164,7 +169,12 @@ class AltmarketsInFlightOrder(InFlightOrderBase):
             return False
         trade_update["exchange_trade_id"] = trade_update["id"]
         self.trade_id_set.add(trade_id)
-        self.fee_paid += trade_update.get("trade_fee") * self.executed_amount_base
+        # Check if trade fee has been sent
+        reported_fee_pct = trade_update.get("fee")
+        if reported_fee_pct:
+            self.fee_paid = Decimal(str(reported_fee_pct)) * self.executed_amount_base
+        else:
+            self.fee_paid = trade_update.get("trade_fee") * self.executed_amount_base
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
         return True
