@@ -895,7 +895,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertIn(f"{trade_message['order_id']}-{trade_message['created_at']}", order.trade_id_set)
         self.assertEqual(Decimal(0.5), order.executed_amount_base)
         self.assertEqual(Decimal(5000), order.executed_amount_quote)
-        self.assertEqual(Decimal("0.001"), order.fee_paid)
+        self.assertEqual(Decimal("0.00125"), order.fee_paid)
         self.assertEqual(self.quote_asset, order.fee_asset)
 
     def test_cancel_all_raises_on_no_trading_pairs(self):
@@ -991,7 +991,7 @@ class AltmarketsExchangeTests(TestCase):
             price=Decimal("10"),
         )
 
-        self.assertEqual(Decimal("0.002"), fee.percent)
+        self.assertEqual(Decimal("0.0025"), fee.percent)
 
         fee = self.exchange.get_fee(
             self.base_asset,
