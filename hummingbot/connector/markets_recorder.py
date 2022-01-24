@@ -325,8 +325,8 @@ class MarketsRecorder:
 
         # adding extra field "age"
         # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-        age = pd.Timestamp(int((trade.timestamp * 1e-3) - (trade.order.creation_timestamp * 1e-6)), unit='s').strftime(
-            '%H:%M:%S') if "//" not in trade.order_id else "n/a"
+        age = pd.Timestamp(int((trade.timestamp * 1e-3) - (trade.order.creation_timestamp * 1e-3)), unit='s').strftime(
+            '%H:%M:%S') if (trade.order is not None and "//" not in trade.order_id) else "n/a"
         field_names += ("age",)
         field_data += (age,)
 
