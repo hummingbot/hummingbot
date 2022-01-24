@@ -1109,7 +1109,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                    "side": "SELL",
                    "positionSide": "SHORT",
                    "symbol": "COINALPHAHBOT",
-                   "time": 1}]
+                   "time": 1000}]
 
         url = utils.rest_url(
             CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
@@ -1240,11 +1240,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                  "status": "PARTIALLY_FILLED",
                  "closePosition": False,
                  "symbol": f"{self.base_asset}{self.quote_asset}",
-                 "time": 1,
+                 "time": 1000,
                  "timeInForce": "GTC",
                  "type": "LIMIT",
                  "priceRate": "0.3",
-                 "updateTime": 2,
+                 "updateTime": 2000,
                  "workingType": "CONTRACT_PRICE",
                  "priceProtect": False}
 
@@ -1282,9 +1282,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0.5, in_flight_orders["OID1"].last_filled_amount)
         self.assertEqual(None, in_flight_orders["OID1"].last_fee_paid)
         self.assertEqual(2, in_flight_orders["OID1"].last_update_timestamp)
-        self.assertEqual(2, in_flight_orders["OID1"].last_trade_id)
+        self.assertEqual(str(order["updateTime"]), in_flight_orders["OID1"].last_trade_id)
 
-        self.assertTrue(2 in in_flight_orders["OID1"].order_fills.keys())
+        self.assertTrue(str(order["updateTime"]) in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
     def test_set_leverage_successful(self, req_mock):

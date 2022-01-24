@@ -160,7 +160,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_quote_amount=(order_0.price * order_0.amount),
             fee_asset=self.base_asset,
             fee_paid=Decimal(0.01) * order_0.amount,
-            fill_timestamp=int(time.time() * 1e3),
+            fill_timestamp=time.time(),
         )
         # Order completely filled after single trade update
         order_0.order_fills.update({trade_update_0.trade_id: trade_update_0})
@@ -187,7 +187,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_quote_amount=(order_1.price * (order_1.amount / Decimal("2.0"))),
             fee_asset=self.base_asset,
             fee_paid=Decimal(0.01) * (order_1.amount / Decimal("2.0")),
-            fill_timestamp=int(time.time() * 1e3),
+            fill_timestamp=time.time(),
         )
 
         trade_update_2: TradeUpdate = TradeUpdate(
@@ -200,7 +200,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_quote_amount=(order_1.price * (order_1.amount / Decimal("2.0"))),
             fee_asset=self.base_asset,
             fee_paid=Decimal(0.01) * (order_1.amount / Decimal("2.0")),
-            fill_timestamp=int(time.time() * 1e3),
+            fill_timestamp=time.time(),
         )
 
         # Order completely filled after 2 trade updates
