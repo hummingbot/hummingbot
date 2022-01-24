@@ -563,7 +563,7 @@ class AscendExExchange(ExchangePyBase):
                         client_order_id=order_id,
                         exchange_order_id=str(order_data["orderId"]),
                         trading_pair=trading_pair,
-                        update_timestamp=order_data["lastExecTime"],
+                        update_timestamp=order_data["lastExecTime"] * 1e-3,
                         new_state=OrderState.OPEN,
                     )
                 elif resp_status == "DONE":
@@ -571,7 +571,7 @@ class AscendExExchange(ExchangePyBase):
                         client_order_id=order_id,
                         exchange_order_id=str(order_data["orderId"]),
                         trading_pair=trading_pair,
-                        update_timestamp=order_data["lastExecTime"],
+                        update_timestamp=order_data["lastExecTime"] * 1e-3,
                         new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
                         fill_price=Decimal(order_data["avgPx"]),
                         executed_amount_base=Decimal(order_data["cumFilledQty"]),
@@ -584,7 +584,7 @@ class AscendExExchange(ExchangePyBase):
                         client_order_id=order_id,
                         exchange_order_id=str(order_data["orderId"]),
                         trading_pair=trading_pair,
-                        update_timestamp=order_data["lastExecTime"],
+                        update_timestamp=order_data["lastExecTime"] * 1e-3,
                         new_state=OrderState.FAILED,
                     )
                 self._in_flight_order_tracker.process_order_update(order_update)
@@ -773,7 +773,7 @@ class AscendExExchange(ExchangePyBase):
                             client_order_id=client_order_id,
                             exchange_order_id=exchange_order_id,
                             trading_pair=ascend_ex_utils.convert_from_exchange_trading_pair(order_data["symbol"]),
-                            update_timestamp=order_data["lastExecTime"],
+                            update_timestamp=order_data["lastExecTime"] * 1e-3,
                             new_state=new_state,
                             fill_price=Decimal(order_data["avgPx"]),
                             executed_amount_base=Decimal(order_data["cumFilledQty"]),
@@ -803,7 +803,7 @@ class AscendExExchange(ExchangePyBase):
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 client_order_id=tracked_order.client_order_id,
-                update_timestamp=int(time.time() * 1e3),
+                update_timestamp=time.time(),
                 new_state=OrderState.FAILED,
             )
             self._in_flight_order_tracker.process_order_update(order_update)
@@ -1003,7 +1003,7 @@ class AscendExExchange(ExchangePyBase):
         order_update = OrderUpdate(
             exchange_order_id=order_msg.orderId,
             trading_pair=ascend_ex_utils.convert_to_exchange_trading_pair(order_msg.symbol),
-            update_timestamp=order_msg.lastExecTime,
+            update_timestamp=order_msg.lastExecTime * 1e-3,
             new_state=CONSTANTS.ORDER_STATE[order_msg.status],
             fill_price=Decimal(order_msg.avgPx),
             executed_amount_base=Decimal(order_msg.cumFilledQty),
