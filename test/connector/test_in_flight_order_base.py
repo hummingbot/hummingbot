@@ -52,6 +52,7 @@ class InFlightOrderBaseTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(1000),
             amount=Decimal(1),
+            creation_timestamp=-1,
             initial_state=OrderState.PENDING_CREATE.name
         )
 
