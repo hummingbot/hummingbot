@@ -1002,7 +1002,7 @@ class AltmarketsExchangeTests(TestCase):
             price=Decimal("10"),
         )
 
-        self.assertEqual(Decimal("0.001"), fee.percent)
+        self.assertEqual(Decimal("0.0025"), fee.percent)
 
     def test_user_stream_event_queue_error_is_logged(self):
         self.async_tasks.append(self.ev_loop.create_task(self.exchange._user_stream_event_listener()))
