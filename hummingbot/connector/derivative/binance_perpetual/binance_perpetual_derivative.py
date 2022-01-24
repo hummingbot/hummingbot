@@ -651,7 +651,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     client_order_id=client_order_id,
                     exchange_order_id=str(order_message["i"]),
                     trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=order_message["T"],
+                    fill_timestamp=order_message["T"] * 1e-3,
                     fill_price=Decimal(order_message["L"]),
                     fill_base_amount=Decimal(order_message["z"]),
                     fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["z"]),
@@ -663,7 +663,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=event_message["T"],
+                update_timestamp=event_message["T"] * 1e-3,
                 new_state=CONSTANTS.ORDER_STATE[order_message["X"]],
                 client_order_id=client_order_id,
                 exchange_order_id=str(order_message["i"]),
@@ -983,7 +983,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             client_order_id=tracked_order.client_order_id,
                             exchange_order_id=trade["orderId"],
                             trading_pair=tracked_order.trading_pair,
-                            fill_timestamp=trade["time"],
+                            fill_timestamp=trade["time"] * 1e-3,
                             fill_price=Decimal(trade["price"]),
                             fill_base_amount=Decimal(trade["qty"]),
                             fill_quote_amount=Decimal(trade["quoteQty"]),
@@ -1040,7 +1040,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         domain=self._domain,
                         throttler=self._throttler,
                     ),
-                    update_timestamp=order_update["updateTime"],
+                    update_timestamp=order_update["updateTime"] * 1e-3,
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
                     exchange_order_id=order_update["orderId"],
@@ -1209,7 +1209,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=trading_pair,
-                update_timestamp=order_result["updateTime"],
+                update_timestamp=order_result["updateTime"] * 1e-3,
                 new_state=CONSTANTS.ORDER_STATE[order_result["status"]],
                 client_order_id=order_id,
                 exchange_order_id=str(order_result["orderId"]),
