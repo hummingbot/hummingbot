@@ -739,25 +739,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
                 # Avellaneda-Stoikov for a fixed timespan
                 time_left_fraction = Decimal(str(self._execution_state.time_left / self._execution_state.closing_time))
-
-                self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
-
-                self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
-                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
             else:
                 # Avellaneda-Stoikov for an infinite timespan
-                # gamma reversed to achieve unit consistency as for finite timeframe
-                q_max = 1
-                omega = Decimal(1 / 2) * ((1 / self._gamma) ** 2) * (vol ** 2) * Decimal((q_max + 1) ** 2)
-                offset_ask = Decimal(self._gamma) * Decimal(1 + ((1 - 2 * q) * ((1 / self._gamma) ** 2) * (vol ** 2)) / (2 * omega - (((1 / self._gamma) ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                offset_bid = Decimal(self._gamma) * Decimal(1 + ((-1 - 2 * q) * ((1 / self._gamma) ** 2) * (vol ** 2)) / (2 * omega - (((1 / self._gamma) ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                reserved_price_ask = price + offset_ask
-                reserved_price_bid = price + offset_bid
-                self._reserved_price = (reserved_price_ask + reserved_price_bid) / 2
+                # The equations in the paper for this contain a few mistakes
+                # - the units don't align with the rest of the paper
+                # - volatility cancells itself out completely
+                # - the risk factor gets partially cancelled
+                # The proposed solution is to use the same equation as for the constrained timespan but with
+                # a fixed time left
+                time_left_fraction = 1
 
-                # Derived from the asymptotic expansion in q for finite timeframe
-                self._optimal_spread = -(offset_ask + offset_bid) / (2 * q)
-                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+            self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+
+            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+            self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
             min_spread = price / 100 * Decimal(str(self._min_spread))
 
