@@ -1,5 +1,15 @@
 import { HttpException } from './error-handler';
 
+export const invalidAmountError: string =
+  'If amount is included it must be a string of a non-negative integer.';
+
+export const invalidTokenError: string = 'The token param should be a string.';
+
+export const invalidTxHashError: string = 'The txHash param must be a string.';
+
+export const invalidTokenSymbolsError: string =
+  'The tokenSymbols param should be an array of strings.';
+
 export const isNaturalNumberString = (str: string): boolean => {
   return /^[0-9]+$/.test(str);
 };
@@ -37,6 +47,27 @@ export type Validator = (req: any) => Array<string>;
 
 export type RequestValidator = (req: any) => void;
 
+export const mkBranchingValidator = (
+  branchingKey: string,
+  branchingCondition: (req: any, key: string) => boolean,
+  validator1: Validator,
+  validator2: Validator
+): Validator => {
+  return (req: any) => {
+    let errors: Array<string> = [];
+    if (req[branchingKey]) {
+      if (branchingCondition(req, branchingKey)) {
+        errors = errors.concat(validator1(req));
+      } else {
+        errors = errors.concat(validator2(req));
+      }
+    } else {
+      errors.push(missingParameter(branchingKey));
+    }
+    return errors;
+  };
+};
+
 export const mkValidator = (
   key: string,
   errorMsg: string,
@@ -70,3 +101,46 @@ export const mkRequestValidator = (
     throwIfErrorsExist(errors);
   };
 };
+
+// confirm that tokenSymbols is an array of strings
+export const validateTokenSymbols: Validator = (req: any) => {
+  const errors: Array<string> = [];
+  if (req.tokenSymbols) {
+    if (Array.isArray(req.tokenSymbols)) {
+      req.tokenSymbols.forEach((symbol: any) => {
+        if (typeof symbol !== 'string') {
+          errors.push(invalidTokenSymbolsError);
+        }
+      });
+    } else {
+      errors.push(invalidTokenSymbolsError);
+    }
+  } else {
+    errors.push(missingParameter('tokenSymbols'));
+  }
+  return errors;
+};
+
+export const isBase58 = (value: string): boolean =>
+  /^[A-HJ-NP-Za-km-z1-9]*$/.test(value);
+
+// confirm that token is a string
+export const validateToken: Validator = mkValidator(
+  'token',
+  invalidTokenError,
+  (val) => typeof val === 'string'
+);
+
+// if amount exists, confirm that it is a string of a natural number
+export const validateAmount: Validator = mkValidator(
+  'amount',
+  invalidAmountError,
+  (val) => typeof val === 'string' && isNaturalNumberString(val),
+  true
+);
+
+export const validateTxHash: Validator = mkValidator(
+  'txHash',
+  invalidTxHashError,
+  (val) => typeof val === 'string'
+);
