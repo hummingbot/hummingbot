@@ -162,4 +162,3 @@ cdef class MockPaperExchange(PaperTradeExchange):
     async def _check_network_loop(self):
         # Override the check network loop to exit immediately.
         self._network_status = NetworkStatus.CONNECTED
-atus = NetworkStatus.CONNECTED
