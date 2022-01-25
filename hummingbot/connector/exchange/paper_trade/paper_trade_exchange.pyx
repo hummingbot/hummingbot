@@ -464,15 +464,18 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Fee collateral asset
+        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
 
         # Base currency acquired, including fees.
-        sold_amount = adjusted_candidate_order.order_collateral.amount
+        sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
-        acquired_amount = adjusted_candidate_order.potential_returns.amount
+        acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # Fees for buys are in base asset
-        fee_amount = adjusted_candidate_order.collateral_dict[base_asset]
+        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
         if acquired_amount < amount:
@@ -517,8 +520,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    order_id,
                                    base_asset,
                                    quote_asset,
-                                   # Fees for buys are in base asset
-                                   base_asset,
+                                   fee_asset,
                                    acquired_amount,
                                    sold_amount,
                                    fee_amount,
@@ -552,15 +554,18 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Fee collateral asset
+        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
 
         # Base currency used, including fees.
-        sold_amount = adjusted_candidate_order.order_collateral.amount
+        sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency acquired, including fees.
-        acquired_amount = adjusted_candidate_order.potential_returns.amount
+        acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # Fees for sales are in quote asset
-        fee_amount = adjusted_candidate_order.collateral_dict[quote_asset]
+        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
         if sold_amount < amount:
@@ -605,8 +610,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                     order_id,
                                     base_asset,
                                     quote_asset,
-                                    # Fees for sales are in quote asset
-                                    quote_asset,
+                                    fee_asset,
                                     sold_amount,
                                     acquired_amount,
                                     fee_amount,
@@ -670,15 +674,18 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Fee collateral asset
+        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
 
         # Base currency acquired, including fees.
-        sold_amount = adjusted_candidate_order.order_collateral.amount
+        sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
-        acquired_amount = adjusted_candidate_order.potential_returns.amount
+        acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # Fees for buys are in base asset
-        fee_amount = adjusted_candidate_order.collateral_dict[base_asset]
+        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
         if acquired_amount < amount:
@@ -732,7 +739,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                base_asset,
+                fee_asset,
                 acquired_amount,
                 sold_amount,
                 fee_amount,
@@ -766,15 +773,18 @@ cdef class PaperTradeExchange(ExchangeBase):
             from_total_balances=True
         )
 
-        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+        adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Fee collateral asset
+        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
 
         # Base currency used, including fees.
-        sold_amount = adjusted_candidate_order.order_collateral.amount
+        sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency acquired, including fees.
-        acquired_amount = adjusted_candidate_order.potential_returns.amount
+        acquired_amount = adjusted_order_candidate.potential_returns.amount
 
         # Fees for sales are in quote asset
-        fee_amount = adjusted_candidate_order.collateral_dict[quote_asset]
+        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
         if sold_amount < amount:
@@ -827,7 +837,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                quote_asset,
+                fee_asset,
                 sold_amount,
                 acquired_amount,
                 fee_amount,
