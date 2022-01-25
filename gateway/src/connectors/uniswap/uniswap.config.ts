@@ -1,5 +1,5 @@
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
-
+import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace UniswapConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
@@ -8,6 +8,8 @@ export namespace UniswapConfig {
     uniswapV2RouterAddress: string;
     uniswapV3RouterAddress: string;
     uniswapV3NftManagerAddress: string;
+    tradingTypes: Array<string>;
+    availableNetworks: Array<AvailableNetworks>;
   }
 
   const eth_network = ConfigManagerV2.getInstance().get('ethereum.network');
@@ -27,5 +29,7 @@ export namespace UniswapConfig {
     uniswapV3NftManagerAddress: ConfigManagerV2.getInstance().get(
       'uniswap.contractAddresses.' + eth_network + '.uniswapV3NftManagerAddress'
     ),
+    tradingTypes: ['AMM', 'rangeAMM'],
+    availableNetworks: [{ chain: 'ethereum', networks: ['mainnet', 'kovan'] }],
   };
 }
