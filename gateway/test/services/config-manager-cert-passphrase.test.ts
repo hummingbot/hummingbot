@@ -31,9 +31,9 @@ describe('ConfigManagerCertPassphrase.readPassphrase', () => {
 
   it('should get the cert phrase from an env variable', async () => {
     const passphrase = 'env_var_passphrase';
-    process.env['PASSPHRASE_ENV'] = passphrase;
+    process.env['GATEWAY_PASSPHRASE'] = passphrase;
     const certPhrase = ConfigManagerCertPassphrase.readPassphrase();
     expect(certPhrase).toEqual(passphrase);
-    delete process.env['PASSPHRASE_ENV'];
+    delete process.env['GATEWAY_PASSPHRASE'];
   });
 });
