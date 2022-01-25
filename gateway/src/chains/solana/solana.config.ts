@@ -4,6 +4,7 @@ export interface NetworkConfig {
   slug: string;
   rpcUrl: string;
 }
+
 export interface Config {
   network: NetworkConfig;
   nativeCurrencySymbol: string;
@@ -14,6 +15,7 @@ export interface Config {
   customRpcUrl: string | undefined;
   rpcAPIKey: string | undefined;
 }
+
 export namespace SolanaConfig {
   export const config: Config = getSolanaConfig('solana');
 }
