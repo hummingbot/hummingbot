@@ -1,34 +1,31 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
 import asyncio
+import math
+import pandas as pd
+import random
+
 from collections import (
     deque, defaultdict
 )
 from cpython cimport PyObject
+from cython.operator cimport(
+    postincrement as inc,
+    dereference as deref,
+    address
+)
 from decimal import Decimal
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
-import math
-import pandas as pd
-import random
 from typing import (
     Dict,
     List,
     Optional,
     Tuple,
 )
-from cython.operator cimport(
-    postincrement as inc,
-    dereference as deref,
-    address
-)
-from hummingbot.core.Utils cimport(
-    getIteratorFromReverseIterator,
-    reverse_iterator
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
+
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import (
     Clock
@@ -57,8 +54,13 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.core.Utils cimport(
+    getIteratorFromReverseIterator,
+    reverse_iterator
+)
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+)
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 
 from ...budget_checker import BudgetChecker
@@ -458,16 +460,18 @@ cdef class PaperTradeExchange(ExchangeBase):
             order_type=OrderType.MARKET,
             order_side=TradeType.BUY,
             amount=amount,
-            price=avg_price
+            price=avg_price,
+            from_total_balances=True
         )
 
-        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=True)
+        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
 
         # Base currency acquired, including fees.
         sold_amount = adjusted_candidate_order.order_collateral.amount
         # Quote currency used, including fees.
         acquired_amount = adjusted_candidate_order.potential_returns.amount
 
+        # Fees for buys are in base asset
         fee_amount = adjusted_candidate_order.collateral_dict[base_asset]
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
@@ -513,6 +517,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    order_id,
                                    base_asset,
                                    quote_asset,
+                                   # Fees for buys are in base asset
                                    base_asset,
                                    acquired_amount,
                                    sold_amount,
@@ -543,17 +548,19 @@ cdef class PaperTradeExchange(ExchangeBase):
             order_type=OrderType.MARKET,
             order_side=TradeType.SELL,
             amount=amount,
-            price=avg_price
+            price=avg_price,
+            from_total_balances=True
         )
 
-        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=True)
+        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
 
         # Base currency used, including fees.
         sold_amount = adjusted_candidate_order.order_collateral.amount
         # Quote currency acquired, including fees.
         acquired_amount = adjusted_candidate_order.potential_returns.amount
 
-        fee_amount = adjusted_candidate_order.collateral_dict[base_asset]
+        # Fees for sales are in quote asset
+        fee_amount = adjusted_candidate_order.collateral_dict[quote_asset]
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
         if sold_amount < amount:
@@ -598,7 +605,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                     order_id,
                                     base_asset,
                                     quote_asset,
-                                    base_asset,
+                                    # Fees for sales are in quote asset
+                                    quote_asset,
                                     sold_amount,
                                     acquired_amount,
                                     fee_amount,
@@ -642,20 +650,41 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    SingleTradingPairLimitOrdersIterator orders_it):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
-            str trading_pair = cpp_limit_order_ptr.getTradingPair().decode("utf8")
+            str trading_pair_str = cpp_limit_order_ptr.getTradingPair().decode("utf8")
             str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
             str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
-            object quote_asset_balance = self.c_get_balance(quote_asset)
-            object quote_asset_traded = <object> cpp_limit_order_ptr.getPrice() * \
-                                        <object> cpp_limit_order_ptr.getQuantity()
-            object base_asset_traded = <object> cpp_limit_order_ptr.getQuantity()
+            object amount = <object> cpp_limit_order_ptr.getQuantity()
+            object price = <object> cpp_limit_order_ptr.getPrice()
+            object quote_balance = self.c_get_balance(quote_asset)
+            object base_balance = self.c_get_balance(base_asset)
 
-        # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
-        if quote_asset_balance < quote_asset_traded:
-            self.logger().warning(f"Not enough {quote_asset} balance to fill limit buy order on {trading_pair}. "
-                                  f"{quote_asset_traded:.8g} {quote_asset} needed vs. "
-                                  f"{quote_asset_balance:.8g} {quote_asset} available.")
+        order_candidate = OrderCandidate(
+            trading_pair=trading_pair_str,
+            # Market orders are not maker orders
+            is_maker=False,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=amount,
+            price=price,
+            from_total_balances=True
+        )
+
+        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Base currency acquired, including fees.
+        sold_amount = adjusted_candidate_order.order_collateral.amount
+        # Quote currency used, including fees.
+        acquired_amount = adjusted_candidate_order.potential_returns.amount
+
+        # Fees for buys are in base asset
+        fee_amount = adjusted_candidate_order.collateral_dict[base_asset]
+
+        # It's not possible to fulfill the order, the possible acquired amount is less than requested
+        if acquired_amount < amount:
+            self.logger().warning(f"Not enough {quote_asset} balance to fill limit buy order on {trading_pair_str}. "
+                                  f"{sold_amount:.8g} {quote_asset} needed vs. "
+                                  f"{quote_balance:.8g} {quote_asset} available.")
 
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -664,9 +693,11 @@ cdef class PaperTradeExchange(ExchangeBase):
                                  )
             return
 
-        # Adjust the market balances according to the trade done.
-        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded)
-        self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
+        # The order was successfully executed
+        self.c_set_balance(quote_asset,
+                           quote_balance - sold_amount)
+        self.c_set_balance(base_asset,
+                           base_balance + acquired_amount)
 
         # add fee
         fees = build_trade_fee(
@@ -686,7 +717,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             OrderFilledEvent(
                 self._current_timestamp,
                 order_id,
-                trading_pair,
+                trading_pair_str,
                 TradeType.BUY,
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
@@ -702,9 +733,9 @@ cdef class PaperTradeExchange(ExchangeBase):
                 base_asset,
                 quote_asset,
                 base_asset,
-                base_asset_traded,
-                quote_asset_traded,
-                s_decimal_0,
+                acquired_amount,
+                sold_amount,
+                fee_amount,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -719,16 +750,37 @@ cdef class PaperTradeExchange(ExchangeBase):
             str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
             str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
-            object base_asset_balance = self.c_get_balance(base_asset)
-            object quote_asset_traded = <object> cpp_limit_order_ptr.getPrice() * \
-                                        <object> cpp_limit_order_ptr.getQuantity()
-            object base_asset_traded = <object> cpp_limit_order_ptr.getQuantity()
+            object amount = <object> cpp_limit_order_ptr.getQuantity()
+            object price = <object> cpp_limit_order_ptr.getPrice()
+            object quote_balance = self.c_get_balance(quote_asset)
+            object base_balance = self.c_get_balance(base_asset)
 
-        # Check if there's enough balance to satisfy the order. If not, remove the limit order without doing anything.
-        if base_asset_balance < base_asset_traded:
+        order_candidate = OrderCandidate(
+            trading_pair=trading_pair_str,
+            # Market orders are not maker orders
+            is_maker=True,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.SELL,
+            amount=amount,
+            price=price,
+            from_total_balances=True
+        )
+
+        adjusted_candidate_order = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Base currency used, including fees.
+        sold_amount = adjusted_candidate_order.order_collateral.amount
+        # Quote currency acquired, including fees.
+        acquired_amount = adjusted_candidate_order.potential_returns.amount
+
+        # Fees for sales are in quote asset
+        fee_amount = adjusted_candidate_order.collateral_dict[quote_asset]
+
+        # It's not possible to fulfill the order, the possible sold amount is less than requested
+        if sold_amount < amount:
             self.logger().warning(f"Not enough {base_asset} balance to fill limit sell order on {trading_pair_str}. "
-                                  f"{base_asset_traded:.8g} {base_asset} needed vs. "
-                                  f"{base_asset_balance:.8g} {base_asset} available.")
+                                  f"{sold_amount:.8g} {base_asset} needed vs. "
+                                  f"{base_balance:.8g} {base_asset} available.")
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp,
@@ -736,9 +788,11 @@ cdef class PaperTradeExchange(ExchangeBase):
                                  )
             return
 
-        # Adjust the market balances according to the trade done.
-        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded)
-        self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
+        # The order was successfully executed
+        self.c_set_balance(quote_asset,
+                           quote_balance + acquired_amount)
+        self.c_set_balance(base_asset,
+                           base_balance - sold_amount)
 
         # add fee
         fees = build_trade_fee(
@@ -747,7 +801,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             base_currency="",
             quote_currency="",
             order_type=OrderType.LIMIT,
-            order_side=TradeType.BUY,
+            order_side=TradeType.SELL,
             amount=Decimal("0"),
             price=Decimal("0"),
         )
@@ -773,10 +827,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                base_asset,
-                base_asset_traded,
-                quote_asset_traded,
-                s_decimal_0,
+                quote_asset,
+                sold_amount,
+                acquired_amount,
+                fee_amount,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
