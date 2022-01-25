@@ -56,7 +56,7 @@ const patchTrade = (key: string, error?: Error) => {
       new TokenAmount(WETH, '2000000000000000000'),
       new TokenAmount(DAI, '1000000000000000000')
     );
-    console.log('el WETH_DAI es', WETH_DAI)
+    console.log('el WETH_DAI es', WETH_DAI);
     const DAI_TO_WETH = new Route([WETH_DAI], DAI);
     return [
       new Trade(

@@ -60,7 +60,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'pangolin') {
-      spender = PangolinConfig.config.routerAddress;
+      spender = PangolinConfig.config.routerAddress(this._chain);
     } else {
       spender = reqSpender;
     }
