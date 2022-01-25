@@ -1,45 +1,84 @@
 import {
-  invalidPrivateKeyError,
-  isPrivateKey,
+  invalidEthPrivateKeyError,
+  isEthPrivateKey,
   validatePrivateKey,
   invalidChainError,
   invalidAddressError,
   validateChain,
   validateAddress,
+  isSolPrivateKey,
+  invalidSolPrivateKeyError,
 } from '../../../src/services/wallet/wallet.validators';
 
 import { missingParameter } from '../../../src/services/validators';
 
 import 'jest-extended';
 
-describe('isPrivateKey', () => {
-  it('pass against a well formed public key', () => {
+describe('isEthPrivateKey', () => {
+  it('pass against a well formed private key', () => {
     expect(
-      isPrivateKey(
+      isEthPrivateKey(
         'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4'
       )
     ).toEqual(true);
   });
 
   it('fail against a string that is too short', () => {
-    expect(isPrivateKey('da857cbda0ba96757fed842617a40693d0')).toEqual(false);
+    expect(isEthPrivateKey('da857cbda0ba96757fed842617a40693d0')).toEqual(
+      false
+    );
   });
 
   it('fail against a string that has non-hexadecimal characters', () => {
     expect(
-      isPrivateKey(
+      isEthPrivateKey(
         'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747qwer'
       )
     ).toEqual(false);
   });
 });
 
+describe('isSolPrivateKey', () => {
+  it('pass against a well formed base58 private key', () => {
+    expect(
+      isSolPrivateKey(
+        '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt'
+      )
+    ).toEqual(true);
+  });
+
+  it('fail against a string that is too short', () => {
+    expect(
+      isSolPrivateKey('5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4')
+    ).toEqual(false);
+  });
+
+  it('fail against a string that has non-base58 characters', () => {
+    expect(
+      isSolPrivateKey(
+        '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHO0O0O0'
+      )
+    ).toEqual(false);
+  });
+});
+
 describe('validatePrivateKey', () => {
-  it('valid when req.privateKey is a privateKey', () => {
+  it('valid when req.privateKey is an ethereum key', () => {
     expect(
       validatePrivateKey({
+        chain: 'ethereum',
         privateKey:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when req.privateKey is a solana key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'solana',
+        privateKey:
+          '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
       })
     ).toEqual([]);
   });
@@ -47,17 +86,37 @@ describe('validatePrivateKey', () => {
   it('return error when req.privateKey does not exist', () => {
     expect(
       validatePrivateKey({
+        chain: 'ethereum',
         hello: 'world',
       })
     ).toEqual([missingParameter('privateKey')]);
   });
 
-  it('return error when req.privateKey is invalid', () => {
+  it('return error when req.chain does not exist', () => {
     expect(
       validatePrivateKey({
+        privateKey:
+          '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
+      })
+    ).toEqual([missingParameter('chain')]);
+  });
+
+  it('return error when req.privateKey is invalid ethereum key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'ethereum',
         privateKey: 'world',
       })
-    ).toEqual([invalidPrivateKeyError]);
+    ).toEqual([invalidEthPrivateKeyError]);
+  });
+
+  it('return error when req.privateKey is invalid solana key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'solana',
+        privateKey: 'world',
+      })
+    ).toEqual([invalidSolPrivateKeyError]);
   });
 });
 
@@ -74,6 +133,14 @@ describe('validateChain', () => {
     expect(
       validateChain({
         chain: 'avalanche',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when chain is solana', () => {
+    expect(
+      validateChain({
+        chain: 'solana',
       })
     ).toEqual([]);
   });
