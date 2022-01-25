@@ -14,6 +14,7 @@ import ujson
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.connector.exchange.altmarkets.altmarkets_utils import AltmarketsAPIError
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.logger import HummingbotLogger
 
 
 def retry_sleep_time(try_count: int) -> float:
@@ -62,7 +63,9 @@ async def api_call_with_retries(method,
                                 shared_client=None,
                                 throttler: Optional[AsyncThrottler] = None,
                                 limit_id: Optional[str] = None,
-                                try_count: int = 0) -> Dict[str, Any]:
+                                try_count: int = 0,
+                                logger: HummingbotLogger = None,
+                                disable_retries: bool = False) -> Dict[str, Any]:
 
     url = f"{Constants.REST_URL}/{endpoint}"
     headers = {"Content-Type": "application/json", "User-Agent": Constants.USER_AGENT}
@@ -92,19 +95,26 @@ async def api_call_with_retries(method,
         raise AltmarketsAPIError(parsed_response)
 
     if request_errors or parsed_response is None:
-        if try_count < Constants.API_MAX_RETRIES:
+        if try_count < Constants.API_MAX_RETRIES and not disable_retries:
             try_count += 1
             time_sleep = retry_sleep_time(try_count)
 
             suppress_msgs = ['Forbidden']
 
+            err_msg = (f"Error fetching data from {url}. HTTP status is {http_status}. "
+                       f"Retrying in {time_sleep:.0f}s. {parsed_response or ''}")
+
             if (parsed_response is not None and parsed_response not in suppress_msgs) or try_count > 1:
-                print(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                      f"Retrying in {time_sleep:.0f}s. {parsed_response or ''}")
+                if logger:
+                    logger.network(err_msg)
+                else:
+                    print(err_msg)
+            elif logger:
+                logger.debug(err_msg, exc_info=True)
             await asyncio.sleep(time_sleep)
             return await api_call_with_retries(method=method, endpoint=endpoint, extra_headers=extra_headers,
                                                params=params, shared_client=shared_client, throttler=throttler,
-                                               limit_id=limit_id, try_count=try_count)
+                                               limit_id=limit_id, try_count=try_count, logger=logger)
         else:
             raise AltmarketsAPIError({"errors": parsed_response, "status": http_status})
     return parsed_response
