@@ -70,7 +70,8 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             tickers: List[Dict[Any]] = await http_utils.api_call_with_retries(method="GET",
                                                                               endpoint=Constants.ENDPOINT["TICKER"],
                                                                               throttler=throttler,
-                                                                              limit_id=Constants.RL_ID_TICKER)
+                                                                              limit_id=Constants.RL_ID_TICKER,
+                                                                              logger=cls.logger())
         for trading_pair in trading_pairs:
             ex_pair: str = convert_to_exchange_trading_pair(trading_pair)
             if len(trading_pairs) > 3:
@@ -80,7 +81,8 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ticker: Dict[Any] = await http_utils.api_call_with_retries(method="GET",
                                                                            endpoint=url_endpoint,
                                                                            throttler=throttler,
-                                                                           limit_id=Constants.RL_ID_TICKER)
+                                                                           limit_id=Constants.RL_ID_TICKER,
+                                                                           logger=cls.logger())
             results[trading_pair]: Decimal = Decimal(str(ticker["ticker"]["last"]))
         return results
 
@@ -90,7 +92,8 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             symbols: List[Dict[str, Any]] = await http_utils.api_call_with_retries(method="GET",
                                                                                    endpoint=Constants.ENDPOINT["SYMBOL"],
-                                                                                   throttler=throttler)
+                                                                                   throttler=throttler,
+                                                                                   logger=cls.logger())
             return [
                 symbol["name"].replace("/", "-") for symbol in symbols
                 if symbol['state'] == "enabled"
@@ -115,7 +118,8 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                                                    endpoint=endpoint,
                                                                                    params={"limit": 300},
                                                                                    throttler=throttler,
-                                                                                   limit_id=Constants.RL_ID_ORDER_BOOK)
+                                                                                   limit_id=Constants.RL_ID_ORDER_BOOK,
+                                                                                   logger=cls.logger())
             return orderbook_response
         except AltmarketsAPIError as e:
             err = e.error_payload.get('errors', e.error_payload)

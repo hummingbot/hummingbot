@@ -315,7 +315,8 @@ class AltmarketsExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            try_count: int = 0,
-                           limit_id: Optional[str] = None):
+                           limit_id: Optional[str] = None,
+                           disable_retries: bool = False):
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -335,7 +336,9 @@ class AltmarketsExchange(ExchangeBase):
             shared_client=shared_client,
             throttler=self._throttler,
             limit_id=limit_id or endpoint,
-            try_count=try_count)
+            try_count=try_count,
+            logger=self.logger(),
+            disable_retries=disable_retries)
 
         if "errors" in parsed_response or "error" in parsed_response:
             parsed_response['errors'] = parsed_response.get('errors', parsed_response.get('error'))
@@ -444,6 +447,7 @@ class AltmarketsExchange(ExchangeBase):
                                                    params=api_params,
                                                    is_auth_required=True,
                                                    limit_id=Constants.RL_ID_ORDER_CREATE,
+                                                   disable_retries=True
                                                    )
             exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
