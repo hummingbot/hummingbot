@@ -1,4 +1,5 @@
 import unittest
+from copy import deepcopy
 from decimal import Decimal
 import asyncio
 from typing import Awaitable
@@ -20,9 +21,19 @@ class InterfaceUtilsTest(unittest.TestCase):
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
 
+        self.global_config_backup = deepcopy(global_config_map)
+
+    def tearDown(self) -> None:
+        self.reset_global_config()
+        super().tearDown()
+
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    def reset_global_config(self):
+        for key, value in self.global_config_backup.items():
+            global_config_map[key] = value
 
     def test_format_bytes(self):
         size = 1024.
