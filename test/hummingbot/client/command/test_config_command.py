@@ -45,7 +45,7 @@ class ConfigCommandTest(unittest.TestCase):
         tables_format_config_var = global_config_map["tables-format"]
         global_config_map.clear()
         global_config_map[tables_format_config_var.key] = tables_format_config_var
-        tables_format_config_var.key = "psql"
+        tables_format_config_var.value = "psql"
         global_config_map[global_configs_to_display[0]] = ConfigVar(key=global_configs_to_display[0], prompt="")
         global_config_map[global_configs_to_display[0]].value = "first"
         global_config_map[global_configs_to_display[1]] = ConfigVar(key=global_configs_to_display[1], prompt="")
