@@ -12,8 +12,8 @@ export namespace ConfigManagerCertPassphrase {
   export const readPassphrase = (): string | undefined => {
     if (argvParser(process.argv)[PASSPHRASE_ARGUMENT]) {
       return argvParser(process.argv)[PASSPHRASE_ARGUMENT];
-    } else if (process.env.PASSPHRASE_ENV) {
-      return process.env.PASSPHRASE_ENV;
+    } else if (process.env[PASSPHRASE_ENV]) {
+      return process.env[PASSPHRASE_ENV];
     }
 
     // the compiler does not know that bindings._exit(1) will end the function
