@@ -20,8 +20,8 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-client = slack.WebClient(token=global_config_map.get("slack_token").value)
-verification_token = global_config_map.get("slack_verification_token").value
+# client = slack.WebClient(token=global_config_map.get("slack_token").value)
+# verification_token = global_config_map.get("slack_verification_token").value
 
 # api = Flask(__name__)
 
