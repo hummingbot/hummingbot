@@ -3,9 +3,7 @@
 import asyncio
 import math
 import random
-from collections import (
-    deque, defaultdict
-)
+from collections import defaultdict, deque
 from decimal import Decimal
 from typing import (
     Dict,
@@ -16,7 +14,7 @@ from typing import (
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
-from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
+
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
 
@@ -48,9 +46,8 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
+from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 
 ptm_logger = None
@@ -358,7 +355,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -413,7 +413,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
