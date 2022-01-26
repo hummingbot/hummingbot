@@ -1,50 +1,46 @@
 import datetime
-from decimal import Decimal
 import logging
-from math import (
-    floor,
-    ceil,
-    isnan
-)
-import numpy as np
 import os
-import pandas as pd
 import time
+from decimal import Decimal
+from math import (
+    ceil,
+    floor,
+    isnan,
+)
 from typing import (
-    List,
     Dict,
+    List,
     Tuple,
 )
 
-from hummingbot.client.config.global_config_map import global_config_map
+import numpy as np
+import pandas as pd
+
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.events import OrderType
-
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState
-)
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
+    PriceSize,
     Proposal,
-    PriceSize)
+)
 from hummingbot.strategy.hanging_orders_tracker import (
     CreatedPairOfOrders,
-    HangingOrdersTracker)
+    HangingOrdersTracker,
+)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
-from hummingbot.core.utils import map_df_to_str
-
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -577,8 +573,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             for order_id in restored_order_ids:
                 order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
                 if order:
-                    self._hanging_orders_tracker.add_order(order)
-                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+                    self._hanging_orders_tracker.add_as_hanging_order(order)
 
         self._execution_state.time_left = self._execution_state.closing_time
 
