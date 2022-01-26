@@ -17,9 +17,10 @@ from cython.operator cimport address, dereference as deref, postincrement as inc
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
 
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.exchange.paper_trade.market_config import (
+    AssetType,
     MarketConfig,
-    AssetType
 )
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -50,8 +51,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.estimate_fee import estimate_fee, build_trade_fee
-from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.core.utils.estimate_fee import build_trade_fee, estimate_fee
 
 ptm_logger = None
 s_decimal_0 = Decimal(0)
@@ -359,7 +359,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -414,7 +417,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
