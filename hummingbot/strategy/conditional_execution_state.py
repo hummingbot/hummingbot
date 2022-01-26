@@ -90,6 +90,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                     strategy.process_tick(timestamp)
                 else:
                     self._time_left = 0
+                    strategy.cancel_active_orders()
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
                                             f"and {self._end_timestamp.isoformat(sep=' ')})")
@@ -99,6 +100,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                 if self._start_timestamp.timestamp() <= timestamp:
                     strategy.process_tick(timestamp)
                 else:
+                    strategy.cancel_active_orders()
                     strategy.logger().debug("Delayed start execution: tick will not be processed "
                                             f"(executing from {self._start_timestamp.isoformat(sep=' ')})")
         if isinstance(self._start_timestamp, time):
@@ -113,6 +115,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                     strategy.process_tick(timestamp)
                 else:
                     self._time_left = 0
+                    strategy.cancel_active_orders()
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp} "
                                             f"and {self._end_timestamp})")
