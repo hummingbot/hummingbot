@@ -191,8 +191,10 @@ class AltmarketsExchangeTests(TestCase):
         ]
         return open_orders
 
-    def _get_order_status_url(self):
+    def _get_order_status_url(self, with_id: bool = False):
         order_status_url = f"{Constants.REST_URL}/{Constants.ENDPOINT['ORDER_STATUS']}"
+        if with_id:
+            return re.compile(f"^{order_status_url[:-4]}[\\w]+".replace(".", r"\.").replace("?", r"\?"))
         return re.compile(f"^{order_status_url[:-4]}".replace(".", r"\.").replace("?", r"\?"))
 
     def _start_exchange_iterator(self):
@@ -722,6 +724,91 @@ class AltmarketsExchangeTests(TestCase):
         order_completed_events = self.buy_order_completed_logger.event_log
         order_failure_events = self.order_failure_logger.event_log
 
+        self.assertTrue(order.is_failure and order.is_done)
+        self.assertFalse(order.is_cancelled)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertEqual(0, len(order_completed_events))
+        self.assertEqual(1, len(order_failure_events))
+        self.assertEqual(order_id, order_failure_events[0].order_id)
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._sleep_time")
+    def test_update_order_status_no_exchange_id(self, mocked_api, sleep_time_mock):
+        sleep_time_mock.return_value = 0
+        exchange_order_id = "someId"
+        order_id = "HBOT-someId"
+        price = "46100.0000000000"
+        amount = "1.0000000000"
+
+        url = f"{Constants.REST_URL}/{Constants.ENDPOINT['USER_ORDERS']}"
+        regex_url = re.compile(f"^{url}$".replace(".", r"\.").replace("?", r"\?"))
+        open_resp = self.get_open_order_mock(exchange_order_id=exchange_order_id)
+        mocked_api.get(regex_url, body=json.dumps(open_resp))
+
+        resp = self.get_order_create_response_mock(exchange_order_id=None,
+                                                   amount=amount,
+                                                   price=price,
+                                                   executed="0")
+        mocked_api.get(self._get_order_status_url(with_id=True), body=json.dumps(resp))
+
+        self._start_exchange_iterator()
+        self.exchange.start_tracking_order(
+            order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(price),
+            amount=Decimal(amount),
+            order_type=OrderType.LIMIT,
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        self.exchange.stop_tracking_order(order_id)
+
+        self.assertEqual(exchange_order_id, order.exchange_order_id)
+
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._sleep_time")
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @aioresponses()
+    def test_update_order_status_no_exchange_id_failure(self, retry_sleep_time_mock, sleep_time_mock, mocked_api):
+        sleep_time_mock.return_value = 0
+        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+        order_id = "HBOT-someId"
+        price = "46100.0000000000"
+        amount = "1.0000000000"
+
+        url = f"{Constants.REST_URL}/{Constants.ENDPOINT['USER_ORDERS']}"
+        regex_url = re.compile(f"^{url}$".replace(".", r"\.").replace("?", r"\?"))
+
+        resp = self.get_order_create_response_mock(exchange_order_id=None,
+                                                   amount=amount,
+                                                   price=price,
+                                                   executed="0")
+        for x in range(4):
+            mocked_api.get(self._get_order_status_url(with_id=True), body=json.dumps(resp))
+            mocked_api.get(regex_url, body=json.dumps([]))
+
+        self._start_exchange_iterator()
+        self.exchange.start_tracking_order(
+            order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(price),
+            amount=Decimal(amount),
+            order_type=OrderType.LIMIT,
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        for x in range(4):
+            self.async_run_with_timeout(self.exchange._update_order_status())
+
+        order_completed_events = self.buy_order_completed_logger.event_log
+        order_failure_events = self.order_failure_logger.event_log
+
+        self.assertEqual(None, order.exchange_order_id)
         self.assertTrue(order.is_failure and order.is_done)
         self.assertFalse(order.is_cancelled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)

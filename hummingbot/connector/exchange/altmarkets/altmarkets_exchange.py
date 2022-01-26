@@ -63,6 +63,7 @@ class AltmarketsExchange(ExchangeBase):
     """
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
     ORDER_NOT_EXIST_CANCEL_COUNT = 2
+    ORDER_NOT_CREATED_ID_COUNT = 3
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -99,6 +100,7 @@ class AltmarketsExchange(ExchangeBase):
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, AltmarketsInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
+        self._order_not_created_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
@@ -159,6 +161,12 @@ class AltmarketsExchange(ExchangeBase):
             for key, value in self._in_flight_orders.items()
             if not value.is_done
         }
+
+    def _sleep_time(self, delay: int = 0):
+        """
+        Function created to enable patching during unit tests execution.
+        """
+        return delay
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -471,16 +479,19 @@ class AltmarketsExchange(ExchangeBase):
             if isinstance(e, AltmarketsAPIError):
                 error_reason = e.error_payload.get('error', {}).get('message', e.error_payload.get('errors'))
             else:
-                error_reason = str(e)
-            self.stop_tracking_order(order_id)
+                error_reason = e
+            if error_reason:
+                self.stop_tracking_order(order_id)
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+            else:
+                self._order_not_created_records[order_id] = 0
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
                 f"{amount} {trading_pair} {price} - {error_reason}.",
                 exc_info=True,
                 app_warning_msg=(f"Error submitting order to {Constants.EXCHANGE_NAME} - {error_reason}.")
             )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     def start_tracking_order(self,
                              order_id: str,
@@ -511,6 +522,8 @@ class AltmarketsExchange(ExchangeBase):
             del self._in_flight_orders[order_id]
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
+        if order_id in self._order_not_created_records:
+            del self._order_not_created_records[order_id]
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> CancellationResult:
         """
@@ -630,6 +643,25 @@ class AltmarketsExchange(ExchangeBase):
             tracked_order.last_state = "fail"
             self.stop_tracking_order(client_order_id)
 
+    async def _process_stuck_order(self, tracked_order):
+        order_id = tracked_order.client_order_id
+        open_orders = await self.get_open_orders()
+        matched_orders = [order for order in open_orders if str(order.client_order_id) == str(order_id)]
+
+        if len(matched_orders) == 1:
+            tracked_order.update_exchange_order_id(str(matched_orders[0].exchange_order_id))
+            del self._order_not_created_records[order_id]
+
+            return
+
+        self._order_not_created_records[order_id] = self._order_not_created_records.get(order_id, 0) + 1
+        if self._order_not_created_records[order_id] >= self.ORDER_NOT_CREATED_ID_COUNT:
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(
+                                   self.current_timestamp, order_id, tracked_order.order_type))
+            tracked_order.last_state = "fail"
+            self.stop_tracking_order(order_id)
+
     async def _update_order_status(self):
         """
         Calls REST API to get status update for each in-flight order.
@@ -642,8 +674,17 @@ class AltmarketsExchange(ExchangeBase):
             tasks = []
             for tracked_order in tracked_orders:
                 if tracked_order.exchange_order_id is None:
+                    # Try waiting for the ID once
                     try:
-                        async with timeout(6):
+                        async with timeout(self._sleep_time(5)):
+                            await tracked_order.get_exchange_order_id()
+                    except Exception:
+                        pass
+                    # Dispatch future to query open orders for the ID
+                    safe_ensure_future(self._process_stuck_order(tracked_order))
+                    # Try waiting for ID again, skip it for now if failed.
+                    try:
+                        async with timeout(self._sleep_time(8)):
                             await tracked_order.get_exchange_order_id()
                     except Exception:
                         continue
@@ -907,7 +948,6 @@ class AltmarketsExchange(ExchangeBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    # This is currently unused, but looks like a future addition.
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request("GET",
                                          Constants.ENDPOINT["USER_ORDERS"],
