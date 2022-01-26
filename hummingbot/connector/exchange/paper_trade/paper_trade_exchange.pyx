@@ -14,7 +14,6 @@ from typing import (
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
-
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
 
