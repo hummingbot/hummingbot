@@ -4,7 +4,7 @@ import aiohttp
 import ssl
 import json
 import pandas as pd
-from os import path
+from os import getenv
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
@@ -13,7 +13,7 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display
 )
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot import cert_path, root_path
+from hummingbot import cert_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -82,10 +82,12 @@ class GatewayCommand:
         self.app.change_prompt(prompt=">>> ")
 
     async def _create_gateway(self):
+        external_cert_path: str = getenv("CERTS_FOLDER")
+        external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
+        external_logs_path: str = getenv("LOGS_FOLDER")
+        if external_cert_path is None or external_gateway_conf_path is None or external_logs_path is None:
+            return
 
-        gateway_conf_path = path.join(root_path(), "gateway_conf")
-        certificate_path = cert_path()
-        log_path = path.join(root_path(), "logs")
         docker_repo = "coinalpha/hummingbot"
         gateway_container_name = "gateway-v2_container"
 
@@ -111,19 +113,35 @@ class GatewayCommand:
             return
         self._notify("Creating new Gateway docker container...")
         host_config = await self.docker_ipc(("create_host_config",
-                                             {"port_bindings": {5000: 5000},
-                                              "binds": {gateway_conf_path: {"bind": "/usr/src/app/conf/",
-                                                                            "mode": "rw"},
-                                                        certificate_path: {"bind": "/usr/src/app/certs/",
-                                                                           "mode": "rw"},
-                                                        log_path: {"bind": "/usr/src/app/logs/",
-                                                                           "mode": "rw"}}}))
+                                             {
+                                                 "port_bindings": {5000: 5000},
+                                                 "binds": {
+                                                     external_gateway_conf_path: {
+                                                         "bind": "/usr/src/app/conf/",
+                                                         "mode": "rw"
+                                                     },
+                                                     external_cert_path: {
+                                                         "bind": "/usr/src/app/certs/",
+                                                         "mode": "rw"
+                                                     },
+                                                     external_logs_path: {
+                                                         "bind": "/usr/src/app/logs/",
+                                                         "mode": "rw"
+                                                     },
+                                                 },
+                                             }))
         container_id = await self.docker_ipc(("create_container",
-                                              {"image": f"{docker_repo}:gateway-v2",
-                                               "name": gateway_container_name,
-                                               "ports": [5000],
-                                               "volumes": [gateway_conf_path, certificate_path, log_path],
-                                               "host_config": host_config}))
+                                              {
+                                                  "image": f"{docker_repo}:gateway-v2",
+                                                  "name": gateway_container_name,
+                                                  "ports": [5000],
+                                                  "volumes": [
+                                                      external_gateway_conf_path,
+                                                      external_cert_path,
+                                                      external_logs_path
+                                                  ],
+                                                  "host_config": host_config
+                                              }))
         self._notify(f"New Gateway docker container id is {container_id['Id']}.")
 
     async def pull_gateway_docker(self, docker_repo):
