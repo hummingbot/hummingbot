@@ -1,5 +1,4 @@
 import logging
-import time
 from decimal import Decimal
 from math import (
     ceil,
@@ -553,11 +552,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.creation_timestamp/1e6)),
-                                   unit='s').strftime('%H:%M:%S')
+            self.logger().info(f"\n>>>> creation timestamp {order.creation_timestamp}\n{order}")
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
 
             if is_hanging_order:
                 level_for_calculation = lvl_buy if order.is_buy else lvl_sell
@@ -1126,7 +1122,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             list active_orders = self.active_non_hanging_orders
 
-        if active_orders and any(order_age(o) > self._max_order_age for o in active_orders):
+        if active_orders and any(order_age(o, self._current_timestamp) > self._max_order_age for o in active_orders):
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
