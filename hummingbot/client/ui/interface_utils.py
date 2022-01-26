@@ -7,7 +7,8 @@ from decimal import Decimal
 from typing import (
     List,
     Set,
-    Tuple, Optional,
+    Tuple,
+    Optional,
 )
 
 from tabulate import tabulate
