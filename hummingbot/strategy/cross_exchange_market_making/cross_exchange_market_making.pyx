@@ -535,7 +535,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
-            object order_type = order_completed_event.order_type
 
         if market_pair is not None:
             if order_id in self._maker_order_ids:
@@ -570,7 +569,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
 
-        order_type = order_completed_event.order_type
         if market_pair is not None:
             if order_id in self._maker_order_ids:
                 limit_order_record = self._sb_order_tracker.c_get_limit_order(market_pair.maker, order_id)
