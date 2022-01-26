@@ -338,7 +338,7 @@ main_config_map = {
                   prompt="What tabulate formatting to apply to the tables? ",
                   type_str="str",
                   required_if=lambda: False,
-                  validator=lambda value: value in tabulate_formats,
+                  validator=lambda value: "Invalid format" if value not in tabulate_formats else None,
                   default="psql"),
 }
 
