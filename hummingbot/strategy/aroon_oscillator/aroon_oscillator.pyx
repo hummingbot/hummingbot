@@ -3,11 +3,7 @@ import logging
 import os.path
 from decimal import Decimal
 from math import ceil, floor
-from typing import (
-    List,
-    Dict,
-    Optional
-)
+from typing import  Dict, List, Optional
 
 import numpy as np
 import pandas as pd
