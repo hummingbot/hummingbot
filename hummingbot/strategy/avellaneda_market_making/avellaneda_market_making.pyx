@@ -469,11 +469,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price) / price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.creation_timestamp / 1e6)),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = self._order_amount
             if is_hanging_order:
                 amount_orig = float(order.quantity)
@@ -1209,7 +1206,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         cdef:
             list active_orders = self.active_non_hanging_orders
         for order in active_orders:
-            if order_age(order) > self._max_order_age:
+            if order_age(order, self._current_timestamp) > self._max_order_age:
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef c_cancel_active_orders(self, object proposal):
