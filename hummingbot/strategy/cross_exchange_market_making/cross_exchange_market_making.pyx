@@ -24,7 +24,6 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
 
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
@@ -486,7 +485,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_filled_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
-            object exchange = self._market_pair_tracker.c_get_exchange_from_order_id(order_id)
             tuple order_fill_record
 
         # Make sure to only hedge limit orders.
@@ -536,7 +534,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
-            object exchange = self._market_pair_tracker.c_get_exchange_from_order_id(order_id)
             LimitOrder limit_order_record
             object order_type = order_completed_event.order_type
 
@@ -571,7 +568,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
-            object exchange = self._market_pair_tracker.c_get_exchange_from_order_id(order_id)
             LimitOrder limit_order_record
 
         order_type = order_completed_event.order_type
@@ -661,7 +657,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase taker_market = market_pair.taker.market
             str taker_trading_pair = market_pair.taker.trading_pair
-            OrderBook taker_order_book = market_pair.taker.order_book
             list buy_fill_records = self._order_fill_buy_events.get(market_pair, [])
             list sell_fill_records = self._order_fill_sell_events.get(market_pair, [])
             object buy_fill_quantity = sum([fill_event.amount for _, fill_event in buy_fill_records])
@@ -874,8 +869,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str taker_trading_pair = market_pair.taker.trading_pair
             ExchangeBase maker_market = market_pair.maker.market
             ExchangeBase taker_market = market_pair.taker.market
-            OrderBook taker_order_book = market_pair.taker.order_book
-            OrderBook maker_order_book = market_pair.maker.order_book
             object top_bid_price = s_decimal_nan
             object top_ask_price = s_decimal_nan
             object next_price_below_top_ask = s_decimal_nan
