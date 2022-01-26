@@ -9,8 +9,7 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance import binance_utils
+from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -1493,3 +1492,54 @@ class BinanceExchangeTests(TestCase):
 
         self.assertEqual(Decimal("10000"), self.exchange.available_balances["COINALPHA"])
         self.assertEqual(Decimal("10500"), self.exchange.get_balance("COINALPHA"))
+
+    def test_restore_tracking_states_only_registers_open_orders(self):
+        orders = []
+        orders.append(InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.CANCELLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID3",
+            exchange_order_id="EOID3",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FAILED
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.exchange.restore_tracking_states(tracking_states)
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        self.assertNotIn("OID2", self.exchange.in_flight_orders)
+        self.assertNotIn("OID3", self.exchange.in_flight_orders)
+        self.assertNotIn("OID4", self.exchange.in_flight_orders)
