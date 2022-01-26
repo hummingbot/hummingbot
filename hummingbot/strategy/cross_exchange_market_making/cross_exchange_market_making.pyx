@@ -715,7 +715,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 sell_fill_quantity,
                 taker_market.c_get_available_balance(market_pair.taker.quote_asset) /
                 market_pair.taker.get_price_for_volume(True, sell_fill_quantity).result_price *
-                self._order_size_taker_balance_factor
+                self._order_size_taker_volume_factor
             )
             quantized_hedge_amount = taker_market.c_quantize_order_amount(taker_trading_pair, Decimal(hedged_order_quantity))
             taker_top = taker_market.c_get_price(taker_trading_pair, True)
@@ -837,7 +837,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             maker_balance = maker_market.c_get_available_balance(market_pair.maker.base_asset)
 
             taker_balance_in_quote = taker_market.c_get_available_balance(market_pair.taker.quote_asset) * \
-                self._order_size_taker_balance_factor
+                self._order_size_taker_volume_factor
 
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
