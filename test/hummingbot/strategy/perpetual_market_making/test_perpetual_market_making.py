@@ -711,9 +711,9 @@ class PerpetualMarketMakingTests(TestCase):
                            "\n    Total Balance     50000"
                            "\n    Available Balance 45000"
                            "\n\n  Orders:"
-                           "\n     Level Type  Price Spread Amount (Orig)  Amount (Adj) Age"
-                           "\n         1 sell    140 40.00%           100           100 n/a"
-                           "\n         1  buy     50 50.00%           100           100 n/a"
+                           "\n     Level Type  Price Spread Amount (Orig)  Amount (Adj)      Age"
+                           "\n         1 sell    140 40.00%           100           100 00:00:00"
+                           "\n         1  buy     50 50.00%           100           100 00:00:00"
                            "\n\n  No active positions.")
         status = self.strategy.format_status()
 
