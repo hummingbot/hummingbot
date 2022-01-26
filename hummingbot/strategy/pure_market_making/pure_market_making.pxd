@@ -50,6 +50,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         int _filled_buys_balance
         int _filled_sells_balance
         double _last_timestamp
+        double _last_order_level_warning_timestamp
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price

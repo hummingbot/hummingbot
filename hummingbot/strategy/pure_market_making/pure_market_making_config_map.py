@@ -15,6 +15,8 @@ from hummingbot.client.settings import (
 )
 from typing import Optional
 
+import decimal
+
 
 def maker_trading_pair_prompt():
     exchange = pure_market_making_config_map.get("exchange").value
@@ -99,13 +101,25 @@ def validate_price_type(value: str) -> Optional[str]:
     return error
 
 
-def on_validated_price_type(value: str):
+def on_validated_price_type(value: str) -> None:
     if value == 'inventory_cost':
         pure_market_making_config_map["inventory_price"].value = None
 
 
-def exchange_on_validated(value: str):
+def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
+
+
+def validate_order_level_spread(value: str) -> Optional[str]:
+    spread_list = list(value.split(","))
+    for spread in spread_list:
+        try:
+            spread_dec = Decimal(spread)
+        except decimal.InvalidOperation:
+            return "please enter a valid decimal number"
+        validate_result = validate_decimal(spread_dec, 0, 100, inclusive=False)
+        if validate_result is not None:
+            return validate_result
 
 
 pure_market_making_config_map = {
@@ -210,19 +224,28 @@ pure_market_making_config_map = {
     "bid_order_level_spread":
         ConfigVar(key="bid_order_level_spread",
                   prompt="Enter the price increments (as percentage) for subsequent bid "
-                         "orders? (Enter 1 to indicate 1%) >>> ",
+                         "orders? You may enter a single number 1 to indicate 1%"
+                         "for all price increment, 1%, 2%, 3%, 4% "
+                         "or you may enter a list of number 1,2,3,4 to represent 1%,3%,6%,10%"
+                         "order depth. The last number will be treated for subsequent order level"
+                         " if there is less number in the list then order level>>> ",
+
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
-                  default=Decimal("1")),
+                  type_str="str",
+                  validator=validate_order_level_spread,
+                  default="1"),
     "ask_order_level_spread":
         ConfigVar(key="ask_order_level_spread",
-                  prompt="Enter the price increments (as percentage) for subsequent "
-                         "ask orders? (Enter 1 to indicate 1%) >>> ",
+                  prompt="Enter the price increments (as percentage) for subsequent bid "
+                         "orders? You may enter a single number 1 to indicate 1%"
+                         "for all price increment, 1%, 2%, 3%, 4% "
+                         "or you may enter a list of number 1,2,3,4 to represent 1%,3%,6%,10%"
+                         "order depth. The last number will be treated for subsequent order level"
+                         " if there is less number in the list then order level>>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
-                  default=Decimal("1")),
+                  type_str="str",
+                  validator=validate_order_level_spread,
+                  default="1"),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",

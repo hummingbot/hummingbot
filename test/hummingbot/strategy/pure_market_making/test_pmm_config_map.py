@@ -8,7 +8,8 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
     validate_price_type,
     order_amount_prompt,
     maker_trading_pair_prompt,
-    validate_price_source_exchange
+    validate_price_source_exchange,
+    validate_order_level_spread
 )
 
 
@@ -116,3 +117,14 @@ class TestPMMConfigMap(unittest.TestCase):
                          'Price source exchange cannot be the same as maker exchange.')
         self.assertIsNone(validate_price_source_exchange(value='kucoin'))
         self.assertIsNone(validate_price_source_exchange(value='binance_perpetual'))
+
+    def test_validate_order_level_spread(self):
+        pmm_config_map["bid_order_level_spread"].value = "1"
+
+        error = validate_order_level_spread(value="1")
+        self.assertIsNone(error)
+        error = validate_order_level_spread(value="1,2")
+        self.assertIsNone(error)
+        error = validate_order_level_spread(value="asd")
+        expected = "please enter a valid decimal number"
+        self.assertEqual(expected, error)

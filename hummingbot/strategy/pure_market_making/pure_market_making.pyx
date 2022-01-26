@@ -66,8 +66,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     ask_spread: Decimal,
                     order_amount: Decimal,
                     order_levels: int = 1,
-                    bid_order_level_spread: Decimal = s_decimal_zero,
-                    ask_order_level_spread: Decimal = s_decimal_zero,
+                    bid_order_level_spread: List[Decimal] = None,
+                    ask_order_level_spread: List[Decimal] = None,
                     order_level_amount: Decimal = s_decimal_zero,
                     order_refresh_time: float = 30.0,
                     max_order_age: float = 1800.0,
@@ -109,8 +109,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_levels = order_levels
         self._buy_levels = order_levels
         self._sell_levels = order_levels
-        self._bid_order_level_spread = bid_order_level_spread
-        self._ask_order_level_spread = ask_order_level_spread
+        self._bid_order_level_spread = self.initialize_order_level_spread(bid_order_level_spread)
+        self._ask_order_level_spread = self.initialize_order_level_spread(ask_order_level_spread)
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
         self._max_order_age = max_order_age
@@ -150,8 +150,37 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
         self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
 
+        # deprecation warning for order level script user
+        self._last_order_level_warning_timestamp = 0
+        
         self.c_add_markets([market_info.market])
 
+    def initialize_order_level_spread(self, spread_list: List[Decimal]) -> List[Decimal]:
+        '''
+        convert to cumsum to remove the need to calculate each time it is used
+        if not enough element in list, append additional element based on last spread
+        '''
+
+        if spread_list is None:
+            spread_list = [s_decimal_zero]
+        if type(spread_list) is Decimal:
+            spread_list = [spread_list]
+        cum_list = [s_decimal_zero]
+        cum_sum = s_decimal_zero
+        for spread in spread_list:
+            cum_sum += spread
+            cum_list.append(cum_sum)
+
+        if len(cum_list) >= self._order_levels:
+            return cum_list
+
+        last_spread = spread_list[-1]
+        for i in range(len(cum_list), self._order_levels):
+            cum_sum += last_spread
+            cum_list.append(cum_sum)
+        return cum_list
+        
+            
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
 
@@ -234,20 +263,60 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_level_amount = value
 
     @property
-    def bid_order_level_spread(self) -> Decimal:
+    def order_level_spread(self) -> Decimal:
+        '''
+        This is only kept to prevent scripts from breaking and 
+        start warning about deprecation of this property for script users
+        bid_order_level_spread is used as the return
+        '''
+        current_tick = self._current_timestamp
+        last_tick = self._last_order_level_warning_timestamp
+        
+        if current_tick > last_tick:
+            self._last_order_level_warning_timestamp = current_tick + self._status_report_interval
+            self.log_with_clock(
+                logging.WARNING, 
+                "order_level_spread is deprecated. "
+                "Please use bid_order_level_spread and ask_order_level_spread. "
+                "Returning bid_order_level_spread")
+        return self._bid_order_level_spread[0]
+
+    @order_level_spread.setter
+    def order_level_spread(self, value: Decimal) -> None:
+        '''
+        Kept to prevent user script breaking
+        '''
+        current_tick = self._current_timestamp
+        last_tick = self._last_order_level_warning_timestamp
+        
+        if current_tick > last_tick:
+            self._last_order_level_warning_timestamp = current_tick + self._status_report_interval
+            self.log_with_clock(
+                logging.WARNING, 
+                "order_level_spread is deprecated. "
+                "Please use bid_order_level_spread and ask_order_level_spread. "
+                "Setting both ask_order_level_spread and bid_order_level_spread as [value]")
+
+            self.bid_order_level_spread = [value]
+            self.ask_order_level_spread = [value]
+
+    @property
+    def bid_order_level_spread(self) -> List[Decimal]:
         return self._bid_order_level_spread
 
     @bid_order_level_spread.setter
-    def bid_order_level_spread(self, value: Decimal):
-        self._bid_order_level_spread = value
-
+    def bid_order_level_spread(self, value: List[Decimal]):
+        if type(value) is Decimal:
+            value = [value]
+        self._bid_order_level_spread = self.initialize_order_level_spread(value)
+        
     @property
     def ask_order_level_spread(self) -> Decimal:
         return self._ask_order_level_spread
 
     @ask_order_level_spread.setter
     def ask_order_level_spread(self, value: Decimal):
-        self._ask_order_level_spread = value
+        self._ask_order_level_spread = self.initialize_order_level_spread(value)
 
     @property
     def inventory_skew_enabled(self) -> bool:
@@ -780,7 +849,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         else:
             if not buy_reference_price.is_nan():
                 for level in range(0, self._buy_levels):
-                    price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._bid_order_level_spread))
+                    price = buy_reference_price * (Decimal("1") - self._bid_spread - self._bid_order_level_spread[level])
                     price = market.c_quantize_order_price(self.trading_pair, price)
                     size = self._order_amount + (self._order_level_amount * level)
                     size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -788,7 +857,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         buys.append(PriceSize(price, size))
             if not sell_reference_price.is_nan():
                 for level in range(0, self._sell_levels):
-                    price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._ask_order_level_spread))
+                    price = sell_reference_price * (Decimal("1") + self._ask_spread + self._ask_order_level_spread[level])
                     price = market.c_quantize_order_price(self.trading_pair, price)
                     size = self._order_amount + (self._order_level_amount * level)
                     size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -975,7 +1044,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.buys = sorted(proposal.buys, key = lambda p: p.price, reverse = True)
             lower_buy_price = min(proposal.buys[0].price, price_above_bid)
             for i, proposed in enumerate(proposal.buys):
-                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.bid_order_level_spread * i)
+                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self._bid_order_level_spread[i])
 
         if len(proposal.sells) > 0:
             # Get the top ask price in the market using order_optimization_depth and your sell order volume
@@ -993,7 +1062,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.sells = sorted(proposal.sells, key = lambda p: p.price)
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
             for i, proposed in enumerate(proposal.sells):
-                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.ask_order_level_spread * i)
+                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self._ask_order_level_spread[i])
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:

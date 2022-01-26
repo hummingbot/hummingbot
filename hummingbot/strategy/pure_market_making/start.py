@@ -18,6 +18,11 @@ from decimal import Decimal
 
 
 def start(self):
+    def convert_order_level_spread_to_list(order_level_spread: str) -> List[Decimal]:
+        '''convert order level spread string into a list of decimal divided by 100 '''
+        order_level_spread_list = list(order_level_spread.split(","))
+        return [Decimal(v) / Decimal("100") for v in order_level_spread_list]
+
     try:
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
@@ -30,8 +35,11 @@ def start(self):
         ping_pong_enabled = c_map.get("ping_pong_enabled").value
         order_levels = c_map.get("order_levels").value
         order_level_amount = c_map.get("order_level_amount").value
-        bid_order_level_spread = c_map.get("bid_order_level_spread").value / Decimal('100')
-        ask_order_level_spread = c_map.get("ask_order_level_spread").value / Decimal('100')
+        bid_order_level_spread = convert_order_level_spread_to_list(
+            c_map.get("bid_order_level_spread").value)
+        ask_order_level_spread = convert_order_level_spread_to_list(
+            c_map.get("ask_order_level_spread").value)
+
         exchange = c_map.get("exchange").value.lower()
         raw_trading_pair = c_map.get("market").value
         inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
