@@ -1180,13 +1180,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         _, _, quote_rate, _, _, base_rate = self.get_taker_to_maker_conversion_rate()
         return quote_rate / base_rate
-        # else:
-        #     market_pairs = list(self._market_pairs.values())[0]
-        #     quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
-        #     base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
-        #     quote_rate = RateOracle.get_instance().rate(quote_pair)
-        #     base_rate = RateOracle.get_instance().rate(base_pair)
-        #     return quote_rate / base_rate
 
     cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask):
         """
