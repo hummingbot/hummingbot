@@ -480,7 +480,7 @@ class AltmarketsExchange(ExchangeBase):
                 error_reason = e.error_payload.get('error', {}).get('message', e.error_payload.get('errors'))
             else:
                 error_reason = e
-            if error_reason:
+            if error_reason and "upstream connect error" not in str(error_reason):
                 self.stop_tracking_order(order_id)
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
