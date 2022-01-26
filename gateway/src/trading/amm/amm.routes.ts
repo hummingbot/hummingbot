@@ -23,8 +23,6 @@ export namespace AmmRoutes {
       ) => {
         validatePriceRequest(req.body);
         res.status(200).json(await price(req.body));
-        // const chain = await getChain(req.body.chain, req.body.network);
-        // res.status(200).json(await nonce(chain, req.body));
       }
     )
   );
