@@ -241,8 +241,7 @@ class BinanceExchange(ExchangeBase):
         when it disconnects.
         :param saved_states: The saved tracking_states.
         """
-        for data in saved_states.values():
-            self._order_tracker.start_tracking_order(InFlightOrder.from_json(data))
+        self._order_tracker.restore_tracking_states(tracking_states=saved_states)
 
     def tick(self, timestamp: float):
         """

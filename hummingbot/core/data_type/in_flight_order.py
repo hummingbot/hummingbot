@@ -146,7 +146,11 @@ class InFlightOrder:
 
     @property
     def is_open(self) -> bool:
-        return self.current_state in {OrderState.PENDING_CREATE, OrderState.OPEN, OrderState.PARTIALLY_FILLED}
+        return self.current_state in {
+            OrderState.PENDING_CREATE,
+            OrderState.OPEN,
+            OrderState.PARTIALLY_FILLED,
+            OrderState.PENDING_CANCEL}
 
     @property
     def is_done(self) -> bool:

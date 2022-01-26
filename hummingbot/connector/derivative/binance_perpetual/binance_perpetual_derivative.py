@@ -15,14 +15,14 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource
 )
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import (
+    BinancePerpetualAuth
+)
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
     BinancePerpetualOrderBookTracker
 )
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
     BinancePerpetualUserStreamTracker
-)
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import (
-    BinancePerpetualAuth
 )
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
@@ -176,8 +176,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         Restore in-flight orders from saved tracking states; this is such that the connector can pick up
         on where it left off should it crash unexpectedly.
         """
-        for data in saved_states.values():
-            self._client_order_tracker.start_tracking_order(InFlightOrder.from_json(data))
+        self._client_order_tracker.restore_tracking_states(tracking_states=saved_states)
 
     def supported_order_types(self) -> List[OrderType]:
         """

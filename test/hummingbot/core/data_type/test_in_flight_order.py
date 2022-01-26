@@ -91,7 +91,10 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         # Simulate Order Cancellation request sent
         self._simulate_cancel_order_request_sent(order)
 
-        self.assertTrue(order.is_pending_cancel_confirmation and not order.is_open and not order.is_cancelled)
+        self.assertTrue(order.is_pending_cancel_confirmation
+                        and order.is_open
+                        and not order.is_cancelled
+                        and not order.is_done)
 
         # Simulate Order Cancelled
         self._simulate_order_cancelled(order)
