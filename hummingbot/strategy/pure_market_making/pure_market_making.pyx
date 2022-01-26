@@ -1,14 +1,7 @@
 import logging
 from decimal import Decimal
-from math import (
-    ceil,
-    floor,
-)
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from math import ceil, floor
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,18 +16,12 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
-from hummingbot.strategy.hanging_orders_tracker import (
-    CreatedPairOfOrders,
-    HangingOrdersTracker,
-)
+from hummingbot.strategy.hanging_orders_tracker import CreatedPairOfOrders, HangingOrdersTracker
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
-from .data_types import (
-    PriceSize,
-    Proposal,
-)
+from .data_types import PriceSize, Proposal
 from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
