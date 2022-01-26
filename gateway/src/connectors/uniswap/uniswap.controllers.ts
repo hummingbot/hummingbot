@@ -25,8 +25,11 @@ import {
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
-import { Ethereumish } from '../../services/ethereumish.interface';
-import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
+import {
+  Ethereumish,
+  ExpectedTrade,
+  Uniswapish,
+} from '../../services/common-interfaces';
 
 export async function price(
   ethereumish: Ethereumish,
