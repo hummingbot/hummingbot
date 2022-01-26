@@ -5,12 +5,7 @@ import math
 import random
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
+from typing import Dict, List, Optional, Tuple
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
