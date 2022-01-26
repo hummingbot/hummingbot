@@ -652,7 +652,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase taker_market = market_pair.taker.market
             str taker_trading_pair = market_pair.taker.trading_pair
-            OrderBook taker_order_book = market_pair.taker.order_book
             list buy_fill_records = self._order_fill_buy_events.get(market_pair, [])
             list sell_fill_records = self._order_fill_sell_events.get(market_pair, [])
             object buy_fill_quantity = sum([fill_event.amount for _, fill_event in buy_fill_records])
@@ -865,8 +864,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             str taker_trading_pair = market_pair.taker.trading_pair
             ExchangeBase maker_market = market_pair.maker.market
             ExchangeBase taker_market = market_pair.taker.market
-            OrderBook taker_order_book = market_pair.taker.order_book
-            OrderBook maker_order_book = market_pair.maker.order_book
             object top_bid_price = s_decimal_nan
             object top_ask_price = s_decimal_nan
             object next_price_below_top_ask = s_decimal_nan
