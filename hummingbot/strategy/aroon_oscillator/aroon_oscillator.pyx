@@ -1,7 +1,6 @@
 # distutils: language=c++
 import logging
 import os.path
-import time
 from decimal import Decimal
 from math import (
     ceil,
@@ -21,8 +20,7 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType
-from hummingbot.core.event.events import PriceType, TradeType
+from hummingbot.core.event.events import OrderType, PriceType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport \
@@ -598,11 +596,8 @@ cdef class AroonOscillatorStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - order.creation_timestamp/1e6),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
                 "hang" if order.client_order_id in self._hanging_order_ids else level,
@@ -1218,7 +1213,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             list sells = []
 
         for order in active_orders:
-            age = order_age(order)
+            age = order_age(order, self._current_timestamp)
 
             # To prevent duplicating orders due to delay in receiving cancel response
             refresh_check = [o for o in active_orders if o.price == order.price
