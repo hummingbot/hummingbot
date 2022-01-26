@@ -89,7 +89,7 @@ create_instance () {
  --mount "type=bind,source=$DATA_FOLDER,destination=/data/" \
  --mount "type=bind,source=$SCRIPTS_FOLDER,destination=/scripts/" \
  --mount "type=bind,source=$CERTS_FOLDER,destination=/certs/" \
- --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/gateway_conf/"
+ --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/gateway_conf/" \
  --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
  -e CONF_FOLDER="$CONF_FOLDER" \
  -e LOGS_FOLDER="$LOGS_FOLDER" \
