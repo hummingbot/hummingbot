@@ -16,9 +16,9 @@ import {
 } from '@uniswap/sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
-import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 export class Uniswap implements Uniswapish {
   private static _instances: { [name: string]: Uniswap };
   private ethereum: Ethereum;
