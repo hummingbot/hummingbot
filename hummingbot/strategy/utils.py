@@ -6,7 +6,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 
 def order_age(order: LimitOrder, current_time: Optional[float] = None) -> int:
     """
-    Get the age of a limit order in second, not applicable to paper trade orders
+    Get the age of a limit order in second.
     :param order: the order to calculate the age for
     :param current_time: the current time in seconds. If not specified the function will take the machine time
     :return: number of seconds since the order was created until the current time
