@@ -9,6 +9,8 @@ from typing import (
     Optional
 )
 
+import hummingbot.connector.exchange.binance.binance_constants as constants
+
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -43,6 +45,13 @@ class BinanceOrderBookTracker(OrderBookTracker):
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
 
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
+
+    @property
+    def exchange_name(self) -> str:
+        """
+        Name of the current exchange
+        """
+        return constants.EXCHANGE_NAME
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
