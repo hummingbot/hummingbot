@@ -1,0 +1,159 @@
+// Quasar SCSS (& Sass) Variables
+// --------------------------------------------------
+// To customize the look and feel of this app, you can override
+// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
+
+// Check documentation for full list of Quasar variables
+
+// Your own variables (that are declared here) and Quasar's own
+// ones will be available out of the box in your .vue/.scss/.sass files
+
+// It's highly recommended to change the default colors
+// to match your app's branding.
+// Tip: Use the "Theme Builder" on Quasar's documentation website.
+
+@use 'sass:map';
+
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600&display=swap');
+
+$colors: (
+  'main-green-1': #27c29d,
+  'main-green-2': #23ad8d,
+  'main-green-3': #1d8f75,
+  'main-green-4': #146654,
+  'main-green-5': #0c3d32,
+  'mono-black': #030b14,
+  'mono-orange': #f6c000,
+  'mono-grey-1': #1a2029,
+  'mono-grey-2': #2c323d,
+  'mono-grey-3': #525966,
+  'mono-grey-4': #7e848f,
+  'mono-grey-5': #bcc2cc,
+  'mono-grey-6': #e1e5eb,
+  'mono-white': #fcfdff,
+  'mono-blue': #2f91eb,
+  'green': #00cc6a,
+  'red': #ff5252,
+  'link': #2f91eb,
+);
+
+$primary: map.get($colors, 'mono-white');
+
+$input-text-color: map.get($colors, 'mono-white');
+$input-label-color: map.get($colors, 'mono-grey-2');
+$input-autofill-color: 'red';
+$dark: map.get($colors, 'mono-grey-2');
+$text-weights: (
+  regular: 400,
+  semibold: 600,
+);
+$button-font-size: 10px;
+$h2: (
+  size: 28px,
+  line-height: 1.5,
+  letter-spacing: 0.02em,
+  weight: 600,
+);
+$h3: (
+  size: 24px,
+  line-height: 1.5rem,
+  letter-spacing: 0.025em,
+  weight: 600,
+);
+$h4: (
+  size: 20px,
+  line-height: 1.5rem,
+  letter-spacing: 0.03125em,
+  weight: 600,
+);
+$h5: (
+  size: 18px,
+  line-height: 1.5rem,
+  letter-spacing: 0.03125em,
+  weight: 600,
+);
+$h6: (
+  size: 14px,
+  line-height: 1.5rem,
+  letter-spacing: 0.03125em,
+  weight: 600,
+);
+$body1: (
+  size: 14px,
+  line-height: 1.5rem,
+  letter-spacing: 0.03125em,
+  weight: 400,
+);
+$body2: (
+  size: 12px,
+  line-height: 1.25rem,
+  letter-spacing: 0.01786em,
+  weight: 400,
+);
+$caption: (
+  size: 10px,
+  line-height: 1.25rem,
+  letter-spacing: 0.03333em,
+  weight: 400,
+);
+
+body {
+  font-family: 'Work Sans', sans-serif !important;
+  background-color: map.get($colors, 'mono-black');
+  font-size: 12px;
+  color: map.get($colors, 'mono-grey-4');
+
+  @each $name, $color in $colors {
+    .bg-#{$name} {
+      background-color: $color;
+    }
+    .text-#{$name} {
+      color: $color;
+    }
+  }
+
+  .bg-transparent {
+    background-color: transparent;
+  }
+
+  .q-btn.disabled {
+    background-color: map.get($colors, 'mono-grey-2') !important;
+    color: map.get($colors, 'mono-grey-4') !important;
+  }
+
+  .text-underline {
+    text-decoration: underline;
+  }
+
+  .text-normal {
+    text-decoration: none;
+  }
+}
+
+/* Hide arrows in number field */
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+// Override quasar defaults
+
+.q-field__marginal {
+  height: 40px;
+}
+
+.q-field--auto-height .q-field__control,
+.q-field--auto-height .q-field__native {
+  min-height: 40px;
+}
+
+.q-item__section--avatar {
+  min-width: 0;
+}
