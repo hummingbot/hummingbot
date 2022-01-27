@@ -23,7 +23,6 @@ import {
   UniswapPriceResponse,
   UniswapTradeRequest,
   UniswapTradeResponse,
-  UniswapTradeErrorResponse,
 } from './uniswap.requests';
 import { Ethereumish } from '../../services/ethereumish.interface';
 import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
@@ -93,7 +92,7 @@ export async function trade(
   ethereumish: Ethereumish,
   uniswapish: Uniswapish,
   req: UniswapTradeRequest
-): Promise<UniswapTradeResponse | UniswapTradeErrorResponse> {
+): Promise<UniswapTradeResponse> {
   const initTime = Date.now();
 
   const { limitPrice, maxFeePerGas, maxPriorityFeePerGas } = req;
