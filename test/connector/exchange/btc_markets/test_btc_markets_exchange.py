@@ -137,10 +137,11 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
     def test_get_fee(self):
         limit_fee: AddedToCostTradeFee = self.ev_loop.run_until_complete(self.connector.get_fee(self.base_token, self.quote_token, OrderType.LIMIT, TradeType.BUY, 1, 1))
         self.ev_loop.run_until_complete(asyncio.sleep(2))
-        self.assertGreater(limit_fee, 0)
+        self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: AddedToCostTradeFee = self.connector.get_fee(self.base_token, self.quote_token, OrderType.MARKET, TradeType.BUY, 1)
-        self.assertGreater(market_fee, 0)
+        market_fee: AddedToCostTradeFee = self.ev_loop.run_until_complete(self.connector.get_fee(self.base_token, self.quote_token, OrderType.MARKET, TradeType.BUY, 1))
+        self.ev_loop.run_until_complete(asyncio.sleep(2))
+        self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_estimate_fee(self):
@@ -238,7 +239,8 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
 
         # check available quote balance gets updated, we need to wait a bit for the balance message to arrive
         expected_quote_bal = quote_bal - (price * amount)
-        self._mock_ws_bal_update(self.quote_token, expected_quote_bal)
+
+        # self._mock_ws_bal_update(self.quote_token, expected_quote_bal)
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token))
         self._cancel_order(cl_order_id)
@@ -257,13 +259,15 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
         self.assertEqual(cl_order_id, event.order_id)
 
     def _mock_ws_bal_update(self, token, available):
-        self.connector.get_balance(token)
+        if API_MOCK_ENABLED:
+            self.connector.get_balance(token)
         pass
 
     def test_limit_maker_rejections(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.001"))
+
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, None, None,
                                         fixture.WS_ORDER_CANCELLED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))

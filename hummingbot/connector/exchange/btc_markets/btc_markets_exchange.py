@@ -852,10 +852,10 @@ class BtcMarketsExchange(ExchangeBase):
                       amount: Decimal,
                       price: Decimal = s_decimal_NaN) -> AddedToCostTradeFee:
 
-        current_timestamp = self._current_timestamp
+        current_timestamp = btc_markets_utils.get_ms_timestamp()
         if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
             try:
-                res = await self._api_request("GET", f"{Constants.ACCOUNTS_URL}/me/trading-fees")
+                res = await self._api_request("GET", f"{Constants.ACCOUNTS_URL}/me/trading-fees", {}, True)
                 for fee in res["feeByMarkets"]:
                     self._trade_fees[fee["marketId"]] = (Decimal(fee["makerFeeRate"]), Decimal(fee["takerFeeRate"]))
                 self._last_update_trade_fees_timestamp = current_timestamp
