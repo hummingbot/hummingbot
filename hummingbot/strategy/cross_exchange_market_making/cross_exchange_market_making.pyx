@@ -872,8 +872,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object next_price_below_top_ask = s_decimal_nan
 
         top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
+        taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
 
         if is_bid:
+            # you are buying on the maker market and selling on the taker market
+            maker_price = taker_price / (1 + self._min_profitability)
+
             if not Decimal.is_nan(top_bid_price):
                 # Calculate the next price above top bid
                 price_quantum = maker_market.c_get_order_price_quantum(
@@ -881,11 +885,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     top_bid_price
                 )
                 price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
-
-            taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
-
-            # you are buying on the maker market and selling on the taker market
-            maker_price = taker_price / (1 + self._min_profitability)
 
             # # If your bid is higher than highest bid price, reduce it to one tick above the top bid price
             if self._adjust_orders_enabled:
@@ -903,6 +902,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             return maker_price
         else:
+            # You are selling on the maker market and buying on the taker market
+            maker_price = taker_price * (1 + self._min_profitability)
+
             if not Decimal.is_nan(top_ask_price):
                 # Calculate the next price below top ask
                 price_quantum = maker_market.c_get_order_price_quantum(
@@ -910,10 +912,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     top_ask_price
                 )
                 next_price_below_top_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
-
-            taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
-            # You are selling on the maker market and buying on the taker market
-            maker_price = taker_price * (1 + self._min_profitability)
 
             # If your ask is lower than the the top ask, increase it to just one tick below top ask
             if self._adjust_orders_enabled:
