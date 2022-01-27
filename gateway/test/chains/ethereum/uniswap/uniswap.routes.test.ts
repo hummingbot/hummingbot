@@ -143,18 +143,7 @@ const patchExecuteTrade = () => {
   });
 };
 
-// describe('GET /uniswap', () => {
-//   it('should return 200', async () => {
-//     patchInit();
-//     await request(app)
-//       .get(`/eth/uniswap`)
-//       .expect('Content-Type', /json/)
-//       .expect(200)
-//       .expect((res) => expect(res.body.connection).toBe(true));
-//   });
-// });
-
-describe('POST /trading/price', () => {
+describe('POST /amm/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
     patchInit();
@@ -167,7 +156,7 @@ describe('POST /trading/price', () => {
     patchExecuteTrade();
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -196,7 +185,7 @@ describe('POST /trading/price', () => {
     patchExecuteTrade();
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -220,7 +209,7 @@ describe('POST /trading/price', () => {
     patchGetTokenBySymbol();
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -242,7 +231,7 @@ describe('POST /trading/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -264,7 +253,7 @@ describe('POST /trading/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -286,7 +275,7 @@ describe('POST /trading/price', () => {
     patchGetTokenByAddress();
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -311,7 +300,7 @@ describe('POST /trading/price', () => {
     });
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -336,7 +325,7 @@ describe('POST /trading/price', () => {
     });
 
     await request(app)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -351,7 +340,7 @@ describe('POST /trading/price', () => {
   });
 });
 
-describe('POST /trading/trade', () => {
+describe('POST /amm/trade', () => {
   const patchForBuy = () => {
     patchGetWallet();
     patchInit();
@@ -366,7 +355,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY', async () => {
     patchForBuy();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -388,7 +377,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -406,7 +395,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForBuy();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -438,7 +427,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL', async () => {
     patchForSell();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -460,7 +449,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForSell();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -481,7 +470,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -501,7 +490,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -521,7 +510,7 @@ describe('POST /trading/trade', () => {
   it('should return 500 for BUY with price smaller than limitPrice', async () => {
     patchForBuy();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -541,7 +530,7 @@ describe('POST /trading/trade', () => {
   it('should return 500 for SELL with price smaller than limitPrice', async () => {
     patchForSell();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -561,7 +550,7 @@ describe('POST /trading/trade', () => {
   it('should return 404 when parameters are incorrect', async () => {
     patchInit();
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -586,7 +575,7 @@ describe('POST /trading/trade', () => {
     });
 
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',
@@ -615,7 +604,7 @@ describe('POST /trading/trade', () => {
     });
 
     await request(app)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'ethereum',
         network: 'kovan',

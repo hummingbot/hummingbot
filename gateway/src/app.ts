@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
@@ -16,6 +17,7 @@ import { SwaggerManager } from './services/swagger-manager';
 import { StatusRequest, StatusResponse } from './chains/chain.requests';
 import { getStatus } from './chains/chain.controllers';
 import { TradingRoutes } from './trading/trading.routes';
+import { AmmRoutes } from './amm/amm.routes';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -31,9 +33,8 @@ gatewayApp.use(express.urlencoded({ extended: true }));
 
 // mount sub routers
 gatewayApp.use('/trading', TradingRoutes.router);
+gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
-
-// mount sub routers
 gatewayApp.use('/solana', SolanaRoutes.router);
 
 // a simple route to test that the server is running
@@ -125,6 +126,7 @@ export const startSwagger = async () => {
     './docs/swagger/swagger.yml',
     './docs/swagger/definitions.yml',
     [
+      './docs/swagger/amm-routes.yml',
       './docs/swagger/main-routes.yml',
       './docs/swagger/trading-routes.yml',
       './docs/swagger/wallet-routes.yml',
