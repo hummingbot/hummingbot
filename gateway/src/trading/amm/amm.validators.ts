@@ -6,6 +6,13 @@ import {
   Validator,
 } from '../../services/validators';
 
+import {
+  validateNonce,
+  validateAddress,
+  validateMaxFeePerGas,
+  validateMaxPriorityFeePerGas,
+} from '../../chains/ethereum/ethereum.validators';
+
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
 export const invalidBaseError: string = 'The base param is not a string.';
@@ -55,4 +62,16 @@ export const validatePriceRequest: RequestValidator = mkRequestValidator([
   validateBase,
   validateAmount,
   validateSide,
+]);
+
+export const validateTradeRequest: RequestValidator = mkRequestValidator([
+  validateQuote,
+  validateBase,
+  validateAmount,
+  validateAddress,
+  validateSide,
+  validateLimitPrice,
+  validateNonce,
+  validateMaxFeePerGas,
+  validateMaxPriorityFeePerGas,
 ]);
