@@ -3,7 +3,7 @@ import { Express } from 'express-serve-static-core';
 import request from 'supertest';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
-import { TradingRoutes } from '../../../../src/trading/trading.routes';
+import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
 
 let app: Express;
@@ -17,7 +17,7 @@ beforeAll(async () => {
   await ethereum.init();
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
-  app.use('/trading', TradingRoutes.router);
+  app.use('/amm', AmmRoutes.router);
 });
 
 afterEach(() => {
