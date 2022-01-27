@@ -68,8 +68,6 @@ gatewayApp.post(
       req: Request<unknown, unknown, ConfigUpdateRequest>,
       res: Response
     ) => {
-      console.log('req.body.configPath ' + req.body.configPath);
-      console.log('req.body.configValue ' + req.body.configValue);
       const config = ConfigManagerV2.getInstance().get(req.body.configPath);
       if (typeof req.body.configValue == 'string')
         switch (typeof config) {
