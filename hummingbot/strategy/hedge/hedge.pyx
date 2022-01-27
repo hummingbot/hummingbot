@@ -103,7 +103,7 @@ cdef class HedgeStrategy(StrategyBase):
             object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair, quantized_order_amount)
 
         for o in active_orders:
-            order_age = order_age(0, self._current_timestamp)
+            order_age = order_age(o, self._current_timestamp)
             if isnan(order_age):
                 continue
             if self._max_order_age > 0 and order_age > self._max_order_age:
