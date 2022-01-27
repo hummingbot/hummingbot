@@ -1,19 +1,19 @@
+import unittest
 from decimal import Decimal
 from datetime import datetime
 from mock import MagicMock, PropertyMock
-import unittest
 
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderCancelledEvent,
 )
+from hummingbot.strategy.data_types import OrderType
 from hummingbot.strategy.hanging_orders_tracker import (
     CreatedPairOfOrders,
     HangingOrdersTracker,
 )
-from hummingbot.strategy.data_types import OrderType
-from hummingbot.core.data_type.limit_order import LimitOrder
 
 
 class TestHangingOrdersTracker(unittest.TestCase):
@@ -477,3 +477,14 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertNotIn(sell_order_1, self.tracker.original_orders)
         self.assertIn(sell_order_2, self.tracker.original_orders)
         self.assertNotIn(sell_order_3, self.tracker.original_orders)
+
+    def test_add_order_as_hanging_order(self):
+        order = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1))
+        self.tracker.add_as_hanging_order(order)
+
+        self.assertIn(order, self.tracker.original_orders)
+        self.assertEqual(1, len(self.tracker.strategy_current_hanging_orders))
+
+        hanging_order = next((hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders))
+
+        self.assertEqual(order.client_order_id, hanging_order.order_id)

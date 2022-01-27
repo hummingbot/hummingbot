@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Dict, List, Set, Tuple, Union, Optional
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -9,7 +9,8 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderCancelledEvent,
-    SellOrderCompletedEvent)
+    SellOrderCompletedEvent,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.data_types import HangingOrder
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -185,6 +186,10 @@ class HangingOrdersTracker:
 
     def add_order(self, order: LimitOrder):
         self.original_orders.add(order)
+
+    def add_as_hanging_order(self, order: LimitOrder):
+        self.strategy_current_hanging_orders.add(self._get_hanging_order_from_limit_order(order))
+        self.add_order(order)
 
     def remove_order(self, order: LimitOrder):
         if order in self.original_orders:
