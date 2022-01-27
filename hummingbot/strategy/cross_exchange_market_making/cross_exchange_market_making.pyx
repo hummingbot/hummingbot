@@ -380,6 +380,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if self._last_conv_rates_logged + (60. * 5) < self._current_timestamp:
                 self.log_conversion_rates()
                 self._last_conv_rates_logged = self._current_timestamp
+        except Exception as err:
+            self.log_with_clock(logging.ERROR, f"Unexpected error: {err}.", exc_info=True)
         finally:
             self._last_timestamp = timestamp
 
