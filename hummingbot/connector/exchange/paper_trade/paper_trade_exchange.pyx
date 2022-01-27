@@ -1,18 +1,20 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
-import asyncio
 import math
-import pandas as pd
 import random
 
 from collections import (
     deque, defaultdict
 )
+
+import asyncio
+import pandas as pd
+
 from cpython cimport PyObject
 from cython.operator cimport(
-    postincrement as inc,
+    address,
     dereference as deref,
-    address
+    postincrement as inc
 )
 from decimal import Decimal
 from libcpp cimport bool as cppbool
