@@ -11,7 +11,6 @@ class InstantVolatilityIndicator(BaseTrailingIndicator):
         # Otherwise if the asset is trending, changing the length of the buffer would result in a greater volatility as more ticks would be further away from the mean
         # which is a nonsense result. If volatility of the underlying doesn't change in fact, changing the length of the buffer shouldn't change the result.
         np_sampling_buffer = self._sampling_buffer.get_as_numpy_array()
-        # https://corporatefinanceinstitute.com/resources/knowledge/trading-investing/volatility-vol/
         vol = np.sqrt(np.sum(np.square(np.diff(np_sampling_buffer))) / np_sampling_buffer.size)
         return vol
 

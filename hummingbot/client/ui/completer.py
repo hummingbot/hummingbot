@@ -41,6 +41,7 @@ class HummingbotCompleter(Completer):
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
+        self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
@@ -121,6 +122,10 @@ class HummingbotCompleter(Completer):
     def _complete_spot_connectors(self, document: Document) -> bool:
         return "spot" in self.prompt_text
 
+    def _complete_trading_timeframe(self, document: Document) -> bool:
+        return any(x for x in ("trading timeframe", "execution timeframe")
+                   if x in self.prompt_text.lower())
+
     def _complete_export_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return "export" in text_before_cursor
@@ -194,6 +199,10 @@ class HummingbotCompleter(Completer):
             else:
                 for c in self._spot_exchange_completer.get_completions(document, complete_event):
                     yield c
+
+        elif self._complete_trading_timeframe(document):
+            for c in self._trading_timeframe_completer.get_completions(document, complete_event):
+                yield c
 
         elif self._complete_connect_options(document):
             for c in self._connect_option_completer.get_completions(document, complete_event):

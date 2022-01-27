@@ -1,41 +1,43 @@
 import asyncio
-from typing import (
-    List,
-    Any,
-)
 from decimal import Decimal
-import pandas as pd
 from os.path import join
-from sqlalchemy.orm import Session
-from hummingbot.client.settings import (
-    GLOBAL_CONFIG_PATH,
-    CONF_FILE_PATH,
+from typing import (
+    Any,
+    List,
+    TYPE_CHECKING,
 )
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_validators import validate_bool, validate_decimal
+
+import pandas as pd
+
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
-    save_to_yml
+    save_to_yml,
 )
-from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import (
+    CONF_FILE_PATH,
+    GLOBAL_CONFIG_PATH,
+)
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.utils import map_df_to_str
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.inventory_cost import InventoryCost
-from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategy
-)
-from hummingbot.strategy.perpetual_market_making import (
-    PerpetualMarketMakingStrategy
-)
+from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
+from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.user.user_balances import UserBalances
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.ui.style import load_style
 
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
-no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
+no_restart_pmm_keys = ["order_amount",
+                       "order_levels",
+                       "filled_order_delay",
+                       "inventory_skew_enabled",
+                       "inventory_range_multiplier"]
 global_configs_to_display = ["autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
@@ -281,12 +283,13 @@ class ConfigCommand:
                 self._notify("Inventory price not updated due to bad input")
                 return
 
-            session: Session = self.trade_fill_db.get_shared_session()
-            InventoryCost.add_volume(
-                session,
-                base_asset=base_asset,
-                quote_asset=quote_asset,
-                base_volume=balances[base_asset],
-                quote_volume=quote_volume,
-                overwrite=True,
-            )
+            with self.trade_fill_db.get_new_session() as session:
+                with session.begin():
+                    InventoryCost.add_volume(
+                        session,
+                        base_asset=base_asset,
+                        quote_asset=quote_asset,
+                        base_volume=balances[base_asset],
+                        quote_volume=quote_volume,
+                        overwrite=True,
+                    )

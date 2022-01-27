@@ -2,8 +2,10 @@
 source_pkgs = hummingbot
 omit =
         hummingbot/core/management/*
+        hummingbot/client/hummingbot_application.py
         hummingbot/client/command/*
         hummingbot/client/tab/*
+        hummingbot/client/ui/parser.py
         hummingbot/connector/connector/balancer*
         hummingbot/connector/connector/terra*
         hummingbot/connector/connector/uniswap*

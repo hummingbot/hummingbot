@@ -1,46 +1,46 @@
 import datetime
-from decimal import Decimal
 import logging
-from math import (
-    floor,
-    ceil,
-    isnan
-)
-import numpy as np
 import os
-import pandas as pd
 import time
+from decimal import Decimal
+from math import (
+    ceil,
+    floor,
+    isnan,
+)
 from typing import (
-    List,
     Dict,
+    List,
     Tuple,
 )
 
-from hummingbot.client.config.global_config_map import global_config_map
+import numpy as np
+import pandas as pd
+
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.events import OrderType
-
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
+    PriceSize,
     Proposal,
-    PriceSize)
+)
 from hummingbot.strategy.hanging_orders_tracker import (
     CreatedPairOfOrders,
-    HangingOrdersTracker)
+    HangingOrdersTracker,
+)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
-from hummingbot.core.utils import map_df_to_str
-
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -82,7 +82,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     hb_app_notification: bool = False,
                     risk_factor: Decimal = Decimal("0.5"),
                     order_amount_shape_factor: Decimal = Decimal("0.0"),
-                    closing_time: Decimal = Decimal("1"),
+                    execution_timeframe: str = "infinite",
+                    execution_state: ConditionalExecutionState = RunAlwaysExecutionState(),
+                    start_time: datetime.datetime = None,
+                    end_time: datetime.datetime = None,
                     min_spread: Decimal = Decimal("0"),
                     debug_csv_path: str = '',
                     volatility_buffer_size: int = 200,
@@ -129,8 +132,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._kappa = None
         self._gamma = risk_factor
         self._eta = order_amount_shape_factor
-        self._time_left = closing_time
-        self._closing_time = closing_time
+        self._execution_timeframe = execution_timeframe
+        self._execution_state = execution_state
+        self._start_time = start_time
+        self._end_time = end_time
         self._min_spread = min_spread
         self._latest_parameter_calculation_vol = s_decimal_zero
         self._reserved_price = s_decimal_zero
@@ -346,20 +351,28 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_bid = value
 
     @property
-    def time_left(self):
-        return self._time_left
+    def execution_timeframe(self):
+        return self._execution_timeframe
 
-    @time_left.setter
-    def time_left(self, value):
-        self._time_left = value
+    @execution_timeframe.setter
+    def execution_timeframe(self, value):
+        self._execution_timeframe = value
 
     @property
-    def closing_time(self):
-        return self._closing_time
+    def start_time(self) -> time:
+        return self._start_time
 
-    @closing_time.setter
-    def closing_time(self, value):
-        self._closing_time = value
+    @start_time.setter
+    def start_time(self, value):
+        self._start_time = value
+
+    @property
+    def end_time(self) -> time:
+        return self._end_time
+
+    @end_time.setter
+    def end_time(self, value):
+        self._end_time = value
 
     def get_price(self) -> float:
         return self.get_mid_price()
@@ -529,8 +542,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                           f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                           f"    order_book_intensity_factor(\u0391)= {self._alpha:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
-                          f"    volatility= {volatility_pct:.3f}%",
-                          f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+                          f"    volatility= {volatility_pct:.3f}%"])
+            if self._execution_state.time_left is not None:
+                lines.extend([f"    time until end of trading cycle = {str(datetime.timedelta(seconds=float(self._execution_state.time_left)//1e3))}"])
+            else:
+                lines.extend([f"    time until end of trading cycle = N/A"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -557,10 +573,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             for order_id in restored_order_ids:
                 order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
                 if order:
-                    self._hanging_orders_tracker.add_order(order)
-                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+                    self._hanging_orders_tracker.add_as_hanging_order(order)
 
-        self._time_left = self._closing_time
+        self._execution_state.time_left = self._execution_state.closing_time
 
     def start(self, clock: Clock, timestamp: float):
         self.c_start(clock, timestamp)
@@ -594,46 +609,58 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
-                proposal = None
                 if self._create_timestamp <= self._current_timestamp:
-                    # 1. Measure order book liquidity
+                    # Measure order book liquidity
                     self.c_measure_order_book_liquidity()
-                    # 2. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
-                    self.c_calculate_reserved_price_and_optimal_spread()
-                    # 3. Create base order proposals
-                    proposal = self.c_create_base_proposal()
-                    # 4. Apply functions that modify orders amount
-                    self.c_apply_order_amount_eta_transformation(proposal)
-                    # 5. Apply functions that modify orders price
-                    self.c_apply_order_price_modifiers(proposal)
-                    # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                    self.c_apply_budget_constraint(proposal)
 
                 self._hanging_orders_tracker.process_tick()
+
+                # Needs to be executed at all times to not to have active order leftovers after a trading session ends
                 self.c_cancel_active_orders_on_max_age_limit()
-                self.c_cancel_active_orders(proposal)
 
-                if self.c_to_create_orders(proposal):
-                    self.c_execute_orders_proposal(proposal)
+                # process_tick() is only called if within a trading timeframe
+                self._execution_state.process_tick(timestamp, self)
 
-                if self._is_debug:
-                    self.dump_debug_variables()
             else:
                 # Only if snapshots are different - for trading intensity - a market order happened
                 if self.c_is_algorithm_changed():
                     self._ticks_to_be_ready -= 1
                     if self._ticks_to_be_ready % 5 == 0:
-                        self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to start trading")
+                        self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to fill buffers")
                 else:
                     self.logger().info(f"Calculating volatility, estimating order book liquidity ... no change tick")
         finally:
             self._last_timestamp = timestamp
 
+    def process_tick(self, timestamp: float):
+        proposal = None
+        # Trading is allowed
+        if self._create_timestamp <= self._current_timestamp:
+            # 1. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
+            self.c_calculate_reserved_price_and_optimal_spread()
+            # 2. Check if calculated prices make sense
+            if self._optimal_bid > 0 and self._optimal_ask > 0:
+                # 3. Create base order proposals
+                proposal = self.c_create_base_proposal()
+                # 4. Apply functions that modify orders amount
+                self.c_apply_order_amount_eta_transformation(proposal)
+                # 5. Apply functions that modify orders price
+                self.c_apply_order_price_modifiers(proposal)
+                # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                self.c_apply_budget_constraint(proposal)
+
+                self.c_cancel_active_orders(proposal)
+
+        if self.c_to_create_orders(proposal):
+            self.c_execute_orders_proposal(proposal)
+
+        if self._is_debug:
+            self.dump_debug_variables()
+
     cdef c_collect_market_variables(self, double timestamp):
         market, trading_pair, base_asset, quote_asset = self._market_info
         self._last_sampling_timestamp = timestamp
 
-        self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
         price = self.get_price()
         snapshot = self.get_order_book_snapshot()
         self._avg_vol.add_sample(price)
@@ -642,10 +669,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
         inventory_in_base = quote_balance / price + base_balance
-        if self._time_left == 0:
-            # Re-cycle algorithm
-            self._time_left = self._closing_time
-            self.logger().info("Recycling algorithm time left and parameters if needed.")
 
     def collect_market_variables(self, timestamp: float):
         self.c_collect_market_variables(timestamp)
@@ -688,14 +711,18 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
 
-        time_left_fraction = Decimal(str(self._time_left / self._closing_time))
-
+        # Current mid price
         price = self.get_price()
 
         # The amount of stocks owned - q - has to be in relative units, not absolute, because changing the portfolio size shouldn't change the reserved price
         # The reserved price should concern itself only with the strategy performance, i.e. amount of stocks relative to the target
+        inventory = Decimal(str(self.c_calculate_inventory()))
+
+        if inventory == 0:
+            return
+
         q_target = Decimal(str(self.c_calculate_target_inventory()))
-        q = (market.get_balance(self.base_asset) - q_target) / (q_target)
+        q = (market.get_balance(self.base_asset) - q_target) / (inventory)
         # Volatility has to be in absolute values (prices) because in calculation of reserved price it's not multiplied by the current price, therefore
         # it can't be a percentage. The result of the multiplication has to be an absolute price value because it's being subtracted from the current price
         vol = self.get_volatility()
@@ -703,7 +730,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
         # and from the reserved price calculation we know that gamma's unit is not absolute price
-        if all((self._gamma, self._kappa)):
+        if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0 and vol != 0:
+            if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
+                # Avellaneda-Stoikov for a fixed timespan
+                time_left_fraction = Decimal(str(self._execution_state.time_left / self._execution_state.closing_time))
+            else:
+                # Avellaneda-Stoikov for an infinite timespan
+                # The equations in the paper for this contain a few mistakes
+                # - the units don't align with the rest of the paper
+                # - volatility cancells itself out completely
+                # - the risk factor gets partially cancelled
+                # The proposed solution is to use the same equation as for the constrained timespan but with
+                # a fixed time left
+                time_left_fraction = 1
+
             self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
             self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
@@ -758,6 +798,31 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def calculate_target_inventory(self) -> Decimal:
         return self.c_calculate_target_inventory()
 
+    cdef c_calculate_inventory(self):
+        cdef:
+            ExchangeBase market = self._market_info.market
+            str base_asset = self._market_info.base_asset
+            str quote_asset = self._market_info.quote_asset
+            object mid_price
+            object base_value
+            object inventory_value
+            object inventory_value_quote
+            object inventory_value_base
+
+        price = self.get_price()
+        base_asset_amount = market.get_balance(base_asset)
+        quote_asset_amount = market.get_balance(quote_asset)
+        # Base asset value in quote asset prices
+        base_value = base_asset_amount * price
+        # Total inventory value in quote asset prices
+        inventory_value_quote = base_value + quote_asset_amount
+        # Total inventory value in base asset prices
+        inventory_value_base = inventory_value_quote / price
+        return inventory_value_base
+
+    def calculate_inventory(self) -> Decimal:
+        return self.c_calculate_inventory()
+
     cdef bint c_is_algorithm_ready(self):
         return self._avg_vol.is_sampling_buffer_full and self._trading_intensity.is_sampling_buffer_full
 
@@ -770,7 +835,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def is_algorithm_changed(self) -> bool:
         return self.c_is_algorithm_changed()
 
-    def _get_level_spreads(self, ):
+    def _get_level_spreads(self):
         level_step = ((self._optimal_spread / 2) / 100) * self._level_distances
 
         bid_level_spreads = [i * level_step for i in range(self._order_levels)]
@@ -1013,7 +1078,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if (self._order_override is None) or (len(self._order_override) == 0):
             # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
             # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
-            q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
+
+            # q cannot be in absolute values - cannot be dependent on the size of the inventory or amount of base asset
+            # because it's a scaling factor
+            inventory = Decimal(str(self.c_calculate_inventory()))
+
+            if inventory == 0:
+                return
+
+            q_target = Decimal(str(self.c_calculate_target_inventory()))
+            q = (market.get_balance(self.base_asset) - q_target) / (inventory)
+
             if len(proposal.buys) > 0:
                 if q > 0:
                     for i, proposed in enumerate(proposal.buys):
@@ -1167,7 +1242,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         else:
             self.c_set_timers()
 
-    def cancel_active_orders(self, proposal: Proposal):
+    def cancel_active_orders(self, proposal: Proposal = None):
         return self.c_cancel_active_orders(proposal)
 
     cdef bint c_to_create_orders(self, object proposal):
@@ -1291,6 +1366,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                        'mid_price_variance',
                                        'inventory_target_pct')])
             df_header.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
+
+        if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
+            time_left_fraction = self._execution_state.time_left / self._execution_state.closing_time
+        else:
+            time_left_fraction = None
+
         df = pd.DataFrame([(mid_price,
                             best_bid,
                             best_ask,
@@ -1302,7 +1383,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                             ((self._reserved_price + self._optimal_spread / 2) - mid_price) / mid_price,
                             market.get_balance(self.base_asset),
                             self.c_calculate_target_inventory(),
-                            self._time_left / self._closing_time,
+                            time_left_fraction,
                             self._avg_vol.current_value,
                             self._gamma,
                             self._alpha,
