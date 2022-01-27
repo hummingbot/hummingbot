@@ -4,15 +4,15 @@ import {
   TradeRequest,
   TradeResponse,
 } from './amm.requests';
-import { Ethereum } from '../../chains/ethereum/ethereum';
-import { Avalanche } from '../../chains/avalanche/avalanche';
-import { Ethereumish } from '../../services/ethereumish.interface';
-import { Uniswap } from '../../connectors/uniswap/uniswap';
-import { Pangolin } from '../../connectors/pangolin/pangolin';
+import { Ethereum } from '../chains/ethereum/ethereum';
+import { Avalanche } from '../chains/avalanche/avalanche';
+import { Ethereumish } from '../services/ethereumish.interface';
+import { Uniswap } from '../connectors/uniswap/uniswap';
+import { Pangolin } from '../connectors/pangolin/pangolin';
 import {
   price as uniswapPrice,
   trade as uniswapTrade,
-} from '../../connectors/uniswap/uniswap.controllers';
+} from '../connectors/uniswap/uniswap.controllers';
 
 export async function getChain(
   chain: string,

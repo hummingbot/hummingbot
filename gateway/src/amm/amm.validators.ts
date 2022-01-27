@@ -4,14 +4,14 @@ import {
   mkRequestValidator,
   RequestValidator,
   Validator,
-} from '../../services/validators';
+} from '../services/validators';
 
 import {
   validateNonce,
   validateAddress,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
-} from '../../chains/ethereum/ethereum.validators';
+} from '../chains/ethereum/ethereum.validators';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
