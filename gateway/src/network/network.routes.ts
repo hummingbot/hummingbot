@@ -8,15 +8,33 @@ import {
   BalanceResponse,
   PollRequest,
   PollResponse,
+  StatusRequest,
+  StatusResponse,
 } from './network.requests';
 
 import {
   validateBalanceRequest,
   validatePollRequest,
 } from '../chains/ethereum/ethereum.validators';
+import { getStatus } from './network.controllers';
+import { ConfigManagerV2 } from '../services/config-manager-v2';
 
 export namespace NetworkRoutes {
   export const router = Router();
+
+  router.get(
+    '/status',
+    async (
+      req: Request<{}, {}, StatusRequest>,
+      res: Response<StatusResponse, {}>
+    ) => {
+      res.status(200).json(await getStatus(req.body));
+    }
+  );
+
+  router.get('/config', (_req: Request, res: Response<any, any>) => {
+    res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
+  });
 
   router.post(
     '/balances',

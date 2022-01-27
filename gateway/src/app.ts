@@ -13,9 +13,9 @@ import {
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
-import { StatusRequest, StatusResponse } from './chains/chain.requests';
-import { getStatus } from './chains/chain.controllers';
 import { TradingRoutes } from './trading/trading.routes';
+import { NetworkRoutes } from './network/network.routes';
+import { EVMRoutes } from './evm/evm.routes';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -30,6 +30,9 @@ gatewayApp.use(express.json());
 gatewayApp.use(express.urlencoded({ extended: true }));
 
 // mount sub routers
+gatewayApp.use('/network', NetworkRoutes.router);
+gatewayApp.use('/evm', EVMRoutes.router);
+
 gatewayApp.use('/trading', TradingRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 
@@ -39,20 +42,6 @@ gatewayApp.use('/solana', SolanaRoutes.router);
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
-});
-
-gatewayApp.get(
-  '/status',
-  async (
-    req: Request<{}, {}, StatusRequest>,
-    res: Response<StatusResponse, {}>
-  ) => {
-    res.status(200).json(await getStatus(req.body));
-  }
-);
-
-gatewayApp.get('/config', (_req: Request, res: Response<any, any>) => {
-  res.status(200).json(ConfigManagerV2.getInstance().allConfigurations);
 });
 
 interface ConfigUpdateRequest {
