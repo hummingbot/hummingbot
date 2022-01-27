@@ -1,7 +1,7 @@
 import random
 import string
 import time
-from typing import Tuple
+from typing import Optional, Tuple
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -19,11 +19,11 @@ HBOT_BROKER_ID = "HMBot"
 
 
 def get_rest_url_private(account_id: int) -> str:
-    return f"https://ascendex.com/{account_id}/api/pro/v1"
+    return f"https://ascendex.com/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
 
 
 def get_ws_url_private(account_id: int) -> str:
-    return f"wss://ascendex.com/{account_id}/api/pro/v1"
+    return f"wss://ascendex.com:443/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
@@ -65,14 +65,14 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
 
 
-def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]:
+def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optional[int] = None) -> Tuple[str, int]:
     """
     Generates the exchange order id based on user uid and client order id.
     :param user_uid: user uid,
     :param client_order_id: client order id used for local order tracking
     :return: order id of length 32
     """
-    time = get_ms_timestamp()
+    time = timestamp or get_ms_timestamp()
     return [
         derive_order_id(
             userUid,

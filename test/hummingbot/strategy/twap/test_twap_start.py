@@ -1,5 +1,5 @@
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
 
 import hummingbot.strategy.twap.start as twap_start_module
 import hummingbot.strategy.twap.twap_config_map as twap_config_map_module

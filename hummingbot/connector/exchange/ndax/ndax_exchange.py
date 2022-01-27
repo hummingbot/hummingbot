@@ -40,9 +40,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -845,6 +845,9 @@ class NdaxExchange(ExchangeBase):
         for order_status in parsed_status_responses:
             self._process_order_event_message(order_status)
 
+    def _reset_poll_notifier(self):
+        self._poll_notifier = asyncio.Event()
+
     async def _status_polling_loop(self):
         """
         Periodically update user balances and order status via REST API. This serves as a fallback measure for web
@@ -852,7 +855,7 @@ class NdaxExchange(ExchangeBase):
         """
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
+                self._reset_poll_notifier()
                 await self._poll_notifier.wait()
                 start_ts = self.current_timestamp
                 await safe_gather(
@@ -892,14 +895,15 @@ class NdaxExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

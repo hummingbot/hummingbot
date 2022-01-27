@@ -5,11 +5,11 @@ from typing import (
     Optional,
 )
 
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 cdef class LiquidInFlightOrder(InFlightOrderBase):
@@ -32,6 +32,7 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
+        self.trade_id_set = set()
 
     @property
     def is_done(self) -> bool:
@@ -61,20 +62,29 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
         :param data: json data from API
         :return: formatted InFlightOrder
         """
-        cdef:
-            LiquidInFlightOrder retval = LiquidInFlightOrder(
-                data["client_order_id"],
-                data["exchange_order_id"],
-                data["trading_pair"],
-                getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["trade_type"]),
-                Decimal(data["price"]),
-                Decimal(data["amount"]),
-                data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
+        return cls._basic_from_json(data)
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_update: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        update_id = trade_update["updated_at"]
+        total_filled_amount = Decimal(str(trade_update["filled_quantity"]))
+
+        if update_id in self.trade_id_set or total_filled_amount <= self.executed_amount_base:
+            return False
+
+        self.trade_id_set.add(update_id)
+        trade_amount = total_filled_amount - self.executed_amount_base
+        trade_price = Decimal(str(trade_update["price"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+        # According to Liquid support team they inform fee in a cumulative way
+        self.fee_paid = Decimal(str(trade_update["order_fee"]))
+        self.fee_asset = trade_update["funding_currency"]
+
+        return True

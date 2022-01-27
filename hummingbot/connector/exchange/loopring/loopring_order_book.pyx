@@ -1,23 +1,21 @@
-#!/usr/bin/env python
-
-from aiokafka import ConsumerRecord
 import logging
-from sqlalchemy.engine import RowProxy
 from typing import (
     Dict,
     List,
     Optional,
 )
+
 import ujson
+from aiokafka import ConsumerRecord
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
+from hummingbot.core.event.events import TradeType
 
 _dob_logger = None
 
@@ -61,15 +59,6 @@ cdef class LoopringOrderBook(OrderBook):
         }, timestamp=ts * 1e-3)
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return LoopringOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        return LoopringOrderBookMessage(OrderBookMessageType.DIFF, record.json)
-
-    @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode())
         return LoopringOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
@@ -78,10 +67,6 @@ cdef class LoopringOrderBook(OrderBook):
     def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode())
         return LoopringOrderBookMessage(OrderBookMessageType.DIFF, msg)
-
-    @classmethod
-    def trade_receive_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        return LoopringOrderBookMessage(OrderBookMessageType.TRADE, record.json)
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
