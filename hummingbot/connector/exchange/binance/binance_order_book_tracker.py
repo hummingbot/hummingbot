@@ -59,6 +59,13 @@ class BinanceOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
+    @property
+    def exchange_name(self) -> str:
+        if self._domain == "com":
+            return "binance"
+        else:
+            return f"binance_{self._domain}"
+
     def start(self):
         """
         Starts the background task that connects to the exchange and listens to order book updates and trade events.
