@@ -19,19 +19,19 @@ import {
   stringWithDecimalToBigNumber,
 } from '../../services/base';
 import {
-  UniswapPriceRequest,
-  UniswapPriceResponse,
-  UniswapTradeRequest,
-  UniswapTradeResponse,
-} from './uniswap.requests';
+  PriceRequest,
+  PriceResponse,
+  TradeRequest,
+  TradeResponse,
+} from '../../amm/amm.requests';
 import { Ethereumish } from '../../services/ethereumish.interface';
 import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
 
 export async function price(
   ethereumish: Ethereumish,
   uniswapish: Uniswapish,
-  req: UniswapPriceRequest
-): Promise<UniswapPriceResponse> {
+  req: PriceRequest
+): Promise<PriceResponse> {
   const initTime = Date.now();
 
   const amount = getAmount(
@@ -91,8 +91,8 @@ export async function price(
 export async function trade(
   ethereumish: Ethereumish,
   uniswapish: Uniswapish,
-  req: UniswapTradeRequest
-): Promise<UniswapTradeResponse> {
+  req: TradeRequest
+): Promise<TradeResponse> {
   const initTime = Date.now();
 
   const { limitPrice, maxFeePerGas, maxPriorityFeePerGas } = req;

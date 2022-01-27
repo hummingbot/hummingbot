@@ -23,11 +23,6 @@ import {
   NonceResponse,
   PollRequest,
   PollResponse,
-  PriceRequest,
-  PriceResponse,
-  TradeErrorResponse,
-  TradeRequest,
-  TradeResponse,
 } from './trading.requests';
 
 import {
@@ -40,13 +35,6 @@ import {
 } from '../chains/ethereum/ethereum.validators';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
-import { price, trade } from '../connectors/uniswap/uniswap.controllers';
-import { Uniswap } from '../connectors/uniswap/uniswap';
-import { Pangolin } from '../connectors/pangolin/pangolin';
-import {
-  validatePriceRequest,
-  validateTradeRequest,
-} from '../connectors/uniswap/uniswap.validators';
 import { Ethereumish } from '../services/ethereumish.interface';
 
 export namespace TradingRoutes {
@@ -62,23 +50,6 @@ export namespace TradingRoutes {
       await chainInstance.init();
     }
     return chainInstance;
-  }
-
-  async function getConnector(
-    chain: string,
-    network: string,
-    connector: string
-  ) {
-    let connectorInstance: any;
-    if (chain === 'ethereum' && connector === 'uniswap')
-      connectorInstance = Uniswap.getInstance(chain, network);
-    else if (chain === 'avalanche' && connector === 'pangolin')
-      connectorInstance = Pangolin.getInstance(chain, network);
-    else throw new Error('unsupported chain or connector');
-    if (!connectorInstance.ready()) {
-      await connectorInstance.init();
-    }
-    return connectorInstance;
   }
 
   router.post(
@@ -139,25 +110,6 @@ export namespace TradingRoutes {
   );
 
   router.post(
-    '/price',
-    asyncHandler(
-      async (
-        req: Request<unknown, unknown, PriceRequest>,
-        res: Response<PriceResponse, any>
-      ) => {
-        validatePriceRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
-        const connector = await getConnector(
-          req.body.chain,
-          req.body.network,
-          req.body.connector || ''
-        );
-        res.status(200).json(await price(chain, connector, req.body));
-      }
-    )
-  );
-
-  router.post(
     '/poll',
     asyncHandler(
       async (
@@ -181,25 +133,6 @@ export namespace TradingRoutes {
         validateCancelRequest(req.body);
         const chain = await getChain(req.body.chain, req.body.network);
         res.status(200).json(await cancel(chain, req.body));
-      }
-    )
-  );
-
-  router.post(
-    '/trade',
-    asyncHandler(
-      async (
-        req: Request<unknown, unknown, TradeRequest>,
-        res: Response<TradeResponse | TradeErrorResponse, any>
-      ) => {
-        validateTradeRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
-        const connector = await getConnector(
-          req.body.chain,
-          req.body.network,
-          req.body.connector || ''
-        );
-        res.status(200).json(await trade(chain, connector, req.body));
       }
     )
   );
