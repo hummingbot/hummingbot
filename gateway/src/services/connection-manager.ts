@@ -2,7 +2,7 @@ import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Ethereumish } from './ethereumish.interface';
+import { Ethereumish } from './common-interfaces';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;

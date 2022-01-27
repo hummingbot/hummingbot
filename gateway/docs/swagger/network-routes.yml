@@ -1,8 +1,8 @@
 paths:
-  /trading/trade:
+  /trading/balances:
     post:
-      summary: 'Perform a trade'
-      operationId: 'trade'
+      summary: 'Get the balances of a private key'
+      operationId: 'balances'
       consumes:
         - 'application/json'
       produces:
@@ -12,15 +12,15 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/TradeRequest'
+            $ref: '#/definitions/BalancesRequest'
       responses:
         '200':
           schema:
-            $ref: '#/definitions/TradeResponse'
+            $ref: '#/definitions/BalancesResponse'
 
-  /trading/price:
+  /trading/poll:
     post:
-      summary: 'Get the price for a quote base pair'
+      summary: 'Poll the status of a transaction'
       operationId: 'poll'
       consumes:
         - 'application/json'
@@ -31,8 +31,15 @@ paths:
           name: 'body'
           required: true
           schema:
-            $ref: '#/definitions/PriceRequest'
+            $ref: '#/definitions/PollRequest'
       responses:
         '200':
           schema:
-            $ref: '#/definitions/PriceResponse'
+            $ref: '#/definitions/PollResponse'
+  /status:
+    get:
+      summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses:
+        '200'

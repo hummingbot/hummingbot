@@ -5,7 +5,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
-import { Ethereumish } from '../../services/ethereumish.interface';
+import { Ethereumish } from '../../services/common-interfaces';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };

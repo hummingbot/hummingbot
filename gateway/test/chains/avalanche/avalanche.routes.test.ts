@@ -82,13 +82,13 @@ const patchGetERC20Balance = () => {
   patch(avalanche, 'getERC20Balance', () => ({ value: 1, decimals: 3 }));
 };
 
-describe('POST /trading/nonce', () => {
+describe('POST /evm/nonce', () => {
   it('should return 200', async () => {
     patchGetWallet();
     patchGetNonce();
 
     await request(gatewayApp)
-      .post(`/trading/nonce`)
+      .post(`/evm/nonce`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -102,7 +102,7 @@ describe('POST /trading/nonce', () => {
 
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
-      .post(`/trading/nonce`)
+      .post(`/evm/nonce`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -112,7 +112,7 @@ describe('POST /trading/nonce', () => {
   });
 });
 
-describe('POST /trading/approve', () => {
+describe('POST /evm/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
     avalanche.getContract = jest.fn().mockReturnValue({
@@ -123,7 +123,7 @@ describe('POST /trading/approve', () => {
     patchApproveERC20();
 
     await request(gatewayApp)
-      .post(`/trading/approve`)
+      .post(`/evm/approve`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -141,7 +141,7 @@ describe('POST /trading/approve', () => {
 
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
-      .post(`/trading/approve`)
+      .post(`/evm/approve`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -154,7 +154,7 @@ describe('POST /trading/approve', () => {
   });
 });
 
-describe('POST /trading/allowances', () => {
+describe('POST /evm/allowances', () => {
   it('should return 200 asking for allowances', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
@@ -166,7 +166,7 @@ describe('POST /trading/allowances', () => {
     patchGetERC20Allowance();
 
     await request(gatewayApp)
-      .post(`/trading/allowances`)
+      .post(`/evm/allowances`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -183,7 +183,7 @@ describe('POST /trading/allowances', () => {
   });
 });
 
-describe('POST /trading/balances', () => {
+describe('POST /network/balances', () => {
   it('should return 200 asking for supported tokens', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
@@ -194,7 +194,7 @@ describe('POST /trading/balances', () => {
     });
 
     await request(gatewayApp)
-      .post(`/trading/balances`)
+      .post(`/network/balances`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -209,7 +209,7 @@ describe('POST /trading/balances', () => {
   });
 });
 
-describe('POST /trading/cancel', () => {
+describe('POST /evm/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     avalanche.getWallet = jest.fn().mockReturnValue({
@@ -221,7 +221,7 @@ describe('POST /trading/cancel', () => {
     });
 
     await request(gatewayApp)
-      .post(`/trading/cancel`)
+      .post(`/evm/cancel`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -240,7 +240,7 @@ describe('POST /trading/cancel', () => {
 
   it('should return 404 when parameters are invalid', async () => {
     await request(gatewayApp)
-      .post(`/trading/cancel`)
+      .post(`/evm/cancel`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -251,7 +251,7 @@ describe('POST /trading/cancel', () => {
   });
 });
 
-describe('POST /trading/poll', () => {
+describe('POST /network/poll', () => {
   it('should get a NETWORK_ERROR_CODE when the network is unavailable', async () => {
     patch(avalanche, 'getCurrentBlockNumber', () => {
       const error: any = new Error('something went wrong');
@@ -259,7 +259,7 @@ describe('POST /trading/poll', () => {
       throw error;
     });
 
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -276,7 +276,7 @@ describe('POST /trading/poll', () => {
       throw new Error();
     });
 
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -291,7 +291,7 @@ describe('POST /trading/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => transactionOutOfGas);
     patch(avalanche, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -307,7 +307,7 @@ describe('POST /trading/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => transactionOutOfGas);
     patch(avalanche, 'getTransactionReceipt', () => null);
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -322,7 +322,7 @@ describe('POST /trading/poll', () => {
     patch(avalanche, 'getCurrentBlockNumber', () => 1);
     patch(avalanche, 'getTransaction', () => null);
     patch(avalanche, 'getTransactionReceipt', () => null);
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -341,7 +341,7 @@ describe('POST /trading/poll', () => {
       'getTransactionReceipt',
       () => transactionSuccesfulReceipt
     );
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
@@ -358,7 +358,7 @@ describe('POST /trading/poll', () => {
       error.code = -32006;
       throw error;
     });
-    const res = await request(gatewayApp).post('/trading/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       chain: 'avalanche',
       network: 'fuji',
       txHash:
