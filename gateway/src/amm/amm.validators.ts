@@ -13,6 +13,13 @@ import {
   validateMaxPriorityFeePerGas,
 } from '../chains/ethereum/ethereum.validators';
 
+export const invalidConnectorError: string =
+  'The connector param is not a string.';
+
+export const invalidChainError: string = 'The chain param is not a string.';
+
+export const invalidNetworkError: string = 'The network param is not a string.';
+
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
 export const invalidBaseError: string = 'The base param is not a string.';
@@ -25,6 +32,24 @@ export const invalidSideError: string =
 
 export const invalidLimitPriceError: string =
   'The limitPrice param may be null or a string of a float or integer number.';
+
+export const validateConnector: Validator = mkValidator(
+  'connector',
+  invalidConnectorError,
+  (val) => typeof val === 'string'
+);
+
+export const validateChain: Validator = mkValidator(
+  'chain',
+  invalidChainError,
+  (val) => typeof val === 'string'
+);
+
+export const validateNetwork: Validator = mkValidator(
+  'network',
+  invalidNetworkError,
+  (val) => typeof val === 'string'
+);
 
 export const validateQuote: Validator = mkValidator(
   'quote',
@@ -58,6 +83,9 @@ export const validateLimitPrice: Validator = mkValidator(
 );
 
 export const validatePriceRequest: RequestValidator = mkRequestValidator([
+  validateConnector,
+  validateChain,
+  validateNetwork,
   validateQuote,
   validateBase,
   validateAmount,
@@ -65,6 +93,9 @@ export const validatePriceRequest: RequestValidator = mkRequestValidator([
 ]);
 
 export const validateTradeRequest: RequestValidator = mkRequestValidator([
+  validateConnector,
+  validateChain,
+  validateNetwork,
   validateQuote,
   validateBase,
   validateAmount,

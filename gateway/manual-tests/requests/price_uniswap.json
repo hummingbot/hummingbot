@@ -1,7 +1,7 @@
 {
   "connector": "uniswap",
   "chain": "ethereum",
-  "network": "ropsten",
+  "network": "kovan",
   "quote": "WETH",
   "base": "DAI",
   "amount": "1000000000000000000",
