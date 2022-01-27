@@ -1,9 +1,9 @@
 {
   "name": "strategy-builder-gui",
   "version": "0.0.1",
-  "description": "A Quasar Framework app",
-  "productName": "Quasar App",
-  "author": "Mike <unclethord@gmail.com>",
+  "description": "Strategy Builder UI provides an easy to use interface to create hummingbot strategies that can be used to run hummingbot",
+  "productName": "Hummingbot Strategy Builder",
+  "author": "Autonio <contact@autonio.foundation (http://contact@autonio.foundation/)>",
   "private": true,
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",

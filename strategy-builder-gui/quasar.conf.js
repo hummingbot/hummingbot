@@ -145,9 +145,9 @@ module.exports = configure(function (ctx) {
       },
 
       manifest: {
-        name: 'Quasar App',
-        short_name: 'Quasar App',
-        description: 'A Quasar Framework app',
+        name: 'Hummingbot Strategy Builder',
+        short_name: 'Hummingbot Strategy Builder',
+        description: 'Strategy Builder UI provides an easy to use interface to create hummingbot strategies that can be used to run hummingbot',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
