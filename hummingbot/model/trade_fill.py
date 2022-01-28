@@ -58,10 +58,10 @@ class TradeFill(HummingbotBase):
 
     def __repr__(self) -> str:
         return f"TradeFill(config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
-            f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
-            f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
-            f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, amount={self.amount}, " \
-            f"leverage={self.leverage}, trade_fee={self.trade_fee}, exchange_trade_id={self.exchange_trade_id}, position={self.position})"
+               f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
+               f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
+               f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, amount={self.amount}, " \
+               f"leverage={self.leverage}, trade_fee={self.trade_fee}, exchange_trade_id={self.exchange_trade_id}, position={self.position})"
 
     @staticmethod
     def get_trades(sql_session: Session,
@@ -121,7 +121,8 @@ class TradeFill(HummingbotBase):
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             age = "n/a"
             if "//" not in trade.order_id:
-                age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
+                age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime(
+                    '%H:%M:%S')
             data.append([
                 trade.exchange_trade_id,
                 datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
@@ -156,3 +157,24 @@ class TradeFill(HummingbotBase):
                 "trade_fee": trade_fill.trade_fee,
             }
         }
+
+    @staticmethod
+    def attribute_names_for_file_export():
+
+        return [
+            "exchange_trade_id",  # Keep the key attribute first in the list
+            "config_file_path",
+            "strategy",
+            "market",
+            "symbol",
+            "base_asset",
+            "quote_asset",
+            "timestamp",
+            "order_id",
+            "trade_type",
+            "order_type",
+            "price",
+            "amount",
+            "leverage",
+            "trade_fee",
+            "position", ]
