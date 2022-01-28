@@ -4,15 +4,13 @@ paths:
       summary: 'Ping the server to see that it is running'
       produces:
         - 'application/json'
-      responses:
-        '200'
+      responses: '200'
   /config:
     get:
       summary: 'Get every gateway configuration option'
       produces:
         - 'application/json'
-      responses:
-        '200'
+      responses: '200'
   /config/update:
     post:
       summary: 'Updates Gateway configuration'
@@ -25,5 +23,4 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/ConfigUpdateRequest'
-      responses:
-        '200'
+      responses: '200'
