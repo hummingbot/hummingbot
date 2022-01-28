@@ -282,4 +282,4 @@ info-label: "#5FD7FF"
 error-label: "#FF0000"
 
 # tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
-tables-format: 'psql'
+tables_format: 'psql'
