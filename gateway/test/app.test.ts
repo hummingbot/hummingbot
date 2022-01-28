@@ -12,6 +12,8 @@ describe('verify swagger docs', () => {
         './docs/swagger/main-routes.yml',
         './docs/swagger/trading-routes.yml',
         './docs/swagger/wallet-routes.yml',
+        './docs/swagger/evm-routes.yml',
+        './docs/swagger/network-routes.yml',
         './docs/swagger/solana-routes.yml',
       ]
     );
