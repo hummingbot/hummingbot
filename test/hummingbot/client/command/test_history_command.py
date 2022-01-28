@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import time
 import unittest
 from copy import deepcopy
@@ -113,8 +114,6 @@ class HistoryCommandTest(unittest.TestCase):
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
     def test_list_trades(self, notify_mock):
-        self.maxDiff = None
-
         global_config_map["tables-format"].value = "psql"
 
         captures = []
@@ -166,14 +165,16 @@ class HistoryCommandTest(unittest.TestCase):
 
         self.assertEqual(1, len(captures))
 
+        creation_time_str = str(datetime.datetime.fromtimestamp(0))
+
         df_str_expected = (
-            "\n  Recent trades:"
-            "\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
-            "\n    | Timestamp           | Exchange   | Market   | Order_type   | Side   |   Price |   Amount |   Leverage | Position   | Age   |"  # noqa: E501
-            "\n    |---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------|"  # noqa: E501
-            "\n    | 1970-01-01 07:00:00 | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 |            | n/a   |"  # noqa: E501
-            "\n    | 1970-01-01 07:00:00 | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 |            | n/a   |"  # noqa: E501
-            "\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
+            f"\n  Recent trades:"
+            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
+            f"\n    | Timestamp           | Exchange   | Market   | Order_type   | Side   |   Price |   Amount |   Leverage | Position   | Age   |"  # noqa: E501
+            f"\n    |---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------|"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 |            | n/a   |"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 |            | n/a   |"  # noqa: E501
+            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
         )
 
         self.assertEqual(df_str_expected, captures[0])
