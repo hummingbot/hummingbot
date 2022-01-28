@@ -1,3 +1,4 @@
+import time
 from decimal import Decimal
 from typing import (
     Dict,
@@ -14,7 +15,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.utils import TradeFillOrderDetails, split_hb_trading_pair
+from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -444,3 +445,10 @@ cdef class ConnectorBase(NetworkIterator):
         # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
         return (not TradeFillOrderDetails(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
                (exchange_order_id in set(self._exchange_order_ids.keys()))
+
+    def _time(self) -> float:
+        """
+        Method created to enable tests to mock the machine time
+        :return: The machine time (time.time())
+        """
+        return time.time()

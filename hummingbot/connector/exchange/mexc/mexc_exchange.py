@@ -395,7 +395,7 @@ class MexcExchange(ExchangeBase):
                                 execute_amount_diff,
                                 execute_price,
                             ),
-                            exchange_trade_id=exchange_order_id
+                            exchange_trade_id=str(int(self._time() * 1e6))
                         )
                         self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                            f"order {tracked_order.client_order_id}.")
@@ -546,7 +546,7 @@ class MexcExchange(ExchangeBase):
                                                     execute_price,
                                                     execute_amount_diff,
                                                     current_fee,
-                                                    exchange_trade_id=tracked_order.exchange_order_id))
+                                                    exchange_trade_id=str(int(self._time() * 1e6))))
         if order_status == "FILLED":
             fee_paid, fee_currency = await self.get_deal_detail_fee(tracked_order.exchange_order_id)
             tracked_order.fee_paid = fee_paid

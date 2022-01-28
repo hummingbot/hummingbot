@@ -155,7 +155,7 @@ class MarketsRecorderTests(TestCase):
             price=Decimal(1010),
             amount=create_event.amount,
             trade_fee=AddedToCostTradeFee(),
-            exchange_trade_id=create_event.exchange_order_id
+            exchange_trade_id="TradeId1"
         )
 
         recorder._did_fill_order(MarketEvent.OrderFilled.value, self, fill_event)
