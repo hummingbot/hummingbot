@@ -150,7 +150,7 @@ class ConnectCommandTest(unittest.TestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.connection_df")
     def test_show_connections(self, connection_df_mock, notify_mock):
-        global_config_map["tables-format"].value = "psql"
+        global_config_map["tables_format"].value = "psql"
 
         Security._decryption_done.set()
 

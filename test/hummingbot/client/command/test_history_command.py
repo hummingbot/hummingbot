@@ -114,7 +114,7 @@ class HistoryCommandTest(unittest.TestCase):
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
     def test_list_trades(self, notify_mock):
-        global_config_map["tables-format"].value = "psql"
+        global_config_map["tables_format"].value = "psql"
 
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)

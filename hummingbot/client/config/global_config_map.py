@@ -333,8 +333,8 @@ main_config_map = {
                   validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   required_if=lambda: False,
                   default=Decimal("30")),
-    "tables-format":
-        ConfigVar(key="tables-format",
+    "tables_format":
+        ConfigVar(key="tables_format",
                   prompt="What tabulate formatting to apply to the tables? ",
                   type_str="str",
                   required_if=lambda: False,
