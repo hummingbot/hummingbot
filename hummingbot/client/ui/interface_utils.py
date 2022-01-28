@@ -110,6 +110,6 @@ def format_df_for_printout(
             )
         )
         df.columns = [c if len(c) < max_col_width else f"{c[:max_col_width - 3]}..." for c in df.columns]
-    table_format = table_format or global_config_map.get("tables-format").value
+    table_format = table_format or global_config_map.get("tables_format").value
     formatted_df = tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
     return formatted_df

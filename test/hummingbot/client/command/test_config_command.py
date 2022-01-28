@@ -42,7 +42,7 @@ class ConfigCommandTest(unittest.TestCase):
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
 
-        tables_format_config_var = global_config_map["tables-format"]
+        tables_format_config_var = global_config_map["tables_format"]
         global_config_map.clear()
         global_config_map[tables_format_config_var.key] = tables_format_config_var
         tables_format_config_var.value = "psql"

@@ -221,7 +221,7 @@ class InterfaceUtilsTest(unittest.TestCase):
             }
         )
 
-        global_config_map.get("tables-format").value = "psql"
+        global_config_map.get("tables_format").value = "psql"
         df_str = format_df_for_printout(df)
         target_str = (
             "+---------+----------+"
@@ -234,7 +234,7 @@ class InterfaceUtilsTest(unittest.TestCase):
 
         self.assertEqual(target_str, df_str)
 
-        global_config_map.get("tables-format").value = "simple"
+        global_config_map.get("tables_format").value = "simple"
         df_str = format_df_for_printout(df)
         target_str = (
             "  first    second"
