@@ -5,7 +5,6 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 cdef class CoinbaseProExchange(ExchangeBase):
     cdef:
         object _user_stream_tracker
-        object _coinbase_auth
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
@@ -18,12 +17,13 @@ cdef class CoinbaseProExchange(ExchangeBase):
         TransactionTracker _tx_tracker
         dict _trading_rules
         object _coro_queue
-        public object _status_polling_task
-        public object _coro_scheduler_task
-        public object _user_stream_tracker_task
-        public object _user_stream_event_listener_task
-        public object _trading_rules_polling_task
-        public object _shared_client
+        object _status_polling_task
+        object _coro_scheduler_task
+        object _user_stream_tracker_task
+        object _user_stream_event_listener_task
+        object _trading_rules_polling_task
+        object _web_assistants_factory
+        object _rest_assistant
 
     cdef c_start_tracking_order(self,
                                 str order_id,

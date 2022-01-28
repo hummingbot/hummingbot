@@ -1,26 +1,28 @@
 import asyncio
-from decimal import Decimal
-import pandas as pd
 import threading
 import time
+from datetime import datetime
+from decimal import Decimal
 from typing import (
+    List,
+    Optional,
     Set,
     Tuple,
     TYPE_CHECKING,
-    List,
-    Optional,
 )
-from datetime import datetime
+
+import pandas as pd
+
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import (
-    MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
     AllConnectorSettings,
     ConnectorType,
+    MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
 )
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.performance import PerformanceMetrics
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -48,15 +50,19 @@ class HistoryCommand:
             self._notify("\n  Please first import a strategy config file of which to show historical performance.")
             return
         start_time = get_timestamp(days) if days > 0 else self.init_time
-        trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
-                                                                config_file_path=self.strategy_file_name)
-        if not trades:
-            self._notify("\n  No past trades to report.")
-            return
-        if verbose:
-            self.list_trades(start_time)
-        if self.strategy_name != "celo_arb":
-            safe_ensure_future(self.history_report(start_time, trades, precision))
+
+        with self.trade_fill_db.get_new_session() as session:
+            trades: List[TradeFill] = self._get_trades_from_session(
+                int(start_time * 1e3),
+                session=session,
+                config_file_path=self.strategy_file_name)
+            if not trades:
+                self._notify("\n  No past trades to report.")
+                return
+            if verbose:
+                self.list_trades(start_time)
+            if self.strategy_name != "celo_arb":
+                safe_ensure_future(self.history_report(start_time, trades, precision))
 
     async def history_report(self,  # type: HummingbotApplication
                              start_time: float,
@@ -203,9 +209,13 @@ class HistoryCommand:
             return s_decimal_0
 
         start_time = self.init_time
-        trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
-                                                                config_file_path=self.strategy_file_name)
-        avg_return = await self.history_report(start_time, trades, display_report=False)
+
+        with self.trade_fill_db.get_new_session() as session:
+            trades: List[TradeFill] = self._get_trades_from_session(
+                int(start_time * 1e3),
+                session=session,
+                config_file_path=self.strategy_file_name)
+            avg_return = await self.history_report(start_time, trades, display_report=False)
         return avg_return
 
     def list_trades(self,  # type: HummingbotApplication
@@ -215,13 +225,17 @@ class HistoryCommand:
             return
 
         lines = []
-        queried_trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
-                                                                        MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
-                                                                        self.strategy_file_name)
-        if self.strategy_name == "celo_arb":
-            celo_trades = self.strategy.celo_orders_to_trade_fills()
-            queried_trades = queried_trades + celo_trades
-        df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
+
+        with self.trade_fill_db.get_new_session() as session:
+            queried_trades: List[TradeFill] = self._get_trades_from_session(
+                int(start_time * 1e3),
+                session=session,
+                number_of_rows=MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
+                config_file_path=self.strategy_file_name)
+            if self.strategy_name == "celo_arb":
+                celo_trades = self.strategy.celo_orders_to_trade_fills()
+                queried_trades = queried_trades + celo_trades
+            df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
 
         if len(df) > 0:
             # Check if number of trades exceed maximum number of trades to display

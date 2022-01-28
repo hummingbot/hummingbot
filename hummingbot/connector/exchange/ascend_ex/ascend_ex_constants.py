@@ -1,9 +1,10 @@
 # A single source of truth for constant variables related to the exchange
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "ascend_ex"
 REST_URL = "https://ascendex.com/api/pro/v1"
-WS_URL = "wss://ascendex.com/0/api/pro/v1/stream"
+WS_URL = "wss://ascendex.com:443/api/pro/v1/websocket-for-hummingbot-liq-mining/stream"
 
 # REST API ENDPOINTS
 ORDER_PATH_URL = "cash/order"
@@ -21,6 +22,17 @@ INFO_PATH_URL = "info"
 # WS API ENDPOINTS
 SUB_ENDPOINT_NAME = "sub"
 PONG_ENDPOINT_NAME = "pong"
+
+# OrderStates
+
+ORDER_STATE = {
+    "PendingNew": OrderState.PENDING_CREATE,
+    "New": OrderState.OPEN,
+    "Filled": OrderState.FILLED,
+    "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "Canceled": OrderState.CANCELLED,
+    "Rejected": OrderState.FAILED,
+}
 
 # AscendEx has multiple pools for API request limits
 # Any call increases call rate in ALL pool, so e.g. a cash/order call will contribute to both ALL and cash/order pools.

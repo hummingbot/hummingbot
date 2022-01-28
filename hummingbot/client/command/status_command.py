@@ -133,6 +133,7 @@ class StatusCommand:
                     await self.cls_display_delay(
                         await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 1
                     )
+                self.app.live_updates = False
                 self._notify("Stopped live status display update.")
             else:
                 self._notify(await self.strategy_status())
