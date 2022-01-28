@@ -1,4 +1,4 @@
-paths: 
+paths:
   /evm/nonce:
     post:
       summary: 'Get the nonce for the provided private key'
@@ -36,7 +36,7 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/AllowancesResponse'
-/evm/approve:
+  /evm/approve:
     post:
       summary: 'Create an ERC20 approval for a spender on an private key'
       operationId: 'approve'
@@ -73,4 +73,3 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/CancelResponse'
-  

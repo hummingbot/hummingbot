@@ -41,5 +41,4 @@ paths:
       summary: 'Returns a list of the currently connected networks'
       produces:
         - 'application/json'
-      responses:
-        '200'
+      responses: '200'
