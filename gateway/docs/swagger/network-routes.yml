@@ -43,12 +43,6 @@ paths:
       responses: '200'
   /network/config:
     get:
-      summary: 'Returns a list of the currently connected networks'
-      produces:
-        - 'application/json'
-      responses: '200'
-  /network/config:
-    get:
       summary: 'Get every gateway configuration option'
       produces:
         - 'application/json'
