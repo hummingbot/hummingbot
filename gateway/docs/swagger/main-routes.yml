@@ -5,12 +5,6 @@ paths:
       produces:
         - 'application/json'
       responses: '200'
-  /config:
-    get:
-      summary: 'Get every gateway configuration option'
-      produces:
-        - 'application/json'
-      responses: '200'
   /config/update:
     post:
       summary: 'Updates Gateway configuration'

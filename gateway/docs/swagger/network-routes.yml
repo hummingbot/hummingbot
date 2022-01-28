@@ -1,5 +1,5 @@
 paths:
-  /trading/balances:
+  /network/balances:
     post:
       summary: 'Get the balances of a private key'
       operationId: 'balances'
@@ -17,8 +17,7 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/BalancesResponse'
-
-  /trading/poll:
+  /network/poll:
     post:
       summary: 'Poll the status of a transaction'
       operationId: 'poll'
@@ -36,9 +35,21 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/PollResponse'
-  /status:
+  /network/status:
     get:
       summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /network/config:
+    get:
+      summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /network/config:
+    get:
+      summary: 'Get every gateway configuration option'
       produces:
         - 'application/json'
       responses: '200'
