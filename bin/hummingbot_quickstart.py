@@ -71,8 +71,7 @@ def autofix_permissions(user_group_spec: str):
 
 async def quick_start(
         args: argparse.Namespace,
-        hummingbot_pipe: aioprocessing.AioConnection,
-        evt: aioprocessing.AioEvent):
+        hummingbot_pipe: aioprocessing.AioConnection):
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
@@ -91,7 +90,7 @@ async def quick_start(
 
     AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
-    hb = HummingbotApplication.main_application(docker_conn=hummingbot_pipe, docker_pipe_event=evt)
+    hb = HummingbotApplication.main_application(docker_conn=hummingbot_pipe)
     # Todo: validate strategy and config_file_name before assinging
 
     if config_file_name is not None:
@@ -130,7 +129,7 @@ async def quick_start(
         await safe_gather(*tasks)
 
 
-def main(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEvent):
+def main(hummingbot_pipe: aioprocessing.AioConnection):
     args = CmdlineParser().parse_args()
 
     # Parse environment variables from Dockerfile.
@@ -148,7 +147,7 @@ def main(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEve
         if not login_prompt():
             return
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args, hummingbot_pipe, evt))
+    asyncio.get_event_loop().run_until_complete(quick_start(args, hummingbot_pipe))
 
 
 if __name__ == "__main__":

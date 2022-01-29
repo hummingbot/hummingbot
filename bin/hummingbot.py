@@ -44,7 +44,7 @@ def detect_available_port(starting_port: int) -> int:
         return current_port
 
 
-async def main_async(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEvent):
+async def main_async(hummingbot_pipe: aioprocessing.AioConnection):
     await create_yml_files()
 
     # This init_logging() call is important, to skip over the missing config warnings.
@@ -54,7 +54,7 @@ async def main_async(hummingbot_pipe: aioprocessing.AioConnection, evt: aioproce
 
     AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
-    hb = HummingbotApplication.main_application(docker_conn=hummingbot_pipe, docker_pipe_event=evt)
+    hb = HummingbotApplication.main_application(docker_conn=hummingbot_pipe)
 
     with patch_stdout(log_field=hb.app.log_field):
         dev_mode = check_dev_mode()
@@ -75,11 +75,11 @@ async def main_async(hummingbot_pipe: aioprocessing.AioConnection, evt: aioproce
         await safe_gather(*tasks)
 
 
-def main(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEvent):
+def main(hummingbot_pipe: aioprocessing.AioConnection):
     chdir_to_data_directory()
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        ev_loop.run_until_complete(main_async(hummingbot_pipe, evt))
+        ev_loop.run_until_complete(main_async(hummingbot_pipe))
 
 
 if __name__ == "__main__":

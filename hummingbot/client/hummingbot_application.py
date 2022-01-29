@@ -54,7 +54,6 @@ class HummingbotApplication(*commands):
 
     _main_app: Optional["HummingbotApplication"] = None
     _docker_conn: Optional[aioprocessing.AioConnection] = None
-    _docker_pipe_event: Optional[aioprocessing.AioEvent] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -64,11 +63,10 @@ class HummingbotApplication(*commands):
         return s_logger
 
     @classmethod
-    def main_application(cls, docker_conn=None, docker_pipe_event=None) -> "HummingbotApplication":
+    def main_application(cls, docker_conn: Optional[aioprocessing.AioConnection] = None) -> "HummingbotApplication":
         if cls._main_app is None:
             cls._main_app = HummingbotApplication()
             cls._docker_conn = docker_conn
-            cls._docker_pipe_event = docker_pipe_event
         return cls._main_app
 
     def __init__(self):
