@@ -1,12 +1,11 @@
 import docker
 import types
 import aioprocessing
-from typing import Optional
 
 
 def start_docker(queue: aioprocessing.AioConnection,
-                 event: aioprocessing.AioEvent,
-                 docker_client: Optional[docker.APIClient] = None):
+                 event: aioprocessing.AioEvent):
+    docker_client: docker.APIClient = docker.APIClient(base_url="unix://var/run/docker.sock")
     while True:
         try:
             method, kwargs = queue.recv()

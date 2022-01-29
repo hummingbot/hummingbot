@@ -4,7 +4,6 @@ import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
-import docker
 from multiprocessing import Process
 import aioprocessing
 
@@ -78,35 +77,25 @@ async def main(docker_pipe, docker_pipe_event):
 
 
 if __name__ == "__main__":
+    # IPC pipe
+    p1, p2 = aioprocessing.AioPipe()
+    event = aioprocessing.AioEvent()
+    docker_process: Process = Process(target=start_docker, args=(p2, event))
+
     try:
-        # IPC pipe
-        client, dock = aioprocessing.AioPipe()
-        event = aioprocessing.AioEvent()
-        docker_client = None
-
-        try:
-            docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
-        except Exception:
-            # close pipe
-            client.close()
-            dock.close()
-
         # fork app
-        p = Process(target=start_docker, args=(client, event, docker_client))
-        p.start()
+        docker_process.start()
 
         chdir_to_data_directory()
         if login_prompt():
             ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-            ev_loop.run_until_complete(main(dock, event))
+            ev_loop.run_until_complete(main(p1, event))
 
     finally:
-        # clear pipe
-        if docker_client:
-            dock.send(None)
-
         # stop ipc
-        client.close()
-        dock.close()
+        p1.close()
+        p2.close()
 
-        p.join()
+        # stop the child process
+        docker_process.terminate()
+        docker_process.join()
