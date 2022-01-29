@@ -1,35 +1,59 @@
 import aioprocessing
+import asyncio
 import docker
 from multiprocessing import Process
 import types
-from typing import Callable
+from typing import Callable, Dict, Any, Union, List
 
 
-def _start_docker(queue: aioprocessing.AioConnection,
-                  event: aioprocessing.AioEvent):
+async def _start_docker_async(
+        docker_pipe: aioprocessing.AioConnection,
+        evt: aioprocessing.AioEvent
+):
     docker_client: docker.APIClient = docker.APIClient(base_url="unix://var/run/docker.sock")
+    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
     while True:
         try:
-            method, kwargs = queue.recv()
+            method_name: str
+            method_args: Union[Dict[str, Any], List[Any]]
+            method_name, method_args = await docker_pipe.coro_recv()
         except Exception:
-            break
+            # Any input that isn't a tuple will cause the controller process to exit.
+            return
 
         try:
-            if isinstance(kwargs, list):
-                response = getattr(docker_client, method)(kwargs[0], **kwargs[1])
+            method: Callable = getattr(docker_client, method_name)
+            if isinstance(method_args, list):
+                response = await ev_loop.run_in_executor(
+                    None,
+                    lambda: method(method_args[0], **method_args[1])
+                )
             else:
-                response = getattr(docker_client, method)(**kwargs)
+                response = await ev_loop.run_in_executor(
+                    None,
+                    lambda: method(**method_args)
+                )
 
             if isinstance(response, types.GeneratorType):
-                event.set()
+                evt.set()
                 for stream in response:
-                    queue.send(stream)
-                queue.send(None)
-                event.clear()
+                    await docker_pipe.coro_send(stream)
+                await docker_pipe.coro_send(None)
+                evt.clear()
             else:
-                queue.send(response)
+                await docker_pipe.coro_send(response)
         except Exception as e:
-            queue.send(e)
+            await docker_pipe.coro_send(e)
+
+
+def _start_docker(
+        docker_pipe: aioprocessing.AioConnection,
+        evt: aioprocessing.AioEvent
+):
+    ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+    asyncio.set_event_loop(ev_loop)
+    ev_loop.run_until_complete(_start_docker_async(docker_pipe, evt))
 
 
 def fork_and_start(main_function: Callable):
@@ -44,9 +68,12 @@ def fork_and_start(main_function: Callable):
         # run the main function as parent.
         main_function(p1, evt)
     finally:
+        # send a non-tuple to the Docker controller process to cause it to exit.
+        p1.send(None)
+
+        # close pipes.
         p1.close()
         p2.close()
 
-        if docker_process.is_alive():
-            docker_process.terminate()
+        # wait for Docker controller process clean up.
         docker_process.join()
