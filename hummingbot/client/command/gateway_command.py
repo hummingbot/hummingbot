@@ -4,7 +4,7 @@ import aiohttp
 import ssl
 import json
 import pandas as pd
-from os import getenv
+from os import getenv, path
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
@@ -13,7 +13,7 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display
 )
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot import cert_path
+from hummingbot import cert_path, root_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -82,18 +82,34 @@ class GatewayCommand:
         self.app.change_prompt(prompt=">>> ")
 
     async def _create_gateway(self):
+        gateway_conf_mount_path: str
+        certificate_mount_path: str
+        logs_mount_path: str
+
+        # Detect whether external mount paths have been defined, for docker-in-docker case.
+        # Otherwise, use the calculated paths.
         external_cert_path: str = getenv("CERTS_FOLDER")
         external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
         external_logs_path: str = getenv("LOGS_FOLDER")
-        if external_cert_path is None or external_gateway_conf_path is None or external_logs_path is None:
-            return
+        if external_cert_path is not None and external_gateway_conf_path is not None and external_logs_path is not None:
+            gateway_conf_mount_path = external_gateway_conf_path
+            certificate_mount_path = external_cert_path
+            logs_mount_path = external_logs_path
+        else:
+            gateway_conf_mount_path = path.join(root_path(), "gateway_conf")
+            certificate_mount_path = cert_path()
+            logs_mount_path = path.join(root_path(), "logs")
 
         docker_repo = "coinalpha/hummingbot"
         gateway_container_name = "gateway-v2_container"
 
         # remove existing container(s)
         try:
-            old_container = await self.docker_ipc(("containers", {"all": True, "filters": {"name": gateway_container_name}}))
+            old_container = await self.docker_ipc(("containers",
+                                                   {
+                                                       "all": True,
+                                                       "filters": {"name": gateway_container_name}
+                                                   }))
             for container in old_container:
                 self._notify(f"Removing existing gateway container with id {container['Id']}...")
                 await self.docker_ipc(("remove_container", [container["Id"], {"force": True}]))
@@ -116,15 +132,15 @@ class GatewayCommand:
                                              {
                                                  "port_bindings": {5000: 5000},
                                                  "binds": {
-                                                     external_gateway_conf_path: {
+                                                     gateway_conf_mount_path: {
                                                          "bind": "/usr/src/app/conf/",
                                                          "mode": "rw"
                                                      },
-                                                     external_cert_path: {
+                                                     certificate_mount_path: {
                                                          "bind": "/usr/src/app/certs/",
                                                          "mode": "rw"
                                                      },
-                                                     external_logs_path: {
+                                                     logs_mount_path: {
                                                          "bind": "/usr/src/app/logs/",
                                                          "mode": "rw"
                                                      },
@@ -136,9 +152,9 @@ class GatewayCommand:
                                                   "name": gateway_container_name,
                                                   "ports": [5000],
                                                   "volumes": [
-                                                      external_gateway_conf_path,
-                                                      external_cert_path,
-                                                      external_logs_path
+                                                      gateway_conf_mount_path,
+                                                      certificate_mount_path,
+                                                      logs_mount_path
                                                   ],
                                                   "host_config": host_config
                                               }))
