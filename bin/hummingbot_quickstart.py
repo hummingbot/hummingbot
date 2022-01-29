@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import path_util        # noqa: F401
+import aioprocessing
 import argparse
 import asyncio
 import logging
@@ -10,9 +11,6 @@ from typing import (
 )
 import os
 import subprocess
-import docker
-from multiprocessing import Process
-import aioprocessing
 
 from hummingbot import (
     check_dev_mode,
@@ -37,7 +35,7 @@ from bin.hummingbot import (
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
 
-from docker_connection import start_docker
+from docker_connection import fork_and_start
 
 
 class CmdlineParser(argparse.ArgumentParser):
@@ -71,7 +69,10 @@ def autofix_permissions(user_group_spec: str):
     os.setuid(int(uid))
 
 
-async def quick_start(args, docker_pipe, docker_pipe_event):
+async def quick_start(
+        args: argparse.Namespace,
+        hummingbot_pipe: aioprocessing.AioConnection,
+        evt: aioprocessing.AioEvent):
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
@@ -90,7 +91,7 @@ async def quick_start(args, docker_pipe, docker_pipe_event):
 
     AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
-    hb = HummingbotApplication.main_application(docker_conn=docker_pipe, docker_pipe_event=docker_pipe_event)
+    hb = HummingbotApplication.main_application(docker_conn=hummingbot_pipe, docker_pipe_event=evt)
     # Todo: validate strategy and config_file_name before assinging
 
     if config_file_name is not None:
@@ -129,7 +130,7 @@ async def quick_start(args, docker_pipe, docker_pipe_event):
         await safe_gather(*tasks)
 
 
-def main(docker_pipe, docker_pipe_event):
+def main(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEvent):
     args = CmdlineParser().parse_args()
 
     # Parse environment variables from Dockerfile.
@@ -147,36 +148,8 @@ def main(docker_pipe, docker_pipe_event):
         if not login_prompt():
             return
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args, docker_pipe, docker_pipe_event))
+    asyncio.get_event_loop().run_until_complete(quick_start(args, hummingbot_pipe, evt))
 
 
 if __name__ == "__main__":
-    try:
-        # IPC pipe
-        client, dock = aioprocessing.AioPipe()
-        event = aioprocessing.AioEvent()
-        docker_client = None
-
-        try:
-            docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
-        except Exception:
-            # close pipe
-            client.close()
-            dock.close()
-
-        # fork app
-        p = Process(target=start_docker, args=(client, event, docker_client))
-        p.start()
-
-        main(dock, event)
-
-    finally:
-        # clear pipe
-        if docker_client:
-            dock.send(None)
-
-        # stop ipc
-        client.close()
-        dock.close()
-
-        p.join()
+    fork_and_start(main)

@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 import path_util        # noqa: F401
+import aioprocessing
 import asyncio
 import errno
 import socket
-from multiprocessing import Process
-import aioprocessing
 
 from typing import (
     List,
@@ -28,7 +27,7 @@ from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.utils.async_utils import safe_gather
 
-from docker_connection import start_docker
+from docker_connection import fork_and_start
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -45,7 +44,7 @@ def detect_available_port(starting_port: int) -> int:
         return current_port
 
 
-async def main(docker_pipe, docker_pipe_event):
+async def main_async(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEvent):
     await create_yml_files()
 
     # This init_logging() call is important, to skip over the missing config warnings.
@@ -55,7 +54,7 @@ async def main(docker_pipe, docker_pipe_event):
 
     AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
-    hb = HummingbotApplication.main_application(docker_conn=docker_pipe, docker_pipe_event=docker_pipe_event)
+    hb = HummingbotApplication.main_application(docker_conn=hummingbot_pipe, docker_pipe_event=evt)
 
     with patch_stdout(log_field=hb.app.log_field):
         dev_mode = check_dev_mode()
@@ -76,26 +75,12 @@ async def main(docker_pipe, docker_pipe_event):
         await safe_gather(*tasks)
 
 
+def main(hummingbot_pipe: aioprocessing.AioConnection, evt: aioprocessing.AioEvent):
+    chdir_to_data_directory()
+    if login_prompt():
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        ev_loop.run_until_complete(main_async(hummingbot_pipe, evt))
+
+
 if __name__ == "__main__":
-    # IPC pipe
-    p1, p2 = aioprocessing.AioPipe()
-    event = aioprocessing.AioEvent()
-    docker_process: Process = Process(target=start_docker, args=(p2, event))
-
-    try:
-        # fork app
-        docker_process.start()
-
-        chdir_to_data_directory()
-        if login_prompt():
-            ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-            ev_loop.run_until_complete(main(p1, event))
-
-    finally:
-        # stop ipc
-        p1.close()
-        p2.close()
-
-        # stop the child process
-        docker_process.terminate()
-        docker_process.join()
+    fork_and_start(main)
