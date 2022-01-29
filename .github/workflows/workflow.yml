@@ -161,39 +161,44 @@ jobs:
         run: npm i --prefix ./gateway
 
       - name: Create yml config file
+        env:
+          INFURA_KEY: ${{ secrets.INFURA_KEY }}
+          ETH_GAS_STATION_API_KEY: ${{ secrets.ETH_GAS_STATION_API_KEY }}
         run: |
-          cat << EOF >> ./gateway/conf/gateway-config.yml
-          VERSION: 1
-          APPNAME: 'Hummingbot Gateway API'
-          PORT: 5000
-          IP_WHITELIST: []
-          HUMMINGBOT_INSTANCE_ID: '67618e88c8b8f52342e61c6e46dc2571fa48543b'
-          LOG_PATH: './logs'
-          LOG_TO_STDOUT: true
-          GMT_OFFSET: +0800
-          CERT_PATH: ''
-          ETHEREUM_CHAIN: mainnet
-          AVALANCHE_CHAIN: avalanche
-          INFURA_KEY: '6f637da72af64d99870a68d09a7df3d7'
-          ETH_GAS_STATION_ENABLE: true
-          ETH_GAS_STATION_API_KEY: '97bf1ac4acb940a30303f301208a59091760e5d26507241e9b700a3e8703'
-          ETH_GAS_STATION_GAS_LEVEL: fast
-          ETH_GAS_STATION_REFRESH_TIME: 60
-          ETH_MANUAL_GAS_PRICE: 100
-          AVAX_MANUAL_GAS_PRICE: 225          
-          UNISWAP_ALLOWED_SLIPPAGE: '1/100'
-          UNISWAP_GAS_LIMIT: 150688
-          UNISWAP_TTL: 300
-          PANGOLIN_ALLOWED_SLIPPAGE: '1/100'
-          PANGOLIN_GAS_LIMIT: 23012
-          PANGOLIN_TTL: 300          
+          cat << EOF >> ./gateway/conf/ethereum.yml
+          networks:
+            mainnet:
+              chainID: 1
+              nodeURL: https://mainnet.infura.io/v3/
+              tokenListType: URL
+              tokenListSource: >-
+                https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
+            kovan:
+              chainID: 42
+              nodeURL: https://kovan.infura.io/v3/
+              tokenListType: FILE
+              tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
+          nativeCurrencySymbol: ETH
+          nodeAPIKey: "$INFURA_KEY"
+          network: kovan
+          manualGasPrice: 110
+          EOF
+
+          cat << EOF >> ./gateway/conf/ethereum-gas-station.yml
+          enabled: true
+          gasStationURL: 'https://ethgasstation.info/api/ethgasAPI.json?api-key='
+          APIKey: "$ETH_GAS_STATION_API_KEY"
+          gasLevel: fast
+          refreshTime: 60
           EOF
 
       - name: Create yml passphrase file
         shell: bash
+        env:
+          CERT_PASSPHRASE: ${{ secrets.CERT_PASSPHRASE }}
         run: |
           cat << EOF >> ./gateway/conf/gateway-passphrase.yml
-          CERT_PASSPHRASE: ''
+          CERT_PASSPHRASE: "$CERT_PASSPHRASE"
           EOF
           chmod 0600 ./gateway/conf/gateway-passphrase.yml
 

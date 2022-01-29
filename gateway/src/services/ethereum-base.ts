@@ -9,7 +9,7 @@ import {
 } from 'ethers';
 import axios from 'axios';
 import fs from 'fs/promises';
-import { TokenListType, TokenValue } from './base';
+import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
 import { EvmTxStorage } from './evm.tx-storage';
@@ -28,8 +28,6 @@ export interface Token {
 export type NewBlockHandler = (bn: number) => void;
 
 export type NewDebugMsgHandler = (msg: any) => void;
-
-const walletPath = './conf/wallets';
 
 export class EthereumBase {
   private _provider;
@@ -157,6 +155,7 @@ export class EthereumBase {
     return new Wallet(privateKey, this._provider);
   }
   // returns Wallet for a public key
+  // TODO: Abstract-away into base.ts
   async getWallet(address: string): Promise<Wallet> {
     const path = `${walletPath}/${this.chainName}`;
 

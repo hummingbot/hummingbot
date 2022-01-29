@@ -5,7 +5,8 @@
     "port": { "type": "integer" },
     "ipWhitelist": { "type": "array" },
     "unsafeDevModeWithHTTP": { "type": "boolean" },
-    "GMTOffset": { "type": "number" }
+    "GMTOffset": { "type": "number" },
+    "id": { "type": "string" }
   },
   "additionalProperties": false,
   "required": ["port", "unsafeDevModeWithHTTP"]

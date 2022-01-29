@@ -4,7 +4,7 @@ import { patch, unpatch } from './patch';
 describe('Eth block listener test', () => {
   let eth: Ethereum;
   beforeAll(async () => {
-    eth = Ethereum.getInstance();
+    eth = Ethereum.getInstance('kovan');
     patch(eth, 'loadTokens', async () => {
       return;
     });
