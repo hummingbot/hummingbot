@@ -1156,18 +1156,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             self.get_taker_to_maker_conversion_rate()
 
         if is_buy:
-            quote_asset_amount = maker_market.c_get_balance(market_pair.maker.quote_asset)
-            base_asset_amount = taker_market.c_get_balance(market_pair.taker.base_asset) * base_rate
-            order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)
+            order_size_limit = taker_market.c_get_balance(market_pair.taker.base_asset) * base_rate
         else:
-            base_asset_amount = maker_market.c_get_balance(market_pair.maker.base_asset)
             quote_asset_amount = taker_market.c_get_balance(market_pair.taker.quote_asset) * quote_rate
             taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
             taker_price = taker_market.c_get_price_for_quote_volume(
                 taker_trading_pair, True, quote_asset_amount
             ).result_price
-            adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
-            order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
+            order_size_limit = taker_price * taker_slippage_adjustment_factor
 
         quantized_size_limit = maker_market.c_quantize_order_amount(active_order.trading_pair, order_size_limit)
 
