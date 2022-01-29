@@ -58,3 +58,15 @@ class MarketTradingPairTuple(NamedTuple):
 
     def order_book_ask_entries(self) -> Iterator[ClientOrderBookRow]:
         return self.market.order_book_ask_entries(self.trading_pair)
+
+    def get_order_size_quantum(self, order_size: Decimal) -> Decimal:
+        return self.market.get_order_size_quantum(self.trading_pair, order_size)
+
+    def get_order_price_quantum(self, price: Decimal) -> Decimal:
+        return self.market.get_order_price_quantum(self.trading_pair, price)
+
+    def quantize_order_amount(self, amount: Decimal) -> Decimal:
+        return self.market.quantize_order_amount(self.trading_pair, amount)
+
+    def quantize_order_price(self, price: Decimal) -> Decimal:
+        return self.market.quantize_order_price(self.trading_pair, price)
