@@ -30,6 +30,14 @@ class MarketTradingPairTuple(NamedTuple):
     def base_balance(self) -> Decimal:
         return self.market.get_balance(self.base_asset)
 
+    @property
+    def base_available_balance(self) -> Decimal:
+        return self.market.get_available_balance(self.base_asset)
+
+    @property
+    def quote_available_balance(self) -> Decimal:
+        return self.market.get_available_balance(self.quote_asset)
+
     def get_mid_price(self) -> Decimal:
         return self.market.get_mid_price(self.trading_pair)
 
