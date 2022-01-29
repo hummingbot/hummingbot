@@ -1,0 +1,154 @@
+
+paths:
+  /trading/nonce:
+    post:
+      summary: 'Get the nonce for the provided private key'
+      operationId: 'nonce'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NonceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/NonceResponse'
+
+  /trading/allowances:
+    post:
+      summary: 'Get the ERC20 allowances for a spender on a given private key'
+      operationId: 'allowances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/AllowancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/AllowancesResponse'
+
+  /trading/balances:
+    post:
+      summary: 'Get the balances of a private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/BalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/BalancesResponse'
+
+  /trading/approve:
+    post:
+      summary: 'Create an ERC20 approval for a spender on an private key'
+      operationId: 'approve'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/ApproveRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/ApproveResponse'
+
+  /trading/poll:
+    post:
+      summary: 'Poll the status of a transaction'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PollResponse'
+
+  /trading/trade:
+    post:
+      summary: 'Perform a trade'
+      operationId: 'trade'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/TradeRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TradeResponse'
+
+  /trading/price:
+    post:
+      summary: 'Get the price for a quote base pair'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PriceResponse'
+  
+  /trading/cancel:
+    post:
+      summary: 'Cancel transaction'
+      operationId: 'cancel'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/CancelRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/CancelResponse'
+  
