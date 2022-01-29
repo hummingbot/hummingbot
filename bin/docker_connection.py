@@ -4,7 +4,7 @@ import docker
 import logging
 from multiprocessing import Process
 import types
-from typing import Callable, Dict, Any, Union, List
+from typing import Callable, Dict, Any, List, Generator, Union
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -23,8 +23,9 @@ async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
     while True:
         try:
             method_name: str
-            method_args: Union[Dict[str, Any], List[Any]]
-            method_name, method_args = await docker_pipe.coro_recv()
+            method_args: List[Any]
+            method_kwargs: Dict[str, Any]
+            method_name, method_args, method_kwargs = await docker_pipe.coro_recv()
         except EOFError:
             # Exit gracefully, if the pipe is closed on the hummingbot side.
             return
@@ -35,16 +36,10 @@ async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
 
         try:
             method: Callable = getattr(docker_client, method_name)
-            if isinstance(method_args, list):
-                response = await ev_loop.run_in_executor(
-                    None,
-                    lambda: method(method_args[0], **method_args[1])
-                )
-            else:
-                response = await ev_loop.run_in_executor(
-                    None,
-                    lambda: method(**method_args)
-                )
+            response: Union[str, Generator[str, None, None]] = await ev_loop.run_in_executor(
+                None,
+                lambda: method(*method_args, **method_kwargs)
+            )
 
             if isinstance(response, types.GeneratorType):
                 for data in response:

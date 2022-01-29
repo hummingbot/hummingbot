@@ -44,6 +44,11 @@ class GatewayCommand:
         elif option == "test-connection":
             safe_ensure_future(self._test_connection())
 
+    @staticmethod
+    def get_gateway_container_name() -> str:
+        instance_id_suffix: str = global_config_map["instance_id"].value[:8]
+        return f"hummingbot-gateway-{instance_id_suffix}"
+
     async def _test_connection(self):
         # test that the gateway is running
         try:
@@ -101,19 +106,23 @@ class GatewayCommand:
             certificate_mount_path = cert_path()
             logs_mount_path = path.join(root_path(), "logs")
 
-        docker_repo = "coinalpha/hummingbot"
-        gateway_container_name = "gateway-v2_container"
+        docker_repo: str = "coinalpha/hummingbot"
+        gateway_container_name: str = self.get_gateway_container_name()
 
         # remove existing container(s)
         try:
-            old_container = await self.docker_ipc(("containers",
-                                                   {
-                                                       "all": True,
-                                                       "filters": {"name": gateway_container_name}
-                                                   }))
+            old_container = await self.docker_ipc(
+                "containers",
+                all=True,
+                filters={"name": gateway_container_name}
+            )
             for container in old_container:
                 self._notify(f"Removing existing gateway container with id {container['Id']}...")
-                await self.docker_ipc(("remove_container", [container["Id"], {"force": True}]))
+                await self.docker_ipc(
+                    "remove_container",
+                    container["Id"],
+                    force=True
+                )
         except Exception:
             pass  # silently ignore exception
 
@@ -129,42 +138,47 @@ class GatewayCommand:
                                   app_warning_msg=str(e))
             return
         self._notify("Creating new Gateway docker container...")
-        host_config = await self.docker_ipc(("create_host_config",
-                                             {
-                                                 "port_bindings": {5000: 5000},
-                                                 "binds": {
-                                                     gateway_conf_mount_path: {
-                                                         "bind": "/usr/src/app/conf/",
-                                                         "mode": "rw"
-                                                     },
-                                                     certificate_mount_path: {
-                                                         "bind": "/usr/src/app/certs/",
-                                                         "mode": "rw"
-                                                     },
-                                                     logs_mount_path: {
-                                                         "bind": "/usr/src/app/logs/",
-                                                         "mode": "rw"
-                                                     },
-                                                 },
-                                             }))
-        container_id = await self.docker_ipc(("create_container",
-                                              {
-                                                  "image": f"{docker_repo}:gateway-v2",
-                                                  "name": gateway_container_name,
-                                                  "ports": [5000],
-                                                  "volumes": [
-                                                      gateway_conf_mount_path,
-                                                      certificate_mount_path,
-                                                      logs_mount_path
-                                                  ],
-                                                  "host_config": host_config
-                                              }))
-        self._notify(f"New Gateway docker container id is {container_id['Id']}.")
+        host_config: Dict[str, Any] = await self.docker_ipc(
+            "create_host_config",
+            port_bindings={5000: 5000},
+            binds={
+                gateway_conf_mount_path: {
+                    "bind": "/usr/src/app/conf/",
+                    "mode": "rw"
+                },
+                certificate_mount_path: {
+                    "bind": "/usr/src/app/certs/",
+                    "mode": "rw"
+                },
+                logs_mount_path: {
+                    "bind": "/usr/src/app/logs/",
+                    "mode": "rw"
+                },
+            }
+        )
+        container_info: Dict[str, str] = await self.docker_ipc(
+            "create_container",
+            image=f"{docker_repo}:gateway-v2",
+            name=gateway_container_name,
+            ports=[5000],
+            volumes=[
+                gateway_conf_mount_path,
+                certificate_mount_path,
+                logs_mount_path
+            ],
+            host_config=host_config
+        )
+        self._notify(f"New Gateway docker container id is {container_info['Id']}.")
 
-    async def pull_gateway_docker(self, docker_repo):
+    async def pull_gateway_docker(self, docker_repo: str):
         last_id = ""
-        pull_generator = self.docker_ipc_with_generator(("pull",
-                                                         [docker_repo, {"tag": "gateway-v2", "stream": True, "decode": True}]))
+        pull_generator = self.docker_ipc_with_generator(
+            "pull",
+            docker_repo,
+            tag="gateway-v2",
+            stream=True,
+            decode=True
+        )
         async for pull_log in pull_generator:
             new_id = pull_log["id"] if pull_log.get("id") else last_id
             if last_id != new_id:
@@ -277,20 +291,20 @@ class GatewayCommand:
     def get_ipc_connection(self) -> aioprocessing.AioConnection:
         return self._docker_conn
 
-    async def docker_ipc(self, data):
+    async def docker_ipc(self, method_name: str, *args, **kwargs):
         try:
-            pipe = self.get_ipc_connection()
-            pipe.send(data)
+            pipe: aioprocessing.AioConnection = self.get_ipc_connection()
+            pipe.send((method_name, args, kwargs))
             return await pipe.coro_recv()
         except Exception as e:  # unable to communicate with docker socket
             self._notify("\nError: Unable to communicate with docker socket. "
                          "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
             raise e
 
-    async def docker_ipc_with_generator(self, data):
+    async def docker_ipc_with_generator(self, method_name: str, *args, **kwargs):
         try:
             pipe = self.get_ipc_connection()
-            pipe.send(data)
+            pipe.send((method_name, args, kwargs))
 
             while True:
                 data = await pipe.coro_recv()
