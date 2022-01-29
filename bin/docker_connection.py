@@ -99,7 +99,7 @@ def _docker_process_main(
     # Close the hummingbot pipe on the child process, s.t. only the main process will own it.
     hummingbot_pipe.close()
 
-    # Use asyncio.run() s.t. we can stop the loop gracefully when needed.
+    # Start the docker controller loop and the terminate event monitor in parallel.
     try:
         ev_loop.run_until_complete(asyncio.gather(
             _start_docker_controller(docker_pipe, output_evt),
