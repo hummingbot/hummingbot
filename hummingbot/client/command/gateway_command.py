@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import aiohttp
+import aioprocessing
 import ssl
 import json
 import pandas as pd
@@ -273,12 +274,12 @@ class GatewayCommand:
         build_config_namespace_keys(self.gateway_config_keys, config)
         self.app.input_field.completer = load_completer(self)
 
-    def get_ipc_info(self):
-        return self._docker_conn, self._docker_pipe_event
+    def get_ipc_connection(self) -> aioprocessing.AioConnection:
+        return self._docker_conn
 
     async def docker_ipc(self, data):
         try:
-            pipe, event = self.get_ipc_info()
+            pipe = self.get_ipc_connection()
             pipe.send(data)
             return await pipe.coro_recv()
         except Exception as e:  # unable to communicate with docker socket
@@ -288,13 +289,13 @@ class GatewayCommand:
 
     async def docker_ipc_with_generator(self, data):
         try:
-            pipe, event = self.get_ipc_info()
+            pipe = self.get_ipc_connection()
             pipe.send(data)
 
             while True:
                 data = await pipe.coro_recv()
-                if not data and not event.is_set():
-                    return
+                if data is None:
+                    break
                 yield data
         except Exception as e:  # unable to communicate with docker socket
             self._notify("\nError: Unable to communicate with docker socket. "

@@ -9,10 +9,7 @@ from typing import Callable, Dict, Any, Union, List
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-async def _start_docker_controller(
-        docker_pipe: aioprocessing.AioConnection,
-        output_evt: aioprocessing.AioEvent
-):
+async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
     """
     Run the docker controller loop.
 
@@ -50,11 +47,9 @@ async def _start_docker_controller(
                 )
 
             if isinstance(response, types.GeneratorType):
-                output_evt.set()
-                for stream in response:
-                    await docker_pipe.coro_send(stream)
+                for data in response:
+                    await docker_pipe.coro_send(data)
                 await docker_pipe.coro_send(None)
-                output_evt.clear()
             else:
                 await docker_pipe.coro_send(response)
         except Exception as e:
@@ -74,7 +69,6 @@ async def _watch_for_terminate_event(terminate_evt: aioprocessing.AioEvent):
 def _docker_process_main(
         hummingbot_pipe: aioprocessing.AioConnection,
         docker_pipe: aioprocessing.AioConnection,
-        output_evt: aioprocessing.AioEvent,
         terminate_evt: aioprocessing.AioEvent
 ):
     """
@@ -102,7 +96,7 @@ def _docker_process_main(
     # Start the docker controller loop and the terminate event monitor in parallel.
     try:
         ev_loop.run_until_complete(asyncio.gather(
-            _start_docker_controller(docker_pipe, output_evt),
+            _start_docker_controller(docker_pipe),
             _watch_for_terminate_event(terminate_evt)
         ))
     except asyncio.CancelledError:
@@ -118,17 +112,16 @@ def fork_and_start(main_function: Callable):
     resources are freed up.
     """
     p1, p2 = aioprocessing.AioPipe()
-    output_evt: aioprocessing.AioEvent = aioprocessing.AioEvent()
     terminate_evt: aioprocessing.AioEvent = aioprocessing.AioEvent()
     docker_process: Process = Process(target=_docker_process_main,
-                                      args=(p1, p2, output_evt, terminate_evt))
+                                      args=(p1, p2, terminate_evt))
 
     try:
         # fork the docker process as child.
         docker_process.start()
 
         # run the main function as parent.
-        main_function(p1, output_evt)
+        main_function(p1)
     finally:
         # close pipes.
         p1.close()
