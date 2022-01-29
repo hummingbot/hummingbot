@@ -10,7 +10,7 @@
           :src="require('../assets/strategies-box-number.svg')"
           class="q-mr-xs"
         />
-        {{ count }}
+        {{ count }} <span v-if="type === 'exchanges'" class="color-green"> +</span>
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs"> {{ title }} </div>
