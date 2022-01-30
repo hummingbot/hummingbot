@@ -921,7 +921,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                              api_version=CONSTANTS.API_VERSION_V2,
                                              )
         for position in positions:
-            trading_pair = position.get("symbol")
+            trading_pair: str = await BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(
+                exchange_trading_pair=position.get("symbol"),
+                domain=self._domain,
+                throttler=self._throttler)
             position_side = PositionSide[position.get("positionSide")]
             unrealized_pnl = Decimal(position.get("unRealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
