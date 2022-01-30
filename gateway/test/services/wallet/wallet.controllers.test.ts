@@ -1,6 +1,7 @@
 import { patch, unpatch } from '../patch';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
+// import { Harmony } from '../../../src/chains/harmony/harmony';
 import {
   addWallet,
   getWallets,
@@ -16,6 +17,7 @@ import { ConfigManagerCertPassphrase } from '../../../src/services/config-manage
 
 let avalanche: Avalanche;
 let eth: Ethereum;
+// let harmony: Harmony;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -23,6 +25,8 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
 
   eth = Ethereum.getInstance('kovan');
+  // harmony = Harmony.getInstance('harmony_testnet');
+  // TODO: Remove comments and add tests for harmony
 });
 
 beforeEach(() =>
