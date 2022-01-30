@@ -111,9 +111,11 @@ export class EthereumBase {
     tokenListType: TokenListType
   ): Promise<void> {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
-    this.tokenList.forEach(
-      (token: Token) => (this._tokenMap[token.symbol] = token)
-    );
+    if (this.tokenList) {
+      this.tokenList.forEach(
+        (token: Token) => (this._tokenMap[token.symbol] = token)
+      );
+    }
   }
 
   // returns a Tokens for a given list source and list type
