@@ -682,7 +682,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             # update position
             for asset in update_data.get("P", []):
-                trading_pair = asset["s"]
+                trading_pair = await BinancePerpetualAPIOrderBookDataSource.convert_from_exchange_trading_pair(
+                    exchange_trading_pair=asset["s"],
+                    domain=self._domain,
+                    throttler=self._throttler,
+                )
                 side = PositionSide[asset['ps']]
                 position = self.get_position(trading_pair, side)
                 if position is not None:
