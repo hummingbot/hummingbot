@@ -19,7 +19,7 @@ export async function getChain(chain: string, network: string) {
 export async function getConnector(
   chain: string,
   network: string,
-  connector: string
+  connector: string | undefined
 ) {
   let connectorInstance: any;
   if (chain === 'ethereum' && connector === 'uniswap')
