@@ -12,6 +12,8 @@ module.exports = {
     'src/chains/avalanche/avalanche.ts',
     'src/chains/avalanche/pangolin/pangolin.ts',
     'conf/migration/migrations.js',
+    'src/chains/solana/solana.ts',
+    'src/connectors/uniswap/uniswap.config.ts',
   ],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],

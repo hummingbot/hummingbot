@@ -558,3 +558,218 @@ definitions:
           - type: 'boolean'
           - type: 'number'
 
+  SolanaConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      rpcUrl:
+        type: 'string'
+        example: 'https://api.mainnet-beta.solana.com'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1641889489132
+
+  SolanaBalanceRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenSymbols'
+    properties:
+      address:
+        type: 'string'
+        example: '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['SOL', 'RAY', 'MNGO']
+
+  SolanaBalanceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      timestamp:
+        type: 'integer'
+        example: 1641889944387
+      latency:
+        type: 'number'
+        example: 0.374
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"SOL": "1.5", "RAY": "100", "MNGO": "3000"}'
+
+  SolanaTokenRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'token'
+    properties:
+      address:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+      token:
+        type: 'string'
+        example: 'MNGO'
+
+  SolanaTokenResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'token'
+      - 'mintAddress'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      token:
+        type: 'string'
+        example: 'MNGO'
+      mintAddress:
+        type: 'string'
+        example: 'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac'
+      accountAddress:
+        type: 'string'
+        example: 'GizuDGzHpZFFJTjRKG57LFmzb5AooBiceugbmDPgsb5T'
+      amount:
+        type: 'string'
+        example: '3000.000451'
+
+  SolanaPollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+
+  SolanaTransaction:
+    type: 'object'
+    required:
+      - 'slot'
+      - 'transaction'
+      - 'meta'
+    properties:
+      slot:
+        type: 'integer'
+        example: 112646487
+      transaction:
+        type: 'object'
+        example: '
+        {
+          "message": {
+            "accountKeys": [
+              "3UVYmECPPMZSCqWKfENfuoTv51fTDTWicX9xmBD2euKe",
+              "AjozzgE83A3x1sHNUR64hfH7zaEBWeMaFuAN9kQgujrc",
+              "SysvarS1otHashes111111111111111111111111111",
+              "SysvarC1ock11111111111111111111111111111111",
+              "Vote111111111111111111111111111111111111111"
+            ],
+            "header": {
+              "numReadonlySignedAccounts": 0,
+              "numReadonlyUnsignedAccounts": 3,
+              "numRequiredSignatures": 1
+            },
+            "instructions": [
+              {
+                "accounts": [
+                  1,
+                  2,
+                  3,
+                  0
+                ],
+                "data": "37u9WtQpcm6ULa3WRQHmj49EPs4if7o9f1jSRVZpm2dvihR9C8jY4NqEwXUbLwx15HBSNcP1",
+                "programIdIndex": 4
+              }
+            ],
+            "recentBlockhash": "mfcyqEXB3DnHXki6KjjmZck6YjmZLvpAByy2fj4nh6B"
+          },
+          "signatures": [
+            "2nBhEBYYvfaAe16UMNqRHre4YNSskvuYgx3M6E4JP1oDYvZEJHvoPzyUidNgNX5r9sTyN1J9UxtbCXy2rqYcuyuv"
+          ]
+        }'
+      meta:
+        type: 'object'
+        example: '
+        {
+          "err": null,
+          "fee": 5000,
+          "innerInstructions": [],
+          "postBalances": [
+            499998932500,
+            26858640,
+            1,
+            1,
+            1
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            499998937500,
+            26858640,
+            1,
+            1,
+            1
+          ],
+          "preTokenBalances": [],
+          "status": {
+            "Ok": null
+          }
+        }'
+      blockTime:
+        type: 'integer'
+        example: 1641891662
+
+  SolanaPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentBlock'
+      - 'txHash'
+      - 'txStatus'
+      - 'txBlock'
+      - 'txData'
+      - 'txReceipt'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet-beta'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 112646487
+      txHash:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+      txStatus:
+        type: 'number'
+        example: 1
+      txData:
+        $ref: '#/definitions/SolanaTransaction'

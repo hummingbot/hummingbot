@@ -39,7 +39,7 @@ export class Uniswap implements Uniswapish {
     this._ttl = UniswapConfig.config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimit = UniswapConfig.config.gasLimit;
-    this._router = config.uniswapV2RouterAddress;
+    this._router = config.uniswapV2RouterAddress(network);
   }
 
   public static getInstance(chain: string, network: string): Uniswap {
