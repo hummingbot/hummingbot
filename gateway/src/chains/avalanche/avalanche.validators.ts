@@ -3,14 +3,14 @@ import {
   mkValidator,
   RequestValidator,
   Validator,
+  validateAmount,
+  validateToken,
+  validateTokenSymbols,
 } from '../../services/validators';
 import {
   isAddress,
-  validateAmount,
   validateNonce,
   validateAddress,
-  validateToken,
-  validateTokenSymbols,
 } from '../ethereum/ethereum.validators';
 
 export const invalidSpenderError: string =

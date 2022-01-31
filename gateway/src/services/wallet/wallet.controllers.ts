@@ -1,6 +1,7 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Solana } from '../../chains/solana/solana';
 
 import {
   AddWalletRequest,
@@ -17,6 +18,8 @@ import {
 } from '../error-handler';
 
 const walletPath = './conf/wallets';
+
+const solana = Solana.getInstance();
 
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
@@ -40,6 +43,11 @@ export async function addWallet(req: AddWalletRequest): Promise<void> {
     const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'solana') {
+    address = solana
+      .getKeypairFromPrivateKey(req.privateKey)
+      .publicKey.toBase58();
+    encryptedPrivateKey = await solana.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,

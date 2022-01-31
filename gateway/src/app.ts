@@ -1,6 +1,7 @@
 import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
+import { SolanaRoutes } from './chains/solana/solana.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -31,6 +32,9 @@ gatewayApp.use(express.urlencoded({ extended: true }));
 // mount sub routers
 gatewayApp.use('/trading', TradingRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
+
+// mount sub routers
+gatewayApp.use('/solana', SolanaRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -87,6 +91,9 @@ gatewayApp.post(
       logger.info('Reloading Ethereum routes.');
       // EthereumRoutes.reload();
 
+      logger.info('Reloading Solana routes.');
+      SolanaRoutes.reload();
+
       logger.info('Restarting gateway.');
       await stopGateway();
       await startGateway();
@@ -121,6 +128,7 @@ export const startSwagger = async () => {
       './docs/swagger/main-routes.yml',
       './docs/swagger/trading-routes.yml',
       './docs/swagger/wallet-routes.yml',
+      './docs/swagger/solana-routes.yml',
     ]
   );
 
