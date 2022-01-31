@@ -130,7 +130,7 @@ const patchExecuteTrade = () => {
   });
 };
 
-describe('POST /trading/price', () => {
+describe('POST /amm/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
     patchStoredTokenList();
@@ -142,7 +142,7 @@ describe('POST /trading/price', () => {
     patchExecuteTrade();
 
     await request(gatewayApp)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -170,7 +170,7 @@ describe('POST /trading/price', () => {
     patchExecuteTrade();
 
     await request(gatewayApp)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -206,7 +206,7 @@ describe('POST /trading/price', () => {
     patchGetTokenByAddress();
 
     await request(gatewayApp)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -239,7 +239,7 @@ describe('POST /trading/price', () => {
     patchGetTokenByAddress();
 
     await request(gatewayApp)
-      .post(`/trading/price`)
+      .post(`/amm/price`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -254,7 +254,7 @@ describe('POST /trading/price', () => {
   });
 });
 
-describe('POST /trading/trade', () => {
+describe('POST /amm/trade', () => {
   const patchForBuy = () => {
     patchGetWallet();
     patchStoredTokenList();
@@ -268,7 +268,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY', async () => {
     patchForBuy();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -290,7 +290,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY without nonce parameter', async () => {
     patchForBuy();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -308,7 +308,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForBuy();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -339,7 +339,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL', async () => {
     patchForSell();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -361,7 +361,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
     patchForSell();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -381,7 +381,7 @@ describe('POST /trading/trade', () => {
 
   it('should return 404 when parameters are incorrect', async () => {
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -413,7 +413,7 @@ describe('POST /trading/trade', () => {
     });
 
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -448,7 +448,7 @@ describe('POST /trading/trade', () => {
     });
 
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -469,7 +469,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL with limitPrice', async () => {
     patchForSell();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -489,7 +489,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY with limitPrice', async () => {
     patchForBuy();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -509,7 +509,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for SELL with price less than limitPrice', async () => {
     patchForSell();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
@@ -529,7 +529,7 @@ describe('POST /trading/trade', () => {
   it('should return 200 for BUY with price less than limitPrice', async () => {
     patchForBuy();
     await request(gatewayApp)
-      .post(`/trading/trade`)
+      .post(`/amm/trade`)
       .send({
         chain: 'avalanche',
         network: 'fuji',
