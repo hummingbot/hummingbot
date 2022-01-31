@@ -27,8 +27,7 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/AddWalletRequest'
-      responses:
-        '200'
+      responses: '200'
 
   /wallet/remove:
     delete:
@@ -44,6 +43,4 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/RemoveWalletRequest'
-      responses:
-        '200'
-  
+      responses: '200'

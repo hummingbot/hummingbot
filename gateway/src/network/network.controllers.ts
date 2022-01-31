@@ -1,6 +1,6 @@
-import { StatusRequest, StatusResponse } from './chain.requests';
-import { Avalanche } from './avalanche/avalanche';
-import { Ethereum } from './ethereum/ethereum';
+import { StatusRequest, StatusResponse } from './network.requests';
+import { Avalanche } from '../chains/avalanche/avalanche';
+import { Ethereum } from '../chains/ethereum/ethereum';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
