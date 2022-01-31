@@ -37,7 +37,7 @@ export class Pangolin implements Uniswapish {
     const config = PangolinConfig.config;
     this.avalanche = Avalanche.getInstance(network);
     this.chainId = this.avalanche.chainId;
-    this._router = config.routerAddress;
+    this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
     this._gasLimit = config.gasLimit;

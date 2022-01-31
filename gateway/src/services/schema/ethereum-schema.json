@@ -26,7 +26,6 @@
     },
     "nativeCurrencySymbol": { "type": "string" },
     "nodeAPIKey": { "type": "string" },
-    "network": { "type": "string" },
     "manualGasPrice": { "type": "integer" }
   },
   "additionalProperties": false

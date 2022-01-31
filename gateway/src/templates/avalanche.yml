@@ -13,5 +13,4 @@ networks:
 
 nativeCurrencySymbol: 'AVAX'
 nodeAPIKey: '3712b320394b413fb4c42fdadcebdf54'
-network: 'fuji'
 manualGasPrice: 100
