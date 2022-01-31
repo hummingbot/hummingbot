@@ -147,7 +147,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '16.x'
+          node-version: '17.x'
 
       - name: Cache NPM
         uses: actions/cache@v1
