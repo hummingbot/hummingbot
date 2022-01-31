@@ -158,10 +158,9 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Dependencies
-        run: |
-          $(npm bin --prefix ./gateway)/ts-node -v
-          $(npm bin --prefix ./gateway)/tsc -v
         run: npm i --prefix ./gateway
+        run: $(npm bin --prefix ./gateway)/ts-node -v
+        run: $(npm bin --prefix ./gateway)/tsc -v
 
       - name: Create yml config file
         env:
