@@ -147,7 +147,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '17.x'
+          node-version: '16.x'
 
       - name: Cache NPM
         uses: actions/cache@v1
@@ -158,10 +158,7 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Dependencies
-        run: |
-          npm i --prefix ./gateway
-          $(npm bin --prefix ./gateway)/ts-node -v
-          $(npm bin --prefix ./gateway)/tsc -v
+        run: npm i --prefix ./gateway
 
       - name: Create yml config file
         env:
