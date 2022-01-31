@@ -1,9 +1,4 @@
-export interface NetworkSelectionRequest {
-  connector: string; // the target connector (e.g. uniswap or pangolin)
-  chain: string; // the target chain (e.g. ethereum or avalanche)
-  network: string; // the target network of the chain (e.g. mainnet)
-}
-
+import { NetworkSelectionRequest } from '../services/common-interfaces';
 export type Side = 'BUY' | 'SELL';
 
 export interface PriceRequest extends NetworkSelectionRequest {
