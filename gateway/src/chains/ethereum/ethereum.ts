@@ -60,11 +60,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     return Ethereum._instances[network];
   }
 
-  // public static reload(): Ethereum {
-  //   Ethereum._instance = new Ethereum();
-  //   return Ethereum._instance;
-  // }
-
   public requestCounter(msg: any): void {
     if (msg.action === 'request') this._requestCount += 1;
   }
@@ -133,7 +128,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'uniswap') {
-      spender = UniswapConfig.config.uniswapV2RouterAddress;
+      spender = UniswapConfig.config.uniswapV2RouterAddress(this._chain);
     } else {
       spender = reqSpender;
     }

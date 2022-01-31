@@ -16,8 +16,8 @@
       },
       "additionalProperties": false
     },
-    "network": { "type": "string" },
     "nativeCurrencySymbol": { "type": "string" },
+    "network": { "type": "string" },
     "tokenProgram": { "type": "string" },
     "transactionLamports": { "type": "integer" },
     "lamportsToSol": { "type": "number" },

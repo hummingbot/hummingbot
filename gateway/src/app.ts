@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
@@ -16,6 +17,7 @@ import { SwaggerManager } from './services/swagger-manager';
 import { TradingRoutes } from './trading/trading.routes';
 import { NetworkRoutes } from './network/network.routes';
 import { EVMRoutes } from './evm/evm.routes';
+import { AmmRoutes } from './amm/amm.routes';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -34,9 +36,8 @@ gatewayApp.use('/network', NetworkRoutes.router);
 gatewayApp.use('/evm', EVMRoutes.router);
 
 gatewayApp.use('/trading', TradingRoutes.router);
+gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
-
-// mount sub routers
 gatewayApp.use('/solana', SolanaRoutes.router);
 
 // a simple route to test that the server is running
@@ -56,8 +57,6 @@ gatewayApp.post(
       req: Request<unknown, unknown, ConfigUpdateRequest>,
       res: Response
     ) => {
-      console.log('req.body.configPath ' + req.body.configPath);
-      console.log('req.body.configValue ' + req.body.configValue);
       const config = ConfigManagerV2.getInstance().get(req.body.configPath);
       if (typeof req.body.configValue == 'string')
         switch (typeof config) {
@@ -114,6 +113,7 @@ export const startSwagger = async () => {
     './docs/swagger/swagger.yml',
     './docs/swagger/definitions.yml',
     [
+      './docs/swagger/amm-routes.yml',
       './docs/swagger/main-routes.yml',
       './docs/swagger/trading-routes.yml',
       './docs/swagger/wallet-routes.yml',
