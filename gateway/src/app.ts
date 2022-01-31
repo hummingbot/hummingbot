@@ -14,7 +14,6 @@ import {
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
-import { TradingRoutes } from './trading/trading.routes';
 import { NetworkRoutes } from './network/network.routes';
 import { EVMRoutes } from './evm/evm.routes';
 import { AmmRoutes } from './amm/amm.routes';
@@ -35,7 +34,6 @@ gatewayApp.use(express.urlencoded({ extended: true }));
 gatewayApp.use('/network', NetworkRoutes.router);
 gatewayApp.use('/evm', EVMRoutes.router);
 
-gatewayApp.use('/trading', TradingRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
@@ -115,7 +113,6 @@ export const startSwagger = async () => {
     [
       './docs/swagger/amm-routes.yml',
       './docs/swagger/main-routes.yml',
-      './docs/swagger/trading-routes.yml',
       './docs/swagger/wallet-routes.yml',
       './docs/swagger/evm-routes.yml',
       './docs/swagger/network-routes.yml',
