@@ -57,8 +57,8 @@ export class UniswapV3 implements Uniswapish {
     this._poolAbi =
       require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json').abi;
     this._gasLimit = UniswapConfig.config.gasLimit;
-    this._router = <string>config.uniswapV3RouterAddress;
-    this._nftManager = <string>config.uniswapV3NftManagerAddress;
+    this._router = config.uniswapV3RouterAddress as string;
+    this._nftManager = config.uniswapV3NftManagerAddress as string;
   }
 
   public static getInstance(chain: string, network: string): UniswapV3 {
