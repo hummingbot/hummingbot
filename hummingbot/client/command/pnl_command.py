@@ -52,7 +52,7 @@ class PnlCommand:
         connector = await self.get_binance_connector()
         cur_balances = await self.get_current_balances(exchange)
         if connector is None:
-            self._notify("This command supports only binance (for now), please first connect to binance.")
+            self.notify("This command supports only binance (for now), please first connect to binance.")
             return
         if market is not None:
             market = market.upper()
@@ -60,9 +60,9 @@ class PnlCommand:
             perf = await PerformanceMetrics.create(exchange, market, trades, cur_balances)
             self.report_performance_by_market(exchange, market, perf, precision=None)
             return
-        self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
-                     f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
-        self._notify("Calculating profit and losses....")
+        self.notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
+                    f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
+        self.notify("Calculating profit and losses....")
         if open_order_markets:
             orders: List[OpenOrder] = await connector.get_open_orders()
             markets = {o.trading_pair for o in orders}
@@ -86,11 +86,11 @@ class PnlCommand:
             pnl = await RateOracle.global_value(quote, perf.total_pnl)
             data.append([market, round(volume, 2), round(fee, 2), round(pnl, 2), f"{perf.return_pct:.2%}"])
         if not data:
-            self._notify(f"No trades during the last {days} day(s).")
+            self.notify(f"No trades during the last {days} day(s).")
             return
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
-        self._notify("\n" + "\n".join(lines))
-        self._notify(f"\n  Total PnL: {g_sym} {df[f' PnL ({g_sym})'].sum():.2f}    "
-                     f"Total fee: {g_sym} {df[f' Fee ({g_sym})'].sum():.2f}")
+        self.notify("\n" + "\n".join(lines))
+        self.notify(f"\n  Total PnL: {g_sym} {df[f' PnL ({g_sym})'].sum():.2f}    "
+                    f"Total fee: {g_sym} {df[f' Fee ({g_sym})'].sum():.2f}")
