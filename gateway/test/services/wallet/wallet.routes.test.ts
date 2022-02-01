@@ -28,7 +28,7 @@ afterEach(() => unpatch());
 const twoAddress = '0x2b5ad5c4795c026514f8317c7a215e218dccd6cf';
 
 const twoPrivateKey =
-  '0000000000000000000000000000000000000000000000000000000000000002';
+  '0000000000000000000000000000000000000000000000000000000000000002'; // noqa: mock
 
 // encoding of twoPrivateKey with the password 'a'
 const encodedPrivateKey = {
@@ -39,16 +39,16 @@ const encodedPrivateKey = {
     cipher: 'aes-128-ctr',
     cipherparams: { iv: 'dccf7a5f7d66bc6a61cf4fda422dcd55' },
     ciphertext:
-      'ce561ad92c6a507a9399f51d64951b763f01b4956f15fd298ceb7a1174d0394a',
+      'ce561ad92c6a507a9399f51d64951b763f01b4956f15fd298ceb7a1174d0394a', // noqa: mock
     kdf: 'scrypt',
     kdfparams: {
-      salt: 'a88d99c6d01150af02861ebb1ace3b633a33b2a20561fe188a0c260a84d1ba99',
+      salt: 'a88d99c6d01150af02861ebb1ace3b633a33b2a20561fe188a0c260a84d1ba99', // noqa: mock
       n: 131072,
       dklen: 32,
       p: 1,
       r: 8,
     },
-    mac: '684b0111ed08611ad993c76b4524d5dcda18b26cb930251983c36f40160eba8f',
+    mac: '684b0111ed08611ad993c76b4524d5dcda18b26cb930251983c36f40160eba8f', // noqa: mock
   },
 };
 

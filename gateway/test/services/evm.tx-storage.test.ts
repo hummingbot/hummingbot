@@ -23,10 +23,10 @@ describe('Test local-storage', () => {
     const testChain1 = 'ethereum';
     const testChain1Id = 423;
     const testChain1Tx1 =
-      '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487e5778d95c964405c7';
+      '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487e5778d95c964405c7'; // noqa: mock
     const testChain1GasPrice1 = 200000;
     const testChain1Tx2 =
-      '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487edddddddddddddddd';
+      '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487edddddddddddddddd'; // noqa: mock
     const testChain1GasPrice2 = 200300;
 
     const db = new EvmTxStorage(dbPath);
@@ -73,7 +73,7 @@ describe('Test local-storage', () => {
     const testChain2 = 'avalanche';
     const testChain2Id = 10;
     const testChain2Tx1 =
-      '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487fffffffffffffffff';
+      '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487fffffffffffffffff'; // noqa: mock
     const testChain2GasPrice1 = 4000000;
     const testTime3 = new Date();
 
