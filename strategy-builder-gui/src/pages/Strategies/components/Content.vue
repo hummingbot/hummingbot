@@ -12,5 +12,3 @@ export default {
   components: { Box },
 };
 </script>
-
-<style></style>

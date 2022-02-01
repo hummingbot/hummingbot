@@ -11,5 +11,3 @@ export default defineComponent({
   components: { Content },
 });
 </script>
-
-<style></style>

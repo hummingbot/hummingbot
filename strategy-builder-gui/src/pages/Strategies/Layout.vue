@@ -16,5 +16,3 @@ export default defineComponent({
   components: { Strategies, BaseLayout },
 });
 </script>
-
-<style></style>
