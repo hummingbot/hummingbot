@@ -52,7 +52,7 @@ class GatewayCommand:
             self._notify("\nUnable to ping gateway.")
             raise e
 
-        if resp['message'] == 'ok':
+        if resp.get('message', None) == 'ok' or resp.get('status', None) == 'ok':
             self._notify("\nSuccesfully pinged gateway.")
         else:
             self._notify("\nUnable to ping gateway.")

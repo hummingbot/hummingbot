@@ -21,6 +21,8 @@ tags:
     description: 'Avalanche'
   - name: 'pangolin'
     description: 'pangolin'
+  - name: 'solana'
+    description: 'Solana'
 
 schemes:
   - 'http'

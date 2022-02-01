@@ -24,7 +24,6 @@ export interface Config {
 }
 
 export namespace EthereumConfig {
-  export const config: Config = getEthereumConfig('ethereum');
   export const ethGasStationConfig: EthereumGasStationConfig = {
     enabled: ConfigManagerV2.getInstance().get('ethereumGasStation.enabled'),
     gasStationURL: ConfigManagerV2.getInstance().get(
@@ -38,8 +37,11 @@ export namespace EthereumConfig {
   };
 }
 
-export function getEthereumConfig(chainName: string): Config {
-  const network = ConfigManagerV2.getInstance().get(chainName + '.network');
+export function getEthereumConfig(
+  chainName: string,
+  networkName: string
+): Config {
+  const network = networkName;
   return {
     network: {
       name: network,

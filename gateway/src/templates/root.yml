@@ -1,5 +1,9 @@
 version: 1
 configurations:
+  $namespace solana:
+    configurationPath: solana.yml
+    schemaPath: solana-schema.json
+
   $namespace avalanche:
     configurationPath: avalanche.yml
     schemaPath: ethereum-schema.json

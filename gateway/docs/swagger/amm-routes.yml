@@ -1,0 +1,38 @@
+paths:
+  /amm/trade:
+    post:
+      summary: 'Perform a trade on an AMM'
+      operationId: 'trade'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/TradeRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TradeResponse'
+
+  /amm/price:
+    post:
+      summary: 'Get the price for a quote base pair on an AMM'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PriceResponse'
