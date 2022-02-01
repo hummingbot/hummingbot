@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 import asyncio
 import aiohttp
-import aioprocessing
 import ssl
 import json
 import pandas as pd
 from os import getenv, path
+
+from bin.docker_connection import (
+    docker_ipc,
+    docker_ipc_with_generator,
+    GATEWAY_DOCKER_TAG,
+    GATEWAY_DOCKER_REPO,
+    get_gateway_container_name
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
@@ -22,9 +29,6 @@ from typing import Dict, Any, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
-DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-DOCKER_TAG: str = "20220131"
 
 
 class GatewayCommand:
@@ -47,11 +51,6 @@ class GatewayCommand:
         elif option == "test-connection":
             safe_ensure_future(self._test_connection())
 
-    @staticmethod
-    def get_gateway_container_name() -> str:
-        instance_id_suffix: str = global_config_map["instance_id"].value[:8]
-        return f"hummingbot-gateway-{instance_id_suffix}"
-
     async def _test_connection(self):
         # test that the gateway is running
         try:
@@ -70,8 +69,8 @@ class GatewayCommand:
                               ):
         if not from_client_password:
             if certs_files_exist():
-                self._notify(f"Gateway SSL certification files exist in {cert_path()}.")
-                self._notify("To create new certification files, please first manually delete those files.")
+                self.notify(f"Gateway SSL certification files exist in {cert_path()}.")
+                self.notify("To create new certification files, please first manually delete those files.")
                 return
             self.app.clear_input()
             self.placeholder_mode = True
@@ -81,11 +80,11 @@ class GatewayCommand:
                                                    is_password=True)
                 if pass_phase is not None and len(pass_phase) > 0:
                     break
-                self._notify("Error: Invalid pass phase")
+                self.notify("Error: Invalid pass phase")
         else:
             pass_phase = Security.password
         create_self_sign_certs(pass_phase)
-        self._notify(f"Gateway SSL certification files are created in {cert_path()}.")
+        self.notify(f"Gateway SSL certification files are created in {cert_path()}.")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -109,18 +108,18 @@ class GatewayCommand:
             certificate_mount_path = cert_path()
             logs_mount_path = path.join(root_path(), "logs")
 
-        gateway_container_name: str = self.get_gateway_container_name()
+        gateway_container_name: str = get_gateway_container_name()
 
         # remove existing container(s)
         try:
-            old_container = await self.docker_ipc(
+            old_container = await docker_ipc(
                 "containers",
                 all=True,
                 filters={"name": gateway_container_name}
             )
             for container in old_container:
                 self._notify(f"Removing existing gateway container with id {container['Id']}...")
-                await self.docker_ipc(
+                await docker_ipc(
                     "remove_container",
                     container["Id"],
                     force=True
@@ -131,7 +130,7 @@ class GatewayCommand:
         await self._generate_certs(from_client_password=True)  # create cert
         self._notify("Pulling Gateway docker image...")
         try:
-            await self.pull_gateway_docker(DOCKER_REPO, DOCKER_TAG)
+            await self.pull_gateway_docker(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG)
             self.logger().info("Done pulling Gateway docker image.")
         except Exception as e:
             self._notify("Error pulling Gateway docker image. Try again.")
@@ -140,7 +139,7 @@ class GatewayCommand:
                                   app_warning_msg=str(e))
             return
         self._notify("Creating new Gateway docker container...")
-        host_config: Dict[str, Any] = await self.docker_ipc(
+        host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
             port_bindings={5000: 5000},
             binds={
@@ -158,9 +157,9 @@ class GatewayCommand:
                 },
             }
         )
-        container_info: Dict[str, str] = await self.docker_ipc(
+        container_info: Dict[str, str] = await docker_ipc(
             "create_container",
-            image=f"{DOCKER_REPO}:{DOCKER_TAG}",
+            image=f"{GATEWAY_DOCKER_REPO}:{GATEWAY_DOCKER_TAG}",
             name=gateway_container_name,
             ports=[5000],
             volumes=[
@@ -170,11 +169,15 @@ class GatewayCommand:
             ],
             host_config=host_config
         )
+        await self.docker_ipc(
+            "start",
+            container=container_info["Id"]
+        )
         self._notify(f"New Gateway docker container id is {container_info['Id']}.")
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
-        pull_generator = self.docker_ipc_with_generator(
+        pull_generator = await docker_ipc_with_generator(
             "pull",
             docker_repo,
             tag=docker_tag,
@@ -289,31 +292,3 @@ class GatewayCommand:
         config = await self.get_gateway_configuration()
         build_config_namespace_keys(self.gateway_config_keys, config)
         self.app.input_field.completer = load_completer(self)
-
-    def get_ipc_connection(self) -> aioprocessing.AioConnection:
-        return self._docker_conn
-
-    async def docker_ipc(self, method_name: str, *args, **kwargs):
-        try:
-            pipe: aioprocessing.AioConnection = self.get_ipc_connection()
-            pipe.send((method_name, args, kwargs))
-            return await pipe.coro_recv()
-        except Exception as e:  # unable to communicate with docker socket
-            self._notify("\nError: Unable to communicate with docker socket. "
-                         "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
-            raise e
-
-    async def docker_ipc_with_generator(self, method_name: str, *args, **kwargs):
-        try:
-            pipe = self.get_ipc_connection()
-            pipe.send((method_name, args, kwargs))
-
-            while True:
-                data = await pipe.coro_recv()
-                if data is None:
-                    break
-                yield data
-        except Exception as e:  # unable to communicate with docker socket
-            self._notify("\nError: Unable to communicate with docker socket. "
-                         "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
-            raise e

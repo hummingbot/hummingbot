@@ -4,7 +4,6 @@ import asyncio
 import logging
 import time
 from collections import deque
-import aioprocessing
 from typing import List, Dict, Optional, Tuple, Deque
 
 from hummingbot.client.command import __all__ as commands
@@ -53,7 +52,6 @@ class HummingbotApplication(*commands):
     APP_WARNING_STATUS_LIMIT = 6
 
     _main_app: Optional["HummingbotApplication"] = None
-    _docker_conn: Optional[aioprocessing.AioConnection] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -63,10 +61,9 @@ class HummingbotApplication(*commands):
         return s_logger
 
     @classmethod
-    def main_application(cls, docker_conn: Optional[aioprocessing.AioConnection] = None) -> "HummingbotApplication":
+    def main_application(cls) -> "HummingbotApplication":
         if cls._main_app is None:
             cls._main_app = HummingbotApplication()
-            cls._docker_conn = docker_conn
         return cls._main_app
 
     def __init__(self):
@@ -151,7 +148,7 @@ class HummingbotApplication(*commands):
         with self._gateway_monitor_clock as clock:
             await clock.run()
 
-    def _notify(self, msg: str):
+    def notify(self, msg: str):
         self.app.log(msg)
         for notifier in self.notifiers:
             notifier.add_msg_to_queue(msg)
@@ -189,10 +186,10 @@ class HummingbotApplication(*commands):
                             for i in range(1, num_shortcut_args + 1):
                                 final_cmd = final_cmd.replace(f'${i}', command_split[i])
                             if verbose is True:
-                                self._notify(f'  >>> {final_cmd}')
+                                self.notify(f'  >>> {final_cmd}')
                             self._handle_command(final_cmd)
                     else:
-                        self._notify('Invalid number of arguments for shortcut')
+                        self.notify('Invalid number of arguments for shortcut')
                 # regular command
                 else:
                     args = self.parser.parse_args(args=command_split)
@@ -205,9 +202,9 @@ class HummingbotApplication(*commands):
                         f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
-                self._notify(str(e))
+                self.notify(str(e))
         except NotImplementedError:
-            self._notify("Command not yet implemented. This feature is currently under development.")
+            self.notify("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
             self.logger().error(e, exc_info=True)
 
@@ -215,7 +212,7 @@ class HummingbotApplication(*commands):
         success = True
         try:
             kill_timeout: float = self.KILL_TIMEOUT
-            self._notify("Cancelling outstanding orders...")
+            self.notify("Cancelling outstanding orders...")
 
             for market_name, market in self.markets.items():
                 cancellation_results = await market.cancel_all(kill_timeout)
@@ -223,7 +220,7 @@ class HummingbotApplication(*commands):
                 if len(uncancelled) > 0:
                     success = False
                     uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                    self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
+                    self.notify("\nFailed to cancel the following orders on %s:\n%s" % (
                         market_name,
                         '\n'.join(uncancelled_order_ids)
                     ))
@@ -232,7 +229,7 @@ class HummingbotApplication(*commands):
             success = False
 
         if success:
-            self._notify("All outstanding orders cancelled.")
+            self.notify("All outstanding orders cancelled.")
         return success
 
     async def run(self):

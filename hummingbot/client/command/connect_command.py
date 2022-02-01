@@ -36,7 +36,7 @@ class ConnectCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         if exchange == "kraken":
-            self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
+            self.notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         exchange_configs = [c for c in global_config_map.values()
                             if c.key in AllConnectorSettings.get_connector_settings()[exchange].config_keys and c.is_connect_key]
         to_connect = True
@@ -69,29 +69,29 @@ class ConnectCommand:
                     UserBalances.instance().add_exchange(exchange, **api_keys), network_timeout
                 )
             except asyncio.TimeoutError:
-                self._notify("\nA network error prevented the connection to complete. See logs for more details.")
+                self.notify("\nA network error prevented the connection to complete. See logs for more details.")
                 self.placeholder_mode = False
                 self.app.hide_input = False
                 self.app.change_prompt(prompt=">>> ")
                 raise
             if err_msg is None:
-                self._notify(f"\nYou are now connected to {exchange}.")
+                self.notify(f"\nYou are now connected to {exchange}.")
             else:
-                self._notify(f"\nError: {err_msg}")
+                self.notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
     async def show_connections(self  # type: HummingbotApplication
                                ):
-        self._notify("\nTesting connections, please wait...")
+        self.notify("\nTesting connections, please wait...")
         await Security.wait_til_decryption_done()
         df, failed_msgs = await self.connection_df()
         lines = ["    " + line for line in df.to_string(index=False).split("\n")]
         if failed_msgs:
             lines.append("\nFailed connections:")
             lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
-        self._notify("\n".join(lines))
+        self.notify("\n".join(lines))
 
     async def connection_df(self  # type: HummingbotApplication
                             ):
@@ -104,7 +104,7 @@ class ConnectCommand:
                 UserBalances.instance().update_exchanges(reconnect=True), network_timeout
             )
         except asyncio.TimeoutError:
-            self._notify("\nA network error prevented the connection table to populate. See logs for more details.")
+            self.notify("\nA network error prevented the connection table to populate. See logs for more details.")
             raise
         for option in sorted(OPTIONS):
             keys_added = "No"
@@ -168,9 +168,9 @@ class ConnectCommand:
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
             err_msg = UserBalances.validate_ethereum_wallet()
             if err_msg is None:
-                self._notify(f"Wallet {public_address} connected to hummingbot.")
+                self.notify(f"Wallet {public_address} connected to hummingbot.")
             else:
-                self._notify(f"\nError: {err_msg}")
+                self.notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -195,9 +195,9 @@ class ConnectCommand:
                                                          global_config_map["celo_address"].value,
                                                          global_config_map["celo_password"].value)
             if err_msg is None:
-                self._notify("You are now connected to Celo network.")
+                self.notify("You are now connected to Celo network.")
             else:
-                self._notify(err_msg)
+                self.notify(err_msg)
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
