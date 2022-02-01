@@ -56,13 +56,13 @@ class GatewayCommand:
         try:
             resp = await self._api_request("get", "", {})
         except Exception as e:
-            self._notify("\nUnable to ping gateway.")
+            self.notify("\nUnable to ping gateway.")
             raise e
 
         if resp.get('message', None) == 'ok' or resp.get('status', None) == 'ok':
-            self._notify("\nSuccesfully pinged gateway.")
+            self.notify("\nSuccesfully pinged gateway.")
         else:
-            self._notify("\nUnable to ping gateway.")
+            self.notify("\nUnable to ping gateway.")
 
     async def _generate_certs(self,  # type: HummingbotApplication
                               from_client_password: bool = False
@@ -118,7 +118,7 @@ class GatewayCommand:
                 filters={"name": gateway_container_name}
             )
             for container in old_container:
-                self._notify(f"Removing existing gateway container with id {container['Id']}...")
+                self.notify(f"Removing existing gateway container with id {container['Id']}...")
                 await docker_ipc(
                     "remove_container",
                     container["Id"],
@@ -128,17 +128,17 @@ class GatewayCommand:
             pass  # silently ignore exception
 
         await self._generate_certs(from_client_password=True)  # create cert
-        self._notify("Pulling Gateway docker image...")
+        self.notify("Pulling Gateway docker image...")
         try:
             await self.pull_gateway_docker(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG)
             self.logger().info("Done pulling Gateway docker image.")
         except Exception as e:
-            self._notify("Error pulling Gateway docker image. Try again.")
+            self.notify("Error pulling Gateway docker image. Try again.")
             self.logger().network("Error pulling Gateway docker image. Try again.",
                                   exc_info=True,
                                   app_warning_msg=str(e))
             return
-        self._notify("Creating new Gateway docker container...")
+        self.notify("Creating new Gateway docker container...")
         host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
             port_bindings={5000: 5000},
@@ -173,7 +173,7 @@ class GatewayCommand:
             "start",
             container=container_info["Id"]
         )
-        self._notify(f"New Gateway docker container id is {container_info['Id']}.")
+        self.notify(f"New Gateway docker container id is {container_info['Id']}.")
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
@@ -194,11 +194,11 @@ class GatewayCommand:
         if self._gateway_monitor.network_status == NetworkStatus.CONNECTED:
             try:
                 status = await self._gateway_monitor.get_gateway_status()
-                self._notify(pd.DataFrame(status))
+                self.notify(pd.DataFrame(status))
             except Exception:
-                self._notify("\nError: Unable to fetch status of connected Gateway server.")
+                self.notify("\nError: Unable to fetch status of connected Gateway server.")
         else:
-            self._notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
+            self.notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
@@ -263,9 +263,9 @@ class GatewayCommand:
         }
         try:
             response = await self._api_request("post", "config/update", data)
-            self._notify(response["message"])
+            self.notify(response["message"])
         except Exception:
-            self._notify("\nError: Gateway configuration update failed. See log file for more details.")
+            self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
     async def get_gateway_configuration(self):
         return await self._api_request("get", "config", {})
@@ -277,16 +277,16 @@ class GatewayCommand:
             config_dict = await self.get_gateway_configuration()
             if key is not None:
                 config_dict = search_configs(config_dict, key)
-            self._notify(f"\nGateway Configurations ({host}:{port}):")
+            self.notify(f"\nGateway Configurations ({host}:{port}):")
             lines = []
             build_config_dict_display(lines, config_dict)
-            self._notify("\n".join(lines))
+            self.notify("\n".join(lines))
 
         except asyncio.CancelledError:
             raise
         except Exception:
             remote_host = ':'.join([host, port])
-            self._notify(f"\nError: Connection to Gateway {remote_host} failed")
+            self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
     async def fetch_gateway_config_key_list(self):
         config = await self.get_gateway_configuration()

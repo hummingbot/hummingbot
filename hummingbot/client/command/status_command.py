@@ -90,7 +90,7 @@ class StatusCommand:
         self._expire_old_application_warnings()
         if check_dev_mode() and len(self._app_warnings) > 0:
             app_warning = self._format_application_warnings()
-            self._notify(app_warning)
+            self.notify(app_warning)
             return app_warning
 
     async def validate_required_connections(self) -> Dict[str, str]:
