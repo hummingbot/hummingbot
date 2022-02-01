@@ -12,7 +12,7 @@ class Fixture:
         "network": "kovan",
         "timestamp": 1620448579518,
         "latency": 3.907,
-        "txHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",
+        "txHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",  # noqa: mock
         "confirmed": True,
         "receipt": {
             "gasUsed": 291200,
@@ -23,59 +23,59 @@ class Fixture:
                 {
                     "transactionIndex": 6,
                     "blockNumber": 24726262,
-                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",
+                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",  # noqa: mock
                     "address": "0x2F375e94FC336Cdec2Dc0cCB5277FE59CBf1cAe5",
                     "topics": [
-                        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                        "0x0000000000000000000000002132ef54bfab1c2c7323eacda407c5cfa7d7af20",
-                        "0x000000000000000000000000c4f8d1035e729e6b8645539d54e380bfd455ada5"
+                        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",  # noqa: mock
+                        "0x0000000000000000000000002132ef54bfab1c2c7323eacda407c5cfa7d7af20",  # noqa: mock
+                        "0x000000000000000000000000c4f8d1035e729e6b8645539d54e380bfd455ada5"  # noqa: mock
                     ],
-                    "data": "0x00000000000000000000000000000000000000000000000000000000002dc5f6",
+                    "data": "0x00000000000000000000000000000000000000000000000000000000002dc5f6",  # noqa: mock
                     "logIndex": 11,
-                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"
+                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"  # noqa: mock
                 },
                 {
                     "transactionIndex": 6,
                     "blockNumber": 24726262,
-                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",
+                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",  # noqa: mock
                     "address": "0xC4f8D1035E729e6b8645539D54e380bfd455ada5",
                     "topics": [
-                        "0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde",
-                        "0x000000000000000000000000c36442b4a4522e871399cd717abdd847ab11fe88",
-                        "0x0000000000000000000000000000000000000000000000000000000000002ac6",
-                        "0x0000000000000000000000000000000000000000000000000000000000002ada"
+                        "0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde",  # noqa: mock
+                        "0x000000000000000000000000c36442b4a4522e871399cd717abdd847ab11fe88",  # noqa: mock
+                        "0x0000000000000000000000000000000000000000000000000000000000002ac6",  # noqa: mock
+                        "0x0000000000000000000000000000000000000000000000000000000000002ada"  # noqa: mock
                     ],
-                    "data": "0x000000000000000000000000c36442b4a4522e871399cd717abdd847ab11fe8800000000000000000000000000000000000000000000000000000000675fce41000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002dc5f6",
+                    "data": "0x000000000000000000000000c36442b4a4522e871399cd717abdd847ab11fe8800000000000000000000000000000000000000000000000000000000675fce41000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002dc5f6",  # noqa: mock
                     "logIndex": 12,
-                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"
+                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"  # noqa: mock
                 },
                 {
                     "transactionIndex": 6,
                     "blockNumber": 24726262,
-                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",
+                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",  # noqa: mock
                     "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
                     "topics": [
-                        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                        "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        "0x0000000000000000000000002132ef54bfab1c2c7323eacda407c5cfa7d7af20",
-                        "0x0000000000000000000000000000000000000000000000000000000000000099"
+                        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",  # noqa: mock
+                        "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: mock
+                        "0x0000000000000000000000002132ef54bfab1c2c7323eacda407c5cfa7d7af20",  # noqa: mock
+                        "0x0000000000000000000000000000000000000000000000000000000000000099"  # noqa: mock
                     ],
                     "data": "0x",
                     "logIndex": 13,
-                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"
+                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"  # noqa: mock
                 },
                 {
                     "transactionIndex": 6,
                     "blockNumber": 24726262,
-                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",
+                    "transactionHash": "0x6d2c4f6dca5403beec707931ff837a03dcb33fcd266fbb570e63da8020540c3c",  # noqa: mock
                     "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
                     "topics": [
-                        "0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f",
-                        "0x0000000000000000000000000000000000000000000000000000000000000099"
+                        "0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f",  # noqa: mock
+                        "0x0000000000000000000000000000000000000000000000000000000000000099"  # noqa: mock
                     ],
-                    "data": "0x00000000000000000000000000000000000000000000000000000000675fce41000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002dc5f6",
+                    "data": "0x00000000000000000000000000000000000000000000000000000000675fce41000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002dc5f6",  # noqa: mock
                     "logIndex": 14,
-                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"
+                    "blockHash": "0xc8f6c753876291a2e2237415acbc86b503a820a7600b976c6dc382bf593007cf"  # noqa: mock
                 }
             ]
         }

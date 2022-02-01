@@ -6,7 +6,7 @@
 
 # Here are some examples
 # export ETH_PUBLIC_KEY='0x...'
-# export ETH_PRIVATE_KEY='0000000000000000000000000000000000000000000000000000000000000001'
+# export ETH_PRIVATE_KEY='...'
 # export GATEWAY_CERT='/home/hummingbot/gateway/certs/client_cert.pem'
 # export GATEWAY_KEY='/home/hummingbot/gateway/certs/client_key.pem'
 
