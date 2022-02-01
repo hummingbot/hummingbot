@@ -12,6 +12,17 @@ const stringInsert = (str: string, val: string, index: number) => {
   return val + str;
 };
 
+// counts decimal places of a value
+export const countDecimals = (value: number): number => {
+  if (value >= 1 || value <= 0) {
+    throw new RangeError(
+      'countDecimals() is only valid for values between (0, 1).'
+    );
+  } else {
+    return Number(value.toExponential().split('-')[1]);
+  }
+};
+
 // convert a BigNumber and the number of decimals into a numeric string.
 // this makes it JavaScript compatible while preserving all the data.
 export const bigNumberWithDecimalToStr = (n: BigNumber, d: number): string => {
@@ -88,3 +99,5 @@ export type ParseResult<T> =
 export const latency = (startTime: number, endTime: number): number => {
   return (endTime - startTime) / 1000;
 };
+
+export const walletPath = './conf/wallets';

@@ -1,5 +1,5 @@
 jest.useFakeTimers();
-import { app } from '../src/app';
+import { gatewayApp } from '../src/app';
 import { SwaggerManager } from '../src/services/swagger-manager';
 import { difference } from 'lodash';
 
@@ -9,20 +9,20 @@ describe('verify swagger docs', () => {
       './docs/swagger/swagger.yml',
       './docs/swagger/definitions.yml',
       [
+        './docs/swagger/amm-routes.yml',
         './docs/swagger/main-routes.yml',
-        './docs/swagger/eth-routes.yml',
-        './docs/swagger/eth-uniswap-routes.yml',
-        './docs/swagger/avalanche-routes.yml',
-        './docs/swagger/avalanche-pangolin-routes.yml',
         './docs/swagger/wallet-routes.yml',
+        './docs/swagger/evm-routes.yml',
+        './docs/swagger/network-routes.yml',
+        './docs/swagger/solana-routes.yml',
       ]
     );
     const documentedRoutes = Object.keys(swaggerDocument.paths).sort();
 
     const allRoutes: any[] = [];
-    app._router.stack.forEach(function (middleware: any) {
+    gatewayApp._router.stack.forEach(function (middleware: any) {
       if (middleware.route) {
-        // routes registered directly on the app
+        // routes registered directly on the gatewayApp
         allRoutes.push(middleware.route.path);
       } else if (middleware.name === 'router') {
         const parentPath = middleware.regexp
