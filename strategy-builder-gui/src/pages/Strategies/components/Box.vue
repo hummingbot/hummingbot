@@ -1,5 +1,5 @@
 <template>
-  <q-card id="card" style="" class="card">
+  <q-card class="card">
     <q-card-section horizontal class="flex row full-height">
       <q-card-section
         horizontal
@@ -9,10 +9,7 @@
         <img v-if="type === 'strategy'" src="../assets/strategies-box-number.svg" class="q-mr-xs" />
         {{ box.count }}
       </q-card-section>
-      <q-card-section
-        class="flex column items-start justify-center q-pl-none"
-        style="padding-right: 135px"
-      >
+      <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs"> {{ box.title }} </div>
         <div class="text-body-1 q-mb-sm" style="line-height: normal">
           {{ box.desc }}
