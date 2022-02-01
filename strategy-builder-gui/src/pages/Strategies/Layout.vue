@@ -1,18 +1,19 @@
 <template>
-  <div class="q-py-lg q-px-xl">
-    <Header />
-    <Strategies />
-  </div>
+  <BaseLayout>
+    <div>
+      <Strategies />
+    </div>
+  </BaseLayout>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
 
-import Header from '../../components/Header.vue';
+import BaseLayout from '../../layouts/BaseLayout.vue';
 import Strategies from './components/Index.vue';
 
 export default defineComponent({
-  components: { Strategies, Header },
+  components: { Strategies, BaseLayout },
 });
 </script>
 
