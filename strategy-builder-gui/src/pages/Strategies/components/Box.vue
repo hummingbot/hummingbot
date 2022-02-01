@@ -6,7 +6,11 @@
         class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg border-blue"
         style="min-width: 124px"
       >
-        <img v-if="type === 'strategy'" src="../assets/strategies-box-number.svg" class="q-mr-xs" />
+        <img
+          v-if="type === 'strategy'"
+          :src="require('../assets/strategies-box-number.svg')"
+          class="q-mr-xs"
+        />
         {{ box.count }}
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
@@ -21,7 +25,7 @@
       </q-card-section>
     </q-card-section>
     <div class="box-image flex items-end">
-      <img src="../assets/strategies-box-robot.svg" />
+      <img :src="require('../assets/strategies-box-robot.svg')" />
     </div>
   </q-card>
 </template>
