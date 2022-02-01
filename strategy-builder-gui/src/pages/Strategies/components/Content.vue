@@ -1,5 +1,5 @@
 <template>
-  <div style="gap: 20px" class="flex row">
+  <div class="flex row q-gutter-x-lg">
     <Box class="col" v-bind="{ type: 'strategy' }" />
     <Box class="col" v-bind="{ type: 'exchange' }" />
   </div>
