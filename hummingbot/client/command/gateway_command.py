@@ -23,6 +23,9 @@ from hummingbot.client.ui.completer import load_completer
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
+DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
+DOCKER_TAG: str = "20220131"
+
 
 class GatewayCommand:
 
@@ -106,7 +109,6 @@ class GatewayCommand:
             certificate_mount_path = cert_path()
             logs_mount_path = path.join(root_path(), "logs")
 
-        docker_repo: str = "coinalpha/hummingbot"
         gateway_container_name: str = self.get_gateway_container_name()
 
         # remove existing container(s)
@@ -129,7 +131,7 @@ class GatewayCommand:
         await self._generate_certs(from_client_password=True)  # create cert
         self._notify("Pulling Gateway docker image...")
         try:
-            await self.pull_gateway_docker(docker_repo)
+            await self.pull_gateway_docker(DOCKER_REPO, DOCKER_TAG)
             self.logger().info("Done pulling Gateway docker image.")
         except Exception as e:
             self._notify("Error pulling Gateway docker image. Try again.")
@@ -158,7 +160,7 @@ class GatewayCommand:
         )
         container_info: Dict[str, str] = await self.docker_ipc(
             "create_container",
-            image=f"{docker_repo}:gateway-v2",
+            image=f"{DOCKER_REPO}:{DOCKER_TAG}",
             name=gateway_container_name,
             ports=[5000],
             volumes=[
@@ -170,12 +172,12 @@ class GatewayCommand:
         )
         self._notify(f"New Gateway docker container id is {container_info['Id']}.")
 
-    async def pull_gateway_docker(self, docker_repo: str):
+    async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
         pull_generator = self.docker_ipc_with_generator(
             "pull",
             docker_repo,
-            tag="gateway-v2",
+            tag=docker_tag,
             stream=True,
             decode=True
         )
