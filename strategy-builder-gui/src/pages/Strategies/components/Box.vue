@@ -1,10 +1,9 @@
 <template>
-  <q-card class="card">
+  <q-card class="card overflow-hidden">
     <q-card-section horizontal class="flex row full-height">
       <q-card-section
         horizontal
-        class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg border-blue"
-        style="min-width: 124px"
+        class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg border-blue card-counter"
       >
         <img
           v-if="type === 'strategy'"
@@ -15,7 +14,7 @@
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs"> {{ box.title }} </div>
-        <div class="text-body-1 q-mb-sm" style="line-height: normal">
+        <div class="text-body-1 q-mb-sm line-normal">
           {{ box.desc }}
         </div>
         <a href="box.href" class="text-normal text-blue text-h5">
@@ -56,8 +55,18 @@ export default defineComponent({
   border: 2px solid map.get($colors, 'mono-blue') !important;
 }
 
+.card-counter {
+  min-width: 124px;
+  border-radius: 4px !important;
+}
+
 .card {
   background: map.get($colors, 'mono-grey-1');
+  border-radius: 4px !important;
+}
+
+.line-normal {
+  line-height: normal;
 }
 
 .text-blue {
