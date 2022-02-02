@@ -335,7 +335,8 @@ main_config_map = {
                   default=Decimal("30")),
     "tables_format":
         ConfigVar(key="tables_format",
-                  prompt="What tabulate formatting to apply to the tables? ",
+                  prompt="What tabulate formatting to apply to the tables?"
+                         " [https://github.com/astanin/python-tabulate#table-format] >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   validator=lambda value: "Invalid format" if value not in tabulate_formats else None,
