@@ -1,7 +1,7 @@
 <template #header>
   <q-toolbar class="row flex items-center q-mb-lg q-px-none">
     <div class="col">
-      <router-link class="q-px-none q-py-none" clickable to="/">
+      <router-link class="q-px-none q-py-none" to="/">
         <q-img
           :src="require('./assets/header-logo.svg')"
           fit="contain"
@@ -15,7 +15,8 @@
       <q-btn
         color="mono-grey-1"
         size="md"
-        class="text-uppercase q-px-lg q-py-md"
+        padding="md lg"
+        class="text-uppercase"
         @click="onClickUpload()"
       >
         Upload strategy
