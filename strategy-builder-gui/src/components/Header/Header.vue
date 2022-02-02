@@ -1,9 +1,14 @@
 <template #header>
   <q-toolbar class="row flex items-center q-mb-lg q-px-none">
     <div class="col">
-      <q-item class="q-px-none q-py-none logo" clickable to="/">
-        <q-img :src="require('./assets/header-logo.svg')" fit="contain" no-transition />
-      </q-item>
+      <router-link class="q-px-none q-py-none" clickable to="/">
+        <q-img
+          :src="require('./assets/header-logo.svg')"
+          fit="contain"
+          no-transition
+          class="logo"
+        />
+      </router-link>
     </div>
     <div class="col flex justify-end">
       <q-btn color="mono-grey-1" class="text-h6 text-uppercase btn" @click="onClickUpload()">
