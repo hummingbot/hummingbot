@@ -1,8 +1,10 @@
 <template>
   <q-layout view="lHh Lpr lFf" class="flex column">
-    <q-page-container class="q-py-lg q-px-xl flex self-center full-width" style="max-width: 1440px">
+    <q-page-container class="q-py-lg q-px-xl flex self-center full-width page">
       <Header />
-      <slot />
+      <q-page>
+        <slot />
+      </q-page>
     </q-page-container>
   </q-layout>
 </template>
@@ -13,7 +15,12 @@ import { defineComponent } from 'vue';
 import Header from '../components/Header/Header.vue';
 
 export default defineComponent({
-  name: 'BaseLayout',
   components: { Header },
 });
 </script>
+
+<style lang="scss" scoped>
+.page {
+  max-width: 1440px;
+}
+</style>

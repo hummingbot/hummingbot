@@ -1,21 +1,12 @@
-<template>
+<template #header>
   <q-toolbar class="row flex items-center q-mb-lg q-px-none">
     <div class="col">
-      <q-item
-        style="max-height: 46px; max-width: 56px"
-        class="q-px-none q-py-none"
-        clickable
-        to="/"
-      >
-        <q-img :src="require('./assets/header-logo.svg')" fit="contain" />
+      <q-item class="q-px-none q-py-none logo" clickable to="/">
+        <q-img :src="require('./assets/header-logo.svg')" fit="contain" no-transition />
       </q-item>
     </div>
     <div class="col flex justify-end">
-      <q-btn
-        color="mono-grey-1"
-        class="q-py-md q-px-lg text-h6 text-uppercase"
-        @click="onClickUpload()"
-      >
+      <q-btn color="mono-grey-1" class="text-h6 text-uppercase btn" @click="onClickUpload()">
         Upload strategy
       </q-btn>
     </div>
@@ -36,3 +27,14 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped lang="scss">
+.btn {
+  padding: 12px 24px;
+  font-size: 12px;
+}
+
+.logo {
+  max-width: 56px;
+}
+</style>
