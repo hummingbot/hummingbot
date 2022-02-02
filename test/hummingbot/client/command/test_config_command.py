@@ -71,6 +71,7 @@ class ConfigCommandTest(unittest.TestCase):
             "    +---------------------+-----------+"
             "\n    | Key                 |   Value   |"
             "\n    |---------------------+-----------|"
+            "\n    | tables_format       | psql      |"
             "\n    | autofill_import     | first     |"
             "\n    | kill_switch_enabled | second    |"
             "\n    +---------------------+-----------+"
