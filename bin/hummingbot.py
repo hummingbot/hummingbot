@@ -26,7 +26,7 @@ from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.utils.async_utils import safe_gather
 
-from docker_connection import fork_and_start
+from bin.docker_connection import fork_and_start
 
 
 def detect_available_port(starting_port: int) -> int:

@@ -4,10 +4,10 @@ import docker
 import logging
 from multiprocessing import Process
 import types
-from typing import Callable, Dict, Any, List, Generator, Union, Optional, Iterator
+from typing import Callable, Dict, Any, List, Generator, Union, Optional, AsyncIterable
 
 logger: logging.Logger = logging.getLogger(__name__)
-hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
+global_hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
 GATEWAY_DOCKER_TAG: str = "20220131"
@@ -120,8 +120,8 @@ def fork_and_start(main_function: Callable):
         docker_process.start()
 
         # run the main function as parent.
-        global hummingbot_pipe
-        hummingbot_pipe = p1
+        global global_hummingbot_pipe
+        global_hummingbot_pipe = p1
         main_function()
 
         # stop the gateway container.
@@ -155,13 +155,13 @@ def get_gateway_container_name() -> str:
 
 async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-    global hummingbot_pipe
+    global global_hummingbot_pipe
 
-    if hummingbot_pipe is None:
+    if global_hummingbot_pipe is None:
         raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
     try:
-        hummingbot_pipe.send((method_name, args, kwargs))
-        return await hummingbot_pipe.coro_recv()
+        global_hummingbot_pipe.send((method_name, args, kwargs))
+        return await global_hummingbot_pipe.coro_recv()
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
             "\nError: Unable to communicate with docker socket. "
@@ -169,16 +169,16 @@ async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
         raise e
 
 
-async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> Iterator[str]:
+async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncIterable[str]:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-    global hummingbot_pipe
+    global global_hummingbot_pipe
 
-    if hummingbot_pipe is None:
+    if global_hummingbot_pipe is None:
         raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
     try:
-        hummingbot_pipe.send((method_name, args, kwargs))
+        global_hummingbot_pipe.send((method_name, args, kwargs))
         while True:
-            data = await hummingbot_pipe.coro_recv()
+            data = await global_hummingbot_pipe.coro_recv()
             if data is None:
                 break
             yield data
