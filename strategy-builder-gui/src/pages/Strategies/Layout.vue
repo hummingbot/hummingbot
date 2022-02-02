@@ -1,8 +1,6 @@
 <template>
   <BaseLayout>
-    <div>
-      <Strategies />
-    </div>
+    <Strategies />
   </BaseLayout>
 </template>
 
