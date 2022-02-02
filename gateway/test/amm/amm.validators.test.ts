@@ -7,9 +7,9 @@ import {
   validateSide,
   invalidLimitPriceError,
   validateLimitPrice,
-} from '../../../../src/connectors/uniswap/uniswap.validators';
+} from '../../src/amm/amm.validators';
 
-import { missingParameter } from '../../../../src/services/validators';
+import { missingParameter } from '../../src/services/validators';
 
 import 'jest-extended';
 

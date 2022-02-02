@@ -9,7 +9,7 @@ import { Contract, ContractInterface } from '@ethersproject/contracts';
 import { Token, CurrencyAmount, TradeType } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
 import { BigNumber, Transaction, Wallet, utils } from 'ethers';
-import { ExpectedTrade, Uniswapish } from '../../services/uniswapish.interface';
+import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 import { UniswapV3Helper } from './uniswap.v3.helper';
 
 const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
