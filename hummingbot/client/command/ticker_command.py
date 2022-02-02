@@ -53,7 +53,7 @@ class TickerCommand:
             ]]
             ticker_df = pd.DataFrame(data=data, columns=columns)
             ticker_df_str = format_df_for_printout(ticker_df)
-            return f"   Market: {market_connector.name}\n  {ticker_df_str}"
+            return f"   Market: {market_connector.name}\n{ticker_df_str}"
 
         if live:
             await self.stop_live_update()

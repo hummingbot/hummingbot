@@ -59,7 +59,7 @@ class TickerCommandTest(unittest.TestCase):
 
         df_str_expected = (
             "   Market: MockPaperExchange"
-            "\n  +------------+------------+-------------+--------------+"
+            "\n+------------+------------+-------------+--------------+"
             "\n|   Best Bid |   Best Ask |   Mid Price |   Last Trade |"
             "\n|------------+------------+-------------+--------------|"
             "\n|        9.5 |       10.5 |          10 |          nan |"
