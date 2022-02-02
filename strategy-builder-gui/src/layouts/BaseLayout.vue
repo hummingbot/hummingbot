@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-page-container class="flex">
+    <q-page-container class="flex column">
       <q-page class="q-py-lg q-px-xl flex column self-center full-width page">
         <Header class="col-auto" />
         <slot />
