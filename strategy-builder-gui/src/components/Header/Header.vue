@@ -6,12 +6,18 @@
           :src="require('./assets/header-logo.svg')"
           fit="contain"
           no-transition
+          no-spinner
           class="logo"
         />
       </router-link>
     </div>
     <div class="col flex justify-end">
-      <q-btn color="mono-grey-1" class="text-h6 text-uppercase btn" @click="onClickUpload()">
+      <q-btn
+        color="mono-grey-1"
+        size="md"
+        class="text-uppercase q-px-lg q-py-md"
+        @click="onClickUpload()"
+      >
         Upload strategy
       </q-btn>
     </div>
@@ -34,11 +40,6 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-.btn {
-  padding: 12px 24px;
-  font-size: 12px;
-}
-
 .logo {
   max-width: 56px;
 }
