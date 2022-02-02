@@ -1,15 +1,15 @@
 import asyncio
 from collections import Awaitable
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from unittest import TestCase
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import ujson
 
+import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
-import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class MexcAPIUserStreamDataSourceTests(TestCase):
