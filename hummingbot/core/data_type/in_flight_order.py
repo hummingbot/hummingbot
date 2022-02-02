@@ -68,7 +68,7 @@ class InFlightOrder:
         initial_state: OrderState = OrderState.PENDING_CREATE,
         leverage: int = 1,
         position: PositionAction = PositionAction.NIL,
-        trade_fee_percent: Decimal = s_decimal_0,
+        trade_fee_percent: Decimal = None,
         timestamp: int = -1,
     ) -> None:
         self.client_order_id = client_order_id
@@ -137,12 +137,20 @@ class InFlightOrder:
         return self.trading_pair.split("-")[1]
 
     @property
+    def is_pending_create(self) -> bool:
+        return self.current_state == OrderState.PENDING_CREATE
+
+    @property
     def is_pending_cancel_confirmation(self) -> bool:
         return self.current_state == OrderState.PENDING_CANCEL
 
     @property
     def is_open(self) -> bool:
-        return self.current_state in {OrderState.PENDING_CREATE, OrderState.OPEN, OrderState.PARTIALLY_FILLED}
+        return self.current_state in {
+            OrderState.PENDING_CREATE,
+            OrderState.OPEN,
+            OrderState.PARTIALLY_FILLED,
+            OrderState.PENDING_CANCEL}
 
     @property
     def is_done(self) -> bool:
@@ -156,8 +164,10 @@ class InFlightOrder:
     def is_filled(self) -> bool:
         return (
             self.current_state == OrderState.FILLED
-            or math.isclose(self.executed_amount_base, self.amount)
-            or self.executed_amount_base >= self.amount
+            or (self.amount != s_decimal_0
+                and (math.isclose(self.executed_amount_base, self.amount)
+                     or self.executed_amount_base >= self.amount)
+                )
         )
 
     @property
@@ -294,33 +304,33 @@ class InFlightOrder:
             if order_update.new_state in {OrderState.OPEN, OrderState.CANCELLED, OrderState.FAILED}:
                 return True
 
-            self.last_filled_price = order_update.fill_price or self.price
-            self.last_filled_amount = (
-                order_update.executed_amount_base
-                if prev_executed_amount_base == s_decimal_0
-                else order_update.executed_amount_base - prev_executed_amount_base
-            )
-            self.last_fee_paid = (
-                order_update.cumulative_fee_paid
-                if prev_cumulative_fee_paid == s_decimal_0
-                else order_update.cumulative_fee_paid - prev_cumulative_fee_paid
-            )
-
-            # trade_id defaults to update timestamp if not provided
-            trade_id: str = order_update.trade_id or order_update.update_timestamp
-            self.last_trade_id = trade_id
-            self.order_fills[trade_id] = TradeUpdate(
-                trade_id=trade_id,
-                client_order_id=order_update.client_order_id,
-                exchange_order_id=order_update.exchange_order_id,
-                trading_pair=order_update.trading_pair,
-                fee_asset=order_update.fee_asset,
-                fee_paid=self.last_fee_paid,
-                fill_base_amount=self.last_filled_amount,
-                fill_quote_amount=self.last_filled_amount * (order_update.fill_price or self.price),
-                fill_price=(order_update.fill_price or self.price),
-                fill_timestamp=order_update.update_timestamp,
-            )
+            if self.executed_amount_base > prev_executed_amount_base:
+                self.last_filled_price = order_update.fill_price or self.price
+                self.last_filled_amount = (
+                    order_update.executed_amount_base
+                    if prev_executed_amount_base == s_decimal_0
+                    else order_update.executed_amount_base - prev_executed_amount_base
+                )
+                self.last_fee_paid = (
+                    order_update.cumulative_fee_paid
+                    if prev_cumulative_fee_paid == s_decimal_0
+                    else order_update.cumulative_fee_paid - prev_cumulative_fee_paid
+                )
+                # trade_id defaults to update timestamp if not provided
+                trade_id: str = order_update.trade_id or order_update.update_timestamp
+                self.last_trade_id = trade_id
+                self.order_fills[trade_id] = TradeUpdate(
+                    trade_id=trade_id,
+                    client_order_id=order_update.client_order_id,
+                    exchange_order_id=order_update.exchange_order_id,
+                    trading_pair=order_update.trading_pair,
+                    fee_asset=order_update.fee_asset,
+                    fee_paid=self.last_fee_paid,
+                    fill_base_amount=self.last_filled_amount,
+                    fill_quote_amount=self.last_filled_amount * (order_update.fill_price or self.price),
+                    fill_price=(order_update.fill_price or self.price),
+                    fill_timestamp=order_update.update_timestamp,
+                )
 
             if self.is_filled:
                 self.current_state = OrderState.FILLED
@@ -334,8 +344,7 @@ class InFlightOrder:
         """
         trade_id: str = trade_update.trade_id
         if self.exchange_order_id is None and trade_update.exchange_order_id:
-            self.exchange_order_id = trade_update.exchange_order_id
-            self.exchange_order_id_update_event.set()
+            self.update_exchange_order_id(trade_update.exchange_order_id)
 
         if trade_id in self.order_fills or trade_update.exchange_order_id != self.exchange_order_id:
             return False
@@ -345,7 +354,7 @@ class InFlightOrder:
 
         if not self.fee_asset and trade_update.fee_asset:
             self.fee_asset = trade_update.fee_asset
-        if trade_update.trade_fee_percent:
+        if trade_update.trade_fee_percent is not None:
             self.trade_fee_percent = trade_update.trade_fee_percent
 
         relevant_fee_amount: Decimal = (
@@ -354,10 +363,11 @@ class InFlightOrder:
             else trade_update.fill_quote_amount
         )
         fee_paid: Decimal = (
-            trade_update.fee_paid if trade_update.fee_paid else self.trade_fee_percent * relevant_fee_amount
+            trade_update.fee_paid if trade_update.fee_paid is not None else self.trade_fee_percent * relevant_fee_amount
         )
         self.cumulative_fee_paid += fee_paid
 
+        self.last_trade_id = trade_id
         self.last_filled_price = trade_update.fill_price
         self.last_filled_amount = trade_update.fill_base_amount
         self.last_fee_paid = fee_paid

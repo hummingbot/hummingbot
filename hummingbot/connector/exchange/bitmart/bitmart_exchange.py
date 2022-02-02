@@ -6,8 +6,6 @@ import math
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
-import aiohttp
-
 from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
@@ -36,8 +34,10 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
 ctce_logger = None
@@ -67,7 +67,7 @@ class BitmartExchange(ExchangeBase):
                  bitmart_secret_key: str,
                  bitmart_memo: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True
+                 trading_required: bool = True,
                  ):
         """
         :param bitmart_api_key: The API key to connect to private BitMart APIs.
@@ -76,6 +76,8 @@ class BitmartExchange(ExchangeBase):
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
+        self._api_factory = bitmart_utils.build_api_factory()
+        self._rest_assistant = None
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
@@ -226,20 +228,24 @@ class BitmartExchange(ExchangeBase):
         the network connection. Simply ping the network (or call any light weight public API).
         """
         try:
-            await self._api_request("get", CONSTANTS.CHECK_NETWORK_PATH_URL)
+            request = RESTRequest(
+                method=RESTMethod.GET,
+                url=f"{CONSTANTS.REST_URL}/{CONSTANTS.CHECK_NETWORK_PATH_URL}",
+            )
+            rest_assistant = await self._get_rest_assistant()
+            response = await rest_assistant.call(request=request)
+            if response.status != 200:
+                raise Exception
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
 
     async def _trading_rules_polling_loop(self):
         """
@@ -259,7 +265,14 @@ class BitmartExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        symbols_details = await self._api_request("get", path_url=CONSTANTS.GET_TRADING_RULES_PATH_URL)
+        request = RESTRequest(
+            method=RESTMethod.GET,
+            url=f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_RULES_PATH_URL}",
+        )
+        rest_assistant = await self._get_rest_assistant()
+        response = await rest_assistant.call(request=request)
+
+        symbols_details: Dict[str, Any] = await response.json()
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(symbols_details)
 
@@ -327,15 +340,28 @@ class BitmartExchange(ExchangeBase):
         params = params or {}
         async with self._throttler.execute_task(path_url):
             url = f"{CONSTANTS.REST_URL}/{path_url}"
-            client = await self._http_client()
 
             headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
 
             if method == "get":
-                response = await client.get(url, params=params, headers=headers)
+                request = RESTRequest(
+                    method=RESTMethod.GET,
+                    url=url,
+                    headers=headers,
+                    params=params
+                )
+                rest_assistant = await self._get_rest_assistant()
+                response = await rest_assistant.call(request=request)
             elif method == "post":
                 post_json = json.dumps(params)
-                response = await client.post(url, data=post_json, headers=headers)
+                request = RESTRequest(
+                    method=RESTMethod.POST,
+                    url=url,
+                    headers=headers,
+                    data=post_json
+                )
+                rest_assistant = await self._get_rest_assistant()
+                response = await rest_assistant.call(request=request)
             else:
                 raise NotImplementedError
 

@@ -70,7 +70,6 @@ class HistoryCommandTest(unittest.TestCase):
         trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
         trades = [
             TradeFill(
-                id=1,
                 config_file_path="some-strategy.yml",
                 strategy="pure_market_making",
                 market="binance",
