@@ -200,7 +200,9 @@ class PerformanceMetrics:
                 if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
                     if quote not in self.fees:
                         self.fees[quote] = s_decimal_0
-                    self.fees[quote] += Decimal(trade.price * trade.amount * trade.trade_fee["percent"])
+                    self.fees[quote] += (Decimal(str(trade.price))
+                                         * Decimal(str(trade.amount))
+                                         * Decimal(str(trade.trade_fee["percent"])))
                 for flat_fee in trade.trade_fee.get("flat_fees", []):
                     if flat_fee["asset"] not in self.fees:
                         self.fees[flat_fee["asset"]] = s_decimal_0

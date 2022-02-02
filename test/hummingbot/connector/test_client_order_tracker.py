@@ -39,6 +39,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.log_records = []
 
         self.connector = ConnectorBase()
+        self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 
         self.tracker.logger().setLevel(1)
@@ -492,7 +493,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.assertTrue(
             self._is_logged(
-                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled. "
+                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled."
             )
         )
 
@@ -721,3 +722,99 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.process_trade_update(trade_update)
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
+
+    def test_process_order_not_found_invalid_order(self):
+        self.assertEqual(0, len(self.tracker.active_orders))
+
+        unknown_order_id = "UNKNOWN_ORDER_ID"
+        self.tracker.process_order_not_found(unknown_order_id)
+
+        self._is_logged("DEBUG", f"Order is not/no longer being tracked ({unknown_order_id})")
+
+    def test_process_order_not_found_does_not_exceed_limit(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        self.tracker.process_order_not_found(order.client_order_id)
+
+        self.assertIn(order.client_order_id, self.tracker.active_orders)
+        self.assertIn(order.client_order_id, self.tracker._order_not_found_records)
+        self.assertEqual(1, self.tracker._order_not_found_records[order.client_order_id])
+
+    def test_process_order_not_found_exceeded_limit(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            exchange_order_id="someExchangeOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        )
+        self.tracker.start_tracking_order(order)
+
+        self.tracker._order_not_found_records[order.client_order_id] = 3
+        self.tracker.process_order_not_found(order.client_order_id)
+
+        self.assertNotIn(order.client_order_id, self.tracker.active_orders)
+
+    def test_restore_tracking_states_only_registers_open_orders(self):
+        orders = []
+        orders.append(InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.CANCELLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID3",
+            exchange_order_id="EOID3",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FAILED
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.tracker.restore_tracking_states(tracking_states)
+
+        self.assertIn("OID1", self.tracker.active_orders)
+        self.assertNotIn("OID2", self.tracker.all_orders)
+        self.assertNotIn("OID3", self.tracker.all_orders)
+        self.assertNotIn("OID4", self.tracker.all_orders)

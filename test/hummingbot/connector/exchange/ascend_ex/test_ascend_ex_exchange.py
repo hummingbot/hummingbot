@@ -4,20 +4,21 @@ import re
 import unittest
 
 from decimal import Decimal
-from typing import Awaitable, Optional, List
+from typing import Awaitable, List, Optional
 from unittest.mock import MagicMock
 
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
+    AscendExCommissionType,
     AscendExExchange,
     AscendExTradingRule,
-    AscendExCommissionType,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import OrderType, TradeType, MarketEvent, MarketOrderFailureEvent
+from hummingbot.core.event.events import MarketEvent, MarketOrderFailureEvent, OrderType, TradeType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -189,6 +190,7 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertFalse(result[1].success)
 
     def test_order_without_exchange_id_marked_as_failure_and_removed_during_cancellation(self):
+        self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="testOrderId1",
             trading_pair=self.trading_pair,
@@ -217,6 +219,7 @@ class TestAscendExExchange(unittest.TestCase):
             self.log_records[0].getMessage().startswith(f"Order {order.client_order_id} has failed. Order Update:"))
 
     def test_order_without_exchange_id_marked_as_failure_and_removed_during_status_update(self):
+        self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="testOrderId1",
             trading_pair=self.trading_pair,
@@ -242,3 +245,54 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertEqual("INFO", self.log_records[3].levelname)
         self.assertTrue(
             self.log_records[3].getMessage().startswith(f"Order {order.client_order_id} has failed. Order Update:"))
+
+    def test_restore_tracking_states_only_registers_open_orders(self):
+        orders = []
+        orders.append(InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.CANCELLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID3",
+            exchange_order_id="EOID3",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FAILED
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.exchange.restore_tracking_states(tracking_states)
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        self.assertNotIn("OID2", self.exchange.in_flight_orders)
+        self.assertNotIn("OID3", self.exchange.in_flight_orders)
+        self.assertNotIn("OID4", self.exchange.in_flight_orders)
