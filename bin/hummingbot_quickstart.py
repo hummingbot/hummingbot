@@ -34,7 +34,7 @@ from bin.hummingbot import (
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
 
-from docker_connection import fork_and_start
+from bin.docker_connection import fork_and_start
 
 
 class CmdlineParser(argparse.ArgumentParser):

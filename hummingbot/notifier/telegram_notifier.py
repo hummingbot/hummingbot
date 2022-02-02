@@ -77,7 +77,7 @@ class TelegramNotifier(NotifierBase):
     def __init__(self,
                  token: str,
                  chat_id: str,
-                 hb: "hummingbot.hummingbot_pipe.hummingbot_application.HummingbotApplication") -> None:
+                 hb: "hummingbot.global_hummingbot_pipe.hummingbot_application.HummingbotApplication") -> None:
         super().__init__()
         self._token = token or global_config_map.get("telegram_token").value
         self._chat_id = chat_id or global_config_map.get("telegram_chat_id").value

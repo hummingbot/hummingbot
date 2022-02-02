@@ -169,7 +169,7 @@ class GatewayCommand:
             ],
             host_config=host_config
         )
-        await self.docker_ipc(
+        await docker_ipc(
             "start",
             container=container_info["Id"]
         )
@@ -177,14 +177,7 @@ class GatewayCommand:
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
-        pull_generator = await docker_ipc_with_generator(
-            "pull",
-            docker_repo,
-            tag=docker_tag,
-            stream=True,
-            decode=True
-        )
-        async for pull_log in pull_generator:
+        async for pull_log in docker_ipc_with_generator("pull", docker_repo, tag=docker_tag, stream=True, decode=True):
             new_id = pull_log["id"] if pull_log.get("id") else last_id
             if last_id != new_id:
                 self.logger().info(f"Pull Id: {new_id}, Status: {pull_log['status']}")
