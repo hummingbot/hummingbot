@@ -1,3 +1,13 @@
+import {
+  Contract,
+  Transaction,
+  Wallet,
+  ContractInterface,
+  BigNumber,
+  ethers,
+} from 'ethers';
+import { EthereumBase } from './ethereum-base';
+import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token, Trade } from '@uniswap/sdk';
 import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
 import {
@@ -11,8 +21,6 @@ import {
   CurrencyAmount as CurrencyAmountPangolin,
   Trade as TradePangolin,
 } from '@pangolindex/sdk';
-
-import { BigNumber, ContractInterface, Transaction, Wallet } from 'ethers';
 
 export interface ExpectedTrade {
   trade:
@@ -56,4 +64,53 @@ export interface Uniswapish {
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
   ): Promise<Transaction>;
+}
+
+export interface Ethereumish extends EthereumBase {
+  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
+  getSpender(reqSpender: string): string;
+  getContract(
+    tokenAddress: string,
+    signerOrProvider?: Wallet | Provider
+  ): Contract;
+  gasPrice: number;
+  nativeTokenSymbol: string;
+  chain: string;
+}
+
+export interface NetworkSelectionRequest {
+  connector?: string; //the target connector (e.g. uniswap or pangolin)
+  chain: string; //the target chain (e.g. ethereum or avalanche)
+  network: string; // the target network of the chain (e.g. mainnet)
+}
+
+export interface CustomTransactionReceipt
+  extends Omit<
+    ethers.providers.TransactionReceipt,
+    'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
+  > {
+  gasUsed: string;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string | null;
+}
+
+export interface CustomTransaction
+  extends Omit<
+    Transaction,
+    'maxPriorityFeePerGas' | 'maxFeePerGas' | 'gasLimit' | 'value'
+  > {
+  maxPriorityFeePerGas: string | null;
+  maxFeePerGas: string | null;
+  gasLimit: string | null;
+  value: string;
+}
+
+export interface CustomTransactionResponse
+  extends Omit<
+    ethers.providers.TransactionResponse,
+    'gasPrice' | 'gasLimit' | 'value'
+  > {
+  gasPrice: string | null;
+  gasLimit: string;
+  value: string;
 }

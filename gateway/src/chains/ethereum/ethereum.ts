@@ -6,7 +6,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
-import { Ethereumish } from '../../services/ethereumish.interface';
+import { Ethereumish } from '../../services/common-interfaces';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
@@ -59,11 +59,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
     return Ethereum._instances[network];
   }
-
-  // public static reload(): Ethereum {
-  //   Ethereum._instance = new Ethereum();
-  //   return Ethereum._instance;
-  // }
 
   public requestCounter(msg: any): void {
     if (msg.action === 'request') this._requestCount += 1;
