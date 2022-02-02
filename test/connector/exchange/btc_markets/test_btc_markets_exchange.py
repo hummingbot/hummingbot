@@ -229,18 +229,24 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.8")
         price = self.connector.quantize_order_price(self.trading_pair, price)
+        price_quantum = self.connector.get_order_price_quantum(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.001"))
+        self.ev_loop.run_until_complete(asyncio.sleep(1))
+        self.ev_loop.run_until_complete(self.connector._update_balances())
+        self.ev_loop.run_until_complete(asyncio.sleep(2))
         quote_bal = self.connector.get_available_balance(self.quote_token)
 
-        # order_id = self.connector.buy(self.trading_pair, amount, OrderType.LIMIT_MAKER, price)
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, fixture.UNFILLED_ORDER)
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(cl_order_id, order_created_event.order_id)
 
-        # check available quote balance gets updated, we need to wait a bit for the balance message to arrive
-        expected_quote_bal = quote_bal - (price * amount)
+        taker_fee = self.connector.estimate_fee_pct(False)
+        quote_amount = ((((price * amount) * (Decimal("1") + taker_fee)) / price_quantum) * price_quantum)
+        expected_quote_bal = quote_bal - quote_amount
 
         # self._mock_ws_bal_update(self.quote_token, expected_quote_bal)
+        self.ev_loop.run_until_complete(asyncio.sleep(1))
+        self.ev_loop.run_until_complete(self.connector._update_balances())
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token))
         self._cancel_order(cl_order_id)

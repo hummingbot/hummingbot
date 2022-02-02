@@ -74,6 +74,15 @@ This can be achieved in 2 ways(depending on the available API on the exchange):
    As seen in the `Exchange` class, Huobi uses REST API alone by periodically calling the market's `_update_balances()` and `_update_order_status()` through the `_status_polling_loop()`.
    Also, it can be seen that no user stream files exist in Huobi's connector directory.
 
+   If the exchange doesn't provide user balance updates in real-time (web socket), you will need to set `self._real_time_balance_update = False` in the market constructor (init). 
+   
+   And, you will need to take `in_flight_orders` snapshot during `_update_balances` as below:
+
+```python
+    self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+    self._in_flight_orders_snapshot_timestamp = self._current_timestamp
+```
+
 !!! warning
     Maintaining user data using just the REST API is not ideal and would generally lead to degraded performance of the bot.
 

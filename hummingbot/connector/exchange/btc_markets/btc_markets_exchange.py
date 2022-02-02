@@ -12,6 +12,7 @@ import json
 import aiohttp
 import math
 import time
+import copy
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -95,6 +96,7 @@ class BtcMarketsExchange(ExchangeBase):
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
+        self._real_time_balance_update = False
         self._last_poll_timestamp = 0
         self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
 
@@ -636,6 +638,11 @@ class BtcMarketsExchange(ExchangeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        # as self._real_time_balance_update = false
+        # take `in_flight_orders` snapshot during `_update_balances` (see #2224)
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = btc_markets_utils.get_ms_timestamp()
+
     async def _update_order_status(self):
         """
         Calls REST API to get status update for each in-flight order.
@@ -907,6 +914,7 @@ class BtcMarketsExchange(ExchangeBase):
                     # for order_msg in event_message:
                     # await self._process_order_message(order_msg)
                     await self._process_order_message(event_message)
+                # TODO need to refactor as btcmarkets don't provide balance updates via WS
                 elif channel == "user.balance":
                     balances = event_message["result"]["data"]
                     for balance_entry in balances:
