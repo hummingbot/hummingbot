@@ -210,12 +210,23 @@ class HummingbotApplication(*commands):
         return success
 
     async def run(self, args):
-        if args[1] == 'balance':
-            await self.show_balances()
-        elif args[1] == 'connect':
-            await self.connect_exchange(args)
+        if len(args) <= 1:
+            print('no arguments passed')
         else:
-            print('invalid argumnets')
+            if args[1] == 'balance':
+                await self.show_balances()
+            elif args[1] == 'connect':
+                if(len(args) >= 3):
+                    await self.connect_exchange(args)
+                else:
+                    await self.show_connections()
+            elif args[1] == 'config':
+                if(len(args) >= 3):
+                    self.config(args[2], args[3])
+                else:
+                    self.list_configs()
+            else:
+                print('invalid arguments')
 
     def add_application_warning(self, app_warning: ApplicationWarning):
         self._expire_old_application_warnings()
