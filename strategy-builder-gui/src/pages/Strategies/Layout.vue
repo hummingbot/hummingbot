@@ -5,9 +5,9 @@
 </template>
 
 <script lang="ts">
+import BaseLayout from 'layouts/BaseLayout.vue';
 import { defineComponent } from 'vue';
 
-import BaseLayout from '../../layouts/BaseLayout.vue';
 import Strategies from './components/Index.vue';
 
 export default defineComponent({
