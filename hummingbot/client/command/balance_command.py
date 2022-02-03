@@ -101,7 +101,6 @@ class BalanceCommand:
                 exchanges_total += df[total_col_name].sum()
 
         self._notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
-
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
             try:

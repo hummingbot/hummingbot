@@ -119,9 +119,10 @@ class HummingbotApplication(*commands):
         return None
 
     def _notify(self, msg: str):
-        self.app.log(msg)
-        for notifier in self.notifiers:
-            notifier.add_msg_to_queue(msg)
+        print(msg)
+        # self.app.log(msg)
+        # for notifier in self.notifiers:
+        #     notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
         # print(f'_handle_command input {raw_command}')
@@ -208,8 +209,13 @@ class HummingbotApplication(*commands):
             self._notify("All outstanding orders cancelled.")
         return success
 
-    async def run(self):
-        await self.app.run()
+    async def run(self, args):
+        if args[1] == 'balance':
+            await self.show_balances()
+        elif args[1] == 'connect':
+            await self.connect_exchange(args)
+        else:
+            print('invalid argumnets')
 
     def add_application_warning(self, app_warning: ApplicationWarning):
         self._expire_old_application_warnings()

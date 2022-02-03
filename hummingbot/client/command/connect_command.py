@@ -1,3 +1,4 @@
+# from getpass import getpass
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
@@ -28,41 +29,43 @@ class ConnectCommand:
             safe_ensure_future(self.connect_exchange(option))
 
     async def connect_exchange(self,  # type: HummingbotApplication
-                               exchange):
-        self.app.clear_input()
+                               args):
+        # self.app.clear_input()
         self.placeholder_mode = True
-        self.app.hide_input = True
-        if exchange == "kraken":
-            self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
+        # self.app.hide_input = True
+        # if exchange == "kraken":
+        #     self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         exchange_configs = [c for c in global_config_map.values()
-                            if c.key in settings.CONNECTOR_SETTINGS[exchange].config_keys and c.is_connect_key]
+                            if c.key in settings.CONNECTOR_SETTINGS[args[2]].config_keys and c.is_connect_key]
         to_connect = True
-        if Security.encrypted_file_exists(exchange_configs[0].key):
-            await Security.wait_til_decryption_done()
-            api_key_config = [c for c in exchange_configs if "api_key" in c.key]
-            if api_key_config:
-                api_key_config = api_key_config[0]
-                api_key = Security.decrypted_value(api_key_config.key)
-                prompt = f"Would you like to replace your existing {exchange} API key {api_key} (Yes/No)? >>> "
-            else:
-                prompt = f"Would you like to replace your existing {exchange_configs[0].key} (Yes/No)? >>> "
-            answer = await self.app.prompt(prompt=prompt)
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            if answer.lower() not in ("yes", "y"):
-                to_connect = False
+        # if Security.encrypted_file_exists(exchange_configs[0].key):
+        #     await Security.wait_til_decryption_done()
+        #     api_key_config = [c for c in exchange_configs if "api_key" in c.key]
+        #     if api_key_config:
+        #         api_key_config = api_key_config[0]
+        #         api_key = Security.decrypted_value(api_key_config.key)
+        #         prompt = f"Would you like to replace your existing {args[2]} API key {api_key} (Yes/No)? >>> "
+        #     else:
+        #         prompt = f"Would you like to replace your existing {exchange_configs[0].key} (Yes/No)? >>> "
+        #     answer = await self.app.prompt(prompt=prompt)
+        #     if self.app.to_stop_config:
+        #         self.app.to_stop_config = False
+        #         return
+        #     if answer.lower() not in ("yes", "y"):
+        #         to_connect = False
         if to_connect:
+            count = 2
             for config in exchange_configs:
-                await self.prompt_a_config(config)
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
-                Security.update_secure_config(config.key, config.value)
-            api_keys = await Security.api_keys(exchange)
-            err_msg = await UserBalances.instance().add_exchange(exchange, **api_keys)
+                # await self.prompt_a_config(config)
+                # if self.app.to_stop_config:
+                #     self.app.to_stop_config = False
+                #     return
+                Security.update_secure_config(config.key, args[count + 1])
+                count = count + 1
+            api_keys = await Security.api_keys(args[2])
+            err_msg = await UserBalances.instance().add_exchange(args[2], **api_keys)
             if err_msg is None:
-                self._notify(f"\nYou are now connected to {exchange}.")
+                self._notify(f"\nYou are now connected to {args[2]}.")
             else:
                 self._notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
