@@ -15,7 +15,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import validate_strategy
+# from hummingbot.client.config.config_validators import validate_strategy
 from hummingbot.client.ui.completer import load_completer
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -24,61 +24,64 @@ if TYPE_CHECKING:
 
 class CreateCommand:
     def create(self,  # type: HummingbotApplication
-               file_name):
+               file_name, args):
         if file_name is not None:
             file_name = format_config_file_name(file_name)
             if os.path.exists(os.path.join(CONF_FILE_PATH, file_name)):
                 self._notify(f"{file_name} already exists.")
                 return
 
-        safe_ensure_future(self.prompt_for_configuration(file_name))
+        safe_ensure_future(self.prompt_for_configuration(file_name, args))
 
     async def prompt_for_configuration(self,  # type: HummingbotApplication
-                                       file_name):
+                                       file_name, args):
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
         required_exchanges.clear()
 
-        strategy_config = ConfigVar(key="strategy",
-                                    prompt="What is your market making strategy? >>> ",
-                                    validator=validate_strategy)
-        await self.prompt_a_config(strategy_config)
-        if self.app.to_stop_config:
-            self.app.to_stop_config = False
-            return
-        strategy = strategy_config.value
+        # strategy_config = ConfigVar(key="strategy",
+        #                             prompt="What is your market making strategy? >>> ",
+        #                             validator=validate_strategy)
+        # await self.prompt_a_config(strategy_config)
+        # if self.app.to_stop_config:
+        #     self.app.to_stop_config = False
+        #     return
+        strategy = args[3]  # strategy_config.value
         config_map = get_strategy_config_map(strategy)
+
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
                      f"while setting up these below configuration.")
         # assign default values and reset those not required
+        count = 3
         for config in config_map.values():
             if config.required:
-                config.value = config.default
+                config.value = args[count]
             else:
                 config.value = None
-        for config in config_map.values():
-            if config.prompt_on_new and config.required:
-                if not self.app.to_stop_config:
-                    await self.prompt_a_config(config)
-                else:
-                    self.app.to_stop_config = False
-                    return
-            else:
-                config.value = config.default
+            count = count + 1
+        # for config in config_map.values():
+        #     if config.prompt_on_new and config.required:
+        #         if not self.app.to_stop_config:
+        #             await self.prompt_a_config(config)
+        #         else:
+        #             self.app.to_stop_config = False
+        #             return
+        #     else:
+        #         config.value = config.default
 
         # catch a last key binding to stop config, if any
-        if self.app.to_stop_config:
-            self.app.to_stop_config = False
-            return
+        # if self.app.to_stop_config:
+        #     self.app.to_stop_config = False
+        #     return
 
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                self.app.set_text("")
-                return
-        self.app.change_prompt(prompt=">>> ")
+            # if self.app.to_stop_config:
+            #     self.app.to_stop_config = False
+            #     self.app.set_text("")
+            #     return
+        # self.app.change_prompt(prompt=">>> ")
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         template = get_strategy_template_path(strategy)
         shutil.copy(template, strategy_path)
@@ -89,7 +92,7 @@ class CreateCommand:
         self.app.input_field.completer = load_completer(self)
         self._notify(f"A new config file {self.strategy_file_name} created.")
         self.placeholder_mode = False
-        self.app.hide_input = False
+        # self.app.hide_input = False
         if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
 

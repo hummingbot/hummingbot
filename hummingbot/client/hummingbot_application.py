@@ -225,6 +225,10 @@ class HummingbotApplication(*commands):
                     self.config(args[2], args[3])
                 else:
                     self.list_configs()
+            elif args[1] == 'create':
+                self.create(args[2], args)
+            elif args[1] == 'import':
+                self.import_command(args[2])
             else:
                 print('invalid arguments')
 

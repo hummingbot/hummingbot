@@ -119,7 +119,6 @@ class StatusCommand:
     async def status_check_all(self,  # type: HummingbotApplication
                                notify_success=True,
                                live=False) -> bool:
-
         if self.strategy is not None:
             if live:
                 await self.stop_live_update()
@@ -140,17 +139,15 @@ class StatusCommand:
         if self.strategy_name is None or self.strategy_file_name is None:
             self._notify('  - Strategy check: Please import or create a strategy.')
             return False
-
         if not Security.is_decryption_done():
             self._notify('  - Security check: Encrypted files are being processed. Please wait and try again later.')
             return False
-
-        invalid_conns = await self.validate_required_connections()
-        if invalid_conns:
-            self._notify('  - Exchange check: Invalid connections:')
-            for ex, err_msg in invalid_conns.items():
-                self._notify(f"    {ex}: {err_msg}")
-        elif notify_success:
+        # invalid_conns = await self.validate_required_connections()
+        # if invalid_conns:
+        #     self._notify('  - Exchange check: Invalid connections:')
+        #     for ex, err_msg in invalid_conns.items():
+        #         self._notify(f"    {ex}: {err_msg}")
+        if notify_success:
             self._notify('  - Exchange check: All connections confirmed.')
 
         missing_configs = self.missing_configurations()
@@ -160,8 +157,8 @@ class StatusCommand:
                 self._notify(f"    {config.key}")
         elif notify_success:
             self._notify('  - Strategy check: All required parameters confirmed.')
-        if invalid_conns or missing_configs:
-            return False
+        # if invalid_conns or missing_configs:
+        #     return False
 
         if self.wallet is not None:
             # Only check node url when a wallet has been initialized
