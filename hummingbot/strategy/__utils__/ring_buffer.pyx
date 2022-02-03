@@ -68,7 +68,8 @@ cdef class RingBuffer:
         if not self._is_full:
             indexes = np.arange(self._start_index, stop=self._stop_index, dtype=np.int16)
         else:
-            indexes = np.arange(self._start_index, stop=self._start_index + self._length,
+            indexes = np.arange((self._start_index - 1) % self._length,
+                                stop=(self._start_index - 1) % self._length + self._length,
                                 dtype=np.int16) % self._length
         return np.asarray(self._buffer)[indexes]
 
