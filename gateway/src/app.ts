@@ -114,6 +114,7 @@ export const startSwagger = async () => {
     './docs/swagger/definitions.yml',
     [
       './docs/swagger/amm-routes.yml',
+      './docs/swagger/connectors-routes.yml',
       './docs/swagger/main-routes.yml',
       './docs/swagger/wallet-routes.yml',
       './docs/swagger/evm-routes.yml',
