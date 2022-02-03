@@ -1,9 +1,8 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.core.event.events import OrderType, TradeType
-
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import AscendExInFlightOrder
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class AscendExInFlightOrderTests(TestCase):

@@ -1,10 +1,11 @@
 from decimal import Decimal
 from typing import (
     Any,
-    Dict, Optional
+    Dict,
+    Optional,
 )
 
-from hummingbot.core.event.events import (
+from hummingbot.core.data_type.common import (
     OrderType,
     TradeType
 )

@@ -13,13 +13,13 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    TradeType,
-    PriceType,
     OrderCancelledEvent)
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType,
 )
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate

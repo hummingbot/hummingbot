@@ -10,13 +10,14 @@ from typing import Dict, Any
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange, KUCOIN_ROOT_API
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange, KUCOIN_ROOT_API
 from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.events import OrderType, TradeType, MarketEvent
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
 
 

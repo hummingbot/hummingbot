@@ -1,4 +1,9 @@
+import asyncio
+import copy
 import logging
+import math
+import time
+from decimal import Decimal
 from typing import (
     Dict,
     List,
@@ -6,24 +11,32 @@ from typing import (
     Any,
     AsyncIterable,
 )
-from decimal import Decimal
-import asyncio
+
 import aiohttp
-import copy
-import math
-import time
 from async_timeout import timeout
 
-from hummingbot.core.network_iterator import NetworkStatus
-
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    get_new_client_order_id,
+    str_date_to_ts,
+    CoinzoomAPIError,
+)
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -33,25 +46,11 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     MarketOrderFailureEvent,
-    OrderType,
-    TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
-from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
-from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
-from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
-import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
-from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-    get_new_client_order_id,
-    str_date_to_ts,
-    CoinzoomAPIError,
-)
-from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 

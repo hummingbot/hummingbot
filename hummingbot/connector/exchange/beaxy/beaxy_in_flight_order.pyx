@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-
 from decimal import Decimal
 from typing import Any, Dict, Optional
 from datetime import datetime
 
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 

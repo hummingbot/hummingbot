@@ -14,6 +14,7 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
@@ -24,8 +25,6 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 
@@ -267,8 +266,7 @@ class BinanceExchangeTests(TestCase):
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={int(self.exchange.current_timestamp * 1e3)}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                f"executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None, "
-                f"trade_fee_percent=None)"
+                f"executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None)"
             )
         )
 
@@ -322,8 +320,7 @@ class BinanceExchangeTests(TestCase):
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={int(self.exchange.current_timestamp * 1e3)}, new_state={repr(OrderState.FAILED)}, "
                 "client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                "executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None, "
-                "trade_fee_percent=None)"
+                "executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None)"
             )
         )
 
@@ -665,7 +662,7 @@ class BinanceExchangeTests(TestCase):
             "qty": "1",
             "quoteQty": "48.000012",
             "commission": "10.10000000",
-            "commissionAsset": "BNB",
+            "commissionAsset": self.quote_asset,
             "time": 1499865549590,
             "isBuyer": True,
             "isMaker": False,
@@ -1023,7 +1020,7 @@ class BinanceExchangeTests(TestCase):
                 f" update_timestamp={int(order_status['updateTime'])}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
                 f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
-                f"fee_asset=None, cumulative_fee_paid=None, trade_fee_percent=None)")
+                f"fee_asset=None, cumulative_fee_paid=None)")
         )
 
     @aioresponses()
@@ -1343,7 +1340,7 @@ class BinanceExchangeTests(TestCase):
             "z": "1.00000000",
             "L": "10050.00000000",
             "n": "50",
-            "N": "BNB",
+            "N": self.quote_asset,
             "T": 1499405658657,
             "t": 1,
             "I": 8641984,

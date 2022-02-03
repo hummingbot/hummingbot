@@ -628,11 +628,12 @@ cdef class HuobiExchange(ExchangeBase):
                     tracked_order.trade_type,
                     tracked_order.amount,
                     tracked_order.price)
-                fee_amount = fee.fee_amount_in_quote(
+                fee_amount = fee.fee_amount_in_token(
                     tracked_order.trading_pair,
                     tracked_order.price,
                     tracked_order.amount,
-                    self)
+                    token=tracked_order.quote_asset,
+                    exchange=self)
             else:
                 fee_asset = tracked_order.fee_asset
                 fee_amount = tracked_order.fee_paid

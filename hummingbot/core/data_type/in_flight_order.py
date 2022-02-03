@@ -1,14 +1,19 @@
 import asyncio
 import copy
 import math
-
-from async_timeout import timeout
+import typing
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
+from async_timeout import timeout
+
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+
+if typing.TYPE_CHECKING:  # avoid circular import problems
+    from hummingbot.connector.connector_base import ConnectorBase
 
 s_decimal_0 = Decimal("0")
 
@@ -37,7 +42,6 @@ class OrderUpdate(NamedTuple):
     executed_amount_quote: Optional[Decimal] = None
     fee_asset: Optional[str] = None
     cumulative_fee_paid: Optional[Decimal] = None
-    trade_fee_percent: Optional[Decimal] = None
 
 
 class TradeUpdate(NamedTuple):
@@ -49,9 +53,11 @@ class TradeUpdate(NamedTuple):
     fill_price: Decimal
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
-    fee_asset: str
-    fee_paid: Optional[Decimal] = None
-    trade_fee_percent: Optional[Decimal] = None
+    fee: TradeFeeBase
+
+    @property
+    def fee_asset(self):
+        return self.fee.fee_asset
 
 
 class InFlightOrder:
@@ -67,7 +73,6 @@ class InFlightOrder:
         initial_state: OrderState = OrderState.PENDING_CREATE,
         leverage: int = 1,
         position: PositionAction = PositionAction.NIL,
-        trade_fee_percent: Decimal = None,
         timestamp: int = -1,
     ) -> None:
         self.client_order_id = client_order_id
@@ -80,7 +85,6 @@ class InFlightOrder:
         self.current_state = initial_state
         self.leverage = leverage
         self.position = position
-        self.trade_fee_percent = trade_fee_percent
 
         self.executed_amount_base = s_decimal_0
         self.executed_amount_quote = s_decimal_0
@@ -280,7 +284,7 @@ class InFlightOrder:
 
         return updated
 
-    def update_with_trade_update(self, trade_update: TradeUpdate) -> bool:
+    def update_with_trade_update(self, trade_update: TradeUpdate, connector: Optional['ConnectorBase']) -> bool:
         """
         Updates the in flight order with a trade update (from REST API or WS API)
         :return: True if the order gets updated otherwise False
@@ -299,16 +303,13 @@ class InFlightOrder:
 
         if not self.fee_asset and trade_update.fee_asset:
             self.fee_asset = trade_update.fee_asset
-        if trade_update.trade_fee_percent is not None:
-            self.trade_fee_percent = trade_update.trade_fee_percent
 
-        relevant_fee_amount: Decimal = (
-            trade_update.fill_base_amount
-            if trade_update.fee_asset == self.base_asset
-            else trade_update.fill_quote_amount
-        )
-        fee_paid: Decimal = (
-            trade_update.fee_paid if trade_update.fee_paid is not None else self.trade_fee_percent * relevant_fee_amount
+        fee_paid: Decimal = trade_update.fee.fee_amount_in_token(
+            trading_pair=self.trading_pair,
+            price=trade_update.fill_price,
+            order_amount=trade_update.fill_base_amount,
+            token=self.fee_asset,
+            exchange=connector
         )
         self.cumulative_fee_paid += fee_paid
 
