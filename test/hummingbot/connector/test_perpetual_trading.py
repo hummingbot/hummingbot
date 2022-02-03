@@ -1,8 +1,10 @@
 import unittest
 from decimal import Decimal
-from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.core.event.events import PositionMode, FundingInfo, PositionSide
+
 from hummingbot.connector.derivative.position import Position
+from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.core.data_type.common import PositionMode, PositionSide
+from hummingbot.core.event.events import FundingInfo
 
 
 class PerpetualTest(unittest.TestCase):

@@ -1,47 +1,50 @@
-import re
 import time
 import asyncio
-import aiohttp
-import copy
 import json
 import logging
-import pandas as pd
-import traceback
+import time
 from decimal import Decimal
-from libc.stdint cimport int64_t
-from threading import Lock
-from async_timeout import timeout
 from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
 
+import aiohttp
+from async_timeout import timeout
+from libc.stdint cimport int64_t
 
-from hummingbot.core.clock cimport Clock
-from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.connector.exchange_base import s_decimal_NaN
-from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.blocktane.blocktane_auth import BlocktaneAuth
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    OrderFilledEvent,
-    TradeType,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder
 from hummingbot.connector.exchange.blocktane.blocktane_order_book_tracker import BlocktaneOrderBookTracker
 from hummingbot.connector.exchange.blocktane.blocktane_user_stream_tracker import BlocktaneUserStreamTracker
-from hummingbot.connector.exchange.blocktane.blocktane_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair, split_trading_pair
+from hummingbot.connector.exchange.blocktane.blocktane_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    split_trading_pair,
+)
+from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.connector.exchange_base import s_decimal_NaN
+from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 bm_logger = None
 s_decimal_0 = Decimal(0)

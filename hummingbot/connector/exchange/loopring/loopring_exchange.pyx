@@ -1,59 +1,55 @@
-import aiohttp
 import asyncio
-import binascii
-import json
-import time
-import uuid
-import traceback
-import urllib
 import hashlib
+import json
+import logging
+import time
+import urllib
+from decimal import *
 from typing import (
     Any,
     Dict,
     List,
-    Optional
+    Optional,
 )
-import math
-import logging
-from decimal import *
+
+import aiohttp
+from ethsnarks_loopring import FQ, SNARK_SCALAR_FIELD
+from ethsnarks_loopring import PoseidonEdDSA
+from ethsnarks_loopring import poseidon_params, poseidon
 from libc.stdint cimport int64_t
+
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import \
+    LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
+from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
+from hummingbot.connector.exchange.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.event_listener cimport EventListener
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
-from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
-from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
-from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
-from hummingbot.connector.exchange.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
-    MarketOrderFailureEvent,
-    BuyOrderCreatedEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
-    OrderType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
-from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+)
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-
-from ethsnarks_loopring import PoseidonEdDSA
-from ethsnarks_loopring import FQ, SNARK_SCALAR_FIELD
-from ethsnarks_loopring import poseidon_params, poseidon
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal(0)

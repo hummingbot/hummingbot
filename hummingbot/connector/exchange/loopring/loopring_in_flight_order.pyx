@@ -1,12 +1,12 @@
-import copy
 import json
-import time
-from typing import (Any, Dict, List, Tuple)
 from decimal import Decimal
+from typing import Any, Dict, List
+
+from hummingbot.connector.exchange.loopring.loopring_exchange cimport LoopringExchange
 from hummingbot.connector.exchange.loopring.loopring_order_status import LoopringOrderStatus
 from hummingbot.connector.in_flight_order_base cimport InFlightOrderBase
-from hummingbot.connector.exchange.loopring.loopring_exchange cimport LoopringExchange
-from hummingbot.core.event.events import (MarketEvent, OrderType, TradeType)
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import MarketEvent
 
 cdef class LoopringInFlightOrder(InFlightOrderBase):
     def __init__(self,

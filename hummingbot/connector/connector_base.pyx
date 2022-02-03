@@ -5,17 +5,15 @@ from typing import (
     Tuple,
     Set,
 )
+
+from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import TradeFillOrderDetails, split_hb_trading_pair
-from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
@@ -65,6 +63,7 @@ cdef class ConnectorBase(NetworkIterator):
         self._in_flight_orders_snapshot_timestamp = 0.0
         self._current_trade_fills = set()
         self._exchange_order_ids = dict()
+        self._trade_fee_schema = None
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -444,3 +443,8 @@ cdef class ConnectorBase(NetworkIterator):
         # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
         return (not TradeFillOrderDetails(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
                (exchange_order_id in set(self._exchange_order_ids.keys()))
+
+    def trade_fee_schema(self):
+        if self._trade_fee_schema is None:
+            self._trade_fee_schema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=self.name)
+        return self._trade_fee_schema

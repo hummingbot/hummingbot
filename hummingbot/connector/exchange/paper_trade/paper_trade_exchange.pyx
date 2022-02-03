@@ -42,8 +42,6 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import (
     MarketEvent,
-    OrderType,
-    TradeType,
     BuyOrderCompletedEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -54,6 +52,7 @@ from hummingbot.core.event.events import (
     OrderBookTradeEvent,
     OrderCancelledEvent
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase

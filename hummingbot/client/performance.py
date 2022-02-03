@@ -1,15 +1,16 @@
-from decimal import Decimal
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import (
-    Dict,
-    Optional,
-    List,
     Any,
-    Tuple
+    Dict,
+    List,
+    Optional,
+    Tuple,
 )
-from hummingbot.model.trade_fill import TradeFill
+
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.core.event.events import TradeType
+from hummingbot.model.trade_fill import TradeFill
 
 s_decimal_0 = Decimal("0")
 s_decimal_nan = Decimal("NaN")

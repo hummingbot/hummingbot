@@ -1,26 +1,28 @@
 import asyncio
 import contextlib
 import logging
-import unittest
 import time
+import unittest
 from decimal import Decimal
 from typing import List
 
+import conf
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    OrderType,
-    MarketEvent,
+    BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderCancelledEvent, BuyOrderCompletedEvent, SellOrderCompletedEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-import conf
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 

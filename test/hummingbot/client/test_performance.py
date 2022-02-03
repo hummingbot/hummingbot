@@ -1,11 +1,12 @@
+import asyncio
+import unittest
 from decimal import Decimal
 from typing import List
-import unittest
-import asyncio
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.data_type.trade import Trade, TradeType
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 
 trading_pair = "HBOT-USDT"

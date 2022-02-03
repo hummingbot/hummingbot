@@ -4,7 +4,8 @@ from decimal import Decimal
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_status import DydxPerpetualOrderStatus
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (TradeType, OrderType, MarketEvent)
+from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class DydxPerpetualInFlightOrder(InFlightOrderBase):
