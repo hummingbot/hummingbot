@@ -41,7 +41,7 @@ export class UniswapV3Helper {
   }
 
   public get ttl(): number {
-    return Date.now() / 1000 + this._ttl;
+    return parseInt(String(Date.now() / 1000)) + this._ttl;
   }
 
   public get routerAbi(): ContractInterface {
@@ -94,12 +94,19 @@ export class UniswapV3Helper {
     }
   }
 
+  getPoolContract(
+    pool: string,
+    wallet: providers.StaticJsonRpcProvider | Signer
+  ): Contract {
+    return new Contract(pool, this.routerAbi, wallet);
+  }
+
   async getPoolState(
     poolAddress: string,
     fee: uniV3.FeeAmount,
     wallet: providers.StaticJsonRpcProvider | Signer
   ): Promise<any> {
-    const poolContract = new Contract(poolAddress, this.poolAbi, wallet);
+    const poolContract = this.getPoolContract(poolAddress, wallet);
     const minTick = uniV3.nearestUsableTick(
       uniV3.TickMath.MIN_TICK,
       uniV3.TICK_SPACINGS[fee]
