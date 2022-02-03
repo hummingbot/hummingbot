@@ -256,7 +256,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
-  ) {
+  ): Promise<BigNumber | Transaction> {
     // Reduce position and burn
     const contract = this.getContract('nft', wallet);
     const { calldata, value } = await this.reducePositionHelper(
