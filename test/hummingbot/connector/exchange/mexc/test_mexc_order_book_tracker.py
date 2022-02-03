@@ -13,8 +13,7 @@ import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.exchange.mexc.mexc_order_book_message import MexcOrderBookMessage
 from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
-from hummingbot.connector.exchange.mexc.mexc_utils import \
-    convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.mexc.mexc_utils import convert_to_exchange_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 
