@@ -8,6 +8,6 @@ describe('GET /connectors', () => {
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(res.body.connectors).toBeArray());
+      .expect((res) => expect(res.body.connectors).toBeDefined());
   });
 });
