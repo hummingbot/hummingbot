@@ -1,6 +1,5 @@
 import asyncio
 import unittest
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -8,6 +7,7 @@ import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.connector.exchange.mexc.mexc_websocket_adaptor import MexcWebSocketAdaptor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class MexcWebSocketUnitTests(unittest.TestCase):

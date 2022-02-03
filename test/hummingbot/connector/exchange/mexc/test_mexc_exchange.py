@@ -5,16 +5,13 @@ import re
 import time
 from collections import Awaitable
 from decimal import Decimal
-
-from aioresponses import aioresponses
-
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Any, Callable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pandas as pd
 import ujson
+from aioresponses import aioresponses
 
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
@@ -24,6 +21,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import OrderCancelledEvent, OrderType, SellOrderCompletedEvent, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class MexcExchangeTests(TestCase):
