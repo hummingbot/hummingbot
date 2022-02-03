@@ -3,12 +3,10 @@ import { UniswapConfig } from './uniswap.config';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
 import { Token, CurrencyAmount, Percent, Price } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
-import { BigNumber, providers, Wallet, Signer, utils } from 'ethers';
+import { providers, Wallet, Signer, utils } from 'ethers';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import * as math from 'mathjs';
-
-const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
 
 export class UniswapV3Helper {
   protected ethereum: Ethereum;
@@ -344,14 +342,5 @@ export class UniswapV3Helper {
         wallet
       )
     );
-  }
-
-  async collectFeesHelper(wallet: Wallet, tokenId: number) {
-    return {
-      tokenId: tokenId,
-      recipient: wallet.address,
-      amount0Max: MaxUint128,
-      amount1Max: MaxUint128,
-    };
   }
 }
