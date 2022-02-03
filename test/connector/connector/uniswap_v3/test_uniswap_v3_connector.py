@@ -16,12 +16,12 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.event.events import (
-    OrderType,
     BuyOrderCreatedEvent,
     MarketEvent,
     RangePositionCreatedEvent,
     RangePositionRemovedEvent,
 )
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType

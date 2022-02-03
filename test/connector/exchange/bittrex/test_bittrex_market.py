@@ -23,19 +23,19 @@ from hummingbot.core.clock import (
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    BuyOrderCreatedEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order

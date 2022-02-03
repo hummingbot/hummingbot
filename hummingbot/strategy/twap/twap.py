@@ -17,8 +17,8 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (MarketOrderFailureEvent,
                                           OrderCancelledEvent,
                                           OrderExpiredEvent,
-                                          OrderType,
-                                          TradeType)
+                                          )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState

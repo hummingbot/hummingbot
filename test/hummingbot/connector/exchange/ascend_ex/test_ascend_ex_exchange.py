@@ -2,7 +2,6 @@ import asyncio
 import json
 import re
 import unittest
-
 from decimal import Decimal
 from typing import Awaitable, List, Optional
 from unittest.mock import MagicMock
@@ -16,9 +15,10 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExTradingRule,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, MarketOrderFailureEvent, OrderType, TradeType
+from hummingbot.core.event.events import MarketEvent, MarketOrderFailureEvent
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 

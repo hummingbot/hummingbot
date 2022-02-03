@@ -3,16 +3,8 @@ import logging
 import os
 import time
 from decimal import Decimal
-from math import (
-    ceil,
-    floor,
-    isnan,
-)
-from typing import (
-    Dict,
-    List,
-    Tuple,
-)
+from math import ceil, floor, isnan
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,10 +12,9 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator

@@ -9,8 +9,6 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
 
 import aiohttp
-import ujson
-import pandas as pd
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
@@ -18,25 +16,26 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    OrderFilledEvent,
-    TradeType,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source import FtxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
 from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
-from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
 from hummingbot.connector.exchange.ftx.ftx_user_stream_tracker import FtxUserStreamTracker
 from hummingbot.connector.exchange_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -226,8 +225,12 @@ cdef class FtxExchange(ExchangeBase):
                         tracked_order.trade_type,
                         new_amount,
                         new_price)
-                    fee_amount = fee.fee_amount_in_quote(
-                        tracked_order.trading_pair, new_price, tracked_order.amount, self
+                    fee_amount = fee.fee_amount_in_token(
+                        tracked_order.trading_pair,
+                        new_price,
+                        tracked_order.amount,
+                        token=tracked_order.quote_asset,
+                        exchange=self
                     )
                 else:
                     fee_asset = tracked_order.fee_asset

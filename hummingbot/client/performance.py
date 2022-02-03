@@ -1,5 +1,5 @@
-from decimal import Decimal
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import (
     Any,
     Dict,
@@ -9,8 +9,8 @@ from typing import (
 )
 
 from hummingbot.connector.utils import split_hb_trading_pair
+from hummingbot.core.data_type.common import TradeType, PositionAction
 from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.core.event.events import TradeType, PositionAction
 from hummingbot.model.trade_fill import TradeFill
 
 s_decimal_0 = Decimal("0")
