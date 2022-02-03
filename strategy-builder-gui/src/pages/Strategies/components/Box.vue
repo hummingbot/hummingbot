@@ -3,7 +3,7 @@
     <q-card-section horizontal class="flex row full-height">
       <q-card-section
         horizontal
-        class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg rounded-borders card-counter"
+        class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg rounded-borders border-blue card-counter"
       >
         <img
           v-if="type === BoxType.strategy"
