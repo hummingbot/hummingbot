@@ -1,21 +1,21 @@
 import asyncio
 import time
-import pandas as pd
 import unittest
-
 from collections import Awaitable
 from datetime import datetime
 from decimal import Decimal
-from dydx3 import DydxApiError
 from typing import Dict, Optional
 from unittest.mock import AsyncMock, PropertyMock, patch
-from requests import Response
 
+import pandas as pd
+from dydx3 import DydxApiError
+from requests import Response
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.event.events import PositionSide, FundingInfo
+from hummingbot.core.data_type.common import PositionSide
+from hummingbot.core.event.events import FundingInfo
 
 
 class DydxPerpetualDerivativeTest(unittest.TestCase):

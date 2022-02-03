@@ -1,12 +1,8 @@
 from decimal import Decimal
-from typing import (
-    Optional,
-)
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from typing import Optional
+
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class TerraInFlightOrder(InFlightOrderBase):

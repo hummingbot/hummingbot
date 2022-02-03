@@ -1,14 +1,15 @@
 import asyncio
-import time
 import unittest
 from decimal import Decimal
+from typing import List
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.core.data_type.common import PositionAction, TradeType
+from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.event.events import PositionAction
-from hummingbot.model.trade_fill import TradeFill
 from hummingbot.model.order import Order  # noqa — Order needs to be defined for TradeFill
+from hummingbot.model.trade_fill import TradeFill
 
 trading_pair = "HBOT-USDT"
 base, quote = trading_pair.split("-")

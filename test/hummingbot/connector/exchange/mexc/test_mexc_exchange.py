@@ -19,9 +19,9 @@ from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import (
     OrderCancelledEvent,
-    OrderType,
-    TradeType, SellOrderCompletedEvent,
+    SellOrderCompletedEvent,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant

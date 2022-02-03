@@ -1,14 +1,14 @@
 import asyncio
 import time
 import unittest
-
 from decimal import Decimal
 from typing import Awaitable
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
-from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 
 
 class InFlightOrderPyUnitTests(unittest.TestCase):
@@ -66,6 +66,11 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
     def _simulate_order_completely_filled(self, order: InFlightOrder):
         order.current_state = OrderState.FILLED
         order.executed_amount_base = order.amount
+
+    def _mock_connector(self):
+        mock_connector = MagicMock()
+        mock_connector.order_books.return_value = dict()
+        return mock_connector
 
     def test_in_flight_order_states(self):
         order: InFlightOrder = InFlightOrder(
@@ -154,8 +159,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=order_0.price,
             fill_base_amount=order_0.amount,
             fill_quote_amount=(order_0.price * order_0.amount),
-            fee_asset=self.base_asset,
-            fee_paid=Decimal(0.01) * order_0.amount,
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * order_0.amount)]),
             fill_timestamp=int(time.time() * 1e3),
         )
         # Order completely filled after single trade update
@@ -180,8 +184,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=Decimal("0.5"),
             fill_base_amount=(order_1.amount / Decimal("2.0")),
             fill_quote_amount=(order_1.price * (order_1.amount / Decimal("2.0"))),
-            fee_asset=self.base_asset,
-            fee_paid=Decimal(0.01) * (order_1.amount / Decimal("2.0")),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * (order_1.amount / Decimal("2.0")))]),
             fill_timestamp=int(time.time() * 1e3),
         )
 
@@ -193,8 +197,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=order_1.price,
             fill_base_amount=(order_1.amount / Decimal("2.0")),
             fill_quote_amount=(order_1.price * (order_1.amount / Decimal("2.0"))),
-            fee_asset=self.base_asset,
-            fee_paid=Decimal(0.01) * (order_1.amount / Decimal("2.0")),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * (order_1.amount / Decimal("2.0")))]),
             fill_timestamp=int(time.time() * 1e3),
         )
 
@@ -471,6 +475,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(0, len(order.order_fills))
 
     def test_update_with_trade_update_trade_update_with_trade_fee_percent(self):
+
         order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,
             trading_pair=self.trading_pair,
@@ -488,12 +493,11 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=Decimal("1.0"),
             fill_base_amount=Decimal("500.0"),
             fill_quote_amount=Decimal("500.0"),
-            fee_asset=self.base_asset,
-            trade_fee_percent=self.trade_fee_percent,
+            fee=AddedToCostTradeFee(percent=self.trade_fee_percent, percent_token=self.quote_asset),
             fill_timestamp=1,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update))
+        self.assertTrue(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
         self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
         self.assertEqual(order.fee_asset, trade_update.fee_asset)
@@ -520,22 +524,22 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=Decimal("1.0"),
             fill_base_amount=Decimal("500.0"),
             fill_quote_amount=Decimal("500.0"),
-            fee_asset=self.base_asset,
-            fee_paid=self.trade_fee_percent * Decimal("500.0"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * Decimal("500.0"))]),
             fill_timestamp=1,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update))
+        self.assertTrue(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
         self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
         self.assertEqual(order.fee_asset, trade_update.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid, trade_update.fee_paid)
+        self.assertEqual(order.cumulative_fee_paid, trade_update.fee.flat_fees[0].amount)
         self.assertEqual(order.last_update_timestamp, trade_update.fill_timestamp)
         self.assertEqual(1, len(order.order_fills))
         self.assertIn(trade_update.trade_id, order.order_fills)
 
         # Ignores duplicate trade update
-        self.assertFalse(order.update_with_trade_update(trade_update))
+        self.assertFalse(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
 
     def test_update_with_trade_update_multiple_trade_updates(self):
         order: InFlightOrder = InFlightOrder(
@@ -557,8 +561,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=initial_fill_price,
             fill_base_amount=initial_fill_amount,
             fill_quote_amount=initial_fill_price * initial_fill_amount,
-            fee_asset=self.base_asset,
-            fee_paid=self.trade_fee_percent * initial_fill_amount,
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * initial_fill_amount)]),
             fill_timestamp=1,
         )
 
@@ -572,30 +576,31 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=subsequent_fill_price,
             fill_base_amount=subsequent_fill_amount,
             fill_quote_amount=subsequent_fill_price * subsequent_fill_amount,
-            fee_asset=self.base_asset,
-            fee_paid=self.trade_fee_percent * subsequent_fill_amount,
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * subsequent_fill_amount)]),
             fill_timestamp=2,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update_1))
+        self.assertTrue(order.update_with_trade_update(trade_update_1, connector=self._mock_connector()))
         self.assertIn(trade_update_1.trade_id, order.order_fills)
         self.assertEqual(order.executed_amount_base, trade_update_1.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update_1.fill_quote_amount)
         self.assertEqual(order.fee_asset, trade_update_1.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid, trade_update_1.fee_paid)
+        self.assertEqual(order.cumulative_fee_paid, trade_update_1.fee.flat_fees[0].amount)
         self.assertEqual(order.last_update_timestamp, trade_update_1.fill_timestamp)
         self.assertEqual(1, len(order.order_fills))
 
         self.assertTrue(order.is_open)
 
-        self.assertTrue(order.update_with_trade_update(trade_update_2))
+        self.assertTrue(order.update_with_trade_update(trade_update_2, connector=self._mock_connector()))
         self.assertIn(trade_update_2.trade_id, order.order_fills)
         self.assertEqual(order.executed_amount_base, order.amount)
         self.assertEqual(
             order.executed_amount_quote, trade_update_1.fill_quote_amount + trade_update_2.fill_quote_amount
         )
         self.assertEqual(order.fee_asset, trade_update_2.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid, trade_update_1.fee_paid + trade_update_2.fee_paid)
+        self.assertEqual(order.cumulative_fee_paid,
+                         trade_update_1.fee.flat_fees[0].amount + trade_update_2.fee.flat_fees[0].amount)
         self.assertEqual(order.last_update_timestamp, trade_update_2.fill_timestamp)
         self.assertEqual(2, len(order.order_fills))
         self.assertEqual(
@@ -624,11 +629,11 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_price=Decimal("1.0"),
             fill_base_amount=Decimal("500.0"),
             fill_quote_amount=Decimal("500.0"),
-            fee_asset=self.base_asset,
-            fee_paid=self.trade_fee_percent * Decimal("500.0"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * Decimal("500.0"))]),
             fill_timestamp=1,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update))
+        self.assertTrue(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
         self.assertIsNone(order.exchange_order_id)
         self.assertFalse(order.exchange_order_id_update_event.is_set())

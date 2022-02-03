@@ -8,6 +8,7 @@ from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -17,7 +18,6 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
 from hummingbot.logger.logger import HummingbotLogger
@@ -153,7 +153,7 @@ class ClientOrderTracker:
             order: InFlightOrder,
             fill_amount: Decimal,
             fill_price: Decimal,
-            fill_fee: TradeFee,
+            fill_fee: TradeFeeBase,
             trade_id: str):
         self._connector.trigger_event(
             MarketEvent.OrderFilled,
@@ -216,7 +216,7 @@ class ClientOrderTracker:
                              prev_executed_amount_base: Decimal,
                              fill_amount: Decimal,
                              fill_price: Decimal,
-                             fill_fee: TradeFee,
+                             fill_fee: TradeFeeBase,
                              trade_id: str):
         if prev_executed_amount_base < tracked_order.executed_amount_base:
             self.logger().info(
@@ -278,26 +278,15 @@ class ClientOrderTracker:
 
         if tracked_order:
             previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
-            fee_asset = trade_update.fee_asset or tracked_order.quote_asset
-            fee_paid = trade_update.fee_paid
-            if fee_paid is None:
-                trade_fee_percent = trade_update.trade_fee_percent or tracked_order.trade_fee_percent
 
-                relevant_fee_amount: Decimal = (
-                    trade_update.fill_base_amount
-                    if trade_update.fee_asset == tracked_order.base_asset
-                    else trade_update.fill_quote_amount
-                )
-                fee_paid = Decimal("0") if trade_fee_percent is None else trade_fee_percent * relevant_fee_amount
-
-            updated: bool = tracked_order.update_with_trade_update(trade_update)
+            updated: bool = tracked_order.update_with_trade_update(trade_update, connector=self._connector)
             if updated:
                 self._trigger_order_fills(
                     tracked_order=tracked_order,
                     prev_executed_amount_base=previous_executed_amount_base,
                     fill_amount=trade_update.fill_base_amount,
                     fill_price=trade_update.fill_price,
-                    fill_fee=TradeFee(Decimal("0"), [(fee_asset, fee_paid)]),
+                    fill_fee=trade_update.fee,
                     trade_id=trade_update.trade_id)
 
     def process_order_not_found(self, client_order_id: str):

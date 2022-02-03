@@ -24,6 +24,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -32,18 +33,16 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.event.events import (
+    MarketEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
     OrderBookEvent,
     OrderBookTradeEvent,
     OrderCancelledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator

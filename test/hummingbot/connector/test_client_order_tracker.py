@@ -1,12 +1,14 @@
 import asyncio
 import unittest
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Dict
 from unittest.mock import patch
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
     AddedToCostTradeFee,
@@ -15,9 +17,14 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType
 )
+
+
+class MockExchange(ExchangeBase):
+
+    @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        return dict()
 
 
 class ClientOrderTrackerUnitTest(unittest.TestCase):
@@ -38,7 +45,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         super().setUp()
         self.log_records = []
 
-        self.connector = ConnectorBase()
+        self.connector = MockExchange()
         self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 
@@ -548,8 +555,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             fill_price=trade_filled_price,
             fill_base_amount=trade_filled_amount,
             fill_quote_amount=trade_filled_price * trade_filled_amount,
-            fee_asset=self.base_asset,
-            fee_paid=fee_paid,
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote_asset, amount=fee_paid)]),
             fill_timestamp=1,
         )
 
@@ -570,7 +576,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
         self.assertEqual(
-            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, fee_paid)])
+            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.quote_asset, fee_paid)])
         )
 
     def test_process_trade_update_does_not_trigger_filled_event_update_status_when_completely_filled(self):
@@ -595,8 +601,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             fill_price=order.price,
             fill_base_amount=order.amount,
             fill_quote_amount=order.price * order.amount,
-            fee_asset=self.base_asset,
-            fee_paid=fee_paid,
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote_asset, amount=fee_paid)]),
             fill_timestamp=1,
         )
 
@@ -632,7 +637,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(order_filled_event.price, trade_update.fill_price)
         self.assertEqual(order_filled_event.amount, trade_update.fill_base_amount)
         self.assertEqual(
-            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.base_asset, fee_paid)])
+            order_filled_event.trade_fee, AddedToCostTradeFee(flat_fees=[TokenAmount(self.quote_asset, fee_paid)])
         )
 
     def test_updating_order_states_with_both_process_order_update_and_process_trade_update(self):
@@ -676,8 +681,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             fill_price=trade_filled_price,
             fill_base_amount=trade_filled_amount,
             fill_quote_amount=trade_filled_price * trade_filled_amount,
-            fee_asset=self.base_asset,
-            fee_paid=fee_paid,
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote_asset, amount=fee_paid)]),
             fill_timestamp=2,
         )
 

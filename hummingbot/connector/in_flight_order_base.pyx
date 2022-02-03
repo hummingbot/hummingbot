@@ -7,10 +7,7 @@ from typing import (
     Optional,
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from async_timeout import timeout
 
 s_decimal_0 = Decimal(0)
