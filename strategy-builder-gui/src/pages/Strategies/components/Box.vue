@@ -1,9 +1,9 @@
 <template>
-  <q-card class="card overflow-hidden">
+  <q-card class="bg-mono-grey-1 overflow-hidden rounded-borders">
     <q-card-section horizontal class="flex row full-height">
       <q-card-section
         horizontal
-        class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg border-blue card-counter"
+        class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg rounded-borders card-counter"
       >
         <img
           v-if="type === 'strategy'"
@@ -13,18 +13,18 @@
         {{ box.count }}
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
-        <div class="text-h4 text-white q-mb-xs"> {{ box.title }} </div>
+        <div class="text-h4 text-white q-mb-xs"> {{ title }} </div>
         <div class="text-body-1 q-mb-sm line-normal">
           {{ box.desc }}
         </div>
-        <a href="box.href" class="text-normal text-blue text-h5">
           {{ box.linkText }}
+        <a href="box.href" class="text-normal text-mono-blue text-h5">
           ➜
         </a>
       </q-card-section>
     </q-card-section>
-    <div class="box-image flex items-end">
       <img :src="require('../assets/strategies-box-robot.svg')" />
+    <div class="absolute-bottom-right flex items-end">
     </div>
   </q-card>
 </template>
@@ -57,25 +57,9 @@ export default defineComponent({
 
 .card-counter {
   min-width: 124px;
-  border-radius: 4px !important;
-}
-
-.card {
-  background: map.get($colors, 'mono-grey-1');
-  border-radius: 4px !important;
 }
 
 .line-normal {
   line-height: normal;
-}
-
-.text-blue {
-  color: map.get($colors, 'mono-blue');
-}
-
-.box-image {
-  position: absolute;
-  right: 0;
-  bottom: 0;
 }
 </style>
