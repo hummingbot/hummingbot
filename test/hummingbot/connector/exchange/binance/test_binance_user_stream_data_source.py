@@ -110,7 +110,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def test_last_recv_time(self):
         # Initial last_recv_time
-        self.assertEqual(-1, self.data_source.last_recv_time)
+        self.assertEqual(0, self.data_source.last_recv_time)
 
         ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
         ws_assistant._connection._last_recv_time = 1000
