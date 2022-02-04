@@ -38,8 +38,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style lang="scss" scoped>
-@media (max-width: $breakpoint-sm-max) {
-}
-</style>
