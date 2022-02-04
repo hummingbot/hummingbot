@@ -1,5 +1,5 @@
 <template>
-  <div class="flex row q-gutter-x-lg">
+  <div class="flex row q-gutter-lg box-wrapper">
     <Box
       class="col"
       :type="BoxType.Strategy"
@@ -36,3 +36,11 @@ export default defineComponent({
   },
 });
 </script>
+
+<style lang="scss" scoped>
+@media (max-width: $breakpoint-sm-max) {
+  .box-wrapper {
+    flex-flow: column;
+  }
+}
+</style>
