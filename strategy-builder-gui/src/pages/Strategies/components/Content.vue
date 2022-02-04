@@ -1,7 +1,7 @@
 <template>
   <div class="flex row q-gutter-lg box-wrapper">
     <Box
-      class="col"
+      class="col-md"
       :type="BoxType.Strategy"
       title="STRATEGIES"
       :count="13"
@@ -11,7 +11,7 @@
       :bg-image-src="require('../assets/strategies-box-robot.svg')"
     />
     <Box
-      class="col"
+      class="col-md"
       :type="BoxType.Exchanges"
       title="SUPPORTED EXCHANGES"
       :count="30"
@@ -39,8 +39,5 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 @media (max-width: $breakpoint-sm-max) {
-  .box-wrapper {
-    flex-flow: column;
-  }
 }
 </style>
