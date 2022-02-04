@@ -15,7 +15,7 @@ omit =
         hummingbot/connector/exchange/beaxy*
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/blocktane*
-        hummingbot/connector/exchange/btcmarkets*
+        hummingbot/connector/exchange/btc_markets*
         hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/digifinex*
         hummingbot/connector/exchange/ftx*

@@ -133,7 +133,6 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    # TODO: fix current_timestamp logic in get_fee() for this test to work
     def test_get_fee(self):
         limit_fee: AddedToCostTradeFee = self.ev_loop.run_until_complete(self.connector.get_fee(self.base_token, self.quote_token, OrderType.LIMIT, TradeType.BUY, 1, 1))
         self.ev_loop.run_until_complete(asyncio.sleep(2))
@@ -377,7 +376,8 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
             self.assertEqual(cl_order_id, recorded_orders[0].id)
 
             # Verify saved market states
-            saved_market_states: MarketState = recorder.get_market_states(config_path, self.connector)
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.connector,
+                                                                          sql.get_new_session())
             self.assertIsNotNone(saved_market_states)
             self.assertIsInstance(saved_market_states.saved_state, dict)
             self.assertGreater(len(saved_market_states.saved_state), 0)
@@ -394,7 +394,7 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
             recorder.stop()
             recorder = MarketsRecorder(sql, [new_connector], config_path, strategy_name)
             recorder.start()
-            saved_market_states = recorder.get_market_states(config_path, new_connector)
+            saved_market_states = recorder.get_market_states(config_path, new_connector, sql.get_new_session())
             self.clock.add_iterator(new_connector)
             self.assertEqual(0, len(new_connector.limit_orders))
             self.assertEqual(0, len(new_connector.tracking_states))
@@ -408,7 +408,7 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
             order_id = None
             self.assertEqual(0, len(new_connector.limit_orders))
             self.assertEqual(0, len(new_connector.tracking_states))
-            saved_market_states = recorder.get_market_states(config_path, new_connector)
+            saved_market_states = recorder.get_market_states(config_path, new_connector, sql.get_new_session())
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
