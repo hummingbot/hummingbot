@@ -6,7 +6,7 @@
         class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg rounded-borders card-counter"
         :class="type === BoxType.Strategy ? 'border-blue' : 'border-green'"
       >
-        <img
+        <q-img
           v-if="type === BoxType.Strategy"
           :src="require('../assets/strategies-box-number.svg')"
           class="q-mr-xs"
@@ -29,7 +29,7 @@
       </q-card-section>
     </q-card-section>
     <div class="absolute-bottom-right flex items-end gt-xs">
-      <img :src="bgImageSrc" />
+      <q-img :src="bgImageSrc" />
     </div>
   </q-card>
 </template>
