@@ -22,6 +22,7 @@ dependencies:
   - six=1.14.0
   - sqlalchemy=1.4
   - sqlite=3.31.1
+  - tabulate==0.8.9
   - tzlocal=2.0.0
   - ujson=1.35
   - zlib=1.2.11
@@ -66,7 +67,6 @@ dependencies:
     - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
-    - tabulate==0.8.9
     - web3==5.23.0
     - websockets==9.1
     - yarl==1.4.2
