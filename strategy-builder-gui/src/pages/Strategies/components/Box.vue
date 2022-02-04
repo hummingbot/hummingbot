@@ -38,8 +38,8 @@
 import { defineComponent, PropType } from 'vue';
 
 export enum BoxType {
-  'Strategy',
-  'Exchanges',
+  Strategy,
+  Exchanges,
 }
 
 export default defineComponent({
