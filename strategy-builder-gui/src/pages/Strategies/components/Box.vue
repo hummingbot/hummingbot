@@ -14,7 +14,7 @@
         {{ count }} <span v-if="type === BoxType.Exchanges" class="text-green"> +</span>
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
-        <div class="text-h4 text-white q-mb-xs"> {{ title }} </div>
+        <div class="text-h4 text-white q-mb-xs text-uppercase"> {{ title }} </div>
         <div class="text-body-1 q-mb-sm line-normal">
           {{ desc }}
         </div>
