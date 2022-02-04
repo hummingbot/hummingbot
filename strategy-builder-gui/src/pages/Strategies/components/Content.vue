@@ -2,15 +2,24 @@
   <div class="flex row q-gutter-x-lg">
     <Box
       class="col"
-      :type="BoxType.strategy"
+      :type="BoxType.Strategy"
       title="STRATEGIES"
-      count="13"
+      :count="13"
       desc="Hummingbot offers various trading strategies, each with its own set of configurable parameters."
       link-text="Documentation"
       href="/"
       :bg-image-src="require('../assets/strategies-box-robot.svg')"
     />
-    <Box class="col" :type="BoxType.exchanges" />
+    <Box
+      class="col"
+      :type="BoxType.Exchanges"
+      title="SUPPORTED EXCHANGES"
+      :count="30"
+      desc="Hummingbot can be run on a various top tier centralized and decentralized exchanges."
+      link-text="Connectors"
+      href="/"
+      :bg-image-src="require('../assets/strategies-box-chart.svg')"
+    />
   </div>
 </template>
 
