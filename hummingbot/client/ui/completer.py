@@ -13,6 +13,7 @@ from hummingbot.client.settings import (
     STRATEGIES,
     CONF_FILE_PATH,
     SCRIPTS_PATH,
+    LITE_STRATEGIES_PATH,
     ConnectorType
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
@@ -51,6 +52,7 @@ class HummingbotCompleter(Completer):
         self._gateway_completer = WordCompleter(["generate_certs", "list-configs", "update"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
+        self._lite_strategy_completer = WordCompleter(file_name_list(LITE_STRATEGIES_PATH, "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
 
     @property
@@ -142,6 +144,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway ")
 
+    def _complete_lite_strategy_files(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("start --lite ")
+
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
 
@@ -178,6 +184,10 @@ class HummingbotCompleter(Completer):
         """
         if self._complete_script_files(document):
             for c in self._py_file_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_lite_strategy_files(document):
+            for c in self._lite_strategy_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_paths(document):

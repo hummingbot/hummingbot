@@ -37,6 +37,7 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = realpath(join(__file__, "../../../scripts/"))
+LITE_STRATEGIES_PATH = realpath(join(__file__, "../../../lite_strategies/"))
 CERTS_PATH = "certs/"
 
 # Certificates for securely communicating with the gateway api
