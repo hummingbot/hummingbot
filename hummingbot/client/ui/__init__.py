@@ -1,4 +1,4 @@
-from prompt_toolkit.shortcuts import input_dialog, message_dialog
+from prompt_toolkit.shortcuts import message_dialog
 from prompt_toolkit.styles import Style
 from os.path import join, realpath, dirname
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -77,50 +77,52 @@ def show_welcome():
         style=dialog_style).run()
 
 
-def login_prompt():
+def login_prompt(password=''):
     from hummingbot.client.config.security import Security
     import time
 
     err_msg = None
     if Security.new_password_required():
-        show_welcome()
-        password = input_dialog(
-            title="Set Password",
-            text="Create a password to protect your sensitive data. "
-                 "This password is not shared with us nor with anyone else, so please store it securely."
-                 "\n\nEnter your new password:",
-            password=True,
-            style=dialog_style).run()
+        # show_welcome()
+        # password = input_dialog(
+        #     title="Set Password",
+        #     text="Create a password to protect your sensitive data. "
+        #          "This password is not shared with us nor with anyone else, so please store it securely."
+        #          "\n\nEnter your new password:",
+        #     password=True,
+        #     style=dialog_style).run()
         if password is None:
             return False
-        re_password = input_dialog(
-            title="Set Password",
-            text="Please re-enter your password:",
-            password=True,
-            style=dialog_style).run()
-        if re_password is None:
-            return False
-        if password != re_password:
-            err_msg = "Passwords entered do not match, please try again."
-        else:
-            Security.login(password)
-            # encrypt current timestamp as a dummy to prevent promping for password if bot exits without connecting an exchange
-            dummy = f"{time.time()}"
-            Security.update_secure_config("default", dummy)
+        # re_password = input_dialog(
+        #     title="Set Password",
+        #     text="Please re-enter your password:",
+        #     password=True,
+        #     style=dialog_style).run()
+        # if re_password is None:
+        #     return False
+        # if password != re_password:
+        #     err_msg = "Passwords entered do not match, please try again."
+        # else:
+        Security.login(password)
+        # encrypt current timestamp as a dummy to prevent promping for password if bot exits without connecting an exchange
+        dummy = f"{time.time()}"
+        Security.update_secure_config("default", dummy)
     else:
-        password = input_dialog(
-            title="Welcome back to Hummingbot",
-            text="Enter your password:",
-            password=True,
-            style=dialog_style).run()
+        # password = input_dialog(
+        #     title="Welcome back to Hummingbot",
+        #     text="Enter your password:",
+        #     password=True,
+        #     style=dialog_style).run()
         if password is None:
             return False
         if not Security.login(password):
             err_msg = "Invalid password - please try again."
     if err_msg is not None:
-        message_dialog(
-            title='Error',
-            text=err_msg,
-            style=dialog_style).run()
-        return login_prompt()
+        print('ERROR: ' + err_msg + ' Try running command again.')
+        return False
+        # message_dialog(
+        #     title='Error',
+        #     text=err_msg,
+        #     style=dialog_style).run()
+        # return login_prompt()
     return True
