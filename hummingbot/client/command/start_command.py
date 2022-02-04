@@ -29,6 +29,7 @@ from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.exceptions import OracleRateUnavailable
+from hummingbot.core.utils.dynamic_import import import_lite_strategy_sub_class
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -50,15 +51,17 @@ class StartCommand:
 
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
-              restore: Optional[bool] = False):
+              restore: Optional[bool] = False,
+              lite: Optional[str] = None):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
-        safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, restore, lite), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
-                          restore: Optional[bool] = False):
+                          restore: Optional[bool] = False,
+                          lite: Optional[str] = None):
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
@@ -69,8 +72,7 @@ class StartCommand:
                 return
             else:
                 RateOracle.get_instance().start()
-        is_valid = await self.status_check_all(notify_success=False)
-        if not is_valid:
+        if lite is None and not await self.status_check_all(notify_success=False):
             self._notify("Status checks failed. Start aborted.")
             return
         if self._last_started_strategy_file != self.strategy_file_name:
@@ -105,25 +107,38 @@ class StartCommand:
                 self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                              "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        await self.start_market_making(self.strategy_name, restore)
+        await self.start_market_making(self.strategy_name, restore, lite)
+
+    def start_lite(self,  # type: HummingbotApplication
+                   lite_file: str):
+        self.strategy_file_name = lite_file
+        lite_strategy = import_lite_strategy_sub_class(join(settings.LITE_STRATEGIES_PATH, lite_file))
+        markets_list = []
+        for conn, pairs in lite_strategy.markets.items():
+            markets_list.append((conn, pairs))
+        self._initialize_markets(markets_list)
+        market_infos = []
+        self.strategy = lite_strategy(market_infos)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str,
-                                  restore: Optional[bool] = False):
-        start_strategy: Callable = get_strategy_starter_file(strategy_name)
-        if strategy_name in settings.STRATEGIES:
-            start_strategy(self)
+                                  restore: Optional[bool] = False,
+                                  lite_file: Optional[str] = None):
+        if lite_file:
+            self.start_lite(lite_file)
         else:
-            raise NotImplementedError
-
+            start_strategy: Callable = get_strategy_starter_file(strategy_name)
+            if strategy_name in settings.STRATEGIES:
+                start_strategy(self)
+            else:
+                raise NotImplementedError
         try:
-            config_path: str = self.strategy_file_name
             self.start_time = time.time() * 1e3  # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
-                    self.markets_recorder.restore_market_states(config_path, market)
+                    self.markets_recorder.restore_market_states(self.strategy_file_name, market)
                     if len(market.limit_orders) > 0:
                         if restore is False:
                             self._notify(f"Cancelling dangling limit orders on {market.name}...")

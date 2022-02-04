@@ -71,6 +71,8 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     start_parser = subparsers.add_parser("start", help="Start the current bot")
     start_parser.add_argument("--restore", default=False, action="store_true", dest="restore", help="Restore and maintain any active orders.")
     # start_parser.add_argument("--log-level", help="Level of logging")
+    start_parser.add_argument("--lite", type=str, dest="lite", help="Lite strategy file name.")
+
     start_parser.set_defaults(func=hummingbot.start)
 
     stop_parser = subparsers.add_parser('stop', help="Stop the current bot")
