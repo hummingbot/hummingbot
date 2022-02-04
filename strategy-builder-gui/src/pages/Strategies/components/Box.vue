@@ -28,7 +28,7 @@
         </a>
       </q-card-section>
     </q-card-section>
-    <div class="absolute-bottom-right flex items-end bg-image">
+    <div class="absolute-bottom-right flex items-end gt-xs">
       <img :src="bgImageSrc" />
     </div>
   </q-card>
@@ -75,11 +75,5 @@ export default defineComponent({
 
 .line-normal {
   line-height: normal;
-}
-
-@media (max-width: $breakpoint-xs-max) {
-  .bg-image {
-    display: none;
-  }
 }
 </style>
