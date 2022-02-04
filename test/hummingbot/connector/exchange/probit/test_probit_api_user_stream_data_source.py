@@ -96,7 +96,11 @@ class ProbitAPIUserStreamDataSourceTest(unittest.TestCase):
 
         sent_json_msgs = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
         for sent_json_msg in sent_json_msgs:
-            self.assertEqual("subscribe", sent_json_msg["type"])
+            try:
+                self.assertEqual("subscribe", sent_json_msg["type"])
+            except KeyError:
+                print(sent_json_msg)
+                raise
             self.assertIn(sent_json_msg["channel"], CONSTANTS.WS_PRIVATE_CHANNELS)
             CONSTANTS.WS_PRIVATE_CHANNELS.remove(sent_json_msg["channel"])
 
