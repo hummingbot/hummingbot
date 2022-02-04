@@ -1,5 +1,5 @@
 <template>
-  <q-card class="bg-mono-grey-1 overflow-hidden rounded-borders">
+  <q-card class="bg-mono-grey-1 overflow-hidden rounded-borders full-height">
     <q-card-section horizontal class="flex row full-height">
       <q-card-section
         horizontal

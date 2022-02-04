@@ -2,7 +2,6 @@
   <div class="row q-col-gutter-lg">
     <div class="col-xs-12 col-md">
       <Box
-        class="full-height"
         :type="BoxType.Strategy"
         title="Strategies"
         :count="13"
@@ -14,7 +13,6 @@
     </div>
     <div class="col-xs-12 col-md">
       <Box
-        class="full-height"
         :type="BoxType.Exchanges"
         title="Supported exchanges"
         :count="30"
