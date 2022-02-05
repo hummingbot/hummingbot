@@ -805,20 +805,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             ExchangeBase maker_market = market_pair.maker.market
             ExchangeBase taker_market = market_pair.taker.market
 
+        user_order = self.c_get_adjusted_limit_order_size(market_pair)
+        taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, user_order)
+        if taker_price is None:
+            return s_decimal_zero
         if is_bid:
 
             maker_balance_in_quote = maker_market.c_get_available_balance(market_pair.maker.quote_asset)
 
             taker_balance = taker_market.c_get_available_balance(market_pair.taker.base_asset) * \
                 self._order_size_taker_balance_factor
-
-            user_order = self.c_get_adjusted_limit_order_size(market_pair)
-
-            try:
-                taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, False, user_order).result_price
-            except ZeroDivisionError:
-                assert user_order == s_decimal_zero
-                return s_decimal_zero
 
             maker_balance = maker_balance_in_quote / taker_price
             order_amount = min(maker_balance, taker_balance, user_order)
@@ -831,16 +827,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             taker_balance_in_quote = taker_market.c_get_available_balance(market_pair.taker.quote_asset) * \
                 self._order_size_taker_balance_factor
-
-            user_order = self.c_get_adjusted_limit_order_size(market_pair)
-
-            try:
-                taker_price = taker_market.c_get_price_for_quote_volume(
-                    taker_trading_pair, True, taker_balance_in_quote
-                ).result_price
-            except ZeroDivisionError:
-                assert user_order == s_decimal_zero
-                return s_decimal_zero
 
             taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
             taker_balance = taker_balance_in_quote / (taker_price * taker_slippage_adjustment_factor)
