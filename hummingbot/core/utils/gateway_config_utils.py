@@ -2,6 +2,17 @@ from copy import deepcopy
 from typing import List, Dict, Any, Optional
 
 
+def build_connectors_display(lines: List[str], connectors: List[Dict[str, Any]]):
+    """
+    """
+    lines.append("+--------------|-------------------|---------------+")
+    lines.append("| Exchange     | Network           | Wallet        |")
+    lines.append("+--------------|-------------------|---------------+")
+    for dict in connectors:
+        lines.append(f"| {dict['connector']} | {dict['chain']} - {dict['network']} | {dict['wallet_address']} |")
+    lines.append("+--------------+-------------------+---------------+")
+
+
 def build_config_dict_display(lines: List[str], config_dict: Dict[str, Any], level: int = 0):
     """
     Build display messages on lines for a config dictionary, this function is called recursive.

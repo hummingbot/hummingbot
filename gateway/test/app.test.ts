@@ -9,9 +9,11 @@ describe('verify swagger docs', () => {
       './docs/swagger/swagger.yml',
       './docs/swagger/definitions.yml',
       [
+        './docs/swagger/amm-routes.yml',
         './docs/swagger/main-routes.yml',
-        './docs/swagger/trading-routes.yml',
         './docs/swagger/wallet-routes.yml',
+        './docs/swagger/evm-routes.yml',
+        './docs/swagger/network-routes.yml',
         './docs/swagger/solana-routes.yml',
       ]
     );

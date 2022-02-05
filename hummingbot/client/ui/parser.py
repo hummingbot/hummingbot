@@ -113,7 +113,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     history_parser.set_defaults(func=hummingbot.history)
 
     gateway_parser = subparsers.add_parser("gateway", help="Gateway API configurations")
-    gateway_parser.add_argument("option", nargs="?", choices=("create", "config", "generate-certs", "status", "test-connection"), help="Gateway configuration choices")
+    gateway_parser.add_argument("option", nargs="?", choices=("create", "config", "connect", "generate-certs", "status", "test-connection"), help="Gateway configuration choices")
     gateway_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to change")
     gateway_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
     gateway_parser.set_defaults(func=hummingbot.gateway)
