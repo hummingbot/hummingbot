@@ -37,6 +37,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.notifier.slack_server import run_api
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 s_logger = None
 
@@ -127,8 +128,8 @@ class HummingbotApplication(*commands):
     def _handle_command(self, raw_command: str):
         # print(f'_handle_command input {raw_command}')
         # unset to_stop_config flag it triggered before loading any command
-        if self.app.to_stop_config:
-            self.app.to_stop_config = False
+        # if self.app.to_stop_config:
+        #     self.app.to_stop_config = False
 
         raw_command = raw_command.lower().strip()
         command_split = raw_command.split()
@@ -229,6 +230,8 @@ class HummingbotApplication(*commands):
                 self.create(args[2], args)
             elif args[1] == 'import':
                 self.import_command(args[2])
+            elif args[1] == 'start_slack':
+                run_api()
             else:
                 print('invalid arguments')
 

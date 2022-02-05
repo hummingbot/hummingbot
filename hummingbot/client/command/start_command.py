@@ -2,7 +2,7 @@
 
 import asyncio
 import platform
-import threading
+# import threading
 import time
 from typing import (
     Optional,
@@ -51,9 +51,9 @@ class StartCommand:
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               restore: Optional[bool] = False):
-        if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start, log_level)
-            return
+        # if threading.current_thread() != threading.main_thread():
+        # self.ev_loop.call_soon_threadsafe(self.start, log_level)
+        # return
         safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
