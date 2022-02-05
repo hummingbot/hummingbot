@@ -3,7 +3,7 @@ import time
 import unittest
 from decimal import Decimal
 from typing import Awaitable
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -266,6 +266,41 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         order_from_json = InFlightOrder.from_json(order_json)
         self.assertEqual(expected_order, order_from_json)
+        self.assertFalse(order_from_json.completely_filled_event.is_set())
+
+    def test_completed_order_recovered_from_json_has_completed_event_updated(self):
+        order_json = {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "trading_pair": self.trading_pair,
+            "order_type": OrderType.LIMIT.name,
+            "trade_type": TradeType.BUY.name,
+            "price": "1.0",
+            "amount": "1000.0",
+            "executed_amount_base": "1000.0",
+            "executed_amount_quote": "1100.0",
+            "fee_asset": None,
+            "fee_paid": "0",
+            "last_state": "0",
+            "leverage": "1",
+            "position": "NIL",
+        }
+
+        expected_order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+        expected_order.executed_amount_base = Decimal("1000")
+        expected_order.executed_amount_quote = Decimal("1100")
+
+        order_from_json = InFlightOrder.from_json(order_json)
+        self.assertEqual(expected_order, order_from_json)
+        self.assertTrue(order_from_json.completely_filled_event.is_set())
 
     def test_to_json(self):
         order: InFlightOrder = InFlightOrder(
