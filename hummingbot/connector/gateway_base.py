@@ -15,6 +15,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
@@ -25,7 +26,6 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType,
     TradeType,
-    TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
@@ -438,7 +438,9 @@ class GatewayBase(ConnectorBase):
                                     tracked_order.order_type,
                                     Decimal(str(tracked_order.price)),
                                     Decimal(str(tracked_order.amount)),
-                                    TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                                    AddedToCostTradeFee(
+                                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                                    ),
                                     exchange_trade_id=order_id
                                 )
                             )
