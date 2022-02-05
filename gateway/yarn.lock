@@ -324,9 +324,9 @@
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
 "@blockworks-foundation/mango-client@^3.2.14":
-  version "3.3.6"
-  resolved "https://registry.yarnpkg.com/@blockworks-foundation/mango-client/-/mango-client-3.3.6.tgz#5d458288d25ff0b2a430ab7985ba2a71353fc54d"
-  integrity sha512-Sh/TXgWUBOLfXKqCq+eEYmJHTcjl/nTQ7nn9sJQhuFTq6VKqSEUnW5h2jax2mMTApWG/jnbxyUXULK+MMfGv/A==
+  version "3.3.11"
+  resolved "https://registry.yarnpkg.com/@blockworks-foundation/mango-client/-/mango-client-3.3.11.tgz#50f9bde9e0aaee7d444dd1afe2201ead9cf80c07"
+  integrity sha512-F0o7HcEQRv4lWc3J4VmFNzN2TTF/HloO24TCn/0g1kcYuDE0xeCH6EzsiPFVrpmfWBX2SmTvFpnUS+8pBqlYDA==
   dependencies:
     "@project-serum/anchor" "^0.16.2"
     "@project-serum/serum" "0.13.55"
@@ -1457,9 +1457,9 @@
     toml "^3.0.0"
 
 "@project-serum/borsh@^0.2.2":
-  version "0.2.3"
-  resolved "https://registry.yarnpkg.com/@project-serum/borsh/-/borsh-0.2.3.tgz#1d705c5887484cb6a127dd5feff58e90cbfcb558"
-  integrity sha512-lH9zEYADZE3cxrgiFym8+jbUE3NM/LH+WOKYcUjs65CT10Q64Hv45bcAAa/phwYk4Tpz0uQ1x+ergFaAoGt67Q==
+  version "0.2.4"
+  resolved "https://registry.yarnpkg.com/@project-serum/borsh/-/borsh-0.2.4.tgz#8884c3a759984a39d54bf5b7390bd1ee0b579f16"
+  integrity sha512-tQPc1ktAp1Jtn9D72DmObAfhAic9ivfYBOS5b+T4H7MvkQ84uML88LY1LfvGep30mCy+ua5rf+X9ocPfg6u9MA==
   dependencies:
     bn.js "^5.1.2"
     buffer-layout "^1.2.0"
@@ -1608,9 +1608,9 @@
     buffer "~6.0.3"
 
 "@solana/spl-token-registry@^0.2.700":
-  version "0.2.1782"
-  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.1782.tgz#168a610286c143db6a9c9debabffee634cd8d263"
-  integrity sha512-F7QIz3AAPYTNbBCv2DnXBCuoZwV2lyd3VOMHJVdorLkib7URicrzsSiCFlW56FmAKPLniFncOb9oqcUS2dNqbQ==
+  version "0.2.1930"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token-registry/-/spl-token-registry-0.2.1930.tgz#f78673807c621374e85e937f9599cdf8793b3adf"
+  integrity sha512-/EpTs4f5wXOG1hqUJaH6ZTC1UPXbfDYFq4dfJwOWVRDOxEXRjPaev5eKp1tibK5MZ+48OicdnHbcT/bbA0+m8Q==
   dependencies:
     cross-fetch "3.0.6"
 
@@ -8802,9 +8802,9 @@ rlp@^2.2.3, rlp@^2.2.4:
     bn.js "^5.2.0"
 
 rpc-websockets@^7.4.2:
-  version "7.4.16"
-  resolved "https://registry.yarnpkg.com/rpc-websockets/-/rpc-websockets-7.4.16.tgz#eb701cdef577d4357ba5f526d50e25f370396fac"
-  integrity sha512-0b7OVhutzwRIaYAtJo5tqtaQTWKfwAsKnaThOSOy+VkhVdleNUgb8eZnWSdWITRZZEigV5uPEIDr5KZe4DBrdQ==
+  version "7.4.17"
+  resolved "https://registry.yarnpkg.com/rpc-websockets/-/rpc-websockets-7.4.17.tgz#f38845dd96db0442bff9e15fba9df781beb44cc0"
+  integrity sha512-eolVi/qlXS13viIUH9aqrde902wzSLAai0IjmOZSRefp5I3CSG/vCnD0c0fDSYCWuEyUoRL1BHQA8K1baEUyow==
   dependencies:
     "@babel/runtime" "^7.11.2"
     circular-json "^0.5.9"

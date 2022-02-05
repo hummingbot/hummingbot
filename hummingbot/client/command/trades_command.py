@@ -37,11 +37,11 @@ class TradesCommand:
                             open_order_markets: bool):
         connector = await self.get_binance_connector()
         if connector is None:
-            self._notify("This command supports only binance (for now), please first connect to binance.")
+            self.notify("This command supports only binance (for now), please first connect to binance.")
             return
-        self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
-                     f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
-        self._notify("Retrieving trades....")
+        self.notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
+                    f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
+        self.notify("Retrieving trades....")
         if market is not None:
             markets = {market.upper()}
         elif open_order_markets:
@@ -60,7 +60,7 @@ class TradesCommand:
         trades: List[Trade] = await connector.get_my_trades(market, days)
         g_sym = RateOracle.global_token_symbol
         if not trades:
-            self._notify(f"There is no trade on {market}.")
+            self.notify(f"There is no trade on {market}.")
             return
         data = []
         amount_g_col_name = f" Amount ({g_sym})"
@@ -85,7 +85,7 @@ class TradesCommand:
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
         lines.extend([f"  {market.upper()}"])
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
-        self._notify("\n" + "\n".join(lines))
+        self.notify("\n" + "\n".join(lines))
         fee_text = ",".join(k + ": " + f"{v:.4f}" for k, v in fees.items())
-        self._notify(f"\n  Total traded: {g_sym} {df[amount_g_col_name].sum():.0f}    "
-                     f"Fees: {fee_text} ({g_sym} {fee_usd:.2f})")
+        self.notify(f"\n  Total traded: {g_sym} {df[amount_g_col_name].sum():.0f}    "
+                    f"Fees: {fee_text} ({g_sym} {fee_usd:.2f})")

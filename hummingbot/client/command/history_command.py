@@ -45,13 +45,13 @@ class HistoryCommand:
             return
 
         if self.strategy_file_name is None:
-            self._notify("\n  Please first import a strategy config file of which to show historical performance.")
+            self.notify("\n  Please first import a strategy config file of which to show historical performance.")
             return
         start_time = get_timestamp(days) if days > 0 else self.init_time
         trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
                                                                 config_file_path=self.strategy_file_name)
         if not trades:
-            self._notify("\n  No past trades to report.")
+            self.notify("\n  No past trades to report.")
             return
         if verbose:
             self.list_trades(start_time)
@@ -73,7 +73,7 @@ class HistoryCommand:
             try:
                 cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
             except asyncio.TimeoutError:
-                self._notify(
+                self.notify(
                     "\nA network error prevented the balances retrieval to complete. See logs for more details."
                 )
                 raise
@@ -83,7 +83,7 @@ class HistoryCommand:
             return_pcts.append(perf.return_pct)
         avg_return = sum(return_pcts) / len(return_pcts) if len(return_pcts) > 0 else s_decimal_0
         if display_report and len(return_pcts) > 1:
-            self._notify(f"\nAveraged Return = {avg_return:.2%}")
+            self.notify(f"\nAveraged Return = {avg_return:.2%}")
         return avg_return
 
     async def get_current_balances(self,  # type: HummingbotApplication
@@ -115,7 +115,7 @@ class HistoryCommand:
             [f"Current Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
             [f"Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
         )
-        self._notify("\n".join(lines))
+        self.notify("\n".join(lines))
 
     def report_performance_by_market(self,  # type: HummingbotApplication
                                      market: str,
@@ -188,7 +188,7 @@ class HistoryCommand:
         lines.extend(["", "  Performance:"] +
                      ["    " + line for line in perf_df.to_string(index=False, header=False).split("\n")])
 
-        self._notify("\n".join(lines))
+        self.notify("\n".join(lines))
 
     async def calculate_profitability(self,  # type: HummingbotApplication
                                       ) -> Decimal:
@@ -227,7 +227,7 @@ class HistoryCommand:
             # Check if number of trades exceed maximum number of trades to display
             if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
                 df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
-                self._notify(
+                self.notify(
                     f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
             else:
                 df_lines = str(df).split("\n")
@@ -235,4 +235,4 @@ class HistoryCommand:
                          ["    " + line for line in df_lines])
         else:
             lines.extend(["\n  No past trades in this session."])
-        self._notify("\n".join(lines))
+        self.notify("\n".join(lines))

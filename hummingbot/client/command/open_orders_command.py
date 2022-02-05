@@ -33,11 +33,11 @@ class OpenOrdersCommand:
         connector = await self.get_binance_connector()
         g_sym = RateOracle.global_token_symbol
         if connector is None:
-            self._notify("This command supports only binance (for now), please first connect to binance.")
+            self.notify("This command supports only binance (for now), please first connect to binance.")
             return
         orders: List[OpenOrder] = await connector.get_open_orders()
         if not orders:
-            self._notify("There is currently no open orders on binance.")
+            self.notify("There is currently no open orders on binance.")
             return
         orders = sorted(orders, key=lambda x: (x.trading_pair, x.is_buy))
         data = []
@@ -67,5 +67,5 @@ class OpenOrdersCommand:
         lines = []
         orders_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
         lines.extend(["    " + line for line in orders_df.to_string(index=False).split("\n")])
-        self._notify("\n" + "\n".join(lines))
-        self._notify(f"\n  Total: {g_sym} {total_value:.0f}")
+        self.notify("\n" + "\n".join(lines))
+        self.notify(f"\n  Total: {g_sym} {total_value:.0f}")
