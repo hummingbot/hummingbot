@@ -859,6 +859,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
         top_bid_price, top_ask_price = self.c_get_top_bid_ask_from_price_samples(market_pair)
         taker_price = self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
+        if taker_price is None:
+            return s_decimal_nan
 
         if is_bid:
             # you are buying on the maker market and selling on the taker market
