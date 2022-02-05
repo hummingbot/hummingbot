@@ -3,94 +3,23 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 10
+template_version: 11
 
-# Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
-# If the value is left blank, the default value (from corresponding market connector) will be used.
+# Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
+# If the field is missing or the value is left blank, the default value will be used.
+# The percentage values are specified as 0.1 for 0.1%.
+#
+# [exchange name]_percent_fee_token:
+# [exchange name]_maker_percent_fee:
+# [exchange name]_taker_percent_fee:
+# [exchange name]_buy_percent_fee_deducted_from_returns:  # if False, the buy fee is added to the order costs
+# [exchange name]_maker_fixed_fees:  # a list of lists of token-fee pairs (e.g. [["ETH", 1]])
+# [exchange name]_taker_fixed_fees:  # a list of lists of token-fee pairs (e.g. [["ETH", 1]])
 
-binance_maker_fee:
-binance_taker_fee:
+binance_percent_fee_token:  # BNB
+binance_maker_percent_fee:  # 0.75
+binance_taker_percent_fee:  # 0.75
+binance_buy_percent_fee_deducted_from_returns:  # True
 
-beaxy_maker_fee:
-beaxy_taker_fee:
-
-coinbase_pro_maker_fee:
-coinbase_pro_taker_fee:
-
-coinzoom_maker_fee:
-coinzoom_taker_fee:
-
-dydx_perpetual_maker_fee:
-dydx_perpetual_taker_fee:
-
-huobi_maker_fee:
-huobi_taker_fee:
-
-liquid_maker_fee:
-liquid_taker_fee:
-
-bittrex_maker_fee:
-bittrex_taker_fee:
-
-kucoin_maker_fee:
-kucoin_taker_fee:
-
-bitmart_maker_fee:
-bitmart_taker_fee:
-
-crypto_com_maker_fee:
-crypto_com_taker_fee:
-
-bitfinex_maker_fee:
-bitfinex_taker_fee:
-
-kraken_maker_fee:
-kraken_taker_fee:
-
-hitbtc_maker_fee:
-hitbtc_taker_fee:
-
-gate_io_maker_fee:
-gate_io_taker_fee:
-
-loopring_maker_fee:
-loopring_taker_fee:
-
-binance_us_maker_fee:
-binance_us_taker_fee:
-
-binance_perpetual_maker_fee:
-binance_perpetual_taker_fee:
-
-binance_perpetual_testnet_maker_fee:
-binance_perpetual_testnet_taker_fee:
-
-okex_maker_fee:
-okex_taker_fee:
-
-balancer_maker_fee_amount:
-balancer_taker_fee_amount:
-
-uniswap_maker_fee_amount:
-uniswap_taker_fee_amount:
-
-ascend_ex_maker_fee:
-ascend_ex_taker_fee:
-
-probit_maker_fee:
-probit_taker_fee:
-
-probit_kr_maker_fee:
-probit_kr_taker_fee:
-
-ndax_maker_fee:
-ndax_taker_fee:
-
-ndax_testnet_maker_fee:
-ndax_testnet_taker_fee:
-
-bybit_perpetual_maker_fee:
-bybit_perpetual_taker_fee:
-
-bybit_perpetual_testnet_maker_fee:
-bybit_perpetual_testnet_taker_fee:
+balancer_maker_fixed_fees:  # [[ETH, 0.0002]]
+balancer_taker_fixed_fees:  # [[ETH, 0.0002]]

@@ -159,9 +159,10 @@ class BalanceCommand:
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
                          total_col_name: PerformanceMetrics.smart_round(global_value),
+                         "sum_not_for_show": global_value,
                          "Allocated": allocated,
                          })
-        df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "Allocated"])
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "sum_not_for_show", "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
         return df, allocated_total
 

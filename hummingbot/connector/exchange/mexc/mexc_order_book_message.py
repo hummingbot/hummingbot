@@ -55,3 +55,6 @@ class MexcOrderBookMessage(OrderBookMessage):
             OrderBookRow(float(bid["price"]), float(bid["quantity"]), self.update_id)
             for bid in self.content.get("bids", [])
         ]
+
+    def __hash__(self) -> int:
+        return hash((self.type, self.timestamp))
