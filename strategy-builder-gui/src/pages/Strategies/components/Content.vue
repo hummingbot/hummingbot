@@ -23,6 +23,15 @@
       />
     </div>
   </div>
+  <div class="column">
+    <div class="text-white text-h4 q-mt-lg q-mb-md"> Choose Your Strategy </div>
+    <div class="row q-col-gutter-lg">
+      <div>card 1</div>
+      <div>card 2</div>
+      <div>card 3</div>
+      <div>card 4</div>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
