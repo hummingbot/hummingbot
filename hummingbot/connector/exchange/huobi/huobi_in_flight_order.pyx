@@ -32,6 +32,8 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
             initial_state  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
         )
 
+        self.trade_id_set = set()
+
     @property
     def is_done(self) -> bool:
         return self.last_state in {"filled", "canceled", "partial-canceled"}
@@ -50,20 +52,32 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            HuobiInFlightOrder retval = HuobiInFlightOrder(
-                client_order_id=data["client_order_id"],
-                exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["trading_pair"],
-                order_type=getattr(OrderType, data["order_type"]),
-                trade_type=getattr(TradeType, data["trade_type"]),
-                price=Decimal(data["price"]),
-                amount=Decimal(data["amount"]),
-                initial_state=data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
+        order = cls._basic_from_json(data)
+        order.check_filled_condition()
+        return order
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from GET /trade_history end point)
+        :param trade_update: the event message received for the order fill (or trade event)
+        :return: True if the order gets updated otherwise False
+        """
+        trade_id = trade_update["tradeId"]
+        if str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+            return False
+        self.trade_id_set.add(trade_id)
+        trade_amount = Decimal(str(trade_update["tradeVolume"]))
+        trade_price = Decimal(str(trade_update["tradePrice"]))
+        quote_amount = trade_amount * trade_price
+
+        self.executed_amount_base += trade_amount
+        self.executed_amount_quote += quote_amount
+        self.fee_paid += Decimal(str(trade_update["transactFee"]))
+        self.fee_asset = trade_update["feeCurrency"].upper()
+
+        if self.is_open:
+            self.last_state = trade_update["orderStatus"]
+
+        self.check_filled_condition()
+
+        return True

@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
-class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
+class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

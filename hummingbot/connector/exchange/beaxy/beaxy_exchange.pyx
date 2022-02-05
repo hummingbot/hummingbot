@@ -4,23 +4,26 @@ import logging
 from async_timeout import timeout
 from datetime import datetime, timedelta
 from decimal import Decimal
-from libc.stdint cimport int64_t
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from aiohttp.client_exceptions import ContentTypeError
+from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
+from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
+from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
+from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
+from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
+from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
+from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -33,17 +36,12 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
-
-from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
-from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
-from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
-from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
-from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
-from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
-from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -496,7 +494,8 @@ cdef class BeaxyExchange(ExchangeBase):
         object order_type,
         object order_side,
         object amount,
-        object price
+        object price,
+        object is_maker = None,
     ):
         """
         *required
@@ -516,7 +515,7 @@ cdef class BeaxyExchange(ExchangeBase):
             self.logger().info(f'Fee for {pair} is not in fee cache')
             return estimate_fee('beaxy', is_maker)
 
-        return TradeFee(percent=fees[pair] / Decimal(100))
+        return AddedToCostTradeFee(percent=fees[pair] / Decimal(100))
 
     async def execute_buy(
         self,
@@ -1214,8 +1213,9 @@ cdef class BeaxyExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

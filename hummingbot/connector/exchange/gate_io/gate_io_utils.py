@@ -4,13 +4,14 @@ import random
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
-import ujson
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.web_assistant.connections.data_types import (
+    RESTMethod, RESTResponse, EndpointRESTRequest
+)
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -23,13 +24,10 @@ DEFAULT_FEES = [0.2, 0.2]
 
 
 @dataclass
-class GateIORESTRequest(RESTRequest):
-    endpoint: Optional[str] = None
-
-    def __post_init__(self):
-        self._ensure_url()
-        self._ensure_params()
-        self._ensure_data()
+class GateIORESTRequest(EndpointRESTRequest):
+    @property
+    def base_url(self) -> str:
+        return CONSTANTS.REST_URL
 
     @property
     def auth_url(self) -> str:
@@ -37,25 +35,6 @@ class GateIORESTRequest(RESTRequest):
             raise ValueError("No endpoint specified. Cannot build auth url.")
         auth_url = f"{CONSTANTS.REST_URL_AUTH}/{self.endpoint}"
         return auth_url
-
-    def _ensure_url(self):
-        if self.url is None and self.endpoint is None:
-            raise ValueError("Either the full url or the endpoint must be specified.")
-        self.url = self.url or f"{CONSTANTS.REST_URL}/{self.endpoint}"
-
-    def _ensure_params(self):
-        if self.method == RESTMethod.POST:
-            if self.params is not None:
-                raise ValueError("POST requests should not use `params`. Use `data` instead.")
-
-    def _ensure_data(self):
-        if self.method == RESTMethod.POST:
-            if self.data is not None:
-                self.data = ujson.dumps(self.data)
-        elif self.data is not None:
-            raise ValueError(
-                "The `data` field should be used only for POST requests. Use `params` instead."
-            )
 
 
 class GateIoAPIError(IOError):

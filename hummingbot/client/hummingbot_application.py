@@ -158,12 +158,21 @@ class HummingbotApplication(*commands):
         if self.app.to_stop_config:
             self.app.to_stop_config = False
 
-        raw_command = raw_command.strip()
-        command_split = raw_command.split()
+        raw_command = raw_command.lower().strip()
+        # NOTE: Only done for config command
+        if raw_command.startswith("config"):
+            command_split = raw_command.split(maxsplit=2)
+        else:
+            command_split = raw_command.split()
         try:
             if self.placeholder_mode:
                 pass
             else:
+                # Check if help is requested, if yes, print & terminate
+                if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
+                    self.help(command_split[0])
+                    return
+
                 shortcuts = global_config_map.get("command_shortcuts").value
                 shortcut = None
                 # see if we match against shortcut command
