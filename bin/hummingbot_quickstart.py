@@ -11,6 +11,7 @@ from typing import (
 import os
 import subprocess
 
+from bin.hummingbot import detect_available_port
 from hummingbot import (
     check_dev_mode,
     init_logging,
@@ -25,12 +26,9 @@ from hummingbot.client.config.config_helpers import (
     all_configs_complete,
 )
 from hummingbot.client.ui import login_prompt
-from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.management.console import start_management_console
-from bin.hummingbot import (
-    detect_available_port,
-)
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
 
@@ -100,25 +98,27 @@ async def quick_start(args):
         if not all_configs_complete(hb.strategy_name):
             hb.status()
 
-    with patch_stdout(log_field=hb.app.log_field):
-        dev_mode = check_dev_mode()
-        if dev_mode:
-            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
+    class UIStartListener(EventListener):
+        def __call__(self, _):
+            asyncio.create_task(self.ui_start_handler())
 
-        log_level = global_config_map.get("log_level").value
-        init_logging("hummingbot_logs.yml",
-                     override_log_level=log_level,
-                     dev_mode=dev_mode)
+        @staticmethod
+        async def ui_start_handler():
+            dev_mode = check_dev_mode()
+            if dev_mode:
+                hb.app.log("Running from dev branches. Full remote logging will be enabled.")
 
-        if hb.strategy_file_name is not None and hb.strategy_name is not None:
-            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-            hb.start(log_level)
+            if hb.strategy_file_name is not None and hb.strategy_name is not None:
+                await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
+                hb.start(global_config_map.get("log_level").value)
 
-        tasks: List[Coroutine] = [hb.run()]
-        if global_config_map.get("debug_console").value:
-            management_port: int = detect_available_port(8211)
-            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-        await safe_gather(*tasks)
+    hb.app.add_listener(hb.app.Event.START, UIStartListener())
+
+    tasks: List[Coroutine] = [hb.run()]
+    if global_config_map.get("debug_console").value:
+        management_port: int = detect_available_port(8211)
+        tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+    await safe_gather(*tasks)
 
 
 def main():
