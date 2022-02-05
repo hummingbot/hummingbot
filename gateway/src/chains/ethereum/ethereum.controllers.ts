@@ -19,23 +19,27 @@ import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
 
 import {
-  AllowancesRequest,
-  AllowancesResponse,
-  ApproveRequest,
-  ApproveResponse,
-  BalanceResponse,
-  BalanceRequest,
-  CancelRequest,
-  CancelResponse,
-  NonceRequest,
-  NonceResponse,
   PollRequest,
   PollResponse,
   CustomTransactionReceipt,
   CustomTransaction,
   CustomTransactionResponse,
-} from '../../trading/trading.requests';
-import { Ethereumish } from '../../services/ethereumish.interface';
+} from './ethereum.requests';
+import { Ethereumish } from '../../services/common-interfaces';
+import {
+  NonceRequest,
+  NonceResponse,
+  AllowancesRequest,
+  AllowancesResponse,
+  ApproveRequest,
+  ApproveResponse,
+  CancelRequest,
+  CancelResponse,
+} from '../../evm/evm.requests';
+import {
+  BalanceRequest,
+  BalanceResponse,
+} from '../../network/network.requests';
 
 export async function nonce(
   ethereum: Ethereumish,

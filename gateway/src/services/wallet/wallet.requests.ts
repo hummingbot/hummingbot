@@ -4,6 +4,10 @@ export interface AddWalletRequest {
   privateKey: string;
 }
 
+export interface AddWalletResponse {
+  address: string;
+}
+
 export interface RemoveWalletRequest {
   chain: string;
   address: string;
