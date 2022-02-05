@@ -10,8 +10,15 @@
           v-if="type === BoxType.Strategy"
           :src="require('../assets/strategies-box-number.svg')"
           class="q-mr-xs"
+          fit="contain"
+          img-class="absolute"
+          no-transition
+          no-spinner
+          width="16px"
+          height="13px"
+          position="top right"
         />
-        {{ count }} <span v-if="type === BoxType.Exchanges" class="text-green"> +</span>
+        {{ count }} <span v-if="type === BoxType.Exchanges" class="text-green q-ml-xs"> +</span>
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs text-uppercase"> {{ title }} </div>
@@ -28,9 +35,15 @@
         </a>
       </q-card-section>
     </q-card-section>
-    <div class="absolute-bottom-right flex items-end gt-xs">
-      <q-img :src="bgImageSrc" />
-    </div>
+    <q-img
+      :src="bgImageSrc"
+      fit="contain"
+      class="absolute-bottom-right gt-xs"
+      width="115px"
+      position="right bottom"
+      no-spinner
+      no-transition
+    />
   </q-card>
 </template>
 
@@ -67,6 +80,10 @@ export default defineComponent({
 
 .border-green {
   border: 2px solid map.get($colors, 'mono-green') !important;
+}
+
+.number-image {
+  max-width: 16px;
 }
 
 .card-counter {
