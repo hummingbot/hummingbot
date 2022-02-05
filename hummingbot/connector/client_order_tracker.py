@@ -1,12 +1,13 @@
-import logging
 import asyncio
-
+import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, Optional
+
 from cachetools import TTLCache
 
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.event.events import (
@@ -18,8 +19,8 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger.logger import HummingbotLogger
 
 cot_logger = None
@@ -260,7 +261,7 @@ class ClientOrderTracker:
 
         self.stop_tracking_order(tracked_order.client_order_id)
 
-    def process_order_update(self, order_update: OrderUpdate):
+    async def _process_order_update(self, order_update: OrderUpdate):
         if not order_update.client_order_id and not order_update.exchange_order_id:
             self.logger().error("OrderUpdate does not contain any client_order_id or exchange_order_id", exc_info=True)
             return
@@ -270,6 +271,9 @@ class ClientOrderTracker:
         )
 
         if tracked_order:
+            if order_update.new_state == OrderState.FILLED and not tracked_order.is_done:
+                await tracked_order.wait_until_completely_filled()
+
             previous_state: OrderState = tracked_order.current_state
 
             updated: bool = tracked_order.update_with_order_update(order_update)
@@ -279,6 +283,9 @@ class ClientOrderTracker:
 
         else:
             self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
+
+    def process_order_update(self, order_update: OrderUpdate):
+        return safe_ensure_future(self._process_order_update(order_update))
 
     def process_trade_update(self, trade_update: TradeUpdate):
         client_order_id: str = trade_update.client_order_id

@@ -865,7 +865,10 @@ class BinanceExchangeTests(TestCase):
         mock_response = order_status
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
+        # Simulate the order has been filled with a TradeUpdate
+        order.completely_filled_event.set()
         self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(order.wait_until_completely_filled())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
