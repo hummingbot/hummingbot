@@ -167,7 +167,7 @@ class PerformanceMetrics:
         return type(trade) == TradeFill
 
     def _are_derivatives(self, trades: List[Any]) -> bool:
-        return trades and self._is_trade_fill(trades[0]) and "NILL" not in [t.position for t in trades]
+        return trades and self._is_trade_fill(trades[0]) and "NIL" not in [t.position for t in trades]
 
     def _preprocess_trades_and_group_by_type(self, trades: List[Any]) -> Tuple[List[Any], List[Any]]:
         buys = []
