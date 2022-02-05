@@ -8,9 +8,9 @@ from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 from async_timeout import timeout
 
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
-from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.connector_base import ConnectorBase
@@ -98,6 +98,7 @@ class InFlightOrder:
         self.exchange_order_id_update_event = asyncio.Event()
         if self.exchange_order_id:
             self.exchange_order_id_update_event.set()
+        self.completely_filled_event = asyncio.Event()
 
     @property
     def attributes(self) -> Tuple[Any]:
@@ -192,7 +193,7 @@ class InFlightOrder:
         :param data: JSON data
         :return: Formatted InFlightOrder
         """
-        retval = InFlightOrder(
+        order = InFlightOrder(
             client_order_id=data["client_order_id"],
             trading_pair=data["trading_pair"],
             order_type=getattr(OrderType, data["order_type"]),
@@ -204,11 +205,14 @@ class InFlightOrder:
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
         )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.cumulative_fee_paid = Decimal(data["fee_paid"])
-        return retval
+        order.executed_amount_base = Decimal(data["executed_amount_base"])
+        order.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        order.fee_asset = data["fee_asset"]
+        order.cumulative_fee_paid = Decimal(data["fee_paid"])
+
+        order.check_filled_condition()
+
+        return order
 
     def to_json(self) -> Dict[str, Any]:
         """
@@ -314,5 +318,13 @@ class InFlightOrder:
         self.cumulative_fee_paid += fee_paid
 
         self.last_update_timestamp = trade_update.fill_timestamp
+        self.check_filled_condition()
 
         return True
+
+    def check_filled_condition(self):
+        if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0:
+            self.completely_filled_event.set()
+
+    async def wait_until_completely_filled(self):
+        await self.completely_filled_event.wait()
