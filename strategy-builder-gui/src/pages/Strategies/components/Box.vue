@@ -82,10 +82,6 @@ export default defineComponent({
   border: 2px solid map.get($colors, 'mono-green') !important;
 }
 
-.number-image {
-  max-width: 16px;
-}
-
 .card-counter {
   min-width: 124px;
 }
