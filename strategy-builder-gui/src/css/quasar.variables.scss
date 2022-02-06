@@ -33,6 +33,7 @@ $colors: (
   'mono-white': #fcfdff,
   'mono-blue': #2f91eb,
   'mono-green': #00cc6a,
+  'mono-green-2': #27c29d,
   'red': #ff5252,
   'link': #2f91eb,
 );
@@ -89,8 +90,8 @@ $body1: (
   weight: 400,
 );
 $body2: (
-  size: 12px,
-  line-height: 1.25rem,
+  size: 10px,
+  line-height: normal,
   letter-spacing: 0.01786em,
   weight: 400,
 );
