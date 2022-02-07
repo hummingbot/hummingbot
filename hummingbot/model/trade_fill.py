@@ -114,10 +114,7 @@ class TradeFill(HummingbotBase):
                               "Amount",
                               "Leverage",
                               "Position",
-                              "Age",
-                              "Order ID",
-                              "Exchange Order ID",
-                              "Trade ID"]
+                              "Age"]
         data = []
         for trade in trades:
 
@@ -138,9 +135,6 @@ class TradeFill(HummingbotBase):
                 trade.leverage,
                 trade.position,
                 age,
-                trade.order_id,
-                trade.order.exchange_order_id,
-                trade.exchange_trade_id,
             ])
         df = pd.DataFrame(data=data, columns=columns)
         df.set_index('Id', inplace=True)

@@ -174,8 +174,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         Restore in-flight orders from saved tracking states; this is such that the connector can pick up
         on where it left off should it crash unexpectedly.
         """
-        for data in saved_states.values():
-            self._client_order_tracker.start_tracking_order(InFlightOrder.from_json(data))
+        self._client_order_tracker.restore_tracking_states(tracking_states=saved_states)
 
     def supported_order_types(self) -> List[OrderType]:
         """
