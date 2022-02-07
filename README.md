@@ -49,6 +49,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" /> | wazirx | [WazirX](https://wazirx.com/) | 1 | [API](https://docs.wazirx.com/#public-rest-api-for-wazirx) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/altmarkets_logo1.png" alt="AltMarkets.io" width="90" /> | altmarkets | [AltMarkets.io](https://altmarkets.io/) | 2 | [API](https://altmarkets.io/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 
