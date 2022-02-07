@@ -182,11 +182,11 @@ class PerformanceMetrics:
             if trade.trade_type.upper() == TradeType.BUY.name.upper():
                 buys.append(trade)
                 self.b_vol_base += Decimal(str(trade.amount))
-                self.b_vol_quote += Decimal(str(trade.amount * trade.price)) * Decimal("-1")
+                self.b_vol_quote += Decimal(str(trade.amount)) * Decimal(str(trade.price)) * Decimal("-1")
             elif trade.trade_type.upper() == TradeType.SELL.name.upper():
                 sells.append(trade)
                 self.s_vol_base += Decimal(str(trade.amount)) * Decimal("-1")
-                self.s_vol_quote += Decimal(str(trade.amount * trade.price))
+                self.s_vol_quote += Decimal(str(trade.amount)) * Decimal(str(trade.price))
 
         self.tot_vol_base = self.b_vol_base + self.s_vol_base
         self.tot_vol_quote = self.b_vol_quote + self.s_vol_quote
@@ -203,16 +203,16 @@ class PerformanceMetrics:
     async def _calculate_fees(self, exchange: str, quote: str, trades: List[Any]):
         for trade in trades:
             if self._is_trade_fill(trade):
-                if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
+                if trade.trade_fee.get("percent") is not None and Decimal(trade.trade_fee["percent"]) > 0:
                     if quote not in self.fees:
                         self.fees[quote] = s_decimal_0
                     self.fees[quote] += (Decimal(str(trade.price))
                                          * Decimal(str(trade.amount))
                                          * Decimal(str(trade.trade_fee["percent"])))
                 for flat_fee in trade.trade_fee.get("flat_fees", []):
-                    if flat_fee["asset"] not in self.fees:
-                        self.fees[flat_fee["asset"]] = s_decimal_0
-                    self.fees[flat_fee["asset"]] += Decimal(flat_fee["amount"])
+                    if flat_fee["token"] not in self.fees:
+                        self.fees[flat_fee["token"]] = s_decimal_0
+                    self.fees[flat_fee["token"]] += Decimal(flat_fee["amount"])
             else:  # assume this is Trade object
                 if trade.trade_fee.percent is not None and trade.trade_fee.percent > 0:
                     if quote not in self.fees:
