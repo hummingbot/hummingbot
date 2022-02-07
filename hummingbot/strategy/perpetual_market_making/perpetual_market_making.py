@@ -355,7 +355,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.client_order_id / 1e6)),
+                age = pd.Timestamp(int(time.time() - (order.creation_timestamp / 1e6)),
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
