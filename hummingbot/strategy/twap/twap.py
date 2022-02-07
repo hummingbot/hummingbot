@@ -46,7 +46,7 @@ class TwapTradeStrategy(StrategyPyBase):
                  is_buy: bool = True,
                  target_asset_amount: Decimal = Decimal("1.0"),
                  order_step_size: Decimal = Decimal("1.0"),
-                 order_price: Decimal = None,
+                 order_price: Decimal = Decimal("1.0"),
                  order_delay_time: float = 10.0,
                  execution_state: ConditionalExecutionState = RunAlwaysExecutionState(),
                  cancel_order_wait_time: Optional[float] = 60.0,
