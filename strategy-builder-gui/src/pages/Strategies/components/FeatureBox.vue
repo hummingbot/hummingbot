@@ -23,12 +23,12 @@
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs text-uppercase"> {{ title }} </div>
-        <div class="text-body-1 q-mb-sm line-normal">
+        <div class="text-body1 q-mb-sm line-normal">
           {{ desc }}
         </div>
         <a
           :href="href"
-          class="text-normal text-h5"
+          class="text-normal text-body1 text-weight-semibold"
           :class="type === FeatureBoxType.Strategy ? 'text-mono-blue' : 'text-mono-green'"
         >
           {{ linkText }}
