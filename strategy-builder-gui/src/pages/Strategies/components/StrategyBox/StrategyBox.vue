@@ -1,7 +1,7 @@
 <template>
   <q-card class="bg-mono-grey-1 overflow-hidden rounded-borders full-height q-pl-md q-py-md">
     <q-card-section horizontal class="flex row full-height">
-      <q-card-section class="q-py-none q-px-none q-pr-md col-10 column">
+      <q-card-section class="q-py-none q-px-none col-9 column">
         <div class="text-white text-h6 q-mb-sm">{{ title }}</div>
         <div class="text-mono-grey-4 text-body2 q-mb-lg">
           {{ desc }}
@@ -15,7 +15,7 @@
           </q-btn>
         </div>
       </q-card-section>
-      <q-card-section class="q-py-none q-px-none flex column justify-start items-end">
+      <q-card-section class="q-py-none q-px-none q-pr-md flex column justify-start items-end col-3">
         <div class="row bg-mono-grey-2 rounded-borders q-py-none q-px-sm col-auto">
           <div class="col q-mr-xs text-h6 text-white q-mr-xs">{{ place }}</div>
           <div class="col flex items-center justify-center">

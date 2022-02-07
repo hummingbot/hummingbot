@@ -26,20 +26,15 @@
   <div class="column">
     <div class="text-white text-h4 q-mt-lg q-mb-md"> Choose Your Strategy </div>
     <div class="row q-col-gutter-lg">
-      <div class="col-3">
-        <StrategyBox />
-      </div>
-      <div class="col-3">
-        <StrategyBox />
-      </div>
-      <div class="col-3">
-        <StrategyBox />
-      </div>
-      <div class="col-3">
-        <StrategyBox />
-      </div>
-      <div class="col-3">
-        <StrategyBox />
+      <div v-for="strategie in strategies" :key="strategie.place" class="col-12 col-md-6 col-lg-3">
+        <StrategyBox
+          :place="strategie.place"
+          :place-type="strategie.placeType"
+          :title="strategie.title"
+          :desc="strategie.desc"
+          :file-href="strategie.fileHref"
+          :start-href="strategie.startHref"
+        />
       </div>
     </div>
   </div>
@@ -49,13 +44,15 @@
 import { defineComponent } from 'vue';
 
 import FeatureBox, { FeatureBoxType } from './FeatureBox.vue';
-import StrategyBox from './StrategyBox.vue';
+import { useStrategiesFilter } from './StrategyBox/composables/useStrategiesFilter';
+import StrategyBox from './StrategyBox/StrategyBox.vue';
 
 export default defineComponent({
   components: { FeatureBox, StrategyBox },
 
   setup() {
-    return { FeatureBoxType };
+    const strategies = useStrategiesFilter();
+    return { FeatureBoxType, strategies };
   },
 });
 </script>
