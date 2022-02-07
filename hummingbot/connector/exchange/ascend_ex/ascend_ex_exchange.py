@@ -30,10 +30,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -204,8 +201,7 @@ class AscendExExchange(ExchangePyBase):
         when it disconnects.
         :param saved_states: The saved tracking_states.
         """
-        for data in saved_states.values():
-            self._in_flight_order_tracker.start_tracking_order(InFlightOrder.from_json(data))
+        self._in_flight_order_tracker.restore_tracking_states(tracking_states=saved_states)
 
     def supported_order_types(self) -> List[OrderType]:
         """

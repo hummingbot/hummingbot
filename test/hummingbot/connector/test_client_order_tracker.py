@@ -787,3 +787,54 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.process_order_not_found(order.client_order_id)
 
         self.assertNotIn(order.client_order_id, self.tracker.active_orders)
+
+    def test_restore_tracking_states_only_registers_open_orders(self):
+        orders = []
+        orders.append(InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.CANCELLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID3",
+            exchange_order_id="EOID3",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FAILED
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.tracker.restore_tracking_states(tracking_states)
+
+        self.assertIn("OID1", self.tracker.active_orders)
+        self.assertNotIn("OID2", self.tracker.all_orders)
+        self.assertNotIn("OID3", self.tracker.all_orders)
+        self.assertNotIn("OID4", self.tracker.all_orders)

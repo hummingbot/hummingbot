@@ -101,6 +101,16 @@ class ClientOrderTracker:
             self._cached_orders[client_order_id] = self._in_flight_orders[client_order_id]
             del self._in_flight_orders[client_order_id]
 
+    def restore_tracking_states(self, tracking_states: Dict[str, any]):
+        """
+        Restore in-flight orders from saved tracking states.
+        :param tracking_states: a dictionary associating order ids with the serialized order (JSON format).
+        """
+        for serialized_order in tracking_states.values():
+            order = InFlightOrder.from_json(serialized_order)
+            if order.is_open:
+                self.start_tracking_order(order)
+
     def fetch_tracked_order(self, client_order_id: str) -> Optional[InFlightOrder]:
         return self._in_flight_orders.get(client_order_id, None)
 
