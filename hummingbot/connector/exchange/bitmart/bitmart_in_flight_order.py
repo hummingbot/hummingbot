@@ -1,17 +1,10 @@
-from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Tuple,
-)
 import asyncio
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from decimal import Decimal
+from typing import Any, Dict, Optional, Tuple
+
 from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 class BitmartInFlightOrder(InFlightOrderBase):

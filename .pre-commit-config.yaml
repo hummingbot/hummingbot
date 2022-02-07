@@ -13,7 +13,7 @@ repos:
         files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
         types: [file]
 -   repo: https://github.com/CoinAlpha/git-hooks
-    rev: ee15a9ed8b82be2b072fa347798eb0ff186ce1d4
+    rev: 12cb2986c40ae02952ffc14f79438a698a2b703f
     hooks:
     -   id: detect-wallet-private-key
         types: [file]

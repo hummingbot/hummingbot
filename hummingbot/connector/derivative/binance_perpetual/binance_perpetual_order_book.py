@@ -5,7 +5,6 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
-from . import binance_perpetual_utils
 
 
 class BinancePerpetualOrderBook(OrderBook):
@@ -36,7 +35,7 @@ class BinancePerpetualOrderBook(OrderBook):
         if metadata:
             data.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": binance_perpetual_utils.convert_from_exchange_trading_pair(data["s"]),
+            "trading_pair": data["s"],
             "update_id": data["u"],
             "bids": data["b"],
             "asks": data["a"]
@@ -48,7 +47,7 @@ class BinancePerpetualOrderBook(OrderBook):
         if metadata:
             data.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": binance_perpetual_utils.convert_from_exchange_trading_pair(data["s"]),
+            "trading_pair": data["s"],
             "trade_type": float(TradeType.SELL.value) if data["m"] else float(TradeType.BUY.value),
             "trade_id": data["a"],
             "update_id": data["E"],

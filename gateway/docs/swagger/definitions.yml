@@ -29,7 +29,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       chain:
         type: 'string'
         example: 'ethereum'
@@ -57,7 +57,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       spender:
         type: 'string'
         example: 'uniswap'
@@ -112,7 +112,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       tokenSymbols:
         type: 'array'
         items: 'string'
@@ -161,7 +161,7 @@ definitions:
     properties:
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
       spender:
         type: 'string'
         example: 'uniswap'
@@ -222,7 +222,7 @@ definitions:
         example: 124
       approval:
         type: 'object'
-        example: '{"type": 2,"chainId": 42,"nonce": 129,"maxPriorityFeePerGas": "94000000000","maxFeePerGas": "94000000000","gasPrice": null,"gasLimit": "100000","to": "0xd0A1E359811322d97991E03f863a0C30C2cF029C","value": "0","data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","accessList": [],"hash": "0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d","v": 1,"r": "0x47c517271885b7041d81bcd65cd050a5d6be3fbd67a8f1660ac8d7e68fc8221f","s": "0x7c62e114b2cb0eae6236b597fb4aacb01c51e56afd7f734e6039d83aa400ba82","from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5","confirmations": 0}'
+        example: '{"type": 2,"chainId": 42,"nonce": 129,"maxPriorityFeePerGas": "94000000000","maxFeePerGas": "94000000000","gasPrice": null,"gasLimit": "100000","to": "0xd0A1E359811322d97991E03f863a0C30C2cF029C","value": "0","data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","accessList": [],"hash": "0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d","v": 1,"r": "0x47c517271885b7041d81bcd65cd050a5d6be3fbd67a8f1660ac8d7e68fc8221f","s": "0x7c62e114b2cb0eae6236b597fb4aacb01c51e56afd7f734e6039d83aa400ba82","from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5","confirmations": 0}'  # noqa: documentation
 
   PollRequest:
     type: 'object'
@@ -233,7 +233,7 @@ definitions:
     properties:
       txHash:
         type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
       chain:
         type: 'string'
         example: 'ethereum'
@@ -264,7 +264,7 @@ definitions:
         example: 28243911
       txHash:
         type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
       txStatus:
         type: 'number'
         example: 1
@@ -504,7 +504,7 @@ definitions:
         example: 0.5
       txHash:
         type: 'string'
-        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
 
   AddWalletRequest:
     type: 'object'
@@ -517,7 +517,7 @@ definitions:
         example: 'ethereum'
       privateKey:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
   
   RemoveWalletRequest:
     type: 'object'

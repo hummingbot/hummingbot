@@ -1,17 +1,18 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 from decimal import Decimal
 
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, fee_overrides_dict
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange cimport PaperTradeExchange, QuantizationParams
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.data_type.order_book import OrderBookRow
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
-from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting, ConnectorType, TradeFeeType
+from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting, ConnectorType
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.connector_base cimport ConnectorBase
 from .mock_order_tracker import MockOrderTracker
@@ -20,22 +21,26 @@ s_decimal_0 = Decimal("0")
 
 cdef class MockPaperExchange(PaperTradeExchange):
 
-    def __init__(self, fee_percent: Decimal = Decimal("0")):
+    def __init__(self, trade_fee_schema: Optional[TradeFeeSchema] = None):
         PaperTradeExchange.__init__(self, MockOrderTracker(), MarketConfig.default_config(), MockPaperExchange)
 
-        AllConnectorSettings.get_connector_settings()[self.name] = ConnectorSetting(self.name,
-                                                                                    ConnectorType.Exchange,
-                                                                                    "",
-                                                                                    True,
-                                                                                    False,
-                                                                                    TradeFeeType.Percent,
-                                                                                    "",
-                                                                                    [fee_percent, fee_percent],
-                                                                                    None,
-                                                                                    None,
-                                                                                    None,
-                                                                                    None,
-                                                                                    None)
+        trade_fee_schema = trade_fee_schema or TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0"), taker_percent_fee_decimal=Decimal("0")
+        )
+        AllConnectorSettings.get_connector_settings()[self.name] = ConnectorSetting(
+            self.name,
+            ConnectorType.Exchange,
+            example_pair="",
+            centralised=True,
+            use_ethereum_wallet=False,
+            trade_fee_schema=trade_fee_schema,
+            config_keys={},
+            is_sub_domain=False,
+            parent_name="",
+            domain_parameter="",
+            use_eth_gas_lookup=False,
+        )
+        fee_overrides_config_map.update(fee_overrides_dict())
 
     @property
     def name(self) -> str:

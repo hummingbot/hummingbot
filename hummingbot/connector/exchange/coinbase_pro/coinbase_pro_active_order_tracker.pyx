@@ -2,12 +2,13 @@
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
 
 import logging
-import numpy as np
 from decimal import Decimal
 from typing import Dict
 
-from hummingbot.logger import HummingbotLogger
+import numpy as np
+
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.logger import HummingbotLogger
 
 _cbpaot_logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")

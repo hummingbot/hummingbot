@@ -9,7 +9,6 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from hummingbot.connector.exchange.bitfinex import ContentEventType
 
 
 class BitfinexOrderBookMessage(OrderBookMessage):
@@ -46,23 +45,3 @@ class BitfinexOrderBookMessage(OrderBookMessage):
             return self.content["trading_pair"]
         elif "symbol" in self.content:
             return self.content["symbol"]
-
-    @property
-    def event_info(self):
-        if isinstance(self.content, dict):
-            return self.content["event"] == ContentEventType.INFO
-
-    @property
-    def event_auth(self):
-        if isinstance(self.content, dict):
-            return self.content["event"] == ContentEventType.AUTH
-
-    @property
-    def type_heartbeat(self):
-        if isinstance(self.content, list):
-            return self.content[1] == ContentEventType.HEART_BEAT
-
-    @property
-    def event_wallet(self):
-        if isinstance(self.content, list):
-            return self.content[1] == ContentEventType.WALLET_SNAPSHOT or self.content[1] == ContentEventType.WALLET_UPDATE

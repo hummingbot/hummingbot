@@ -1,13 +1,17 @@
 import re
+from decimal import Decimal
 from typing import Optional, Tuple
+
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = False
 EXAMPLE_PAIR = "ETH-USDC"
-DEFAULT_FEES = [0.1, 0.1]
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
 
 USE_ETHEREUM_WALLET = True
-# FEE_TYPE = "FlatFee"
-# FEE_TOKEN = "XDAI"
 
 USE_ETH_GAS_LOOKUP = False
 

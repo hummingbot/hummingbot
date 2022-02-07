@@ -35,6 +35,7 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
     split_to_base_quote,
     is_dark_pool,
     build_rate_limits_by_tier,
+    build_api_factory
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
@@ -48,22 +49,26 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
 from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
 from hummingbot.connector.exchange.kraken.kraken_in_flight_order import \
     KrakenInFlightOrder, KrakenInFlightOrderNotCreated
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -115,11 +120,13 @@ cdef class KrakenExchange(ExchangeBase):
 
         super().__init__()
         self._trading_required = trading_required
+        self._api_factory = build_api_factory()
+        self._rest_assistant = None
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
         self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
-        self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth)
+        self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth, self._api_factory)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -136,7 +143,6 @@ cdef class KrakenExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_pull_timestamp = 0
-        self._shared_client = None
         self._asset_pairs = {}
         self._last_userref = 0
         self._real_time_balance_update = False
@@ -184,12 +190,16 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
-            client = await self._http_client()
             url = f"{CONSTANTS.BASE_URL}{CONSTANTS.ASSET_PAIRS_PATH_URL}"
             asset_pairs = await self._api_request(method="get", endpoint=CONSTANTS.ASSET_PAIRS_PATH_URL)
             self._asset_pairs = {f"{details['base']}-{details['quote']}": details
                                  for _, details in asset_pairs.items() if not is_dark_pool(details)}
         return self._asset_pairs
+
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
 
     async def _update_balances(self):
         cdef:
@@ -244,14 +254,15 @@ cdef class KrakenExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_rules(self):
         cdef:
@@ -492,7 +503,14 @@ cdef class KrakenExchange(ExchangeBase):
                                                                   tracked_order.order_type,
                                                                   Decimal(trade.get("price")),
                                                                   Decimal(trade.get("vol")),
-                                                                  TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
+                                                                  AddedToCostTradeFee(
+                                                                      flat_fees=[
+                                                                          TokenAmount(
+                                                                              tracked_order.fee_asset,
+                                                                              Decimal((trade.get("fee"))),
+                                                                          )
+                                                                      ]
+                                                                  ),
                                                                   trade.get("trade_id")))
 
                             if tracked_order.is_done:
@@ -631,10 +649,14 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            client = await self._http_client()
             url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
+            request = RESTRequest(
+                method=RESTMethod.GET,
+                url=url
+            )
+            rest_assistant = await self._get_rest_assistant()
             async with self._throttler.execute_task(CONSTANTS.TIME_PATH_URL):
-                resp = await client.get(url)
+                resp = await rest_assistant.call(request=request)
                 if resp.status != 200:
                     raise ConnectionError
         except asyncio.CancelledError:
@@ -657,11 +679,6 @@ cdef class KrakenExchange(ExchangeBase):
     def generate_userref(self):
         self._last_userref += 1
         return self._last_userref
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
 
     @staticmethod
     def is_cloudflare_exception(exception: Exception):
@@ -718,7 +735,6 @@ cdef class KrakenExchange(ExchangeBase):
                            is_auth_required: bool = False) -> Dict[str, Any]:
         async with self._throttler.execute_task(endpoint):
             url = f"{CONSTANTS.BASE_URL}{endpoint}"
-            client = await self._http_client()
             headers = {}
             data_dict = data if data is not None else {}
 
@@ -727,42 +743,42 @@ cdef class KrakenExchange(ExchangeBase):
                 headers.update(auth_dict["headers"])
                 data_dict = auth_dict["postDict"]
 
-            response_coro = client.request(
-                method=method.upper(),
+            request = RESTRequest(
+                method=RESTMethod[method.upper()],
                 url=url,
                 headers=headers,
                 params=params,
-                data=data_dict,
-                timeout=100
+                data=data_dict
             )
+            rest_assistant = await self._get_rest_assistant()
+            response = await rest_assistant.call(request=request, timeout=100)
 
-            async with response_coro as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-                try:
-                    response_json = await response.json()
-                except Exception:
-                    raise IOError(f"Error parsing data from {url}.")
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            try:
+                response_json = await response.json()
+            except Exception:
+                raise IOError(f"Error parsing data from {url}.")
 
-                try:
-                    err = response_json["error"]
-                    if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
-                        return {"error": err}
-                    elif "EAPI:Invalid nonce" in err:
-                        self.logger().error(f"Invalid nonce error from {url}. " +
-                                            "Please ensure your Kraken API key nonce window is at least 10, " +
-                                            "and if needed reset your API key.")
-                        raise IOError({"error": response_json})
-                except IOError:
-                    raise
-                except Exception:
-                    pass
-
-                data = response_json.get("result")
-                if data is None:
-                    self.logger().error(f"Error received from {url}. Response is {response_json}.")
+            try:
+                err = response_json["error"]
+                if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
+                    return {"error": err}
+                elif "EAPI:Invalid nonce" in err:
+                    self.logger().error(f"Invalid nonce error from {url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
                     raise IOError({"error": response_json})
-                return data
+            except IOError:
+                raise
+            except Exception:
+                pass
+
+            data = response_json.get("result")
+            if data is None:
+                self.logger().error(f"Error received from {url}. Response is {response_json}.")
+                raise IOError({"error": response_json})
+            return data
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         o = self._in_flight_orders.get(client_order_id)
@@ -1117,8 +1133,9 @@ cdef class KrakenExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

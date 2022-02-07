@@ -1,6 +1,12 @@
 import asyncio
+import base64
+import json
 import unittest
-from unittest.mock import patch, AsyncMock
+
+from unittest.mock import AsyncMock, patch
+
+import zlib
+
 
 from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import \
     BittrexAPIUserStreamDataSource
@@ -24,7 +30,7 @@ class BittrexAPIUserStreamDataSourceTest(unittest.TestCase):
 
         self.ws_incoming_messages = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
-        self._finalMessage = "FinalDummyMessage"
+        self._finalMessage = {"FinalDummyMessage": None}
 
         self.output_queue = asyncio.Queue()
 
@@ -86,3 +92,37 @@ class BittrexAPIUserStreamDataSourceTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.wait([self.resume_test_event.wait()], timeout=1000))
 
         self.assertEqual(auths_count, 2)
+
+    def test_transform_raw_execution_message(self):
+
+        execution_message = {
+            "accountId": "testAccount",
+            "sequence": "1001",
+            "deltas": [{
+                "id": "1",
+                "marketSymbol": f"{self.base_asset}{self.quote_asset}",
+                "executedAt": "12-03-2021 6:17:16",
+                "quantity": "0.1",
+                "rate": "10050",
+                "orderId": "EOID1",
+                "commission": "10",
+                "isTaker": False
+            }]
+        }
+
+        compressor = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+        compressor.compress(json.dumps(execution_message).encode())
+        encoded_execution_message = base64.b64encode(compressor.flush())
+
+        message = {
+            "M": [{
+                "M": "execution",
+                "A": [encoded_execution_message.decode()]
+            }
+            ]
+        }
+
+        transformed_message = self.us_data_source._transform_raw_message(json.dumps(message))
+
+        self.assertEqual("execution", transformed_message["event_type"])
+        self.assertEqual(execution_message, transformed_message["content"])

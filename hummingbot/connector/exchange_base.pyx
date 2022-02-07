@@ -1,27 +1,14 @@
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Iterator)
+from typing import Dict, List, Optional, Iterator
 
 from hummingbot.connector.budget_checker import BudgetChecker
-from hummingbot.core.data_type.order_book_query_result import (
-    OrderBookQueryResult,
-    ClientOrderBookQueryResult
-)
-from hummingbot.core.data_type.order_book_row import (
-    ClientOrderBookRow
-)
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
-    TradeFee,
-    PriceType
-)
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult, ClientOrderBookQueryResult
+from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.events import OrderType, TradeType, PriceType
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -82,8 +69,9 @@ cdef class ExchangeBase(ConnectorBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
-        return self.get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                          object price,
+                          object is_maker = None):
+        return self.get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         return self.get_order_book(trading_pair)
@@ -230,7 +218,8 @@ cdef class ExchangeBase(ConnectorBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         raise NotImplementedError
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
