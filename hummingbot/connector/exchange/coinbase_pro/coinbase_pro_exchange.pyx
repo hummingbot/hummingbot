@@ -1,29 +1,29 @@
 import asyncio
 import copy
-import json
 import logging
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
-from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
-
-import aiohttp
 from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange.coinbase_pro import coinbase_pro_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
+    CoinbaseProRESTRequest,
+    build_coinbase_pro_web_assistant_factory
+)
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -33,22 +33,18 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
+    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.core.event.events import OrderType
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -84,8 +80,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
     MAKER_FEE_PERCENTAGE_DEFAULT = 0.005
     TAKER_FEE_PERCENTAGE_DEFAULT = 0.005
 
-    COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
-
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -102,10 +96,13 @@ cdef class CoinbaseProExchange(ExchangeBase):
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
-        self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
-        self._order_book_tracker = CoinbaseProOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
-                                                                 trading_pairs=trading_pairs)
+        auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
+        self._web_assistants_factory = build_coinbase_pro_web_assistant_factory(auth)
+        self._order_book_tracker = CoinbaseProOrderBookTracker(trading_pairs, self._web_assistants_factory)
+        self._user_stream_tracker = CoinbaseProUserStreamTracker(
+            trading_pairs=trading_pairs,
+            web_assistants_factory=self._web_assistants_factory,
+        )
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -119,7 +116,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
-        self._shared_client = None
+        self._rest_assistant = None
         self._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
         self._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
         self._real_time_balance_update = False
@@ -140,14 +137,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
         :return: Dict[trading_pair : OrderBook]
         """
         return self._order_book_tracker.order_books
-
-    @property
-    def coinbase_auth(self) -> CoinbaseProAuth:
-        """
-        :return: CoinbaseProAuth class (This is unique to coinbase pro market).
-        Read more here: https://docs.pro.coinbase.com/?python#signing-a-message
-        """
-        return self._coinbase_auth
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -200,6 +189,18 @@ cdef class CoinbaseProExchange(ExchangeBase):
     @property
     def user_stream_tracker(self) -> CoinbaseProUserStreamTracker:
         return self._user_stream_tracker
+
+    @property
+    def maker_fee_percentage(self) -> Decimal:
+        return self._maker_fee_percentage
+
+    @property
+    def taker_fee_percentage(self) -> Decimal:
+        return self._taker_fee_percentage
+
+    @property
+    def trading_rules(self):
+        return self._trading_rules
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -260,7 +261,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Async function used by NetworkBase class to check if the market is online / offline.
         """
         try:
-            await self._api_request("get", path_url="/time")
+            await self._api_request(RESTMethod.GET, endpoint=CONSTANTS.TIME_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -283,36 +284,31 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns: Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+        return self._rest_assistant
 
-    async def _api_request(self,
-                           http_method: str,
-                           path_url: str = None,
-                           url: str = None,
-                           data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def _api_request(
+        self,
+        method: RESTMethod,
+        url: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        data: Any = None,
+    ) -> Dict[str, Any]:
         """
         A wrapper for submitting API requests to Coinbase Pro
         :returns: json data from the endpoints
         """
-        assert path_url is not None or url is not None
-
-        url = f"{self.COINBASE_API_ENDPOINT}{path_url}" if url is None else url
-        data_str = "" if data is None else json.dumps(data)
-        headers = self.coinbase_auth.get_headers(http_method, path_url, data_str)
-
-        client = await self._http_client()
-        async with client.request(http_method,
-                                  url=url, timeout=self.API_CALL_TIMEOUT, data=data_str, headers=headers) as response:
-            data = await response.json()
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
-            return data
+        client = await self._get_rest_assistant()
+        request = CoinbaseProRESTRequest(method, url, data=data, endpoint=endpoint, is_auth_required=True)
+        request.data = "" if request.data is None else request.data
+        response = await client.call(request, timeout=self.API_CALL_TIMEOUT)
+        resp_data = await response.json()
+        if response.status != 200:
+            raise IOError(f"Error fetching data from {response.url}. HTTP status is {response.status}. {resp_data}")
+        response_data = await response.json()
+        return response_data
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -320,7 +316,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         *required
         function to calculate fees for a particular order
@@ -328,16 +325,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
-        """
-        cdef:
-            object maker_fee = self._maker_fee_percentage
-            object taker_fee = self._taker_fee_percentage
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("coinbase_pro", is_maker)
 
@@ -351,8 +338,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         if current_timestamp - self._last_fee_percentage_update_timestamp <= self.UPDATE_FEE_PERCENTAGE_INTERVAL:
             return
 
-        path_url = "/fees"
-        fee_info = await self._api_request("get", path_url=path_url)
+        fee_info = await self._api_request(RESTMethod.GET, endpoint=CONSTANTS.FEES_PATH_URL)
         self._maker_fee_percentage = Decimal(fee_info["maker_fee_rate"])
         self._taker_fee_percentage = Decimal(fee_info["taker_fee_rate"])
         self._last_fee_percentage_update_timestamp = current_timestamp
@@ -369,8 +355,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        path_url = "/accounts"
-        account_balances = await self._api_request("get", path_url=path_url)
+        account_balances = await self._api_request(RESTMethod.GET, endpoint=CONSTANTS.ACCOUNTS_PATH_URL)
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currency"]
@@ -395,8 +380,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
             # The poll interval for withdraw rules is 60 seconds.
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
-        if current_tick > last_tick or len(self._trading_rules) <= 0:
-            product_info = await self._api_request("get", path_url="/products")
+        if current_tick > last_tick or len(self._trading_rules) == 0:
+            product_info = await self._api_request(RESTMethod.GET, endpoint=CONSTANTS.PRODUCTS_PATH_URL)
             trading_rules_list = self._format_trading_rules(product_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -547,7 +532,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 self.c_stop_tracking_order(tracked_order.client_order_id)
         self._last_order_update_timestamp = current_timestamp
 
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
+    async def _iter_user_event_queue(self) -> AsyncIterable[OrderBookMessage]:
         """
         Iterator for incoming messages from the user stream.
         """
@@ -603,7 +588,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                  tracked_order.order_type,
                                                  execute_price,
                                                  execute_amount_diff,
-                                                 TradeFee(tracked_order.fee_rate_from_trade_update(content), []),
+                                                 AddedToCostTradeFee(
+                                                     percent=tracked_order.fee_rate_from_trade_update(content)
+                                                 ),
                                                  exchange_trade_id=content["trade_id"]
                                              ))
 
@@ -678,7 +665,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Async wrapper for placing orders through the rest API.
         :returns: json response from the API
         """
-        path_url = "/orders"
         data = {
             "size": f"{amount:f}",
             "product_id": trading_pair,
@@ -690,7 +676,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         elif order_type is OrderType.LIMIT_MAKER:
             data["price"] = f"{price:f}"
             data["post_only"] = True
-        order_result = await self._api_request("post", path_url=path_url, data=data)
+        order_result = await self._api_request(RESTMethod.POST, endpoint=CONSTANTS.ORDERS_PATH_URL, data=data)
         return order_result
 
     async def execute_buy(self,
@@ -830,8 +816,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         try:
             exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
-            path_url = f"/orders/{exchange_order_id}"
-            cancelled_id = await self._api_request("delete", path_url=path_url)
+            endpoint = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
+            cancelled_id = await self._api_request(RESTMethod.DELETE, endpoint=endpoint)
             if cancelled_id == exchange_order_id:
                 self.logger().info(f"Successfully cancelled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
@@ -952,8 +938,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
         if order is None:
             return None
         exchange_order_id = await order.get_exchange_order_id()
-        path_url = f"/orders/{exchange_order_id}"
-        result = await self._api_request("get", path_url=path_url)
+        endpoint = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
+        result = await self._api_request(RESTMethod.GET, endpoint=endpoint)
         return result
 
     async def list_orders(self) -> List[Any]:
@@ -961,29 +947,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
         Gets a list of the user's active orders via rest API
         :returns: json response
         """
-        path_url = "/orders?status=all"
-        result = await self._api_request("get", path_url=path_url)
+        endpoint = f"{CONSTANTS.ORDERS_PATH_URL}?status=all"
+        result = await self._api_request(RESTMethod.GET, endpoint=endpoint)
         return result
-
-    async def get_transfers(self) -> Dict[str, Any]:
-        """
-        Gets a list of the user's transfers via rest API
-        :returns: json response
-        """
-        path_url = "/transfers"
-        result = await self._api_request("get", path_url=path_url)
-        return result
-
-    async def list_coinbase_accounts(self) -> Dict[str, str]:
-        """
-        Gets a list of the user's coinbase accounts via rest API
-        :returns: json response
-        """
-        path_url = "/coinbase-accounts"
-        coinbase_accounts = await self._api_request("get", path_url=path_url)
-        ids = [a["id"] for a in coinbase_accounts]
-        currencies = [a["currency"] for a in coinbase_accounts]
-        return dict(zip(currencies, ids))
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         """
@@ -1107,8 +1073,9 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

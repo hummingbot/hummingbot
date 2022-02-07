@@ -21,13 +21,14 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.events import (
     MarketEvent,
-    TradeFee,
     OrderType,
     OrderFilledEvent,
     TradeType,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
     MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -40,8 +41,6 @@ from hummingbot.connector.exchange.ftx.ftx_user_stream_tracker import FtxUserStr
 from hummingbot.connector.exchange_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from hummingbot.connector.exchange.ftx.ftx_utils import (
     convert_from_exchange_trading_pair,
@@ -227,7 +226,9 @@ cdef class FtxExchange(ExchangeBase):
                         tracked_order.trade_type,
                         new_amount,
                         new_price)
-                    fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair, new_price, tracked_order.amount)
+                    fee_amount = fee.fee_amount_in_quote(
+                        tracked_order.trading_pair, new_price, tracked_order.amount, self
+                    )
                 else:
                     fee_asset = tracked_order.fee_asset
                     fee_amount = tracked_order.fee_paid
@@ -433,9 +434,13 @@ cdef class FtxExchange(ExchangeBase):
                                          tracked_order.order_type,
                                          Decimal(event_message["price"]),
                                          execute_amount_diff,
-                                         TradeFee(percent=Decimal(0.0),
-                                                  flat_fees=[(event_message["feeCurrency"],
-                                                              Decimal(event_message["fee"]))]),
+                                         AddedToCostTradeFee(
+                                             flat_fees=[
+                                                 TokenAmount(
+                                                     event_message["feeCurrency"], Decimal(event_message["fee"])
+                                                 )
+                                             ]
+                                         ),
                                          exchange_trade_id=event_message["tradeId"]
                                      ))
 
@@ -956,7 +961,8 @@ cdef class FtxExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("ftx", is_maker)
 
@@ -966,5 +972,6 @@ cdef class FtxExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = Decimal('NaN')) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = Decimal('NaN'),
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)

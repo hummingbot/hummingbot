@@ -1,19 +1,24 @@
 import asyncio
 import functools
 import json
-from decimal import Decimal
-
-import pandas as pd
 import re
 import unittest
-
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
-
-from aioresponses.core import aioresponses
-from typing import Any, Awaitable, List, Dict, Optional, Callable
+from decimal import Decimal
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import patch, AsyncMock
 
+import pandas as pd
+from aioresponses.core import aioresponses
+from bidict import bidict
+
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import \
+    BinancePerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import \
+    BinancePerpetualDerivative
+from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -23,9 +28,8 @@ from hummingbot.core.event.events import (
     PositionAction,
     PositionMode,
     SellOrderCompletedEvent,
-    TradeType,
+    TradeType
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -47,8 +51,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         cls.ev_loop = asyncio.get_event_loop()
 
-    @patch("hummingbot.connector.exchange.binance.binance_time.BinanceTime.start")
-    def setUp(self, _) -> None:
+    def setUp(self) -> None:
         super().setUp()
 
         self.log_records = []
@@ -63,17 +66,26 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+            self.symbol: self.trading_pair
+        }
 
+        self.exchange._set_current_timestamp(1640780000)
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
+        self.exchange._client_order_tracker.logger().setLevel(1)
+        self.exchange._client_order_tracker.logger().addHandler(self)
         self.mocking_assistant = NetworkMockingAssistant()
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
-
         self._initialize_event_loggers()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+            self.domain: bidict({self.symbol: self.trading_pair})
+        }
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def _initialize_event_loggers(self):
@@ -81,12 +93,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.sell_order_completed_logger = EventLogger()
         self.order_cancelled_logger = EventLogger()
         self.order_filled_logger = EventLogger()
+        self.funding_payment_completed_logger = EventLogger()
 
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
             (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger)]
+            (MarketEvent.OrderFilled, self.order_filled_logger),
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -159,6 +173,27 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         }
         return account_update
 
+    def _get_income_history_dict(self) -> List:
+        income_history = [{
+            "income": 1,
+            "symbol": self.symbol,
+            "time": self.start_timestamp,
+        }]
+        return income_history
+
+    def _get_funding_info_dict(self) -> Dict[str, Any]:
+        funding_info = {
+            "indexPrice": 1000,
+            "markPrice": 1001,
+            "nextFundingTime": self.start_timestamp + 8 * 60 * 60,
+            "lastFundingRate": 1010
+        }
+        return funding_info
+
+    def _get_trading_pair_symbol_map(self) -> Dict[str, str]:
+        trading_pair_symbol_map = {self.symbol: f"{self.base_asset}-{self.quote_asset}"}
+        return trading_pair_symbol_map
+
     def _get_exchange_info_mock_response(
             self,
             margin_asset: str = "HBOT",
@@ -176,6 +211,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                     "baseAsset": self.base_asset,
                     "quoteAsset": self.quote_asset,
                     "marginAsset": margin_asset,
+                    "status": "TRADING",
                     "filters": [
                         {
                             "filterType": "PRICE_FILTER",
@@ -250,6 +286,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps([]))
+
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
 
@@ -271,6 +308,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
         req_mock.get(regex_url, body=json.dumps(positions))
+
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
 
@@ -440,43 +478,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_funding_info_polling_loop_cancelled_when_connecting(self, ws_connect_mock):
-        ws_connect_mock.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_funding_info_polling_loop_cancelled_when_listening(self, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        ws_connect_mock.return_value.receive_json.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
-
-    @patch("aiohttp.ClientSession.ws_connect")
-    @patch(
-        "hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative.BinancePerpetualDerivative._sleep")
-    def test_funding_info_polling_loop_log_exception(self, mock_sleep, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (
-            # Allows _funding_info_polling_loop task to yield control over thread
-            self.ev_loop.run_until_complete(asyncio.sleep(0.5))
-        )
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        ws_connect_mock.return_value.receive_json.side_effect = lambda: (
-            self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
-        )
-
-        self.test_task = self.ev_loop.create_task(self.exchange._funding_info_polling_loop())
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error updating funding info. Retrying after 10 seconds... "))
-
     def test_format_trading_rules(self):
         margin_asset = self.quote_asset
         min_order_size = 1
@@ -519,7 +520,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -573,11 +574,13 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual(
+            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
+        )
 
         complete_fill = {
             "e": "ORDER_TRADE_UPDATE",
@@ -626,12 +629,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(50), order.fee_paid)
+        self.assertEqual(Decimal(50), order.cumulative_fee_paid)
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
                          fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
@@ -649,7 +652,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -690,7 +693,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "cr": "5.0",
                 "rp": "0"
             }
-
         }
 
         mock_user_stream = AsyncMock()
@@ -703,11 +705,13 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual(
+            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
+        )
 
         complete_fill = {
             "e": "ORDER_TRADE_UPDATE",
@@ -756,12 +760,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(50), order.fee_paid)
+        self.assertEqual(Decimal(50), order.cumulative_fee_paid)
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
                          fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
@@ -779,7 +783,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -820,7 +824,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "cr": "5.0",
                 "rp": "0"
             }
-
         }
 
         mock_user_stream = AsyncMock()
@@ -833,13 +836,15 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual(
+            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
+        )
 
-        complete_fill = {
+        repeated_partial_fill = {
             "e": "ORDER_TRADE_UPDATE",
             "E": 1568879465651,
             "T": 1568879465650,
@@ -854,13 +859,13 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "ap": "0",
                 "sp": "7103.04",
                 "x": "TRADE",
-                "X": "FILLED",
+                "X": "PARTIALLY_FILLED",
                 "i": 8886774,
-                "l": "0.9",
-                "z": "1",
+                "l": "0.1",
+                "z": "0.1",
                 "L": "10000",
                 "N": "USDT",
-                "n": "30",
+                "n": "20",
                 "T": 1568879465651,
                 "t": 1,
                 "b": "0",
@@ -875,23 +880,22 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "cr": "5.0",
                 "rp": "0"
             }
-
         }
 
         self.resume_test_event = asyncio.Event()
         mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: complete_fill)
+                                                             lambda: repeated_partial_fill)
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.last_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
 
-    def test_fee_is_cero_when_not_included_in_fill_event(self):
+    def test_fee_is_zero_when_not_included_in_fill_event(self):
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",
@@ -901,7 +905,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -949,11 +953,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(task)
 
         self.assertIsNone(order.fee_asset)
-        self.assertEqual(Decimal(0), order.fee_paid)
+        self.assertEqual(Decimal(0), order.cumulative_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
-        self.assertEqual([], fill_event.trade_fee.flat_fees)
+        self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(token=None, amount=Decimal('0'))], fill_event.trade_fee.flat_fees)
 
     def test_order_event_with_cancelled_status_marks_order_as_cancelled(self):
         self.exchange.start_tracking_order(
@@ -965,7 +969,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             leverage=1,
-            position=PositionAction.OPEN.name,
+            position=PositionAction.OPEN,
         )
 
         order = self.exchange.in_flight_orders.get("OID1")
@@ -1019,9 +1023,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Successfully cancelled order {order.client_order_id} according to websocket delta."
+            f"Successfully cancelled order {order.client_order_id}."
         ))
 
     def test_user_stream_event_listener_raises_cancelled_error(self):
@@ -1071,3 +1076,546 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             "INFO",
             "Margin Required: 1.614445. Negative PnL assets: ETHUSDT: -1.166074, ."
         ))
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualDerivative.current_timestamp")
+    def test_update_order_fills_from_trades_successful(self, req_mock, mock_timestamp):
+        self.exchange._last_poll_timestamp = 0
+        mock_timestamp.return_value = 1
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        trades = [{"buyer": False,
+                   "commission": "0",
+                   "commissionAsset": "USDT",
+                   "id": 698759,
+                   "maker": False,
+                   "orderId": "8886774",
+                   "price": "10000",
+                   "qty": "0.5",
+                   "quoteQty": "5000",
+                   "realizedPnl": "0",
+                   "side": "SELL",
+                   "positionSide": "SHORT",
+                   "symbol": "COINALPHAHBOT",
+                   "time": 1}]
+
+        url = utils.rest_url(
+            CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url, body=json.dumps(trades))
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        in_flight_orders = self.exchange._client_order_tracker.active_orders
+
+        self.assertTrue("OID1" in in_flight_orders)
+
+        self.assertEqual("OID1", in_flight_orders["OID1"].client_order_id)
+        self.assertEqual(f"{self.base_asset}-{self.quote_asset}", in_flight_orders["OID1"].trading_pair)
+        self.assertEqual(OrderType.LIMIT, in_flight_orders["OID1"].order_type)
+        self.assertEqual(TradeType.SELL, in_flight_orders["OID1"].trade_type)
+        self.assertEqual(10000, in_flight_orders["OID1"].price)
+        self.assertEqual(1, in_flight_orders["OID1"].amount)
+        self.assertEqual("8886774", in_flight_orders["OID1"].exchange_order_id)
+        self.assertEqual(OrderState.PENDING_CREATE, in_flight_orders["OID1"].current_state)
+        self.assertEqual(1, in_flight_orders["OID1"].leverage)
+        self.assertEqual(PositionAction.OPEN, in_flight_orders["OID1"].position)
+        self.assertEqual(None, in_flight_orders["OID1"].trade_fee_percent)
+
+        self.assertEqual(0.5, in_flight_orders["OID1"].executed_amount_base)
+        self.assertEqual(5000, in_flight_orders["OID1"].executed_amount_quote)
+        self.assertEqual("USDT", in_flight_orders["OID1"].fee_asset)
+        self.assertEqual(0, in_flight_orders["OID1"].cumulative_fee_paid)
+
+        self.assertEqual(10000, in_flight_orders["OID1"].last_filled_price)
+        self.assertEqual(0.5, in_flight_orders["OID1"].last_filled_amount)
+        self.assertEqual(0, in_flight_orders["OID1"].last_fee_paid)
+        self.assertEqual(1, in_flight_orders["OID1"].last_update_timestamp)
+        self.assertEqual(str(trades[0]["id"]), in_flight_orders["OID1"].last_trade_id)
+
+        self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualDerivative.current_timestamp")
+    def test_update_order_fills_from_trades_failed(self, req_mock, mock_timestamp):
+        self.exchange._last_poll_timestamp = 0
+        mock_timestamp.return_value = 1
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        url = utils.rest_url(
+            CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url, exception=Exception())
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        in_flight_orders = self.exchange._client_order_tracker.active_orders
+
+        # Nothing has changed
+        self.assertTrue("OID1" in in_flight_orders)
+
+        self.assertEqual("OID1", in_flight_orders["OID1"].client_order_id)
+        self.assertEqual(f"{self.base_asset}-{self.quote_asset}", in_flight_orders["OID1"].trading_pair)
+        self.assertEqual(OrderType.LIMIT, in_flight_orders["OID1"].order_type)
+        self.assertEqual(TradeType.SELL, in_flight_orders["OID1"].trade_type)
+        self.assertEqual(10000, in_flight_orders["OID1"].price)
+        self.assertEqual(1, in_flight_orders["OID1"].amount)
+        self.assertEqual("8886774", in_flight_orders["OID1"].exchange_order_id)
+        self.assertEqual(OrderState.PENDING_CREATE, in_flight_orders["OID1"].current_state)
+        self.assertEqual(1, in_flight_orders["OID1"].leverage)
+        self.assertEqual(PositionAction.OPEN, in_flight_orders["OID1"].position)
+        self.assertEqual(None, in_flight_orders["OID1"].trade_fee_percent)
+
+        self.assertEqual(0, in_flight_orders["OID1"].executed_amount_base)
+        self.assertEqual(0, in_flight_orders["OID1"].executed_amount_quote)
+        self.assertEqual(None, in_flight_orders["OID1"].fee_asset)
+        self.assertEqual(0, in_flight_orders["OID1"].cumulative_fee_paid)
+
+        self.assertEqual(0, in_flight_orders["OID1"].last_filled_price)
+        self.assertEqual(0, in_flight_orders["OID1"].last_filled_amount)
+        self.assertEqual(0, in_flight_orders["OID1"].last_fee_paid)
+        self.assertEqual(-1, in_flight_orders["OID1"].last_update_timestamp)
+        self.assertEqual(-1, in_flight_orders["OID1"].last_trade_id)
+
+        # Error was logged
+        self.assertTrue(self._is_logged("NETWORK",
+                                        f"Error fetching trades update for the order {self.trading_pair}: ."))
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualDerivative.current_timestamp")
+    def test_update_order_status_successful(self, req_mock, mock_timestamp):
+        self.exchange._last_poll_timestamp = 0
+        mock_timestamp.return_value = 1
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        order = {"avgPrice": "0.00000",
+                 "clientOrderId": "OID1",
+                 "cumQuote": "5000",
+                 "executedQty": "0.5",
+                 "orderId": 8886774,
+                 "origQty": "1",
+                 "origType": "LIMIT",
+                 "price": "10000",
+                 "reduceOnly": False,
+                 "side": "SELL",
+                 "positionSide": "LONG",
+                 "status": "PARTIALLY_FILLED",
+                 "closePosition": False,
+                 "symbol": f"{self.base_asset}{self.quote_asset}",
+                 "time": 1,
+                 "timeInForce": "GTC",
+                 "type": "LIMIT",
+                 "priceRate": "0.3",
+                 "updateTime": 2,
+                 "workingType": "CONTRACT_PRICE",
+                 "priceProtect": False}
+
+        url = utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url, body=json.dumps(order))
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        in_flight_orders = self.exchange._client_order_tracker.active_orders
+
+        self.assertTrue("OID1" in in_flight_orders)
+
+        self.assertEqual("OID1", in_flight_orders["OID1"].client_order_id)
+        self.assertEqual(f"{self.base_asset}-{self.quote_asset}", in_flight_orders["OID1"].trading_pair)
+        self.assertEqual(OrderType.LIMIT, in_flight_orders["OID1"].order_type)
+        self.assertEqual(TradeType.SELL, in_flight_orders["OID1"].trade_type)
+        self.assertEqual(10000, in_flight_orders["OID1"].price)
+        self.assertEqual(1, in_flight_orders["OID1"].amount)
+        self.assertEqual("8886774", in_flight_orders["OID1"].exchange_order_id)
+        self.assertEqual(OrderState.PARTIALLY_FILLED, in_flight_orders["OID1"].current_state)
+        self.assertEqual(1, in_flight_orders["OID1"].leverage)
+        self.assertEqual(PositionAction.OPEN, in_flight_orders["OID1"].position)
+        self.assertEqual(None, in_flight_orders["OID1"].trade_fee_percent)
+
+        self.assertEqual(0.5, in_flight_orders["OID1"].executed_amount_base)
+        self.assertEqual(5000, in_flight_orders["OID1"].executed_amount_quote)
+        # self.assertEqual("USDT", in_flight_orders["OID1"].fee_asset)
+        self.assertEqual(0, in_flight_orders["OID1"].cumulative_fee_paid)
+
+        self.assertEqual(10000, in_flight_orders["OID1"].last_filled_price)
+        self.assertEqual(0.5, in_flight_orders["OID1"].last_filled_amount)
+        self.assertEqual(None, in_flight_orders["OID1"].last_fee_paid)
+        self.assertEqual(2, in_flight_orders["OID1"].last_update_timestamp)
+        self.assertEqual(2, in_flight_orders["OID1"].last_trade_id)
+
+        self.assertTrue(2 in in_flight_orders["OID1"].order_fills.keys())
+
+    @aioresponses()
+    def test_set_leverage_successful(self, req_mock):
+        trading_pair = f"{self.base_asset}-{self.quote_asset}"
+        symbol = f"{self.base_asset}{self.quote_asset}"
+        leverage = 21
+
+        response = {
+            "leverage": leverage,
+            "maxNotionalValue": "1000000",
+            "symbol": symbol
+        }
+
+        url = utils.rest_url(
+            CONSTANTS.SET_LEVERAGE_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.post(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._set_leverage(trading_pair, leverage))
+
+        self.assertTrue(self._is_logged("INFO",
+                                        f"Leverage Successfully set to {leverage} for {trading_pair}."))
+
+    @aioresponses()
+    def test_set_leverage_failed(self, req_mock):
+        trading_pair = f"{self.base_asset}-{self.quote_asset}"
+        symbol = f"{self.base_asset}{self.quote_asset}"
+        leverage = 21
+
+        response = {"leverage": 0,
+                    "maxNotionalValue": "1000000",
+                    "symbol": symbol}
+
+        url = utils.rest_url(
+            CONSTANTS.SET_LEVERAGE_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.post(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._set_leverage(trading_pair, leverage))
+
+        self.assertTrue(self._is_logged("ERROR",
+                                        "Unable to set leverage."))
+
+    @aioresponses()
+    def test_fetch_funding_payment_successful(self, req_mock):
+        income_history = self._get_income_history_dict()
+
+        url = utils.rest_url(
+            CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url_income_history, body=json.dumps(income_history))
+
+        funding_info = self._get_funding_info_dict()
+
+        url = utils.rest_url(
+            CONSTANTS.MARK_PRICE_URL, domain=self.domain
+        )
+        regex_url_funding_info = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url_funding_info, body=json.dumps(funding_info))
+
+        # Fetch from exchange with REST API - safe_ensure_future, not immediately
+        self.async_run_with_timeout(self.exchange._fetch_funding_payment(self.trading_pair))
+
+        req_mock.get(regex_url_income_history, body=json.dumps(income_history))
+
+        # Fetch once received
+        self.async_run_with_timeout(self.exchange._fetch_funding_payment(self.trading_pair))
+
+        self.assertTrue(len(self.funding_payment_completed_logger.event_log) == 1)
+
+        funding_info_logged = self.funding_payment_completed_logger.event_log[0]
+
+        self.assertTrue(funding_info_logged.trading_pair == f"{self.base_asset}-{self.quote_asset}")
+
+        self.assertEqual(funding_info_logged.funding_rate, funding_info["lastFundingRate"])
+        self.assertEqual(funding_info_logged.amount, income_history[0]["income"])
+
+    @aioresponses()
+    def test_fetch_funding_payment_failed(self, req_mock):
+        url = utils.rest_url(
+            CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url_income_history, exception=Exception)
+
+        self.async_run_with_timeout(self.exchange._fetch_funding_payment(self.trading_pair))
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            f"Unexpected error occurred fetching funding payment for {self.trading_pair}. Error: "
+        ))
+
+    @aioresponses()
+    def test_cancel_all_successful(self, mocked_api):
+        url = utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        cancel_response = {"code": 200, "msg": "success"}
+        mocked_api.delete(regex_url, body=json.dumps(cancel_response))
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="8886775",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10101"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+        self.assertTrue("OID2" in self.exchange._client_order_tracker._in_flight_orders)
+
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+
+        order_cancelled_events = self.order_cancelled_logger.event_log
+
+        self.assertEqual(0, len(order_cancelled_events))
+        self.assertEqual(2, len(cancellation_results))
+        self.assertEqual("OID1", cancellation_results[0].order_id)
+        self.assertEqual("OID2", cancellation_results[1].order_id)
+
+    @aioresponses()
+    def test_cancel_all_unknown_order(self, req_mock):
+        url = utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        cancel_response = {"code": -2011, "msg": "Unknown order sent"}
+        req_mock.delete(regex_url, body=json.dumps(cancel_response))
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        tracked_order = self.exchange._client_order_tracker.fetch_order("OID1")
+        tracked_order.current_state = OrderState.OPEN
+
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+
+        self.assertEqual(1, len(cancellation_results))
+        self.assertEqual("OID1", cancellation_results[0].order_id)
+
+        self.assertTrue(self._is_logged(
+            "DEBUG",
+            "The order OID1 does not exist on Binance Perpetuals. "
+            "No cancellation needed."
+        ))
+
+        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+
+    @aioresponses()
+    def test_cancel_all_exception(self, req_mock):
+        url = utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.delete(regex_url, exception=Exception())
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN,
+        )
+
+        tracked_order = self.exchange._client_order_tracker.fetch_order("OID1")
+        tracked_order.current_state = OrderState.OPEN
+
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+
+        self.assertEqual(1, len(cancellation_results))
+        self.assertEqual("OID1", cancellation_results[0].order_id)
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Could not cancel order OID1 on Binance Perp. "
+        ))
+
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+
+    @aioresponses()
+    def test_create_order_successful(self, req_mock):
+        url = utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        create_response = {"updateTime": int(self.start_timestamp),
+                           "status": "NEW",
+                           "orderId": "8886774"}
+        req_mock.post(regex_url, body=json.dumps(create_response))
+
+        margin_asset = self.quote_asset
+        mocked_response = self._get_exchange_info_mock_response(margin_asset)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+
+        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
+                                                                order_id="OID1",
+                                                                trading_pair=self.trading_pair,
+                                                                amount=Decimal("10000"),
+                                                                order_type=OrderType.LIMIT,
+                                                                position_action=PositionAction.OPEN,
+                                                                price=Decimal("10000")))
+
+        self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
+
+    @aioresponses()
+    def test_create_order_exception(self, req_mock):
+        url = utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.post(regex_url, exception=Exception())
+
+        margin_asset = self.quote_asset
+        mocked_response = self._get_exchange_info_mock_response(margin_asset)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+
+        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
+                                                                order_id="OID1",
+                                                                trading_pair=self.trading_pair,
+                                                                amount=Decimal("10000"),
+                                                                order_type=OrderType.LIMIT,
+                                                                position_action=PositionAction.OPEN,
+                                                                price=Decimal("1010")))
+
+        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+
+        # The order amount is quantizied
+        self.assertTrue(self._is_logged(
+            "NETWORK",
+            f"Error submitting order to Binance Perpetuals for 9999 {self.trading_pair} "
+            f"1010."
+        ))
+
+    def test_restore_tracking_states_only_registers_open_orders(self):
+        orders = []
+        orders.append(InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.CANCELLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID3",
+            exchange_order_id="EOID3",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            initial_state=OrderState.FAILED
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.exchange.restore_tracking_states(tracking_states)
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        self.assertNotIn("OID2", self.exchange.in_flight_orders)
+        self.assertNotIn("OID3", self.exchange.in_flight_orders)
+        self.assertNotIn("OID4", self.exchange.in_flight_orders)

@@ -9,7 +9,7 @@ import asyncio
 
 class UserStreamTrackerDataSource(metaclass=ABCMeta):
     @abstractmethod
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         raise NotImplementedError
 
     @staticmethod

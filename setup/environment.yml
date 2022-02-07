@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - appnope=0.1.0
+  - bidict
   - certifi=2021.5.30
   - coverage=5.5
   - intel-openmp=2021.3.0
@@ -19,7 +20,7 @@ dependencies:
   - python-dateutil=2.8.1
   - scipy=1.6.2
   - six=1.14.0
-  - sqlalchemy=1.3.13
+  - sqlalchemy=1.4
   - sqlite=3.31.1
   - tzlocal=2.0.0
   - ujson=1.35
@@ -58,7 +59,6 @@ dependencies:
     - pyjwt==1.7.1
     - pyperclip==1.7.0
     - pytest==4.6.11
-    - python-binance==0.7.5
     - python-telegram-bot==12.4.2
     - requests==2.22.0
     - rsa==4.7
