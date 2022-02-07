@@ -4,10 +4,10 @@
       <q-card-section
         horizontal
         class="q-px-lg q-py-lg flex items-center justify-center text-white text-h2 q-mr-lg rounded-borders card-counter"
-        :class="type === BoxType.Strategy ? 'border-blue' : 'border-green'"
+        :class="type === FeatureBoxType.Strategy ? 'border-blue' : 'border-green'"
       >
         <q-img
-          v-if="type === BoxType.Strategy"
+          v-if="type === FeatureBoxType.Strategy"
           :src="require('../assets/strategies-box-number.svg')"
           class="q-mr-xs"
           fit="contain"
@@ -18,7 +18,8 @@
           height="13px"
           position="top right"
         />
-        {{ count }} <span v-if="type === BoxType.Exchanges" class="text-green q-ml-xs"> +</span>
+        {{ count }}
+        <span v-if="type === FeatureBoxType.Exchanges" class="text-green q-ml-xs"> +</span>
       </q-card-section>
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs text-uppercase"> {{ title }} </div>
@@ -28,7 +29,7 @@
         <a
           :href="href"
           class="text-normal text-h5"
-          :class="type === BoxType.Strategy ? 'text-mono-blue' : 'text-mono-green'"
+          :class="type === FeatureBoxType.Strategy ? 'text-mono-blue' : 'text-mono-green'"
         >
           {{ linkText }}
           ➜
@@ -50,14 +51,18 @@
 <script lang="ts">
 import { defineComponent, PropType } from 'vue';
 
-export enum BoxType {
+export enum FeatureBoxType {
   Strategy,
   Exchanges,
 }
 
 export default defineComponent({
   props: {
-    type: { type: Number as PropType<BoxType>, requaried: true, default: () => BoxType.Strategy },
+    type: {
+      type: Number as PropType<FeatureBoxType>,
+      requaried: true,
+      default: () => FeatureBoxType.Strategy,
+    },
     count: { type: Number, requaried: true, default: () => 0 },
     title: { type: String, requaried: true, default: () => '' },
     desc: { type: String, requaried: true, default: () => '' },
@@ -66,7 +71,7 @@ export default defineComponent({
     bgImageSrc: { type: String, requaried: true, default: () => '' },
   },
   setup() {
-    return { BoxType };
+    return { FeatureBoxType };
   },
 });
 </script>

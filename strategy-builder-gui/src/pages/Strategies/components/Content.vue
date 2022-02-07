@@ -1,8 +1,8 @@
 <template>
   <div class="row q-col-gutter-lg">
     <div class="col-xs-12 col-md">
-      <Box
-        :type="BoxType.Strategy"
+      <FeatureBox
+        :type="FeatureBoxType.Strategy"
         title="Strategies"
         :count="13"
         desc="Hummingbot offers various trading strategies, each with its own set of configurable parameters."
@@ -12,8 +12,8 @@
       />
     </div>
     <div class="col-xs-12 col-md">
-      <Box
-        :type="BoxType.Exchanges"
+      <FeatureBox
+        :type="FeatureBoxType.Exchanges"
         title="Supported exchanges"
         :count="30"
         desc="Hummingbot can be run on a various top tier centralized and decentralized exchanges."
@@ -48,14 +48,14 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
-import Box, { BoxType } from './Box.vue';
+import FeatureBox, { FeatureBoxType } from './FeatureBox.vue';
 import StrategyBox from './StrategyBox.vue';
 
 export default defineComponent({
-  components: { Box, StrategyBox },
+  components: { FeatureBox, StrategyBox },
 
   setup() {
-    return { BoxType };
+    return { FeatureBoxType };
   },
 });
 </script>
