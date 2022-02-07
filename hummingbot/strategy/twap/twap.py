@@ -46,7 +46,7 @@ class TwapTradeStrategy(StrategyPyBase):
                  is_buy: bool = True,
                  target_asset_amount: Decimal = Decimal("1.0"),
                  order_step_size: Decimal = Decimal("1.0"),
-                 order_price: Optional[Decimal] = None,
+                 order_price: Decimal = None,
                  order_delay_time: float = 10.0,
                  execution_state: ConditionalExecutionState = RunAlwaysExecutionState(),
                  cancel_order_wait_time: Optional[float] = 60.0,
@@ -83,11 +83,9 @@ class TwapTradeStrategy(StrategyPyBase):
         self._first_order = True
         self._previous_timestamp = 0
         self._last_timestamp = 0
-        self._order_price = Decimal("NaN")
+        self._order_price = order_price
         self._execution_state = execution_state
 
-        if order_price is not None:
-            self._order_price = order_price
         if cancel_order_wait_time is not None:
             self._cancel_order_wait_time = cancel_order_wait_time
 
