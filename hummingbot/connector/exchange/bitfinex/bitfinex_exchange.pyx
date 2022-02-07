@@ -48,9 +48,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -224,7 +224,8 @@ cdef class BitfinexExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         *required
         function to calculate fees for a particular order
@@ -1062,9 +1063,9 @@ cdef class BitfinexExchange(ExchangeBase):
                         tracked_order.order_type,
                         execute_price,
                         tracked_order.executed_amount_base,
-                        TradeFee(
-                            percent=Decimal(0.0),
-                            flat_fees=[(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]),
+                        AddedToCostTradeFee(
+                            flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]
+                        ),
                         exchange_trade_id=tracked_order.exchange_order_id
                     )
                 )
@@ -1355,8 +1356,9 @@ cdef class BitfinexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

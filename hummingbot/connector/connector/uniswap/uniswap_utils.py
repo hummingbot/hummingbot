@@ -1,9 +1,9 @@
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
 CENTRALIZED = False
 EXAMPLE_PAIR = "WETH-DAI"
-DEFAULT_FEES = [0., 0.]
+DEFAULT_FEES = TradeFeeSchema()
 
 USE_ETHEREUM_WALLET = True
-FEE_TYPE = "FlatFee"
-FEE_TOKEN = "ETH"
 
 USE_ETH_GAS_LOOKUP = True

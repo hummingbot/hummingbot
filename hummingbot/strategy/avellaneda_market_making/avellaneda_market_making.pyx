@@ -1,50 +1,46 @@
 import datetime
-from decimal import Decimal
 import logging
-from math import (
-    floor,
-    ceil,
-    isnan
-)
-import numpy as np
 import os
-import pandas as pd
 import time
+from decimal import Decimal
+from math import (
+    ceil,
+    floor,
+    isnan,
+)
 from typing import (
-    List,
     Dict,
+    List,
     Tuple,
 )
 
-from hummingbot.client.config.global_config_map import global_config_map
+import numpy as np
+import pandas as pd
+
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.events import OrderType
-
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState
-)
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
+    PriceSize,
     Proposal,
-    PriceSize)
+)
 from hummingbot.strategy.hanging_orders_tracker import (
     CreatedPairOfOrders,
-    HangingOrdersTracker)
+    HangingOrdersTracker,
+)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
-from hummingbot.core.utils import map_df_to_str
-
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -577,8 +573,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             for order_id in restored_order_ids:
                 order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
                 if order:
-                    self._hanging_orders_tracker.add_order(order)
-                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+                    self._hanging_orders_tracker.add_as_hanging_order(order)
 
         self._execution_state.time_left = self._execution_state.closing_time
 
@@ -614,14 +609,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
-                proposal = None
                 if self._create_timestamp <= self._current_timestamp:
                     # Measure order book liquidity
                     self.c_measure_order_book_liquidity()
 
                 self._hanging_orders_tracker.process_tick()
+
+                # Needs to be executed at all times to not to have active order leftovers after a trading session ends
                 self.c_cancel_active_orders_on_max_age_limit()
-                self.c_cancel_active_orders(proposal)
+
+                # process_tick() is only called if within a trading timeframe
                 self._execution_state.process_tick(timestamp, self)
 
             else:
@@ -637,6 +634,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def process_tick(self, timestamp: float):
         proposal = None
+        # Trading is allowed
         if self._create_timestamp <= self._current_timestamp:
             # 1. Calculate reservation price and optimal spread from gamma, alpha, kappa and volatility
             self.c_calculate_reservation_price_and_optimal_spread()
@@ -736,25 +734,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
                 # Avellaneda-Stoikov for a fixed timespan
                 time_left_fraction = Decimal(str(self._execution_state.time_left / self._execution_state.closing_time))
-
-                self._reservation_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
-
-                self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
-                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
             else:
                 # Avellaneda-Stoikov for an infinite timespan
-                # gamma reversed to achieve unit consistency as for finite timeframe
-                q_max = 1
-                omega = Decimal(1 / 2) * ((1 / self._gamma) ** 2) * (vol ** 2) * Decimal((q_max + 1) ** 2)
-                offset_ask = Decimal(self._gamma) * Decimal(1 + ((1 - 2 * q) * ((1 / self._gamma) ** 2) * (vol ** 2)) / (2 * omega - (((1 / self._gamma) ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                offset_bid = Decimal(self._gamma) * Decimal(1 + ((-1 - 2 * q) * ((1 / self._gamma) ** 2) * (vol ** 2)) / (2 * omega - (((1 / self._gamma) ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                reservation_price_ask = price + offset_ask
-                reservation_price_bid = price + offset_bid
-                self._reservation_price = (reservation_price_ask + reservation_price_bid) / 2
+                # The equations in the paper for this contain a few mistakes
+                # - the units don't align with the rest of the paper
+                # - volatility cancells itself out completely
+                # - the risk factor gets partially cancelled
+                # The proposed solution is to use the same equation as for the constrained timespan but with
+                # a fixed time left
+                time_left_fraction = 1
 
-                # Derived from the asymptotic expansion in q for finite timeframe
-                self._optimal_spread = -(offset_ask + offset_bid) / (2 * q)
-                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+            self._reservation_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+
+            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+            self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
             min_spread = price / 100 * Decimal(str(self._min_spread))
 
@@ -1085,7 +1078,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if (self._order_override is None) or (len(self._order_override) == 0):
             # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
             # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
-            q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
+
+            # q cannot be in absolute values - cannot be dependent on the size of the inventory or amount of base asset
+            # because it's a scaling factor
+            inventory = Decimal(str(self.c_calculate_inventory()))
+
+            if inventory == 0:
+                return
+
+            q_target = Decimal(str(self.c_calculate_target_inventory()))
+            q = (market.get_balance(self.base_asset) - q_target) / (inventory)
+
             if len(proposal.buys) > 0:
                 if q > 0:
                     for i, proposed in enumerate(proposal.buys):
@@ -1239,7 +1242,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         else:
             self.c_set_timers()
 
-    def cancel_active_orders(self, proposal: Proposal):
+    def cancel_active_orders(self, proposal: Proposal = None):
         return self.c_cancel_active_orders(proposal)
 
     cdef bint c_to_create_orders(self, object proposal):

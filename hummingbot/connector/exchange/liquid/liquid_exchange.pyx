@@ -43,9 +43,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -319,23 +319,8 @@ cdef class LiquidExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
-        """
-        *required
-        function to calculate fees for a particular order
-        :returns: TradeFee class that includes fee percentage and flat fees
-        """
-        """
-        cdef:
-            object maker_fee = Decimal("0.0010")
-            object taker_fee = Decimal("0.0010")
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["liquid_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("liquid", is_maker)
 
@@ -777,7 +762,9 @@ cdef class LiquidExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(content["price"]),
                                              execute_amount_diff,
-                                             TradeFee(0.0, [(tracked_order.fee_asset, fee_diff)]),
+                                             AddedToCostTradeFee(
+                                                 flat_fees=[TokenAmount(tracked_order.fee_asset, fee_diff)]
+                                             ),
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 
@@ -1278,8 +1265,9 @@ cdef class LiquidExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

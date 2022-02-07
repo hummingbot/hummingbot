@@ -26,9 +26,9 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -137,29 +137,37 @@ class KrakenExchangeUnitTest(unittest.TestCase):
         self.run_parallel(asyncio.sleep(t))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
+        limit_fee: AddedToCostTradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: AddedToCostTradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["kraken_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0026"), taker_fee.percent)
         fee_overrides_config_map["kraken_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        taker_fee: AddedToCostTradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["kraken_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0016"), maker_fee.percent)
         fee_overrides_config_map["kraken_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
+        maker_fee: AddedToCostTradeFee = self.market.get_fee("LINK",
+                                                             "ETH",
+                                                             OrderType.LIMIT_MAKER,
+                                                             TradeType.BUY,
+                                                             Decimal(1),
+                                                             Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def place_order(self, is_buy, trading_pair, amount, order_type, price):
