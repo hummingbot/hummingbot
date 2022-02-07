@@ -215,7 +215,7 @@ jobs:
           chmod 0600 ./gateway/conf/gateway-passphrase.yml
 
       - name: Build project
-        run: yarn build --cwd ./gateway
+        run: yarn --cwd ./gateway build
 
       - name: Run unit test
         run: yarn test:unit --cwd ./gateway
