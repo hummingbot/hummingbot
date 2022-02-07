@@ -170,7 +170,7 @@ jobs:
       #       ${{ runner.os }}-yarn-
 
       - name: Install Dependencies
-        run: yarn install --prefix ./gateway
+        run: yarn install --cwd ./gateway
 
       - name: Create yml config file
         env:
@@ -215,10 +215,10 @@ jobs:
           chmod 0600 ./gateway/conf/gateway-passphrase.yml
 
       - name: Build project
-        run: yarn build --prefix ./gateway
+        run: yarn build --cwd ./gateway
 
       - name: Run unit test
-        run: yarn test:unit --prefix ./gateway
+        run: yarn test:unit --cwd ./gateway
 
       - name: Run unit test coverage
         if: github.event_name == 'pull_request' && steps.program-changes.outputs.cache-hit != 'true'
@@ -226,5 +226,5 @@ jobs:
         run: |
           git fetch --all -q
           git checkout -b $GITHUB_SHA
-          yarn test:cov --prefix ./gateway
-          git diff origin/$GITHUB_BASE_REF | $(yarn bin --prefix ./gateway)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
+          yarn test:cov --cwd ./gateway
+          git diff origin/$GITHUB_BASE_REF | $(yarn bin --cwd ./gateway)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
