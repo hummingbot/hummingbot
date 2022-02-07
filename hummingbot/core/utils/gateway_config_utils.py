@@ -2,8 +2,40 @@ from copy import deepcopy
 from typing import List, Dict, Any, Optional
 
 
-def build_connectors_display(lines: List[str], connectors: List[Dict[str, Any]]):
+native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
+
+
+def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, wallet):
+    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": "on_chain", "wallet_address": wallet}
+
+    updated = False
+
+    for i, c in enumerate(connectors):
+        if c["connector"] == connector and c["chain"] == chain and c["network"] == network:
+            connectors[i] = new_connector
+            updated = True
+            break
+
+    if updated is False:
+        connectors.append(new_connector)
+
+
+def build_wallet_display(lines: List[str], native_token: str, wallets: List[Dict[str, Any]]):
     """
+    Display user wallets for a particular chain as a table
+    """
+    lines.append("+--------------|-------------------+")
+    lines.append(f"| Wallet      | {native_token}       |")
+    lines.append("+--------------|-------------------+")
+
+    for dict in wallets:
+        lines.append(f"| {dict['address']} | {dict['balance']} |")
+    lines.append("+--------------|-------------------+")
+
+
+def build_connector_display(lines: List[str], connectors: List[Dict[str, Any]]):
+    """
+    Display connector information as a table
     """
     lines.append("+--------------|-------------------|---------------+")
     lines.append("| Exchange     | Network           | Wallet        |")
