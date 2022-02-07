@@ -3,10 +3,16 @@ import asyncio
 import aiohttp
 import ssl
 import json
-import shutil
-import ruamel.yaml
 import pandas as pd
-from os import listdir, path
+from os import getenv, path
+
+from bin.docker_connection import (
+    docker_ipc,
+    docker_ipc_with_generator,
+    GATEWAY_DOCKER_TAG,
+    GATEWAY_DOCKER_REPO,
+    get_gateway_container_name
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
@@ -24,6 +30,7 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
 )
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from typing import Dict, Any, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
 import itertools
@@ -59,130 +66,128 @@ class GatewayCommand:
         try:
             resp = await self._api_request("get", "", {})
         except Exception as e:
-            self._notify("\nUnable to ping gateway.")
+            self.notify("\nUnable to ping gateway.")
             raise e
 
         if resp.get('message', None) == 'ok' or resp.get('status', None) == 'ok':
-            self._notify("\nSuccesfully pinged gateway.")
+            self.notify("\nSuccesfully pinged gateway.")
         else:
-            self._notify("\nUnable to ping gateway.")
+            self.notify("\nUnable to ping gateway.")
 
     async def _generate_certs(self,  # type: HummingbotApplication
+                              from_client_password: bool = False
                               ):
-        if certs_files_exist():
-            self._notify(f"Gateway SSL certification files exist in {cert_path()}.")
-            self._notify("To create new certification files, please first manually delete those files.")
-            return
-        self.app.clear_input()
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        while True:
-            pass_phase = await self.app.prompt(prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
-                                               is_password=True)
-            if pass_phase is not None and len(pass_phase) > 0:
-                break
-            self._notify("Error: Invalid pass phase")
+        if not from_client_password:
+            if certs_files_exist():
+                self.notify(f"Gateway SSL certification files exist in {cert_path()}.")
+                self.notify("To create new certification files, please first manually delete those files.")
+                return
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            while True:
+                pass_phase = await self.app.prompt(prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                                                   is_password=True)
+                if pass_phase is not None and len(pass_phase) > 0:
+                    break
+                self.notify("Error: Invalid pass phase")
+        else:
+            pass_phase = Security.password
         create_self_sign_certs(pass_phase)
-        self._notify(f"Gateway SSL certification files are created in {cert_path()}.")
+        self.notify(f"Gateway SSL certification files are created in {cert_path()}.")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
     async def _create_gateway(self):
-        gateway_conf_path = path.join(root_path(), "gateway/conf")
-        certificate_path = cert_path()
-        log_path = path.join(root_path(), "logs")
-        docker_repo = "coinalpha/hummingbot"
-        gateway_container_name = "gateway-v2_container"
+        gateway_conf_mount_path: str
+        certificate_mount_path: str
+        logs_mount_path: str
 
-        if len(listdir(gateway_conf_path)) > 1:
-            self.app.clear_input()
-            self.placeholder_mode = True
-            self.app.hide_input = True
-            clear_gateway = await self.app.prompt(prompt="Gateway configurations detected. Would you like to erase? (Yes/No) >>> ")
-            if clear_gateway is not None and clear_gateway in ["Y", "y", "Yes", "yes"]:
-                self._notify("Erasing existing Gateway configurations...")
-                shutil.move(path.join(gateway_conf_path, "samples"), "/tmp")
-                shutil.rmtree(gateway_conf_path)
-                shutil.move("/tmp/samples", path.join(gateway_conf_path, "samples"))
-            self.placeholder_mode = False
-            self.app.hide_input = False
-            self.app.change_prompt(prompt=">>> ")
+        # Detect whether external mount paths have been defined, for docker-in-docker case.
+        # Otherwise, use the calculated paths.
+        external_cert_path: str = getenv("CERTS_FOLDER")
+        external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
+        external_logs_path: str = getenv("LOGS_FOLDER")
+        if external_cert_path is not None and external_gateway_conf_path is not None and external_logs_path is not None:
+            gateway_conf_mount_path = external_gateway_conf_path
+            certificate_mount_path = external_cert_path
+            logs_mount_path = external_logs_path
+        else:
+            gateway_conf_mount_path = path.join(root_path(), "gateway_conf")
+            certificate_mount_path = cert_path()
+            logs_mount_path = path.join(root_path(), "logs")
 
-        if len(listdir(gateway_conf_path)) == 1:
-            self._notify("Initiating Gateway configurations from sample files...")
-            shutil.copytree(path.join(gateway_conf_path, "samples"), gateway_conf_path, dirs_exist_ok=True)
-            self.app.clear_input()
-            self.placeholder_mode = True
-            self.app.hide_input = True
-            # prompt for questions about infura key
-            use_infura = await self.app.prompt(prompt="Would you like to connect to Ethereum network using Infura? (Yes/No) >>> ")
-            yaml_parser = ruamel.yaml.YAML()
-            ethereum_conf_path = path.join(gateway_conf_path, "ethereum.yml")
-            if use_infura is not None and use_infura in ["Y", "y", "Yes", "yes"]:
-                infura_key = await self.app.prompt(prompt="Enter your Infura API key >>> ")
-                try:
-                    with open(ethereum_conf_path) as stream:
-                        data = yaml_parser.load(stream) or {}
-                        for key in data["networks"]:
-                            data["networks"][key]["nodeApiKey"] = infura_key
-                        with open(ethereum_conf_path, "w+") as outfile:
-                            yaml_parser.dump(data, outfile)
-                except Exception as e:
-                    self.logger().error("Error writing configs: %s" % (str(e),), exc_info=True)
-            else:
-                node_rpc = await self.app.prompt(prompt="Enter node rpc url to use to connect to Ethereum mainnet  >>> ")
-                try:
-                    with open(ethereum_conf_path) as stream:
-                        data = yaml_parser.load(stream) or {}
-                        data["networks"]["mainnet"]["nodeURL"] = node_rpc
-                        with open(ethereum_conf_path, "w+") as outfile:
-                            yaml_parser.dump(data, outfile)
-                except Exception:
-                    self.logger().error("Error updating Ethereum mainnet rpc url.")
-            self.placeholder_mode = False
-            self.app.hide_input = False
-            self.app.change_prompt(prompt=">>> ")
+        gateway_container_name: str = get_gateway_container_name()
 
         # remove existing container(s)
         try:
-            old_container = self._docker_client.containers(all=True,
-                                                           filters={"name": gateway_container_name})
+            old_container = await docker_ipc(
+                "containers",
+                all=True,
+                filters={"name": gateway_container_name}
+            )
             for container in old_container:
-                self._notify(f"Removing existing gateway container with id {container['Id']}...")
-                self._docker_client.remove_container(container["Id"], force=True)
+                self.notify(f"Removing existing gateway container with id {container['Id']}...")
+                await docker_ipc(
+                    "remove_container",
+                    container["Id"],
+                    force=True
+                )
         except Exception:
             pass  # silently ignore exception
 
-        await self._generate_certs()  # create cert if not available
-        self._notify("Pulling Gateway docker image...")
+        await self._generate_certs(from_client_password=True)  # create cert
+        self.notify("Pulling Gateway docker image...")
         try:
-            await asyncio.get_running_loop().run_in_executor(None, self.pull_gateway_docker, docker_repo)
+            await self.pull_gateway_docker(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG)
             self.logger().info("Done pulling Gateway docker image.")
         except Exception as e:
-            self._notify("Error pulling Gateway docker image. Try again.")
+            self.notify("Error pulling Gateway docker image. Try again.")
             self.logger().network("Error pulling Gateway docker image. Try again.",
                                   exc_info=True,
                                   app_warning_msg=str(e))
             return
-        self._notify("Creating new Gateway docker container...")
-        container_id = self._docker_client.create_container(image = f"{docker_repo}:gateway-v2",
-                                                            name = gateway_container_name,
-                                                            ports = [5000],
-                                                            volumes=[gateway_conf_path, certificate_path, log_path],
-                                                            host_config=self._docker_client.create_host_config(
-                                                                port_bindings={5000: 5000},
-                                                                binds={gateway_conf_path: {'bind': '/usr/src/app/conf/',
-                                                                                           'mode': 'rw'},
-                                                                       certificate_path: {'bind': '/usr/src/app/certs/',
-                                                                                          'mode': 'rw'},
-                                                                       log_path: {'bind': '/usr/src/app/logs/',
-                                                                                  'mode': 'rw'}}))
-        self._notify(f"New Gateway docker container id is {container_id['Id']}.")
+        self.notify("Creating new Gateway docker container...")
+        host_config: Dict[str, Any] = await docker_ipc(
+            "create_host_config",
+            port_bindings={5000: 5000},
+            binds={
+                gateway_conf_mount_path: {
+                    "bind": "/usr/src/app/conf/",
+                    "mode": "rw"
+                },
+                certificate_mount_path: {
+                    "bind": "/usr/src/app/certs/",
+                    "mode": "rw"
+                },
+                logs_mount_path: {
+                    "bind": "/usr/src/app/logs/",
+                    "mode": "rw"
+                },
+            }
+        )
+        container_info: Dict[str, str] = await docker_ipc(
+            "create_container",
+            image=f"{GATEWAY_DOCKER_REPO}:{GATEWAY_DOCKER_TAG}",
+            name=gateway_container_name,
+            ports=[5000],
+            volumes=[
+                gateway_conf_mount_path,
+                certificate_mount_path,
+                logs_mount_path
+            ],
+            host_config=host_config
+        )
+        await docker_ipc(
+            "start",
+            container=container_info["Id"]
+        )
+        self.notify(f"New Gateway docker container id is {container_info['Id']}.")
 
-    def pull_gateway_docker(self, docker_repo):
+    async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
-        for pull_log in self._docker_client.pull(docker_repo, tag="gateway-v2", stream=True, decode=True):
+        async for pull_log in docker_ipc_with_generator("pull", docker_repo, tag=docker_tag, stream=True, decode=True):
             new_id = pull_log["id"] if pull_log.get("id") else last_id
             if last_id != new_id:
                 self.logger().info(f"Pull Id: {new_id}, Status: {pull_log['status']}")
@@ -192,11 +197,11 @@ class GatewayCommand:
         if self._gateway_monitor.network_status == NetworkStatus.CONNECTED:
             try:
                 status = await self._gateway_monitor.get_gateway_status()
-                self._notify(pd.DataFrame(status))
+                self.notify(pd.DataFrame(status))
             except Exception:
-                self._notify("\nError: Unable to fetch status of connected Gateway server.")
+                self.notify("\nError: Unable to fetch status of connected Gateway server.")
         else:
-            self._notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
+            self.notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
@@ -261,9 +266,9 @@ class GatewayCommand:
         }
         try:
             response = await self._api_request("post", "config/update", data)
-            self._notify(response["message"])
+            self.notify(response["message"])
         except Exception:
-            self._notify("\nError: Gateway configuration update failed. See log file for more details.")
+            self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
     async def get_gateway_configuration(self):
         return await self._api_request("get", "config", {})
@@ -275,16 +280,16 @@ class GatewayCommand:
             config_dict = await self.get_gateway_configuration()
             if key is not None:
                 config_dict = search_configs(config_dict, key)
-            self._notify(f"\nGateway Configurations ({host}:{port}):")
+            self.notify(f"\nGateway Configurations ({host}:{port}):")
             lines = []
             build_config_dict_display(lines, config_dict)
-            self._notify("\n".join(lines))
+            self.notify("\n".join(lines))
 
         except asyncio.CancelledError:
             raise
         except Exception:
             remote_host = ':'.join([host, port])
-            self._notify(f"\nError: Connection to Gateway {remote_host} failed")
+            self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
     async def get_gateway_connectors(self):
         return await self._api_request("get", "connectors", {})

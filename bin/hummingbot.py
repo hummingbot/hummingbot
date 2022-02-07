@@ -26,6 +26,8 @@ from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.utils.async_utils import safe_gather
 
+from bin.docker_connection import fork_and_start
+
 
 def detect_available_port(starting_port: int) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -41,7 +43,7 @@ def detect_available_port(starting_port: int) -> int:
         return current_port
 
 
-async def main():
+async def main_async():
     await create_yml_files()
 
     # This init_logging() call is important, to skip over the missing config warnings.
@@ -72,8 +74,12 @@ async def main():
         await safe_gather(*tasks)
 
 
-if __name__ == "__main__":
+def main():
     chdir_to_data_directory()
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        ev_loop.run_until_complete(main())
+        ev_loop.run_until_complete(main_async())
+
+
+if __name__ == "__main__":
+    fork_and_start(main)

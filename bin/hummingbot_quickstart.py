@@ -34,6 +34,8 @@ from bin.hummingbot import (
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
 
+from bin.docker_connection import fork_and_start
+
 
 class CmdlineParser(argparse.ArgumentParser):
     def __init__(self):
@@ -60,10 +62,13 @@ class CmdlineParser(argparse.ArgumentParser):
 def autofix_permissions(user_group_spec: str):
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
     subprocess.run(f"cd '{project_home}' && "
-                   f"sudo chown -R {user_group_spec} conf/ data/ logs/", capture_output=True, shell=True)
+                   f"sudo chown -R {user_group_spec} conf/ data/ logs/ certs/", capture_output=True, shell=True)
+    uid, gid = user_group_spec.split(':')
+    os.setgid(int(gid))
+    os.setuid(int(uid))
 
 
-async def quick_start(args):
+async def quick_start(args: argparse.Namespace):
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
@@ -143,4 +148,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    fork_and_start(main)
