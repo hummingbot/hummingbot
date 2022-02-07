@@ -237,6 +237,58 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertTrue(order.exchange_order_id_update_event.is_set())
 
     def test_from_json(self):
+        fee = AddedToCostTradeFee(
+            percent=Decimal("0.5"),
+            percent_token=self.quote_asset
+        )
+        trade_update = TradeUpdate(
+            trade_id="12345",
+            client_order_id=self.client_order_id,
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            fill_timestamp=1640001112,
+            fill_price=Decimal("1000.11"),
+            fill_base_amount=Decimal("2"),
+            fill_quote_amount=Decimal("2000.22"),
+            fee=fee,
+        )
+
+        order_json = {
+            "client_order_id": self.client_order_id,
+            "exchange_order_id": self.exchange_order_id,
+            "trading_pair": self.trading_pair,
+            "order_type": OrderType.LIMIT.name,
+            "trade_type": TradeType.BUY.name,
+            "price": "1.0",
+            "amount": "1000.0",
+            "executed_amount_base": "0",
+            "executed_amount_quote": "0",
+            "fee_asset": None,
+            "fee_paid": "0",
+            "last_state": "0",
+            "leverage": "1",
+            "position": "NIL",
+            "order_fills": {"1": trade_update.to_json()}
+        }
+
+        expected_order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+        )
+
+        order_from_json = InFlightOrder.from_json(order_json)
+        self.assertEqual(expected_order, order_from_json)
+        self.assertFalse(order_from_json.completely_filled_event.is_set())
+
+        self.assertIn("1", order_from_json.order_fills)
+        self.assertEqual(trade_update, order_from_json.order_fills["1"])
+
+    def test_from_json_does_not_fail_when_order_fills_not_present(self):
         order_json = {
             "client_order_id": self.client_order_id,
             "exchange_order_id": self.exchange_order_id,
@@ -303,6 +355,22 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertTrue(order_from_json.completely_filled_event.is_set())
 
     def test_to_json(self):
+        fee = AddedToCostTradeFee(
+            percent=Decimal("0.5"),
+            percent_token=self.quote_asset
+        )
+        trade_update = TradeUpdate(
+            trade_id="12345",
+            client_order_id=self.client_order_id,
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            fill_timestamp=1640001112,
+            fill_price=Decimal("1000.11"),
+            fill_base_amount=Decimal("2"),
+            fill_quote_amount=Decimal("2000.22"),
+            fee=fee,
+        )
+
         order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,
             trading_pair=self.trading_pair,
@@ -311,6 +379,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
         )
+        order.order_fills["1"] = trade_update
 
         order_json = order.to_json()
 
@@ -330,6 +399,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(order_json["last_state"], str(order.current_state.value))
         self.assertEqual(order_json["leverage"], str(order.leverage))
         self.assertEqual(order_json["position"], order.position.value)
+        self.assertEqual(order_json["order_fills"], {"1": trade_update.to_json()})
 
     def test_to_limit_order(self):
         order: InFlightOrder = InFlightOrder(

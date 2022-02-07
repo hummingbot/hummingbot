@@ -2,7 +2,7 @@ import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import PositionAction, PriceType, TradeType
@@ -19,6 +19,17 @@ class TokenAmount:
 
     def __iter__(self):
         return iter((self.token, self.amount))
+
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "token": self.token,
+            "amount": str(self.amount),
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]):
+        instance = TokenAmount(token=data["token"], amount=Decimal(data["amount"]))
+        return instance
 
 
 @dataclass
@@ -67,6 +78,18 @@ class TradeFeeBase(ABC):
     flat_fees: List[TokenAmount] = field(default_factory=list)  # list of (asset, amount) tuples
 
     @classmethod
+    @abstractmethod
+    def type_descriptor_for_json(cls) -> str:
+        ...
+
+    @classmethod
+    def fee_class_for_type(cls, type_descriptor: str):
+        catalog = {fee_class.type_descriptor_for_json(): fee_class
+                   for fee_class
+                   in [AddedToCostTradeFee, DeductedFromReturnsTradeFee]}
+        return catalog[type_descriptor]
+
+    @classmethod
     def new_spot_fee(cls,
                      fee_schema: TradeFeeSchema,
                      trade_type: TradeType,
@@ -97,12 +120,22 @@ class TradeFeeBase(ABC):
         fee = fee_cls(percent, percent_token, flat_fees or [])
         return fee
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]):
+        fee_class = cls.fee_class_for_type(data["fee_type"])
+        instance = fee_class(
+            percent=Decimal(data["percent"]),
+            percent_token=data["percent_token"],
+            flat_fees=list(map(TokenAmount.from_json, data["flat_fees"]))
+        )
+        return instance
+
     def to_json(self) -> Dict[str, any]:
         return {
-            "percent": float(self.percent),
+            "fee_type": self.type_descriptor_for_json(),
+            "percent": str(self.percent),
             "percent_token": self.percent_token,
-            "flat_fees": [{"asset": asset, "amount": float(amount)}
-                          for asset, amount in self.flat_fees]
+            "flat_fees": [token_amount.to_json() for token_amount in self.flat_fees]
         }
 
     def fee_amount_in_token(self,
@@ -167,6 +200,11 @@ class TradeFeeBase(ABC):
 
 
 class AddedToCostTradeFee(TradeFeeBase):
+
+    @classmethod
+    def type_descriptor_for_json(cls) -> str:
+        return "AddedToCost"
+
     def get_fee_impact_on_order_cost(
             self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[TokenAmount]:
@@ -203,6 +241,11 @@ class AddedToCostTradeFee(TradeFeeBase):
 
 
 class DeductedFromReturnsTradeFee(TradeFeeBase):
+
+    @classmethod
+    def type_descriptor_for_json(cls) -> str:
+        return "DeductedFromReturns"
+
     def get_fee_impact_on_order_cost(
             self, order_candidate: 'OrderCandidate', exchange: 'ExchangeBase'
     ) -> Optional[TokenAmount]:

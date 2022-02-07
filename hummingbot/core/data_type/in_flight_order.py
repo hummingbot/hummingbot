@@ -59,6 +59,32 @@ class TradeUpdate(NamedTuple):
     def fee_asset(self):
         return self.fee.fee_asset
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]):
+        instance = TradeUpdate(
+            trade_id=data["trade_id"],
+            client_order_id=data["client_order_id"],
+            exchange_order_id=data["exchange_order_id"],
+            trading_pair=data["trading_pair"],
+            fill_timestamp=data["fill_timestamp"],
+            fill_price=Decimal(data["fill_price"]),
+            fill_base_amount=Decimal(data["fill_base_amount"]),
+            fill_quote_amount=Decimal(data["fill_quote_amount"]),
+            fee=TradeFeeBase.from_json(data["fee"]),
+        )
+
+        return instance
+
+    def to_json(self) -> Dict[str, Any]:
+        json_dict = self._asdict()
+        json_dict.update({
+            "fill_price": str(self.fill_price),
+            "fill_base_amount": str(self.fill_base_amount),
+            "fill_quote_amount": str(self.fill_quote_amount),
+            "fee": self.fee.to_json(),
+        })
+        return json_dict
+
 
 class InFlightOrder:
     def __init__(
@@ -209,6 +235,9 @@ class InFlightOrder:
         order.executed_amount_quote = Decimal(data["executed_amount_quote"])
         order.fee_asset = data["fee_asset"]
         order.cumulative_fee_paid = Decimal(data["fee_paid"])
+        order.order_fills.update({key: TradeUpdate.from_json(value)
+                                  for key, value
+                                  in data.get("order_fills", {}).items()})
 
         order.check_filled_condition()
 
@@ -233,7 +262,8 @@ class InFlightOrder:
             "fee_paid": str(self.cumulative_fee_paid),
             "last_state": str(self.current_state.value),
             "leverage": str(self.leverage),
-            "position": self.position.value
+            "position": self.position.value,
+            "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()}
         }
 
     def to_limit_order(self) -> LimitOrder:
