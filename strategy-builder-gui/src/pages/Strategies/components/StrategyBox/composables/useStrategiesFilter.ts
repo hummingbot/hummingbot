@@ -1,9 +1,10 @@
 export enum StrategyCategory {
-    Binance,
-    AscendEX,
-    CryptoCom,
-    Kucoin,
-    BinanceUS,
+    All = 'All exchanges',
+    Binance = 'Binance',
+    AscendEX = 'AscendEX',
+    CryptoCom = 'Crypto.com',
+    Kucoin = 'Kucoin',
+    BinanceUS = 'BinanceUS',
 } 
 
 interface Strategy {
@@ -136,10 +137,17 @@ const Strategies: Strategy[] = [
     },
 ]
 
-export const useStrategiesFilter = (filter?: StrategyCategory) => {
-    const result = Strategies
+export const useStrategiesFilter = (filter: StrategyCategory) => {
+    const sortedStrategies = Strategies
     .sort((a, b) => a.place - b.place)
-    .filter((val) => filter ? val.category === filter : true)
-    return result;
+    .filter((val) => filter === StrategyCategory.All ? true : val.category === filter)
+    const options: string[] = []
+
+    Object.values(StrategyCategory).map((val) => {
+        options.push(val);
+        return val;
+    });
+
+    return {strategies: sortedStrategies, options };
 };
   
