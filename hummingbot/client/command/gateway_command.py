@@ -13,6 +13,7 @@ from bin.docker_connection import (
     GATEWAY_DOCKER_REPO,
     get_gateway_container_name
 )
+from hummingbot.client.config.config_helpers import load_yml_into_dict, save_yml_from_dict
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
@@ -60,6 +61,39 @@ class GatewayCommand:
         instance_id_suffix: str = global_config_map["instance_id"].value[:8]
         return f"hummingbot-gateway-{instance_id_suffix}"
 
+    async def _verify_gateway_conf(self):
+        gateway_conf_mount_path: str
+        ssl_filename = "ssl.yml"
+
+        external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
+        if external_gateway_conf_path is not None:
+            gateway_conf_mount_path = external_gateway_conf_path
+        else:
+            gateway_conf_mount_path = path.join(root_path(), "gateway_conf")
+
+        ssl_yml_file_path = f"{gateway_conf_mount_path}/{ssl_filename}"
+
+        conf_dict = await load_yml_into_dict(yml_path=ssl_yml_file_path)
+
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        for conf_key, path_value in conf_dict.items():
+            ack: str = await self.app.prompt(prompt=f"Is {path_value} the correct path to {conf_key} ? (y/N) >>> ")
+            if not ack.lower() == "y":
+                new_path: str = await self.app.prompt(prompt=f"Enter the correct path to {conf_key} >>> ")
+                conf_dict[conf_key] = new_path
+                path_value = new_path
+
+            if not path.isfile(path_value):
+                raise FileNotFoundError(f"{path_value} not found.")
+
+        await save_yml_from_dict(yml_path=ssl_yml_file_path, conf_dict=conf_dict)
+
+        self.placeholder_mode = False
+        self.app.hide_input = False
+        self.app.change_prompt(prompt=">>> ")
+        return True
+
     async def _start_gateway(self):
         try:
             response = await docker_ipc(
@@ -74,6 +108,8 @@ class GatewayCommand:
             if container_info["State"] == "running":
                 self.notify(f"Gateway container {container_info['Id']} already running.")
                 return
+
+            await self._verify_gateway_conf()
 
             await docker_ipc(
                 "start",
