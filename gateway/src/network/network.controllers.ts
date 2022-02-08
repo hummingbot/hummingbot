@@ -1,7 +1,7 @@
 import { StatusRequest, StatusResponse } from './network.requests';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
-import { Harmony } from './harmony/harmony';
+import { Harmony } from '../chains/harmony/harmony';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
