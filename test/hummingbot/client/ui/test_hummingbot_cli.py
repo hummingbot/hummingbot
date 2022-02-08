@@ -6,6 +6,7 @@ from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.custom_widgets import CustomTextArea
 from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.events import HummingbotUIEvent
 
 
 class HummingbotCLITest(unittest.TestCase):
@@ -113,7 +114,7 @@ class HummingbotCLITest(unittest.TestCase):
                 self.mock()
 
         handler: UIStartHandler = UIStartHandler()
-        self.app.add_listener(self.app.Event.START, handler)
+        self.app.add_listener(HummingbotUIEvent.Start, handler)
         self.app.did_start_ui()
 
         mock_config_map.get.assert_called()
