@@ -17,7 +17,7 @@ interface Strategy {
     category: StrategyCategory
   }
 
-const Strategies: Strategy[] = [
+const strategies: Strategy[] = [
     {
         title: 'Pure Market Making',
         desc: 'This strategy allows Hummingbot users to run a market making strategy on a single trading pair on a spot exchanges.',
@@ -138,7 +138,7 @@ const Strategies: Strategy[] = [
 ]
 
 export const useStrategiesFilter = (filter: StrategyCategory) => {
-    const sortedStrategies = Strategies
+    const sortedStrategies = strategies
     .sort((a, b) => a.place - b.place)
     .filter((val) => filter === StrategyCategory.All || val.category === filter)
 
