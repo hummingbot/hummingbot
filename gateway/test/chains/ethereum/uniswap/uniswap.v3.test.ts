@@ -385,7 +385,13 @@ describe('verify UniswapV3 Nft functions', () => {
   it('collectFees should work', async () => {
     patchContract();
 
-    const collectTx = await uniswapV3.collectFees(wallet, 1, false, 1, 1);
+    const collectTx = (await uniswapV3.collectFees(
+      wallet,
+      1,
+      false,
+      1,
+      1
+    )) as Transaction;
     expect(collectTx.hash).toEqual(
       '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9' // noqa: mock
     );
