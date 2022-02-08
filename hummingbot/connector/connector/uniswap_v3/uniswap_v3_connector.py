@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.connector.gateway_base import GatewayBase
+from hummingbot.connector.gateway_basic_trading import GatewayBasicTrading
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
 from hummingbot.core.event.events import (
@@ -34,35 +34,34 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class UniswapV3Connector(GatewayBase):
+class UniswapV3Connector(GatewayBasicTrading):
     """
-    UniswapV3Connector extends GatewayBase to provide v3 specific functionality, e.g. ranged positions
+    UniswapV3Connector extends GatewayBasicTrading to provide v3 specific functionality, e.g. ranged positions
     """
 
     def __init__(self,
+                 connector_name: str,
+                 chain: str,
+                 network: str,
+                 wallet_public_key: str,
                  trading_pairs: List[str],
-                 wallet_private_key: str,
-                 ethereum_rpc_url: str,
                  trading_required: bool = True
                  ):
         """
+        :param connector_name: name of connector on gateway
+        :param chain: refers to a block chain, e.g. ethereum or avalanche
+        :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
+        :param wallet_public_key: a public key for eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
-        :param wallet_private_key: a private key for eth wallet
-        :param ethereum_rpc_url: this is usually infura RPC URL
-        :param trading_required: Whether actual trading is needed.
+        :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
-        super().__init__(trading_pairs,
-                         wallet_private_key,
+        super().__init__(connector_name,
+                         chain,
+                         network,
+                         wallet_public_key,
+                         trading_pairs,
                          trading_required)
         self._in_flight_positions: Dict[str, UniswapV3InFlightPosition] = {}
-
-    @property
-    def name(self) -> str:
-        return "uniswap_v3"
-
-    @property
-    def base_path(self):
-        return "eth/uniswap/v3"
 
     async def initiate_pool(self) -> str:
         """
