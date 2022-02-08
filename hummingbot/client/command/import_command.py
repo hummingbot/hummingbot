@@ -39,7 +39,7 @@ class ImportCommand:
         strategy = await update_strategy_config_map_from_file(strategy_path)
         self.strategy_file_name = file_name
         self.strategy_name = strategy
-        self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
+        self.notify(f"Configuration from {self.strategy_file_name} file is imported.")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -50,7 +50,7 @@ class ImportCommand:
             self.strategy_name = None
             raise
         if all_status_go:
-            self._notify("\nEnter \"start\" to start market making.")
+            self.notify("\nEnter \"start\" to start market making.")
             autofill_import = global_config_map.get("autofill_import").value
             if autofill_import is not None:
                 self.app.set_text(autofill_import)
@@ -64,7 +64,7 @@ class ImportCommand:
         file_path = os.path.join(CONF_FILE_PATH, file_name)
         err_msg = validate_strategy_file(file_path)
         if err_msg is not None:
-            self._notify(f"Error: {err_msg}")
+            self.notify(f"Error: {err_msg}")
             return await self.prompt_a_file_name()
         else:
             return file_name

@@ -41,6 +41,7 @@ cdef class InFlightOrderBase:
         self.fee_paid = s_decimal_0
         self.last_state = initial_state
         self.exchange_order_id_update_event = asyncio.Event()
+        self.completely_filled_event = asyncio.Event()
 
     def __repr__(self) -> str:
         return f"InFlightOrder(" \
@@ -143,3 +144,10 @@ cdef class InFlightOrderBase:
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         raise NotImplementedError
+
+    def check_filled_condition(self):
+        if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0:
+            self.completely_filled_event.set()
+
+    async def wait_until_completely_filled(self):
+        await self.completely_filled_event.wait()

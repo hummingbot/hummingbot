@@ -7,6 +7,8 @@ from hummingbot.client.config.config_validators import (
     validate_int,
     validate_bool,
     validate_decimal,
+    validate_datetime_iso_string,
+    validate_time_iso_string,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -26,6 +28,40 @@ def maker_trading_pair_prompt():
 def validate_exchange_trading_pair(value: str) -> Optional[str]:
     exchange = avellaneda_market_making_config_map.get("exchange").value
     return validate_market_trading_pair(exchange, value)
+
+
+def validate_execution_timeframe(value: str) -> Optional[str]:
+    timeframes = ["infinite", "from_date_to_date", "daily_between_times"]
+    if value not in timeframes:
+        return f"Invalid timeframe, please choose value from {timeframes}"
+
+
+def validate_execution_time(value: str) -> Optional[str]:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        ret = validate_datetime_iso_string(value)
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        ret = validate_time_iso_string(value)
+    if ret is not None:
+        return ret
+
+
+def execution_time_start_prompt() -> str:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        return "Please enter the start date and time (YYYY-MM-DD HH:MM:SS) >>> "
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        return "Please enter the start time (HH:MM:SS) >>> "
+
+
+def execution_time_end_prompt() -> str:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        return "Please enter the end date and time (YYYY-MM-DD HH:MM:SS) >>> "
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        return "Please enter the end time (HH:MM:SS) >>> "
+
+
+def on_validated_execution_timeframe(value: str):
+    avellaneda_market_making_config_map["start_time"].value = None
+    avellaneda_market_making_config_map["end_time"].value = None
 
 
 def order_amount_prompt() -> str:
@@ -59,6 +95,26 @@ avellaneda_market_making_config_map = {
                   prompt=maker_trading_pair_prompt,
                   validator=validate_exchange_trading_pair,
                   prompt_on_new=True),
+    "execution_timeframe":
+        ConfigVar(key="execution_timeframe",
+                  prompt="Choose execution timeframe ( infinite / from_date_to_date / daily_between_times ) >>> ",
+                  validator=validate_execution_timeframe,
+                  on_validated=on_validated_execution_timeframe,
+                  prompt_on_new=True),
+    "start_time":
+        ConfigVar(key="start_time",
+                  prompt=execution_time_start_prompt,
+                  type_str="str",
+                  validator=validate_execution_time,
+                  required_if=lambda: avellaneda_market_making_config_map.get("execution_timeframe").value != "infinite",
+                  prompt_on_new=True),
+    "end_time":
+        ConfigVar(key="end_time",
+                  prompt=execution_time_end_prompt,
+                  type_str="str",
+                  validator=validate_execution_time,
+                  required_if=lambda: avellaneda_market_making_config_map.get("execution_timeframe").value != "infinite",
+                  prompt_on_new=True),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
@@ -77,7 +133,7 @@ avellaneda_market_making_config_map = {
                   prompt="Enter risk factor (\u03B3) >>> ",
                   type_str="decimal",
                   default=Decimal("1"),
-                  validator=lambda v: validate_decimal(v, 0, inclusive=True),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
     "order_amount_shape_factor":
         ConfigVar(key="order_amount_shape_factor",
@@ -86,13 +142,6 @@ avellaneda_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=True)),
-    "closing_time":
-        ConfigVar(key="closing_time",
-                  prompt="Enter operational closing time (T). (How long will each trading cycle last "
-                         "in days or fractions of day) >>> ",
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
-                  default=Decimal("0.041666667")),
     "min_spread":
         ConfigVar(key="min_spread",
                   prompt="Enter minimum spread limit (as % of mid price) >>> ",

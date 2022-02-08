@@ -1,10 +1,7 @@
-#!/usr/bin/env python
-
 import asyncio
-from collections import deque, defaultdict
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 import logging
 import time
+from collections import deque, defaultdict
 from typing import (
     Deque,
     Dict,
@@ -12,28 +9,30 @@ from typing import (
     Optional
 )
 
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 
 class BinanceOrderBookTracker(OrderBookTracker):
-    _bobt_logger: Optional[HummingbotLogger] = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._bobt_logger is None:
-            cls._bobt_logger = logging.getLogger(__name__)
-        return cls._bobt_logger
+    _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None,
                  domain: str = "com",
+                 api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None):
         super().__init__(
-            data_source=BinanceAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain, throttler=throttler),
+            data_source=BinanceAPIOrderBookDataSource(
+                trading_pairs=trading_pairs,
+                domain=domain,
+                api_factory=api_factory,
+                throttler=throttler),
             trading_pairs=trading_pairs,
             domain=domain
         )
@@ -43,6 +42,14 @@ class BinanceOrderBookTracker(OrderBookTracker):
         self._domain = domain
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
 
+        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     @property
     def exchange_name(self) -> str:
         if self._domain == "com":
@@ -50,9 +57,25 @@ class BinanceOrderBookTracker(OrderBookTracker):
         else:
             return f"binance_{self._domain}"
 
+    def start(self):
+        """
+        Starts the background task that connects to the exchange and listens to order book updates and trade events.
+        """
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
+
+    def stop(self):
+        """
+        Stops the background task
+        """
+        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        super().stop()
+
     async def _order_book_diff_router(self):
         """
-        Route the real-time order book diff messages to the correct order book.
+        Routes the real-time order book diff messages to the correct order book.
         """
         last_message_timestamp: float = time.time()
         messages_queued: int = 0
