@@ -28,33 +28,28 @@
       <div class="text-white text-h4 q-mt-lg q-mb-md col"> Choose Your Strategy </div>
       <div class="select flex items-center justify-center full-width">
         <q-select
-          v-model="selectModel"
+          v-model="category"
           borderless
           input-class="flex items-center justify-center"
-          :options="strategiesObj.options"
+          :options="options"
           rounded
           :dropdown-icon="`img:${require('../assets/arrow-bottom.svg')}`"
-          :display-value="selectModel"
+          :display-value="category"
           :label-slot="false"
           popup-content-class="bg-mono-grey-2 q-px-md q-py-md"
           options-selected-class="bg-mono-grey-1 rounded-borders"
-          @update:model-value="(val) => onSelectUpdate(val)"
         />
       </div>
     </div>
     <div class="row q-col-gutter-lg">
-      <div
-        v-for="strategie in strategiesObj.strategies"
-        :key="strategie.place"
-        class="col-12 col-md-6 col-lg-3"
-      >
+      <div v-for="strategy in strategies" :key="strategy.place" class="col-12 col-md-6 col-lg-3">
         <StrategyBox
-          :place="strategie.place"
-          :place-type="strategie.placeType"
-          :title="strategie.title"
-          :desc="strategie.desc"
-          :file-href="strategie.fileHref"
-          :start-href="strategie.startHref"
+          :place="strategy.place"
+          :place-type="strategy.placeType"
+          :title="strategy.title"
+          :desc="strategy.desc"
+          :file-href="strategy.fileHref"
+          :start-href="strategy.startHref"
         />
       </div>
     </div>
@@ -64,30 +59,23 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 
+import { StrategyCategory } from '../stores/strategies';
 import FeatureBox, { FeatureBoxType } from './FeatureBox.vue';
-import {
-  StrategyCategory,
-  useStrategiesFilter,
-} from './StrategyBox/composables/useStrategiesFilter';
+import { useStrategiesFilter } from './StrategyBox/composables/useStrategiesFilter';
 import StrategyBox from './StrategyBox/StrategyBox.vue';
 
 export default defineComponent({
   components: { FeatureBox, StrategyBox },
 
   setup() {
-    const strategiesObj = ref(useStrategiesFilter(StrategyCategory.All));
-    const selectModel = ref(strategiesObj.value.options[0]);
-
-    const onSelectUpdate = (value: StrategyCategory) => {
-      strategiesObj.value = useStrategiesFilter(value);
-    };
+    const category = ref(StrategyCategory.All);
+    const { strategies, options } = useStrategiesFilter(category);
 
     return {
       FeatureBoxType,
-      strategiesObj,
-
-      selectModel,
-      onSelectUpdate,
+      strategies,
+      category,
+      options,
     };
   },
 });
