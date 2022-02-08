@@ -1,11 +1,11 @@
 # list the Avalanche networks available to gateway
 networks:
-  harmony: 
+  mainnet: 
     chainID: 1666600000
     nodeURL: 'https://api.s0.t.hmny.io/'
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/harmony/harmony_tokens_sushiswap.json'
-  harmony_testnet: 
+  testnet: 
     chainID: 1666700000
     nodeURL: 'https://api.s0.b.hmny.io'
     tokenListType: 'FILE'

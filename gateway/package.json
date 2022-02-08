@@ -23,6 +23,7 @@
     "@blockworks-foundation/mango-client": "^3.2.14",
     "@ethersproject/experimental": "^5.3.0",
     "@harmony-js/core": "^0.1.57",
+    "@harmony-js/utils": "^0.1.56",
     "@pangolindex/sdk": "^1.1.0",
     "@project-serum/serum": "^0.13.61",
     "@solana/spl-token-registry": "^0.2.700",

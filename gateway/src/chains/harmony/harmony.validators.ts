@@ -1,27 +1,24 @@
 import {
   isNaturalNumberString,
-  missingParameter,
+  validateTokenSymbols,
   mkValidator,
   mkRequestValidator,
   RequestValidator,
   Validator,
+  validateToken,
+  validateAmount,
+  validateTxHash,
 } from '../../services/validators';
+
+import { isValidAddress } from '@harmony-js/utils';
 
 // invalid parameter errors
 
 export const invalidAddressError: string =
-  'The address param is not a valid Harmony private key (64 hexidecimal characters).';
+  'The address param is not a valid Ethereum private key (64 hexidecimal characters).';
 
 export const invalidSpenderError: string =
-  'The spender param is not a valid Harmony public key (0x followed by 40 hexidecimal characters).';
-
-export const invalidTokenSymbolsError: string =
-  'The tokenSymbols param should be an array of strings.';
-
-export const invalidTokenError: string = 'The token param should be a string.';
-
-export const invalidAmountError: string =
-  'If amount is included it must be a string of a non-negative integer.';
+  'The spender param is not a valid Ethereum public key (0x followed by 40 hexidecimal characters).';
 
 export const invalidNonceError: string =
   'If nonce is included it must be a non-negative integer.';
@@ -32,59 +29,20 @@ export const invalidMaxFeePerGasError: string =
 export const invalidMaxPriorityFeePerGasError: string =
   'If maxPriorityFeePerGas is included it must be a string of a non-negative integer.';
 
-export const invalidTxHashError: string = 'The txHash param must be a string.';
-
-// test if a string matches the shape of an Harmony public key
-export const isAddress = (str: string): boolean => {
-  return /^0x[a-fA-F0-9]{40}$/.test(str);
-};
-
-// given a request, look for a key called address that is an Harmony private key
+// given a request, look for a key called address that is an Ethereum private key
 export const validateAddress: Validator = mkValidator(
   'address',
   invalidAddressError,
-  (val) => typeof val === 'string' && isAddress(val)
+  (val) => typeof val === 'string' && isValidAddress(val)
 );
 
-// given a request, look for a key called spender that is 'uniswap' or an Harmony public key
+// given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
-  (val) => typeof val === 'string' && (val === 'uniswap' || isAddress(val))
-);
-
-// confirm that tokenSymbols is an array of strings
-export const validateTokenSymbols: Validator = (req: any) => {
-  const errors: Array<string> = [];
-  if (req.tokenSymbols) {
-    if (Array.isArray(req.tokenSymbols)) {
-      req.tokenSymbols.forEach((symbol: any) => {
-        if (typeof symbol !== 'string') {
-          errors.push(invalidTokenSymbolsError);
-        }
-      });
-    } else {
-      errors.push(invalidTokenSymbolsError);
-    }
-  } else {
-    errors.push(missingParameter('tokenSymbols'));
-  }
-  return errors;
-};
-
-// confirm that token is a string
-export const validateToken: Validator = mkValidator(
-  'token',
-  invalidTokenError,
-  (val) => typeof val === 'string'
-);
-
-// if amount exists, confirm that it is a string of a natural number
-export const validateAmount: Validator = mkValidator(
-  'amount',
-  invalidAmountError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val),
-  true
+  (val) =>
+    typeof val === 'string' &&
+    (val === 'sushiswap' || val === 'viperswap' || isValidAddress(val))
 );
 
 export const validateNonce: Validator = mkValidator(
@@ -108,38 +66,38 @@ export const validateMaxPriorityFeePerGas: Validator = mkValidator(
   true
 );
 
-export const validateTxHash: Validator = mkValidator(
-  'txHash',
-  invalidTxHashError,
-  (val) => typeof val === 'string'
-);
-
 // request types and corresponding validators
 
-export const validateHarmonyNonceRequest: RequestValidator = mkRequestValidator(
-  [validateAddress]
-);
+export const validateNonceRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+]);
 
-export const validateHarmonyAllowancesRequest: RequestValidator =
-  mkRequestValidator([validateAddress, validateSpender, validateTokenSymbols]);
+export const validateAllowancesRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+  validateSpender,
+  validateTokenSymbols,
+]);
 
-export const validateHarmonyBalanceRequest: RequestValidator =
-  mkRequestValidator([validateAddress, validateTokenSymbols]);
+export const validateBalanceRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+  validateTokenSymbols,
+]);
 
-export const validateHarmonyApproveRequest: RequestValidator =
-  mkRequestValidator([
-    validateAddress,
-    validateSpender,
-    validateToken,
-    validateAmount,
-    validateNonce,
-    validateMaxFeePerGas,
-    validateMaxPriorityFeePerGas,
-  ]);
+export const validateApproveRequest: RequestValidator = mkRequestValidator([
+  validateAddress,
+  validateSpender,
+  validateToken,
+  validateAmount,
+  validateNonce,
+  validateMaxFeePerGas,
+  validateMaxPriorityFeePerGas,
+]);
 
-export const validateHarmonyPollRequest: RequestValidator = mkRequestValidator([
+export const validatePollRequest: RequestValidator = mkRequestValidator([
   validateTxHash,
 ]);
 
-export const validateHarmonyCancelRequest: RequestValidator =
-  mkRequestValidator([validateNonce, validateAddress]);
+export const validateCancelRequest: RequestValidator = mkRequestValidator([
+  validateNonce,
+  validateAddress,
+]);
