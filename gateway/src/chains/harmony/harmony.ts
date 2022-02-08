@@ -96,8 +96,6 @@ export class Harmony extends EthereumBase implements Ethereumish {
     return this._metricsLogInterval;
   }
 
-  // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will
-  // continually update the gas price.
   async updateGasPrice(): Promise<void> {
     const harmonyConfig = getHarmonyConfig('harmony', this._chain);
 
@@ -118,7 +116,6 @@ export class Harmony extends EthereumBase implements Ethereumish {
         data: jsonData,
       };
 
-      // const { data } = await axios.post(HarmonyConfig.config.network.nodeURL);
       const { data } = await axios(config);
 
       // divide by 10 to convert it to Gwei
