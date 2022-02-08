@@ -3,7 +3,7 @@ import { UniswapConfig } from './uniswap.config';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
 import { Token, CurrencyAmount, Percent, Price } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
-import { providers, Wallet, Signer, utils } from 'ethers';
+import { providers, Wallet, Signer, utils, BigNumber } from 'ethers';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import * as math from 'mathjs';
@@ -103,7 +103,22 @@ export class UniswapV3Helper {
     poolAddress: string,
     fee: uniV3.FeeAmount,
     wallet: providers.StaticJsonRpcProvider | Signer
-  ): Promise<any> {
+  ): Promise<{
+    liquidity: BigNumber;
+    sqrtPriceX96: BigNumber;
+    tick: number;
+    observationIndex: BigNumber;
+    observationCardinality: BigNumber;
+    observationCardinalityNext: BigNumber;
+    feeProtocol: BigNumber;
+    unlocked: boolean;
+    fee: uniV3.FeeAmount;
+    tickProvider: {
+      index: number;
+      liquidityNet: BigNumber;
+      liquidityGross: BigNumber;
+    }[];
+  }> {
     const poolContract = this.getPoolContract(poolAddress, wallet);
     const minTick = uniV3.nearestUsableTick(
       uniV3.TickMath.MIN_TICK,
@@ -199,7 +214,23 @@ export class UniswapV3Helper {
     return pools;
   }
 
-  async getRawPosition(wallet: Wallet, tokenId: number): Promise<any> {
+  async getRawPosition(
+    wallet: Wallet,
+    tokenId: number
+  ): Promise<{
+    nonce: number;
+    operator: string;
+    token0: string;
+    token1: string;
+    fee: number;
+    tickLower: number;
+    tickUpper: number;
+    liquidity: number;
+    feeGrowthInside0LastX128: BigNumber;
+    feeGrowthInside1LastX128: BigNumber;
+    tokensOwed0: BigNumber;
+    tokensOwed1: BigNumber;
+  }> {
     const contract = this.getContract('nft', wallet);
     const requests = [contract.positions(tokenId)];
     const positionInfoReq = await Promise.allSettled(requests);
@@ -228,7 +259,7 @@ export class UniswapV3Helper {
       liquidityPercentage: this.getPercentage(percent),
       slippageTolerance: this.getSlippagePercentage(),
       deadline: this.ttl,
-      burnToken: false, // percent == 100 ? true : false,
+      burnToken: false,
       collectOptions: {
         expectedCurrencyOwed0: CurrencyAmount.fromRawAmount(token0, '0'),
         expectedCurrencyOwed1: CurrencyAmount.fromRawAmount(token1, '0'),
@@ -237,7 +268,21 @@ export class UniswapV3Helper {
     };
   }
 
-  getAddLiquidityData(wallet: Wallet, tokenId: number) {
+  getAddLiquidityData(
+    wallet: Wallet,
+    tokenId: number
+  ):
+    | {
+        recipient: string;
+        createPool: boolean;
+        slippageTolerance: Percent;
+        deadline: number;
+      }
+    | {
+        tokenId: number;
+        slippageTolerance: Percent;
+        deadline: number;
+      } {
     let extraData;
     const commonData = {
       slippageTolerance: this.getSlippagePercentage(),

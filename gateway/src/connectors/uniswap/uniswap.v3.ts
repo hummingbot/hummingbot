@@ -146,7 +146,20 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     return tx;
   }
 
-  async getPosition(wallet: Wallet, tokenId: number): Promise<any> {
+  async getPosition(
+    wallet: Wallet,
+    tokenId: number
+  ): Promise<{
+    token0: string | undefined;
+    token1: string | undefined;
+    fee: string | undefined;
+    lowerPrice: string;
+    upperPrice: string;
+    amount0: string;
+    amount1: string;
+    unclaimedToken0: string;
+    unclaimedToken1: string;
+  }> {
     const contract = this.getContract('nft', wallet);
     const requests = [
       contract.positions(tokenId),
@@ -218,7 +231,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
-  ) {
+  ): Promise<Transaction> {
     const { calldata, value } = await this.addPositionHelper(
       wallet,
       tokenIn,
@@ -294,7 +307,7 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
-  ) {
+  ): Promise<Transaction | { amount0: BigNumber; amount1: BigNumber }> {
     const contract = this.getContract('nft', wallet);
     const collectData = {
       tokenId: tokenId,
