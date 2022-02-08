@@ -1,29 +1,29 @@
-#!/usr/bin/env python
-import numpy
-import pandas as pd
+from datetime import datetime
 from typing import (
     Any,
     Dict,
     List,
     Optional,
 )
+
+import numpy
+import pandas as pd
 from sqlalchemy import (
+    BigInteger,
     Column,
     ForeignKey,
-    Text,
-    Integer,
     Index,
-    BigInteger,
-    Float,
-    JSON
+    Integer,
+    JSON,
+    Text,
 )
 from sqlalchemy.orm import (
     relationship,
     Session
 )
-from datetime import datetime
 
-from . import HummingbotBase
+from hummingbot.model import HummingbotBase
+from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
 
 class TradeFill(HummingbotBase):
@@ -38,27 +38,26 @@ class TradeFill(HummingbotBase):
                             "market", "quote_asset", "timestamp")
                       )
 
-    id = Column(Integer, primary_key=True, nullable=False)
     config_file_path = Column(Text, nullable=False)
     strategy = Column(Text, nullable=False)
-    market = Column(Text, nullable=False)
+    market = Column(Text, primary_key=True, nullable=False)
     symbol = Column(Text, nullable=False)
     base_asset = Column(Text, nullable=False)
     quote_asset = Column(Text, nullable=False)
     timestamp = Column(BigInteger, nullable=False)
-    order_id = Column(Text, ForeignKey("Order.id"), nullable=False)
+    order_id = Column(Text, ForeignKey("Order.id"), primary_key=True, nullable=False)
     trade_type = Column(Text, nullable=False)
     order_type = Column(Text, nullable=False)
-    price = Column(Float, nullable=False)
-    amount = Column(Float, nullable=False)
+    price = Column(SqliteDecimal(6), nullable=False)
+    amount = Column(SqliteDecimal(6), nullable=False)
     leverage = Column(Integer, nullable=False, default=1)
     trade_fee = Column(JSON, nullable=False)
-    exchange_trade_id = Column(Text, nullable=False)
+    exchange_trade_id = Column(Text, primary_key=True, nullable=False)
     position = Column(Text, nullable=True)
     order = relationship("Order", back_populates="trade_fills")
 
     def __repr__(self) -> str:
-        return f"TradeFill(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
+        return f"TradeFill(config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
             f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
             f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
             f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, amount={self.amount}, " \
@@ -105,7 +104,7 @@ class TradeFill(HummingbotBase):
 
     @classmethod
     def to_pandas(cls, trades: List):
-        columns: List[str] = ["Index",
+        columns: List[str] = ["Id",
                               "Timestamp",
                               "Exchange",
                               "Market",
@@ -117,25 +116,14 @@ class TradeFill(HummingbotBase):
                               "Position",
                               "Age"]
         data = []
-        index = 0
         for trade in trades:
-            """
-            Comment out fees
-            flat_fees: List[Dict[str, Any]] = trade.trade_fee["flat_fees"]
-            if len(flat_fees) == 0:
-                flat_fee_str = "None"
-            else:
-                fee_strs = [f"{fee_dict['amount']} {fee_dict['asset']}" for fee_dict in flat_fees]
-                flat_fee_str = ",".join(fee_strs)
-            """
 
-            index += 1
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             age = "n/a"
             if "//" not in trade.order_id:
                 age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
             data.append([
-                index,
+                trade.exchange_trade_id,
                 datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
                 trade.market,
                 trade.symbol,
@@ -148,7 +136,7 @@ class TradeFill(HummingbotBase):
                 age,
             ])
         df = pd.DataFrame(data=data, columns=columns)
-        df.set_index('Index', inplace=True)
+        df.set_index('Id', inplace=True)
 
         return df
 

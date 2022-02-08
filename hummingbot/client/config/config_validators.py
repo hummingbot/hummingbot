@@ -4,6 +4,8 @@ string and determines whether it is valid input. This file contains many validat
 hummingbot ConfigVars.
 """
 
+import time
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -121,8 +123,15 @@ def validate_int(value: str, min_value: int = None, max_value: int = None, inclu
             return f"Value must be less than {max_value}."
 
 
-def validate_timestamp_iso_string(value: str) -> Optional[str]:
+def validate_datetime_iso_string(value: str) -> Optional[str]:
     try:
-        datetime.fromisoformat(value)
+        datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
     except ValueError:
         return "Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
+
+
+def validate_time_iso_string(value: str) -> Optional[str]:
+    try:
+        time.strptime(value, '%H:%M:%S')
+    except ValueError:
+        return "Incorrect time format (expected is HH:MM:SS)"

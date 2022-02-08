@@ -15,6 +15,7 @@ import {
 import { ConfigManagerV2 } from './services/config-manager-v2';
 import { SwaggerManager } from './services/swagger-manager';
 import { NetworkRoutes } from './network/network.routes';
+import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
 import { AmmRoutes } from './amm/amm.routes';
 
@@ -33,6 +34,7 @@ gatewayApp.use(express.urlencoded({ extended: true }));
 // mount sub routers
 gatewayApp.use('/network', NetworkRoutes.router);
 gatewayApp.use('/evm', EVMRoutes.router);
+gatewayApp.use('/connectors', ConnectorsRoutes.router);
 
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
@@ -112,6 +114,7 @@ export const startSwagger = async () => {
     './docs/swagger/definitions.yml',
     [
       './docs/swagger/amm-routes.yml',
+      './docs/swagger/connectors-routes.yml',
       './docs/swagger/main-routes.yml',
       './docs/swagger/wallet-routes.yml',
       './docs/swagger/evm-routes.yml',

@@ -16,7 +16,7 @@ USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
 # Install miniconda
-RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.8.2-Linux-x86_64.sh -o ~/miniconda.sh && \
+RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh -o ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b && \
     rm ~/miniconda.sh && \
     ~/miniconda3/bin/conda update -n base conda -y && \
@@ -92,11 +92,12 @@ RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
   ln -s /certs /home/hummingbot/certs && \
-  ln -s /scripts /home/hummingbot/scripts
+  ln -s /scripts /home/hummingbot/scripts && \
+  ln -s /gateway_conf /home/hummingbot/gateway_conf
 
 # Create mount points
-RUN mkdir /conf /logs /data /certs /scripts && chown -R hummingbot:hummingbot /conf /logs /data /certs /scripts
-VOLUME /conf /logs /data /certs /scripts
+RUN mkdir /conf /logs /data /certs /scripts /gateway_conf && chown -R hummingbot:hummingbot /conf /logs /data /certs /scripts /gateway_conf
+VOLUME /conf /logs /data /certs /scripts /gateway_conf
 
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
@@ -106,8 +107,6 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 && \
     rm -rf /var/lib/apt/lists/*
 
-# Switch to hummingbot user
-USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
 # Copy all build artifacts from builder image
@@ -119,4 +118,4 @@ COPY docker/etc /etc
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
 CMD /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py \
-    --auto-set-permissions $(id -nu):$(id -ng)
+    --auto-set-permissions $(id -u hummingbot):$(id -g hummingbot)
