@@ -11,22 +11,21 @@ from typing import (
 import os
 import subprocess
 
-from bin.hummingbot import detect_available_port
-from hummingbot import (
-    check_dev_mode,
-    init_logging,
+from bin.hummingbot import (
+    detect_available_port,
+    UIStartListener,
 )
+from hummingbot import init_logging
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
-    write_config_to_yml,
     read_system_configs_from_yml,
     update_strategy_config_map_from_file,
     all_configs_complete,
 )
 from hummingbot.client.ui import login_prompt
-from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
@@ -98,24 +97,10 @@ async def quick_start(args):
         if not all_configs_complete(hb.strategy_name):
             hb.status()
 
-    class UIStartListener(EventListener):
-        def __call__(self, _):
-            asyncio.create_task(self.ui_start_handler())
-
-        @staticmethod
-        async def ui_start_handler():
-            dev_mode = check_dev_mode()
-            if dev_mode:
-                hb.app.log("Running from dev branches. Full remote logging will be enabled.")
-
-            if hb.strategy_file_name is not None and hb.strategy_name is not None:
-                await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-                hb.start(global_config_map.get("log_level").value)
-
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener()
-    hb.app.add_listener(hb.app.Event.START, start_listener)
+    start_listener: UIStartListener = UIStartListener(hb)
+    hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]
     if global_config_map.get("debug_console").value:

@@ -2,7 +2,6 @@
 
 import asyncio
 from contextlib import ExitStack
-from enum import Enum
 import logging
 import threading
 from prompt_toolkit.application import Application
@@ -34,6 +33,7 @@ from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.interface_utils import start_timer, start_process_monitor, start_trade_monitor
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.style import load_style
+from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.pubsub import PubSub
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -49,9 +49,6 @@ Application._handle_exception = _handle_exception_patch
 
 
 class HummingbotCLI(PubSub):
-    class Event(Enum):
-        START = 1
-
     def __init__(self,
                  input_handler: Callable,
                  bindings: KeyBindings,
@@ -107,7 +104,7 @@ class HummingbotCLI(PubSub):
                      override_log_level=log_level,
                      dev_mode=dev_mode)
 
-        self.trigger_event(HummingbotCLI.Event.START, None)
+        self.trigger_event(HummingbotUIEvent.Start, self)
 
     async def run(self):
         self.app = Application(layout=self.layout, full_screen=True, key_bindings=self.bindings, style=load_style(),
