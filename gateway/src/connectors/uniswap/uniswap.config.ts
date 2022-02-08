@@ -2,9 +2,9 @@ import { ConfigManagerV2 } from '../../services/config-manager-v2';
 import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace UniswapConfig {
   export interface NetworkConfig {
-    allowedSlippage: string;
-    gasLimit: number;
-    ttl: number;
+    allowedSlippage: (version: number) => string;
+    gasLimit: (version: number) => number;
+    ttl: (version: number) => number;
     uniswapV2RouterAddress: (network: string) => string;
     uniswapV3RouterAddress: (network: string) => string;
     uniswapV3NftManagerAddress: (network: string) => string;
@@ -13,22 +13,27 @@ export namespace UniswapConfig {
   }
 
   export const config: NetworkConfig = {
-    allowedSlippage: ConfigManagerV2.getInstance().get(
-      'uniswap.allowedSlippage'
-    ),
-    gasLimit: ConfigManagerV2.getInstance().get('uniswap.gasLimit'),
-    ttl: ConfigManagerV2.getInstance().get('uniswap.ttl'),
+    allowedSlippage: (version: number) =>
+      ConfigManagerV2.getInstance().get(
+        `uniswap.versions.v${version}.allowedSlippage`
+      ),
+    gasLimit: (version: number) =>
+      ConfigManagerV2.getInstance().get(
+        `uniswap.versions.v${version}.gasLimit`
+      ),
+    ttl: (version: number) =>
+      ConfigManagerV2.getInstance().get(`uniswap.versions.v${version}.ttl`),
     uniswapV2RouterAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
-        'uniswap.contractAddresses.' + network + '.uniswapV2RouterAddress'
+        `uniswap.contractAddresses.${network}.uniswapV2RouterAddress`
       ),
     uniswapV3RouterAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
-        'uniswap.contractAddresses.' + network + '.uniswapV3RouterAddress'
+        `uniswap.contractAddresses.${network}.uniswapV3RouterAddress`
       ),
     uniswapV3NftManagerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
-        'uniswap.contractAddresses.' + network + '.uniswapV3NftManagerAddress'
+        `uniswap.contractAddresses.${network}.uniswapV3NftManagerAddress`
       ),
     tradingTypes: ['AMM', 'rangeAMM'],
     availableNetworks: [{ chain: 'ethereum', networks: ['mainnet', 'kovan'] }],
