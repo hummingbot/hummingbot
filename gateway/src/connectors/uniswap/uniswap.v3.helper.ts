@@ -243,8 +243,7 @@ export class UniswapV3Helper {
         (r) => r.status === 'fulfilled'
       ) as PromiseFulfilledResult<any>[]
     ).map((r) => r.value);
-    const position = positionInfo[0];
-    return position;
+    return positionInfo[0];
   }
 
   getReduceLiquidityData(
