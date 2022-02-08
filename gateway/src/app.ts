@@ -138,7 +138,6 @@ export const startSwagger = async () => {
       './docs/swagger/evm-routes.yml',
       './docs/swagger/network-routes.yml',
       './docs/swagger/solana-routes.yml',
-      // './docs/swagger/harmony-routes.yml',
     ]
   );
 
