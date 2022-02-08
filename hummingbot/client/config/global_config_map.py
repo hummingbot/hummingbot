@@ -139,7 +139,7 @@ main_config_map = {
                   prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
                   type_str="str",
                   required_if=lambda: False,
-                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN", "harmony", "harmony_testnet"} else "Invalid chain name.",
+                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN", "mainnet", "testnet"} else "Invalid chain name.",
                   default="MAIN_NET"),
     "ethereum_token_list_url":
         ConfigVar(key="ethereum_token_list_url",
