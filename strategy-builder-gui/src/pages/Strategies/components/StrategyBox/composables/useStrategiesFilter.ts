@@ -141,12 +141,8 @@ export const useStrategiesFilter = (filter: StrategyCategory) => {
     const sortedStrategies = Strategies
     .sort((a, b) => a.place - b.place)
     .filter((val) => filter === StrategyCategory.All ? true : val.category === filter)
-    const options: string[] = []
 
-    Object.values(StrategyCategory).map((val) => {
-        options.push(val);
-        return val;
-    });
+    const options: string[] = Object.values(StrategyCategory)
 
     return {strategies: sortedStrategies, options };
 };
