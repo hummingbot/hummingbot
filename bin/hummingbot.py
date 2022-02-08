@@ -4,19 +4,22 @@ import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
-
 from typing import (
     List,
     Coroutine,
+)
+from weakref import (
+    ref,
+    ReferenceType,
 )
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
-    read_system_configs_from_yml
+    read_system_configs_from_yml,
+    write_config_to_yml,
 )
-from hummingbot.core.event.event_listener import EventListener
 from hummingbot import (
     init_logging,
     check_dev_mode,
@@ -24,6 +27,8 @@ from hummingbot import (
 )
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.core.event.events import HummingbotUIEvent
+from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.utils.async_utils import safe_gather
 
 
@@ -41,6 +46,30 @@ def detect_available_port(starting_port: int) -> int:
         return current_port
 
 
+class UIStartListener(EventListener):
+    def __init__(self, hummingbot_app: HummingbotApplication):
+        super().__init__()
+        self._hb_ref: ReferenceType = ref(hummingbot_app)
+
+    def __call__(self, _):
+        asyncio.create_task(self.ui_start_handler())
+
+    @property
+    def hummingbot_app(self) -> HummingbotApplication:
+        return self._hb_ref()
+
+    async def ui_start_handler(self):
+        dev_mode: bool = check_dev_mode()
+        hb: HummingbotApplication = self.hummingbot_app
+
+        if dev_mode:
+            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
+
+        if hb.strategy_file_name is not None and hb.strategy_name is not None:
+            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
+            hb.start(global_config_map.get("log_level").value)
+
+
 async def main():
     await create_yml_files()
 
@@ -53,20 +82,10 @@ async def main():
 
     hb = HummingbotApplication.main_application()
 
-    class UIStartListener(EventListener):
-        def __call__(self, _):
-            asyncio.create_task(self.ui_start_handler())
-
-        @staticmethod
-        async def ui_start_handler():
-            dev_mode = check_dev_mode()
-            if dev_mode:
-                hb.app.log("Running from dev branches. Full remote logging will be enabled.")
-
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener()
-    hb.app.add_listener(hb.app.Event.START, start_listener)
+    start_listener: UIStartListener = UIStartListener(hb)
+    hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]
     if global_config_map.get("debug_console").value:

@@ -33,6 +33,10 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class HummingbotUIEvent(Enum):
+    Start = 1
+
+
 class TradeType(Enum):
     BUY = 1
     SELL = 2
