@@ -7,8 +7,8 @@ export const useStrategiesFilter = (category: Ref<StrategyCategory>) => {
       .sort((a, b) => a.place - b.place)
       .filter((val) => category.value === StrategyCategory.All || category.value === val.category )
     );
-    const options: string[] = Object.values(StrategyCategory);
+    const categories: string[] = Object.values(StrategyCategory);
     
-    return { strategies, options };
+    return { strategies, categories };
   };
   

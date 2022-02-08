@@ -31,7 +31,7 @@
           v-model="category"
           borderless
           input-class="flex items-center justify-center"
-          :options="options"
+          :options="categories"
           rounded
           :dropdown-icon="`img:${require('../assets/arrow-bottom.svg')}`"
           :display-value="category"
@@ -69,13 +69,13 @@ export default defineComponent({
 
   setup() {
     const category = ref(StrategyCategory.All);
-    const { strategies, options } = useStrategiesFilter(category);
+    const { strategies, categories } = useStrategiesFilter(category);
 
     return {
       FeatureBoxType,
       strategies,
       category,
-      options,
+      categories,
     };
   },
 });
