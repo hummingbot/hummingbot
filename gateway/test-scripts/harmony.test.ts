@@ -1,5 +1,5 @@
 import 'jest-extended';
-import { request } from './test.base';
+import { requestHarmony as request } from './test.base';
 
 // const ALLOWANCE = 100000;
 
