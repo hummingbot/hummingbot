@@ -32,14 +32,22 @@ class TwapTradeStrategyTest(TestCase):
 
     def test_creation_without_market_info_fails(self):
         with self.assertRaises(ValueError) as ex_context:
-            TwapTradeStrategy([])
+            TwapTradeStrategy(market_infos=[],
+                              is_buy=True,
+                              target_asset_amount=1,
+                              order_step_size=1,
+                              order_price=1)
 
         self.assertEqual(str(ex_context.exception), "market_infos must not be empty.")
 
     def test_start(self):
         exchange = MockExchange()
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = TwapTradeStrategy(market_infos=[marketTuple])
+        strategy = TwapTradeStrategy(market_infos=[marketTuple],
+                                     is_buy=True,
+                                     target_asset_amount=1,
+                                     order_step_size=1,
+                                     order_price=1)
         strategy.logger().setLevel(1)
         strategy.logger().addHandler(self)
 
@@ -52,7 +60,11 @@ class TwapTradeStrategyTest(TestCase):
         exchange = MockExchange()
         exchange.ready = False
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = TwapTradeStrategy(market_infos=[marketTuple])
+        strategy = TwapTradeStrategy(market_infos=[marketTuple],
+                                     is_buy=True,
+                                     target_asset_amount=1,
+                                     order_step_size=1,
+                                     order_price=1)
         strategy.logger().setLevel(1)
         strategy.logger().addHandler(self)
 
@@ -66,7 +78,11 @@ class TwapTradeStrategyTest(TestCase):
         exchange = MockExchange()
         exchange.ready = True
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = TwapTradeStrategy(market_infos=[marketTuple])
+        strategy = TwapTradeStrategy(market_infos=[marketTuple],
+                                     is_buy=True,
+                                     target_asset_amount=1,
+                                     order_step_size=1,
+                                     order_price=1)
         strategy.logger().setLevel(1)
         strategy.logger().addHandler(self)
 
