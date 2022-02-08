@@ -25,6 +25,8 @@ export const unitTests = async () => {
   });
 };
 
+const network = 'mainnet'; // Replace with `testnet` for testing on test net
+
 export const harmonyTests = async (
   connector: string = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506', // Sushiswap router address
   tokens: string[] = ['BTC', 'AAVE', 'AXS']
@@ -55,7 +57,7 @@ export const harmonyTests = async (
   const balancesResponse = await request('POST', '/network/balances', {
     address: publicKey,
     chain: 'harmony',
-    network: 'mainnet',
+    network,
     tokenSymbols: tokens,
   });
   // confirm and save balances
@@ -71,7 +73,7 @@ export const harmonyTests = async (
   const balancesResponse1 = await request('POST', '/network/balances', {
     address: publicKey,
     chain: 'harmony',
-    network: 'mainnet',
+    network,
     tokenSymbols: ['ABC', 'XYZ'],
   });
   expect(balancesResponse1).toBeUndefined();
@@ -82,7 +84,7 @@ export const harmonyTests = async (
   const allowancesResponse1 = await request('POST', '/evm/allowances', {
     address: publicKey,
     chain: 'harmony',
-    network: 'mainnet',
+    network,
     tokenSymbols: tokens,
     spender: connector,
   });
@@ -96,13 +98,13 @@ export const harmonyTests = async (
   //   const nonce = await request('POST', '/evm/nonce', {
   //     address: publicKey,
   //     chain: 'harmony',
-  //     network: 'mainnet',
+  //     network,
   //   });
   //   console.log(`Nonce: ${nonce.nonce}`);
   //   const approve1 = await request('POST', '/evm/approve', {
   //     address: publicKey,
   //     chain: 'harmony',
-  //     network: 'mainnet',
+  //     network,
   //     token: token,
   //     spender: connector,
   //     amount: ALLOWANCE.toString(),
@@ -119,7 +121,7 @@ export const harmonyTests = async (
   //     const allowancesResponse2 = await request('POST', '/evm/allowances', {
   //       address: publicKey,
   //       chain: 'harmony',
-  //       network: 'mainnet',
+  //       network,
   //       tokenSymbols: tokens,
   //       spender: connector,
   //     });
@@ -133,7 +135,7 @@ export const harmonyTests = async (
   const approve3 = await request('POST', '/evm/approve', {
     address: publicKey,
     chain: 'harmony',
-    network: 'mainnet',
+    network,
     token: tokens[0],
     spender: 'nill',
   });
@@ -146,7 +148,7 @@ export const harmonyTests = async (
   const approve4 = await request('POST', '/evm/approve', {
     address: publicKey,
     chain: 'harmony',
-    network: 'mainnet',
+    network,
     token: 'ABC',
     spender: connector,
   });
@@ -159,7 +161,7 @@ export const harmonyTests = async (
   const approve5 = await request('POST', '/evm/approve', {
     address: publicKey,
     chain: 'harmony',
-    network: 'mainnet',
+    network,
     token: tokens[0],
     connector: connector,
     amount: 'number',
