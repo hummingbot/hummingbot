@@ -24,9 +24,31 @@
     </div>
   </div>
   <div class="column">
-    <div class="text-white text-h4 q-mt-lg q-mb-md"> Choose Your Strategy </div>
+    <div class="row justify-between items-center">
+      <div class="text-white text-h4 q-mt-lg q-mb-md col"> Choose Your Strategy </div>
+      <div class="select flex items-center justify-center full-width">
+        <q-select
+          v-model="selectModel"
+          borderless
+          input-class="flex items-center justify-center"
+          :options="strategiesObj.options"
+          rounded
+          :dropdown-icon="`img:${require('../assets/arrow-bottom.svg')}`"
+          color="teal"
+          :display-value="selectModel"
+          :label-slot="false"
+          popup-content-class="bg-mono-grey-1 q-px-md q-py-md"
+          options-selected-class="bg-mono-grey-2 rounded-borders"
+          @update:model-value="(val) => onSelectUpdate(val)"
+        />
+      </div>
+    </div>
     <div class="row q-col-gutter-lg">
-      <div v-for="strategie in strategies" :key="strategie.place" class="col-12 col-md-6 col-lg-3">
+      <div
+        v-for="strategie in strategiesObj.strategies"
+        :key="strategie.place"
+        class="col-12 col-md-6 col-lg-3"
+      >
         <StrategyBox
           :place="strategie.place"
           :place-type="strategie.placeType"
@@ -41,18 +63,49 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 
 import FeatureBox, { FeatureBoxType } from './FeatureBox.vue';
-import { useStrategiesFilter } from './StrategyBox/composables/useStrategiesFilter';
+import {
+  StrategyCategory,
+  useStrategiesFilter,
+} from './StrategyBox/composables/useStrategiesFilter';
 import StrategyBox from './StrategyBox/StrategyBox.vue';
 
 export default defineComponent({
   components: { FeatureBox, StrategyBox },
 
   setup() {
-    const strategies = useStrategiesFilter();
-    return { FeatureBoxType, strategies };
+    const strategiesObj = ref(useStrategiesFilter(StrategyCategory.All));
+    const selectModel = ref(strategiesObj.value.options[0]);
+
+    const onSelectUpdate = (value: StrategyCategory) => {
+      strategiesObj.value = useStrategiesFilter(value);
+    };
+
+    return {
+      FeatureBoxType,
+      strategiesObj,
+
+      selectModel,
+      onSelectUpdate,
+    };
   },
 });
 </script>
+
+<style lang="scss">
+@use 'sass:map';
+.select {
+  max-width: 150px;
+}
+.select .q-field__control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.select .q-icon img {
+  max-width: 12px !important;
+  max-height: 6px !important;
+}
+</style>
