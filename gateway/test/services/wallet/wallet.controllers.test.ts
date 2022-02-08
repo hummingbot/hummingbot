@@ -1,7 +1,8 @@
 import { patch, unpatch } from '../patch';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
-// import { Harmony } from '../../../src/chains/harmony/harmony';
+import { Harmony } from '../../../src/chains/harmony/harmony';
+
 import {
   addWallet,
   getWallets,
@@ -17,7 +18,7 @@ import { ConfigManagerCertPassphrase } from '../../../src/services/config-manage
 
 let avalanche: Avalanche;
 let eth: Ethereum;
-// let harmony: Harmony;
+let harmony: Harmony;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -25,8 +26,8 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
 
   eth = Ethereum.getInstance('kovan');
-  // harmony = Harmony.getInstance('harmony_testnet');
-  // TODO: Remove comments and add tests for harmony
+
+  harmony = Harmony.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -115,6 +116,32 @@ describe('addWallet and getWallets', () => {
     expect(addresses[0]).toContain(oneAddress);
   });
 
+  it('add an Harmony wallet', async () => {
+    patch(harmony, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'harmony',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'harmony')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
       addWallet({
@@ -133,7 +160,7 @@ describe('addWallet and getWallets', () => {
   });
 });
 
-describe('addWallet and getWallets', () => {
+describe('addWallet and removeWallets', () => {
   it('remove an Ethereum wallet', async () => {
     patch(eth, 'getWallet', () => {
       return {
@@ -157,6 +184,34 @@ describe('addWallet and getWallets', () => {
 
     const addresses: string[][] = wallets
       .filter((wallet) => wallet.chain === 'ethereum')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).not.toContain(oneAddress);
+  });
+
+  it('remove an Harmony wallet', async () => {
+    patch(harmony, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'harmony',
+      network: 'testnet',
+    });
+
+    await removeWallet({ chain: 'harmony', address: oneAddress });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'harmony')
       .map((wallet) => wallet.walletAddresses);
 
     expect(addresses[0]).not.toContain(oneAddress);
