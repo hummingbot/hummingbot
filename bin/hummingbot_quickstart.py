@@ -112,12 +112,16 @@ async def quick_start(args):
                 await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
                 hb.start(global_config_map.get("log_level").value)
 
-    hb.app.add_listener(hb.app.Event.START, UIStartListener())
+    # The listener needs to have a named variable for keeping reference, since the event listener system
+    # uses weak references to remove unneeded listeners.
+    start_listener: UIStartListener = UIStartListener()
+    hb.app.add_listener(hb.app.Event.START, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]
     if global_config_map.get("debug_console").value:
         management_port: int = detect_available_port(8211)
         tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+
     await safe_gather(*tasks)
 
 

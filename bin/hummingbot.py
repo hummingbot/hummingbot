@@ -63,7 +63,10 @@ async def main():
             if dev_mode:
                 hb.app.log("Running from dev branches. Full remote logging will be enabled.")
 
-    hb.app.add_listener(hb.app.Event.START, UIStartListener())
+    # The listener needs to have a named variable for keeping reference, since the event listener system
+    # uses weak references to remove unneeded listeners.
+    start_listener: UIStartListener = UIStartListener()
+    hb.app.add_listener(hb.app.Event.START, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]
     if global_config_map.get("debug_console").value:
