@@ -1,6 +1,7 @@
 import { StatusRequest, StatusResponse } from './network.requests';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
+import { Harmony } from './harmony/harmony';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
@@ -18,6 +19,12 @@ export async function getStatus(req: StatusRequest): Promise<StatusResponse> {
     chainId = avalanche.chainId;
     rpcUrl = avalanche.rpcUrl;
     currentBlockNumber = await avalanche.getCurrentBlockNumber();
+  } else if (req.chain === 'harmony') {
+    const harmony = Harmony.getInstance(req.chain);
+    chain = harmony.chain;
+    chainId = harmony.chainId;
+    rpcUrl = harmony.rpcUrl;
+    currentBlockNumber = await harmony.getCurrentBlockNumber();
   } else if (req.chain === 'ethereum') {
     const ethereum = Ethereum.getInstance(req.chain);
     chain = ethereum.chain;

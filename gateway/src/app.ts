@@ -3,7 +3,6 @@ import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { SolanaRoutes } from './chains/solana/solana.routes';
-import { HarmonyRoutes } from './chains/harmony/harmony.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -43,7 +42,6 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
-gatewayApp.use('/harmony', HarmonyRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
@@ -102,9 +100,6 @@ gatewayApp.post(
       logger.info('Reloading Solana routes.');
       SolanaRoutes.reload();
 
-      logger.info('Reloading Harmony routes.');
-      HarmonyRoutes.reload();
-
       logger.info('Restarting gateway.');
       await stopGateway();
       await startGateway();
@@ -143,7 +138,7 @@ export const startSwagger = async () => {
       './docs/swagger/evm-routes.yml',
       './docs/swagger/network-routes.yml',
       './docs/swagger/solana-routes.yml',
-      //TODO: Add swagger for harmony
+      // './docs/swagger/harmony-routes.yml',
     ]
   );
 
