@@ -34,11 +34,10 @@
           :options="strategiesObj.options"
           rounded
           :dropdown-icon="`img:${require('../assets/arrow-bottom.svg')}`"
-          color="teal"
           :display-value="selectModel"
           :label-slot="false"
-          popup-content-class="bg-mono-grey-1 q-px-md q-py-md"
-          options-selected-class="bg-mono-grey-2 rounded-borders"
+          popup-content-class="bg-mono-grey-2 q-px-md q-py-md"
+          options-selected-class="bg-mono-grey-1 rounded-borders"
           @update:model-value="(val) => onSelectUpdate(val)"
         />
       </div>
