@@ -6,7 +6,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
 // import { SushiSwapConfig } from './sushiswap/sushiswap.config';
-import { Ethereumish } from '../../services/ethereumish.interface';
+import { Ethereumish } from '../../services/common-interfaces';
 
 export class Harmony extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Harmony };
@@ -137,18 +137,17 @@ export class Harmony extends EthereumBase implements Ethereumish {
   }
 
   getSpender(reqSpender: string): string {
-    // TODO: Get spender from sushisawp or viperswap
-    // let spender: string;
-    // if (reqSpender === 'uniswap') {
-    //   spender = UniswapConfig.config.uniswapV2RouterAddress;
-    // } else {
-    //   spender = reqSpender;
-    // }
-
-    // spender = reqSpender;
-    // return spender;
-
-    return reqSpender;
+    // TODO: add SushiswapConfig and ViperswapConfig
+    let spender: string;
+    if (reqSpender === 'sushiswap') {
+      spender = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506';
+    }
+    if (reqSpender === 'viperswap') {
+      spender = '0xf012702a5f0e54015362cbca26a26fc90aa832a3';
+    } else {
+      spender = reqSpender;
+    }
+    return spender;
   }
 
   // cancel transaction
