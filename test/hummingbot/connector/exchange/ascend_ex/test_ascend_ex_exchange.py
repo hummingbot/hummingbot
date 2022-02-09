@@ -2,24 +2,25 @@ import asyncio
 import json
 import re
 import unittest
-
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExCommissionType,
     AscendExExchange,
-    AscendExTradingRule,
+    AscendExTradingRule
 )
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, MarketOrderFailureEvent, OrderType, TradeType
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestAscendExExchange(unittest.TestCase):
@@ -300,3 +301,31 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertNotIn("OID2", self.exchange.in_flight_orders)
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 6
+
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=self.trading_pair, hbot_order_id_prefix=ascend_ex_utils.HBOT_BROKER_ID
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=self.trading_pair, hbot_order_id_prefix=ascend_ex_utils.HBOT_BROKER_ID
+        )
+
+        self.assertEqual(result, expected_client_order_id)

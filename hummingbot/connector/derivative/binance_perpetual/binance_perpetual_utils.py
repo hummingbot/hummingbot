@@ -1,12 +1,10 @@
-import os
-import socket
 from typing import Any, Dict, Optional
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
@@ -36,15 +34,9 @@ class BinancePerpetualRESTPreProcessor(RESTPreProcessorBase):
         return request
 
 
-def get_client_order_id(order_side: str, trading_pair: object):
-    nonce = get_tracking_nonce()
-    symbols: str = trading_pair.split("-")
-    base: str = symbols[0].upper()
-    quote: str = symbols[1].upper()
-    base_str = f"{base[0]}{base[-1]}"
-    quote_str = f"{quote[0]}{quote[-1]}"
-    client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
-    return f"{BROKER_ID}-{order_side.upper()[0]}{base_str}{quote_str}{client_instance_id}{nonce}"
+def get_new_binance_perpetual_client_order_id(is_buy: bool, trading_pair: str):
+    client_order_id = get_new_client_order_id(is_buy, trading_pair, BROKER_ID)
+    return client_order_id
 
 
 def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):

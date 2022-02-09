@@ -2,6 +2,9 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 import zlib
 
+from hummingbot.connector.utils import get_new_client_order_id
+
+CLIENT_ID_PREFIX = "93027a12dac34fBC"
 
 CENTRALIZED = True
 
@@ -41,3 +44,8 @@ def inflate(data):
     inflated = decompress.decompress(data)
     inflated += decompress._flush()
     return inflated.decode('utf-8')
+
+
+def get_new_okex_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    client_order_id = get_new_client_order_id(is_buy, trading_pair, CLIENT_ID_PREFIX)
+    return client_order_id

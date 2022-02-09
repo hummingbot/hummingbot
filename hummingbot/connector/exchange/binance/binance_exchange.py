@@ -391,7 +391,7 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        new_order_id = binance_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
+        new_order_id = binance_utils.get_new_binance_client_order_id(is_buy=True, trading_pair=trading_pair)
         safe_ensure_future(self._create_order(TradeType.BUY, new_order_id, trading_pair, amount, order_type, price))
         return new_order_id
 
@@ -405,7 +405,7 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = binance_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
+        order_id = binance_utils.get_new_binance_client_order_id(is_buy=False, trading_pair=trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 

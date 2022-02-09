@@ -459,7 +459,7 @@ class AscendExExchange(ExchangePyBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        client_order_id = ascend_ex_utils.gen_client_order_id(True, trading_pair)
+        client_order_id = ascend_ex_utils.get_new_ascend_ex_client_order_id(True, trading_pair)
         safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
@@ -476,7 +476,7 @@ class AscendExExchange(ExchangePyBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        client_order_id = ascend_ex_utils.gen_client_order_id(False, trading_pair)
+        client_order_id = ascend_ex_utils.get_new_ascend_ex_client_order_id(False, trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
