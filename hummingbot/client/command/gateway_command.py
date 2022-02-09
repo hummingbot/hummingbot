@@ -310,9 +310,8 @@ class GatewayCommand:
             if connections == []:
                 self.notify("No existing connection.\n")
             else:
-                lines = []
-                build_connector_display(lines, connections)
-                self.notify("\n".join(lines))
+                connector_df = build_connector_display(connections)
+                self.notify(connector_df.to_string(index=False))
 
         else:
             # get available networks
@@ -367,25 +366,22 @@ class GatewayCommand:
                 self.placeholder_mode = True
                 use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
 
+                self.app.clear_input()
                 # they use an existing wallet
                 if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
                     native_token = native_tokens[chain]
                     wallet_table = []
-                    wallet_table_lines = []
                     for w in wallets:
                         balances = await self._api_request("post", "network/balances", {"chain": chain, "network": network, "address": w, "tokenSymbols": [native_token]})
-                        self.notify(f"{balances}")
                         wallet_table.append({"balance": balances['balances'][native_token], "address": w})
 
-                    build_wallet_display(wallet_table_lines, native_token, wallet_table)
-                    wallet_table_display = "\n".join(wallet_table_lines)
-                    self.notify(f"{wallet_table_display}")
+                    wallet_df = build_wallet_display(native_token, wallet_table)
+                    self.notify(wallet_df.to_string(index=False))
 
                     while True:
-                        self.app.clear_input()
                         self.placeholder_mode = True
 
-                        wallet = await self.app.prompt(prompt="Select a wallet >>> ")
+                        wallet = await self.app.prompt(prompt="Select a gateway wallet >>> ")
                         if wallet in wallets:
                             self.notify(f"You have selected {wallet}")
                             break
@@ -393,7 +389,6 @@ class GatewayCommand:
 
                 # they want to create a new wallet even though they have other ones
                 else:
-                    self.app.clear_input()
                     self.placeholder_mode = True
                     new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
                     response = await self._api_request("post" "wallet/add", {"chain": chain, "network": network, "privateKey": new_wallet})

@@ -1,8 +1,27 @@
 from copy import deepcopy
+from hummingbot.client.settings import (CONF_FILE_PATH)
+from os import path
 from typing import List, Dict, Any, Optional
-
+import json
+import pandas as pd
 
 native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
+
+
+def list_gateway_connection_wallets():
+    """
+    Get the public keys for a chain supported by gateway that hummingbot knows
+    about. There may be some public keys in gateway that hummingbot is not using.
+    """
+    # connector: str, chain: str, network: str):
+    connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
+    if path.exists(connections_fp):
+        with open(connections_fp) as f:
+            connections = json.loads(f.read())
+            return [c["wallet_address"] for c in connections]
+            # return [c["wallet_address"] for c in connections if c["connector"] is connector and c["chain"] is chain and c["network"] is network]
+    else:
+        return []
 
 
 def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, wallet):
@@ -20,29 +39,28 @@ def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, networ
         connectors.append(new_connector)
 
 
-def build_wallet_display(lines: List[str], native_token: str, wallets: List[Dict[str, Any]]):
+def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]):
     """
     Display user wallets for a particular chain as a table
     """
-    lines.append("+--------------|-------------------+")
-    lines.append(f"| Wallet      | {native_token}       |")
-    lines.append("+--------------|-------------------+")
-
+    columns = ["Wallet", native_token]
+    data = []
     for dict in wallets:
-        lines.append(f"| {dict['address']} | {dict['balance']} |")
-    lines.append("+--------------|-------------------+")
+        data.extend([[dict['address'], dict['balance']]])
+
+    return pd.DataFrame(data=data, columns=columns)
 
 
-def build_connector_display(lines: List[str], connectors: List[Dict[str, Any]]):
+def build_connector_display(connectors: List[Dict[str, Any]]):
     """
     Display connector information as a table
     """
-    lines.append("+--------------|-------------------|---------------+")
-    lines.append("| Exchange     | Network           | Wallet        |")
-    lines.append("+--------------|-------------------|---------------+")
+    columns = ["Exchange", "Network", "Wallet"]
+    data = []
     for dict in connectors:
-        lines.append(f"| {dict['connector']} | {dict['chain']} - {dict['network']} | {dict['wallet_address']} |")
-    lines.append("+--------------+-------------------+---------------+")
+        data.extend([[dict['connector'], f"{dict['chain']} - {dict['network']}", dict['wallet_address']]])
+
+    return pd.DataFrame(data=data, columns=columns)
 
 
 def build_config_dict_display(lines: List[str], config_dict: Dict[str, Any], level: int = 0):
