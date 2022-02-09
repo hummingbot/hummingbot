@@ -39,7 +39,7 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class GatewayBasicTrading(ConnectorBase):
+class GatewayEVMAMM(ConnectorBase):
     """
     Defines basic funtions common to connectors that interract with Gateway.
     """

@@ -9,10 +9,10 @@ import aiohttp
 from aioresponses import aioresponses
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.gateway_basic_trading import GatewayBasicTrading
+from hummingbot.connector.gateway_basic_trading import GatewayEVMAMM
 
 
-class GatewayBasicTradingTest(unittest.TestCase):
+class GatewayEVMAMMTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.base = "COINALHPA"
@@ -23,7 +23,7 @@ class GatewayBasicTradingTest(unittest.TestCase):
         self.gateway_port = 123
         global_config_map["gateway_api_host"].value = self.gateway_host
         global_config_map["gateway_api_port"].value = self.gateway_port
-        self.connector = GatewayBasicTrading(
+        self.connector = GatewayEVMAMM(
             connector_name = "uniswap",
             chain = "ethereum",
             network = "mainnet",
@@ -38,7 +38,7 @@ class GatewayBasicTradingTest(unittest.TestCase):
 
     @aioresponses()
     @patch(
-        "hummingbot.connector.gateway_basic_trading.GatewayBasicTrading._http_client",
+        "hummingbot.connector.gateway_basic_trading.GatewayEVMAMM._http_client",
         new_callable=AsyncMock
     )
     def test_get_quote_price_updates_fee_overrides_config_map(self, mocked_api, mocked_http_client):
