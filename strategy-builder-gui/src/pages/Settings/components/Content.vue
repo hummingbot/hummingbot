@@ -1,9 +1,13 @@
 <template>
-  <div>Settings page</div>
+  <div><Steps /></div>
 </template>
 
 <script>
 import { defineComponent } from 'vue';
 
-export default defineComponent({});
+import Steps from './Stepper/Steps.vue';
+
+export default defineComponent({
+  components: { Steps },
+});
 </script>
