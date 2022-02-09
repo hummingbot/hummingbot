@@ -18,6 +18,7 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import FundingInfo, MarketEvent
@@ -176,9 +177,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.mock_done_event.set()
 
     @aioresponses()
-    @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
-    def test_create_buy_order(self, post_mock, nonce_provider_mock):
-        nonce_provider_mock.return_value = 1000
+    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    def test_create_buy_order(self, post_mock, mocked_nonce):
+        mocked_nonce.return_value = 5
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -205,7 +206,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": bybit_utils.get_new_client_order_id(True, self.trading_pair),
+                "order_link_id": get_new_client_order_id(True, self.trading_pair),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -229,7 +230,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(f"HBOT-B-{self.trading_pair}-1000", new_order_id)
+        self.assertEqual(get_new_client_order_id(True, self.trading_pair), new_order_id)
         self.assertEqual("Buy", result["side"])
         self.assertEqual(self.ex_trading_pair, result["symbol"])
         self.assertEqual("Limit", result["order_type"])
@@ -511,9 +512,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 46000."))
 
     @aioresponses()
-    @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
-    def test_create_sell_order(self, post_mock, nonce_provider_mock):
-        nonce_provider_mock.return_value = 1000
+    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    def test_create_sell_order(self, post_mock, mocked_nonce):
+        mocked_nonce.return_value = 6
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -539,7 +540,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": bybit_utils.get_new_client_order_id(False, self.trading_pair),
+                "order_link_id": get_new_client_order_id(False, self.trading_pair),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -563,7 +564,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(f"HBOT-S-{self.trading_pair}-1000", new_order_id)
+        self.assertEqual(get_new_client_order_id(False, self.trading_pair), new_order_id)
         self.assertEqual("Sell", result["side"])
         self.assertEqual("BTCUSDT", result["symbol"])
         self.assertEqual("Market", result["order_type"])
@@ -2688,3 +2689,33 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertEqual(self.non_linear_base, non_linear_buy_collateral_token)
         self.assertEqual(self.non_linear_base, non_linear_sell_collateral_token)
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 5
+
+        result = self.connector.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+            position_action="OPEN",
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=self.trading_pair
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.connector.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+            position_action="OPEN",
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=self.trading_pair
+        )
+
+        self.assertEqual(result, expected_client_order_id)

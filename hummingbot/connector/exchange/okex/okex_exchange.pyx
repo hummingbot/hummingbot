@@ -19,6 +19,7 @@ from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
 from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
 from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
+from hummingbot.connector.exchange.okex.okex_utils import get_new_okex_client_order_id
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
     s_decimal_NaN)
@@ -55,7 +56,6 @@ from hummingbot.logger import HummingbotLogger
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = "-"
-CLIENT_ID_PREFIX = "93027a12dac34fBC"
 
 
 class OKExAPIError(IOError):
@@ -739,8 +739,7 @@ cdef class OkexExchange(ExchangeBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"{CLIENT_ID_PREFIX}{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = get_new_okex_client_order_id(is_buy=True, trading_pair=trading_pair)
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -811,8 +810,7 @@ cdef class OkexExchange(ExchangeBase):
                     object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"{CLIENT_ID_PREFIX}{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = get_new_okex_client_order_id(is_buy=False, trading_pair=trading_pair)
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id

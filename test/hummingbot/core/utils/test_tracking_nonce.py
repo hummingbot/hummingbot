@@ -1,5 +1,8 @@
+import time
 from unittest import TestCase
 import asyncio
+from unittest.mock import patch
+
 import hummingbot.core.utils.tracking_nonce as tracking_nonce
 
 
@@ -31,17 +34,14 @@ class TrackingNonceTest(TestCase):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
         self.assertGreaterEqual(ret[1], ret[0])
 
-    def test_resolution_difference_between_high_and_low_res(self):
-        async def task():
-            return tracking_nonce.get_tracking_nonce()
-        tasks = [task(), task()]
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
-        high_res_diff = ret[1] - ret[0]
+    @patch("hummingbot.core.utils.tracking_nonce._time")
+    def test_get_tracking_nonce_short(self, mocked_time):
+        t = time.time()
+        mocked_time.return_value = t
+        tracking_nonce.nonce_multiplier_power = 2
 
-        async def task():
-            return tracking_nonce.get_tracking_nonce_low_res()
-        tasks = [task(), task()]
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.gather(*tasks))
-        low_res_diff = ret[1] - ret[0]
+        n1 = tracking_nonce.get_tracking_nonce_short()
+        n2 = tracking_nonce.get_tracking_nonce_short()
 
-        self.assertGreater(high_res_diff, low_res_diff)
+        self.assertEqual(f"{int(t)}00", str(n1))
+        self.assertEqual(f"{int(t)}01", str(n2))

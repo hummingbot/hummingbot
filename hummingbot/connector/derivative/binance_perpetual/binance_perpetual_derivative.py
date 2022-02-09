@@ -238,8 +238,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        t_pair: str = trading_pair
-        order_id: str = utils.get_client_order_id("buy", t_pair)
+        order_id: str = utils.get_new_binance_perpetual_client_order_id(is_buy=True, trading_pair=trading_pair)
         safe_ensure_future(
             self._create_order(TradeType.BUY,
                                order_id,
@@ -277,8 +276,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        t_pair: str = trading_pair
-        order_id: str = utils.get_client_order_id("sell", t_pair)
+        order_id: str = utils.get_new_binance_perpetual_client_order_id(is_buy=False, trading_pair=trading_pair)
         safe_ensure_future(
             self._create_order(TradeType.SELL,
                                order_id,

@@ -8,13 +8,13 @@ from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.connections.data_types import (
     RESTMethod, RESTResponse, EndpointRESTRequest
 )
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
@@ -78,15 +78,11 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "_").upper()
 
 
-def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "B" if is_buy else "S"
-    symbols = trading_pair.split("-")
-    base = symbols[0].upper()
-    quote = symbols[1].upper()
-    base_str = f"{base[0]}{base[-1]}"
-    quote_str = f"{quote[0]}{quote[-1]}"
-    # Max length 30 chars including `t-`
-    return f"{CONSTANTS.HBOT_ORDER_ID}-{side}-{base_str}{quote_str}{get_tracking_nonce()}"
+def get_new_gate_io_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    order_id = get_new_client_order_id(
+        is_buy, trading_pair, hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID, max_id_len=CONSTANTS.MAX_ID_LEN
+    )
+    return order_id
 
 
 def retry_sleep_time(try_count: int) -> float:
