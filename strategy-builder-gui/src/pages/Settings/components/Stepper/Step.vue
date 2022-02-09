@@ -10,7 +10,20 @@
 </template>
 
 <script>
-export default {};
+import { defineComponent, PropType } from 'vue';
+
+export enum StepStatus {
+    completed,
+    inProgress,
+    notStarded,
+}
+export default defineComponent({
+    props: {
+        status: {type: Number as PropType<StepStatus>, required: true, default: () => StepStatus.notStarded},
+        title: { type: String, requaried: true, default: () => '' },
+        desc: { type: String, requaried: true, default: () => '' },
+    }
+});
 </script>
 
 <style></style>
