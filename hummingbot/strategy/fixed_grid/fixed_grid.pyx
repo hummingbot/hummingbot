@@ -727,20 +727,20 @@ cdef class FixedGridStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
+            ExchangeBase market = self._market_info.market
+            
         if limit_order_record is None:
             return
         active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
 
 
         # delay order creation by filled_order_dalay (in seconds)
-        self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        # self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._create_timestamp = self._current_timestamp + self._order_refresh_time
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         self._filled_buys_balance += 1
         self._last_own_trade_price = limit_order_record.price
-
-        if self._inv_correct is True:
-            self._current_level = self._current_level - 1
 
         self.log_with_clock(
             logging.INFO,
@@ -748,7 +748,18 @@ cdef class FixedGridStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app_with_timestamp(
+
+        if self._inv_correct is True:
+            # Set the new level
+            self._current_level = self._current_level - 1
+            # Add sell order above current level
+            price = self._price_levels[self._current_level+1]
+            price = market.c_quantize_order_price(self.trading_pair, price)
+            size = self._order_amount
+            size = market.c_quantize_order_amount(self.trading_pair, size)
+            self.c_execute_orders_proposal(Proposal([], [PriceSize(price, size)]))
+
+        self.notify_hb_app(
             f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -757,6 +768,8 @@ cdef class FixedGridStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             LimitOrder limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
+            ExchangeBase market = self._market_info.market
+
         if limit_order_record is None:
             return
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
@@ -768,16 +781,24 @@ cdef class FixedGridStrategy(StrategyBase):
         self._filled_sells_balance += 1
         self._last_own_trade_price = limit_order_record.price
 
-        if self._inv_correct is True:
-            self._current_level = self._current_level + 1
-
         self.log_with_clock(
             logging.INFO,
             f"({self.trading_pair}) Maker sell order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app_with_timestamp(
+
+        if self._inv_correct is True:
+            # Set the new level
+            self._current_level = self._current_level + 1
+            # Add buy order above current level
+            price = self._price_levels[self._current_level-1]
+            price = market.c_quantize_order_price(self.trading_pair, price)
+            size = self._order_amount
+            size = market.c_quantize_order_amount(self.trading_pair, size)
+            self.c_execute_orders_proposal(Proposal([PriceSize(price, size)], []))
+
+        self.notify_hb_app(
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
