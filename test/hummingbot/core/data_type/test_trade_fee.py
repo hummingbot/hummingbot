@@ -222,6 +222,32 @@ class TradeFeeTests(TestCase):
 
         self.assertEqual(fee, TradeFeeBase.from_json(fee.to_json()))
 
+    def test_added_to_cost_fee_amount_in_token_does_not_look_for_convertion_rate_when_percentage_zero(self):
+        # Configure fee to use a percent token different from the token used to request the fee value
+        # That forces the logic to need the convertion rate if the fee amount is calculated
+        fee = AddedToCostTradeFee(percent=Decimal("0"), percent_token="COINALPHA")
+
+        fee_amount = fee.fee_amount_in_token(
+            trading_pair="HBOT-COINALPHA",
+            price=Decimal("1000"),
+            order_amount=Decimal("1"),
+            token="BNB")
+
+        self.assertEqual(Decimal("0"), fee_amount)
+
+    def test_deducted_from_returns_fee_amount_in_token_does_not_look_for_convertion_rate_when_percentage_zero(self):
+        # Configure fee to use a percent token different from the token used to request the fee value
+        # That forces the logic to need the convertion rate if the fee amount is calculated
+        fee = DeductedFromReturnsTradeFee(percent=Decimal("0"), percent_token="COINALPHA")
+
+        fee_amount = fee.fee_amount_in_token(
+            trading_pair="HBOT-COINALPHA",
+            price=Decimal("1000"),
+            order_amount=Decimal("1"),
+            token="BNB")
+
+        self.assertEqual(Decimal("0"), fee_amount)
+
 
 class TokenAmountTests(TestCase):
 
