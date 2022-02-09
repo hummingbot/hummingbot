@@ -17,6 +17,7 @@ from hummingbot.client.settings import (
     ConnectorType
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
+from hummingbot.core.utils.gateway_config_utils import list_gateway_connection_wallets
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
@@ -82,6 +83,10 @@ class HummingbotCompleter(Completer):
     @property
     def _wallet_address_completer(self):
         return WordCompleter(list_wallets(), ignore_case=True)
+
+    @property
+    def _gateway_connection_wallet_address_completer(self):
+        return WordCompleter(list_gateway_connection_wallets(), ignore_case=True)
 
     @property
     def _option_completer(self):
@@ -164,6 +169,9 @@ class HummingbotCompleter(Completer):
     def _complete_wallet_addresses(self, document: Document) -> bool:
         return "Which wallet" in self.prompt_text
 
+    def _complete_gateway_connection_wallet_addresses(self, document: Document) -> bool:
+        return "Select a gateway wallet" in self.prompt_text
+
     def _complete_command(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return " " not in text_before_cursor and len(self.prompt_text.replace(">>> ", "")) == 0
@@ -201,6 +209,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_wallet_addresses(document):
             for c in self._wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_connection_wallet_addresses(document):
+            for c in self._gateway_connection_wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_spot_connectors(document):
