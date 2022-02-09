@@ -38,7 +38,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "lint-staged --relative"
+      "pre-commit": "npx lint-staged --relative"
     }
   },
   "lint-staged": {
