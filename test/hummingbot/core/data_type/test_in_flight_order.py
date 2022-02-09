@@ -3,7 +3,7 @@ import time
 import unittest
 from decimal import Decimal
 from typing import Awaitable
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -66,11 +66,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
     def _simulate_order_completely_filled(self, order: InFlightOrder):
         order.current_state = OrderState.FILLED
         order.executed_amount_base = order.amount
-
-    def _mock_connector(self):
-        mock_connector = MagicMock()
-        mock_connector.order_books.return_value = dict()
-        return mock_connector
 
     def test_in_flight_order_states(self):
         order: InFlightOrder = InFlightOrder(
@@ -394,8 +389,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(order_json["amount"], str(order.amount))
         self.assertEqual(order_json["executed_amount_base"], str(order.executed_amount_base))
         self.assertEqual(order_json["executed_amount_quote"], str(order.executed_amount_quote))
-        self.assertEqual(order_json["fee_asset"], order.fee_asset)
-        self.assertEqual(order_json["fee_paid"], str(order.cumulative_fee_paid))
         self.assertEqual(order_json["last_state"], str(order.current_state.value))
         self.assertEqual(order_json["leverage"], str(order.leverage))
         self.assertEqual(order_json["position"], order.position.value)
@@ -453,18 +446,11 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             trading_pair=self.trading_pair,
             update_timestamp=1,
             new_state=OrderState.OPEN,
-            fill_price=Decimal("1.0"),
-            executed_amount_base=Decimal("1000.0"),
-            executed_amount_quote=Decimal("1000.0"),
-            fee_asset=self.base_asset,
-            cumulative_fee_paid=self.trade_fee_percent * Decimal("1000.0"),
         )
 
         self.assertFalse(order.update_with_order_update(mismatch_order_update))
         self.assertEqual(Decimal("0"), order.executed_amount_base)
         self.assertEqual(Decimal("0"), order.executed_amount_quote)
-        self.assertIsNone(order.fee_asset)
-        self.assertEqual(Decimal("0"), order.cumulative_fee_paid)
         self.assertEqual(-1, order.last_update_timestamp)
 
     def test_update_with_order_update_open_order(self):
@@ -488,8 +474,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertTrue(order.update_with_order_update(open_order_update))
         self.assertEqual(Decimal("0"), order.executed_amount_base)
         self.assertEqual(Decimal("0"), order.executed_amount_quote)
-        self.assertIsNone(order.fee_asset)
-        self.assertEqual(Decimal("0"), order.cumulative_fee_paid)
         self.assertEqual(1, order.last_update_timestamp)
 
     def test_update_with_order_update_multiple_order_updates(self):
@@ -502,55 +486,34 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
         )
 
-        initial_fill_price: Decimal = Decimal("0.5")
-        initial_executed_amount_base: Decimal = order.amount / Decimal("2.0")
-        initial_executed_amount_quote = initial_fill_price * initial_executed_amount_base
         order_update_1: OrderUpdate = OrderUpdate(
             client_order_id=self.client_order_id,
             exchange_order_id=self.exchange_order_id,
             trading_pair=self.trading_pair,
             update_timestamp=1,
             new_state=OrderState.PARTIALLY_FILLED,
-            fill_price=initial_fill_price,
-            executed_amount_base=initial_executed_amount_base,
-            executed_amount_quote=(initial_executed_amount_base * initial_fill_price),
-            fee_asset=self.base_asset,
-            cumulative_fee_paid=self.trade_fee_percent * initial_executed_amount_base,
         )
 
         self.assertTrue(order.update_with_order_update(order_update_1))
         # Order updates should not modify executed values
         self.assertEqual(Decimal(0), order.executed_amount_base)
         self.assertEqual(Decimal(0), order.executed_amount_quote)
-        self.assertEqual(order.fee_asset, self.base_asset)
-        self.assertEqual(order.cumulative_fee_paid, self.trade_fee_percent * initial_executed_amount_base)
         self.assertEqual(order.last_update_timestamp, 1)
         self.assertEqual(0, len(order.order_fills))
         self.assertTrue(order.is_open)
 
-        subsequent_executed_amount_base: Decimal = order.amount - initial_executed_amount_base
-        subsequent_executed_amount_quote: Decimal = order.price * subsequent_executed_amount_base
         order_update_2: OrderUpdate = OrderUpdate(
             client_order_id=self.client_order_id,
             exchange_order_id=self.exchange_order_id,
             trading_pair=self.trading_pair,
             update_timestamp=2,
             new_state=OrderState.FILLED,
-            fill_price=order.price,
-            executed_amount_base=order.amount,
-            # Note: We take into consideration the weighted avg fill price for executed_amount_quote
-            executed_amount_quote=initial_executed_amount_quote + subsequent_executed_amount_quote,
-            fee_asset=self.base_asset,
-            cumulative_fee_paid=(self.trade_fee_percent * initial_executed_amount_base
-                                 + (self.trade_fee_percent * subsequent_executed_amount_base)),
         )
 
         self.assertTrue(order.update_with_order_update(order_update_2))
         # Order updates should not modify executed values
         self.assertEqual(Decimal(0), order.executed_amount_base)
         self.assertEqual(Decimal(0), order.executed_amount_quote)
-        self.assertEqual(order.fee_asset, self.base_asset)
-        self.assertEqual(order.cumulative_fee_paid, self.trade_fee_percent * order.amount)
         self.assertEqual(order.last_update_timestamp, 2)
         self.assertEqual(0, len(order.order_fills))
         self.assertTrue(order.is_done)
@@ -602,11 +565,9 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_timestamp=1,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
+        self.assertTrue(order.update_with_trade_update(trade_update))
         self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
-        self.assertEqual(order.fee_asset, trade_update.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid, self.trade_fee_percent * Decimal("500.0"))
         self.assertEqual(order.last_update_timestamp, trade_update.fill_timestamp)
         self.assertEqual(1, len(order.order_fills))
         self.assertIn(trade_update.trade_id, order.order_fills)
@@ -634,17 +595,15 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_timestamp=1,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
+        self.assertTrue(order.update_with_trade_update(trade_update))
         self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
-        self.assertEqual(order.fee_asset, trade_update.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid, trade_update.fee.flat_fees[0].amount)
         self.assertEqual(order.last_update_timestamp, trade_update.fill_timestamp)
         self.assertEqual(1, len(order.order_fills))
         self.assertIn(trade_update.trade_id, order.order_fills)
 
         # Ignores duplicate trade update
-        self.assertFalse(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
+        self.assertFalse(order.update_with_trade_update(trade_update))
 
     def test_update_with_trade_update_multiple_trade_updates(self):
         order: InFlightOrder = InFlightOrder(
@@ -686,26 +645,21 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_timestamp=2,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update_1, connector=self._mock_connector()))
+        self.assertTrue(order.update_with_trade_update(trade_update_1))
         self.assertIn(trade_update_1.trade_id, order.order_fills)
         self.assertEqual(order.executed_amount_base, trade_update_1.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update_1.fill_quote_amount)
-        self.assertEqual(order.fee_asset, trade_update_1.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid, trade_update_1.fee.flat_fees[0].amount)
         self.assertEqual(order.last_update_timestamp, trade_update_1.fill_timestamp)
         self.assertEqual(1, len(order.order_fills))
 
         self.assertTrue(order.is_open)
 
-        self.assertTrue(order.update_with_trade_update(trade_update_2, connector=self._mock_connector()))
+        self.assertTrue(order.update_with_trade_update(trade_update_2))
         self.assertIn(trade_update_2.trade_id, order.order_fills)
         self.assertEqual(order.executed_amount_base, order.amount)
         self.assertEqual(
             order.executed_amount_quote, trade_update_1.fill_quote_amount + trade_update_2.fill_quote_amount
         )
-        self.assertEqual(order.fee_asset, trade_update_2.fee_asset)
-        self.assertEqual(order.cumulative_fee_paid,
-                         trade_update_1.fee.flat_fees[0].amount + trade_update_2.fee.flat_fees[0].amount)
         self.assertEqual(order.last_update_timestamp, trade_update_2.fill_timestamp)
         self.assertEqual(2, len(order.order_fills))
         self.assertEqual(
@@ -739,6 +693,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_timestamp=1,
         )
 
-        self.assertTrue(order.update_with_trade_update(trade_update, connector=self._mock_connector()))
+        self.assertTrue(order.update_with_trade_update(trade_update))
         self.assertIsNone(order.exchange_order_id)
         self.assertFalse(order.exchange_order_id_update_event.is_set())

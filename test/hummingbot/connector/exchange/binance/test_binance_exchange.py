@@ -265,8 +265,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={int(self.exchange.current_timestamp * 1e3)}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                f"executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None)"
+                f"client_order_id='OID1', exchange_order_id=None)"
             )
         )
 
@@ -319,8 +318,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={int(self.exchange.current_timestamp * 1e3)}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                "executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None)"
+                "client_order_id='OID1', exchange_order_id=None)"
             )
         )
 
@@ -882,10 +880,8 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
-        self.assertIsNone(buy_event.fee_asset)
         self.assertEqual(Decimal(0), buy_event.base_asset_amount)
         self.assertEqual(Decimal(0), buy_event.quote_asset_amount)
-        self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1021,9 +1017,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={int(order_status['updateTime'])}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
-                f"fee_asset=None, cumulative_fee_paid=None)")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
         )
 
     @aioresponses()
@@ -1386,7 +1380,6 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(event_message["N"], buy_event.fee_asset)
         self.assertEqual(order.amount, buy_event.base_asset_amount)
         self.assertEqual(Decimal(event_message["Z"]), buy_event.quote_asset_amount)
-        self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
