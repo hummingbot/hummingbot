@@ -185,10 +185,10 @@ class ClientOrderTracker:
                 order.client_order_id,
                 order.base_asset,
                 order.quote_asset,
-                order.fee_asset,
+                order.quote_asset,
                 order.executed_amount_base,
                 order.executed_amount_quote,
-                order.cumulative_fee_paid,
+                order.cumulative_fee_paid(order.quote_asset),
                 order.order_type,
                 order.exchange_order_id,
             ),
@@ -286,7 +286,7 @@ class ClientOrderTracker:
         if tracked_order:
             previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
 
-            updated: bool = tracked_order.update_with_trade_update(trade_update, connector=self._connector)
+            updated: bool = tracked_order.update_with_trade_update(trade_update)
             if updated:
                 self._trigger_order_fills(
                     tracked_order=tracked_order,

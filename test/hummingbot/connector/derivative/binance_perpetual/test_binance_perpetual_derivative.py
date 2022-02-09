@@ -570,7 +570,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
@@ -624,9 +623,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(50), order.cumulative_fee_paid)
-
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
@@ -636,7 +632,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
         buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
         self.assertEqual(Decimal(50), buy_complete_event.fee_amount)
-        self.assertEqual(partial_fill["o"]["N"], buy_complete_event.fee_asset)
 
     def test_sell_order_fill_event_takes_fee_from_update_event(self):
         self.exchange.start_tracking_order(
@@ -700,7 +695,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
@@ -754,9 +748,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
-        self.assertEqual(Decimal(50), order.cumulative_fee_paid)
-
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
@@ -766,7 +757,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
         sell_complete_event: SellOrderCompletedEvent = self.sell_order_completed_logger.event_log[0]
         self.assertEqual(Decimal(50), sell_complete_event.fee_amount)
-        self.assertEqual(partial_fill["o"]["N"], sell_complete_event.fee_asset)
 
     def test_order_fill_event_ignored_for_repeated_trade_id(self):
         self.exchange.start_tracking_order(
@@ -830,7 +820,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
@@ -883,7 +872,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
@@ -945,8 +933,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
         self.async_run_with_timeout(task)
 
-        self.assertIsNone(order.fee_asset)
-        self.assertEqual(Decimal(0), order.cumulative_fee_paid)
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
@@ -1130,8 +1116,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(0.5, in_flight_orders["OID1"].executed_amount_base)
         self.assertEqual(5000, in_flight_orders["OID1"].executed_amount_quote)
-        self.assertEqual(self.quote_asset, in_flight_orders["OID1"].fee_asset)
-        self.assertEqual(0, in_flight_orders["OID1"].cumulative_fee_paid)
         self.assertEqual(1, in_flight_orders["OID1"].last_update_timestamp)
 
         self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
@@ -1182,8 +1166,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(0, in_flight_orders["OID1"].executed_amount_base)
         self.assertEqual(0, in_flight_orders["OID1"].executed_amount_quote)
-        self.assertEqual(None, in_flight_orders["OID1"].fee_asset)
-        self.assertEqual(0, in_flight_orders["OID1"].cumulative_fee_paid)
         self.assertEqual(-1, in_flight_orders["OID1"].last_update_timestamp)
 
         # Error was logged
@@ -1258,8 +1240,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         # Processing an order update should not impact trade fill information
         self.assertEqual(Decimal("0"), in_flight_orders["OID1"].executed_amount_base)
         self.assertEqual(Decimal("0"), in_flight_orders["OID1"].executed_amount_quote)
-        self.assertIsNone(in_flight_orders["OID1"].fee_asset)
-        self.assertEqual(Decimal("0"), in_flight_orders["OID1"].cumulative_fee_paid)
 
         self.assertEqual(2, in_flight_orders["OID1"].last_update_timestamp)
 

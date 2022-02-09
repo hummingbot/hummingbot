@@ -636,7 +636,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if trade_id != "0":  # Indicates that there has been a trade
 
-                fee_asset = order_message.get("N", tracked_order.fee_asset)
+                fee_asset = order_message.get("N", tracked_order.quote_asset)
                 fee_amount = Decimal(order_message.get("n", "0"))
                 position_side = order_message.get("ps", "LONG")
                 position_action = (PositionAction.OPEN
@@ -1058,8 +1058,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
                     exchange_order_id=order_update["orderId"],
-                    executed_amount_base=Decimal(order_update.get("executedQty", "0")),
-                    executed_amount_quote=Decimal(order_update.get("cumQuote", "0")),
                 )
 
                 self._client_order_tracker.process_order_update(new_order_update)

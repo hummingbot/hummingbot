@@ -481,19 +481,12 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.start_tracking_order(order)
 
         initial_order_filled_amount = order.amount / Decimal("2.0")
-        initial_fee_paid = self.trade_fee_percent * initial_order_filled_amount
         order_update_1: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
             exchange_order_id="someExchangeOrderId",
             trading_pair=self.trading_pair,
             update_timestamp=1,
             new_state=OrderState.PARTIALLY_FILLED,
-            trade_id="1",
-            fill_price=order.price,
-            executed_amount_base=initial_order_filled_amount,
-            executed_amount_quote=order.price * initial_order_filled_amount,
-            fee_asset=self.base_asset,
-            cumulative_fee_paid=initial_fee_paid,
         )
 
         update_future = self.tracker.process_order_update(order_update_1)
@@ -507,19 +500,12 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertTrue(updated_order.is_open)
 
         subsequent_order_filled_amount = order.amount - initial_order_filled_amount
-        subsequent_fee_paid = self.trade_fee_percent * subsequent_order_filled_amount
         order_update_2: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
             exchange_order_id="someExchangeOrderId",
             trading_pair=self.trading_pair,
             update_timestamp=2,
             new_state=OrderState.FILLED,
-            trade_id="2",
-            fill_price=order.price,
-            executed_amount_base=initial_order_filled_amount + subsequent_order_filled_amount,
-            executed_amount_quote=order.price * order.amount,
-            fee_asset=self.base_asset,
-            cumulative_fee_paid=initial_fee_paid + subsequent_fee_paid,
         )
 
         # Force order to not wait for filled events from TradeUpdate objects
@@ -539,14 +525,15 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"The {order.trade_type.name.upper()} order {order.client_order_id} amounting to "
-                f"{order_update_1.executed_amount_base}/{order.amount} {order.base_asset} has been filled.",
+                f"{initial_order_filled_amount}/{order.amount} {order.base_asset} has been filled.",
             )
         )
         self.assertFalse(
             self._is_logged(
                 "INFO",
                 f"The {order.trade_type.name.upper()} order {order.client_order_id} amounting to "
-                f"{order_update_2.executed_amount_base}/{order.amount} {order.base_asset} has been filled.",
+                f"{initial_order_filled_amount + subsequent_order_filled_amount}/{order.amount} {order.base_asset} "
+                f"has been filled.",
             )
         )
         self.assertTrue(
