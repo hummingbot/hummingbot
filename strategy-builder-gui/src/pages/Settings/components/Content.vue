@@ -1,5 +1,5 @@
 <template>
-  <div><Steps /></div>
+  <div><Steps :started-step="2" /></div>
 </template>
 
 <script>
