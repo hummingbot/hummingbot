@@ -20,10 +20,10 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     convert_to_exchange_trading_pair,
     GateIoAPIError,
     GateIORESTRequest,
+    get_new_gate_io_client_order_id,
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -365,12 +365,7 @@ class GateIoExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id = get_new_client_order_id(
-            is_buy=True,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID,
-            max_id_len=CONSTANTS.MAX_ID_LEN,
-        )
+        order_id: str = get_new_gate_io_client_order_id(True, trading_pair)
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -385,12 +380,7 @@ class GateIoExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id = get_new_client_order_id(
-            is_buy=False,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID,
-            max_id_len=CONSTANTS.MAX_ID_LEN,
-        )
+        order_id: str = get_new_gate_io_client_order_id(False, trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 

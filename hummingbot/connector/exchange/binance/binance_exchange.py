@@ -391,14 +391,9 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        client_order_id = get_new_client_order_id(
-            is_buy=True,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
-        )
-        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
-        return client_order_id
+        new_order_id = binance_utils.get_new_binance_client_order_id(is_buy=True, trading_pair=trading_pair)
+        safe_ensure_future(self._create_order(TradeType.BUY, new_order_id, trading_pair, amount, order_type, price))
+        return new_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -410,14 +405,9 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        client_order_id = get_new_client_order_id(
-            is_buy=False,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
-        )
-        safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
-        return client_order_id
+        order_id = binance_utils.get_new_binance_client_order_id(is_buy=False, trading_pair=trading_pair)
+        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
+        return order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """

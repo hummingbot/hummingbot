@@ -3,7 +3,6 @@ import unittest
 from decimal import Decimal
 from unittest.mock import patch
 
-from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
 from hummingbot.connector.exchange.probit.probit_exchange import ProbitExchange
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.event.events import OrderType
@@ -26,7 +25,7 @@ class TestOKExExchange(unittest.TestCase):
             self.api_key, self.api_secret_key, trading_pairs=[self.trading_pair]
         )
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 9
 
@@ -37,7 +36,7 @@ class TestOKExExchange(unittest.TestCase):
             price=Decimal("2"),
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=self.trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+            is_buy=True, trading_pair=self.trading_pair
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -49,7 +48,7 @@ class TestOKExExchange(unittest.TestCase):
             price=Decimal("2"),
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=self.trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+            is_buy=False, trading_pair=self.trading_pair
         )
 
         self.assertEqual(result, expected_client_order_id)

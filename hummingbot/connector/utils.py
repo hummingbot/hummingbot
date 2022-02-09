@@ -4,10 +4,9 @@ import base64
 import os
 import socket
 from collections import namedtuple
-from hashlib import md5
 from typing import Dict, Optional, Tuple
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_short, nonce_multiplier_power
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 from zero_ex.order_utils import Order as ZeroExOrder
@@ -62,10 +61,6 @@ def get_new_client_order_id(
 ) -> str:
     """
     Creates a client order id for a new order
-
-    Note: If the need for much shorter IDs arises, an option is to concatenate the host name, the PID,
-    and the nonce, and hash the result.
-
     :param is_buy: True if the order is a buy order, False otherwise
     :param trading_pair: the trading pair the order will be operating with
     :param hbot_order_id_prefix: The hummingbot-specific identifier for the given exchange
@@ -78,9 +73,21 @@ def get_new_client_order_id(
     quote = symbols[1].upper()
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
-    client_instance_id = md5(f"{socket.gethostname()}{os.getpid()}".encode("utf-8")).hexdigest()
-    ts_hex = hex(get_tracking_nonce_low_res())[2:]
-    client_order_id = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}{ts_hex}{client_instance_id}"
-    if max_id_len is not None:
-        client_order_id = client_order_id[:max_id_len]
+    client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
+    client_order_id = ""
+    if hbot_order_id_prefix:
+        client_order_id = f"{hbot_order_id_prefix}"
+    if max_id_len is None:
+        client_order_id = f"{client_order_id}{side}{base_str}{quote_str}{client_instance_id}{get_tracking_nonce_short()}"
+    else:
+        client_order_id = f"{client_order_id}{side}{base_str}{quote_str}{client_instance_id}"
+        remaining = max_id_len - len(client_order_id)
+        if remaining < nonce_multiplier_power + 8:  # 8 digits in the seconds will give us ~1157 days of unique IDs
+            raise NotImplementedError(
+                f"The order ID exceeds the max length of {max_id_len}, but truncating {remaining}"
+                f" digits from the tracking nonce will cause duplicates in"
+                f" {(remaining - nonce_multiplier_power) / (60 * 60 * 24)} days."
+            )
+        tracking_nonce = str(get_tracking_nonce_short())[-remaining:]
+        client_order_id = f"{client_order_id}{tracking_nonce}"
     return client_order_id

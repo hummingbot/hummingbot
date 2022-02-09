@@ -390,9 +390,7 @@ class ProbitExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
-        )
+        order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -407,9 +405,7 @@ class ProbitExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
-        )
+        order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 

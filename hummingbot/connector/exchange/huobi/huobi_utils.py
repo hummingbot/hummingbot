@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.huobi.huobi_ws_post_processor import HuobiWSPostProcessor
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -44,6 +45,11 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     # Huobi uses lowercase (btcusdt)
     return hb_trading_pair.replace("-", "").lower()
+
+
+def get_new_huobi_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    order_id = get_new_client_order_id(is_buy, trading_pair, hbot_order_id_prefix=BROKER_ID)
+    return order_id
 
 
 def build_api_factory() -> WebAssistantsFactory:

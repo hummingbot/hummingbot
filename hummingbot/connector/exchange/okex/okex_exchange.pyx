@@ -19,11 +19,11 @@ from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
 from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
 from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
+from hummingbot.connector.exchange.okex.okex_utils import get_new_okex_client_order_id
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
     s_decimal_NaN)
 from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -742,12 +742,7 @@ cdef class OkexExchange(ExchangeBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            str order_id = get_new_client_order_id(
-                is_buy=True,
-                trading_pair=trading_pair,
-                hbot_order_id_prefix=CLIENT_ID_PREFIX,
-                max_id_len=MAX_ID_LEN,
-            )
+            str order_id = get_new_okex_client_order_id(is_buy=True, trading_pair=trading_pair)
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -817,12 +812,7 @@ cdef class OkexExchange(ExchangeBase):
                     object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            str order_id = get_new_client_order_id(
-                is_buy=False,
-                trading_pair=trading_pair,
-                hbot_order_id_prefix=CLIENT_ID_PREFIX,
-                max_id_len=MAX_ID_LEN,
-            )
+            str order_id = get_new_okex_client_order_id(is_buy=False, trading_pair=trading_pair)
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
