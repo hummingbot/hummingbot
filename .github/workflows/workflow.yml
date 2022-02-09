@@ -149,16 +149,20 @@ jobs:
         with:
           node-version: '16.x'
 
-      - name: Cache NPM
-        uses: actions/cache@v1
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v2
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-yarn-
 
       - name: Install Dependencies
-        run: npm i --prefix ./gateway
+        run: yarn --cwd ./gateway install 
 
       - name: Create yml config file
         env:
@@ -203,10 +207,10 @@ jobs:
           chmod 0600 ./gateway/conf/gateway-passphrase.yml
 
       - name: Build project
-        run: npm run build --prefix ./gateway
+        run: yarn --cwd ./gateway build
 
       - name: Run unit test
-        run: npm run test:unit --prefix ./gateway
+        run: yarn --cwd ./gateway test:unit 
 
       - name: Run unit test coverage
         if: github.event_name == 'pull_request' && steps.program-changes.outputs.cache-hit != 'true'
@@ -214,5 +218,5 @@ jobs:
         run: |
           git fetch --all -q
           git checkout -b $GITHUB_SHA
-          npm run test:cov --prefix ./gateway
-          git diff origin/$GITHUB_BASE_REF | $(npm bin --prefix ./gateway)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
+          yarn --cwd ./gateway test:cov 
+          git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
