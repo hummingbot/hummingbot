@@ -1,10 +1,14 @@
-import { RouteRecordRaw } from 'vue-router'
+import { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
-  {path: '', redirect: 'strategies'},
+  { path: '', redirect: 'strategies' },
   {
     path: '/strategies',
     component: () => import('../pages/Strategies/Layout.vue'),
+  },
+  {
+    path: '/settings',
+    component: () => import('../pages/Settings/Layout.vue'),
   },
 
   // Always leave this as last one,
