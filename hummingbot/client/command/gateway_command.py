@@ -78,8 +78,8 @@ class GatewayCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         for conf_key, path_value in conf_dict.items():
-            ack: str = await self.app.prompt(prompt=f"Is {path_value} the correct path to {conf_key} ? (y/N) >>> ")
-            if not ack.lower() == "y":
+            ack: str = await self.app.prompt(prompt=f"Is {path_value} the correct path to {conf_key} ? (Yes/No) >>> ")
+            if ack.lower() in ["y", "yes"]:
                 new_path: str = await self.app.prompt(prompt=f"Enter the correct path to {conf_key} >>> ")
                 conf_dict[conf_key] = new_path
                 path_value = new_path
