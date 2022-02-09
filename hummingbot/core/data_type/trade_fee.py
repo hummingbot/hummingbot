@@ -138,24 +138,6 @@ class TradeFeeBase(ABC):
             "flat_fees": [token_amount.to_json() for token_amount in self.flat_fees]
         }
 
-    def fee_amount_in_token(self,
-                            trading_pair: str,
-                            price: Decimal,
-                            order_amount: Decimal,
-                            token: str,
-                            exchange: Optional['ExchangeBase'] = None) -> Decimal:
-
-        amount_from_percentage = (price * order_amount) * self.percent
-        base, quote = split_hb_trading_pair(trading_pair)
-        conversion_pair = combine_to_hb_trading_pair(base=quote, quote=token)
-        conversion_rate = self._get_exchange_rate(conversion_pair, exchange) if token is not None else Decimal(1)
-        fee_amount = amount_from_percentage * conversion_rate
-        for flat_fee in self.flat_fees:
-            conversion_pair = combine_to_hb_trading_pair(base=flat_fee.token, quote=quote)
-            conversion_rate = self._get_exchange_rate(conversion_pair, exchange) if token is not None else Decimal(1)
-            fee_amount += (flat_fee.amount * conversion_rate)
-        return fee_amount
-
     @property
     def fee_asset(self):
         first_flat_fee_token = None
@@ -186,17 +168,57 @@ class TradeFeeBase(ABC):
         ...
 
     @staticmethod
-    def _get_exchange_rate(trading_pair: str, exchange: Optional["ExchangeBase"] = None) -> Decimal:
+    def _get_exchange_rate(
+            trading_pair: str,
+            exchange: Optional["ExchangeBase"] = None,
+            rate_source: Optional[Any] = None) -> Decimal:
         from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
         if exchange is not None and trading_pair in exchange.order_books:
             rate = exchange.get_price_by_type(trading_pair, PriceType.MidPrice)
         else:
-            rate = RateOracle.get_instance().rate(trading_pair)
+            local_rate_source = rate_source or RateOracle.get_instance()
+            rate = local_rate_source.rate(trading_pair)
             if rate is None:
-                raise ValueError(f"Could not find the exchange rate for {trading_pair} using the RateOracle "
-                                 f"(please validate it is active)")
+                raise ValueError(f"Could not find the exchange rate for {trading_pair} using the rate source "
+                                 f"{local_rate_source} (please verify it has been correctly configured)")
         return rate
+
+    def fee_amount_in_token(self,
+                            trading_pair: str,
+                            price: Decimal,
+                            order_amount: Decimal,
+                            token: str,
+                            exchange: Optional['ExchangeBase'] = None,
+                            rate_source: Optional[Any] = None) -> Decimal:
+
+        fee_amount = Decimal("0")
+        if self.percent != 0:
+            amount_from_percentage = (price * order_amount) * self.percent
+            base, quote = split_hb_trading_pair(trading_pair)
+            if self._are_tokens_interchangeable(quote, token):
+                fee_amount += amount_from_percentage
+            else:
+                conversion_pair = combine_to_hb_trading_pair(base=quote, quote=token)
+                conversion_rate = self._get_exchange_rate(conversion_pair, exchange, rate_source)
+                fee_amount += amount_from_percentage * conversion_rate
+        for flat_fee in self.flat_fees:
+            if self._are_tokens_interchangeable(flat_fee.token, token):
+                fee_amount += flat_fee.amount
+            else:
+                conversion_pair = combine_to_hb_trading_pair(base=flat_fee.token, quote=token)
+                conversion_rate = self._get_exchange_rate(conversion_pair, exchange, rate_source)
+                fee_amount += (flat_fee.amount * conversion_rate)
+        return fee_amount
+
+    def _are_tokens_interchangeable(self, first_token: str, second_token: str):
+        interchangeable_tokens = [
+            {"WETH", "ETH"},
+            {"WBTC", "BTC"}
+        ]
+        return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair
+                                                   for interchangeable_pair
+                                                   in interchangeable_tokens))
 
 
 class AddedToCostTradeFee(TradeFeeBase):
