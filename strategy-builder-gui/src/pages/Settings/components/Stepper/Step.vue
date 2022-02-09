@@ -8,7 +8,7 @@
         class="text-h6"
         :class="status === StepStatus.Completed ? 'text-mono-green-2' : 'text-mono-grey-3'"
       >
-        {{ status }}
+        {{ statusText }}
       </div>
       <q-icon
         :name="`img:${require(`../../assets/status-${
@@ -23,13 +23,19 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { computed, defineComponent, PropType } from 'vue';
 
 export enum StepStatus {
-  Completed = 'Completed',
-  InProgress = 'In Progress',
-  NotStarted = 'Not started',
+  Completed = 'completed',
+  InProgress = 'in-progress',
+  NotStarted = 'not-started',
 }
+
+const statusDisplayMap = {
+  [StepStatus.Completed]: 'Completed',
+  [StepStatus.InProgress]: 'In progress',
+  [StepStatus.NotStarted]: 'Not started',
+};
 
 export default defineComponent({
   props: {
@@ -41,8 +47,10 @@ export default defineComponent({
     title: { type: String, requaried: true, default: () => '' },
     desc: { type: String, requaried: true, default: () => '' },
   },
-  setup() {
-    return { StepStatus };
+  setup(props) {
+    const statusText = computed(() => statusDisplayMap[props.status]);
+
+    return { StepStatus, statusText };
   },
 });
 </script>
