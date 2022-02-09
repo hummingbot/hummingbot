@@ -4,7 +4,7 @@
       <q-card-section class="q-py-none q-px-none col-9 column">
         <div class="text-white text-h6 q-mb-sm">{{ title }}</div>
         <div class="text-mono-grey-4 text-body2 q-mb-lg">
-          {{ desc }}
+          {{ description }}
         </div>
         <div class="row q-gutter-sm q-mt-auto">
           <q-btn class="bg-mono-grey-2 rounded-borders" padding="sm" :href="fileHref">
@@ -39,7 +39,7 @@ export default defineComponent({
       default: () => 'equal',
     },
     title: { type: String, requaried: true, default: () => '' },
-    desc: { type: String, requaried: true, default: () => '' },
+    description: { type: String, requaried: true, default: () => '' },
     fileHref: { type: String, default: () => '/' },
     startHref: { type: String, requaried: true, default: () => '/' },
   },

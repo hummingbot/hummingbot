@@ -24,7 +24,7 @@
       <q-card-section class="flex column items-start justify-center q-pl-none col-7">
         <div class="text-h4 text-white q-mb-xs text-uppercase"> {{ title }} </div>
         <div class="text-body1 q-mb-sm line-normal">
-          {{ desc }}
+          {{ description }}
         </div>
         <a
           :href="href"
@@ -65,7 +65,7 @@ export default defineComponent({
     },
     count: { type: Number, requaried: true, default: () => 0 },
     title: { type: String, requaried: true, default: () => '' },
-    desc: { type: String, requaried: true, default: () => '' },
+    description: { type: String, requaried: true, default: () => '' },
     href: { type: String, default: () => '/' },
     linkText: { type: String, requaried: true, default: () => '' },
     bgImageSrc: { type: String, requaried: true, default: () => '' },

@@ -3,7 +3,7 @@
     <div v-for="(step, index) in steps" :key="index" class="col-12 col-md">
       <Step
         :title="step.title"
-        :desc="step.desc"
+        :description="step.description"
         :status="
           inProgressStep === index + 1
             ? StepStatus.InProgress
@@ -23,7 +23,7 @@ import Step, { StepStatus } from './Step.vue';
 
 interface StepType {
   title: string;
-  desc: string;
+  description: string;
 }
 
 export default defineComponent({
@@ -35,15 +35,15 @@ export default defineComponent({
     const steps: StepType[] = [
       {
         title: '1. Choose strategy',
-        desc: 'Pure market making',
+        description: 'Pure market making',
       },
       {
         title: '2. Choose settings',
-        desc: 'Basic and advanced',
+        description: 'Basic and advanced',
       },
       {
         title: '3. Save settings',
-        desc: 'Review and save file',
+        description: 'Review and save file',
       },
     ];
 

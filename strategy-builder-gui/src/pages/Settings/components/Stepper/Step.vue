@@ -13,7 +13,7 @@
       <q-icon :name="`img:${require(`../../assets/status-${status}.svg`)}`" size="20px" />
     </div>
     <div class="text-white text-h5 q-mb-xs"> {{ title }} </div>
-    <div class="text-mono-grey-3 text-body1"> {{ desc }} </div>
+    <div class="text-mono-grey-3 text-body1"> {{ description }} </div>
   </q-card>
 </template>
 
@@ -40,7 +40,7 @@ export default defineComponent({
       default: () => StepStatus.Completed,
     },
     title: { type: String, requaried: true, default: () => '' },
-    desc: { type: String, requaried: true, default: () => '' },
+    description: { type: String, requaried: true, default: () => '' },
   },
   setup(props) {
     const statusText = computed(() => statusDisplayMap[props.status]);
