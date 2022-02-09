@@ -1,18 +1,18 @@
 <template>
   <q-card
     class="q-pt-md q-pb-lg q-px-lg rounded-borders"
-    :class="status === StepStatus.inProgress ? 'bg-mono-grey-2' : 'bg-mono-grey-1'"
+    :class="status === StepStatus.InProgress ? 'bg-mono-grey-2' : 'bg-mono-grey-1'"
   >
     <div class="row justify-between items-center q-mb-md">
       <div
         class="text-h6"
-        :class="status === StepStatus.completed ? 'text-mono-green-2' : 'text-mono-grey-3'"
+        :class="status === StepStatus.Completed ? 'text-mono-green-2' : 'text-mono-grey-3'"
       >
         {{ status }}
       </div>
       <q-icon
         :name="`img:${require(`../../assets/status-${
-          status === StepStatus.completed ? 'completed' : 'in-progress'
+          status === StepStatus.Completed ? 'completed' : 'in-progress'
         }.svg`)}`"
         size="20px"
       />
@@ -26,9 +26,9 @@
 import { defineComponent, PropType } from 'vue';
 
 export enum StepStatus {
-  completed = 'Completed',
-  inProgress = 'In Progress',
-  notStarded = 'Not started',
+  Completed = 'Completed',
+  InProgress = 'In Progress',
+  NotStarted = 'Not started',
 }
 
 export default defineComponent({
@@ -36,7 +36,7 @@ export default defineComponent({
     status: {
       type: String as PropType<StepStatus>,
       required: true,
-      default: () => StepStatus.completed,
+      default: () => StepStatus.Completed,
     },
     title: { type: String, requaried: true, default: () => '' },
     desc: { type: String, requaried: true, default: () => '' },

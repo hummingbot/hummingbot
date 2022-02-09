@@ -5,11 +5,11 @@
         :title="step.title"
         :desc="step.desc"
         :status="
-          startedStep === index + 1
-            ? StepStatus.inProgress
-            : startedStep > index + 1
-            ? StepStatus.completed
-            : StepStatus.notStarded
+          inProgressStep === index + 1
+            ? StepStatus.InProgress
+            : inProgressStep > index + 1
+            ? StepStatus.Completed
+            : StepStatus.NotStarted
         "
       />
     </div>
@@ -29,7 +29,7 @@ interface StepType {
 export default defineComponent({
   components: { Step },
   props: {
-    startedStep: { type: Number, required: true, default: () => 0 },
+    inProgressStep: { type: Number, required: true, default: () => 0 },
   },
   setup() {
     const steps: StepType[] = [
