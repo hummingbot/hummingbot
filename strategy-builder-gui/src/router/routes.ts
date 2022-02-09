@@ -3,10 +3,12 @@ import { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   { path: '', redirect: 'strategies' },
   {
+    name: 'Strategies',
     path: '/strategies',
     component: () => import('../pages/Strategies/Layout.vue'),
   },
   {
+    name: 'Settings',
     path: '/settings',
     component: () => import('../pages/Settings/Layout.vue'),
   },
