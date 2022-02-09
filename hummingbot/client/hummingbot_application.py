@@ -38,7 +38,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway_basic_trading import GatewayBasicTrading
+from hummingbot.connector.gateway_basic_trading import GatewayEVMAMM
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
 
@@ -99,7 +99,7 @@ class HummingbotApplication(*commands):
 
         # gateway variables and monitor
         self._shared_client = None
-        self._gateway_monitor: Optional[GatewayBasicTrading] = None
+        self._gateway_monitor: Optional[GatewayEVMAMM] = None
         self._gateway_monitor_clock: Optional[Clock] = None
         self._init_gateway_monitor()
         self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
@@ -136,12 +136,12 @@ class HummingbotApplication(*commands):
         return None
 
     def _init_gateway_monitor(self):
-        self._gateway_monitor = GatewayBasicTrading(connector_name = "",
-                                                    chain = "",
-                                                    network = "",
-                                                    wallet_public_key = "",
-                                                    trading_pairs = [],
-                                                    trading_required = False)
+        self._gateway_monitor = GatewayEVMAMM(connector_name = "",
+                                              chain = "",
+                                              network = "",
+                                              wallet_public_key = "",
+                                              trading_pairs = [],
+                                              trading_required = False)
 
         self._gateway_monitor_clock = Clock(ClockMode.REALTIME)
         self._gateway_monitor_clock.add_iterator(self._gateway_monitor)
@@ -289,7 +289,7 @@ class HummingbotApplication(*commands):
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
                 """
                 To-do: Update this section to initiate gateway connectors
-                connector = GatewayBasicTrading(**init_params)
+                connector = GatewayEVMAMM(**init_params)
                 """
             self.markets[connector_name] = connector
 
