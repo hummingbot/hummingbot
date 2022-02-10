@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.connector.gateway_basic_trading import GatewayEVMAMM
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
 from hummingbot.core.event.events import (

@@ -38,7 +38,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway_basic_trading import GatewayEVMAMM
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
 
