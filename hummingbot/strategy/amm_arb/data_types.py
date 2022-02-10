@@ -97,7 +97,6 @@ class ArbProposal:
                                                                        buy.quote_price,
                                                                        buy.amount,
                                                                        token=buy.market_info.quote_asset,
-                                                                       exchange=buy.market_info.market,
                                                                        rate_source=rate_source)
                 if sell_quote_eth_rate is not None and sell_trade_fee.flat_fees[0].token.upper() == "ETH":
                     sell_fee_amount = sell_trade_fee.flat_fees[0].amount / sell_quote_eth_rate
@@ -106,7 +105,6 @@ class ArbProposal:
                                                                          sell.quote_price,
                                                                          sell.amount,
                                                                          token=sell.market_info.quote_asset,
-                                                                         exchange=sell.market_info.market,
                                                                          rate_source=rate_source)
 
             buy_spent_net = (buy.amount * buy.quote_price) + buy_fee_amount
