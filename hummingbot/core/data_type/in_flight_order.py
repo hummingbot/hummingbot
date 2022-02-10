@@ -1,16 +1,19 @@
 import asyncio
 import copy
 import math
+import typing
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 from async_timeout import timeout
 
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
+
+if typing.TYPE_CHECKING:  # avoid circular import problems
+    from hummingbot.connector.exchange_base import ExchangeBase
 
 s_decimal_0 = Decimal("0")
 
@@ -275,7 +278,7 @@ class InFlightOrder:
                 await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
-    def cumulative_fee_paid(self, token: str, exchange: Optional[ExchangeBase] = None) -> Decimal:
+    def cumulative_fee_paid(self, token: str, exchange: Optional['ExchangeBase'] = None) -> Decimal:
         """
         Returns the total amount of fee paid for each traid update, expressed in the specified token
         :param token: The token all partial fills' fees should be transformed to before summing them
