@@ -27,7 +27,7 @@ from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
@@ -238,7 +238,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        order_id: str = utils.get_new_binance_perpetual_client_order_id(is_buy=True, trading_pair=trading_pair)
+        order_id: str = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
         safe_ensure_future(
             self._create_order(TradeType.BUY,
                                order_id,
@@ -276,7 +281,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        order_id: str = utils.get_new_binance_perpetual_client_order_id(is_buy=False, trading_pair=trading_pair)
+        order_id: str = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
         safe_ensure_future(
             self._create_order(TradeType.SELL,
                                order_id,
