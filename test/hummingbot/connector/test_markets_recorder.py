@@ -13,7 +13,8 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
     OrderType,
-    TradeType,
+    PositionAction,
+    TradeType
 )
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
@@ -83,7 +84,7 @@ class MarketsRecorderTests(TestCase):
                     leverage=1,
                     trade_fee=AddedToCostTradeFee().to_json(),
                     exchange_trade_id="EOID1",
-                    position="NILL")
+                    position=PositionAction.NIL.value)
                 session.add(trade_fill_record)
 
             fill_id = trade_fill_record.exchange_trade_id
