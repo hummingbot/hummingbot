@@ -139,7 +139,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def status_dict(self):
-        return {
+        sd = {
             "symbols_mapping_initialized": BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map_ready(
                 domain=self._domain),
             "order_books_initialized": self._order_book_tracker.ready,
@@ -149,6 +149,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
             "funding_info_initialized": self._order_book_tracker.is_funding_info_initialized(),
         }
+        return sd
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
