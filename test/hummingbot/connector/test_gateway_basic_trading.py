@@ -9,7 +9,7 @@ import aiohttp
 from aioresponses import aioresponses
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.gateway_basic_trading import GatewayEVMAMM
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 
 
 class GatewayEVMAMMTest(unittest.TestCase):
@@ -38,7 +38,7 @@ class GatewayEVMAMMTest(unittest.TestCase):
 
     @aioresponses()
     @patch(
-        "hummingbot.connector.gateway_basic_trading.GatewayEVMAMM._http_client",
+        "hummingbot.connector.gateway_EVM_AMM.GatewayEVMAMM._http_client",
         new_callable=AsyncMock
     )
     def test_get_quote_price_updates_fee_overrides_config_map(self, mocked_api, mocked_http_client):
