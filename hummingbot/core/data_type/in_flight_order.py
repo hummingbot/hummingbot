@@ -7,6 +7,7 @@ from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 from async_timeout import timeout
 
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
@@ -274,10 +275,11 @@ class InFlightOrder:
                 await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
-    def cumulative_fee_paid(self, token: str) -> Decimal:
+    def cumulative_fee_paid(self, token: str, exchange: Optional[ExchangeBase] = None) -> Decimal:
         """
         Returns the total amount of fee paid for each traid update, expressed in the specified token
         :param token: The token all partial fills' fees should be transformed to before summing them
+        :param exchange: The exchange being used. If specified the logic will try to use the order book to get the rate
         :return: the cumulative fee paid for all partial fills in the specified token
         """
         total_fee_in_token = Decimal("0")
@@ -286,7 +288,8 @@ class InFlightOrder:
                 trading_pair=trade_update.trading_pair,
                 price=trade_update.fill_price,
                 order_amount=trade_update.fill_base_amount,
-                token=token)
+                token=token,
+                exchange=exchange)
 
         return total_fee_in_token
 
