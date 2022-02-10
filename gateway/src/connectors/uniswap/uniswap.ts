@@ -36,9 +36,9 @@ export class Uniswap implements Uniswapish {
     const config = UniswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
-    this._ttl = UniswapConfig.config.ttl;
+    this._ttl = UniswapConfig.config.ttl(2);
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit;
+    this._gasLimit = UniswapConfig.config.gasLimit(2);
     this._router = config.uniswapV2RouterAddress(network);
   }
 
@@ -96,7 +96,7 @@ export class Uniswap implements Uniswapish {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = UniswapConfig.config.allowedSlippage;
+    const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
