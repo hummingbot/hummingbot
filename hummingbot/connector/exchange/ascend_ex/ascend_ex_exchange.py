@@ -987,11 +987,13 @@ class AscendExExchange(ExchangePyBase):
         tracked_order = self._in_flight_order_tracker.fetch_order(exchange_order_id=order_msg.orderId)
 
         if tracked_order is not None:
+            order_status = CONSTANTS.ORDER_STATE[order_msg.status]
             cumulative_filled_amount = Decimal(order_msg.cumFilledQty)
-            if cumulative_filled_amount > tracked_order.executed_amount_base:
+            if (order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
+                    and cumulative_filled_amount > tracked_order.executed_amount_base):
                 filled_amount = cumulative_filled_amount - tracked_order.executed_amount_base
                 cumulative_fee = Decimal(order_msg.cumFee)
-                fee_already_paid = tracked_order.cumulative_fee_paid(token=order_msg.feeAsset)
+                fee_already_paid = tracked_order.cumulative_fee_paid(token=order_msg.feeAsset, exchange=self)
                 if cumulative_fee > fee_already_paid:
                     fee = TradeFeeBase.new_spot_fee(
                         fee_schema=self.trade_fee_schema(),
@@ -1020,7 +1022,7 @@ class AscendExExchange(ExchangePyBase):
                 exchange_order_id=order_msg.orderId,
                 trading_pair=ascend_ex_utils.convert_to_exchange_trading_pair(order_msg.symbol),
                 update_timestamp=order_msg.lastExecTime,
-                new_state=CONSTANTS.ORDER_STATE[order_msg.status],
+                new_state=order_status,
             )
 
             self._in_flight_order_tracker.process_order_update(order_update=order_update)
