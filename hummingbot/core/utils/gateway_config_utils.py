@@ -8,18 +8,16 @@ import pandas as pd
 native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
 
 
-def list_gateway_connection_wallets():
+def list_gateway_connection_wallets(connector: str, chain: str, network: str):
     """
     Get the public keys for a chain supported by gateway that hummingbot knows
     about. There may be some public keys in gateway that hummingbot is not using.
     """
-    # connector: str, chain: str, network: str):
     connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
     if path.exists(connections_fp):
         with open(connections_fp) as f:
             connections = json.loads(f.read())
-            return [c["wallet_address"] for c in connections]
-            # return [c["wallet_address"] for c in connections if c["connector"] is connector and c["chain"] is chain and c["network"] is network]
+            return [c["wallet_address"] for c in connections if c["connector"] == connector and c["chain"] == chain and c["network"] == network]
     else:
         return []
 

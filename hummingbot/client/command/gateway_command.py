@@ -336,7 +336,7 @@ class GatewayCommand:
                 while True:
                     self.app.clear_input()
                     self.placeholder_mode = True
-
+                    self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> ")
                     if network in networks:
                         break
@@ -377,6 +377,7 @@ class GatewayCommand:
 
                     wallet_df = build_wallet_display(native_token, wallet_table)
                     self.notify(wallet_df.to_string(index=False))
+                    self.app.input_field.completer.set_list_gateway_connection_wallets_parameters(connector, chain, network)
 
                     while True:
                         self.placeholder_mode = True
