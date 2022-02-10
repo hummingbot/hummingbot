@@ -85,6 +85,7 @@ class BalanceCommand:
 
     async def show_balances(self):
         total_col_name = f'Total ({RateOracle.global_token_symbol})'
+        sum_not_for_show_name = "sum_not_for_show"
         self._notify("Updating balances, please wait...")
         network_timeout = float(global_config_map["other_commands_timeout"].value)
         try:
@@ -108,10 +109,10 @@ class BalanceCommand:
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
-                lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+                lines = ["    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
                 self._notify(f"\n  Total: {RateOracle.global_token_symbol} {PerformanceMetrics.smart_round(df[total_col_name].sum())}    "
-                             f"Allocated: {allocated_total / df[total_col_name].sum():.2%}")
+                             f"Allocated: {allocated_total / df[sum_not_for_show_name].sum():.2%}")
                 exchanges_total += df[total_col_name].sum()
 
         self._notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
@@ -159,9 +160,10 @@ class BalanceCommand:
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
                          total_col_name: PerformanceMetrics.smart_round(global_value),
+                         "sum_not_for_show": global_value,
                          "Allocated": allocated,
                          })
-        df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "Allocated"])
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "sum_not_for_show", "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
         return df, allocated_total
 
