@@ -784,7 +784,9 @@ cdef class KucoinExchange(ExchangeBase):
                    object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
-            str order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
+            str order_id = get_new_client_order_id(
+                is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+            )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -858,7 +860,9 @@ cdef class KucoinExchange(ExchangeBase):
                     object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
-            str order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
+            str order_id = get_new_client_order_id(
+                is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+            )
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
