@@ -4,7 +4,6 @@ import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
@@ -29,11 +28,6 @@ class BinancePerpetualRESTPreProcessor(RESTPreProcessorBase):
             "application/json" if request.method == RESTMethod.POST else "application/x-www-form-urlencoded"
         )
         return request
-
-
-def get_new_binance_perpetual_client_order_id(is_buy: bool, trading_pair: str):
-    client_order_id = get_new_client_order_id(is_buy, trading_pair, BROKER_ID)
-    return client_order_id
 
 
 def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):
