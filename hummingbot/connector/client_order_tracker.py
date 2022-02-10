@@ -197,7 +197,7 @@ class ClientOrderTracker:
                 order.quote_asset,
                 order.executed_amount_base,
                 order.executed_amount_quote,
-                order.cumulative_fee_paid(order.quote_asset),
+                order.cumulative_fee_paid(token=order.quote_asset, exchange=self._connector),
                 order.order_type,
                 order.exchange_order_id,
             ),
