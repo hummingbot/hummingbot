@@ -586,7 +586,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(Decimal("0.002"), order.fee_paid)
         self.assertEqual(self.quote_asset, order.fee_asset)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 7
 

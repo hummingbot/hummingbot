@@ -21,8 +21,9 @@ from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiU
 from hummingbot.connector.exchange.huobi.huobi_utils import (
     build_api_factory,
     convert_to_exchange_trading_pair,
-    get_new_huobi_client_order_id,
+    BROKER_ID,
 )
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
@@ -799,7 +800,9 @@ cdef class HuobiExchange(ExchangeBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            str order_id = get_new_huobi_client_order_id(is_buy=True, trading_pair=trading_pair)
+            str order_id = get_new_client_order_id(
+                is_buy=True, trading_pair=trading_pair, hbot_order_id_prefix=BROKER_ID
+            )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -869,7 +872,9 @@ cdef class HuobiExchange(ExchangeBase):
                     object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            str order_id = get_new_huobi_client_order_id(is_buy=False, trading_pair=trading_pair)
+            str order_id = get_new_client_order_id(
+                is_buy=False, trading_pair=trading_pair, hbot_order_id_prefix=BROKER_ID
+            )
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id

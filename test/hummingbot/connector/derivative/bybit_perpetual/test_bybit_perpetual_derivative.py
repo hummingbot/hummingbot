@@ -184,7 +184,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.mock_done_event.set()
 
     @aioresponses()
-    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_create_buy_order(self, post_mock, mocked_nonce):
         mocked_nonce.return_value = 5
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
@@ -519,7 +519,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 46000."))
 
     @aioresponses()
-    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_create_sell_order(self, post_mock, mocked_nonce):
         mocked_nonce.return_value = 6
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
@@ -2697,7 +2697,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(self.non_linear_base, non_linear_buy_collateral_token)
         self.assertEqual(self.non_linear_base, non_linear_sell_collateral_token)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 5
 

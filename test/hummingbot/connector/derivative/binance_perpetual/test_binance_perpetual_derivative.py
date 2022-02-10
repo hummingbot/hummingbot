@@ -1623,7 +1623,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_short")
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 4
 
@@ -1635,7 +1635,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=self.trading_pair, hbot_order_id_prefix=utils.BROKER_ID
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -1648,7 +1651,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=self.trading_pair, hbot_order_id_prefix=utils.BROKER_ID
+            is_buy=False,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
         )
 
         self.assertEqual(result, expected_client_order_id)
