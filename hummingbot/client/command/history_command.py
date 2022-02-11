@@ -20,6 +20,7 @@ from hummingbot.client.settings import (
     ConnectorType,
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
 )
+from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.user.user_balances import UserBalances
@@ -240,11 +241,10 @@ class HistoryCommand:
         if len(df) > 0:
             # Check if number of trades exceed maximum number of trades to display
             if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
-                df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
+                df = df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]
                 self._notify(
                     f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
-            else:
-                df_lines = str(df).split("\n")
+            df_lines = format_df_for_printout(df).split("\n")
             lines.extend(["", "  Recent trades:"] +
                          ["    " + line for line in df_lines])
         else:
