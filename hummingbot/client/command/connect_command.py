@@ -2,9 +2,11 @@ import asyncio
 import pandas as pd
 
 from typing import TYPE_CHECKING, Optional
+
 from hummingbot.client.settings import AllConnectorSettings, GLOBAL_CONFIG_PATH
 
 from hummingbot.client.config.security import Security
+from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
@@ -87,7 +89,7 @@ class ConnectCommand:
         self._notify("\nTesting connections, please wait...")
         await Security.wait_til_decryption_done()
         df, failed_msgs = await self.connection_df()
-        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(df).split("\n")]
         if failed_msgs:
             lines.append("\nFailed connections:")
             lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
