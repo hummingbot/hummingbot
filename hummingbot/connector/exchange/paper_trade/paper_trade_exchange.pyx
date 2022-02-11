@@ -1,70 +1,54 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
 import asyncio
-from collections import (
-    deque, defaultdict
-)
-from cpython cimport PyObject
-from decimal import Decimal
-from libcpp cimport bool as cppbool
-from libcpp.vector cimport vector
 import math
-import pandas as pd
 import random
+from collections import defaultdict, deque
+from decimal import Decimal
 from typing import (
     Dict,
     List,
     Optional,
     Tuple,
 )
-from cython.operator cimport(
-    postincrement as inc,
-    dereference as deref,
-    address
-)
-from hummingbot.core.Utils cimport(
-    getIteratorFromReverseIterator,
-    reverse_iterator
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
+
+from cpython cimport PyObject
+from cython.operator cimport address, dereference as deref, postincrement as inc
+from libcpp cimport bool as cppbool
+from libcpp.vector cimport vector
+
+from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.connector.exchange.paper_trade.market_config import AssetType, MarketConfig
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.clock import (
-    Clock
-)
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
-from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    TradeType,
-    BuyOrderCompletedEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
-    MarketOrderFailureEvent,
-    OrderBookEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    OrderBookTradeEvent,
-    OrderCancelledEvent
-)
 from hummingbot.core.event.event_listener cimport EventListener
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.core.utils.estimate_fee import estimate_fee, build_trade_fee
-
-from .market_config import (
-    MarketConfig,
-    AssetType
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    OrderBookEvent,
+    OrderBookTradeEvent,
+    OrderCancelledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
 )
-from ...budget_checker import BudgetChecker
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.estimate_fee import estimate_fee, build_trade_fee
 
 ptm_logger = None
 s_decimal_0 = Decimal(0)
@@ -629,7 +613,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                fees
+                fees,
+                exchange_trade_id=str(int(self._time() * 1e6))
             ))
 
         self.c_trigger_event(
@@ -693,7 +678,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                fees
+                fees,
+                exchange_trade_id=str(int(self._time() * 1e6))
             ))
 
         self.c_trigger_event(

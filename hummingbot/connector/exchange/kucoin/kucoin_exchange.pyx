@@ -1,63 +1,64 @@
-import aiohttp
 import asyncio
-from decimal import Decimal
-from libc.stdint cimport int64_t
+import json
 import logging
+import time
+from decimal import Decimal
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
-    AsyncIterable,
     Optional,
 )
-import json
-import time
 
-from hummingbot.core.clock cimport Clock
+import aiohttp
+from libc.stdint cimport int64_t
 
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
+from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import (
+    KucoinInFlightOrder,
+    KucoinInFlightOrderNotCreated,
+)
+from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
+from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
+from hummingbot.connector.exchange.kucoin.kucoin_utils import (
+    convert_asset_from_exchange,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+)
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketTransactionFailureEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
-    TradeType
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import (
-    KucoinInFlightOrder, KucoinInFlightOrderNotCreated
-)
-from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
-from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
-from hummingbot.connector.exchange.kucoin.kucoin_utils import (
-    convert_asset_from_exchange,
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-)
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 km_logger = None
 s_decimal_0 = Decimal(0)
@@ -321,7 +322,7 @@ cdef class KucoinExchange(ExchangeBase):
                                                      execute_price,
                                                      execute_amount_diff,
                                                  ),
-                                                 tracked_order.exchange_order_id
+                                                 str(execution_data["ts"])
                                              ))
                 if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
                     tracked_order.last_state = "DONE"
@@ -570,7 +571,7 @@ cdef class KucoinExchange(ExchangeBase):
                             float(execute_price),
                             float(execute_amount_diff),
                         ),
-                        exchange_trade_id=exchange_order_id,
+                        exchange_trade_id=str(int(self._time() * 1e6)),
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
