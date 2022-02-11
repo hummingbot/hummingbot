@@ -255,10 +255,7 @@ class GatewayCommand:
             ],
             host_config=host_config
         )
-        await docker_ipc(
-            "start",
-            container=container_info["Id"]
-        )
+        await self._start_gateway()
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
