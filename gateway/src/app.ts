@@ -18,6 +18,9 @@ import { NetworkRoutes } from './network/network.routes';
 import { ConnectorsRoutes } from './connectors/connectors.routes';
 import { EVMRoutes } from './evm/evm.routes';
 import { AmmRoutes } from './amm/amm.routes';
+import { PangolinConfig } from './connectors/pangolin/pangolin.config';
+import { UniswapConfig } from './connectors/uniswap/uniswap.config';
+import { AvailableNetworks } from './services/config-manager-types';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -44,6 +47,21 @@ gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
+
+interface ConnectorsResponse {
+  uniswap: Array<AvailableNetworks>;
+  pangolin: Array<AvailableNetworks>;
+}
+
+gatewayApp.get(
+  '/connectors',
+  asyncHandler(async (_req, res: Response<ConnectorsResponse, {}>) => {
+    res.status(200).json({
+      uniswap: UniswapConfig.config.availableNetworks,
+      pangolin: PangolinConfig.config.availableNetworks,
+    });
+  })
+);
 
 interface ConfigUpdateRequest {
   configPath: string;
