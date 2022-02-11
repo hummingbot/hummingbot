@@ -4,24 +4,33 @@
     <q-form class="q-gutter-md" @submit="onSubmit">
       <Field title="Exchange">
         <Select
-          :model-value="selectAgrs.exchange.model.value"
-          :label-text="selectAgrs.exchange.labelText"
-          :options="selectAgrs.exchange.options"
-          :name="selectAgrs.exchange.name"
+          :v-model="selects.exchange.model"
+          :model-value="selects.exchange.model.value"
+          :label-text="selects.exchange.labelText"
+          :options="selects.exchange.options"
+          :name="selects.exchange.name"
           :on-change="onChangeSelect"
         />
       </Field>
       <Field title="Market">
         <Select
-          :model-value="selectAgrs.market.model.value"
-          :label-text="selectAgrs.market.labelText"
-          :options="selectAgrs.market.options"
-          :name="selectAgrs.market.name"
+          :model-value="selects.market.model.value"
+          :label-text="selects.market.labelText"
+          :options="selects.market.options"
+          :name="selects.market.name"
           :on-change="onChangeSelect"
         />
       </Field>
       <Field title="Bid spread">
-        <Counter />
+        <Counter
+          :type="counters.bidSpread.type"
+          :name="counters.bidSpread.name"
+          :counter-value="counters.bidSpread.model.value"
+          :max="counters.bidSpread.max"
+          :min="counters.bidSpread.min"
+          :step-value="counters.bidSpread.stepValue"
+          :on-click="onClickCounterBtn"
+        />
       </Field>
       <q-btn label="Submit" type="submit" color="primary" />
     </q-form>
@@ -29,20 +38,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, Ref, ref } from 'vue';
+import { defineComponent } from 'vue';
 
 import Counter from './Counter.vue';
 import Field from './Field.vue';
 import Select from './Select.vue';
-
-type SelectAgrs = {
-  [key: string]: {
-    model: Ref<unknown>;
-    options: string[];
-    labelText: string;
-    name: string;
-  };
-};
+import { counters } from './stores/counters';
+import { selects } from './stores/selects';
 
 type SubmitResult = {
   [key: string]: unknown;
@@ -51,38 +53,29 @@ type SubmitResult = {
 export default defineComponent({
   components: { Field, Select, Counter },
   setup() {
-    const selectAgrs: SelectAgrs = {
-      exchange: {
-        model: ref(''),
-        options: ['1', '2', '3', '4', '5'],
-        labelText: 'Select exchange',
-        name: 'exchange',
-      },
-      market: {
-        model: ref(''),
-        options: ['1', '2', '3', '4', '5'],
-        labelText: 'Select market',
-        name: 'market',
-      },
+    const onClickCounterBtn = (value: number, name: string) => {
+      counters[name].model.value += value;
     };
 
     const onChangeSelect = (value: string, name: string) => {
-      if (value !== selectAgrs[name].model.value) {
-        selectAgrs[name].model.value = value;
+      if (value !== selects[name].model.value) {
+        selects[name].model.value = value;
       }
     };
 
     const onSubmit = () => {
       const result: SubmitResult = {};
-      Object.keys(selectAgrs).forEach((key) => {
-        result[key] = selectAgrs[key].model.value;
+      const formObject = Object.assign(selects, counters);
+
+      Object.keys(formObject).forEach((key) => {
+        result[key] = formObject[key].model.value;
       });
 
       // eslint-disable-next-line no-console
       console.log(result);
     };
 
-    return { onSubmit, selectAgrs, onChangeSelect };
+    return { onSubmit, selects, onChangeSelect, counters, onClickCounterBtn };
   },
 });
 </script>
