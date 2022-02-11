@@ -32,6 +32,28 @@
           :on-click="onClickCounterBtn"
         />
       </Field>
+      <Field title="Ask spread">
+        <Counter
+          :type="counters.askSread.type"
+          :name="counters.askSread.name"
+          :counter-value="counters.askSread.model.value"
+          :max="counters.askSread.max"
+          :min="counters.askSread.min"
+          :step-value="counters.askSread.stepValue"
+          :on-click="onClickCounterBtn"
+        />
+      </Field>
+      <Field title="Order refresh time">
+        <Counter
+          :type="counters.orderRefreshTime.type"
+          :name="counters.orderRefreshTime.name"
+          :counter-value="counters.orderRefreshTime.model.value"
+          :max="counters.orderRefreshTime.max"
+          :min="counters.orderRefreshTime.min"
+          :step-value="counters.orderRefreshTime.stepValue"
+          :on-click="onClickCounterBtn"
+        />
+      </Field>
       <q-btn label="Submit" type="submit" color="primary" />
     </q-form>
   </div>

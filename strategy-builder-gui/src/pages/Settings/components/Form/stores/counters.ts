@@ -27,4 +27,20 @@ export const counters: Counter = {
     model: ref(0),
     stepValue: 0.1,
   },
+  askSread: {
+    type: CounterTypes.Percentage,
+    name: 'askSread',
+    min: 0,
+    max: 1,
+    model: ref(0),
+    stepValue: 0.1,
+  },
+  orderRefreshTime: {
+    type: CounterTypes.Seconds,
+    name: 'orderRefreshTime',
+    min: 0,
+    max: 10,
+    model: ref(0),
+    stepValue: 1,
+  },
 };
