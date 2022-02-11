@@ -4,16 +4,13 @@ import json
 import logging
 import time
 import uuid
-
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.bitfinex import (
     AFF_CODE,
     BITFINEX_REST_AUTH_URL,
@@ -33,10 +30,12 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
     get_precision,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_websocket import BitfinexWebsocket
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -50,12 +49,10 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
-
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -939,6 +936,7 @@ cdef class BitfinexExchange(ExchangeBase):
         if _type not in [ContentEventType.TRADE_UPDATE]:
             return
         data = {
+            "trade_id": "",
             "type": _type,
             "order_id": 0,
             "maker_order_id": 0,
@@ -1066,7 +1064,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         AddedToCostTradeFee(
                             flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]
                         ),
-                        exchange_trade_id=tracked_order.exchange_order_id
+                        exchange_trade_id=str(content["trade_id"])
                     )
                 )
 
@@ -1279,7 +1277,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         base_execute_amount_diff,
                         base_execute_price,
                     ),
-                    exchange_trade_id=exchange_order_id,
+                    exchange_trade_id=str(int(self._time() * 1e6)),
                 )
                 self.logger().info(f"Filled {base_execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")

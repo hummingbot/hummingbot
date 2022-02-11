@@ -28,33 +28,32 @@ from typing import (
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.clock import (
-    Clock
-)
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
-from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    TradeType,
-    BuyOrderCompletedEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
-    MarketOrderFailureEvent,
-    OrderBookEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    OrderBookTradeEvent,
-    OrderCancelledEvent
-)
 from hummingbot.core.event.event_listener cimport EventListener
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    OrderBookEvent,
+    OrderBookTradeEvent,
+    OrderCancelledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.Utils cimport(
     getIteratorFromReverseIterator,
@@ -731,7 +730,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                fees
+                fees,
+                exchange_trade_id=str(int(self._time() * 1e6))
             ))
 
         self.c_trigger_event(
@@ -829,7 +829,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                fees
+                fees,
+                exchange_trade_id=str(int(self._time() * 1e6))
             ))
 
         self.c_trigger_event(
