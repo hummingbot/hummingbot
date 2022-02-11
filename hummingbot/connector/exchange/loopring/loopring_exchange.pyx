@@ -7,9 +7,10 @@ import urllib
 from decimal import *
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
-    Optional, AsyncIterable
+    Optional
 )
 
 import aiohttp
@@ -43,9 +44,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
@@ -640,7 +639,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                       AddedToCostTradeFee(
                                                           flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]
                                                       ),
-                                                      tracked_order.client_order_id))
+                                                      str(int(self._time() * 1e6))))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,
                                      OrderExpiredEvent(self._current_timestamp,

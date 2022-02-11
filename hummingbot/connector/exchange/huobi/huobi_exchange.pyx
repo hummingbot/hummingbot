@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -18,11 +17,14 @@ import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
+from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.connector.exchange.huobi.huobi_utils import (
     build_api_factory,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
 )
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -42,9 +44,6 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType,
 )
-from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
@@ -468,7 +467,7 @@ cdef class HuobiExchange(ExchangeBase):
                         # Unique exchange trade ID not available in client order status
                         # But can use validate an order using exchange order ID:
                         # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
-                        exchange_trade_id=exchange_order_id
+                        exchange_trade_id=str(int(self._time() * 1e6))
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
@@ -687,7 +686,7 @@ cdef class HuobiExchange(ExchangeBase):
                                              TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))
                                          ]
                                      ),
-                                     exchange_trade_id=order_id
+                                     exchange_trade_id=str(trade_event["tradeId"])
                                  ))
 
     @property

@@ -22,6 +22,7 @@ from sqlalchemy.orm import (
     Session
 )
 
+from hummingbot.core.event.events import PositionAction
 from hummingbot.model import HummingbotBase
 from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
@@ -53,7 +54,7 @@ class TradeFill(HummingbotBase):
     leverage = Column(Integer, nullable=False, default=1)
     trade_fee = Column(JSON, nullable=False)
     exchange_trade_id = Column(Text, primary_key=True, nullable=False)
-    position = Column(Text, nullable=True)
+    position = Column(Text, nullable=True, default=PositionAction.NIL.value)
     order = relationship("Order", back_populates="trade_fills")
 
     def __repr__(self) -> str:

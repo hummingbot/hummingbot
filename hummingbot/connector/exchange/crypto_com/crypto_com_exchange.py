@@ -676,7 +676,7 @@ class CryptoComExchange(ExchangeBase):
                 AddedToCostTradeFee(
                     flat_fees=[TokenAmount(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]
                 ),
-                exchange_trade_id=trade_msg["order_id"]
+                exchange_trade_id=str(trade_msg.get("trade_id", int(self._time() * 1e6)))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
