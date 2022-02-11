@@ -1,7 +1,5 @@
 import asyncio
 import logging
-# import json
-# import aiohttp
 import math
 import time
 from decimal import Decimal
@@ -9,7 +7,6 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
-# from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_in_flight_order import DigifinexInFlightOrder
 from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker
 from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker import DigifinexUserStreamTracker
@@ -17,7 +14,6 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-# from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -656,7 +652,7 @@ class DigifinexExchange(ExchangeBase):
                 delta_trade_amount,
                 estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id='N/A'
+                exchange_trade_id=str(int(self._time() * 1e6))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
