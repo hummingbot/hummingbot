@@ -19,7 +19,7 @@ from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
 from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
 from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
-from hummingbot.connector.exchange.okex.okex_utils import get_new_okex_client_order_id
+from hummingbot.connector.exchange.okex.okex_utils import CLIENT_ID_PREFIX
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
     s_decimal_NaN)

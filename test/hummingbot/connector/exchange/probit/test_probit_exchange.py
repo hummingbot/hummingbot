@@ -3,6 +3,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import patch
 
+from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
 from hummingbot.connector.exchange.probit.probit_exchange import ProbitExchange
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.event.events import OrderType
@@ -36,7 +37,7 @@ class TestOKExExchange(unittest.TestCase):
             price=Decimal("2"),
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=self.trading_pair
+            is_buy=True, trading_pair=self.trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -48,7 +49,7 @@ class TestOKExExchange(unittest.TestCase):
             price=Decimal("2"),
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=self.trading_pair
+            is_buy=False, trading_pair=self.trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
         )
 
         self.assertEqual(result, expected_client_order_id)

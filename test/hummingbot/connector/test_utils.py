@@ -1,6 +1,4 @@
-import time
 import unittest
-from unittest.mock import patch
 
 from hummingbot.connector.utils import get_new_client_order_id
 
@@ -12,10 +10,7 @@ class UtilsTest(unittest.TestCase):
         cls.quote = "COINALPHA"
         cls.trading_pair = f"{cls.base}-{cls.quote}"
 
-    @patch("hummingbot.core.utils.tracking_nonce._time")
-    def test_get_new_client_order_id(self, mocked_time):
-        t = int(time.time() * 1e3)
-        mocked_time.return_value = t
+    def test_get_new_client_order_id(self):
         host_prefix = "hbot"
 
         id0 = get_new_client_order_id(is_buy=True, trading_pair=self.trading_pair)
