@@ -422,7 +422,7 @@ cdef class OkexExchange(ExchangeBase):
                         execute_amount_diff,
                         execute_price,
                     ),
-                    exchange_trade_id=exchange_order_id
+                    exchange_trade_id=str(int(self._time() * 1e6))
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"order {tracked_order.client_order_id}.")
@@ -577,7 +577,9 @@ cdef class OkexExchange(ExchangeBase):
                                                                   execute_price,
                                                                   execute_amount_diff,
                                                                   current_fee,
-                                                                  exchange_trade_id=order_id))
+                                                                  exchange_trade_id=str(data.get("tradeId",
+                                                                                                 int(self._time() * 1e6))
+                                                                                        )))
 
                         if order_status == "filled":
                             tracked_order.last_state = order_status

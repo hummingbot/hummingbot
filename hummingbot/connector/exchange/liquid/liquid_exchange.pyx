@@ -622,7 +622,7 @@ cdef class LiquidExchange(ExchangeBase):
                         execute_price,
                         execute_amount_diff,
                     ),
-                    exchange_trade_id=exchange_order_id,
+                    exchange_trade_id=str(int(self._time() * 1e6)),
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -749,6 +749,7 @@ cdef class LiquidExchange(ExchangeBase):
                 updated = tracked_order.update_with_trade_update(content)
 
                 if updated:
+                    trade_id = content.get("trade_id", None)
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{tracked_order.order_type_description} order {tracked_order.client_order_id} "
                                        f"according to Liquid user stream.")
@@ -764,7 +765,9 @@ cdef class LiquidExchange(ExchangeBase):
                                              AddedToCostTradeFee(
                                                  flat_fees=[TokenAmount(tracked_order.fee_asset, fee_diff)]
                                              ),
-                                             exchange_trade_id=tracked_order.exchange_order_id
+                                             exchange_trade_id=(str(trade_id)
+                                                                if trade_id
+                                                                else str(int(self._time() * 1e6)))
                                          ))
 
                 if event_status == "filled":

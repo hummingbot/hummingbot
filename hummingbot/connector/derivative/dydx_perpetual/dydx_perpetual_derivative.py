@@ -47,7 +47,8 @@ from hummingbot.core.event.events import (
     PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType)
+    TradeType,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -745,7 +746,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         new_price,
                         new_amount,
                         AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]),
-                        tracked_order.client_order_id,
+                        str(int(self._time() * 1e6)),
                         self._leverage[tracked_order.trading_pair],
                         tracked_order.position,
                     ),

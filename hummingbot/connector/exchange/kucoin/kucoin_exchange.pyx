@@ -43,11 +43,11 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderFilledEvent,
     OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderType,
     TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
@@ -322,7 +322,7 @@ cdef class KucoinExchange(ExchangeBase):
                                                      execute_price,
                                                      execute_amount_diff,
                                                  ),
-                                                 tracked_order.exchange_order_id
+                                                 str(execution_data["ts"])
                                              ))
                 if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
                     tracked_order.last_state = "DONE"
@@ -571,7 +571,7 @@ cdef class KucoinExchange(ExchangeBase):
                             float(execute_price),
                             float(execute_amount_diff),
                         ),
-                        exchange_trade_id=exchange_order_id,
+                        exchange_trade_id=str(int(self._time() * 1e6)),
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")

@@ -654,7 +654,7 @@ class DigifinexExchange(ExchangeBase):
                 delta_trade_amount,
                 estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id='N/A'
+                exchange_trade_id=str(int(self._time() * 1e6))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \

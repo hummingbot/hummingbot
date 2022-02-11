@@ -402,7 +402,8 @@ cdef class BittrexExchange(ExchangeBase):
                                                  tracked_order.trade_type,
                                                  executed_price,
                                                  executed_amount_diff
-                                             )
+                                             ),
+                                             exchange_trade_id=str(int(self._time() * 1e6))
                                          ))
 
                 if order_state == "CLOSED":

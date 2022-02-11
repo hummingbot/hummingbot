@@ -17,8 +17,6 @@ from typing import (
 import aiohttp
 from libc.stdint cimport int64_t
 
-from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.exchange.blocktane.blocktane_auth import BlocktaneAuth
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder
 from hummingbot.connector.exchange.blocktane.blocktane_order_book_tracker import BlocktaneOrderBookTracker
@@ -28,6 +26,8 @@ from hummingbot.connector.exchange.blocktane.blocktane_utils import (
     convert_to_exchange_trading_pair,
     split_trading_pair,
 )
+from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -41,12 +41,12 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderType,
     OrderCancelledEvent,
     OrderFilledEvent,
-    TradeType,
+    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
+    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -418,7 +418,8 @@ cdef class BlocktaneExchange(ExchangeBase):
                                                      tracked_order.trade_type,
                                                      executed_price,
                                                      executed_amount_base_diff
-                                                 )
+                                                 ),
+                                                 exchange_trade_id=str(int(self._time() * 1e6))
                                              ))
 
                     if order_state == "done":
@@ -550,7 +551,8 @@ cdef class BlocktaneExchange(ExchangeBase):
                                                      tracked_order.trade_type,
                                                      executed_price,
                                                      executed_amount_base_diff
-                                                 )
+                                                 ),
+                                                 exchange_trade_id=str(int(self._time() * 1e6))
                                              ))
 
                     if order_status == "done":  # FILL(COMPLETE)

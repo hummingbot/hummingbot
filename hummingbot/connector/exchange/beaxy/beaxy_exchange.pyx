@@ -382,7 +382,7 @@ cdef class BeaxyExchange(ExchangeBase):
                             execute_price,
                             execute_amount_diff,
                         ),
-                        exchange_trade_id=exchange_order_id,
+                        exchange_trade_id=str(int(self._time() * 1e6)),
                     )
                     self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
                                        f'{order_type_description} order {client_order_id}.')
@@ -418,7 +418,7 @@ cdef class BeaxyExchange(ExchangeBase):
                                 execute_price,
                                 execute_amount_diff,
                             ),
-                            exchange_trade_id=exchange_order_id,
+                            exchange_trade_id=str(int(self._time() * 1e6)),
                         )
                         self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
                                            f'{order_type_description} order {client_order_id}.')
@@ -908,7 +908,7 @@ cdef class BeaxyExchange(ExchangeBase):
                                                          execute_price,
                                                          execute_amount_diff,
                                                      ),
-                                                     exchange_trade_id=exchange_order_id
+                                                     exchange_trade_id=str(int(self._time() * 1e6)),
                                                  ))
 
                     elif order_status == 'completely_filled':
@@ -940,7 +940,7 @@ cdef class BeaxyExchange(ExchangeBase):
                                     execute_price,
                                     execute_amount_diff,
                                 ),
-                                exchange_trade_id=exchange_order_id,
+                                exchange_trade_id=str(int(self._time() * 1e6)),
                             )
                             self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
                                                f'{order_type_description} order {client_order_id}.')
