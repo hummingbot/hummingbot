@@ -25,7 +25,6 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     get_connector_class,
-    get_eth_wallet_private_key,
 )
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
@@ -279,14 +278,13 @@ class HummingbotApplication(*commands):
                         if key in conn_setting.config_keys}
                 init_params = conn_setting.conn_init_parameters(keys)
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                if conn_setting.use_ethereum_wallet:
-                    ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-                    # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
-                    if connector_name in ["balancer", "uniswap", "uniswap_v3", "perpetual_finance"]:
-                        private_key = get_eth_wallet_private_key()
-                        init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**init_params)
+                if conn_setting.type == ConnectorType.Connector:
+                    name, chain, network = connector_name.split("_")
+                    init_params.update(connector_name = name, chain = chain, network = network)
+                    # connector = GatewayEVMAMM(**init_params)  # should be updated wrt trading_type when more gateway classes are added
+                else:
+                    connector_class = get_connector_class(connector_name)
+                    connector = connector_class(**init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(

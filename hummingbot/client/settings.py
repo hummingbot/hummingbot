@@ -4,6 +4,7 @@ generate a dictionary of exchange names to ConnectorSettings.
 """
 
 import importlib
+import json
 from decimal import Decimal
 from enum import Enum
 from os import scandir
@@ -165,6 +166,32 @@ class AllConnectorSettings:
                         domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
                         use_eth_gas_lookup=parent.use_eth_gas_lookup,
                     )
+
+        # add gateway connectors
+        connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
+        connections = []
+        if path.exists(connections_fp):
+            with open(connections_fp) as f:
+                connections = json.loads(f.read())
+
+        trade_fee_schema = [0, 0]  # we assume no swap fees for now
+        trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_schema)
+
+        for connection in connections:
+            gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['chain']}"
+            cls.all_connector_settings[gateway_connector_name] = ConnectorSetting(
+                name=gateway_connector_name,
+                type=ConnectorType["Connector"],
+                centralised = False,
+                example_pair = "WETH-USDC",
+                use_ethereum_wallet = True,
+                trade_fee_schema=trade_fee_schema,
+                config_keys={"wallet_public_key": connection["wallet_address"]},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False,
+            )
 
         return cls.all_connector_settings
 
