@@ -20,6 +20,9 @@
           :on-change="onChangeSelect"
         />
       </Field>
+      <Field title="Bid spread">
+        <Counter />
+      </Field>
       <q-btn label="Submit" type="submit" color="primary" />
     </q-form>
   </div>
@@ -28,6 +31,7 @@
 <script lang="ts">
 import { defineComponent, Ref, ref } from 'vue';
 
+import Counter from './Counter.vue';
 import Field from './Field.vue';
 import Select from './Select.vue';
 
@@ -45,7 +49,7 @@ type SubmitResult = {
 };
 
 export default defineComponent({
-  components: { Field, Select },
+  components: { Field, Select, Counter },
   setup() {
     const selectAgrs: SelectAgrs = {
       exchange: {

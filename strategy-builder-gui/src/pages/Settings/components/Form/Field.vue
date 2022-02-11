@@ -1,6 +1,6 @@
 <template>
   <div class="row justify-between items-center q-pb-md border">
-    <div class="row text-body1 text-white col-10"> {{ title }} </div>
+    <div class="row text-body1 text-white"> {{ title }} </div>
     <slot />
   </div>
 </template>
