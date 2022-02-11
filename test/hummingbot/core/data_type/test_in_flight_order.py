@@ -347,7 +347,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         order_from_json = InFlightOrder.from_json(order_json)
         self.assertEqual(expected_order, order_from_json)
-        self.assertFalse(order_from_json.completely_filled_event.is_set())
+        self.assertTrue(order_from_json.completely_filled_event.is_set())
 
     def test_to_json(self):
         fee = AddedToCostTradeFee(
