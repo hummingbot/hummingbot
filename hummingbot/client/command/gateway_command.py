@@ -56,11 +56,6 @@ class GatewayCommand:
         elif option == "stop":
             safe_ensure_future(self._stop_gateway())
 
-    @staticmethod
-    def get_gateway_container_name() -> str:
-        instance_id_suffix: str = global_config_map["instance_id"].value[:8]
-        return f"hummingbot-gateway-{instance_id_suffix}"
-
     async def _verify_gateway_conf(self):
         gateway_conf_mount_path: str
         ssl_filename = "ssl.yml"
