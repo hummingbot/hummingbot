@@ -26,7 +26,7 @@
   <div class="column">
     <div class="row justify-between items-center">
       <div class="text-white text-h4 q-mt-lg q-mb-md col"> Choose Your Strategy </div>
-      <div class="select flex items-center justify-center full-width">
+      <div class="strategies-select flex items-center justify-center full-width">
         <q-select
           v-model="category"
           borderless
@@ -83,15 +83,15 @@ export default defineComponent({
 
 <style lang="scss">
 @use 'sass:map';
-.select {
+.strategies-select {
   max-width: 150px;
 }
-.select .q-field__control {
+.strategies-select .q-field__control {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.select .q-icon img {
+.strategies-select .q-icon img {
   max-width: 12px !important;
   max-height: 6px !important;
 }
