@@ -8,8 +8,9 @@ RUN apt-get update && \
         sudo && \
     rm -rf /var/lib/apt/lists/*
 
-# Add hummingbot user
-RUN useradd -m -s /bin/bash hummingbot
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
 
 # Switch to hummingbot user
 USER hummingbot:hummingbot
@@ -86,9 +87,12 @@ ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
 ENV INSTALLATION_TYPE=docker
 
-# Add hummingbot user
-RUN useradd -m -s /bin/bash hummingbot && \
-  ln -s /conf /home/hummingbot/conf && \
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
+
+# Create sym links
+RUN ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
   ln -s /certs /home/hummingbot/certs && \
