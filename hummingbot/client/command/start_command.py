@@ -61,7 +61,7 @@ class StartCommand:
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False,
-                          lite: Optional[str] = None):
+                          lite_file_name: Optional[str] = None):
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
@@ -76,7 +76,10 @@ class StartCommand:
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
 
-        if lite is None and not await self.status_check_all(notify_success=False):
+        if lite_file_name:
+            self.strategy_file_name = lite_file_name
+            self.strategy_name = lite_file_name.split(".")[0]
+        elif not await self.status_check_all(notify_success=False):
             self._notify("Status checks failed. Start aborted.")
             return
         if self._last_started_strategy_file != self.strategy_file_name:
@@ -111,18 +114,17 @@ class StartCommand:
                 self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                              "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        await self.start_market_making(self.strategy_name, restore, lite)
+        await self.start_market_making(self.strategy_name, restore, lite_file_name)
 
     def start_lite(self,  # type: HummingbotApplication
-                   lite_file: str):
-        self.strategy_file_name = lite_file
-        lite_strategy = import_lite_strategy_sub_class(join(settings.LITE_STRATEGIES_PATH, lite_file))
+                   lite_file_name: str):
+
+        lite_strategy = import_lite_strategy_sub_class(join(settings.LITE_STRATEGIES_PATH, lite_file_name))
         markets_list = []
         for conn, pairs in lite_strategy.markets.items():
-            markets_list.append((conn, pairs))
+            markets_list.append((conn, list(pairs)))
         self._initialize_markets(markets_list)
-        market_infos = []
-        self.strategy = lite_strategy(market_infos)
+        self.strategy = lite_strategy(self.markets)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str,
