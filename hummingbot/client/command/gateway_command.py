@@ -19,15 +19,26 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_namespace_keys,
     search_configs,
-    build_config_dict_display
+    build_config_dict_display,
+    build_connector_display,
+    build_wallet_display,
+    native_tokens,
+    upsert_connection
 )
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 from hummingbot import cert_path, root_path
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
+from hummingbot.client.settings import (
+    GATEAWAY_CA_CERT_PATH,
+    GATEAWAY_CLIENT_CERT_PATH,
+    GATEAWAY_CLIENT_KEY_PATH,
+    CONF_FILE_PATH,
+)
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from typing import Dict, Any, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
+import itertools
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -47,6 +58,8 @@ class GatewayCommand:
                 safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
             else:
                 safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
+        elif option == "connect":
+            safe_ensure_future(self._connect(key))
         elif option == "generate-certs":
             safe_ensure_future(self._generate_certs())
         elif option == "test-connection":
@@ -365,6 +378,117 @@ class GatewayCommand:
         except Exception:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
+
+    async def get_gateway_connectors(self):
+        return await self._api_request("get", "connectors", {})
+
+    async def _connect(self, connector: str = None):
+        # it is possible that gateway_connections.json does not exist
+        connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
+        if path.exists(connections_fp):
+            with open(connections_fp) as f:
+                connections = json.loads(f.read())
+        else:
+            connections = []
+
+        if connector is None:
+            if connections == []:
+                self.notify("No existing connection.\n")
+            else:
+                connector_df = build_connector_display(connections)
+                self.notify(connector_df.to_string(index=False))
+
+        else:
+            # get available networks
+            connector_configs = await self.get_gateway_connectors()
+
+            # ask user to select a chain. Automatically select if there is only one.
+            chains = [d['chain'] for d in connector_configs[connector]]
+            if len(chains) == 1:
+                chain = chains[0]
+            else:
+                # chains as options
+                self.app.clear_input()
+                self.placeholder_mode = True
+                chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
+
+            # ask user to select a network. Automatically select if there is only one.
+            networks = list(itertools.chain.from_iterable([d['networks'] for d in connector_configs[connector] if d['chain'] == chain]))
+
+            if len(networks) == 1:
+                network = networks[0]
+            else:
+                while True:
+                    self.app.clear_input()
+                    self.placeholder_mode = True
+                    self.app.input_field.completer.set_gateway_networks(networks)
+                    network = await self.app.prompt(prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> ")
+                    if network in networks:
+                        break
+                    self.notify("Error: Invalid network")
+
+            # get wallets for the selected chain
+            response = await self._api_request("get", "wallet", {})
+            wallets = [w for w in response if w["chain"] == chain]
+            if len(wallets) < 1:
+                wallets = []
+            else:
+                wallets = wallets[0]['walletAddresses']
+
+            # if the user has no wallet, ask them to select one
+            if len(wallets) < 1:
+                self.app.clear_input()
+                self.placeholder_mode = True
+                new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                response = await self._api_request("post" "wallet/add", {"chain": chain, "network": network, "privateKey": new_wallet})
+
+                wallet = response.address
+
+            # the user has a wallet. Ask if they want to use it or create a new one.
+            else:
+                # print table
+                self.app.clear_input()
+                self.placeholder_mode = True
+                use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
+
+                self.app.clear_input()
+                # they use an existing wallet
+                if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
+                    native_token = native_tokens[chain]
+                    wallet_table = []
+                    for w in wallets:
+                        balances = await self._api_request("post", "network/balances", {"chain": chain, "network": network, "address": w, "tokenSymbols": [native_token]})
+                        wallet_table.append({"balance": balances['balances'][native_token], "address": w})
+
+                    wallet_df = build_wallet_display(native_token, wallet_table)
+                    self.notify(wallet_df.to_string(index=False))
+                    self.app.input_field.completer.set_list_gateway_connection_wallets_parameters(connector, chain, network)
+
+                    while True:
+                        self.placeholder_mode = True
+
+                        wallet = await self.app.prompt(prompt="Select a gateway wallet >>> ")
+                        if wallet in wallets:
+                            self.notify(f"You have selected {wallet}")
+                            break
+                        self.notify("Error: Invalid wallet address")
+
+                # they want to create a new wallet even though they have other ones
+                else:
+                    self.placeholder_mode = True
+                    new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                    response = await self._api_request("post" "wallet/add", {"chain": chain, "network": network, "privateKey": new_wallet})
+
+                    wallet = response.address
+
+            # write wallets to json
+            with open(connections_fp, "w+") as outfile:
+                upsert_connection(connections, connector, chain, network, wallet)
+                json.dump(connections, outfile)
+                self.notify(f"The {connector} connector now uses wallet {wallet} on {chain}-{network}")
+
+            self.placeholder_mode = False
+            self.app.change_prompt(prompt=">>> ")
 
     async def fetch_gateway_config_key_list(self):
         config = await self.get_gateway_configuration()

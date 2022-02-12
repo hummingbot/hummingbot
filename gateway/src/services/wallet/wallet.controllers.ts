@@ -5,6 +5,7 @@ import { Solana } from '../../chains/solana/solana';
 
 import {
   AddWalletRequest,
+  AddWalletResponse,
   RemoveWalletRequest,
   GetWalletResponse,
 } from './wallet.requests';
@@ -28,7 +29,9 @@ export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   }
 }
 
-export async function addWallet(req: AddWalletRequest): Promise<void> {
+export async function addWallet(
+  req: AddWalletRequest
+): Promise<AddWalletResponse> {
   const passphrase = ConfigManagerCertPassphrase.readPassphrase();
   if (!passphrase) {
     throw new Error('There is no passphrase');
@@ -59,6 +62,7 @@ export async function addWallet(req: AddWalletRequest): Promise<void> {
   const path = `${walletPath}/${req.chain}`;
   await mkdirIfDoesNotExist(path);
   await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
+  return { address };
 }
 
 // if the file does not exist, this should not fail
