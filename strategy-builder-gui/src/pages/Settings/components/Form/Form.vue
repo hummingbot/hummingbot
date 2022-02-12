@@ -62,11 +62,11 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
+import { counters } from '../../stores/counters';
+import { selects } from '../../stores/selects';
 import Counter from './Counter.vue';
 import Field from './Field.vue';
 import Select from './Select.vue';
-import { counters } from './stores/counters';
-import { selects } from './stores/selects';
 
 type SubmitResult = {
   [key: string]: unknown;

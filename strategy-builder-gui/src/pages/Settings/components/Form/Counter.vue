@@ -29,7 +29,7 @@
 <script lang="ts">
 import { computed, defineComponent, PropType } from 'vue';
 
-import { CounterTypes } from './stores/counters';
+import { CounterTypes } from '../../stores/counters';
 
 const counterTypesDisplayMap = {
   [CounterTypes.Percentage]: '%',
