@@ -64,7 +64,15 @@
           :on-change="onChangeInput"
         />
       </Field>
-      <q-btn label="Submit" type="submit" color="primary" />
+      <Field title="Ping pong">
+        <q-toggle
+          :model-value="toggles.pingPong.model.value"
+          color="main-green-1"
+          :name="toggles.pingPong.name"
+          @update:model-value="(value) => onChangeToggle(value, toggles.pingPong.name)"
+        />
+      </Field>
+      <q-btn label="Submit" type="submit" color="main-green-1" />
     </q-form>
   </div>
 </template>
@@ -75,6 +83,7 @@ import { defineComponent } from 'vue';
 import { counters } from '../../stores/counters';
 import { inputs } from '../../stores/inputs';
 import { selects } from '../../stores/selects';
+import { toggles } from '../../stores/toggles';
 import Counter from './Counter.vue';
 import Field from './Field.vue';
 import Input from './Input.vue';
@@ -99,10 +108,14 @@ export default defineComponent({
       inputs[name].model.value = numeric ? Number(value) : value;
     };
 
+    const onChangeToggle = (value: boolean, name: string) => {
+      toggles[name].model.value = value;
+    };
+
     const onSubmit = () => {
       const result: SubmitResult = {};
 
-      const formObject = { ...inputs, ...selects, ...counters };
+      const formObject = { ...inputs, ...selects, ...counters, ...toggles };
       Object.keys(formObject).forEach((key) => {
         result[key] = formObject[key].model.value;
       });
@@ -119,6 +132,8 @@ export default defineComponent({
       counters,
       onClickCounterBtn,
       inputs,
+      toggles,
+      onChangeToggle,
     };
   },
 });
