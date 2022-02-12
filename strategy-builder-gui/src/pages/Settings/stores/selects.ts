@@ -2,7 +2,7 @@ import { Ref, ref } from 'vue';
 
 type Select = {
   [key: string]: {
-    model: Ref<unknown>;
+    model: Ref<string>;
     options: string[];
     labelText: string;
     name: string;

@@ -54,6 +54,16 @@
           :on-click="onClickCounterBtn"
         />
       </Field>
+      <Field title="Order amount">
+        <Input
+          :placeholder="inputs.orderAmount.placeholder"
+          :right-text="inputs.orderAmount.rightText"
+          :type="inputs.orderAmount.type"
+          :value="String(inputs.orderAmount.model.value)"
+          :name="inputs.orderAmount.name"
+          :on-change="onChangeInput"
+        />
+      </Field>
       <q-btn label="Submit" type="submit" color="primary" />
     </q-form>
   </div>
@@ -63,9 +73,11 @@
 import { defineComponent } from 'vue';
 
 import { counters } from '../../stores/counters';
+import { inputs } from '../../stores/inputs';
 import { selects } from '../../stores/selects';
 import Counter from './Counter.vue';
 import Field from './Field.vue';
+import Input from './Input.vue';
 import Select from './Select.vue';
 
 type SubmitResult = {
@@ -73,22 +85,24 @@ type SubmitResult = {
 };
 
 export default defineComponent({
-  components: { Field, Select, Counter },
+  components: { Field, Select, Counter, Input },
   setup() {
     const onClickCounterBtn = (value: number, name: string) => {
       counters[name].model.value += value;
     };
 
     const onChangeSelect = (value: string, name: string) => {
-      if (value !== selects[name].model.value) {
-        selects[name].model.value = value;
-      }
+      selects[name].model.value = value;
+    };
+
+    const onChangeInput = (value: string, name: string, numeric?: boolean) => {
+      inputs[name].model.value = numeric ? Number(value) : value;
     };
 
     const onSubmit = () => {
       const result: SubmitResult = {};
-      const formObject = Object.assign(selects, counters);
 
+      const formObject = { ...inputs, ...selects, ...counters };
       Object.keys(formObject).forEach((key) => {
         result[key] = formObject[key].model.value;
       });
@@ -97,7 +111,15 @@ export default defineComponent({
       console.log(result);
     };
 
-    return { onSubmit, selects, onChangeSelect, counters, onClickCounterBtn };
+    return {
+      onSubmit,
+      onChangeInput,
+      selects,
+      onChangeSelect,
+      counters,
+      onClickCounterBtn,
+      inputs,
+    };
   },
 });
 </script>
