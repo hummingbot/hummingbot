@@ -36,8 +36,9 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
+@use 'sass:map';
 .form-input {
-  border: 1px solid #2f3641;
+  border: 1px solid map.get($colors, 'mono-grey-2');
 }
 .form-input .q-field__append {
   height: 100%;
