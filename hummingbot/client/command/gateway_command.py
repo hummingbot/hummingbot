@@ -94,10 +94,10 @@ class GatewayCommand:
             response = await docker_ipc(
                 "containers",
                 all=True,
-                filters={"name": self.get_gateway_container_name()}
+                filters={"name": get_gateway_container_name()}
             )
             if len(response) == 0:
-                raise ValueError(f"Gateway container {self.get_gateway_container_name()} not found. ")
+                raise ValueError(f"Gateway container {get_gateway_container_name()} not found. ")
 
             container_info = response[0]
             if container_info["State"] == "running":
@@ -119,10 +119,10 @@ class GatewayCommand:
             response = await docker_ipc(
                 "containers",
                 all=True,
-                filters={"name": self.get_gateway_container_name()}
+                filters={"name": get_gateway_container_name()}
             )
             if len(response) == 0:
-                raise ValueError(f"Gateway container {self.get_gateway_container_name()} not found.")
+                raise ValueError(f"Gateway container {get_gateway_container_name()} not found.")
 
             container_info = response[0]
             if container_info["State"] != "running":
@@ -255,8 +255,10 @@ class GatewayCommand:
             ],
             host_config=host_config
         )
-        await self._start_gateway()
+
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
+
+        await self._start_gateway()
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
