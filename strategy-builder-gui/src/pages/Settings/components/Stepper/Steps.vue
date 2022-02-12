@@ -1,5 +1,5 @@
 <template>
-  <div class="row q-gutter-sm">
+  <div class="row q-col-gutter-sm">
     <div v-for="(step, index) in steps" :key="index" class="col-12 col-md">
       <Step
         :title="step.title"

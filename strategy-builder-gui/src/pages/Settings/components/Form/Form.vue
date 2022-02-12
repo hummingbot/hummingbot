@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders">
+  <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders q-mt-md full-width">
     <div class="text-white text-h4 q-mb-xl">Settings</div>
     <q-form class="q-gutter-md" @submit="onSubmit">
       <Field title="Exchange">
