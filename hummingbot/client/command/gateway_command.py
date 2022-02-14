@@ -1,17 +1,22 @@
 #!/usr/bin/env python
 import asyncio
 import aiohttp
-import ssl
+from dataclasses import dataclass
 import json
-import pandas as pd
 from os import getenv, path
+import pandas as pd
+from pathlib import Path
+import ssl
+from typing import Dict, Any, TYPE_CHECKING
 
 from bin.docker_connection import (
-    docker_ipc,
-    docker_ipc_with_generator,
     GATEWAY_DOCKER_TAG,
     GATEWAY_DOCKER_REPO,
-    get_gateway_container_name
+)
+from hummingbot.core.gateway import (
+    docker_ipc,
+    docker_ipc_with_generator,
+    get_gateway_container_name,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -25,14 +30,41 @@ from hummingbot import cert_path, root_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from typing import Dict, Any, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class GatewayCommand:
+@dataclass
+class GatewayPaths:
+    conf_path: str
+    certs_path: str
+    logs_path: str
 
+    @classmethod
+    def get_default_mount_paths(cls) -> "GatewayPaths":
+        external_cert_path: str = getenv("CERTS_FOLDER")
+        external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
+        external_logs_path: str = getenv("LOGS_FOLDER")
+        if external_cert_path is not None and external_gateway_conf_path is not None and external_logs_path is not None:
+            return GatewayPaths(
+                conf_path=external_gateway_conf_path,
+                certs_path=external_cert_path,
+                logs_path=external_logs_path
+            )
+        else:
+            gateway_container_name: str = get_gateway_container_name()
+            base_path: Path = Path.home().joinpath(
+                f".hummingbot-gateway/{gateway_container_name}"
+            )
+            return GatewayPaths(
+                conf_path=base_path.joinpath("conf").as_posix(),
+                certs_path=base_path.joinpath("certs").as_posix(),
+                logs_path=base_path.joinpath("logs").as_posix()
+            )
+
+
+class GatewayCommand:
     def gateway(self,
                 option: str = None,
                 key: str = None,
@@ -46,8 +78,6 @@ class GatewayCommand:
                 safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
             else:
                 safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
-        elif option == "generate-certs":
-            safe_ensure_future(self._generate_certs())
         elif option == "test-connection":
             safe_ensure_future(self._test_connection())
 
@@ -198,9 +228,6 @@ class GatewayCommand:
 
     async def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
-
-    async def generate_certs(self):
-        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
     async def _api_request(self,
                            method: str,
