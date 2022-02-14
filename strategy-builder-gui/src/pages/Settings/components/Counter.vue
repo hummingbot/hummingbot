@@ -65,7 +65,7 @@ export default defineComponent({
       ),
     );
 
-    return { counterType, CounterType, displayValue };
+    return { counterType, displayValue };
   },
 });
 </script>
