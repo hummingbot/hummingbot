@@ -3,44 +3,41 @@
     <div class="text-white text-h4 q-mb-xl">Settings</div>
     <q-form class="q-gutter-md" @submit="handleSubmit">
       <Field title="Exchange">
-        <Select
-          v-model="selects.exchange.value.value"
-          v-bind="{ ...selects.exchange.properties }"
-        />
+        <Select v-model="exchange.value.value" v-bind="{ ...exchange.properties }" />
       </Field>
       <Field title="Market">
-        <Select v-model="selects.market.value.value" v-bind="{ ...selects.market.properties }" />
+        <Select v-model="market.value.value" v-bind="{ ...market.properties }" />
       </Field>
       <Field title="Bid spread">
         <Counter
-          v-model="counters.bidSpread.value.value"
+          v-model="bidSpread.value.value"
           :type="CounterType.Percentage"
-          v-bind="{ ...counters.bidSpread.properties }"
+          v-bind="{ ...bidSpread.properties }"
         />
       </Field>
       <Field title="Ask spread">
         <Counter
-          v-model="counters.askSpread.value.value"
+          v-model="askSpread.value.value"
           :type="CounterType.Percentage"
-          v-bind="{ ...counters.askSpread.properties }"
+          v-bind="{ ...askSpread.properties }"
         />
       </Field>
       <Field title="Order refresh time">
         <Counter
-          v-model="counters.orderRefreshTime.value.value"
+          v-model="orderRefreshTime.value.value"
           :type="CounterType.Seconds"
-          v-bind="{ ...counters.orderRefreshTime.properties }"
+          v-bind="{ ...orderRefreshTime.properties }"
         />
       </Field>
       <Field title="Order amount">
         <Input
-          v-model="inputs.orderAmount.value.value"
+          v-model="orderAmount.value.value"
           :type="InputType.Number"
-          v-bind="{ ...inputs.orderAmount.properties }"
+          v-bind="{ ...orderAmount.properties }"
         />
       </Field>
       <Field title="Ping pong">
-        <q-toggle v-model="toggles.pingPong.value.value" color="main-green-1" />
+        <q-toggle v-model="pingPong.value.value" color="main-green-1" />
       </Field>
       <q-btn label="Submit" type="submit" color="main-green-1" />
     </q-form>
