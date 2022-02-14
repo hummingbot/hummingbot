@@ -57,7 +57,7 @@ import { useSettingsForm } from '../composables/useSettingsForm';
 import Counter, { CounterType } from './Counter.vue';
 import Field from './Field.vue';
 import Input, { InputType } from './Input.vue';
-import Select from './Select.vue';
+import Select from './Select/Index.vue';
 
 export default defineComponent({
   components: { Field, Select, Counter, Input },
