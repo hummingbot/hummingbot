@@ -336,11 +336,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     tracked_order.order_type,
                                                                     exchange_order_id=tracked_order.exchange_order_id))
                     else:
@@ -351,11 +348,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      tracked_order.order_type,
                                                                      exchange_order_id=tracked_order.exchange_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -586,10 +580,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    tracked_order.fee_asset or tracked_order.base_asset,
                                                                     float(tracked_order.executed_amount_base),
                                                                     float(tracked_order.executed_amount_quote),
-                                                                    float(tracked_order.fee_paid),
                                                                     tracked_order.order_type,
                                                                     exchange_order_id=tracked_order.exchange_order_id))
                     else:
@@ -600,10 +592,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     tracked_order.fee_asset or tracked_order.quote_asset,
                                                                      float(tracked_order.executed_amount_base),
                                                                      float(tracked_order.executed_amount_quote),
-                                                                     float(tracked_order.fee_paid),
                                                                      tracked_order.order_type,
                                                                      exchange_order_id=tracked_order.exchange_order_id))
 

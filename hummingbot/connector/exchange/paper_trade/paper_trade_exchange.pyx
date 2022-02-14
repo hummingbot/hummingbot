@@ -467,10 +467,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    order_id,
                                    base_asset,
                                    quote_asset,
-                                   base_asset if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                                    total_base_acquired,
                                    total_quote_needed,
-                                   s_decimal_0,
                                    OrderType.MARKET))
 
     cdef c_execute_sell(self, str order_id, str trading_pair_str, object amount):
@@ -527,10 +525,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                     order_id,
                                     base_asset,
                                     quote_asset,
-                                    base_asset if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                                     sold_amount,
                                     acquired_amount,
-                                    fee_amount,
                                     OrderType.MARKET))
 
     cdef c_process_market_orders(self):
@@ -623,10 +619,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                base_asset if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                 base_asset_traded,
                 quote_asset_traded,
-                s_decimal_0,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -688,10 +682,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                base_asset if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                 base_asset_traded,
                 quote_asset_traded,
-                s_decimal_0,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)

@@ -769,10 +769,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.client_order_id,
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        tracked_order.fee_asset,
                         tracked_order.executed_amount_base,
                         tracked_order.executed_amount_quote,
-                        tracked_order.fee_paid,
                         tracked_order.order_type,
                     ),
                 )
@@ -788,10 +786,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.client_order_id,
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        tracked_order.fee_asset,
                         tracked_order.executed_amount_base,
                         tracked_order.executed_amount_quote,
-                        tracked_order.fee_paid,
                         tracked_order.order_type,
                     ),
                 )
