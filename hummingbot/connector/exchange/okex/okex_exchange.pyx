@@ -19,7 +19,6 @@ from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
 from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
 from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
-from hummingbot.connector.exchange.okex.okex_utils import CLIENT_ID_PREFIX
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
     s_decimal_NaN)
@@ -670,7 +669,10 @@ cdef class OkexExchange(ExchangeBase):
             data=data,
             is_auth_required=True
         )
-        return str(exchange_order_id['data'][0]['ordId'])
+        data = exchange_order_id["data"][0]
+        if data["sCode"] != "0":
+            raise IOError(f"Error submitting order {order_id}: {data['sMsg']}")
+        return str(data['ordId'])
 
     async def execute_buy(self,
                           order_id: str,
@@ -742,7 +744,10 @@ cdef class OkexExchange(ExchangeBase):
                    dict kwargs={}):
         cdef:
             str order_id = get_new_client_order_id(
-                is_buy=True, trading_pair=trading_pair, hbot_order_id_prefix=CLIENT_ID_PREFIX
+                is_buy=True,
+                trading_pair=trading_pair,
+                hbot_order_id_prefix=CLIENT_ID_PREFIX,
+                max_id_len=MAX_ID_LEN,
             )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -801,7 +806,6 @@ cdef class OkexExchange(ExchangeBase):
                 f"Error submitting sell {order_type_str} order to OKEx for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
-                f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to OKEx. Check API key and network connection."
             )
@@ -815,7 +819,10 @@ cdef class OkexExchange(ExchangeBase):
                     dict kwargs={}):
         cdef:
             str order_id = get_new_client_order_id(
-                is_buy=False, trading_pair=trading_pair, hbot_order_id_prefix=CLIENT_ID_PREFIX
+                is_buy=False,
+                trading_pair=trading_pair,
+                hbot_order_id_prefix=CLIENT_ID_PREFIX,
+                max_id_len=MAX_ID_LEN,
             )
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
