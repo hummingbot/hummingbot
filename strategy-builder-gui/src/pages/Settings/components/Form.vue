@@ -1,7 +1,7 @@
 <template>
   <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders q-mt-md full-width">
     <div class="text-white text-h4 q-mb-xl">Settings</div>
-    <q-form class="q-gutter-md" @submit="onSubmit">
+    <q-form class="q-gutter-md" @submit="handleSubmit">
       <Field title="Exchange">
         <Select
           v-model="selects.exchange.value.value"
@@ -60,15 +60,15 @@ export default defineComponent({
   components: { Field, Select, Counter, Input },
 
   setup() {
-    const { settingsForm, submitValue } = useSettingsForm();
+    const { settingsForm, values } = useSettingsForm();
 
-    const onSubmit = () => {
+    const handleSubmit = () => {
       // eslint-disable-next-line no-console
-      console.log(submitValue.value);
+      console.log(values.value);
     };
 
     return {
-      onSubmit,
+      handleSubmit,
       ...settingsForm,
       CounterType,
       InputType,

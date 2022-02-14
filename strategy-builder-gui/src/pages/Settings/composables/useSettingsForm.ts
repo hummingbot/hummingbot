@@ -6,12 +6,12 @@ export const useSettingsForm = () => {
   const { inputs, counters, selects, toggles } = $settingsForm;
   const formObject = { ...inputs, ...selects, ...counters, ...toggles };
 
-  const submitValue = computed(() =>
+  const values = computed(() =>
     Object.keys(formObject).reduce(
       (acc, key) => ({ ...acc, [key]: formObject[key].value.value }),
       {},
     ),
   );
 
-  return { settingsForm: $settingsForm, submitValue };
+  return { settingsForm: $settingsForm, values };
 };
