@@ -90,6 +90,7 @@ def main():
         "simplejson",
         "six",
         "sqlalchemy",
+        "tabulate",
         "tzlocal",
         "ujson",
         "web3",

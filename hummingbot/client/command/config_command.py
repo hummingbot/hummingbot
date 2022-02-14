@@ -21,6 +21,7 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
     GLOBAL_CONFIG_PATH,
 )
+from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -57,7 +58,8 @@ global_configs_to_display = ["autofill_import",
                              "global_token_symbol",
                              "rate_limits_share_pct",
                              "create_command_timeout",
-                             "other_commands_timeout"]
+                             "other_commands_timeout",
+                             "tables_format"]
 color_settings_to_display = ["top-pane",
                              "bottom-pane",
                              "output-pane",
@@ -87,21 +89,21 @@ class ConfigCommand:
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self._notify("\nGlobal Configurations:")
-        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
         self._notify("\n".join(lines))
 
         data = [[cv.key, cv.value] for cv in global_config_map.values()
                 if cv.key in color_settings_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self._notify("\nColor Settings:")
-        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
         self._notify("\n".join(lines))
 
         if self.strategy_name is not None:
             data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
             self._notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+            lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
             self._notify("\n".join(lines))
 
     def config_able_keys(self  # type: HummingbotApplication
