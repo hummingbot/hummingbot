@@ -4,46 +4,43 @@
     <q-form class="q-gutter-md" @submit="onSubmit">
       <Field title="Exchange">
         <Select
-          v-model="selects.exchange.modelValue.value"
+          v-model="selects.exchange.value.value"
           v-bind="{ ...selects.exchange.properties }"
         />
       </Field>
       <Field title="Market">
-        <Select
-          v-model="selects.market.modelValue.value"
-          v-bind="{ ...selects.market.properties }"
-        />
+        <Select v-model="selects.market.value.value" v-bind="{ ...selects.market.properties }" />
       </Field>
       <Field title="Bid spread">
         <Counter
-          v-model="counters.bidSpread.modelValue.value"
+          v-model="counters.bidSpread.value.value"
           :type="CounterType.Percentage"
           v-bind="{ ...counters.bidSpread.properties }"
         />
       </Field>
       <Field title="Ask spread">
         <Counter
-          v-model="counters.askSpread.modelValue.value"
+          v-model="counters.askSpread.value.value"
           :type="CounterType.Percentage"
           v-bind="{ ...counters.askSpread.properties }"
         />
       </Field>
       <Field title="Order refresh time">
         <Counter
-          v-model="counters.orderRefreshTime.modelValue.value"
+          v-model="counters.orderRefreshTime.value.value"
           :type="CounterType.Seconds"
           v-bind="{ ...counters.orderRefreshTime.properties }"
         />
       </Field>
       <Field title="Order amount">
         <Input
-          v-model="inputs.orderAmount.modelValue.value"
+          v-model="inputs.orderAmount.value.value"
           :type="InputType.Number"
           v-bind="{ ...inputs.orderAmount.properties }"
         />
       </Field>
       <Field title="Ping pong">
-        <q-toggle v-model="toggles.pingPong.modelValue.value" color="main-green-1" />
+        <q-toggle v-model="toggles.pingPong.value.value" color="main-green-1" />
       </Field>
       <q-btn label="Submit" type="submit" color="main-green-1" />
     </q-form>

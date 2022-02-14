@@ -3,7 +3,7 @@ import { Ref, ref } from 'vue';
 interface Form {
   counters?: {
     [key: string]: {
-      modelValue: Ref<number>;
+      value: Ref<number>;
       properties: {
         min: number;
         max: number;
@@ -13,7 +13,7 @@ interface Form {
   };
   inputs?: {
     [key: string]: {
-      modelValue: Ref<string>;
+      value: Ref<string>;
       properties: {
         placeholder?: string;
         rightText?: string;
@@ -22,7 +22,7 @@ interface Form {
   };
   selects?: {
     [key: string]: {
-      modelValue: Ref<string>;
+      value: Ref<string>;
       properties: {
         options: string[];
         labelText: string;
@@ -31,7 +31,7 @@ interface Form {
   };
   toggles?: {
     [key: string]: {
-      modelValue: Ref<boolean>;
+      value: Ref<boolean>;
     };
   };
 }
@@ -39,7 +39,7 @@ interface Form {
 export const $settingsForm: Form = {
   counters: {
     bidSpread: {
-      modelValue: ref(0),
+      value: ref(0),
       properties: {
         min: 0,
         max: 1,
@@ -47,7 +47,7 @@ export const $settingsForm: Form = {
       },
     },
     askSpread: {
-      modelValue: ref(0),
+      value: ref(0),
       properties: {
         min: 0,
         max: 1,
@@ -55,7 +55,7 @@ export const $settingsForm: Form = {
       },
     },
     orderRefreshTime: {
-      modelValue: ref(0),
+      value: ref(0),
       properties: {
         min: 0,
         max: 10,
@@ -65,14 +65,14 @@ export const $settingsForm: Form = {
   },
   selects: {
     exchange: {
-      modelValue: ref(''),
+      value: ref(''),
       properties: {
         options: ['1', '2', '3', '4', '5'],
         labelText: 'Select exchange',
       },
     },
     market: {
-      modelValue: ref(''),
+      value: ref(''),
       properties: {
         options: ['1', '2', '3', '4', '5'],
         labelText: 'Select market',
@@ -81,7 +81,7 @@ export const $settingsForm: Form = {
   },
   inputs: {
     orderAmount: {
-      modelValue: ref(''),
+      value: ref(''),
       properties: {
         placeholder: '0.00',
         rightText: 'BTC',
@@ -90,7 +90,7 @@ export const $settingsForm: Form = {
   },
   toggles: {
     pingPong: {
-      modelValue: ref(false),
+      value: ref(false),
     },
   },
 };
