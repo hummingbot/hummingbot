@@ -53,7 +53,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
-import { useSettingsForm } from '../../composables/useSettingsForm';
+import { useSettingsForm } from '../composables/useSettingsForm';
 import Counter, { CounterType } from './Counter.vue';
 import Field from './Field.vue';
 import Input, { InputType } from './Input.vue';

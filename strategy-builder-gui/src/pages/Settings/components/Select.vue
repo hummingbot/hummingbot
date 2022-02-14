@@ -9,7 +9,7 @@
     :label="labelText"
     :model-value="modelValue"
     label-color="mono-grey-3"
-    :dropdown-icon="`img:${require('../../assets/select-btn.svg')}`"
+    :dropdown-icon="`img:${require('../assets/select-btn.svg')}`"
     popup-content-class="bg-mono-grey-2 q-px-md q-py-md"
     options-selected-class="bg-mono-grey-3 rounded-borders"
     @update:model-value="(value) => $emit('update:modelValue', value)"
@@ -68,10 +68,6 @@ export default defineComponent({
 
 .form-select.q-field--float .q-field__label {
   display: none;
-}
-
-.form-select.q-field--float.q-field--focused .q-field__label {
-  display: block;
 }
 
 .form-select .q-field__native {
