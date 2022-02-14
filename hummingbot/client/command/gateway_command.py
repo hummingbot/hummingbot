@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import asyncio
 import aiohttp
-import ssl
 import json
 import pandas as pd
+import ssl
+import subprocess
+
 from os import getenv, path
 
 from bin.docker_connection import (
@@ -69,31 +71,41 @@ class GatewayCommand:
         elif option == "stop":
             safe_ensure_future(self._stop_gateway())
 
-    async def _verify_gateway_conf(self):
-        gateway_conf_mount_path: str
-        ssl_filename = "ssl.yml"
-
+    def _get_gateway_config_path(self) -> str:
         external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
         if external_gateway_conf_path is not None:
             gateway_conf_mount_path = external_gateway_conf_path
         else:
             gateway_conf_mount_path = path.join(root_path(), "gateway_conf")
 
-        ssl_yml_file_path = f"{gateway_conf_mount_path}/{ssl_filename}"
+        return gateway_conf_mount_path
 
-        conf_dict = await load_yml_into_dict(yml_path=ssl_yml_file_path)
+    async def _verify_ssl_conf(self):
+        if not certs_files_exist():
+            raise ValueError("Please run `gateway generate_certs` to generate the necessary .pem files.")
+
+        gateway_conf_path: str = self._get_gateway_config_path()
+        SSL_FILENAME = "ssl.yml"
+
+        ssl_yml_file_path = f"{gateway_conf_path}/{SSL_FILENAME}"
+
+        if path.isfile(ssl_yml_file_path):
+            conf_dict = await load_yml_into_dict(yml_path=ssl_yml_file_path)
+        else:
+            ssl_template_path = f"{path.dirname(__file__)}/../../../gateway/src/templates/{SSL_FILENAME}"
+            conf_dict = await load_yml_into_dict(yml_path=ssl_template_path)
 
         self.placeholder_mode = True
         self.app.hide_input = True
+
+        self.notify(f"=== Please verify configs for {ssl_yml_file_path} file. ===")
+
         for conf_key, path_value in conf_dict.items():
             ack: str = await self.app.prompt(prompt=f"Is {path_value} the correct path to {conf_key} ? (Yes/No) >>> ")
             if ack.strip().lower() not in ["y", "yes"]:
-                new_path: str = await self.app.prompt(prompt=f"Enter the correct path to {conf_key} >>> ")
+                new_path: str = await self.app.prompt(prompt=f"Enter the new path to {conf_key} >>> ")
                 conf_dict[conf_key] = new_path
                 path_value = new_path
-
-            if not path.isfile(path_value):
-                raise FileNotFoundError(f"{path_value} not found.")
 
         await save_yml_from_dict(yml_path=ssl_yml_file_path, conf_dict=conf_dict)
 
@@ -117,7 +129,7 @@ class GatewayCommand:
                 self.notify(f"Gateway container {container_info['Id']} already running.")
                 return
 
-            await self._verify_gateway_conf()
+            await self._verify_ssl_conf()
 
             await docker_ipc(
                 "start",
@@ -188,6 +200,32 @@ class GatewayCommand:
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
+    async def _generate_gateway_confs(self):
+
+        GENERATE_CONF_SCRIPT = path.join(root_path(), "gateway/setup/generate_conf.sh")
+
+        GATEWAY_CONF_PATH = self._get_gateway_config_path()
+        ETH_CONF_FILENAME = f"{GATEWAY_CONF_PATH}/ethereum.yml"
+
+        # Generates all the necessary gateway conf
+        subprocess.check_call([GENERATE_CONF_SCRIPT, self._get_gateway_config_path()],
+                              stdout=subprocess.DEVNULL)
+        self.notify(f"Gateway Configuration files are create in {GATEWAY_CONF_PATH}.")
+
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
+
+        node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, if you do not have one, make an account at infura.io):  >>> ")
+
+        ethereum_conf = await load_yml_into_dict(yml_path=ETH_CONF_FILENAME)
+        ethereum_conf["nodeAPIKey"] = node_api_key
+        await save_yml_from_dict(yml_path=ETH_CONF_FILENAME, conf_dict=ethereum_conf)
+
+        self.placeholder_mode = False
+        self.app.hide_input = False
+        self.app.change_prompt(prompt=">>> ")
+
     async def _create_gateway(self):
         gateway_conf_mount_path: str
         certificate_mount_path: str
@@ -227,6 +265,9 @@ class GatewayCommand:
             pass  # silently ignore exception
 
         await self._generate_certs(from_client_password=True)  # create cert
+
+        await self._generate_gateway_confs()  # Generates necessary yml config files.
+
         self.notify("Pulling Gateway docker image...")
         try:
             await self.pull_gateway_docker(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG)

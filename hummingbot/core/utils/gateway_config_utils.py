@@ -1,9 +1,12 @@
-from copy import deepcopy
-from hummingbot.client.settings import (CONF_FILE_PATH)
-from os import path
-from typing import List, Dict, Any, Optional
 import json
 import pandas as pd
+
+from copy import deepcopy
+from os import path, getenv
+from typing import List, Dict, Any, Optional
+
+from hummingbot import root_path
+from hummingbot.client.settings import (CONF_FILE_PATH)
 
 native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
 
@@ -126,3 +129,23 @@ def search_configs(config_dict: Dict[str, Any], namespace_key: str) \
         result_val[key_part] = temp
         result_val = result_val[key_part]
     return result
+
+
+def get_config_path() -> str:
+    external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
+    if external_gateway_conf_path is not None:
+        gateway_conf_mount_path = external_gateway_conf_path
+    else:
+        gateway_conf_mount_path = path.join(root_path(), "gateway_conf")
+
+    return gateway_conf_mount_path
+
+
+def get_logs_path() -> str:
+    external_gateway_conf_path: str = getenv("LOGS_FOLDER")
+    if external_gateway_conf_path is not None:
+        gateway_conf_mount_path = external_gateway_conf_path
+    else:
+        gateway_conf_mount_path = path.join(root_path(), "logs")
+
+    return gateway_conf_mount_path

@@ -1,13 +1,8 @@
 # need more details...
-caCertificatePath: /Users/jack/github/hummingbot/certs/ca_cert.pem
+caCertificatePath: /usr/src/app/certs/ca_cert.pem
 
 # need more details...
-certificatePath: /Users/jack/github/hummingbot/certs/server_cert.pem
+certificatePath: /usr/src/app/certs/server_cert.pem
 
 # need more details...
-keyPath: /Users/jack/github/hummingbot/certs/server_key.pem
-
-# File where the gateway passphrase is stored. This passphrase is used to sign
-# https responses and encrypt/decrypt private keys stored on gateway. The file
-# must use 0600 permissions for security purposes.
-passPhrasePath: /Users/jack/github/hummingbot/gateway/conf/gateway-passphrase.yml
+keyPath: /usr/src/app/certs/server_key.pem

@@ -250,7 +250,7 @@ async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
 
 async def save_yml_from_dict(yml_path: str, conf_dict: Dict[str, Any]):
     try:
-        with open(yml_path) as stream:
+        with open(yml_path, "w+") as stream:
             data = yaml_parser.load(stream) or {}
             for key in conf_dict:
                 data[key] = conf_dict.get(key)
