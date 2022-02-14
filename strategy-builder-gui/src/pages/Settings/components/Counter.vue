@@ -3,16 +3,14 @@
     <q-btn
       size="md"
       class="bg-mono-grey-2 q-px-md q-py-xs rounded-borders"
-      :disable="modelValue < min + stepValue"
-      @click="$emit('update:modelValue', modelValue - stepValue)"
+      :disable="modelValue < min + step"
+      @click="$emit('update:modelValue', modelValue - step)"
     >
-      <span :class="modelValue < min + stepValue ? 'text-mono-grey-4' : 'text-main-green-1'">
-        -
-      </span>
+      <span :class="modelValue < min + step ? 'text-mono-grey-4' : 'text-main-green-1'"> - </span>
     </q-btn>
     <span
       class="counter-modelValue text-body1 text-weight-semibold items-center text-center"
-      :class="modelValue < min + stepValue ? 'text-mono-grey-4' : 'text-white'"
+      :class="modelValue < min + step ? 'text-mono-grey-4' : 'text-white'"
     >
       {{ displayValue }}{{ counterType }}
     </span>
@@ -20,12 +18,10 @@
     <q-btn
       size="md"
       class="bg-mono-grey-2 q-px-md q-py-xs rounded-borders"
-      :disable="modelValue > max - stepValue"
-      @click="$emit('update:modelValue', modelValue + stepValue)"
+      :disable="modelValue > max - step"
+      @click="$emit('update:modelValue', modelValue + step)"
     >
-      <span :class="modelValue > max - stepValue ? 'text-mono-grey-4' : 'text-main-green-1'">
-        +
-      </span>
+      <span :class="modelValue > max - step ? 'text-mono-grey-4' : 'text-main-green-1'"> + </span>
     </q-btn>
   </div>
 </template>
@@ -57,7 +53,7 @@ export default defineComponent({
     min: { type: Number, require: true, default: () => 0 },
     max: { type: Number, require: true, default: () => 0 },
     modelValue: { type: Number, require: true, default: () => 0 },
-    stepValue: { type: Number, require: true, default: () => 0 },
+    step: { type: Number, require: true, default: () => 0 },
   },
   emits: ['update:modelValue'],
 

@@ -7,7 +7,7 @@ interface Form {
       properties: {
         min: number;
         max: number;
-        stepValue: number;
+        step: number;
       };
     };
   };
@@ -43,7 +43,7 @@ export const $settingsForm: Form = {
       properties: {
         min: 0,
         max: 1,
-        stepValue: 0.1,
+        step: 0.1,
       },
     },
     askSpread: {
@@ -51,7 +51,7 @@ export const $settingsForm: Form = {
       properties: {
         min: 0,
         max: 1,
-        stepValue: 0.1,
+        step: 0.1,
       },
     },
     orderRefreshTime: {
@@ -59,7 +59,7 @@ export const $settingsForm: Form = {
       properties: {
         min: 0,
         max: 10,
-        stepValue: 1,
+        step: 1,
       },
     },
   },
