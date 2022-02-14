@@ -4,72 +4,49 @@
     <q-form class="q-gutter-md" @submit="onSubmit">
       <Field title="Exchange">
         <Select
-          :v-model="selects.exchange.model"
-          :model-value="selects.exchange.model.value"
-          :label-text="selects.exchange.labelText"
-          :options="selects.exchange.options"
-          :name="selects.exchange.name"
-          :on-change="onChangeSelect"
+          v-bind="{ ...selects.exchange.value }"
+          @update:modelValue="selects.exchange.value.modelValue = $event"
         />
       </Field>
       <Field title="Market">
         <Select
-          :model-value="selects.market.model.value"
-          :label-text="selects.market.labelText"
-          :options="selects.market.options"
-          :name="selects.market.name"
-          :on-change="onChangeSelect"
+          v-bind="{ ...selects.market.value }"
+          @update:modelValue="selects.market.value.modelValue = $event"
         />
       </Field>
       <Field title="Bid spread">
         <Counter
-          :type="counters.bidSpread.type"
-          :name="counters.bidSpread.name"
-          :counter-value="counters.bidSpread.model.value"
-          :max="counters.bidSpread.max"
-          :min="counters.bidSpread.min"
-          :step-value="counters.bidSpread.stepValue"
-          :on-click="onClickCounterBtn"
+          :type="CounterType.Percentage"
+          v-bind="{ ...counters.bidSpread.value }"
+          @update:modelValue="counters.bidSpread.value.modelValue += $event"
         />
       </Field>
       <Field title="Ask spread">
         <Counter
-          :type="counters.askSread.type"
-          :name="counters.askSread.name"
-          :counter-value="counters.askSread.model.value"
-          :max="counters.askSread.max"
-          :min="counters.askSread.min"
-          :step-value="counters.askSread.stepValue"
-          :on-click="onClickCounterBtn"
+          :type="CounterType.Percentage"
+          v-bind="{ ...counters.askSpread.value }"
+          @update:modelValue="counters.askSpread.value.modelValue += $event"
         />
       </Field>
       <Field title="Order refresh time">
         <Counter
-          :type="counters.orderRefreshTime.type"
-          :name="counters.orderRefreshTime.name"
-          :counter-value="counters.orderRefreshTime.model.value"
-          :max="counters.orderRefreshTime.max"
-          :min="counters.orderRefreshTime.min"
-          :step-value="counters.orderRefreshTime.stepValue"
-          :on-click="onClickCounterBtn"
+          :type="CounterType.Seconds"
+          v-bind="{ ...counters.orderRefreshTime.value }"
+          @update:modelValue="counters.orderRefreshTime.value.modelValue += $event"
         />
       </Field>
       <Field title="Order amount">
         <Input
-          :placeholder="inputs.orderAmount.placeholder"
-          :right-text="inputs.orderAmount.rightText"
-          :type="inputs.orderAmount.type"
-          :value="String(inputs.orderAmount.model.value)"
-          :name="inputs.orderAmount.name"
-          :on-change="onChangeInput"
+          :type="InputType.Number"
+          v-bind="{ ...inputs.orderAmount.value }"
+          @update:modelValue="inputs.orderAmount.value.modelValue = $event"
         />
       </Field>
       <Field title="Ping pong">
         <q-toggle
-          :model-value="toggles.pingPong.model.value"
+          :model-value="toggles.pingPong.value.modelValue"
           color="main-green-1"
-          :name="toggles.pingPong.name"
-          @update:model-value="(value) => onChangeToggle(value, toggles.pingPong.name)"
+          @update:model-value="(value) => (toggles.pingPong.value.modelValue = value)"
         />
       </Field>
       <q-btn label="Submit" type="submit" color="main-green-1" />
@@ -80,60 +57,28 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
-import { counters } from '../../stores/counters';
-import { inputs } from '../../stores/inputs';
-import { selects } from '../../stores/selects';
-import { toggles } from '../../stores/toggles';
-import Counter from './Counter.vue';
+import { useSettingsForm } from '../../composables/useSettingsForm';
+import Counter, { CounterType } from './Counter.vue';
 import Field from './Field.vue';
-import Input from './Input.vue';
+import Input, { InputType } from './Input.vue';
 import Select from './Select.vue';
-
-type SubmitResult = {
-  [key: string]: unknown;
-};
 
 export default defineComponent({
   components: { Field, Select, Counter, Input },
+
   setup() {
-    const onClickCounterBtn = (value: number, name: string) => {
-      counters[name].model.value += value;
-    };
-
-    const onChangeSelect = (value: string, name: string) => {
-      selects[name].model.value = value;
-    };
-
-    const onChangeInput = (value: string, name: string, numeric?: boolean) => {
-      inputs[name].model.value = numeric ? Number(value) : value;
-    };
-
-    const onChangeToggle = (value: boolean, name: string) => {
-      toggles[name].model.value = value;
-    };
+    const { settingsForm, submitValue } = useSettingsForm();
 
     const onSubmit = () => {
-      const result: SubmitResult = {};
-
-      const formObject = { ...inputs, ...selects, ...counters, ...toggles };
-      Object.keys(formObject).forEach((key) => {
-        result[key] = formObject[key].model.value;
-      });
-
       // eslint-disable-next-line no-console
-      console.log(result);
+      console.log(submitValue.value);
     };
 
     return {
       onSubmit,
-      onChangeInput,
-      selects,
-      onChangeSelect,
-      counters,
-      onClickCounterBtn,
-      inputs,
-      toggles,
-      onChangeToggle,
+      ...settingsForm,
+      CounterType,
+      InputType,
     };
   },
 });

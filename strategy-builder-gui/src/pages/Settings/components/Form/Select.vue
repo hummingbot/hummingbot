@@ -12,7 +12,7 @@
     :dropdown-icon="`img:${require('../../assets/select-btn.svg')}`"
     popup-content-class="bg-mono-grey-2 q-px-md q-py-md"
     options-selected-class="bg-mono-grey-3 rounded-borders"
-    @update:model-value="(value) => onChange(value, name)"
+    @update:model-value="(value) => $emit('update:modelValue', value)"
   />
 </template>
 
@@ -27,6 +27,7 @@ export default defineComponent({
     name: { type: String, require: true, default: () => '' },
     onChange: { type: Function, require: true, default: () => undefined },
   },
+  emits: ['update:modelValue'],
   setup(props) {
     const exchanges = ref(props.options);
 

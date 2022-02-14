@@ -3,25 +3,33 @@
     <q-btn
       size="md"
       class="bg-mono-grey-2 q-px-md q-py-xs rounded-borders"
-      :disable="displayValue <= min"
-      @click="onClick(-stepValue, name)"
+      :disable="modelValue < min + stepValue"
+      @click="$emit('update:modelValue', -stepValue)"
     >
-      <span :class="displayValue <= min ? 'text-mono-grey-4' : 'text-main-green-1'">-</span>
+      <span :class="modelValue < min + stepValue ? 'text-mono-grey-4' : 'text-main-green-1'">
+        -
+      </span>
     </q-btn>
     <span
-      class="counter-value text-body1 text-weight-semibold items-center text-center"
-      :class="displayValue <= min ? 'text-mono-grey-4' : 'text-white'"
+      class="counter-modelValue text-body1 text-weight-semibold items-center text-center"
+      :class="modelValue < min + stepValue ? 'text-mono-grey-4' : 'text-white'"
     >
-      {{ displayValue }}{{ counterType }}
+      {{
+        modelValue.toFixed(
+          type === CounterType.Percentage || type === CounterType.FloatCount ? 2 : 0,
+        )
+      }}{{ counterType }}
     </span>
 
     <q-btn
       size="md"
       class="bg-mono-grey-2 q-px-md q-py-xs rounded-borders"
-      :disable="displayValue >= max"
-      @click="onClick(stepValue, name)"
+      :disable="modelValue > max - stepValue"
+      @click="$emit('update:modelValue', stepValue)"
     >
-      <span :class="displayValue >= max ? 'text-mono-grey-4' : 'text-main-green-1'">+</span>
+      <span :class="modelValue > max - stepValue ? 'text-mono-grey-4' : 'text-main-green-1'">
+        +
+      </span>
     </q-btn>
   </div>
 </template>
@@ -29,45 +37,44 @@
 <script lang="ts">
 import { computed, defineComponent, PropType } from 'vue';
 
-import { CounterTypes } from '../../stores/counters';
+export enum CounterType {
+  Percentage,
+  Seconds,
+  CountInt,
+  FloatCount,
+}
 
 const counterTypesDisplayMap = {
-  [CounterTypes.Percentage]: '%',
-  [CounterTypes.Seconds]: 's',
-  [CounterTypes.CountInt]: '',
-  [CounterTypes.FloatCount]: '',
+  [CounterType.Percentage]: '%',
+  [CounterType.Seconds]: 's',
+  [CounterType.CountInt]: '',
+  [CounterType.FloatCount]: '',
 };
 
 export default defineComponent({
   props: {
     type: {
-      type: Number as PropType<CounterTypes>,
+      type: Number as PropType<CounterType>,
       require: true,
-      default: () => CounterTypes.CountInt,
+      default: () => CounterType.CountInt,
     },
-    name: { type: String, require: true, default: () => '' },
     min: { type: Number, require: true, default: () => 0 },
     max: { type: Number, require: true, default: () => 0 },
-    counterValue: { type: Number, require: true, default: () => 0 },
+    modelValue: { type: Number, require: true, default: () => 0 },
     stepValue: { type: Number, require: true, default: () => 0 },
-    onClick: { type: Function, require: true, default: () => undefined },
   },
+  emits: ['update:modelValue'],
 
   setup(props) {
     const counterType = computed(() => counterTypesDisplayMap[props.type]);
-    const displayValue = computed(() =>
-      props.type === CounterTypes.Percentage || props.type === CounterTypes.FloatCount
-        ? props.counterValue.toFixed(2)
-        : props.counterValue,
-    );
 
-    return { counterType, displayValue };
+    return { counterType, CounterType };
   },
 });
 </script>
 
 <style lang="scss" scoped>
-.counter-value {
+.counter-modelValue {
   min-width: 45px;
 }
 </style>
