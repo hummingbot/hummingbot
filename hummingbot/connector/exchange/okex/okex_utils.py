@@ -2,8 +2,6 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 import zlib
 
-CLIENT_ID_PREFIX = "93027a12dac34fBC"
-
 CENTRALIZED = True
 
 
