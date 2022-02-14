@@ -7,6 +7,7 @@ import { addWallet, removeWallet, getWallets } from './wallet.controllers';
 
 import {
   AddWalletRequest,
+  AddWalletResponse,
   RemoveWalletRequest,
   GetWalletResponse,
 } from './wallet.requests';
@@ -32,7 +33,7 @@ export namespace WalletRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, AddWalletRequest>,
-        res: Response<void, {}>
+        res: Response<AddWalletResponse, {}>
       ) => {
         validateAddWalletRequest(req.body);
         await addWallet(req.body);
