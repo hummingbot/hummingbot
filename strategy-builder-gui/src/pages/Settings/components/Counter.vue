@@ -14,11 +14,7 @@
       class="counter-modelValue text-body1 text-weight-semibold items-center text-center"
       :class="modelValue < min + stepValue ? 'text-mono-grey-4' : 'text-white'"
     >
-      {{
-        modelValue.toFixed(
-          type === CounterType.Percentage || type === CounterType.FloatCount ? 2 : 0,
-        )
-      }}{{ counterType }}
+      {{ displayValue }}{{ counterType }}
     </span>
 
     <q-btn
@@ -67,8 +63,13 @@ export default defineComponent({
 
   setup(props) {
     const counterType = computed(() => counterTypesDisplayMap[props.type]);
+    const displayValue = computed(() =>
+      props.modelValue.toFixed(
+        props.type === CounterType.Percentage || props.type === CounterType.FloatCount ? 2 : 0,
+      ),
+    );
 
-    return { counterType, CounterType };
+    return { counterType, CounterType, displayValue };
   },
 });
 </script>
