@@ -31,6 +31,7 @@ class ClientOrderTracker:
     MAX_CACHE_SIZE = 1000
     CACHED_ORDER_TTL = 30.0  # seconds
     ORDER_NOT_FOUND_COUNT_LIMIT = 3
+    TRADE_FILLS_WAIT_TIMEOUT = 5  # seconds
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -263,7 +264,14 @@ class ClientOrderTracker:
 
         if tracked_order:
             if order_update.new_state == OrderState.FILLED and not tracked_order.is_done:
-                await tracked_order.wait_until_completely_filled()
+                try:
+                    await asyncio.wait_for(
+                        tracked_order.wait_until_completely_filled(),
+                        timeout=self.TRADE_FILLS_WAIT_TIMEOUT)
+                except asyncio.TimeoutError:
+                    self.logger().warning(
+                        f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
+                        f"The complete update will be processed with incomplete information.")
 
             previous_state: OrderState = tracked_order.current_state
 
