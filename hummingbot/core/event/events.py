@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
@@ -164,7 +163,7 @@ class OrderFilledEvent(NamedTuple):
     trade_fee: TradeFeeBase
     exchange_trade_id: str = ""
     leverage: Optional[int] = 1
-    position: Optional[str] = "NIL"
+    position: Optional[str] = PositionAction.NIL.value
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -175,11 +174,21 @@ class OrderFilledEvent(NamedTuple):
                                                  order_type: OrderType,
                                                  trade_fee: TradeFeeBase,
                                                  order_book_rows: List[OrderBookRow],
-                                                 exchange_trade_id: str = "") -> List["OrderFilledEvent"]:
+                                                 exchange_trade_id: Optional[str] = None) -> List["OrderFilledEvent"]:
+        if exchange_trade_id is None:
+            exchange_trade_id = order_id
         return [
-            OrderFilledEvent(timestamp, order_id, trading_pair, trade_type, order_type,
-                             Decimal(r.price), Decimal(r.amount), trade_fee, exchange_trade_id=exchange_trade_id)
-            for r in order_book_rows
+            OrderFilledEvent(
+                timestamp,
+                order_id,
+                trading_pair,
+                trade_type,
+                order_type,
+                Decimal(row.price),
+                Decimal(row.amount),
+                trade_fee,
+                exchange_trade_id=f"{exchange_trade_id}_{index}")
+            for index, row in enumerate(order_book_rows)
         ]
 
     @classmethod
@@ -210,7 +219,7 @@ class BuyOrderCreatedEvent:
     order_id: str
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
 
 @dataclass
@@ -223,7 +232,7 @@ class SellOrderCreatedEvent:
     order_id: str
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
 
 @dataclass
