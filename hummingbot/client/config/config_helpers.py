@@ -277,7 +277,9 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
                 err_msg = await cvar.validate(str(cvar.value))
                 if err_msg is not None:
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
-                    logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
+                    logging.getLogger().error(
+                        "Invalid value %s for config variable %s: %s" % (val_in_file, cvar.key, err_msg)
+                    )
                     cvar.value = None
 
         if conf_version < template_version:

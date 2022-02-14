@@ -50,7 +50,7 @@ class CustomWidgetUnitTests(unittest.TestCase):
         self.assertEqual(expected_fragments, line_fragments)
 
     def test_get_line_match_found(self):
-        TEXT = "SOME RANDOM TEXT WITH &cSPECIAL_WORD"
+        TEXT = "SOME RANDOM TEXT WITH &cSPECIAL_WORD AND &cSPECIAL_WORD"
         document = Document(text=TEXT)
         get_line = self.lexer.lex_document(document)
 
@@ -58,10 +58,14 @@ class CustomWidgetUnitTests(unittest.TestCase):
             ("", "SOME RANDOM TEXT WITH "),
             (self.lexer.get_css_style("output-pane"), "&c"),
             (self.lexer.get_css_style("SPECIAL_LABEL"), "SPECIAL_WORD"),
+            ("", " AND "),
+            (self.lexer.get_css_style("output-pane"), "&c"),
+            (self.lexer.get_css_style("SPECIAL_LABEL"), "SPECIAL_WORD"),
+            ("", ""),
         ]
 
         line_fragments = get_line(0)
-        self.assertEqual(3, len(line_fragments))
+        self.assertEqual(7, len(line_fragments))
         self.assertEqual(expected_fragments, line_fragments)
 
     def test_get_line_no_match_found(self):
