@@ -4,12 +4,8 @@ from typing import List
 
 import pandas as pd
 
-from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig, AssetType
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -132,7 +128,6 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
-        config: MarketConfig = market.config
 
         trade_event = OrderBookTradeEvent(
             trading_pair=limit_order.trading_pair,
@@ -160,10 +155,8 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal(0.0),
                 OrderType.LIMIT
             ))
             market.order_books[limit_order.trading_pair].apply_trade(trade_event)
@@ -185,10 +178,8 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal(0.0),
                 OrderType.LIMIT
             ))
             market.order_books[limit_order.trading_pair].apply_trade(trade_event)
