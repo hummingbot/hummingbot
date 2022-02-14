@@ -2,77 +2,95 @@ import { Ref, ref } from 'vue';
 
 interface Form {
   counters?: {
-    [key: string]: Ref<{
-      min: number;
-      max: number;
-      modelValue: number;
-      stepValue: number;
-    }>;
+    [key: string]: {
+      modelValue: Ref<number>;
+      properties: {
+        min: number;
+        max: number;
+        stepValue: number;
+      };
+    };
   };
   inputs?: {
-    [key: string]: Ref<{
-      placeholder?: string;
-      rightText?: string;
-      modelValue: string;
-    }>;
+    [key: string]: {
+      modelValue: Ref<string>;
+      properties: {
+        placeholder?: string;
+        rightText?: string;
+      };
+    };
   };
   selects?: {
-    [key: string]: Ref<{
-      modelValue: string;
-      options: string[];
-      labelText: string;
-    }>;
+    [key: string]: {
+      modelValue: Ref<string>;
+      properties: {
+        options: string[];
+        labelText: string;
+      };
+    };
   };
   toggles?: {
-    [key: string]: Ref<{
-      modelValue: boolean;
-    }>;
+    [key: string]: {
+      modelValue: Ref<boolean>;
+    };
   };
 }
 
 export const $settingsForm: Form = {
   counters: {
-    bidSpread: ref({
-      min: 0,
-      max: 1,
+    bidSpread: {
       modelValue: ref(0),
-      stepValue: 0.1,
-    }),
-    askSpread: ref({
-      min: 0,
-      max: 1,
+      properties: {
+        min: 0,
+        max: 1,
+        stepValue: 0.1,
+      },
+    },
+    askSpread: {
       modelValue: ref(0),
-      stepValue: 0.1,
-    }),
-    orderRefreshTime: ref({
-      min: 0,
-      max: 10,
+      properties: {
+        min: 0,
+        max: 1,
+        stepValue: 0.1,
+      },
+    },
+    orderRefreshTime: {
       modelValue: ref(0),
-      stepValue: 1,
-    }),
+      properties: {
+        min: 0,
+        max: 10,
+        stepValue: 1,
+      },
+    },
   },
   selects: {
-    exchange: ref({
+    exchange: {
       modelValue: ref(''),
-      options: ['1', '2', '3', '4', '5'],
-      labelText: 'Select exchange',
-    }),
-    market: ref({
+      properties: {
+        options: ['1', '2', '3', '4', '5'],
+        labelText: 'Select exchange',
+      },
+    },
+    market: {
       modelValue: ref(''),
-      options: ['1', '2', '3', '4', '5'],
-      labelText: 'Select market',
-    }),
+      properties: {
+        options: ['1', '2', '3', '4', '5'],
+        labelText: 'Select market',
+      },
+    },
   },
   inputs: {
-    orderAmount: ref({
-      placeholder: '0.00',
-      rightText: 'BTC',
+    orderAmount: {
       modelValue: ref(''),
-    }),
+      properties: {
+        placeholder: '0.00',
+        rightText: 'BTC',
+      },
+    },
   },
   toggles: {
-    pingPong: ref({
+    pingPong: {
       modelValue: ref(false),
-    }),
+    },
   },
 };

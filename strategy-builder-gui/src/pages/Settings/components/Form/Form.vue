@@ -4,50 +4,46 @@
     <q-form class="q-gutter-md" @submit="onSubmit">
       <Field title="Exchange">
         <Select
-          v-bind="{ ...selects.exchange.value }"
-          @update:modelValue="selects.exchange.value.modelValue = $event"
+          v-model="selects.exchange.modelValue.value"
+          v-bind="{ ...selects.exchange.properties }"
         />
       </Field>
       <Field title="Market">
         <Select
-          v-bind="{ ...selects.market.value }"
-          @update:modelValue="selects.market.value.modelValue = $event"
+          v-model="selects.market.modelValue.value"
+          v-bind="{ ...selects.market.properties }"
         />
       </Field>
       <Field title="Bid spread">
         <Counter
+          v-model="counters.bidSpread.modelValue.value"
           :type="CounterType.Percentage"
-          v-bind="{ ...counters.bidSpread.value }"
-          @update:modelValue="counters.bidSpread.value.modelValue += $event"
+          v-bind="{ ...counters.bidSpread.properties }"
         />
       </Field>
       <Field title="Ask spread">
         <Counter
+          v-model="counters.askSpread.modelValue.value"
           :type="CounterType.Percentage"
-          v-bind="{ ...counters.askSpread.value }"
-          @update:modelValue="counters.askSpread.value.modelValue += $event"
+          v-bind="{ ...counters.askSpread.properties }"
         />
       </Field>
       <Field title="Order refresh time">
         <Counter
+          v-model="counters.orderRefreshTime.modelValue.value"
           :type="CounterType.Seconds"
-          v-bind="{ ...counters.orderRefreshTime.value }"
-          @update:modelValue="counters.orderRefreshTime.value.modelValue += $event"
+          v-bind="{ ...counters.orderRefreshTime.properties }"
         />
       </Field>
       <Field title="Order amount">
         <Input
+          v-model="inputs.orderAmount.modelValue.value"
           :type="InputType.Number"
-          v-bind="{ ...inputs.orderAmount.value }"
-          @update:modelValue="inputs.orderAmount.value.modelValue = $event"
+          v-bind="{ ...inputs.orderAmount.properties }"
         />
       </Field>
       <Field title="Ping pong">
-        <q-toggle
-          :model-value="toggles.pingPong.value.modelValue"
-          color="main-green-1"
-          @update:model-value="(value) => (toggles.pingPong.value.modelValue = value)"
-        />
+        <q-toggle v-model="toggles.pingPong.modelValue.value" color="main-green-1" />
       </Field>
       <q-btn label="Submit" type="submit" color="main-green-1" />
     </q-form>

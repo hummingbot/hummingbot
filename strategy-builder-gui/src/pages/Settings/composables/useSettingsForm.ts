@@ -8,7 +8,7 @@ export const useSettingsForm = () => {
 
   const submitValue = computed(() =>
     Object.keys(formObject).reduce(
-      (acc, key) => ({ ...acc, [key]: formObject[key].value.modelValue }),
+      (acc, key) => ({ ...acc, [key]: formObject[key].modelValue.value }),
       {},
     ),
   );

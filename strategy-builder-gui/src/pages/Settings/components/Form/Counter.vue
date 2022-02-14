@@ -4,7 +4,7 @@
       size="md"
       class="bg-mono-grey-2 q-px-md q-py-xs rounded-borders"
       :disable="modelValue < min + stepValue"
-      @click="$emit('update:modelValue', -stepValue)"
+      @click="$emit('update:modelValue', modelValue - stepValue)"
     >
       <span :class="modelValue < min + stepValue ? 'text-mono-grey-4' : 'text-main-green-1'">
         -
@@ -25,7 +25,7 @@
       size="md"
       class="bg-mono-grey-2 q-px-md q-py-xs rounded-borders"
       :disable="modelValue > max - stepValue"
-      @click="$emit('update:modelValue', stepValue)"
+      @click="$emit('update:modelValue', modelValue + stepValue)"
     >
       <span :class="modelValue > max - stepValue ? 'text-mono-grey-4' : 'text-main-green-1'">
         +
