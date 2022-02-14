@@ -10,7 +10,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 global_hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220131"
+GATEWAY_DOCKER_TAG: str = "20220214"
 
 
 async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
