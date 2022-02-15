@@ -8,7 +8,7 @@ import json
 from decimal import Decimal
 from enum import Enum
 from os import scandir
-from os.path import join, realpath
+from os.path import join, realpath, exists
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
 
@@ -168,9 +168,9 @@ class AllConnectorSettings:
                     )
 
         # add gateway connectors
-        connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
+        connections_fp = realpath(join(CONF_FILE_PATH, "gateway_connections.json"))
         connections = []
-        if path.exists(connections_fp):
+        if exists(connections_fp):
             with open(connections_fp) as f:
                 connections = json.loads(f.read())
 
