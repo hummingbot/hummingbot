@@ -307,7 +307,8 @@ class GatewayCommand:
                 certificate_mount_path,
                 logs_mount_path
             ],
-            host_config=host_config
+            host_config=host_config,
+            environment=[f"GATEWAY_PASSPHRASE={Security.password}"]
         )
 
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
