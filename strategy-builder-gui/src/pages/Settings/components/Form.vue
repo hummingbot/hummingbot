@@ -208,7 +208,7 @@
           class="col-6"
         />
       </Field>
-      <Field>
+      <Field class="q-gutter-md">
         <Order v-model="order1.value.value.order" v-bind="{ ...order1.properties }">
           <Counter
             v-model="order1.value.value.firstCounter"
@@ -257,6 +257,13 @@
             v-bind="{ ...order4.counterProperties.secondCounter }"
           />
         </Order>
+      </Field>
+      <Field title="Max. order age">
+        <Counter
+          v-model="maxOrderAge.value.value"
+          :type="CounterType.Seconds"
+          v-bind="{ ...maxOrderAge.properties }"
+        />
       </Field>
     </q-form>
   </div>

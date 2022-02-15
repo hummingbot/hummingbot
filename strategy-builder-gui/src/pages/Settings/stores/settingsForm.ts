@@ -359,4 +359,12 @@ export const $settingsForm: $SettingsForm = {
       },
     },
   },
+  maxOrderAge: {
+    value: ref(0),
+    properties: {
+      min: 1,
+      max: 10,
+      step: 1,
+    },
+  },
 };
