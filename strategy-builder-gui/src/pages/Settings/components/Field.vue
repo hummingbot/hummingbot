@@ -1,6 +1,6 @@
 <template>
   <div class="row justify-between items-center q-pb-md border">
-    <div class="row text-body1 text-white"> {{ title }} </div>
+    <div v-if="title" class="row text-body1 text-white"> {{ title }} </div>
     <slot />
   </div>
 </template>
@@ -10,7 +10,7 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   props: {
-    title: { type: String, required: true, default: () => '' },
+    title: { type: String, required: false, default: () => '' },
   },
 });
 </script>

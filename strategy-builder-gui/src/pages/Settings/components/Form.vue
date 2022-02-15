@@ -208,6 +208,56 @@
           class="col-6"
         />
       </Field>
+      <Field>
+        <Order v-model="order1.value.value.order" v-bind="{ ...order1.properties }">
+          <Counter
+            v-model="order1.value.value.firstCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order1.counterProperties.firstCounter }"
+          />
+          <Counter
+            v-model="order1.value.value.secondCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order1.counterProperties.secondCounter }"
+          />
+        </Order>
+        <Order v-model="order2.value.value.order" v-bind="{ ...order2.properties }">
+          <Counter
+            v-model="order2.value.value.firstCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order2.counterProperties.firstCounter }"
+          />
+          <Counter
+            v-model="order2.value.value.secondCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order2.counterProperties.secondCounter }"
+          />
+        </Order>
+        <Order v-model="order3.value.value.order" v-bind="{ ...order3.properties }">
+          <Counter
+            v-model="order3.value.value.firstCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order3.counterProperties.firstCounter }"
+          />
+          <Counter
+            v-model="order3.value.value.secondCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order3.counterProperties.secondCounter }"
+          />
+        </Order>
+        <Order v-model="order4.value.value.order" v-bind="{ ...order4.properties }">
+          <Counter
+            v-model="order4.value.value.firstCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order4.counterProperties.firstCounter }"
+          />
+          <Counter
+            v-model="order4.value.value.secondCounter"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order4.counterProperties.secondCounter }"
+          />
+        </Order>
+      </Field>
     </q-form>
   </div>
 </template>
@@ -219,6 +269,7 @@ import { useSettingsForm } from '../composables/useSettingsForm';
 import Counter, { CounterType } from './Counter.vue';
 import Field from './Field.vue';
 import Input, { InputType } from './Input.vue';
+import Order from './Order.vue';
 import Select from './Select/Index.vue';
 
 enum FormType {
@@ -227,7 +278,7 @@ enum FormType {
 }
 
 export default defineComponent({
-  components: { Field, Select, Counter, Input },
+  components: { Field, Select, Counter, Input, Order },
   emits: ['update:formType'],
 
   setup() {

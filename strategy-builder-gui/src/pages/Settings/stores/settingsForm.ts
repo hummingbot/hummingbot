@@ -1,5 +1,10 @@
 import { Ref, ref } from 'vue';
 
+export enum OrderStatus {
+  Sell = 'Buy',
+  Buy = 'Sell',
+}
+
 interface Counter {
   value: Ref<number>;
   properties: {
@@ -25,12 +30,34 @@ interface Input {
   };
 }
 
+interface Order {
+  value: Ref<{
+    order: OrderStatus;
+    firstCounter: number;
+    secondCounter: number;
+  }>;
+  properties: {
+    title: string;
+  };
+  counterProperties: {
+    firstCounter: {
+      min: number;
+      max: number;
+      step: number;
+    };
+    secondCounter: {
+      min: number;
+      max: number;
+      step: number;
+    };
+  };
+}
 interface Toggle {
   value: Ref<boolean>;
 }
 
 interface $SettingsForm {
-  [key: string]: Counter | Select | Toggle | Input;
+  [key: string]: Counter | Select | Toggle | Input | Order;
 }
 
 export const $settingsForm: $SettingsForm = {
@@ -240,6 +267,96 @@ export const $settingsForm: $SettingsForm = {
     properties: {
       placeholder: 'Pricing API url',
       rightText: '',
+    },
+  },
+
+  order1: {
+    value: ref({
+      order: OrderStatus.Sell,
+      firstCounter: 0,
+      secondCounter: 0,
+    }),
+
+    properties: {
+      title: 'Order 1',
+    },
+    counterProperties: {
+      firstCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+      secondCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+    },
+  },
+  order2: {
+    value: ref({
+      order: OrderStatus.Sell,
+      firstCounter: 0,
+      secondCounter: 0,
+    }),
+    properties: {
+      title: 'Order 2',
+    },
+    counterProperties: {
+      firstCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+      secondCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+    },
+  },
+  order3: {
+    value: ref({
+      order: OrderStatus.Sell,
+      firstCounter: 0,
+      secondCounter: 0,
+    }),
+    properties: {
+      title: 'Order 3',
+    },
+    counterProperties: {
+      firstCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+      secondCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+    },
+  },
+  order4: {
+    value: ref({
+      order: OrderStatus.Sell,
+      firstCounter: 0,
+      secondCounter: 0,
+    }),
+    properties: {
+      title: 'Order 4',
+    },
+    counterProperties: {
+      firstCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
+      secondCounter: {
+        min: 0,
+        max: 1,
+        step: 0.1,
+      },
     },
   },
 };
