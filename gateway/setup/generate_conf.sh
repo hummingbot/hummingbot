@@ -8,9 +8,9 @@ echo
 echo
 
 
-# TODO: mkdir
-
 HOST_CONF_PATH="$1"
+
+mkdir -p $HOST_CONF_PATH
 
 # generate ethereum file
 cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ethereum.yml" "$HOST_CONF_PATH/ethereum.yml"
