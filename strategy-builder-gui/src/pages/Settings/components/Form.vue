@@ -32,35 +32,50 @@
       <Field title="Market">
         <Select v-model="market.value.value" v-bind="{ ...market.properties }" />
       </Field>
-      <Field title="Bid spread">
+      <Field
+        title="Bid spread"
+        hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      >
         <Counter
           v-model="bidSpread.value.value"
           :type="CounterType.Percentage"
           v-bind="{ ...bidSpread.properties }"
         />
       </Field>
-      <Field title="Ask spread">
+      <Field
+        title="Ask spread"
+        hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      >
         <Counter
           v-model="askSpread.value.value"
           :type="CounterType.Percentage"
           v-bind="{ ...askSpread.properties }"
         />
       </Field>
-      <Field title="Order refresh time">
+      <Field
+        title="Order refresh time"
+        hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      >
         <Counter
           v-model="orderRefreshTime.value.value"
           :type="CounterType.Seconds"
           v-bind="{ ...orderRefreshTime.properties }"
         />
       </Field>
-      <Field title="Order amount">
+      <Field
+        title="Order amount"
+        hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      >
         <Input
           v-model="orderAmount.value.value"
           :type="InputType.Number"
           v-bind="{ ...orderAmount.properties }"
         />
       </Field>
-      <Field title="Ping pong">
+      <Field
+        title="Ping pong"
+        hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      >
         <q-toggle v-model="pingPong.value.value" color="main-green-1" />
       </Field>
       <q-btn label="Submit" type="submit" color="main-green-1" />
@@ -274,7 +289,7 @@ import { defineComponent, ref } from 'vue';
 
 import { useSettingsForm } from '../composables/useSettingsForm';
 import Counter, { CounterType } from './Counter.vue';
-import Field from './Field.vue';
+import Field from './Field/Index.vue';
 import Input, { InputType } from './Input.vue';
 import Order from './Order.vue';
 import Select from './Select/Index.vue';
