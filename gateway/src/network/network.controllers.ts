@@ -13,20 +13,21 @@ export async function getStatus(req: StatusRequest): Promise<StatusResponse> {
   let chainId: number;
   let rpcUrl: string;
   let currentBlockNumber: number;
+
   if (req.chain === 'avalanche') {
-    const avalanche = Avalanche.getInstance(req.chain);
+    const avalanche = Avalanche.getInstance(req.network);
     chain = avalanche.chain;
     chainId = avalanche.chainId;
     rpcUrl = avalanche.rpcUrl;
     currentBlockNumber = await avalanche.getCurrentBlockNumber();
   } else if (req.chain === 'harmony') {
-    const harmony = Harmony.getInstance(req.chain);
+    const harmony = Harmony.getInstance(req.network);
     chain = harmony.chain;
     chainId = harmony.chainId;
     rpcUrl = harmony.rpcUrl;
     currentBlockNumber = await harmony.getCurrentBlockNumber();
   } else if (req.chain === 'ethereum') {
-    const ethereum = Ethereum.getInstance(req.chain);
+    const ethereum = Ethereum.getInstance(req.network);
     chain = ethereum.chain;
     chainId = ethereum.chainId;
     rpcUrl = ethereum.rpcUrl;

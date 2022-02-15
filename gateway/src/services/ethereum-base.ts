@@ -291,7 +291,7 @@ export class EthereumBase {
       params.maxFeePerGas = maxFeePerGas;
       params.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else if (gasPrice) {
-      params.gasPrice = gasPrice * 1e9;
+      params.gasPrice = (gasPrice * 1e9).toString();
     }
     const response = await contract.approve(spender, amount, params);
     logger.info(response);
