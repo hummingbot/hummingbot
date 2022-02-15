@@ -95,7 +95,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._nonce = None
 
     @property
-    def name(self):
+    def connector_name(self):
         """
         This returns the name of connector/protocol to be connected to on Gateway.
         """
@@ -186,7 +186,7 @@ class GatewayEVMAMM(ConnectorBase):
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
         """
-        order_id = f"approve_{self.name}_{token_symbol}"
+        order_id = f"approve_{self.connector_name}_{token_symbol}"
         await self._update_nonce()
         resp = await self._api_request("post",
                                        "evm/approve",
@@ -194,7 +194,7 @@ class GatewayEVMAMM(ConnectorBase):
                                         "network": self.network,
                                         "address": self.address,
                                         "token": token_symbol,
-                                        "spender": self.name,
+                                        "spender": self.connector_name,
                                         "nonce": self._nonce})
         self.start_tracking_order(order_id, None, token_symbol)
 
@@ -203,10 +203,10 @@ class GatewayEVMAMM(ConnectorBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.update_exchange_order_id(hash)
             tracked_order.nonce = resp["nonce"]
-            self.logger().info(f"Maximum {token_symbol} approval for {self.name} contract sent, hash: {hash}.")
+            self.logger().info(f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}.")
         else:
             self.stop_tracking_order(order_id)
-            self.logger().info(f"Approval for {token_symbol} on {self.name} failed.")
+            self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -219,7 +219,7 @@ class GatewayEVMAMM(ConnectorBase):
                                         "network": self.network,
                                         "address": self.address,
                                         "tokenSymbols": list(self._tokens),
-                                        "spender": self.name})
+                                        "spender": self.connector_name})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -241,7 +241,7 @@ class GatewayEVMAMM(ConnectorBase):
                                            "amm/price",
                                            {"chain": self.chain,
                                             "network": self.network,
-                                            "connector": self.name,
+                                            "connector": self.connector_name,
                                             "base": base,
                                             "quote": quote,
                                             "amount": str(amount),
@@ -348,7 +348,7 @@ class GatewayEVMAMM(ConnectorBase):
         await self._update_nonce()
         api_params = {"chain": self.chain,
                       "network": self.network,
-                      "connector": self.name,
+                      "connector": self.connector_name,
                       "address": self.address,
                       "base": base,
                       "quote": quote,
@@ -390,7 +390,7 @@ class GatewayEVMAMM(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} swap order to {self.name} on {self._chain_info['name']} for "
+                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self._chain_info['name']} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
