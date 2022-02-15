@@ -634,6 +634,7 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
+    @staticmethod
     async def _http_client(self) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
@@ -645,6 +646,15 @@ class GatewayEVMAMM(ConnectorBase):
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
 
+    @staticmethod
+    async def get_gateway_connectors(self):
+        return await self._api_request("get", "connectors", {})
+
+    @staticmethod
+    async def ping_gateway(self):
+        return await self._api_request("get", "connectors", {})
+
+    @staticmethod
     async def _api_request(self,
                            method: str,
                            path_url: str,
