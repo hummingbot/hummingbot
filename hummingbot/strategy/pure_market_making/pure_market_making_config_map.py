@@ -224,11 +224,11 @@ pure_market_making_config_map = {
     "bid_order_level_spread":
         ConfigVar(key="bid_order_level_spread",
                   prompt="Enter the price increments (as percentage) for subsequent bid "
-                         "orders? You may enter a single number 1 to indicate 1%"
+                         "orders? You may enter a single number 1 to indicate 1% "
                          "for all price increment, 1%, 2%, 3%, 4% "
-                         "or you may enter a list of number 1,2,3,4 to represent 1%,3%,6%,10%"
-                         "order depth. The last number will be treated for subsequent order level"
-                         " if there is less number in the list then order level>>> ",
+                         "or you may enter a list of number 1,2,3,4 to represent 1%,3%,6%,10% "
+                         "order depth. The last number will be treated for subsequent order level "
+                         "if there is less number in the list then order level >>> ",
 
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="str",
@@ -236,12 +236,12 @@ pure_market_making_config_map = {
                   default="1"),
     "ask_order_level_spread":
         ConfigVar(key="ask_order_level_spread",
-                  prompt="Enter the price increments (as percentage) for subsequent bid "
-                         "orders? You may enter a single number 1 to indicate 1%"
+                  prompt="Enter the price increments (as percentage) for subsequent ask "
+                         "orders? You may enter a single number 1 to indicate 1% "
                          "for all price increment, 1%, 2%, 3%, 4% "
-                         "or you may enter a list of number 1,2,3,4 to represent 1%,3%,6%,10%"
-                         "order depth. The last number will be treated for subsequent order level"
-                         " if there is less number in the list then order level>>> ",
+                         "or you may enter a list of number 1,2,3,4 to represent 1%,3%,6%,10% "
+                         "order depth. The last number will be treated for subsequent order level "
+                         "if there is less number in the list then order level >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="str",
                   validator=validate_order_level_spread,
