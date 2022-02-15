@@ -21,7 +21,7 @@ cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ssl.y
 echo "created $HOST_CONF_PATH/ssl.yml"
 # apiKey must be prompted
 
-# update apiKey in the ethereum-gas-station file
+# generate ethereum-gas-station file
 cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ethereum-gas-station.yml" "$HOST_CONF_PATH/ethereum-gas-station.yml"
 echo "created $HOST_CONF_PATH/ethereum-gas-station.yml"
 
