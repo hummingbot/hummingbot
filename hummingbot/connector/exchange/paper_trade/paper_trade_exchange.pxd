@@ -33,7 +33,6 @@ cdef class PaperTradeExchange(ExchangeBase):
         LimitOrders _ask_limit_orders
         bint _paper_trade_market_initialized
         dict _trading_pairs
-        object _config
         object _queued_orders
         dict _quantization_params
         object _order_book_trade_listener
