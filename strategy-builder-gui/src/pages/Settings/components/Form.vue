@@ -78,7 +78,6 @@
       >
         <q-toggle v-model="pingPong.value.value" color="main-green-1" />
       </Field>
-      <q-btn label="Submit" type="submit" color="main-green-1" />
     </q-form>
     <q-form v-if="formType === FormType.Advanced" class="q-gutter-md" @submit="handleSubmit">
       <Field title="Order levels">
