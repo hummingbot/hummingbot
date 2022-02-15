@@ -722,7 +722,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # Volatility has to be in absolute values (prices) because in calculation of reservation price it's not multiplied by the current price, therefore
         # it can't be a percentage. The result of the multiplication has to be an absolute price value because it's being subtracted from the current price
         vol = self.get_volatility()
-        mid_price_variance = vol ** 2
 
         # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
         # and from the reservation price calculation we know that gamma's unit is not absolute price
@@ -740,9 +739,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # a fixed time left
                 time_left_fraction = 1
 
-            self._reservation_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+            # Here seems to be another mistake in the paper
+            # It doesn't make sense to use mid_price_variance because its units would be absolute price units ^2, yet that side of the equation is subtracted
+            # from the actual mid price of the asset in absolute price units
+            # gamma / risk_factor gains a meaning of a fraction (percentage) of the volatility (standard deviation between ticks) to be subtraced from the
+            # current mid price
+            # This leads to normalization of the risk_factor and will guaranetee consistent behavior on all price ranges of the asset, and across assets
 
-            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+            self._reservation_price = price - (q * self._gamma * vol * time_left_fraction)
+
+            self._optimal_spread = self._gamma * vol * time_left_fraction
             self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
             min_spread = price / 100 * Decimal(str(self._min_spread))
@@ -1354,6 +1360,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                        'target_inv',
                                        'time_left_fraction',
                                        'mid_price std_dev',
+                                       'risk_factor',
                                        'gamma',
                                        'alpha',
                                        'kappa',
