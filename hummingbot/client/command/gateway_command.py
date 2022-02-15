@@ -54,7 +54,7 @@ class GatewayCommand:
     async def _test_connection(self):
         # test that the gateway is running
         try:
-            resp = await self._api_request("get", "", {}, True)
+            resp = await self._api_request("get", "", {}, fail_silently = True)
         except Exception as e:
             self.notify("\nUnable to ping gateway.")
             raise e
@@ -206,7 +206,7 @@ class GatewayCommand:
                            method: str,
                            path_url: str,
                            params: Dict[str, Any] = {},
-                           fail_silently = False) -> Optional[Dict[str, Any]]:
+                           fail_silently: bool = False) -> Optional[Dict[str, Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
