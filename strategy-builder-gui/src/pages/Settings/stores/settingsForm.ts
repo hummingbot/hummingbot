@@ -31,25 +31,9 @@ interface Input {
 }
 
 interface Order {
-  value: Ref<{
-    order: OrderStatus;
-    firstCounter: number;
-    secondCounter: number;
-  }>;
+  value: Ref<OrderStatus>;
   properties: {
     title: string;
-  };
-  counterProperties: {
-    firstCounter: {
-      min: number;
-      max: number;
-      step: number;
-    };
-    secondCounter: {
-      min: number;
-      max: number;
-      step: number;
-    };
   };
 }
 interface Toggle {
@@ -271,92 +255,91 @@ export const $settingsForm: $SettingsForm = {
   },
 
   order1: {
-    value: ref({
-      order: OrderStatus.Sell,
-      firstCounter: 0,
-      secondCounter: 0,
-    }),
-
+    value: ref(OrderStatus.Sell),
     properties: {
       title: 'Order 1',
     },
-    counterProperties: {
-      firstCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
-      secondCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
+  },
+  order1FirstCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
+    },
+  },
+  order1SecondCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
     },
   },
   order2: {
-    value: ref({
-      order: OrderStatus.Sell,
-      firstCounter: 0,
-      secondCounter: 0,
-    }),
+    value: ref(OrderStatus.Sell),
     properties: {
       title: 'Order 2',
     },
-    counterProperties: {
-      firstCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
-      secondCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
+  },
+  order2FirstCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
+    },
+  },
+  order2SecondCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
     },
   },
   order3: {
-    value: ref({
-      order: OrderStatus.Sell,
-      firstCounter: 0,
-      secondCounter: 0,
-    }),
+    value: ref(OrderStatus.Sell),
     properties: {
       title: 'Order 3',
     },
-    counterProperties: {
-      firstCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
-      secondCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
+  },
+  order3FirstCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
+    },
+  },
+  order3SecondCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
     },
   },
   order4: {
-    value: ref({
-      order: OrderStatus.Sell,
-      firstCounter: 0,
-      secondCounter: 0,
-    }),
+    value: ref(OrderStatus.Sell),
     properties: {
       title: 'Order 4',
     },
-    counterProperties: {
-      firstCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
-      secondCounter: {
-        min: 0,
-        max: 1,
-        step: 0.1,
-      },
+  },
+  order4FirstCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
+    },
+  },
+  order4SecondCounter: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
     },
   },
   maxOrderAge: {

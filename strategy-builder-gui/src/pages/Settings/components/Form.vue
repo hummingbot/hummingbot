@@ -223,52 +223,52 @@
         />
       </Field>
       <Field class="q-gutter-md">
-        <Order v-model="order1.value.value.order" v-bind="{ ...order1.properties }">
+        <Order v-model="order1.value.value" v-bind="{ ...order1.properties }">
           <Counter
-            v-model="order1.value.value.firstCounter"
+            v-model="order1FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order1.counterProperties.firstCounter }"
+            v-bind="{ ...order1FirstCounter.properties }"
           />
           <Counter
-            v-model="order1.value.value.secondCounter"
+            v-model="order1SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order1.counterProperties.secondCounter }"
-          />
-        </Order>
-        <Order v-model="order2.value.value.order" v-bind="{ ...order2.properties }">
-          <Counter
-            v-model="order2.value.value.firstCounter"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order2.counterProperties.firstCounter }"
-          />
-          <Counter
-            v-model="order2.value.value.secondCounter"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order2.counterProperties.secondCounter }"
+            v-bind="{ ...order1SecondCounter.properties }"
           />
         </Order>
-        <Order v-model="order3.value.value.order" v-bind="{ ...order3.properties }">
+        <Order v-model="order2.value.value" v-bind="{ ...order2.properties }">
           <Counter
-            v-model="order3.value.value.firstCounter"
+            v-model="order2FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order3.counterProperties.firstCounter }"
+            v-bind="{ ...order2FirstCounter.properties }"
           />
           <Counter
-            v-model="order3.value.value.secondCounter"
+            v-model="order2SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order3.counterProperties.secondCounter }"
+            v-bind="{ ...order2SecondCounter.properties }"
           />
         </Order>
-        <Order v-model="order4.value.value.order" v-bind="{ ...order4.properties }">
+        <Order v-model="order3.value.value" v-bind="{ ...order3.properties }">
           <Counter
-            v-model="order4.value.value.firstCounter"
+            v-model="order3FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order4.counterProperties.firstCounter }"
+            v-bind="{ ...order3FirstCounter.properties }"
           />
           <Counter
-            v-model="order4.value.value.secondCounter"
+            v-model="order3SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order4.counterProperties.secondCounter }"
+            v-bind="{ ...order3SecondCounter.properties }"
+          />
+        </Order>
+        <Order v-model="order4.value.value" v-bind="{ ...order4.properties }">
+          <Counter
+            v-model="order4FirstCounter.value.value"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order4FirstCounter.properties }"
+          />
+          <Counter
+            v-model="order4SecondCounter.value.value"
+            :type="CounterType.FloatCount"
+            v-bind="{ ...order4SecondCounter.properties }"
           />
         </Order>
       </Field>
@@ -279,6 +279,7 @@
           v-bind="{ ...maxOrderAge.properties }"
         />
       </Field>
+      <q-btn label="Submit" type="submit" color="primary" />
     </q-form>
   </div>
 </template>
