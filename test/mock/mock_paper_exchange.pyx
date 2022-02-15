@@ -23,7 +23,7 @@ s_decimal_0 = Decimal("0")
 cdef class MockPaperExchange(PaperTradeExchange):
 
     def __init__(self, trade_fee_schema: Optional[TradeFeeSchema] = None):
-        PaperTradeExchange.__init__(self, MockOrderTracker(), MarketConfig.default_config(), MockPaperExchange)
+        PaperTradeExchange.__init__(self, MockOrderTracker(), MockPaperExchange)
 
         trade_fee_schema = trade_fee_schema or TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0"), taker_percent_fee_decimal=Decimal("0")

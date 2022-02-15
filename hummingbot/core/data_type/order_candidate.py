@@ -39,6 +39,7 @@ class OrderCandidate:
     fixed_fee_collaterals: List[TokenAmount] = field(default=list, init=False)
     potential_returns: Optional[TokenAmount] = field(default=None, init=False)
     resized: bool = field(default=False, init=False)
+    from_total_balances: bool = False
 
     @property
     def collateral_dict(self) -> Dict:
