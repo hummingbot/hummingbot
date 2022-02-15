@@ -110,10 +110,7 @@ cdef class TradingIntensityIndicator():
         price_levels = sorted(price_levels, reverse=True)
 
         for price_level in price_levels:
-            if len(lambdas) == 0:
-                lambdas += [trades_consolidated[price_level]]
-            else:
-                lambdas += [trades_consolidated[price_level]]
+            lambdas += [trades_consolidated[price_level]]
 
         # Adjust to be able to calculate log
         lambdas_adj = [10**-10 if x==0 else x for x in lambdas]

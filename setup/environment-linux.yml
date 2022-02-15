@@ -21,6 +21,7 @@ dependencies:
   - six=1.14.0
   - sqlalchemy=1.4
   - sqlite=3.31.1
+  - tabulate==0.8.9
   - tzlocal=2.0.0
   - ujson=1.35
   - zlib=1.2.11

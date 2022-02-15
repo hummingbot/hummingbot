@@ -90,6 +90,7 @@ def main():
         "six",
         "sqlalchemy",
         "sync-timeout",
+        "tabulate",
         "tzlocal",
         "ujson",
         "web3",
