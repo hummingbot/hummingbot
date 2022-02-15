@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 import asyncio
 import platform
 import threading
@@ -8,7 +9,7 @@ from typing import (
     Optional,
     Callable,
 )
-from os.path import dirname, join
+from os.path import dirname, join, path
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -56,6 +57,15 @@ class StartCommand:
             return
         safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
 
+    def get_gateway_connector(self, connector):
+        connections_fp = path.realpath(path.join(settings.CONF_FILE_PATH, "gateway_connections.json"))
+        if path.exists(connections_fp):
+            with open(connections_fp) as f:
+                connections = json.loads(f.read())
+                print(connections)
+        else:
+            self.notify(f"No Gateway connections available. Run 'gateway connect {connector}' and setup your wallet")
+
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False):
@@ -90,8 +100,11 @@ class StartCommand:
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
             self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
 
+        ready = True
+
         for exchange in settings.required_exchanges:
             connector = str(exchange)
+            self.notify(connector)
             status = get_connector_status(connector)
 
             # Display custom warning message for specific connectors
@@ -105,7 +118,12 @@ class StartCommand:
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        await self.start_market_making(self.strategy_name, restore)
+            # confirm gateway connection
+            if exchange in settings.GATEWAY_CONNECTORS:
+                pass
+
+        if ready:
+            await self.start_market_making(self.strategy_name, restore)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str,
