@@ -1,5 +1,5 @@
 from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
 from hummingbot.core.utils.async_utils import safe_gather
@@ -68,7 +68,8 @@ class UserBalances:
             if api_keys:
                 return await self.add_exchange(exchange, **api_keys)
             else:
-                return "API keys have not been added."
+                return "Connections parameters have not been added connectors being used."\
+                       " Use `connect` or `gateway connect` command."
 
     # returns error message for each exchange
     async def update_exchanges(self, reconnect: bool = False,
@@ -78,7 +79,7 @@ class UserBalances:
         if len(exchanges) == 0:
             exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
         exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values() if not cs.use_ethereum_wallet
-                     and cs.name in exchanges and not cs.name.endswith("paper_trade")]
+                     and cs.name in exchanges and not cs.name.endswith("paper_trade") and cs.type != ConnectorType.Connector]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:
