@@ -163,8 +163,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         if spread_list is None:
             spread_list = [s_decimal_zero]
-        if type(spread_list) is Decimal:
-            spread_list = [spread_list]
         cum_list = [s_decimal_zero]
         cum_sum = s_decimal_zero
         for spread in spread_list:
