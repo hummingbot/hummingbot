@@ -310,7 +310,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._ask_order_level_spread
 
     @ask_order_level_spread.setter
-    def ask_order_level_spread(self, value: Decimal):
+    def ask_order_level_spread(self, value: List[Decimal]):
         self._ask_order_level_spread = self.initialize_order_level_spread(value)
 
     @property
