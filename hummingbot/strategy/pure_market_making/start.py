@@ -1,5 +1,6 @@
 from typing import (
     List,
+    Optional,
     Tuple,
 )
 
@@ -18,8 +19,10 @@ from decimal import Decimal
 
 
 def start(self):
-    def convert_order_level_spread_to_list(order_level_spread: str) -> List[Decimal]:
+    def convert_order_level_spread_to_list(order_level_spread: Optional[str]) -> List[Decimal]:
         '''convert order level spread string into a list of decimal divided by 100 '''
+        if order_level_spread is None:
+            return []
         order_level_spread_list = list(order_level_spread.split(","))
         return [Decimal(v) / Decimal("100") for v in order_level_spread_list]
 
