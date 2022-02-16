@@ -33,4 +33,4 @@ EXPOSE 5000
 
 RUN yarn build
 
-CMD ["gosu", "hummingbot:hummingbot", "yarn", "run", "start"]
+CMD ["bin/docker-start.sh"]
