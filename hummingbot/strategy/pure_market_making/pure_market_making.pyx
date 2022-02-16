@@ -155,7 +155,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         
         self.c_add_markets([market_info.market])
 
-    def initialize_order_level_spread(self, spread_list: List[Decimal]) -> List[Decimal]:
+    def initialize_order_level_spread(self, spread_list: Optional[List[Decimal]]) -> List[Decimal]:
         '''
         convert to cumsum to remove the need to calculate each time it is used
         if not enough element in list, append additional element based on last spread
