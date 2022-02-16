@@ -178,15 +178,20 @@ class AllConnectorSettings:
         trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_schema)
 
         for connection in connections:
-            gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['chain']}"
+            gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['network']}"
+            wallet_config = ConfigVar(key="wallet_public_key",
+                                      prompt="",
+                                      is_secure=False,
+                                      is_connect_key=True)
+            wallet_config.value = connection["wallet_address"]
             cls.all_connector_settings[gateway_connector_name] = ConnectorSetting(
                 name=gateway_connector_name,
                 type=ConnectorType["Connector"],
                 centralised = False,
                 example_pair = "WETH-USDC",
-                use_ethereum_wallet = True,
+                use_ethereum_wallet = False,
                 trade_fee_schema=trade_fee_schema,
-                config_keys={"wallet_public_key": connection["wallet_address"]},
+                config_keys={"wallet_public_key": wallet_config},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
