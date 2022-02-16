@@ -232,8 +232,7 @@ pure_market_making_config_map = {
 
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="str",
-                  validator=validate_order_level_spread,
-                  default="1"),
+                  validator=validate_order_level_spread),
     "ask_order_level_spread":
         ConfigVar(key="ask_order_level_spread",
                   prompt="Enter the price increments (as percentage) for subsequent ask "
@@ -244,8 +243,7 @@ pure_market_making_config_map = {
                          "if there is less number in the list then order level >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="str",
-                  validator=validate_order_level_spread,
-                  default="1"),
+                  validator=validate_order_level_spread),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
