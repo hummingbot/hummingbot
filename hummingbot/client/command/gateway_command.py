@@ -34,7 +34,7 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
 import itertools
 
@@ -67,12 +67,12 @@ class GatewayCommand:
     async def _test_connection(self):
         # test that the gateway is running
         try:
-            resp = await self._api_request("get", "", {})
+            resp = await self._api_request("get", "", {}, fail_silently = True)
         except Exception as e:
             self.notify("\nUnable to ping gateway.")
             raise e
 
-        if resp.get('message', None) == 'ok' or resp.get('status', None) == 'ok':
+        if resp is not None and resp.get('message', None) == 'ok' or resp.get('status', None) == 'ok':
             self.notify("\nSuccesfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
@@ -218,7 +218,8 @@ class GatewayCommand:
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {}) -> Dict[str, Any]:
+                           params: Dict[str, Any] = {},
+                           fail_silently: bool = False) -> Optional[Dict[str, Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -230,25 +231,31 @@ class GatewayCommand:
                    f"{global_config_map['gateway_api_port'].value}"
         url = f"{base_url}/{path_url}"
         client = await self._http_client()
-        if method == "get":
-            if len(params) > 0:
-                response = await client.get(url, params=params)
-            else:
-                response = await client.get(url)
-        elif method == "post":
-            response = await client.post(url, json=params)
 
-        parsed_response = json.loads(await response.text())
-        if response.status != 200:
-            if "error" in parsed_response:
-                err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
-            else:
-                err_msg = f"Error on {method.upper()} Error: {parsed_response}"
-            self.logger().error(
-                err_msg,
-                exc_info=True
-            )
-            raise Exception(err_msg)
+        parsed_response = {}
+        try:
+            if method == "get":
+                if len(params) > 0:
+                    response = await client.get(url, params=params)
+                else:
+                    response = await client.get(url)
+            elif method == "post":
+                response = await client.post(url, json=params)
+            parsed_response = json.loads(await response.text())
+            if response.status != 200:
+                if "error" in parsed_response:
+                    err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
+                else:
+                    err_msg = f"Error on {method.upper()} Error: {parsed_response}"
+                    self.logger().error(
+                        err_msg,
+                        exc_info=True
+                    )
+                    raise Exception(err_msg)
+        except Exception as e:
+            if not fail_silently:
+                raise e
+
         return parsed_response
 
     async def _http_client(self) -> aiohttp.ClientSession:
