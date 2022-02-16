@@ -173,9 +173,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if len(cum_list) >= self._order_levels:
             return cum_list
 
-        last_spread = spread_list[-1]
+        # takes the last spread used to append additional order levels
         for i in range(len(cum_list), self._order_levels):
-            cum_sum += last_spread
+            cum_sum += spread
             cum_list.append(cum_sum)
         return cum_list
         

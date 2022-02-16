@@ -389,7 +389,9 @@ class PMMUnitTest(unittest.TestCase):
             ask_spread=Decimal("0.01"),
             order_refresh_time=5,
             order_amount=Decimal("100"),
-            order_levels=3
+            order_levels=3,
+            bid_order_level_spreads=[Decimal("0.01")],
+            ask_order_level_spreads=[Decimal("0.01")],
         )
 
         self.clock.add_iterator(strategy)
