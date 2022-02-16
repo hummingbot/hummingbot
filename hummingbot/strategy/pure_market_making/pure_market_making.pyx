@@ -98,6 +98,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     ):
         if order_override is None:
             order_override = {}
+        if bid_order_level_spreads is None:
+            bid_order_level_spreads = []
+        if ask_order_level_spreads is None:
+            ask_order_level_spreads = []
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
