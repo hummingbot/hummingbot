@@ -305,8 +305,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @bid_order_level_spreads.setter
     def bid_order_level_spreads(self, value: List[Decimal]):
-        if type(value) is Decimal:
-            value = [value]
         self._bid_order_level_spreads = self.initialize_order_level_spreads(value)
         
     @property
