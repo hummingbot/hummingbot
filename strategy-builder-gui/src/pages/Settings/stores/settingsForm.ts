@@ -1,6 +1,6 @@
 import { Ref, ref } from 'vue';
 
-export enum OrderStatus {
+export enum BtnToggleType {
   Sell = 'Buy',
   Buy = 'Sell',
 }
@@ -29,19 +29,16 @@ interface Input {
     rightText?: string;
   };
 }
-
-interface Order {
-  value: Ref<OrderStatus>;
-  properties: {
-    title: string;
-  };
-}
 interface Toggle {
   value: Ref<boolean>;
 }
 
+interface BtnToggle {
+  value: Ref<BtnToggleType>;
+}
+
 interface $SettingsForm {
-  [key: string]: Counter | Select | Toggle | Input | Order;
+  [key: string]: Counter | Select | Toggle | Input | BtnToggle;
 }
 
 export const $settingsForm: $SettingsForm = {
@@ -254,11 +251,8 @@ export const $settingsForm: $SettingsForm = {
     },
   },
 
-  order1: {
-    value: ref(OrderStatus.Sell),
-    properties: {
-      title: 'Order 1',
-    },
+  order1Toggle: {
+    value: ref(BtnToggleType.Buy),
   },
   order1FirstCounter: {
     value: ref(0),
@@ -276,11 +270,9 @@ export const $settingsForm: $SettingsForm = {
       step: 0.1,
     },
   },
-  order2: {
-    value: ref(OrderStatus.Sell),
-    properties: {
-      title: 'Order 2',
-    },
+
+  order2Toggle: {
+    value: ref(BtnToggleType.Buy),
   },
   order2FirstCounter: {
     value: ref(0),
@@ -298,11 +290,8 @@ export const $settingsForm: $SettingsForm = {
       step: 0.1,
     },
   },
-  order3: {
-    value: ref(OrderStatus.Sell),
-    properties: {
-      title: 'Order 3',
-    },
+  order3Toggle: {
+    value: ref(BtnToggleType.Buy),
   },
   order3FirstCounter: {
     value: ref(0),
@@ -320,11 +309,8 @@ export const $settingsForm: $SettingsForm = {
       step: 0.1,
     },
   },
-  order4: {
-    value: ref(OrderStatus.Sell),
-    properties: {
-      title: 'Order 4',
-    },
+  order4Toggle: {
+    value: ref(BtnToggleType.Buy),
   },
   order4FirstCounter: {
     value: ref(0),

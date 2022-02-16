@@ -1,53 +1,34 @@
 <template>
   <div class="column items-center">
-    <div class="text-body1 text-white q-mb-sm">{{ title }}</div>
-    <div class="row full-width justify-between q-mb-md">
-      <q-btn
-        :class="
-          modelValue === OrderStatus.Sell
-            ? 'bg-mono-grey-2 text-white'
-            : 'bg-mono-grey-1 text-mono-grey-3'
-        "
-        :ripple="false"
-        @click="$emit('update:modelValue', OrderStatus.Sell)"
-      >
-        SELL
-      </q-btn>
-      <q-btn
-        :class="
-          modelValue === OrderStatus.Buy
-            ? 'bg-mono-grey-2 text-white'
-            : 'bg-mono-grey-1 text-mono-grey-3'
-        "
-        :ripple="false"
-        @click="$emit('update:modelValue', OrderStatus.Buy)"
-      >
-        BUY
-      </q-btn>
+    <div class="text-body1 text-white q-mb-sm flex items-center">
+      {{ title }}
+      <q-icon v-if="hint" :name="`img:${require('../hint.svg')}`" class="q-ml-xs">
+        <q-tooltip
+          class="bg-mono-grey-2 text-white text-body2"
+          anchor="top middle"
+          self="center right"
+          max-width="300px"
+        >
+          {{ hint }}
+        </q-tooltip>
+      </q-icon>
+    </div>
+    <div class="q-mb-md full-width">
+      <slot name="toggle" />
     </div>
     <div class="column q-col-gutter-md">
-      <slot />
+      <slot name="counters" />
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
-
-import { OrderStatus } from '../stores/settingsForm';
+import { defineComponent } from 'vue';
 
 export default defineComponent({
   props: {
-    modelValue: {
-      type: String as PropType<OrderStatus>,
-      require: true,
-      default: () => OrderStatus.Buy,
-    },
     title: { type: String, require: false, default: () => '' },
-  },
-  emits: ['update:modelValue'],
-  setup() {
-    return { OrderStatus };
+    hint: { type: String, required: false, default: () => '' },
   },
 });
 </script>
