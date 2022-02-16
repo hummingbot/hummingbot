@@ -14,9 +14,6 @@ from hummingbot.core.gateway import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220210"
-
 
 async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
     """
