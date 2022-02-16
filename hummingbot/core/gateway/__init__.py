@@ -1,8 +1,9 @@
 import aioprocessing
+from dataclasses import dataclass
 import os
 from os import getenv
 from pathlib import Path
-from typing import Optional, Any, AsyncIterable, NamedTuple
+from typing import Optional, Any, AsyncIterable
 
 from hummingbot.client.config.global_config_map import global_config_map
 
@@ -29,13 +30,18 @@ def get_gateway_container_name() -> str:
     return f"hummingbot-gateway-{instance_id_suffix}"
 
 
-class GatewayPaths(NamedTuple):
+@dataclass
+class GatewayPaths:
     local_conf_path: Path
     local_certs_path: Path
     local_logs_path: Path
     mount_conf_path: Path
     mount_certs_path: Path
     mount_logs_path: Path
+
+    def __post_init__(self):
+        for path in [self.local_conf_path, self.local_certs_path, self.local_logs_path]:
+            path.mkdir(mode=0o755, parents=True, exist_ok=True)
 
 
 def get_gateway_paths() -> GatewayPaths:
@@ -62,10 +68,6 @@ def get_gateway_paths() -> GatewayPaths:
     local_certs_path: Path = base_path.joinpath("certs")
     local_conf_path: Path = base_path.joinpath("conf")
     local_logs_path: Path = base_path.joinpath("logs")
-    local_certs_path.mkdir(mode=0o755, parents=True, exist_ok=True)
-    local_conf_path.mkdir(mode=0o755, parents=True, exist_ok=True)
-    local_logs_path.mkdir(mode=0o755, parents=True, exist_ok=True)
-
     mount_certs_path: Path = external_certs_path or local_certs_path
     mount_conf_path: Path = external_conf_path or local_conf_path
     mount_logs_path: Path = external_logs_path or local_logs_path
