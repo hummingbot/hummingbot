@@ -110,7 +110,7 @@ def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
 
 
-def validate_order_level_spread(value: str) -> Optional[str]:
+def validate_order_level_spreads(value: str) -> Optional[str]:
     spread_list = list(value.split(","))
     for spread in spread_list:
         try:
@@ -221,8 +221,8 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v),
                   default=0),
-    "bid_order_level_spread":
-        ConfigVar(key="bid_order_level_spread",
+    "bid_order_level_spreads":
+        ConfigVar(key="bid_order_level_spreads",
                   prompt="Enter the price increments (as percentage) for subsequent bid "
                          "orders? You may enter a single number 1 to indicate 1% "
                          "for all price increment, 1%, 2%, 3%, 4% "
@@ -232,9 +232,9 @@ pure_market_making_config_map = {
 
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="str",
-                  validator=validate_order_level_spread),
-    "ask_order_level_spread":
-        ConfigVar(key="ask_order_level_spread",
+                  validator=validate_order_level_spreads),
+    "ask_order_level_spreads":
+        ConfigVar(key="ask_order_level_spreads",
                   prompt="Enter the price increments (as percentage) for subsequent ask "
                          "orders? You may enter a single number 1 to indicate 1% "
                          "for all price increment, 1%, 2%, 3%, 4% "
@@ -243,7 +243,7 @@ pure_market_making_config_map = {
                          "if there is less number in the list then order level >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="str",
-                  validator=validate_order_level_spread),
+                  validator=validate_order_level_spreads),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",

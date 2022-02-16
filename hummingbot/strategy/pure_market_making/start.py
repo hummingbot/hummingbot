@@ -19,12 +19,12 @@ from decimal import Decimal
 
 
 def start(self):
-    def convert_order_level_spread_to_list(order_level_spread: Optional[str]) -> List[Decimal]:
+    def convert_order_level_spreads_to_list(order_level_spreads: Optional[str]) -> List[Decimal]:
         '''convert order level spread string into a list of decimal divided by 100 '''
-        if order_level_spread is None:
+        if order_level_spreads is None:
             return []
-        order_level_spread_list = list(order_level_spread.split(","))
-        return [Decimal(v) / Decimal("100") for v in order_level_spread_list]
+        order_level_spreads_list = list(order_level_spreads.split(","))
+        return [Decimal(v) / Decimal("100") for v in order_level_spreads_list]
 
     try:
         order_amount = c_map.get("order_amount").value
@@ -38,10 +38,10 @@ def start(self):
         ping_pong_enabled = c_map.get("ping_pong_enabled").value
         order_levels = c_map.get("order_levels").value
         order_level_amount = c_map.get("order_level_amount").value
-        bid_order_level_spread = convert_order_level_spread_to_list(
-            c_map.get("bid_order_level_spread").value)
-        ask_order_level_spread = convert_order_level_spread_to_list(
-            c_map.get("ask_order_level_spread").value)
+        bid_order_level_spreads = convert_order_level_spreads_to_list(
+            c_map.get("bid_order_level_spreads").value)
+        ask_order_level_spreads = convert_order_level_spreads_to_list(
+            c_map.get("ask_order_level_spreads").value)
 
         exchange = c_map.get("exchange").value.lower()
         raw_trading_pair = c_map.get("market").value
@@ -98,8 +98,8 @@ def start(self):
             ask_spread=ask_spread,
             order_levels=order_levels,
             order_amount=order_amount,
-            ask_order_level_spread=ask_order_level_spread,
-            bid_order_level_spread=bid_order_level_spread,
+            ask_order_level_spreads=ask_order_level_spreads,
+            bid_order_level_spreads=bid_order_level_spreads,
             order_level_amount=order_level_amount,
             inventory_skew_enabled=inventory_skew_enabled,
             inventory_target_base_pct=inventory_target_base_pct,

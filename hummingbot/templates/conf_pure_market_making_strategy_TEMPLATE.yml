@@ -70,8 +70,8 @@ order_levels: null
 order_level_amount: null
 
 # Order price space between orders (if order_levels > 1).
-bid_order_level_spread: null
-ask_order_level_spread: null
+bid_order_level_spreads: null
+ask_order_level_spreads: null
 
 # How long to wait before placing the next order in case your order gets filled.
 filled_order_delay: null

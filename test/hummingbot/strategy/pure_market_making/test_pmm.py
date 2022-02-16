@@ -112,8 +112,8 @@ class PMMUnitTest(unittest.TestCase):
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
             order_levels=3,
-            bid_order_level_spread=[Decimal("0.01")],
-            ask_order_level_spread=[Decimal("0.01")],
+            bid_order_level_spreads=[Decimal("0.01")],
+            ask_order_level_spreads=[Decimal("0.01")],
             order_level_amount=Decimal("1"),
             minimum_spread=-1,
         )
@@ -128,8 +128,8 @@ class PMMUnitTest(unittest.TestCase):
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
             order_levels=3,
-            bid_order_level_spread=[Decimal("0.01")],
-            ask_order_level_spread=[Decimal("0.01")],
+            bid_order_level_spreads=[Decimal("0.01")],
+            ask_order_level_spreads=[Decimal("0.01")],
             order_level_amount=Decimal("1"),
             minimum_spread=-1,
             order_override={"order_one": ["buy", 0.5, 0.7], "order_two": ["buy", 1.3, 1.1], "order_three": ["sell", 1.1, 2]},
@@ -586,8 +586,8 @@ class PMMUnitTest(unittest.TestCase):
         simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
         strategy = self.multi_levels_strategy
         strategy.order_optimization_enabled = True
-        strategy.bid_order_level_spread = [Decimal("0.025"), Decimal("0.01")]
-        strategy.ask_order_level_spread = [Decimal("0.025"), Decimal("0.01")]
+        strategy.bid_order_level_spreads = [Decimal("0.025"), Decimal("0.01")]
+        strategy.ask_order_level_spreads = [Decimal("0.025"), Decimal("0.01")]
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(3, len(strategy.active_buys))
@@ -773,8 +773,8 @@ class PMMUnitTest(unittest.TestCase):
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
             order_levels=5,
-            bid_order_level_spread=[Decimal("0.01")],
-            ask_order_level_spread=[Decimal("0.01")],
+            bid_order_level_spreads=[Decimal("0.01")],
+            ask_order_level_spreads=[Decimal("0.01")],
             order_level_amount=Decimal("0.5"),
             inventory_skew_enabled=True,
             inventory_target_base_pct=Decimal("0.9"),
@@ -844,8 +844,8 @@ class PMMUnitTest(unittest.TestCase):
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
             order_levels=5,
-            bid_order_level_spread=[Decimal("0.01")],
-            ask_order_level_spread=[Decimal("0.01")],
+            bid_order_level_spreads=[Decimal("0.01")],
+            ask_order_level_spreads=[Decimal("0.01")],
             order_level_amount=Decimal("0.5"),
             inventory_skew_enabled=True,
             inventory_target_base_pct=Decimal("0.9"),

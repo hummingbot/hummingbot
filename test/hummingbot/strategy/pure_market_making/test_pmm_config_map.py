@@ -9,7 +9,7 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
     order_amount_prompt,
     maker_trading_pair_prompt,
     validate_price_source_exchange,
-    validate_order_level_spread
+    validate_order_level_spreads
 )
 
 
@@ -119,12 +119,12 @@ class TestPMMConfigMap(unittest.TestCase):
         self.assertIsNone(validate_price_source_exchange(value='binance_perpetual'))
 
     def test_validate_order_level_spread(self):
-        pmm_config_map["bid_order_level_spread"].value = "1"
+        pmm_config_map["bid_order_level_spreads"].value = "1"
 
-        error = validate_order_level_spread(value="1")
+        error = validate_order_level_spreads(value="1")
         self.assertIsNone(error)
-        error = validate_order_level_spread(value="1,2")
+        error = validate_order_level_spreads(value="1,2")
         self.assertIsNone(error)
-        error = validate_order_level_spread(value="asd")
+        error = validate_order_level_spreads(value="asd")
         expected = "please enter a valid decimal number"
         self.assertEqual(expected, error)

@@ -31,8 +31,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("ping_pong_enabled").value = False
         c_map.get("order_levels").value = 2
         c_map.get("order_level_amount").value = Decimal("0.5")
-        c_map.get("bid_order_level_spread").value = "0.2"
-        c_map.get("ask_order_level_spread").value = "0.2"
+        c_map.get("bid_order_level_spreads").value = "0.2"
+        c_map.get("ask_order_level_spreads").value = "0.2"
         c_map.get("inventory_skew_enabled").value = True
         c_map.get("inventory_target_base_pct").value = Decimal("50")
         c_map.get("inventory_range_multiplier").value = Decimal("2")
@@ -79,8 +79,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.ping_pong_enabled, False)
         self.assertEqual(self.strategy.order_levels, 2)
         self.assertEqual(self.strategy.order_level_amount, Decimal("0.5"))
-        self.assertEqual(self.strategy.bid_order_level_spread, [Decimal("0"), Decimal("0.002")])
-        self.assertEqual(self.strategy.ask_order_level_spread, [Decimal("0"), Decimal("0.002")])
+        self.assertEqual(self.strategy.bid_order_level_spreads, [Decimal("0"), Decimal("0.002")])
+        self.assertEqual(self.strategy.ask_order_level_spreads, [Decimal("0"), Decimal("0.002")])
         self.assertEqual(self.strategy.inventory_skew_enabled, True)
         self.assertEqual(self.strategy.inventory_target_base_pct, Decimal("0.5"))
         self.assertEqual(self.strategy.inventory_range_multiplier, Decimal("2"))
