@@ -222,54 +222,118 @@
           class="col-6"
         />
       </Field>
-      <Field class="q-gutter-md">
-        <Order v-model="order1.value.value" v-bind="{ ...order1.properties }">
-          <Counter
-            v-model="order1FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order1FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order1SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order1SecondCounter.properties }"
-          />
+      <Field>
+        <Order title="Order 1" hint="Order hint">
+          <template #toggle>
+            <q-btn-toggle
+              v-model="order1Toggle.value.value"
+              class="flex justify-between full-width"
+              unelevated
+              :ripple="false"
+              toggle-color="mono-grey-2"
+              text-color="mono-grey-3"
+              :options="[
+                { label: 'sell', value: BtnToggleType.Sell },
+                { label: 'buy', value: BtnToggleType.Buy },
+              ]"
+            />
+          </template>
+          <template #counters>
+            <Counter
+              v-model="order1FirstCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order1FirstCounter.properties }"
+            />
+            <Counter
+              v-model="order1SecondCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order1SecondCounter.properties }"
+            />
+          </template>
         </Order>
-        <Order v-model="order2.value.value" v-bind="{ ...order2.properties }">
-          <Counter
-            v-model="order2FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order2FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order2SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order2SecondCounter.properties }"
-          />
+        <Order title="Order 2" hint="Order hint">
+          <template #toggle>
+            <q-btn-toggle
+              v-model="order2Toggle.value.value"
+              class="flex justify-between full-width"
+              unelevated
+              :ripple="false"
+              toggle-color="mono-grey-2"
+              text-color="mono-grey-3"
+              :options="[
+                { label: 'sell', value: BtnToggleType.Sell },
+                { label: 'buy', value: BtnToggleType.Buy },
+              ]"
+            />
+          </template>
+          <template #counters>
+            <Counter
+              v-model="order2FirstCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order2FirstCounter.properties }"
+            />
+            <Counter
+              v-model="order2SecondCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order2SecondCounter.properties }"
+            />
+          </template>
         </Order>
-        <Order v-model="order3.value.value" v-bind="{ ...order3.properties }">
-          <Counter
-            v-model="order3FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order3FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order3SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order3SecondCounter.properties }"
-          />
+        <Order title="Order 3" hint="Order hint">
+          <template #toggle>
+            <q-btn-toggle
+              v-model="order3Toggle.value.value"
+              class="flex justify-between full-width"
+              unelevated
+              :ripple="false"
+              toggle-color="mono-grey-2"
+              text-color="mono-grey-3"
+              :options="[
+                { label: 'sell', value: BtnToggleType.Sell },
+                { label: 'buy', value: BtnToggleType.Buy },
+              ]"
+            />
+          </template>
+          <template #counters>
+            <Counter
+              v-model="order3FirstCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order3FirstCounter.properties }"
+            />
+            <Counter
+              v-model="order3SecondCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order3SecondCounter.properties }"
+            />
+          </template>
         </Order>
-        <Order v-model="order4.value.value" v-bind="{ ...order4.properties }">
-          <Counter
-            v-model="order4FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order4FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order4SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order4SecondCounter.properties }"
-          />
+        <Order title="Order 4" hint="Order hint">
+          <template #toggle>
+            <q-btn-toggle
+              v-model="order4Toggle.value.value"
+              class="flex justify-between full-width"
+              unelevated
+              :ripple="false"
+              toggle-color="mono-grey-2"
+              text-color="mono-grey-3"
+              :options="[
+                { label: 'sell', value: BtnToggleType.Sell },
+                { label: 'buy', value: BtnToggleType.Buy },
+              ]"
+            />
+          </template>
+          <template #counters>
+            <Counter
+              v-model="order4FirstCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order4FirstCounter.properties }"
+            />
+            <Counter
+              v-model="order4SecondCounter.value.value"
+              :type="CounterType.FloatCount"
+              v-bind="{ ...order4SecondCounter.properties }"
+            />
+          </template>
         </Order>
       </Field>
       <Field title="Max. order age">
@@ -279,7 +343,6 @@
           v-bind="{ ...maxOrderAge.properties }"
         />
       </Field>
-      <q-btn label="Submit" type="submit" color="primary" />
     </q-form>
   </div>
 </template>
@@ -287,12 +350,13 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 
-import { useSettingsForm } from '../composables/useSettingsForm';
-import Counter, { CounterType } from './Counter.vue';
-import Field from './Field/Index.vue';
-import Input, { InputType } from './Input.vue';
-import Order from './Order.vue';
-import Select from './Select/Index.vue';
+import Counter, { CounterType } from './components/Counter.vue';
+import Field from './components/Field.vue';
+import Input, { InputType } from './components/Input.vue';
+import Order from './components/Order.vue';
+import Select from './components/Select/Index.vue';
+import { useSettingsForm } from './composables/useSettingsForm';
+import { BtnToggleType } from './stores/settingsForm';
 
 enum FormType {
   Basic,
@@ -319,6 +383,7 @@ export default defineComponent({
       InputType,
       formType,
       FormType,
+      BtnToggleType,
     };
   },
 });

@@ -8,8 +8,8 @@
 <script>
 import { defineComponent } from 'vue';
 
+import Steps from './components/Stepper/Steps.vue';
 import Form from './Form.vue';
-import Steps from './Stepper/Steps.vue';
 
 export default defineComponent({
   components: { Steps, Form },

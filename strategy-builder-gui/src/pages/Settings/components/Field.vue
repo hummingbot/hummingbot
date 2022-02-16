@@ -2,7 +2,7 @@
   <div class="row justify-between items-center q-pb-md border">
     <div v-if="title" class="row text-body1 text-white items-center">
       {{ title }}
-      <q-icon v-if="hint" :name="`img:${require('./hint.svg')}`" class="q-ml-xs">
+      <q-icon v-if="hint" :name="`img:${require('../hint.svg')}`" class="q-ml-xs">
         <q-tooltip
           class="bg-mono-grey-2 text-white text-body2"
           anchor="top middle"

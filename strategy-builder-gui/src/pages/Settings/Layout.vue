@@ -8,7 +8,7 @@
 import BaseLayout from 'layouts/BaseLayout.vue';
 import { defineComponent } from 'vue';
 
-import Content from './components/Content.vue';
+import Content from './Content.vue';
 
 export default defineComponent({
   components: { Content, BaseLayout },
