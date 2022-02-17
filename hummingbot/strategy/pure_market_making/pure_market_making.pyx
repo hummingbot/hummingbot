@@ -9,6 +9,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Union,
 )
 
 import numpy as np
@@ -113,6 +114,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_levels = order_levels
         self._buy_levels = order_levels
         self._sell_levels = order_levels
+        self._raw_bid_order_level_spreads = bid_order_level_spreads
+        self._raw_ask_order_level_spreads = ask_order_level_spreads
         self._bid_order_level_spreads = self.initialize_order_level_spreads(bid_order_level_spreads)
         self._ask_order_level_spreads = self.initialize_order_level_spreads(ask_order_level_spreads)
         self._order_level_amount = order_level_amount
@@ -170,16 +173,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             cum_sum += spread
             cum_list.append(cum_sum)
 
-        if len(cum_list) >= self._order_levels:
+        max_order_level = max(self._order_levels, self._buy_levels, self._sell_levels)
+
+        if len(cum_list) >= max_order_level:
             return cum_list
 
         # takes the last spread used to append additional order levels
-        for i in range(len(cum_list), self._order_levels):
+        for i in range(len(cum_list), max_order_level):
             cum_sum += spread
             cum_list.append(cum_sum)
         return cum_list
-        
-            
+
+
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
 
@@ -236,6 +241,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_levels = value
         self._buy_levels = value
         self._sell_levels = value
+        self._bid_order_level_spreads = self.initialize_order_level_spreads(self._raw_bid_order_level_spreads)
+        self._ask_order_level_spreads = self.initialize_order_level_spreads(self._raw_ask_order_level_spreads)
 
     @property
     def buy_levels(self) -> int:
@@ -244,6 +251,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @buy_levels.setter
     def buy_levels(self, value: int):
         self._buy_levels = value
+        self._bid_order_level_spreads = self.initialize_order_level_spreads(self._raw_bid_order_level_spreads)
 
     @property
     def sell_levels(self) -> int:
@@ -252,6 +260,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @sell_levels.setter
     def sell_levels(self, value: int):
         self._sell_levels = value
+        self._ask_order_level_spreads = self.initialize_order_level_spreads(self._raw_ask_order_level_spreads)
 
     @property
     def order_level_amount(self) -> Decimal:
@@ -304,16 +313,24 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._bid_order_level_spreads
 
     @bid_order_level_spreads.setter
-    def bid_order_level_spreads(self, value: List[Decimal]):
+    def bid_order_level_spreads(self, value: Union[List[Decimal], str]):
+        if isinstance(value, str):
+            order_level_spreads_list = list(value.split(","))
+            value = [Decimal(v) / Decimal("100") for v in order_level_spreads_list]
         self._bid_order_level_spreads = self.initialize_order_level_spreads(value)
+        self._raw_bid_order_level_spreads = value
         
     @property
     def ask_order_level_spreads(self) -> List[Decimal]:
         return self._ask_order_level_spreads
 
     @ask_order_level_spreads.setter
-    def ask_order_level_spreads(self, value: List[Decimal]):
+    def ask_order_level_spreads(self, value: Union[List[Decimal], str]):
+        if isinstance(value, str):
+            order_level_spreads_list = list(value.split(","))
+            value = [Decimal(v) / Decimal("100") for v in order_level_spreads_list]
         self._ask_order_level_spreads = self.initialize_order_level_spreads(value)
+        self._raw_ask_order_level_spreads = value
 
     @property
     def inventory_skew_enabled(self) -> bool:
