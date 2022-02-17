@@ -287,10 +287,13 @@ class HummingbotApplication(*commands):
             else:  # gateway connector
                 init_params = {}
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                """
-                To-do: Update this section to initiate gateway connectors
-                connector = GatewayEVMAMM(**init_params)
-                """
+                if conn_setting.type == ConnectorType.Connector:
+                    name, chain, network = connector_name.split("_")
+                    init_params.update(connector_name = name, chain = chain, network = network)
+                    connector = GatewayEVMAMM(**init_params)  # should be updated wrt trading_type when more gateway classes are added
+                else:
+                    connector_class = get_connector_class(connector_name)
+                    connector = connector_class(**init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(
