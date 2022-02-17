@@ -1,9 +1,15 @@
 import unittest
+from copy import deepcopy
 from decimal import Decimal
 import asyncio
 from typing import Awaitable
 from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
-from hummingbot.client.ui.interface_utils import start_trade_monitor, format_bytes, start_timer, start_process_monitor
+
+import pandas as pd
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.ui.interface_utils import start_trade_monitor, \
+    format_bytes, start_timer, start_process_monitor, format_df_for_printout
 
 
 class ExpectedException(Exception):
@@ -15,9 +21,19 @@ class InterfaceUtilsTest(unittest.TestCase):
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
 
+        self.global_config_backup = deepcopy(global_config_map)
+
+    def tearDown(self) -> None:
+        self.reset_global_config()
+        super().tearDown()
+
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    def reset_global_config(self):
+        for key, value in self.global_config_backup.items():
+            global_config_map[key] = value
 
     def test_format_bytes(self):
         size = 1024.
@@ -152,3 +168,79 @@ class InterfaceUtilsTest(unittest.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(2, mock_app.strategy_task.done.call_count)  # was called again after exception
+
+    def test_format_df_for_printout(self):
+        df = pd.DataFrame(
+            data={
+                "first": [1, 2],
+                "second": ["12345", "67890"],
+            }
+        )
+
+        df_str = format_df_for_printout(df, table_format="psql")
+        target_str = (
+            "+---------+----------+"
+            "\n|   first |   second |"
+            "\n|---------+----------|"
+            "\n|       1 |    12345 |"
+            "\n|       2 |    67890 |"
+            "\n+---------+----------+"
+        )
+
+        self.assertEqual(target_str, df_str)
+
+        df_str = format_df_for_printout(df, table_format="psql", max_col_width=4)
+        target_str = (
+            "+--------+--------+"
+            "\n|   f... | s...   |"
+            "\n|--------+--------|"
+            "\n|      1 | 1...   |"
+            "\n|      2 | 6...   |"
+            "\n+--------+--------+"
+        )
+
+        self.assertEqual(target_str, df_str)
+
+        df_str = format_df_for_printout(df, table_format="psql", index=True)
+        target_str = (
+            "+----+---------+----------+"
+            "\n|    |   first |   second |"
+            "\n|----+---------+----------|"
+            "\n|  0 |       1 |    12345 |"
+            "\n|  1 |       2 |    67890 |"
+            "\n+----+---------+----------+"
+        )
+
+        self.assertEqual(target_str, df_str)
+
+    def test_format_df_for_printout_table_format_from_global_config(self):
+        df = pd.DataFrame(
+            data={
+                "first": [1, 2],
+                "second": ["12345", "67890"],
+            }
+        )
+
+        global_config_map.get("tables_format").value = "psql"
+        df_str = format_df_for_printout(df)
+        target_str = (
+            "+---------+----------+"
+            "\n|   first |   second |"
+            "\n|---------+----------|"
+            "\n|       1 |    12345 |"
+            "\n|       2 |    67890 |"
+            "\n+---------+----------+"
+        )
+
+        self.assertEqual(target_str, df_str)
+
+        global_config_map.get("tables_format").value = "simple"
+        df_str = format_df_for_printout(df)
+        target_str = (
+            "  first    second"
+            "\n-------  --------"
+            "\n      1     12345"
+            "\n      2     67890"
+        )
+
+        self.assertEqual(target_str, df_str)
