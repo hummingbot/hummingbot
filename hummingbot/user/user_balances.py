@@ -4,9 +4,7 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.connector.balancer.balancer_connector import BalancerConnector
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_derivative import PerpetualFinanceDerivative
-from hummingbot.client.settings import ethereum_required_trading_pairs
 from typing import Optional, Dict, List
 from decimal import Decimal
 
@@ -114,14 +112,8 @@ class UserBalances:
 
     @staticmethod
     async def eth_n_erc20_balances() -> Dict[str, Decimal]:
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        # Todo: Use generic ERC20 balance update
-        connector = BalancerConnector(ethereum_required_trading_pairs(),
-                                      get_eth_wallet_private_key(),
-                                      ethereum_rpc_url,
-                                      True)
-        await connector._update_balances()
-        return connector.get_all_balances()
+        # TODO: integrate with gateway v2.
+        return {}
 
     @staticmethod
     async def xdai_balances() -> Dict[str, Decimal]:

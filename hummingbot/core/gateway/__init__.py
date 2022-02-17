@@ -15,6 +15,11 @@ GATEWAY_DOCKER_TAG: str = "20220215-test2"
 
 
 def is_inside_docker() -> bool:
+    """
+    Checks whether this Hummingbot instance is running inside a container.
+
+    :return: True if running inside container, False otherwise.
+    """
     if os.name != "posix":
         return False
     try:
@@ -26,12 +31,30 @@ def is_inside_docker() -> bool:
 
 
 def get_gateway_container_name() -> str:
+    """
+    Calculates the name for the gateway container, for this Hummingbot instance.
+
+    :return: Gateway container name
+    """
     instance_id_suffix: str = global_config_map["instance_id"].value[:8]
     return f"hummingbot-gateway-{instance_id_suffix}"
 
 
 @dataclass
 class GatewayPaths:
+    """
+    Represents the local paths and Docker mount paths for a gateway container's conf, certs and logs directories.
+
+    Local paths represent where Hummingbot client sees the paths from the perspective of its local environment. If
+    Hummingbot is being run from source, then the local environment is the same as the host environment. However, if
+    Hummingbot is being run as a container, then the local environment is the container's environment.
+
+    Mount paths represent where the gateway container's paths are located on the host environment. If Hummingbot is
+    being run from source, then these should be the same as the local paths. However, if Hummingbot is being run as a
+    container - then these must be fed to it from external sources (e.g. environment variables), since containers
+    generally only have very restricted access to the host filesystem.
+    """
+
     local_conf_path: Path
     local_certs_path: Path
     local_logs_path: Path
@@ -40,11 +63,23 @@ class GatewayPaths:
     mount_logs_path: Path
 
     def __post_init__(self):
+        """
+        Ensure the local paths are created when a GatewayPaths object is created.
+        """
         for path in [self.local_conf_path, self.local_certs_path, self.local_logs_path]:
             path.mkdir(mode=0o755, parents=True, exist_ok=True)
 
 
 def get_gateway_paths() -> GatewayPaths:
+    """
+    Calculates the default paths for a gateway container.
+
+    For Hummingbot running from source, the gateway files are to be stored in ~/.hummingbot-gateway/<container name>/
+
+    For Hummingbot running inside container, the gateway files are to be stored in ~/.hummingbot-gateway/ locally;
+      and inside the paths pointed to be CERTS_FOLDER, GATEWAY_CONF_FOLDER, GATEWAY_LOGS_FOLDER environment variables
+      on the host system.
+    """
     global _default_paths
     if _default_paths is not None:
         return _default_paths
