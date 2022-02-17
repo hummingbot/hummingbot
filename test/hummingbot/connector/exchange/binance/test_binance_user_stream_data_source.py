@@ -110,7 +110,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def test_last_recv_time(self):
         # Initial last_recv_time
-        self.assertEqual(-1, self.data_source.last_recv_time)
+        self.assertEqual(0, self.data_source.last_recv_time)
 
         ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
         ws_assistant._connection._last_recv_time = 1000
@@ -226,6 +226,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg = self.async_run_with_timeout(msg_queue.get())
         self.assertTrue(msg, self._user_update_event)
+        mock_ws.return_value.ping.assert_called()
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

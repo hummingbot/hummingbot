@@ -33,6 +33,10 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class HummingbotUIEvent(Enum):
+    Start = 1
+
+
 class FundingInfo(NamedTuple):
     trading_pair: str
     index_price: Decimal
