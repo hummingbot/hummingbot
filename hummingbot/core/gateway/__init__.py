@@ -23,9 +23,9 @@ def is_inside_docker() -> bool:
     if os.name != "posix":
         return False
     try:
-        with open("/proc/1/cgroup", "r") as fd:
-            cgroup_txt: str = fd.read()
-            return ("docker" in cgroup_txt) or ("lxc" in cgroup_txt)
+        with open("/proc/1/cmdline", "rb") as fd:
+            cmdline_txt: bytes = fd.read()
+            return b"quickstart" in cmdline_txt
     except Exception:
         return False
 
@@ -96,7 +96,7 @@ def get_gateway_paths() -> GatewayPaths:
                                "running as container.")
 
     base_path: Path = (
-        Path("/")
+        Path.home().joinpath(".hummingbot-gateway")
         if inside_docker
         else Path.home().joinpath(f".hummingbot-gateway/{gateway_container_name}")
     )

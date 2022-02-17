@@ -4,11 +4,13 @@ import path_util        # noqa: F401
 import argparse
 import asyncio
 import logging
+import os
+from pathlib import Path
+import pwd
 from typing import (
     Coroutine,
     List,
 )
-import os
 import subprocess
 
 from hummingbot import (
@@ -26,8 +28,8 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
+from hummingbot.core.utils.async_utils import safe_gather
 from bin.hummingbot import (
     detect_available_port,
 )
@@ -60,16 +62,19 @@ class CmdlineParser(argparse.ArgumentParser):
 
 
 def autofix_permissions(user_group_spec: str):
+    uid, gid = [int(i) for i in user_group_spec.split(':')]
+    os.environ["HOME"] = pwd.getpwuid(uid).pw_dir
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
+
+    gateway_path: str = Path.home().joinpath(".hummingbot-gateway").as_posix()
     subprocess.run(
         f"cd '{project_home}' && "
-        f"sudo chown -R {user_group_spec} conf/ data/ logs/ certs/ scripts/ gateway_conf/",
+        f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/ {gateway_path}",
         capture_output=True,
         shell=True
     )
-    uid, gid = user_group_spec.split(':')
-    os.setgid(int(gid))
-    os.setuid(int(uid))
+    os.setgid(gid)
+    os.setuid(uid)
 
 
 async def quick_start(args: argparse.Namespace):
