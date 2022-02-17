@@ -40,6 +40,7 @@ from hummingbot.client.settings import (
     GATEAWAY_CLIENT_CERT_PATH,
     GATEAWAY_CLIENT_KEY_PATH,
     CONF_FILE_PATH,
+    AllConnectorSettings,
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -319,9 +320,10 @@ class GatewayCommand:
         else:
             # get available networks
             connector_configs = await self.get_gateway_connectors()
+            available_networks = [d["available_networks"] for d in connector_configs["connectors"] if d["name"] == connector]
 
             # ask user to select a chain. Automatically select if there is only one.
-            chains = [d['chain'] for d in connector_configs[connector]]
+            chains = [d[0]['chain'] for d in available_networks]
             if len(chains) == 1:
                 chain = chains[0]
             else:
@@ -331,7 +333,7 @@ class GatewayCommand:
                 chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
 
             # ask user to select a network. Automatically select if there is only one.
-            networks = list(itertools.chain.from_iterable([d['networks'] for d in connector_configs[connector] if d['chain'] == chain]))
+            networks = list(itertools.chain.from_iterable([d[0]['networks'] for d in available_networks if d[0]['chain'] == chain]))
 
             if len(networks) == 1:
                 network = networks[0]
@@ -407,6 +409,12 @@ class GatewayCommand:
 
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+            # update AllConnectorSettings
+            AllConnectorSettings.create_connector_settings()
+
+            # Reload completer here to include newly added gateway connectors
+            self.app.input_field.completer = load_completer(self)
 
     async def fetch_gateway_config_key_list(self):
         config = await self.get_gateway_configuration()
