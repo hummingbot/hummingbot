@@ -116,6 +116,7 @@ class AllConnectorSettings:
         """
         Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
         """
+        cls.all_connector_settings = {}  # reset
         connector_exceptions = ["paper_trade"]
 
         package_dir = Path(__file__).resolve().parent.parent.parent
