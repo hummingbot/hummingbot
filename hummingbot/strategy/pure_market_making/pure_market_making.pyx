@@ -169,6 +169,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         '''
         cum_list = [s_decimal_zero]
         cum_sum = s_decimal_zero
+        spread = s_decimal_zero
         for spread in spread_list:
             cum_sum += spread
             cum_list.append(cum_sum)
@@ -713,7 +714,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list warning_lines = []
         warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
-
         markets_df = map_df_to_str(self.market_status_data_frame([self._market_info]))
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
