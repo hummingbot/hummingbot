@@ -49,3 +49,22 @@ export const request = async (
     console.log(`${method} ${path} - ${err}`);
   }
 };
+
+export const requestHarmony = async (
+  method: method,
+  path: string,
+  params: Record<string, any>
+) => {
+  try {
+    let response;
+    const gatewayAddress = `https://${host}:${port}`;
+    if (method === 'GET') {
+      response = await httpsAgent.get(gatewayAddress + path);
+    } else {
+      response = await httpsAgent.post(gatewayAddress + path, params);
+    }
+    return response.data;
+  } catch (err) {
+    console.log(`${method} ${path} - ${err}`);
+  }
+};

@@ -23,6 +23,8 @@ tags:
     description: 'pangolin'
   - name: 'solana'
     description: 'Solana'
+  - name: 'harmony'
+    description: 'Harmony'
 
 schemes:
   - 'http'
