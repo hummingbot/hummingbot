@@ -236,6 +236,10 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
 
     @classmethod
+    def get_derivative_dex_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative and not cs.centralised}
+
+    @classmethod
     def get_other_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Connector}
 
