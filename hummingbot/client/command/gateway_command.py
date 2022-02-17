@@ -68,6 +68,8 @@ class GatewayCommand:
             safe_ensure_future(self._connect(key))
         elif option == "test-connection":
             safe_ensure_future(self._test_connection())
+        elif option == "generate-certs":
+            safe_ensure_future(self._generate_certs())
 
     async def _test_connection(self):
         # test that the gateway is running
