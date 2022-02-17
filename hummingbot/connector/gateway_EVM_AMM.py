@@ -71,8 +71,8 @@ class GatewayEVMAMM(ConnectorBase):
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
-        super().__init__()
         self._connector_name = connector_name
+        super().__init__()
         self._chain = chain
         self._network = network
         self._trading_pairs = trading_pairs
