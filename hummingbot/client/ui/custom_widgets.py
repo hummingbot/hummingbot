@@ -87,6 +87,8 @@ class FormattedTextLexer(Lexer):
                     ])
                     previous_idx = end_idx
 
+                line_fragments.append(("", current_line[previous_idx:]))
+
                 return line_fragments
             except IndexError:
                 return []

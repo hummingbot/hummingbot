@@ -685,7 +685,7 @@ class K2Exchange(ExchangeBase):
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
                 AddedToCostTradeFee(flat_fees=[TokenAmount(fee_currency, Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id=trade_msg["orderid"]
+                exchange_trade_id=str(int(self._time() * 1e6))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \

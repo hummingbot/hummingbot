@@ -8,8 +8,8 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from dateutil.parser import parse as dateparse
-
 from dydx3.errors import DydxApiError
+
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
@@ -28,14 +28,27 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.event.events import (BuyOrderCompletedEvent, BuyOrderCreatedEvent, FundingInfo,
-                                          FundingPaymentCompletedEvent, MarketEvent, MarketOrderFailureEvent,
-                                          OrderCancelledEvent, OrderExpiredEvent, OrderFilledEvent, OrderType,
-                                          PositionAction, PositionMode, PositionSide, SellOrderCompletedEvent,
-                                          SellOrderCreatedEvent, TradeType)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderExpiredEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -718,7 +731,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         new_price,
                         new_amount,
                         AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]),
-                        tracked_order.client_order_id,
+                        str(int(self._time() * 1e6)),
                         self._leverage[tracked_order.trading_pair],
                         tracked_order.position,
                     ),
