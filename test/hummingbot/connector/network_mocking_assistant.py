@@ -41,7 +41,8 @@ class NetworkMockingAssistant:
         return self._response_status_queues[http_mock].popleft()
 
     async def _get_next_api_response_json(self, http_mock):
-        return await self._response_json_queues[http_mock].get()
+        ret = await self._response_json_queues[http_mock].get()
+        return ret
 
     async def _get_next_api_response_text(self, http_mock):
         return await self._response_text_queues[http_mock].get()

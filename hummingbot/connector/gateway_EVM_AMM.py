@@ -648,17 +648,18 @@ class GatewayEVMAMM(ConnectorBase):
 
     @staticmethod
     async def get_gateway_connectors(self):
-        return await self._api_request("get", "connectors", {})
+        return await self._api_request("get", "config", {})
 
     @staticmethod
     async def ping_gateway(self):
-        return await self._api_request("get", "connectors", {})
+        return await self._api_request("get", "", {}, fail_silently = True)
 
     @staticmethod
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {}) -> Dict[str, Any]:
+                           params: Dict[str, Any] = {},
+                           fail_silently: bool = False) -> Optional[Dict[str, Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -670,23 +671,30 @@ class GatewayEVMAMM(ConnectorBase):
                    f"{global_config_map['gateway_api_port'].value}"
         url = f"{base_url}/{path_url}"
         client = await self._http_client()
-        if method == "get":
-            if len(params) > 0:
-                response = await client.get(url, params=params)
-            else:
-                response = await client.get(url)
-        elif method == "post":
-            response = await client.post(url, json=params)
-        parsed_response = json.loads(await response.text())
-        if response.status != 200:
-            err_msg = ""
-            if "error" in parsed_response:
-                err_msg = f" Message: {parsed_response['error']}"
-            elif "message" in parsed_response:
-                err_msg = f" Message: {parsed_response['message']}"
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
-        if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
+
+        parsed_response = {}
+        try:
+            if method == "get":
+                if len(params) > 0:
+                    response = await client.get(url, params=params)
+                else:
+                    response = await client.get(url)
+            elif method == "post":
+                response = await client.post(url, json=params)
+            parsed_response = json.loads(await response.text())
+            if response.status != 200:
+                if "error" in parsed_response:
+                    err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
+                else:
+                    err_msg = f"Error on {method.upper()} Error: {parsed_response}"
+                    self.logger().error(
+                        err_msg,
+                        exc_info=True
+                    )
+                    raise Exception(err_msg)
+        except Exception as e:
+            if not fail_silently:
+                raise e
 
         return parsed_response
 
