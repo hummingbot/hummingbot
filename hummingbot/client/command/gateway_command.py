@@ -31,6 +31,7 @@ from hummingbot.client.settings import (
     GATEAWAY_CLIENT_CERT_PATH,
     GATEAWAY_CLIENT_KEY_PATH,
     CONF_FILE_PATH,
+    AllConnectorSettings,
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
@@ -412,6 +413,12 @@ class GatewayCommand:
 
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+            # update AllConnectorSettings
+            AllConnectorSettings.create_connector_settings()
+
+            # Reload completer here to include newly added gateway connectors
+            self.app.input_field.completer = load_completer(self)
 
     async def fetch_gateway_config_key_list(self):
         config = await self.get_gateway_configuration()
