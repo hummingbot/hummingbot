@@ -10,6 +10,8 @@ import {
   validateTxHash,
 } from '../../services/validators';
 
+import { isValidAddress } from '@harmony-js/utils';
+
 // invalid parameter errors
 
 export const invalidAddressError: string =
@@ -27,16 +29,11 @@ export const invalidMaxFeePerGasError: string =
 export const invalidMaxPriorityFeePerGasError: string =
   'If maxPriorityFeePerGas is included it must be a string of a non-negative integer.';
 
-// test if a string matches the shape of an Ethereum public key
-export const isAddress = (str: string): boolean => {
-  return /^0x[a-fA-F0-9]{40}$/.test(str);
-};
-
 // given a request, look for a key called address that is an Ethereum private key
 export const validateAddress: Validator = mkValidator(
   'address',
   invalidAddressError,
-  (val) => typeof val === 'string' && isAddress(val)
+  (val) => typeof val === 'string' && isValidAddress(val)
 );
 
 // given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
@@ -45,11 +42,7 @@ export const validateSpender: Validator = mkValidator(
   invalidSpenderError,
   (val) =>
     typeof val === 'string' &&
-    (val === 'uniswap' ||
-      val === 'pangolin' ||
-      val === 'sushiswap' ||
-      val === 'viperswap' ||
-      isAddress(val))
+    (val === 'sushiswap' || val === 'viperswap' || isValidAddress(val))
 );
 
 export const validateNonce: Validator = mkValidator(
