@@ -3,7 +3,7 @@
     <div class="col">
       <router-link class="q-px-none q-py-none" to="/">
         <q-img
-          :src="require('./assets/header-logo.svg')"
+          :src="require('./header-logo.svg')"
           fit="contain"
           no-transition
           no-spinner

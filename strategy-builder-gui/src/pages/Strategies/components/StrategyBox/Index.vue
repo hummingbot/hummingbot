@@ -8,10 +8,10 @@
         </div>
         <div class="row q-gutter-sm q-mt-auto">
           <q-btn class="bg-mono-grey-2 rounded-borders" padding="sm" :href="fileHref">
-            <q-icon :name="'img:' + require('../../assets/file.svg')" size="10px" />
+            <q-icon :name="'img:' + require('./file.svg')" size="10px" />
           </q-btn>
           <q-btn class="bg-mono-green-2 rounded-borders" padding="sm" :href="startHref">
-            <q-icon :name="'img:' + require('../../assets/play.svg')" size="10px" />
+            <q-icon :name="'img:' + require('./play.svg')" size="10px" />
           </q-btn>
         </div>
       </q-card-section>
@@ -19,7 +19,7 @@
         <div class="row bg-mono-grey-2 rounded-borders q-py-none q-px-sm col-auto">
           <div class="col q-mr-xs text-h6 text-white q-mr-xs">{{ place }}</div>
           <div class="col flex items-center justify-center">
-            <q-icon :name="`img:${require(`../../assets/place-${placeType}.svg`)}`" size="8px" />
+            <q-icon :name="`img:${require(`./place-${placeType}.svg`)}`" size="8px" />
           </div>
         </div>
       </q-card-section>

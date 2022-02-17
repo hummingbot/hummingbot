@@ -1,6 +1,6 @@
 <template>
   <BaseLayout>
-    <Strategies />
+    <Content />
   </BaseLayout>
 </template>
 
@@ -8,9 +8,9 @@
 import BaseLayout from 'layouts/BaseLayout.vue';
 import { defineComponent } from 'vue';
 
-import Strategies from './components/Index.vue';
+import Content from './Content.vue';
 
 export default defineComponent({
-  components: { Strategies, BaseLayout },
+  components: { Content, BaseLayout },
 });
 </script>

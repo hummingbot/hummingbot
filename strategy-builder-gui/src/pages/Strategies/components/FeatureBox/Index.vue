@@ -8,7 +8,7 @@
       >
         <q-img
           v-if="type === FeatureBoxType.Strategy"
-          :src="require('../assets/strategies-box-number.svg')"
+          :src="require('./feature-box-number.svg')"
           class="q-mr-xs"
           fit="contain"
           img-class="absolute"

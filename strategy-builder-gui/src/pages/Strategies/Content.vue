@@ -8,7 +8,7 @@
         description="Hummingbot offers various trading strategies, each with its own set of configurable parameters."
         link-text="Documentation"
         href="/"
-        :bg-image-src="require('../assets/strategies-box-robot.svg')"
+        :bg-image-src="require('./strategies-box-robot.svg')"
       />
     </div>
     <div class="col-xs-12 col-md">
@@ -19,7 +19,7 @@
         description="Hummingbot can be run on a various top tier centralized and decentralized exchanges."
         link-text="Connectors"
         href="/"
-        :bg-image-src="require('../assets/strategies-box-chart.svg')"
+        :bg-image-src="require('./strategies-box-chart.svg')"
       />
     </div>
   </div>
@@ -33,7 +33,7 @@
           input-class="flex items-center justify-center"
           :options="categories"
           rounded
-          :dropdown-icon="`img:${require('../assets/arrow-bottom.svg')}`"
+          :dropdown-icon="`img:${require('./arrow-bottom.svg')}`"
           :display-value="category"
           :label-slot="false"
           popup-content-class="bg-mono-grey-2 q-px-md q-py-md"
@@ -59,10 +59,10 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 
-import { StrategyCategory } from '../stores/strategies';
-import FeatureBox, { FeatureBoxType } from './FeatureBox.vue';
-import { useStrategiesFilter } from './StrategyBox/composables/useStrategiesFilter';
-import StrategyBox from './StrategyBox/StrategyBox.vue';
+import FeatureBox, { FeatureBoxType } from './components/FeatureBox/Index.vue';
+import StrategyBox from './components/StrategyBox/Index.vue';
+import { useStrategiesFilter } from './composables/useStrategiesFilter';
+import { StrategyCategory } from './stores/strategies';
 
 export default defineComponent({
   components: { FeatureBox, StrategyBox },
