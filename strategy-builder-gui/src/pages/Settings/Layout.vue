@@ -1,5 +1,5 @@
 <template>
-  <BaseLayout>
+  <BaseLayout class="settings-page">
     <Content />
   </BaseLayout>
 </template>
@@ -14,3 +14,10 @@ export default defineComponent({
   components: { Content, BaseLayout },
 });
 </script>
+<style lang="scss" scoped>
+.settings-page {
+  max-width: 878px;
+  width: 100%;
+  margin: 0 auto;
+}
+</style>
