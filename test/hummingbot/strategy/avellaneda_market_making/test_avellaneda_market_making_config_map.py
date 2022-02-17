@@ -119,6 +119,11 @@ class AvellanedaMarketMakingConfigMapTest(unittest.TestCase):
         expected = "Incorrect time format (expected is HH:MM:SS)"
         self.assertEqual(expected, value)
 
+        avellaneda_market_making_config_map["execution_timeframe"].value = "infinite"
+
+        value = validate_execution_time("12:00:00")
+        self.assertIsNone(value)
+
         avellaneda_market_making_config_map["start_time"].value = "12:00:00"
         avellaneda_market_making_config_map["end_time"].value = "13:00:00"
 
