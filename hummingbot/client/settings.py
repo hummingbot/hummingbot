@@ -4,10 +4,11 @@ generate a dictionary of exchange names to ConnectorSettings.
 """
 
 import importlib
+import json
 from decimal import Decimal
 from enum import Enum
 from os import scandir
-from os.path import join, realpath
+from os.path import join, realpath, exists
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
 
@@ -115,6 +116,7 @@ class AllConnectorSettings:
         """
         Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
         """
+        cls.all_connector_settings = {}  # reset
         connector_exceptions = ["paper_trade"]
 
         package_dir = Path(__file__).resolve().parent.parent.parent
@@ -166,6 +168,37 @@ class AllConnectorSettings:
                         use_eth_gas_lookup=parent.use_eth_gas_lookup,
                     )
 
+        # add gateway connectors
+        connections_fp = realpath(join(CONF_FILE_PATH, "gateway_connections.json"))
+        connections = []
+        if exists(connections_fp):
+            with open(connections_fp) as f:
+                connections = json.loads(f.read())
+
+        trade_fee_schema = [0, 0]  # we assume no swap fees for now
+        trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_schema)
+
+        for connection in connections:
+            gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['network']}"
+            wallet_config = ConfigVar(key="wallet_public_key",
+                                      prompt="",
+                                      is_secure=False,
+                                      is_connect_key=True)
+            wallet_config.value = connection["wallet_address"]
+            cls.all_connector_settings[gateway_connector_name] = ConnectorSetting(
+                name=gateway_connector_name,
+                type=ConnectorType["Connector"],
+                centralised = False,
+                example_pair = "WETH-USDC",
+                use_ethereum_wallet = False,
+                trade_fee_schema=trade_fee_schema,
+                config_keys={"wallet_public_key": wallet_config},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False,
+            )
+
         return cls.all_connector_settings
 
     @classmethod
@@ -201,6 +234,10 @@ class AllConnectorSettings:
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+
+    @classmethod
+    def get_derivative_dex_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative and not cs.centralised}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
