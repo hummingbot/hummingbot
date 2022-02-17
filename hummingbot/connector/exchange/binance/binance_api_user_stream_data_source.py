@@ -65,7 +65,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         if self._ws_assistant:
             return self._ws_assistant.last_recv_time
-        return -1
+        return 0
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -82,6 +82,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws: WSAssistant = await self._get_ws_assistant()
                 url = f"{CONSTANTS.WSS_URL.format(self._domain)}/{self._current_listen_key}"
                 await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                await ws.ping()  # to update last_recv_timestamp
 
                 async for ws_response in ws.iter_messages():
                     data = ws_response.data
