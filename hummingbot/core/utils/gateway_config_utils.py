@@ -1,25 +1,18 @@
 from copy import deepcopy
-from hummingbot.client.settings import (CONF_FILE_PATH)
-from os import path
+from hummingbot.core.utils.gateway_http_client import gateway_http_client
 from typing import List, Dict, Any, Optional
-import json
 import pandas as pd
 
 native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
 
 
-def list_gateway_connection_wallets(connector: str, chain: str, network: str):
+async def list_gateway_connection_wallets(chain: str):
     """
     Get the public keys for a chain supported by gateway that hummingbot knows
     about. There may be some public keys in gateway that hummingbot is not using.
     """
-    connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
-    if path.exists(connections_fp):
-        with open(connections_fp) as f:
-            connections = json.loads(f.read())
-            return [c["wallet_address"] for c in connections if c["connector"] == connector and c["chain"] == chain and c["network"] == network]
-    else:
-        return []
+    wallets = await gateway_http_client.api_request("get", "wallet", {})
+    return [w for w in wallets if w["chain"] == chain]
 
 
 def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, wallet):
