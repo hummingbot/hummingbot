@@ -22,6 +22,8 @@
   "dependencies": {
     "@blockworks-foundation/mango-client": "^3.2.14",
     "@ethersproject/experimental": "^5.3.0",
+    "@harmony-js/core": "^0.1.57",
+    "@harmony-js/utils": "^0.1.56",
     "@pangolindex/sdk": "^1.1.0",
     "@project-serum/serum": "^0.13.61",
     "@solana/spl-token-registry": "^0.2.700",
@@ -35,6 +37,7 @@
     "@uniswap/v3-periphery": "^1.1.1",
     "@uniswap/v3-sdk": "3.2.1",
     "abi-decoder": "^2.4.0",
+    "add": "^2.0.6",
     "ajv": "^8.6.3",
     "app-root-path": "^3.0.0",
     "axios": "^0.21.1",
@@ -54,8 +57,10 @@
     "lodash": "^4.17.21",
     "minimist": "^1.2.5",
     "swagger-ui-express": "^4.1.6",
+    "tslib": "^2.3.1",
     "winston": "^3.3.3",
-    "winston-daily-rotate-file": "^4.5.5"
+    "winston-daily-rotate-file": "^4.5.5",
+    "yarn": "^1.22.17"
   },
   "devDependencies": {
     "@connectis/diff-test-coverage": "^1.5.1",

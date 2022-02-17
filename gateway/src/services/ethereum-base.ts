@@ -8,7 +8,8 @@ import {
   Wallet,
 } from 'ethers';
 import axios from 'axios';
-import fs from 'fs/promises';
+// import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
@@ -110,9 +111,11 @@ export class EthereumBase {
     tokenListType: TokenListType
   ): Promise<void> {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
-    this.tokenList.forEach(
-      (token: Token) => (this._tokenMap[token.symbol] = token)
-    );
+    if (this.tokenList) {
+      this.tokenList.forEach(
+        (token: Token) => (this._tokenMap[token.symbol] = token)
+      );
+    }
   }
 
   // returns a Tokens for a given list source and list type
@@ -288,7 +291,7 @@ export class EthereumBase {
       params.maxFeePerGas = maxFeePerGas;
       params.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else if (gasPrice) {
-      params.gasPrice = gasPrice * 1e9;
+      params.gasPrice = (gasPrice * 1e9).toString();
     }
     const response = await contract.approve(spender, amount, params);
     logger.info(response);
