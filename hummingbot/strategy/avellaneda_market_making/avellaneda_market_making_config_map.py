@@ -37,6 +37,7 @@ def validate_execution_timeframe(value: str) -> Optional[str]:
 
 
 def validate_execution_time(value: str) -> Optional[str]:
+    ret = None
     if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
         ret = validate_datetime_iso_string(value)
     if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":

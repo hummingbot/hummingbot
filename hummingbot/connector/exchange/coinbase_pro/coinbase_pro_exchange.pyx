@@ -14,8 +14,8 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order imp
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
+    build_coinbase_pro_web_assistant_factory,
     CoinbaseProRESTRequest,
-    build_coinbase_pro_web_assistant_factory
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -480,7 +480,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                     ),
                     # Coinbase Pro's websocket stream tags events with order_id rather than trade_id
                     # Using order_id here for easier data validation
-                    exchange_trade_id=exchange_order_id,
+                    exchange_trade_id=str(int(self._time() * 1e6)),
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
