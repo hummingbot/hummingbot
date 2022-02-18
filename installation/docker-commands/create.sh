@@ -40,6 +40,7 @@ DATA_FOLDER="$FOLDER/hummingbot_data"
 SCRIPTS_FOLDER="$FOLDER/hummingbot_scripts"
 CERTS_FOLDER="$FOLDER/hummingbot_certs"
 GATEWAY_CONF_FOLDER="$FOLDER/gateway_conf"
+GATEWAY_LOGS_FOLDER="$FOLDER/gateway_logs"
 
 echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
@@ -54,6 +55,7 @@ printf "%30s %5s\n" "Trade and data files:" "├── $DATA_FOLDER"
 printf "%30s %5s\n" "Scripts files:" "├── $SCRIPTS_FOLDER"
 printf "%30s %5s\n" "Cert files:" "├── $CERTS_FOLDER"
 printf "%30s %5s\n" "Gateway config files:" "└── $GATEWAY_CONF_FOLDER"
+printf "%30s %5s\n" "Gateway log files:" "└── $GATEWAY_LOGS_FOLDER"
 echo
 
 prompt_proceed () {
@@ -78,6 +80,7 @@ create_instance () {
  mkdir $SCRIPTS_FOLDER
  mkdir $CERTS_FOLDER
  mkdir $GATEWAY_CONF_FOLDER
+ mkdir $GATEWAY_LOGS_FOLDER
  # 3) Set required permissions to save hummingbot password the first time
  sudo chmod a+rw $CONF_FOLDER
  # 4) Launch a new instance of hummingbot
@@ -88,14 +91,14 @@ create_instance () {
  --mount "type=bind,source=$LOGS_FOLDER,destination=/logs/" \
  --mount "type=bind,source=$DATA_FOLDER,destination=/data/" \
  --mount "type=bind,source=$SCRIPTS_FOLDER,destination=/scripts/" \
- --mount "type=bind,source=$CERTS_FOLDER,destination=/certs/" \
- --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/gateway_conf/" \
+ --mount "type=bind,source=$CERTS_FOLDER,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
+ --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/home/hummingbot/.hummingbot-gateway/conf/" \
  --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
  -e CONF_FOLDER="$CONF_FOLDER" \
- -e LOGS_FOLDER="$LOGS_FOLDER" \
  -e DATA_FOLDER="$DATA_FOLDER" \
  -e SCRIPTS_FOLDER="$SCRIPTS_FOLDER" \
  -e CERTS_FOLDER="$CERTS_FOLDER" \
+ -e GATEWAY_LOGS_FOLDER="$GATEWAY_LOGS_FOLDER" \
  -e GATEWAY_CONF_FOLDER="$GATEWAY_CONF_FOLDER" \
  coinalpha/hummingbot:$TAG
 }
