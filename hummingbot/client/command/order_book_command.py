@@ -1,3 +1,4 @@
+from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 import pandas as pd
 from typing import TYPE_CHECKING
@@ -47,7 +48,7 @@ class OrderBookCommand:
             asks = order_book.snapshot[1][['price', 'amount']].head(lines)
             asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
             joined_df = pd.concat([bids, asks], axis=1)
-            text_lines = ["    " + line for line in joined_df.to_string(index=False).split("\n")]
+            text_lines = ["    " + line for line in format_df_for_printout(joined_df).split("\n")]
             header = f"  market: {market_connector.name} {trading_pair}\n"
             return header + "\n".join(text_lines)
 

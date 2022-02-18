@@ -3,7 +3,6 @@
 connector_status = {
     'altmarkets': 'yellow',
     'ascend_ex': 'yellow',
-    'balancer': 'green',
     'beaxy': 'green',
     'binance': 'green',
     'binance_perpetual': 'yellow',
@@ -39,7 +38,6 @@ connector_status = {
     'probit': 'yellow',
     'probit_kr': 'yellow',
     'terra': 'yellow',
-    'uniswap': 'yellow',
     'uniswap_v3': 'yellow',
     'wazirx': 'yellow'
 }
