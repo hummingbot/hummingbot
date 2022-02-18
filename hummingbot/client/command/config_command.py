@@ -184,11 +184,9 @@ class ConfigCommand:
                 updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
                 if updated:
                     self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
-                                 f"to reflect the new configuration.\n{key}: {config_var.value}")
+                                 f"to reflect the new configuration.")
                 for config in missings:
                     updated = ConfigCommand.update_running_mm(self.strategy, config.key, config.value)
-                    if updated:
-                        self._notify(f"{config.key}: {config.value}")
 
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
