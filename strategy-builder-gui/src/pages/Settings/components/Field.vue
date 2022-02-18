@@ -33,4 +33,9 @@ export default defineComponent({
 .border {
   border-bottom: 2px dashed map.get($colors, 'mono-grey-2') !important;
 }
+
+.border:last-child {
+  border: none !important;
+  padding-bottom: 0;
+}
 </style>
