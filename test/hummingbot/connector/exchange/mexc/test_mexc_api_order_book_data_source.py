@@ -1,22 +1,19 @@
-import unittest
 import asyncio
-from collections import deque, Awaitable
+import json
+import re
+import unittest
+from collections import Awaitable, deque
+from typing import Any, Dict
+from unittest.mock import AsyncMock, patch
 
 import ujson
+from aioresponses import aioresponses
 
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
-
-from unittest.mock import patch, AsyncMock
-from typing import (
-    Any,
-    Dict,
-)
-
 from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
-
-from hummingbot.core.data_type.order_book import OrderBook
-
+from hummingbot.connector.exchange.mexc.mexc_utils import convert_to_exchange_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -66,14 +63,15 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_last_traded_prices(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
         mock_response: Dict[Any] = {"code": 200, "data": [
             {"symbol": "BTC_USDT", "volume": "1076.002782", "high": "59387.98", "low": "57009", "bid": "57920.98",
              "ask": "57921.03", "open": "57735.92", "last": "57902.52", "time": 1637898900000,
              "change_rate": "0.00288555"}]}
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_TICKERS_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         results = self.async_run_with_timeout(
             asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
@@ -81,22 +79,28 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(results[self.trading_pair], 57902.52)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_fetch_trading_pairs_with_error_status_in_response(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
         mock_response = {}
-        self.mocking_assistant.add_http_response(mock_api, 100, mock_response)
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_SYMBOL_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(mock_response), status=100)
 
         result = self.async_run_with_timeout(self.data_source.fetch_trading_pairs())
         self.assertEqual(0, len(result))
 
-    @patch("aiohttp.ClientSession.get")
-    def test_get_order_book_data(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source.microseconds")
+    def test_get_order_book_data(self, mock_api, ms_mock):
+        ms_mock.return_value = 1
         mock_response = {"code": 200, "data": {"asks": [{"price": "57974.06", "quantity": "0.247421"}],
                                                "bids": [{"price": "57974.01", "quantity": "0.201635"}],
+                                               "ts": 1,
                                                "version": "562370278"}}
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, body=json.dumps(mock_response))
 
         results = self.async_run_with_timeout(
             asyncio.gather(self.data_source.get_snapshot(self.data_source._shared_client, self.trading_pair)))
@@ -106,12 +110,13 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertGreaterEqual(len(result), 0)
         self.assertEqual(mock_response.get("data"), result)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_order_book_data_raises_exception_when_response_has_error_code(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-
-        mock_response = {"Erroneous response"}
-        self.mocking_assistant.add_http_response(mock_api, 100, mock_response)
+        mock_response = "Erroneous response"
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, body=json.dumps(mock_response), status=100)
 
         with self.assertRaises(IOError) as context:
             self.async_run_with_timeout(self.data_source.get_snapshot(self.data_source._shared_client, self.trading_pair))
@@ -120,14 +125,15 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                          f'Error fetching MEXC market snapshot for {self.trading_pair.replace("-", "_")}. '
                          f'HTTP status is {100}.')
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-
         mock_response = {"code": 200, "data": {"asks": [{"price": "57974.06", "quantity": "0.247421"}],
                                                "bids": [{"price": "57974.01", "quantity": "0.201635"}],
                                                "version": "562370278"}}
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, body=json.dumps(mock_response))
 
         results = self.async_run_with_timeout(
             asyncio.gather(self.data_source.get_new_order_book(self.trading_pair)))
@@ -135,9 +141,12 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(type(result) == OrderBook)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        mock_api.side_effect = asyncio.CancelledError
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, exception=asyncio.CancelledError)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
@@ -148,11 +157,9 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(msg_queue.qsize(), 0)
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source.MexcAPIOrderBookDataSource._sleep")
-    @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_successful(self, mock_api, mock_sleep):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-
         # the queue and the division by zero error are used just to synchronize the test
         sync_queue = deque()
         sync_queue.append(1)
@@ -160,7 +167,10 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_response = {"code": 200, "data": {"asks": [{"price": "57974.06", "quantity": "0.247421"}],
                                                "bids": [{"price": "57974.01", "quantity": "0.201635"}],
                                                "version": "562370278"}}
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
+        tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
+        url = CONSTANTS.MEXC_BASE_URL + tick_url
+        mock_api.get(url, body=json.dumps(mock_response))
 
         mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
 
@@ -168,7 +178,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             self.listening_task = self.ev_loop.create_task(
                 self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
-            self.async_run_with_timeout(self.listening_task)
+            self.async_run_with_timeout(self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
 
         self.assertEqual(msg_queue.qsize(), 1)
 
