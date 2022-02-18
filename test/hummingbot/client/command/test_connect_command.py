@@ -4,8 +4,11 @@ from copy import deepcopy
 from typing import Awaitable
 from unittest.mock import patch, MagicMock, AsyncMock
 
+import pandas as pd
+
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
 
@@ -26,6 +29,7 @@ class ConnectCommandTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
         self.reset_global_config()
+        Security._decryption_done.clear()
         super().tearDown()
 
     def reset_global_config(self):
@@ -142,3 +146,38 @@ class ConnectCommandTest(unittest.TestCase):
                 msg="\nA network error prevented the connection table to populate. See logs for more details."
             )
         )
+
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.connection_df")
+    def test_show_connections(self, connection_df_mock, notify_mock):
+        global_config_map["tables_format"].value = "psql"
+
+        Security._decryption_done.set()
+
+        captures = []
+        notify_mock.side_effect = lambda s: captures.append(s)
+
+        connections_df = pd.DataFrame(
+            columns=pd.Index(['Exchange', '  Keys Added', '  Keys Confirmed', '  Status'], dtype='object'),
+            data=[
+                ["ascend_ex", "Yes", "Yes", "&cYELLOW"],
+                ["beaxy", "Yes", "Yes", "&cGREEN"]
+            ]
+        )
+        connection_df_mock.return_value = (connections_df, [])
+
+        self.async_run_with_timeout(self.app.show_connections())
+
+        self.assertEqual(2, len(captures))
+        self.assertEqual("\nTesting connections, please wait...", captures[0])
+
+        df_str_expected = (
+            "    +------------+----------------+--------------------+------------+"
+            "\n    | Exchange   |   Keys Added   |   Keys Confirmed   |   Status   |"
+            "\n    |------------+----------------+--------------------+------------|"
+            "\n    | ascend_ex  | Yes            | Yes                | &cYELLOW   |"
+            "\n    | beaxy      | Yes            | Yes                | &cGREEN    |"
+            "\n    +------------+----------------+--------------------+------------+"
+        )
+
+        self.assertEqual(df_str_expected, captures[1])
