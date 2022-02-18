@@ -2,14 +2,17 @@
 
 import json
 import asyncio
+import pandas as pd
 import platform
 import threading
 import time
 from typing import (
     Optional,
     Callable,
+    Dict,
+    Any,
 )
-from os.path import dirname, join, path
+from os.path import dirname, exists, join, realpath
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -21,7 +24,7 @@ from hummingbot.client.config.config_helpers import (
 import hummingbot.client.settings as settings
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
-from typing import TYPE_CHECKING
+from hummingbot.core.utils.gateway_config_utils import get_gateway_connector_details
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
@@ -30,6 +33,7 @@ from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.exceptions import OracleRateUnavailable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -57,14 +61,19 @@ class StartCommand:
             return
         safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
 
-    def get_gateway_connector(self, connector):
-        connections_fp = path.realpath(path.join(settings.CONF_FILE_PATH, "gateway_connections.json"))
-        if path.exists(connections_fp):
+    def get_gateway_connector_details(self, connector: str) -> Optional[Dict[str, Any]]:
+        (connector, chain, network) = connector.split("_")
+        connections_fp = realpath(join(settings.CONF_FILE_PATH, "gateway_connections.json"))
+        if exists(connections_fp):
             with open(connections_fp) as f:
                 connections = json.loads(f.read())
-                print(connections)
+                filtered_connections = [c for c in connections if c["connector"] == connector and c["chain"] == chain and c["network"] == network]
+                if len(filtered_connections) > 0:
+                    return filtered_connections[0]
+                else:
+                    self.notify(f"No corresponding gateway connection available. Run 'gateway connect {connector}' and setup your wallet")
         else:
-            self.notify(f"No Gateway connections available. Run 'gateway connect {connector}' and setup your wallet")
+            self.notify(f"No corresponding gateway connection available. Run 'gateway connect {connector}' and setup your wallet")
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
@@ -99,9 +108,6 @@ class StartCommand:
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
             self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
-
-        ready = True
-
         for exchange in settings.required_exchanges:
             connector = str(exchange)
             self.notify(connector)
@@ -120,10 +126,30 @@ class StartCommand:
 
             # confirm gateway connection
             if exchange in settings.GATEWAY_CONNECTORS:
-                pass
+                connector_details = get_gateway_connector_details(exchange)
+                if connector_details:
+                    self.app.clear_input()
+                    self.placeholder_mode = True
 
-        if ready:
-            await self.start_market_making(self.strategy_name, restore)
+                    columns = [f"{exchange} configuration"]
+                    data = []
+                    data.extend([f"chain: {connector_details['chain']}"])
+                    data.extend([f"network: {connector_details['network']}"])
+                    data.extend([f"wallet_address: {connector_details['wallet_address']}"])
+                    # data.extend([f"balance: {balance}"])
+                    wallet_display = pd.DataFrame(data=data, columns=columns)
+                    self.notify(wallet_display.to_string(index=False))
+
+                    use_exchange_configuration = await self.app.prompt(prompt="And prompt Do you want to continue? (Yes/No) >>> ")
+
+                    if use_exchange_configuration is not None and use_exchange_configuration in ["Y", "y", "Yes", "yes"]:
+                        pass
+                    else:
+                        return
+                else:
+                    return
+
+        await self.start_market_making(self.strategy_name, restore)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str,
