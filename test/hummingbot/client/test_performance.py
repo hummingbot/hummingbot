@@ -167,7 +167,7 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         ]
         cur_bals = {base: 100, quote: 10000}
         metrics = asyncio.get_event_loop().run_until_complete(
-            PerformanceMetrics.create("hbot_exchange", trading_pair, trades, cur_bals))
+            PerformanceMetrics.create(trading_pair, trades, cur_bals))
         self.assertEqual(Decimal("799"), metrics.trade_pnl)
         print(metrics)
 
@@ -208,7 +208,7 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
 
         cur_bals = {base: 100, quote: 10000}
         metrics = asyncio.get_event_loop().run_until_complete(
-            PerformanceMetrics.create("hbot_exchange", trading_pair, trades, cur_bals))
+            PerformanceMetrics.create(trading_pair, trades, cur_bals))
         self.assertEqual(metrics.num_buys, 2)
         self.assertEqual(metrics.num_sells, 2)
         self.assertEqual(metrics.num_trades, 4)
@@ -279,7 +279,6 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         )
 
         self.async_run_with_timeout(performance_metric._calculate_fees(
-            exchange="test-exchange",
             quote="COINALPHA",
             trades=[trade]))
 
@@ -320,7 +319,6 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         )
 
         self.async_run_with_timeout(performance_metric._calculate_fees(
-            exchange="test-exchange",
             quote="COINALPHA",
             trades=[trade]))
 
