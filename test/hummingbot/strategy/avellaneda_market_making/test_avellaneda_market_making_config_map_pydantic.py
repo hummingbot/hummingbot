@@ -64,21 +64,15 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         config_settings = self.get_default_map()
 
         def build_config_map(cm: BaseClientModel, cs: Dict):
-            """
-            This routine can be used as is for the create command,
-            except for the sectioned-off portion.
-            """
+            """This routine can be used in the create command, with slight modifications."""
             for key, field in cm.__fields__.items():
                 client_data = cm.get_client_data(key)
                 if client_data is not None and client_data.prompt_on_new:
                     self.assertIsInstance(client_data.prompt(cm), str)
-                    # =====================================================
                     if key == "execution_timeframe_model":
                         cm.__setattr__(key, "daily_between_times")  # simulate user input
                     else:
                         cm.__setattr__(key, cs[key])
-                    # cm.__setattr__(key, cs[key])  # use this in the create command routine
-                    # =====================================================
                     new_value = cm.__getattribute__(key)
                     if isinstance(new_value, BaseClientModel):
                         build_config_map(new_value, cs[key])
