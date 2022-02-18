@@ -3,11 +3,13 @@ import { gatewayApp } from '../../../src/app';
 import { patch, unpatch } from '../../services/patch';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
+import { Harmony } from '../../../src/chains/harmony/harmony';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import { GetWalletResponse } from '../../../src/services/wallet/wallet.requests';
 
 let avalanche: Avalanche;
 let eth: Ethereum;
+let harmony: Harmony;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -15,6 +17,8 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
 
   eth = Ethereum.getInstance('kovan');
+
+  harmony = Harmony.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -96,7 +100,30 @@ describe('POST /wallet/add', () => {
       .expect(200);
   });
 
-  it('return 404 for ill-formed request', async () => {
+  it('return 200 for well formed harmony request', async () => {
+    patch(harmony, 'getWalletFromPrivateKey', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(gatewayApp)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chain: 'harmony',
+        network: 'testnet',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('return 404 for ill-formed avalanche request', async () => {
     patch(avalanche, 'getWalletFromPrivateKey', () => {
       return {
         address: twoAddress,
@@ -104,6 +131,24 @@ describe('POST /wallet/add', () => {
     });
 
     patch(avalanche, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(gatewayApp)
+      .post(`/wallet/add`)
+      .send({})
+      .expect('Content-Type', /json/)
+      .expect(404);
+  });
+
+  it('return 404 for ill-formed harmony request', async () => {
+    patch(harmony, 'getWalletFromPrivateKey', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
@@ -149,6 +194,39 @@ describe('DELETE /wallet/remove', () => {
       .expect(200);
   });
 
+  it('return 200 for well formed harmony request', async () => {
+    patch(harmony, 'getWalletFromPrivateKey', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(gatewayApp)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chain: 'harmony',
+        network: 'testnet',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    await request(gatewayApp)
+      .delete(`/wallet/remove`)
+      .send({
+        address: twoAddress,
+        chain: 'harmony',
+      })
+
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
   it('return 404 for ill-formed request', async () => {
     await request(gatewayApp).delete(`/wallet/delete`).send({}).expect(404);
   });
@@ -184,6 +262,41 @@ describe('GET /wallet', () => {
         const wallets: GetWalletResponse[] = res.body;
         const addresses: string[][] = wallets
           .filter((wallet) => wallet.chain === 'ethereum')
+          .map((wallet) => wallet.walletAddresses);
+
+        expect(addresses[0]).toContain(twoAddress);
+      });
+  });
+
+  it('return 200 for well formed harmony request', async () => {
+    patch(harmony, 'getWalletFromPrivateKey', () => {
+      return {
+        address: twoAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await request(gatewayApp)
+      .post(`/wallet/add`)
+      .send({
+        privateKey: twoPrivateKey,
+        chain: 'harmony',
+        network: 'testnet',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    await request(gatewayApp)
+      .get(`/wallet`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => {
+        const wallets: GetWalletResponse[] = res.body;
+        const addresses: string[][] = wallets
+          .filter((wallet) => wallet.chain === 'harmony')
           .map((wallet) => wallet.walletAddresses);
 
         expect(addresses[0]).toContain(twoAddress);

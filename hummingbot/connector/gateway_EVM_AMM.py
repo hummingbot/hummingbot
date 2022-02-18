@@ -31,7 +31,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
+from hummingbot.core.utils.ethereum import check_transaction_exceptions
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -39,7 +39,7 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class GatewayBase(ConnectorBase):
+class GatewayEVMAMM(ConnectorBase):
     """
     Defines basic funtions common to connectors that interract with Gateway.
     """
@@ -56,21 +56,30 @@ class GatewayBase(ConnectorBase):
         return s_logger
 
     def __init__(self,
+                 connector_name: str,
+                 chain: str,
+                 network: str,
+                 wallet_public_key: str,
                  trading_pairs: List[str],
-                 wallet_private_key: str,
                  trading_required: bool = True
                  ):
         """
+        :param connector_name: name of connector on gateway
+        :param chain: refers to a block chain, e.g. ethereum or avalanche
+        :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
+        :param wallet_public_key: a public key for eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
-        :param wallet_private_key: a private key for eth wallet
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
+        self._connector_name = connector_name
         super().__init__()
+        self._chain = chain
+        self._network = network
         self._trading_pairs = trading_pairs
         self._tokens = set()
         for trading_pair in trading_pairs:
             self._tokens.update(set(trading_pair.split("-")))
-        self._wallet_private_key = wallet_private_key
+        self._wallet_public_key = wallet_public_key
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -82,24 +91,34 @@ class GatewayBase(ConnectorBase):
         self._chain_info = {}
         self._status_polling_task = None
         self._auto_approve_task = None
-        self._get_chain_info_task = None
         self._poll_notifier = None
         self._nonce = None
 
     @property
-    def name(self):
+    def connector_name(self):
         """
-        This should be overwritten to return the appropriate name of new connector when inherited.
+        This returns the name of connector/protocol to be connected to on Gateway.
         """
-        return "GatewayServer"
+        return self._connector_name
 
     @property
-    def base_path(self):
-        raise NotImplementedError
+    def chain(self):
+        return self._chain
+
+    @property
+    def network(self):
+        return self._network
+
+    @property
+    def address(self):
+        return self._wallet_public_key
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        return await fetch_trading_pairs()
+        """
+        To-do: figure out how to fetch list of trading pairs for gateway connectors in new task.
+        """
+        return []
 
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:
@@ -131,11 +150,7 @@ class GatewayBase(ConnectorBase):
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
         """
         try:
-            resp = await self._api_request("get", f"{self.base_path}/")
-            if bool(str(resp["success"])):
-                self._chain_info = resp
-        except asyncio.CancelledError:
-            raise
+            self._chain_info = await self._api_request("get", "network/chain_config", {"chain": self.chain})
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
@@ -148,7 +163,7 @@ class GatewayBase(ConnectorBase):
         Calls the status endpoint on Gateway to know basic info about connected networks.
         """
         try:
-            return await self._api_request("get", "/status")
+            return await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
         except Exception as e:
             self.logger().network(
                 "Error fetching gateway status info",
@@ -171,12 +186,15 @@ class GatewayBase(ConnectorBase):
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
         """
-        order_id = f"approve_{self.name}_{token_symbol}"
+        order_id = f"approve_{self.connector_name}_{token_symbol}"
         await self._update_nonce()
         resp = await self._api_request("post",
-                                       "eth/approve",
-                                       {"token": token_symbol,
-                                        "spender": self.name,
+                                       "evm/approve",
+                                       {"chain": self.chain,
+                                        "network": self.network,
+                                        "address": self.address,
+                                        "token": token_symbol,
+                                        "spender": self.connector_name,
                                         "nonce": self._nonce})
         self.start_tracking_order(order_id, None, token_symbol)
 
@@ -185,10 +203,10 @@ class GatewayBase(ConnectorBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.update_exchange_order_id(hash)
             tracked_order.nonce = resp["nonce"]
-            self.logger().info(f"Maximum {token_symbol} approval for {self.name} contract sent, hash: {hash}.")
+            self.logger().info(f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}.")
         else:
             self.stop_tracking_order(order_id)
-            self.logger().info(f"Approval for {token_symbol} on {self.name} failed.")
+            self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -196,9 +214,12 @@ class GatewayBase(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenSymbols": list(self._tokens),
-                                        "spender": self.name})
+        resp = await self._api_request("get", "evm/allowances",
+                                       {"chain": self.chain,
+                                        "network": self.network,
+                                        "address": self.address,
+                                        "tokenSymbols": list(self._tokens),
+                                        "spender": self.connector_name})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -216,9 +237,12 @@ class GatewayBase(ConnectorBase):
         try:
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
-            resp = await self._api_request("post",
-                                           f"{self.base_path}/price",
-                                           {"base": base,
+            resp = await self._api_request("get",
+                                           "amm/price",
+                                           {"chain": self.chain,
+                                            "network": self.network,
+                                            "connector": self.connector_name,
+                                            "base": base,
                                             "quote": quote,
                                             "amount": str(amount),
                                             "side": side.upper()})
@@ -322,7 +346,11 @@ class GatewayBase(ConnectorBase):
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
         await self._update_nonce()
-        api_params = {"base": base,
+        api_params = {"chain": self.chain,
+                      "network": self.network,
+                      "connector": self.connector_name,
+                      "address": self.address,
+                      "base": base,
                       "quote": quote,
                       "side": trade_type.name.upper(),
                       "amount": str(amount),
@@ -330,7 +358,7 @@ class GatewayBase(ConnectorBase):
                       "nonce": self._nonce,
                       }
         try:
-            order_result = await self._api_request("post", f"{self.base_path}/trade", api_params)
+            order_result = await self._api_request("post", "amm/trade", api_params)
             hash = order_result.get("txHash")
             nonce = order_result.get("nonce")
             gas_price = order_result.get("gasPrice")
@@ -362,7 +390,7 @@ class GatewayBase(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} swap order to {self.name} on {self._chain_info['name']} for "
+                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self._chain_info['name']} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -511,6 +539,7 @@ class GatewayBase(ConnectorBase):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
+        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
         if self._status_polling_task is not None:
@@ -547,9 +576,13 @@ class GatewayBase(ConnectorBase):
 
     async def _update_nonce(self):
         """
-        Call the gateway API to get the current nonce for self._wallet_private_key
+        Call the gateway API to get the current nonce for self.address
         """
-        resp_json = await self._api_request("post", "eth/nonce", {})
+        resp_json = await self._api_request("post",
+                                            "evm/nonce",
+                                            {"chain": self.chain,
+                                             "network": self.network,
+                                             "address": self.address})
         self._nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
@@ -582,9 +615,12 @@ class GatewayBase(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json = await self._api_request("post",
-                                                "eth/balances",
-                                                {"tokenSymbols": list(self._tokens)})
+            resp_json = await self._api_request("get",
+                                                "network/balances",
+                                                {"chain": self.chain,
+                                                 "network": self.network,
+                                                 "address": self.address,
+                                                 "tokenSymbols": list(self._tokens)})
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
@@ -630,9 +666,6 @@ class GatewayBase(ConnectorBase):
             else:
                 response = await client.get(url)
         elif method == "post":
-            params["privateKey"] = self._wallet_private_key
-            if params["privateKey"][:2] != "0x":
-                params["privateKey"] = "0x" + params["privateKey"]
             response = await client.post(url, json=params)
         parsed_response = json.loads(await response.text())
         if response.status != 200:

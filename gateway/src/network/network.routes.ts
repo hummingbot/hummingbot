@@ -25,10 +25,14 @@ export namespace NetworkRoutes {
   router.get(
     '/status',
     async (
-      req: Request<{}, {}, StatusRequest>,
+      req: Request<{}, {}, {}, StatusRequest>,
       res: Response<StatusResponse, {}>
     ) => {
-      res.status(200).json(await getStatus(req.body));
+      try {
+        res.status(200).json(await getStatus(req.query));
+      } catch (error: any) {
+        res.status(error.status).json(error);
+      }
     }
   );
 
