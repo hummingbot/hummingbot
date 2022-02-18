@@ -294,8 +294,8 @@ class GatewayCommand:
                     self.notify("Error: Invalid network")
 
             # get wallets for the selected chain
-            response = await gateway_http_client.api_request("get", "wallet", {})
-            wallets = [w for w in response if w["chain"] == chain]
+            wallets_response = await gateway_http_client.api_request("get", "wallet", {})
+            wallets = [w for w in wallets_response if w["chain"] == chain]
             if len(wallets) < 1:
                 wallets = []
             else:
@@ -328,7 +328,7 @@ class GatewayCommand:
 
                     wallet_df = build_wallet_display(native_token, wallet_table)
                     self.notify(wallet_df.to_string(index=False))
-                    self.app.input_field.completer.set_list_gateway_connection_wallets_parameters(chain)
+                    self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
 
                     while True:
                         self.placeholder_mode = True
