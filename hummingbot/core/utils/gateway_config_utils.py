@@ -1,18 +1,26 @@
 from copy import deepcopy
-from hummingbot.core.utils.gateway_http_client import gateway_http_client
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Iterable
 import pandas as pd
 
 native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
 
 
-async def list_gateway_connection_wallets(chain: str):
+def flatten(items):
     """
-    Get the public keys for a chain supported by gateway that hummingbot knows
-    about. There may be some public keys in gateway that hummingbot is not using.
+    Deep flatten any iterable item.
     """
-    wallets = await gateway_http_client.api_request("get", "wallet", {})
-    return [w for w in wallets if w["chain"] == chain]
+    for x in items:
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            yield from flatten(x)
+        else:
+            yield x
+
+
+def list_gateway_wallets(wallets: List[Any], chain: str) -> List[str]:
+    """
+    Get the public keys for a chain supported by gateway.
+    """
+    return list(flatten([w["walletAddresses"] for w in wallets if w["chain"] == chain]))
 
 
 def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, wallet):
