@@ -25,7 +25,6 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     get_connector_class,
-    get_eth_wallet_private_key,
 )
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
@@ -39,7 +38,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway_base import GatewayBase
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
 
@@ -100,7 +99,7 @@ class HummingbotApplication(*commands):
 
         # gateway variables and monitor
         self._shared_client = None
-        self._gateway_monitor: Optional[GatewayBase] = None
+        self._gateway_monitor: Optional[GatewayEVMAMM] = None
         self._gateway_monitor_clock: Optional[Clock] = None
         self._init_gateway_monitor()
         self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
@@ -137,10 +136,13 @@ class HummingbotApplication(*commands):
         return None
 
     def _init_gateway_monitor(self):
-        self._gateway_monitor = GatewayBase(trading_pairs = [],
-                                            wallet_private_key = "",
-                                            trading_required = False
-                                            )
+        self._gateway_monitor = GatewayEVMAMM(connector_name = "",
+                                              chain = "",
+                                              network = "",
+                                              wallet_public_key = "",
+                                              trading_pairs = [],
+                                              trading_required = False)
+
         self._gateway_monitor_clock = Clock(ClockMode.REALTIME)
         self._gateway_monitor_clock.add_iterator(self._gateway_monitor)
 
@@ -268,25 +270,30 @@ class HummingbotApplication(*commands):
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
 
-            if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
-                connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
-                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                for asset, balance in paper_trade_account_balance.items():
-                    connector.set_balance(asset, balance)
-            else:
-                Security.update_config_map(global_config_map)
-                keys = {key: config.value for key, config in global_config_map.items()
-                        if key in conn_setting.config_keys}
-                init_params = conn_setting.conn_init_parameters(keys)
+            if conn_setting:
+                if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
+                    connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
+                    paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+                    for asset, balance in paper_trade_account_balance.items():
+                        connector.set_balance(asset, balance)
+                else:
+                    Security.update_config_map(global_config_map)
+                    keys = {key: config.value for key, config in global_config_map.items()
+                            if key in conn_setting.config_keys}
+                    init_params = conn_setting.conn_init_parameters(keys)
+                    init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
+                    connector_class = get_connector_class(connector_name)
+                    connector = connector_class(**init_params)
+            else:  # gateway connector
+                init_params = {}
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                if conn_setting.use_ethereum_wallet:
-                    ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-                    # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
-                    if connector_name in ["balancer", "uniswap", "uniswap_v3", "perpetual_finance"]:
-                        private_key = get_eth_wallet_private_key()
-                        init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**init_params)
+                if conn_setting.type == ConnectorType.Connector:
+                    name, chain, network = connector_name.split("_")
+                    init_params.update(connector_name = name, chain = chain, network = network)
+                    connector = GatewayEVMAMM(**init_params)  # should be updated wrt trading_type when more gateway classes are added
+                else:
+                    connector_class = get_connector_class(connector_name)
+                    connector = connector_class(**init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(

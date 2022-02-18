@@ -185,9 +185,10 @@ const toEthereumTransaction = (transaction: Transaction): CustomTransaction => {
 export async function approve(
   ethereumish: Ethereumish,
   req: ApproveRequest
-): Promise<ApproveResponse> {
+): Promise<ApproveResponse | string> {
   const { amount, nonce, address, token, maxFeePerGas, maxPriorityFeePerGas } =
     req;
+
   const spender = ethereumish.getSpender(req.spender);
   const initTime = Date.now();
   let wallet: Wallet;

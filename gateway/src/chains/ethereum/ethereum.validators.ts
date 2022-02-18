@@ -45,7 +45,11 @@ export const validateSpender: Validator = mkValidator(
   invalidSpenderError,
   (val) =>
     typeof val === 'string' &&
-    (val === 'uniswap' || val === 'pangolin' || isAddress(val))
+    (val === 'uniswap' ||
+      val === 'pangolin' ||
+      val === 'sushiswap' ||
+      val === 'viperswap' ||
+      isAddress(val))
 );
 
 export const validateNonce: Validator = mkValidator(

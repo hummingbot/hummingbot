@@ -145,6 +145,14 @@ describe('validateChain', () => {
     ).toEqual([]);
   });
 
+  it('valid when chain is harmony', () => {
+    expect(
+      validateChain({
+        chain: 'harmony',
+      })
+    ).toEqual([]);
+  });
+
   it('return error when req.chain does not exist', () => {
     expect(
       validateChain({
