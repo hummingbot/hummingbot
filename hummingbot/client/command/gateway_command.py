@@ -209,9 +209,6 @@ class GatewayCommand:
     async def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
-    async def generate_certs(self):
-        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
-
     async def _update_gateway_configuration(self, key: str, value: Any):
         data = {
             "configPath": key,
