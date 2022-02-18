@@ -5,12 +5,12 @@
     <q-btn
       class="bg-mono-grey-2 text-uppercase text-white q-py-sm"
       flat
-      :to="step === 2 ? '/strategies' : ''"
+      :to="step === 2 ? 'strategies' : ''"
       @click="$emit('update:step', step === 0 ? step : step - 1)"
     >
       back
     </q-btn>
-    <div class="flex row q-gutter-sm">
+    <div class="row q-gutter-sm">
       <div
         v-for="n in stepCount"
         :key="n"
