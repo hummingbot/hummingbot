@@ -411,8 +411,10 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
             sub_model = InfiniteModel.construct()
         elif v == ExecutionTimeframe.daily_between_times:
             sub_model = DailyBetweenTimesModel.construct()
-        else:  # v == ExecutionTimeframe.from_date_to_date
+        elif v == ExecutionTimeframe.from_date_to_date:
             sub_model = FromDateToDateModel.construct()
+        else:  # isinstance(v, Dict)
+            sub_model = v
         return sub_model
 
     @validator("order_refresh_tolerance_pct", pre=True)
@@ -439,8 +441,10 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
             sub_model = v
         elif v == OrderLevelsMode.single_order_level:
             sub_model = SingleOrderLevelModel.construct()
-        else:  # v == OrderLevelsMode.multi_order_level
+        elif v == OrderLevelsMode.multi_order_level:
             sub_model = MultiOrderLevelModel.construct()
+        else:  # isinstance(v, Dict)
+            sub_model = v
         return sub_model
 
     @validator("hanging_orders_mode", pre=True)
@@ -453,8 +457,10 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
             sub_model = v
         elif v == HangingOrdersMode.track_hanging_orders:
             sub_model = TrackHangingOrdersModel.construct()
-        else:  # v == HangingOrdersMode.ignore_hanging_orders
+        elif v == HangingOrdersMode.ignore_hanging_orders:
             sub_model = IgnoreHangingOrdersModel.construct()
+        else:  # isinstance(v, Dict)
+            sub_model = v
         return sub_model
 
     # === generic validations ===
