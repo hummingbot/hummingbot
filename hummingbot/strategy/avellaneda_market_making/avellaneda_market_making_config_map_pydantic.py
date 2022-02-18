@@ -1,0 +1,523 @@
+from datetime import datetime, time
+from decimal import Decimal
+from typing import Dict, Optional, Union
+
+from pydantic import Field, validator, root_validator
+
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_datetime_iso_string,
+    validate_decimal,
+    validate_exchange,
+    validate_int,
+    validate_market_trading_pair,
+    validate_time_iso_string,
+)
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges
+from hummingbot.connector.utils import split_hb_trading_pair
+
+
+class ExecutionTimeframe(str, ClientConfigEnum):
+    infinite = "infinite"
+    from_date_to_date = "from_date_to_date"
+    daily_between_times = "daily_between_times"
+
+
+class InfiniteModel(BaseClientModel):
+    class Config:
+        title = ExecutionTimeframe.infinite
+        validate_assignment = True
+
+
+class FromDateToDateModel(BaseClientModel):
+    start_datetime: datetime = Field(
+        default=...,
+        description="The start date and time for date-to-date execution timeframe.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)",
+            prompt_on_new=True,
+        ),
+    )
+    end_datetime: datetime = Field(
+        default=...,
+        description="The end date and time for date-to-date execution timeframe.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)",
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = ExecutionTimeframe.from_date_to_date
+        validate_assignment = True
+
+    @validator("start_datetime", "end_datetime", pre=True)
+    def validate_execution_time(cls, v: str) -> Optional[str]:
+        ret = validate_datetime_iso_string(v)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class DailyBetweenTimesModel(BaseClientModel):
+    start_time: time = Field(
+        default=...,
+        description="The start time for daily-between-times execution timeframe.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Please enter the start time (HH:MM:SS)",
+            prompt_on_new=True,
+        ),
+    )
+    end_time: time = Field(
+        default=...,
+        description="The end time for daily-between-times execution timeframe.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Please enter the end time (HH:MM:SS)",
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = ExecutionTimeframe.daily_between_times
+        validate_assignment = True
+
+    @validator("start_time", "end_time", pre=True)
+    def validate_execution_time(cls, v: str) -> Optional[str]:
+        ret = validate_time_iso_string(v)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class OrderLevelsMode(str, ClientConfigEnum):
+    single_order_level = "single_order_level"
+    multi_order_level = "multi_order_level"
+
+
+class SingleOrderLevelModel(BaseClientModel):
+    class Config:
+        title = OrderLevelsMode.single_order_level
+        validate_assignment = True
+
+
+class MultiOrderLevelModel(BaseClientModel):
+    order_levels: int = Field(
+        default=2,
+        description="The number of orders placed on either side of the order book.",
+        ge=2,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "How many orders do you want to place on both sides?"
+        ),
+    )
+    level_distances: Decimal = Field(
+        default=Decimal("0"),
+        description="The spread between order levels, expressed in % of optimal spread.",
+        ge=0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "How far apart in % of optimal spread should orders on one side be?"
+        ),
+    )
+
+    class Config:
+        title = OrderLevelsMode.multi_order_level
+        validate_assignment = True
+
+    @validator("order_levels", pre=True)
+    def validate_int_zero_or_above(cls, v: str):
+        ret = validate_int(v, min_value=2)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("level_distances", pre=True)
+    def validate_decimal_zero_or_above(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), inclusive=True)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class HangingOrdersMode(str, ClientConfigEnum):
+    track_hanging_orders = "track_hanging_orders"
+    ignore_hanging_orders = "ignore_hanging_orders"
+
+
+class TrackHangingOrdersModel(BaseClientModel):
+    hanging_orders_cancel_pct: Decimal = Field(
+        default=Decimal("10"),
+        description="The spread percentage at which hanging orders will be cancelled.",
+        gt=0,
+        lt=100,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "At what spread percentage (from mid price) will hanging orders be canceled?"
+                " (Enter 1 to indicate 1%)"
+            ),
+        )
+    )
+
+    class Config:
+        title = HangingOrdersMode.track_hanging_orders
+        validate_assignment = True
+
+    @validator("hanging_orders_cancel_pct", pre=True)
+    def validate_pct_exclusive(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=False)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+class IgnoreHangingOrdersModel(BaseClientModel):
+    class Config:
+        title = HangingOrdersMode.ignore_hanging_orders
+        validate_assignment = True
+
+
+def maker_trading_pair_prompt(model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
+    exchange = model_instance.exchange
+    example = AllConnectorSettings.get_example_pairs().get(exchange)
+    return (
+        f"Enter the token trading pair you would like to trade on {exchange}{f' (e.g. {example})' if example else ''}"
+    )
+
+
+def order_amount_prompt(model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
+    trading_pair = model_instance.market
+    base_asset, quote_asset = split_hb_trading_pair(trading_pair)
+    return f"What is the amount of {base_asset} per order?"
+
+
+class AvellanedaMarketMakingConfigMap(BaseClientModel):
+    strategy: str = Field(default="avellaneda_market_making", client_data=None)
+    exchange: ClientConfigEnum(
+        value="Exchanges",  # noqa: F821
+        names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+        type=str,
+    ) = Field(
+        default=...,
+        description="The name of the exchange connector.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Input your maker spot connector",
+            prompt_on_new=True,
+        ),
+    )
+    market: str = Field(
+        default=...,
+        description="The trading pair.",
+        client_data=ClientFieldData(
+            prompt=maker_trading_pair_prompt,
+            prompt_on_new=True,
+        ),
+    )
+    execution_timeframe_model: Union[FromDateToDateModel, DailyBetweenTimesModel, InfiniteModel] = Field(
+        default=...,
+        description="The execution timeframe.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: f"Select the execution timeframe ({'/'.join(ExecutionTimeframe)})",
+            prompt_on_new=True,
+        ),
+    )
+    order_amount: Decimal = Field(
+        default=...,
+        description="The strategy order amount.",
+        gt=0,
+        client_data=ClientFieldData(prompt=order_amount_prompt)
+    )
+    order_optimization_enabled: bool = Field(
+        default=True,
+        description=(
+            "Allows the bid and ask order prices to be adjusted based on"
+            " the current top bid and ask prices in the market."
+        ),
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Do you want to enable best bid ask jumping? (Yes/No)"
+        ),
+    )
+    risk_factor: Decimal = Field(
+        default=Decimal("1"),
+        description="The risk factor (\u03B3).",
+        gt=0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter risk factor (\u03B3)",
+            prompt_on_new=True,
+        ),
+    )
+    order_amount_shape_factor: Decimal = Field(
+        default=Decimal("0"),
+        description="The amount shape factor (\u03b7)",
+        ge=0,
+        le=1,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter order amount shape factor (\u03B7)",
+        ),
+    )
+    min_spread: Decimal = Field(
+        default=Decimal("0"),
+        description="The minimum spread limit as percentage of the mid price.",
+        ge=0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter minimum spread limit (as % of mid price)",
+        ),
+    )
+    order_refresh_time: float = Field(
+        default=...,
+        description="The frequency at which the orders' spreads will be re-evaluated.",
+        gt=0.,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "How often do you want to cancel and replace bids and asks (in seconds)?",
+            prompt_on_new=True,
+        ),
+    )
+    max_order_age: float = Field(
+        default=1800.,
+        description="A given order's maximum lifetime irrespective of spread.",
+        gt=0.,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "How long do you want to cancel and replace bids and asks with the same price (in seconds)?"
+            ),
+        ),
+    )
+    order_refresh_tolerance_pct: Decimal = Field(
+        default=Decimal("0"),
+        description=(
+            "The range of spreads tolerated on refresh cycles."
+            " Orders over that range are cancelled and re-submitted."
+        ),
+        ge=-10,
+        le=10,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "Enter the percent change in price needed to refresh orders at each cycle"
+                " (Enter 1 to indicate 1%)"
+            )
+        ),
+    )
+    filled_order_delay: float = Field(
+        default=60.,
+        description="The delay before placing a new order after an order fill.",
+        gt=0.,
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "How long do you want to wait before placing the next order"
+                " if your order gets filled (in seconds)?"
+            )
+        ),
+    )
+    inventory_target_base_pct: Decimal = Field(
+        default=Decimal("50"),
+        description="Defines the inventory target for the base asset.",
+        ge=0,
+        le=100,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "What is the inventory target for the base asset? Enter 50 for 50%",
+            prompt_on_new=True,
+        ),
+    )
+    add_transaction_costs: bool = Field(
+        default=False,
+        description="If activated, transaction costs will be added to order prices.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Do you want to add transaction costs automatically to order prices? (Yes/No)",
+        ),
+    )
+    volatility_buffer_size: int = Field(
+        default=200,
+        description="The number of ticks that will be stored to calculate volatility.",
+        ge=1,
+        le=10_000,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter amount of ticks that will be stored to estimate order book liquidity",
+        ),
+    )
+    trading_intensity_buffer_size: int = Field(
+        default=200,
+        description="The number of ticks that will be stored to calculate order book liquidity.",
+        ge=1,
+        le=10_000,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter amount of ticks that will be stored to estimate order book liquidity",
+        ),
+    )
+    order_levels_mode: Union[MultiOrderLevelModel, SingleOrderLevelModel] = Field(
+        default=SingleOrderLevelModel.construct(),
+        description="Allows activating multi-order levels.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: f"Select the order levels mode ({'/'.join(OrderLevelsMode)}",
+        ),
+    )
+    order_override: Optional[Dict] = Field(
+        default=None,
+        description="Allows custom specification of the order levels and their spreads and amounts.",
+        client_data=None,
+    )
+    hanging_orders_mode: Union[TrackHangingOrdersModel, IgnoreHangingOrdersModel] = Field(
+        default=IgnoreHangingOrdersModel.construct(),
+        description="When tracking hanging orders, the orders on the side opposite to the filled orders remain active.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: f"How do you want to handle hanging orders? ({'/'.join(HangingOrdersMode)})",
+        ),
+    )
+    should_wait_order_cancel_confirmation: bool = Field(
+        default=True,
+        description=(
+            "If activated, the strategy will await cancellation confirmation from the exchange"
+            " before placing a new order."
+        ),
+        client_data=ClientFieldData(
+            prompt=lambda mi: (
+                "Should the strategy wait to receive a confirmation for orders cancellation"
+                " before creating a new set of orders?"
+                " (Not waiting requires enough available balance) (Yes/No)"
+            ),
+        )
+    )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        required_exchanges.append(self.exchange)
+
+    class Config:
+        validate_assignment = True
+
+    @validator("exchange", pre=True)
+    def validate_exchange(cls, v: str):
+        ret = validate_exchange(v)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("market", pre=True)
+    def validate_exchange_trading_pair(cls, v: str, values: Dict):
+        exchange = values.get("exchange")
+        ret = validate_market_trading_pair(exchange, v)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("execution_timeframe_model", pre=True)
+    def validate_execution_timeframe(
+        cls, v: Union[str, InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel]
+    ):
+        if not isinstance(v, Dict) and not hasattr(ExecutionTimeframe, v):
+            raise ValueError(
+                f"Invalid timeframe, please choose value from {[e.value for e in list(ExecutionTimeframe)]}"
+            )
+        elif isinstance(v, (InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel)):
+            sub_model = v
+        elif v == ExecutionTimeframe.infinite:
+            sub_model = InfiniteModel.construct()
+        elif v == ExecutionTimeframe.daily_between_times:
+            sub_model = DailyBetweenTimesModel.construct()
+        else:  # v == ExecutionTimeframe.from_date_to_date
+            sub_model = FromDateToDateModel.construct()
+        return sub_model
+
+    @validator("order_refresh_tolerance_pct", pre=True)
+    def validate_order_refresh_tolerance_pct(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("-10"), max_value=Decimal("10"), inclusive=True)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("volatility_buffer_size", "trading_intensity_buffer_size", pre=True)
+    def validate_buffer_size(cls, v: str):
+        ret = validate_int(v, 1, 10_000)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("order_levels_mode", pre=True)
+    def validate_order_levels_mode(cls, v: Union[str, SingleOrderLevelModel, MultiOrderLevelModel]):
+        if not isinstance(v, Dict) and not hasattr(OrderLevelsMode, v):
+            raise ValueError(
+                f"Invalid order levels mode, please choose value from {[e.value for e in list(OrderLevelsMode)]}."
+            )
+        elif isinstance(v, (SingleOrderLevelModel, MultiOrderLevelModel)):
+            sub_model = v
+        elif v == OrderLevelsMode.single_order_level:
+            sub_model = SingleOrderLevelModel.construct()
+        else:  # v == OrderLevelsMode.multi_order_level
+            sub_model = MultiOrderLevelModel.construct()
+        return sub_model
+
+    @validator("hanging_orders_mode", pre=True)
+    def validate_hanging_orders_mode(cls, v: Union[str, TrackHangingOrdersModel, IgnoreHangingOrdersModel]):
+        if not isinstance(v, Dict) and not hasattr(HangingOrdersMode, v):
+            raise ValueError(
+                f"Invalid hanging order mode, please choose value from {[e.value for e in list(HangingOrdersMode)]}."
+            )
+        elif isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel)):
+            sub_model = v
+        elif v == HangingOrdersMode.track_hanging_orders:
+            sub_model = TrackHangingOrdersModel.construct()
+        else:  # v == HangingOrdersMode.ignore_hanging_orders
+            sub_model = IgnoreHangingOrdersModel.construct()
+        return sub_model
+
+    # === generic validations ===
+
+    @validator(
+        "order_optimization_enabled",
+        "add_transaction_costs",
+        "should_wait_order_cancel_confirmation",
+        pre=True,
+    )
+    def validate_bool(cls, v: str):
+        if isinstance(v, str):
+            ret = validate_bool(v)
+            if ret is not None:
+                raise ValueError(ret)
+        return v
+
+    @validator("order_amount_shape_factor", pre=True)
+    def validate_decimal_from_zero_to_one(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("1"), inclusive=True)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator(
+        "order_amount",
+        "risk_factor",
+        "order_refresh_time",
+        "max_order_age",
+        "filled_order_delay",
+        pre=True,
+    )
+    def validate_decimal_above_zero(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), inclusive=False)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("min_spread", pre=True)
+    def validate_decimal_zero_or_above(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), inclusive=True)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("inventory_target_base_pct", pre=True)
+    def validate_pct_inclusive(cls, v: str):
+        ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=True)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    # === post-validations ===
+
+    @root_validator()
+    def post_validations(cls, values: Dict):
+        cls.execution_timeframe_post_validation(values)
+        return values
+
+    @classmethod
+    def execution_timeframe_post_validation(cls, values: Dict):
+        execution_timeframe = values.get("execution_timeframe")
+        if execution_timeframe is not None and execution_timeframe == ExecutionTimeframe.infinite:
+            values["start_time"] = None
+            values["end_time"] = None
+        return values

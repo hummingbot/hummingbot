@@ -78,6 +78,7 @@ def main():
         "pre-commit",
         "prompt-toolkit",
         "psutil",
+        "pydantic",
         "pyjwt",
         "pyperclip",
         "python-dateutil",
