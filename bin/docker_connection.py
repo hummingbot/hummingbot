@@ -4,13 +4,15 @@ import docker
 import logging
 from multiprocessing import Process
 import types
-from typing import Callable, Dict, Any, List, Generator, Union, Optional, AsyncIterable
+from typing import Callable, Dict, Any, List, Generator, Union
+
+from hummingbot.core.gateway import (
+    docker_ipc,
+    get_gateway_container_name,
+    set_hummingbot_pipe,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
-global_hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
-
-GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220215"
 
 
 async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
@@ -120,8 +122,7 @@ def fork_and_start(main_function: Callable):
         docker_process.start()
 
         # run the main function as parent.
-        global global_hummingbot_pipe
-        global_hummingbot_pipe = p1
+        set_hummingbot_pipe(p1)
         main_function()
 
         # stop the gateway container.
@@ -145,45 +146,3 @@ def fork_and_start(main_function: Callable):
         # wait for Docker controller process to clean up.
         docker_process.join()
         docker_process.close()
-
-
-def get_gateway_container_name() -> str:
-    from hummingbot.client.config.global_config_map import global_config_map
-    instance_id_suffix: str = global_config_map["instance_id"].value[:8]
-    return f"hummingbot-gateway-{instance_id_suffix}"
-
-
-async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
-    global global_hummingbot_pipe
-
-    if global_hummingbot_pipe is None:
-        raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
-    try:
-        global_hummingbot_pipe.send((method_name, args, kwargs))
-        return await global_hummingbot_pipe.coro_recv()
-    except Exception as e:  # unable to communicate with docker socket
-        HummingbotApplication.main_application().notify(
-            "\nError: Unable to communicate with docker socket. "
-            "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
-        raise e
-
-
-async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncIterable[str]:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
-    global global_hummingbot_pipe
-
-    if global_hummingbot_pipe is None:
-        raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
-    try:
-        global_hummingbot_pipe.send((method_name, args, kwargs))
-        while True:
-            data = await global_hummingbot_pipe.coro_recv()
-            if data is None:
-                break
-            yield data
-    except Exception as e:  # unable to communicate with docker socket
-        HummingbotApplication.main_application().notify(
-            "\nError: Unable to communicate with docker socket. "
-            "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
-        raise e

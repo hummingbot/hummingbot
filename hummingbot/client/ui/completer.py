@@ -13,8 +13,7 @@ from hummingbot.client.settings import (
     STRATEGIES,
     GATEWAY_CONNECTORS,
     CONF_FILE_PATH,
-    SCRIPTS_PATH,
-    ConnectorType
+    SCRIPTS_PATH
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.gateway_config_utils import list_gateway_connection_wallets
@@ -30,10 +29,6 @@ def file_name_list(path, file_extension):
     return sorted([f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)])
 
 
-SPOT_PROTOCOL_CONNECTOR = {x.name for x in AllConnectorSettings.get_connector_settings().values() if x.type == ConnectorType.Connector}
-DERIVATIVE_PROTOCOL_CONNECTOR = {x.name for x in AllConnectorSettings.get_connector_settings().values() if x.type == ConnectorType.Derivative and not x.centralised}
-
-
 class HummingbotCompleter(Completer):
     def __init__(self, hummingbot_application):
         super(HummingbotCompleter, self).__init__()
@@ -41,11 +36,11 @@ class HummingbotCompleter(Completer):
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
-        self._spot_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
+        self._spot_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(AllConnectorSettings.get_other_connector_names())), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
-        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
+        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(AllConnectorSettings.get_derivative_dex_names()), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)

@@ -8,8 +8,9 @@ RUN apt-get update && \
         sudo && \
     rm -rf /var/lib/apt/lists/*
 
-# Add hummingbot user
-RUN useradd -m -s /bin/bash hummingbot
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
 
 # Switch to hummingbot user
 USER hummingbot:hummingbot
@@ -88,18 +89,25 @@ ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
 ENV INSTALLATION_TYPE=docker
 
-# Add hummingbot user
-RUN useradd -m -s /bin/bash hummingbot && \
-  ln -s /conf /home/hummingbot/conf && \
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
+
+# Create sym links
+RUN ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
-  ln -s /certs /home/hummingbot/certs && \
-  ln -s /scripts /home/hummingbot/scripts && \
-  ln -s /gateway_conf /home/hummingbot/gateway_conf
+  ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir /conf /logs /data /certs /scripts /gateway_conf && chown -R hummingbot:hummingbot /conf /logs /data /certs /scripts /gateway_conf
-VOLUME /conf /logs /data /certs /scripts /gateway_conf
+RUN mkdir -p /conf /logs /data /scripts \
+    /home/hummingbot/.hummingbot-gateway/conf \
+    /home/hummingbot/.hummingbot-gateway/certs && \
+  chown -R hummingbot:hummingbot /conf /logs /data /scripts \
+    /home/hummingbot/.hummingbot-gateway
+VOLUME /conf /logs /data /scripts \
+  /home/hummingbot/.hummingbot-gateway/conf \
+  /home/hummingbot/.hummingbot-gateway/certs
 
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
