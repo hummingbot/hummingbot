@@ -5,8 +5,8 @@
     <q-btn
       class="bg-mono-grey-2 text-uppercase text-white q-py-sm"
       flat
-      :to="step === 2 ? 'strategies' : ''"
-      @click="$emit('update:step', step === 0 ? step : step - 1)"
+      :to="modelValue === 2 ? 'strategies' : ''"
+      @click="$emit('update:modelValue', modelValue === 0 ? modelValue : modelValue - 1)"
     >
       back
     </q-btn>
@@ -15,15 +15,21 @@
         v-for="n in stepCount"
         :key="n"
         class="step"
-        :class="step === n ? 'bg-mono-grey-3' : step > n ? 'bg-main-green-1' : 'bg-mono-grey-2'"
+        :class="
+          modelValue === n
+            ? 'bg-mono-grey-3'
+            : modelValue > n
+            ? 'bg-main-green-1'
+            : 'bg-mono-grey-2'
+        "
       />
     </div>
     <q-btn
       class="bg-main-green-1 text-uppercase text-white q-py-sm"
       flat
-      @click="$emit('update:step', step >= stepCount ? step : step + 1)"
+      @click="$emit('update:modelValue', modelValue >= stepCount ? modelValue : modelValue + 1)"
     >
-      {{ step === stepCount ? 'save' : 'next' }}
+      {{ modelValue === stepCount ? 'save' : 'next' }}
     </q-btn>
   </div>
 </template>
@@ -33,10 +39,10 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   props: {
-    step: { type: Number, required: true, default: () => 1 },
+    modelValue: { type: Number, required: true, default: () => 1 },
     stepCount: { type: Number, required: true, default: () => 3 },
   },
-  emits: ['update:step'],
+  emits: ['update:modelValue'],
 });
 </script>
 

@@ -2,11 +2,7 @@
   <div class="column">
     <Steps :in-progress-step="currentStep" />
     <Form v-if="currentStep < 3" />
-    <Pager
-      :step="currentStep"
-      :step-count="3"
-      @update:step="(nextStep) => (currentStep = nextStep)"
-    />
+    <Pager v-model="currentStep" :step-count="3" />
   </div>
 </template>
 
