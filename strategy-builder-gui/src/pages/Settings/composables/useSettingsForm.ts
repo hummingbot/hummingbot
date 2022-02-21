@@ -1,7 +1,7 @@
+import { StrategyName } from 'src/stores/strategies';
 import { computed } from 'vue';
 
 import { $settingsForm } from '../stores/settingsForm';
-import { StrategyName } from '../types';
 
 export const useSettingsForm = (form: StrategyName) => {
   const values = computed(() =>

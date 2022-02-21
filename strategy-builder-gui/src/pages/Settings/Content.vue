@@ -15,6 +15,7 @@
 </template>
 
 <script lang="ts">
+import { StrategyName } from 'src/stores/strategies';
 import { defineComponent, ref } from 'vue';
 
 import Pager from './components/Pager/Index.vue';
@@ -23,7 +24,6 @@ import { useSettingsForm } from './composables/useSettingsForm';
 import Form from './Forms/Form.vue';
 import SaveForm from './Forms/SaveForm.vue';
 import SettingsForm from './Forms/SettingsForm.vue';
-import { StrategyName } from './types';
 
 export default defineComponent({
   components: { Steps, Pager, Form, SettingsForm, SaveForm },

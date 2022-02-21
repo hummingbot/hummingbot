@@ -59,10 +59,10 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 
+import { StrategyCategory } from '../../stores/strategies';
 import FeatureBox, { FeatureBoxType } from './components/FeatureBox/Index.vue';
 import StrategyBox from './components/StrategyBox/Index.vue';
 import { useStrategiesFilter } from './composables/useStrategiesFilter';
-import { StrategyCategory } from './stores/strategies';
 
 export default defineComponent({
   components: { FeatureBox, StrategyBox },

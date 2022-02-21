@@ -1,12 +1,9 @@
+import { StrategyName } from 'src/stores/strategies';
 import { Ref } from 'vue';
 
-export enum StrategyName {
-  PureMarketMaking = 'pure-market-making',
-}
-
 export enum BtnToggleType {
-  Sell = 'Buy',
-  Buy = 'Sell',
+  Sell = 'Sell',
+  Buy = 'Buy',
 }
 
 export interface Counter {
@@ -17,7 +14,6 @@ export interface Counter {
     step: number;
   };
 }
-
 export interface Select {
   value: Ref<string>;
   properties: {
@@ -44,6 +40,7 @@ export interface BtnToggle {
 export interface $Form {
   [key: string]: Counter | Select | Toggle | Input | BtnToggle;
 }
+
 export type $SettingsForm = {
   [key in `${StrategyName}`]: $Form;
 };

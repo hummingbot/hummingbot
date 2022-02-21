@@ -1,5 +1,6 @@
-import { $strategies, StrategyCategory } from 'src/pages/Strategies/stores/strategies';
 import { computed, Ref } from 'vue';
+
+import { $strategies, StrategyCategory } from '../../../stores/strategies';
 
 export const useStrategiesFilter = (category: Ref<StrategyCategory>) => {
   const strategies = computed(() =>

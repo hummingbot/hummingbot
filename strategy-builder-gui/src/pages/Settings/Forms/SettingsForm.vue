@@ -344,6 +344,7 @@
   </div>
 </template>
 <script lang="ts">
+import { StrategyName } from 'src/stores/strategies';
 import { defineComponent, PropType, ref } from 'vue';
 
 import Counter, { CounterType } from '../components/Counter.vue';
@@ -352,7 +353,7 @@ import Input, { InputType } from '../components/Input.vue';
 import Order from '../components/Order.vue';
 import Select from '../components/Select/Index.vue';
 import { useSettingsForm } from '../composables/useSettingsForm';
-import { BtnToggleType, StrategyName } from '../types';
+import { BtnToggleType } from '../stores/form.types';
 
 enum FormType {
   Basic,
@@ -368,6 +369,7 @@ export default defineComponent({
       default: () => StrategyName.PureMarketMaking,
     },
   },
+
   emits: ['update:formType'],
 
   setup(props) {

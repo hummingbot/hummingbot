@@ -1,5 +1,9 @@
 import { ref } from 'vue';
 
+export enum StrategyName {
+  PureMarketMaking = 'pure-market-making',
+}
+
 export enum StrategyCategory {
   All = 'All exchanges',
   Binance = 'Binance',

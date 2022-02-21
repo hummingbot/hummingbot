@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-import { $Form, BtnToggleType } from '../types';
+import { $Form, BtnToggleType } from './form.types';
 
 export const $pureMMForm: $Form = {
   bidSpread: {
@@ -215,6 +215,7 @@ export const $pureMMForm: $Form = {
   order1Toggle: {
     value: ref(BtnToggleType.Buy),
   },
+
   order1FirstCounter: {
     value: ref(0),
     properties: {

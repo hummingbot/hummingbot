@@ -23,11 +23,11 @@
 </template>
 
 <script lang="ts">
+import { StrategyName } from 'src/stores/strategies';
 import { defineComponent, PropType } from 'vue';
 
 import Input, { InputType } from '../components/Input.vue';
 import { useSettingsForm } from '../composables/useSettingsForm';
-import { StrategyName } from '../types';
 
 export default defineComponent({
   components: { Input },
