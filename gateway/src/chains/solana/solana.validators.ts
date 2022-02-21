@@ -16,14 +16,14 @@ export const invalidPrivateKeyError: string =
   'The privateKey param is not a valid Solana private key (base58 string worth 64 bytes).';
 
 export const invalidPublicKeyError: string =
-  'The spender param is not a valid Solana public key (base58 string worth 32 bytes).';
+  'The spender param is not a valid Solana address (base58 string worth 32 bytes).';
 
-// test if a string matches the shape of an Solana public key
+// test if a string matches the shape of an Solana address
 export const isPublicKey = (str: string): boolean => {
   return isBase58(str) && bs58.decode(str).length == 32;
 };
 
-// given a request, look for a key called address that is an Solana public key
+// given a request, look for a key called address that is an Solana address
 export const validatePublicKey: Validator = mkValidator(
   'address',
   invalidPublicKeyError,
