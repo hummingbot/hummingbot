@@ -27,7 +27,14 @@
     <q-btn
       class="bg-main-green-1 text-uppercase text-white q-py-sm"
       flat
-      @click="$emit('update:modelValue', modelValue >= stepCount ? modelValue : modelValue + 1)"
+      @click="
+        () => {
+          $emit('update:modelValue', modelValue >= stepCount ? modelValue : modelValue + 1);
+          if (modelValue === stepCount) {
+            handleSubmit();
+          }
+        }
+      "
     >
       {{ modelValue === stepCount ? 'save' : 'next' }}
     </q-btn>
@@ -41,6 +48,7 @@ export default defineComponent({
   props: {
     modelValue: { type: Number, required: true, default: () => 1 },
     stepCount: { type: Number, required: true, default: () => 3 },
+    handleSubmit: { type: Function, required: false, default: () => ({}) },
   },
   emits: ['update:modelValue'],
 });

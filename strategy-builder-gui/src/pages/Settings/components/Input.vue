@@ -4,7 +4,8 @@
     class="form-input rounded-borders"
     input-class="q-pl-md q-py-sm"
     :placeholder="placeholder"
-    :type="type === InputType.Number ? 'number' : ''"
+    :type="type === InputType.Number ? 'number' : 'text'"
+    :model-value="modelValue"
     @update:model-value="(value) => $emit('update:modelValue', value)"
   >
     <template #append>
