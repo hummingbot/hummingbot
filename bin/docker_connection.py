@@ -23,7 +23,12 @@ async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
     this loop to be cancellable when the user desires to exit. Having any blocking I/O operation in this loop would mean
     the potential for the child process to be stuck while the user is trying to exit from Hummingbot.
     """
-    docker_client: docker.APIClient = docker.APIClient(base_url="unix://var/run/docker.sock")
+    try:
+        docker_client: docker.APIClient = docker.APIClient(base_url="unix://var/run/docker.sock")
+    except Exception as e:
+        await docker_pipe.coro_send(e)
+        return
+
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
     while True:
