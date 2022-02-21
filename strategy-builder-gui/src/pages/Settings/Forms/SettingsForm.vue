@@ -352,7 +352,7 @@ import Input, { InputType } from '../components/Input.vue';
 import Order from '../components/Order.vue';
 import Select from '../components/Select/Index.vue';
 import { useSettingsForm } from '../composables/useSettingsForm';
-import { BtnToggleType, FormList } from '../types';
+import { BtnToggleType, StrategyName } from '../types';
 
 enum FormType {
   Basic,
@@ -363,9 +363,9 @@ export default defineComponent({
   components: { Field, Select, Counter, Input, Order },
   props: {
     form: {
-      type: String as PropType<FormList>,
+      type: String as PropType<StrategyName>,
       required: true,
-      default: () => FormList.PureMarketMaking,
+      default: () => StrategyName.PureMarketMaking,
     },
   },
   emits: ['update:formType'],

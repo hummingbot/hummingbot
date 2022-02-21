@@ -27,15 +27,15 @@ import { defineComponent, PropType } from 'vue';
 
 import Input, { InputType } from '../components/Input.vue';
 import { useSettingsForm } from '../composables/useSettingsForm';
-import { FormList } from '../types';
+import { StrategyName } from '../types';
 
 export default defineComponent({
   components: { Input },
   props: {
     form: {
-      type: String as PropType<FormList>,
+      type: String as PropType<StrategyName>,
       required: true,
-      default: () => FormList.PureMarketMaking,
+      default: () => StrategyName.PureMarketMaking,
     },
   },
 

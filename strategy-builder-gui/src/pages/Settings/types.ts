@@ -1,6 +1,6 @@
 import { Ref } from 'vue';
 
-export enum FormList {
+export enum StrategyName {
   PureMarketMaking = 'pure-market-making',
 }
 
@@ -44,7 +44,6 @@ export interface BtnToggle {
 export interface $Form {
   [key: string]: Counter | Select | Toggle | Input | BtnToggle;
 }
-
-export interface $SettingsForm {
-  [key: string]: $Form;
-}
+export type $SettingsForm = {
+  [key in `${StrategyName}`]: $Form;
+};
