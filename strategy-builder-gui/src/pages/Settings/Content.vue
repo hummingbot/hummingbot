@@ -1,8 +1,16 @@
 <template>
   <div class="column">
     <Steps :in-progress-step="currentStep" />
-    <Form v-if="currentStep < 3" />
-    <Pager v-model="currentStep" :step-count="3" />
+    <Form
+      title="Settings"
+      :current-step="currentStep"
+      :step-count="stepCount"
+      strategy-name="Pure Market Making"
+    >
+      <SettingsForm v-if="currentStep < stepCount" :form="FormList.PureMarketMaking" />
+      <SaveForm v-if="currentStep === stepCount" :form="FormList.PureMarketMaking" />
+    </Form>
+    <Pager v-model="currentStep" :step-count="stepCount" :handle-submit="handleSubmit" />
   </div>
 </template>
 
@@ -11,14 +19,23 @@ import { defineComponent, ref } from 'vue';
 
 import Pager from './components/Pager/Index.vue';
 import Steps from './components/Stepper/Steps.vue';
-import Form from './Form.vue';
+import Form from './Forms/Form.vue';
+import SaveForm from './Forms/SaveForm.vue';
+import SettingsForm from './Forms/SettingsForm.vue';
+import { FormList } from './types';
 
 export default defineComponent({
-  components: { Steps, Pager, Form },
+  components: { Steps, Pager, Form, SettingsForm, SaveForm },
   setup() {
     const currentStep = ref(2);
+    const stepCount = 3;
 
-    return { currentStep };
+    const handleSubmit = () => {
+      // eslint-disable-next-line no-console
+      console.log('save pressed');
+    };
+
+    return { currentStep, stepCount, handleSubmit, FormList };
   },
 });
 </script>
