@@ -6,7 +6,7 @@ import time
 import copy
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.gateway_connection_utils import http_client, api_request
+from hummingbot.core.utils.gateway_http_client import gateway_http_client
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -78,7 +78,6 @@ class GatewayEVMAMM(ConnectorBase):
         self._wallet_public_key = wallet_public_key
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
         self._last_est_gas_cost_reported = 0
@@ -638,13 +637,10 @@ class GatewayEVMAMM(ConnectorBase):
                            path_url: str,
                            params: Dict[str, Any] = {},
                            fail_silently: bool = False) -> Optional[Dict[str, Any]]:
-        if not self._shared_client:
-            self._shared_client = http_client()
-        return await api_request(method,
-                                 path_url,
-                                 params = params,
-                                 fail_silently = fail_silently,
-                                 shared_client = self._shared_client)
+        return await gateway_http_client.api_request(method,
+                                                     path_url,
+                                                     params = params,
+                                                     fail_silently = fail_silently)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []

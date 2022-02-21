@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import asyncio
-import aiohttp
 import json
 import pandas as pd
 from os import getenv, path
@@ -23,7 +22,7 @@ from hummingbot.core.utils.gateway_config_utils import (
     native_tokens,
     upsert_connection
 )
-from hummingbot.core.utils.gateway_connection_utils import http_client, api_request
+from hummingbot.core.utils.gateway_http_client import gateway_http_client
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 from hummingbot import cert_path, root_path
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
@@ -59,15 +58,10 @@ class GatewayCommand:
         elif option == "test-connection":
             safe_ensure_future(self._test_connection())
 
-    def _shared_gateway_connection(self) -> aiohttp.ClientSession:
-        if not self._shared_client:
-            self._shared_client = http_client()
-        return self._shared_client
-
     async def _test_connection(self):
         # test that the gateway is running
         try:
-            resp = await api_request("get", "", {}, fail_silently = True, shared_client = self._shared_gateway_connection())
+            resp = await gateway_http_client.api_request("get", "", {}, fail_silently = True)
         except Exception as e:
             self.notify("\nUnable to ping gateway.")
             raise e
@@ -221,7 +215,7 @@ class GatewayCommand:
             "configValue": value
         }
         try:
-            response = await api_request("post", "config/update", data, shared_client = self._shared_gateway_connection())
+            response = await gateway_http_client.api_request("post", "config/update", data)
             self.notify(response["message"])
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
@@ -262,7 +256,7 @@ class GatewayCommand:
 
         else:
             # get available networks
-            connector_configs = await api_request("get", "connectors", {}, shared_client = self._shared_gateway_connection())
+            connector_configs = await gateway_http_client.api_request("get", "connectors", {})
             available_networks = [d["available_networks"] for d in connector_configs["connectors"] if d["name"] == connector]
 
             # ask user to select a chain. Automatically select if there is only one.
@@ -291,7 +285,7 @@ class GatewayCommand:
                     self.notify("Error: Invalid network")
 
             # get wallets for the selected chain
-            response = await api_request("get", "wallet", {}, shared_client = self._shared_gateway_connection())
+            response = await gateway_http_client.api_request("get", "wallet", {})
             wallets = [w for w in response if w["chain"] == chain]
             if len(wallets) < 1:
                 wallets = []
@@ -303,10 +297,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                response = await api_request("post",
-                                             "wallet/add",
-                                             {"chain": chain, "network": network, "privateKey": new_wallet},
-                                             shared_client = self._shared_gateway_connection())
+                response = await gateway_http_client.api_request("post",
+                                                                 "wallet/add",
+                                                                 {"chain": chain, "network": network, "privateKey": new_wallet})
 
                 wallet = response.address
 
@@ -323,10 +316,9 @@ class GatewayCommand:
                     native_token = native_tokens[chain]
                     wallet_table = []
                     for w in wallets:
-                        balances = await api_request("post",
-                                                     "network/balances",
-                                                     {"chain": chain, "network": network, "address": w, "tokenSymbols": [native_token]},
-                                                     shared_client = self._shared_gateway_connection())
+                        balances = await gateway_http_client.api_request("post",
+                                                                         "network/balances",
+                                                                         {"chain": chain, "network": network, "address": w, "tokenSymbols": [native_token]})
                         wallet_table.append({"balance": balances['balances'][native_token], "address": w})
 
                     wallet_df = build_wallet_display(native_token, wallet_table)
@@ -346,10 +338,9 @@ class GatewayCommand:
                 else:
                     self.placeholder_mode = True
                     new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                    response = await api_request("post",
-                                                 "wallet/add",
-                                                 {"chain": chain, "network": network, "privateKey": new_wallet},
-                                                 shared_client = self._shared_gateway_connection())
+                    response = await gateway_http_client.api_request("post",
+                                                                     "wallet/add",
+                                                                     {"chain": chain, "network": network, "privateKey": new_wallet})
 
                     wallet = response.address
 
@@ -369,7 +360,7 @@ class GatewayCommand:
             self.app.input_field.completer = load_completer(self)
 
     async def _fetch_gateway_configs(self):
-        return await api_request("get", "config", {}, shared_client = self._shared_gateway_connection())
+        return await gateway_http_client.api_request("get", "config", {})
 
     async def fetch_gateway_config_key_list(self):
         config = await self._fetch_gateway_configs()
