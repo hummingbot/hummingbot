@@ -1,5 +1,4 @@
 import unittest
-
 from unittest import mock
 
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
