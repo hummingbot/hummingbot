@@ -15,7 +15,7 @@ export interface SolanaBalanceResponse {
 }
 
 export interface SolanaTokenRequest {
-  address: string; // the user's Solana public key as Base58
+  address: string; // the user's Solana address as Base58
   token: string; // the token symbol the spender will be approved for
 }
 
