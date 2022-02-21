@@ -371,16 +371,10 @@ export default defineComponent({
   emits: ['update:formType'],
 
   setup(props) {
-    const { settingsForm, values } = useSettingsForm(props.form);
+    const { settingsForm } = useSettingsForm(props.form);
     const formType = ref(FormType.Basic);
 
-    const handleSubmit = () => {
-      // eslint-disable-next-line no-console
-      console.log(values.value);
-    };
-
     return {
-      handleSubmit,
       ...settingsForm,
       CounterType,
       InputType,
