@@ -1,15 +1,24 @@
 #!/usr/bin/env python
 import asyncio
+import itertools
 import json
+from os import path
 import pandas as pd
-from os import getenv, path
+from typing import (
+    Dict,
+    Any,
+    TYPE_CHECKING,
+    List,
+)
 
-from bin.docker_connection import (
+from hummingbot.core.gateway import (
     docker_ipc,
     docker_ipc_with_generator,
-    GATEWAY_DOCKER_TAG,
+    get_gateway_container_name,
+    get_gateway_paths,
     GATEWAY_DOCKER_REPO,
-    get_gateway_container_name
+    GATEWAY_DOCKER_TAG,
+    GatewayPaths,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -24,20 +33,16 @@ from hummingbot.core.utils.gateway_config_utils import (
 )
 from hummingbot.core.utils.gateway_http_client import gateway_http_client
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot import cert_path, root_path
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from typing import Dict, Any, TYPE_CHECKING
 from hummingbot.client.ui.completer import load_completer
-import itertools
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
 class GatewayCommand:
-
     def gateway(self,
                 option: str = None,
                 key: str = None,
@@ -53,10 +58,10 @@ class GatewayCommand:
                 safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
         elif option == "connect":
             safe_ensure_future(self._connect(key))
-        elif option == "generate-certs":
-            safe_ensure_future(self._generate_certs())
         elif option == "test-connection":
             safe_ensure_future(self._test_connection())
+        elif option == "generate-certs":
+            safe_ensure_future(self._generate_certs())
 
     async def _test_connection(self):
         # test that the gateway is running
@@ -74,9 +79,10 @@ class GatewayCommand:
     async def _generate_certs(self,  # type: HummingbotApplication
                               from_client_password: bool = False
                               ):
+        cert_path: str = get_gateway_paths().local_certs_path.as_posix()
         if not from_client_password:
             if certs_files_exist():
-                self.notify(f"Gateway SSL certification files exist in {cert_path()}.")
+                self.notify(f"Gateway SSL certification files exist in {cert_path}.")
                 self.notify("To create new certification files, please first manually delete those files.")
                 return
             self.app.clear_input()
@@ -91,31 +97,17 @@ class GatewayCommand:
         else:
             pass_phase = Security.password
         create_self_sign_certs(pass_phase)
-        self.notify(f"Gateway SSL certification files are created in {cert_path()}.")
+        self.notify(f"Gateway SSL certification files are created in {cert_path}.")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
     async def _create_gateway(self):
-        gateway_conf_mount_path: str
-        certificate_mount_path: str
-        logs_mount_path: str
-
-        # Detect whether external mount paths have been defined, for docker-in-docker case.
-        # Otherwise, use the calculated paths.
-        external_cert_path: str = getenv("CERTS_FOLDER")
-        external_gateway_conf_path: str = getenv("GATEWAY_CONF_FOLDER")
-        external_logs_path: str = getenv("LOGS_FOLDER")
-        if external_cert_path is not None and external_gateway_conf_path is not None and external_logs_path is not None:
-            gateway_conf_mount_path = external_gateway_conf_path
-            certificate_mount_path = external_cert_path
-            logs_mount_path = external_logs_path
-        else:
-            gateway_conf_mount_path = path.join(root_path(), "gateway_conf")
-            certificate_mount_path = cert_path()
-            logs_mount_path = path.join(root_path(), "logs")
-
+        gateway_paths: GatewayPaths = get_gateway_paths()
         gateway_container_name: str = get_gateway_container_name()
+        gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
+        certificate_mount_path: str = gateway_paths.mount_certs_path.as_posix()
+        logs_mount_path: str = gateway_paths.mount_logs_path.as_posix()
 
         # remove existing container(s)
         try:
@@ -135,16 +127,19 @@ class GatewayCommand:
             pass  # silently ignore exception
 
         await self._generate_certs(from_client_password=True)  # create cert
-        self.notify("Pulling Gateway docker image...")
-        try:
-            await self.pull_gateway_docker(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG)
-            self.logger().info("Done pulling Gateway docker image.")
-        except Exception as e:
-            self.notify("Error pulling Gateway docker image. Try again.")
-            self.logger().network("Error pulling Gateway docker image. Try again.",
-                                  exc_info=True,
-                                  app_warning_msg=str(e))
-            return
+        if await self.check_gateway_image(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG):
+            self.notify("Found Gateway docker image. No image pull needed.")
+        else:
+            self.notify("Pulling Gateway docker image...")
+            try:
+                await self.pull_gateway_docker(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG)
+                self.logger().info("Done pulling Gateway docker image.")
+            except Exception as e:
+                self.notify("Error pulling Gateway docker image. Try again.")
+                self.logger().network("Error pulling Gateway docker image. Try again.",
+                                      exc_info=True,
+                                      app_warning_msg=str(e))
+                return
         self.notify("Creating new Gateway docker container...")
         host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
@@ -181,6 +176,11 @@ class GatewayCommand:
             container=container_info["Id"]
         )
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
+
+    @staticmethod
+    async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
+        image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
+        return len(image_list) > 0
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
