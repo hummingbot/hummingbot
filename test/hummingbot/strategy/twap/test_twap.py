@@ -437,7 +437,7 @@ class TWAPUnitTest(unittest.TestCase):
                                 f"{available_quote_balance:.2f}\n\n"
                                 "  Active orders:\n"
                                 "      Order ID  Type  Price Spread  Amount  Age Hang\n"
-                                f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  0.00%    1.67  n/a  n/a\n\n"
+                                f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  1.00%    1.67  n/a  n/a\n\n"
                                 "  Average filled orders price: 101.0 WETH\n"
                                 "  Pending amount: 1.66 COINALPHA")
 
