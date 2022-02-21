@@ -13,8 +13,6 @@ import { defineComponent } from 'vue';
 export default defineComponent({
   props: {
     title: { type: String, required: false, default: () => '' },
-    currentStep: { type: Number, required: true, default: () => 2 },
-    stepCount: { type: Number, required: true, default: () => 3 },
   },
 });
 </script>
