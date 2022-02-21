@@ -165,10 +165,15 @@ class TwapTradeStrategy(StrategyPyBase):
 
             # See if there're any open orders.
             if len(active_orders) > 0:
-                df = LimitOrder.to_pandas(active_orders)
-                df_lines = str(df).split("\n")
-                lines.extend(["", "  Active orders:"] +
-                             ["    " + line for line in df_lines])
+                price_provider = None
+                for market_info in self._market_infos.values():
+                    price_provider = market_info
+                if price_provider is not None:
+                    df = LimitOrder.to_pandas(active_orders, mid_price=price_provider.get_mid_price())
+                    df.sort_values(by=['Order ID'])
+                    df_lines = str(df).split("\n")
+                    lines.extend(["", "  Active orders:"] +
+                                 ["    " + line for line in df_lines])
             else:
                 lines.extend(["", "  No active maker orders."])
 
