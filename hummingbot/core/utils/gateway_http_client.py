@@ -62,10 +62,10 @@ class GatewayHttpClient:
                     err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
                 else:
                     err_msg = f"Error on {method.upper()} Error: {parsed_response}"
-                    # self.logger().error(
-                    #     err_msg,
-                    #     exc_info=True
-                    # )
+                    self.logger().error(
+                        err_msg,
+                        exc_info=True
+                    )
                     raise Exception(err_msg)
         except Exception as e:
             if not fail_silently:
