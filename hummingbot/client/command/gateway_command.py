@@ -190,6 +190,13 @@ class GatewayCommand:
         image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
         return len(image_list) > 0
 
+    async def ping_gateway_docker(self) -> bool:
+        try:
+            await docker_ipc("version", name=f"{GATEWAY_DOCKER_REPO}:{GATEWAY_DOCKER_TAG}", quiet=True)
+            return True
+        except Exception:
+            return False
+
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
         async for pull_log in docker_ipc_with_generator("pull", docker_repo, tag=docker_tag, stream=True, decode=True):
@@ -199,6 +206,11 @@ class GatewayCommand:
                 last_id = new_id
 
     async def _gateway_status(self):
+        can_reach_docker = await self.ping_gateway_docker()
+        if not can_reach_docker:
+            self.notify("\nError: It looks like you do not have Docker installed or running. Gateway commands will not work without it. Please install or start Docker and restart Hummingbot.")
+            return
+
         if self._gateway_monitor.network_status == NetworkStatus.CONNECTED:
             try:
                 status = await self._gateway_monitor.get_gateway_status()
