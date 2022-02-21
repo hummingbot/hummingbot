@@ -1,0 +1,184 @@
+import asyncio
+from dataclasses import dataclass
+import logging
+import random
+import ujson
+from urllib.parse import urlencode
+
+from typing import (
+    Any,
+    Dict,
+    Mapping,
+    Optional,
+)
+
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+from hummingbot.connector.exchange.coinflex.coinflex_utils import (
+    private_rest_auth_path,
+    private_rest_url,
+    public_rest_url,
+)
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, EndpointRESTRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+
+@dataclass
+class CoinflexRESTRequest(EndpointRESTRequest):
+    data: Optional[Mapping[str, str]] = None
+    domain: str = "live"
+    domain_api_version: str = None
+    endpoint_api_version: str = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.throttler_limit_id:
+            self.throttler_limit_id = self.endpoint
+
+    @property
+    def should_use_data(self) -> bool:
+        return self.method in [RESTMethod.POST, RESTMethod.DELETE]
+
+    def _ensure_data(self):
+        if self.should_use_data:
+            if self.data is not None:
+                self.data = ujson.dumps(self.data)
+        elif self.data is not None:
+            raise ValueError(
+                "The `data` field should be used only for POST/DELETE requests. Use `params` instead."
+            )
+
+    @property
+    def base_url(self) -> str:
+        if self.is_auth_required:
+            return private_rest_url(domain=self.domain,
+                                    domain_api_version=self.domain_api_version,
+                                    endpoint_api_version=self.endpoint_api_version)
+        return public_rest_url(domain=self.domain,
+                               domain_api_version=self.domain_api_version,
+                               endpoint_api_version=self.endpoint_api_version)
+
+    @property
+    def auth_path(self) -> str:
+        if self.endpoint is None:
+            raise ValueError("No endpoint specified. Cannot build auth url.")
+        uri = private_rest_auth_path(self.endpoint, self.domain, endpoint_api_version=self.endpoint_api_version)
+        if self.method != RESTMethod.POST and self.params:
+            uri = f"{uri}?{urlencode(self.params)}"
+        return uri
+
+    @property
+    def auth_url(self) -> str:
+        return private_rest_url(domain=self.domain, only_hostname=True)
+
+
+class CoinflexAPIError(IOError):
+    def __init__(self, error_payload: Dict[str, Any]):
+        super().__init__(str(error_payload))
+        self.error_payload = error_payload
+
+
+class CoinflexRESTPreProcessor(RESTPreProcessorBase):
+
+    async def pre_process(self, request: CoinflexRESTRequest) -> CoinflexRESTRequest:
+        base_headers = {
+            "Content-Type": "application/json",
+            "User-Agent": CONSTANTS.USER_AGENT
+        }
+        request.headers = {**base_headers, **request.headers} if request.headers else base_headers
+        return request
+
+
+def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(auth=auth, rest_pre_processors=[CoinflexRESTPreProcessor()])
+    return api_factory
+
+
+def retry_sleep_time(try_count: int) -> float:
+    random.seed()
+    randSleep = 1 + float(random.randint(1, 10) / 100)
+    return float(2 + float(randSleep * (1 + (try_count ** try_count))))
+
+
+async def rest_response_with_errors(rest_assistant, request):
+    http_status, parsed_response, request_errors = None, None, False
+    try:
+        response = await asyncio.wait_for(rest_assistant.call(request), CONSTANTS.API_CALL_TIMEOUT)
+        http_status = response.status
+        try:
+            parsed_response = await response.json()
+        except Exception:
+            request_errors = True
+            try:
+                parsed_response = await response.text()
+                try:
+                    parsed_response = ujson.loads(parsed_response)
+                except Exception:
+                    if len(parsed_response) < 1:
+                        parsed_response = None
+                    elif len(parsed_response) > 100:
+                        parsed_response = f"{parsed_response[:100]} ... (truncated)"
+            except Exception:
+                pass
+        TempFailure = (parsed_response is None or
+                       (response.status not in [200, 201] and
+                        "errors" not in parsed_response and
+                        "error" not in parsed_response))
+        if TempFailure:
+            parsed_response = response._aiohttp_response.reason if parsed_response is None else parsed_response
+            request_errors = True
+    except Exception:
+        request_errors = True
+    return http_status, parsed_response, request_errors
+
+
+async def api_call_with_retries(request: CoinflexRESTRequest,
+                                rest_assistant: RESTAssistant,
+                                throttler: AsyncThrottler,
+                                logger: logging.Logger,
+                                try_count: int = 0,
+                                disable_retries: bool = False) -> Dict[str, Any]:
+
+    async with throttler.execute_task(limit_id=request.throttler_limit_id):
+        http_status, resp, request_errors = await rest_response_with_errors(rest_assistant, request)
+
+    if isinstance(resp, dict):
+        if "errors" in resp:
+            raise CoinflexAPIError(resp)
+        if "error" in resp:
+            resp['errors'] = resp.get('error')
+            raise CoinflexAPIError(resp)
+        if str(resp.get("success")).lower() == "false":
+            resp['errors'] = resp.get('message')
+            raise CoinflexAPIError(resp)
+        resp_data = resp.get("data", [])
+        if len(resp_data) and str(resp_data[0].get("success")).lower() == "false":
+            resp['errors'] = resp_data[0].get('message')
+            raise CoinflexAPIError(resp)
+
+    if request_errors or resp is None:
+        if try_count < CONSTANTS.API_MAX_RETRIES and not disable_retries:
+            try_count += 1
+            time_sleep = retry_sleep_time(try_count)
+
+            suppress_msgs = ['Forbidden']
+
+            err_msg = (f"Error fetching data from {request.url}. HTTP status is {http_status}. "
+                       f"Retrying in {time_sleep:.0f}s. {resp or ''}")
+
+            if (resp is not None and resp not in suppress_msgs) or try_count > 1:
+                if logger:
+                    logger.network(err_msg)
+                else:
+                    print(err_msg)
+            elif logger:
+                logger.debug(err_msg, exc_info=True)
+            await asyncio.sleep(time_sleep)
+            return await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=throttler,
+                                               logger=logger, try_count=try_count, disable_retries=disable_retries)
+        else:
+            raise CoinflexAPIError({"errors": resp, "status": http_status})
+    return resp
