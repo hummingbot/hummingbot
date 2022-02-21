@@ -3,7 +3,7 @@ import { TransactionResponse } from '@solana/web3.js';
 export type SolanaTransactionResponse = TransactionResponse;
 
 export interface SolanaBalanceRequest {
-  address: string; // the user's Solana public key as Base58
+  address: string; // the user's Solana address as Base58
   tokenSymbols: string[]; // a list of token symbol
 }
 
