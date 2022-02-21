@@ -32,7 +32,7 @@ export const isAddress = (str: string): boolean => {
   return /^0x[a-fA-F0-9]{40}$/.test(str);
 };
 
-// given a request, look for a key called address that is an Ethereum private key
+// given a request, look for a key called address that is an Ethereum wallet
 export const validateAddress: Validator = mkValidator(
   'address',
   invalidAddressError,
