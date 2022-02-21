@@ -1,8 +1,6 @@
 <template>
   <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders q-mt-md full-width">
-    <div class="text-white text-h4 q-mb-lg">{{
-      currentStep === stepCount ? strategyName : title
-    }}</div>
+    <div class="text-white text-h4 q-mb-lg">{{ title }}</div>
     <q-form>
       <slot />
     </q-form>
@@ -17,7 +15,6 @@ export default defineComponent({
     title: { type: String, required: false, default: () => '' },
     currentStep: { type: Number, required: true, default: () => 2 },
     stepCount: { type: Number, required: true, default: () => 3 },
-    strategyName: { type: String, required: false, default: () => '' },
   },
 });
 </script>

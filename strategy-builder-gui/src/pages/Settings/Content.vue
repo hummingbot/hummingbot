@@ -2,10 +2,9 @@
   <div class="column">
     <Steps :in-progress-step="currentStep" />
     <Form
-      title="Settings"
+      :title="currentStep === stepCount ? 'Pure Market Making' : 'Settings'"
       :current-step="currentStep"
       :step-count="stepCount"
-      strategy-name="Pure Market Making"
     >
       <SettingsForm v-if="currentStep < stepCount" :form="StrategyName.PureMarketMaking" />
       <SaveForm v-if="currentStep === stepCount" :form="StrategyName.PureMarketMaking" />
