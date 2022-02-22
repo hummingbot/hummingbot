@@ -5,7 +5,7 @@
     <q-btn
       class="bg-mono-grey-2 text-uppercase text-white q-py-sm"
       flat
-      :to="modelValue === 2 ? 'strategies' : ''"
+      :to="modelValue === 2 ? { name: 'strategies' } : ''"
       @click="$emit('update:modelValue', modelValue === 0 ? modelValue : modelValue - 1)"
     >
       back

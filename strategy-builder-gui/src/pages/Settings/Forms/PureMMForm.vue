@@ -345,7 +345,7 @@
 </template>
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { defineComponent, PropType, ref } from 'vue';
+import { defineComponent, ref } from 'vue';
 
 import Counter, { CounterType } from '../components/Counter.vue';
 import Field from '../components/Field.vue';
