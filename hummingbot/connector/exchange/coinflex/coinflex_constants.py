@@ -86,6 +86,8 @@ ORDER_STATE = {
 for state in ORDER_CANCELLED_STATES:
     ORDER_STATE[state] = OrderState.CANCELLED
 
+ORDER_NOT_FOUND_ERROR = "Open order not found with clientOrderId or orderId"
+
 # Websocket event types
 DIFF_EVENT_TYPE = "depth"
 TRADE_EVENT_TYPE = "trade"
