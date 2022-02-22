@@ -40,9 +40,6 @@ from hummingbot.core.utils.gateway_config_utils import (
 )
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 from hummingbot.client.settings import (
-    GATEAWAY_CA_CERT_PATH,
-    GATEAWAY_CLIENT_CERT_PATH,
-    GATEAWAY_CLIENT_KEY_PATH,
     CONF_FILE_PATH,
     AllConnectorSettings,
 )
@@ -378,9 +375,14 @@ class GatewayCommand:
         """
         :returns Shared client session instance
         """
+        gateway_paths: GatewayPaths = get_gateway_paths()
+        gateway_ca_cert_path = f"{gateway_paths.local_certs_path.as_posix()}/ca_cert.pem"
+        gateway_client_cert_path = f"{gateway_paths.local_certs_path.as_posix()}/client_cert.pem"
+        gateway_client_key_path = f"{gateway_paths.local_certs_path.as_posix()}/client_key.pem"
+
         if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
+            ssl_ctx = ssl.create_default_context(cafile=gateway_ca_cert_path)
+            ssl_ctx.load_cert_chain(gateway_client_cert_path, gateway_client_key_path)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
