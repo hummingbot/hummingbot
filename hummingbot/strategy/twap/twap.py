@@ -158,10 +158,10 @@ class TwapTradeStrategy(StrategyPyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string().split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_info])
-            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+            lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string().split("\n")])
 
             # See if there're any open orders.
             if len(active_orders) > 0:
@@ -170,8 +170,14 @@ class TwapTradeStrategy(StrategyPyBase):
                     price_provider = market_info
                 if price_provider is not None:
                     df = LimitOrder.to_pandas(active_orders, mid_price=price_provider.get_mid_price())
-                    df.sort_values(by=['Order ID'])
-                    df_lines = str(df).split("\n")
+                    if self._is_buy:
+                        # Descend from the price closest to the mid price
+                        df = df.sort_values(by=['Price'], ascending=False)
+                    else:
+                        # Ascend from the price closest to the mid price
+                        df = df.sort_values(by=['Price'], ascending=True)
+                    df = df.reset_index(drop=True)
+                    df_lines = df.to_string().split("\n")
                     lines.extend(["", "  Active orders:"] +
                                  ["    " + line for line in df_lines])
             else:
