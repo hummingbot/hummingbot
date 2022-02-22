@@ -32,7 +32,7 @@ import { useForm } from '../composables/useForm';
 export default defineComponent({
   components: { Input },
   props: {
-    form: {
+    strategyName: {
       type: String as PropType<StrategyName>,
       required: true,
       default: () => StrategyName.PureMarketMaking,
@@ -40,9 +40,9 @@ export default defineComponent({
   },
 
   setup(props) {
-    const { settingsForm } = useForm(props.form);
+    const { fields } = useForm(props.strategyName);
 
-    return { ...settingsForm, InputType };
+    return { ...fields, InputType };
   },
 });
 </script>

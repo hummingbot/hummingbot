@@ -362,7 +362,7 @@ enum FormType {
 export default defineComponent({
   components: { Field, Select, Counter, Input, Order },
   props: {
-    form: {
+    strategyName: {
       type: String as PropType<StrategyName>,
       required: true,
       default: () => StrategyName.PureMarketMaking,
@@ -372,11 +372,11 @@ export default defineComponent({
   emits: ['update:formType'],
 
   setup(props) {
-    const { settingsForm } = useForm(props.form);
+    const { fields } = useForm(props.strategyName);
     const formType = ref(FormType.Basic);
 
     return {
-      ...settingsForm,
+      ...fields,
       CounterType,
       InputType,
       formType,
