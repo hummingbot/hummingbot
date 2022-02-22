@@ -1,7 +1,7 @@
 <template>
   <div class="column">
     <Steps :in-progress-step="currentStep" />
-    <Form :title="currentStep === stepCount ? 'Pure Market Making' : 'Settings'">
+    <Form :title="currentStep === stepCount ? titleDisplayMap[currentStrategyName] : 'Settings'">
       <SettingsForm v-if="currentStep < stepCount" :strategy-name="currentStrategyName" />
       <SaveForm v-if="currentStep === stepCount" :strategy-name="currentStrategyName" />
     </Form>
@@ -21,6 +21,10 @@ import Form from './Forms/Form.vue';
 import SaveForm from './Forms/SaveForm.vue';
 import SettingsForm from './Forms/SettingsForm.vue';
 
+const titleDisplayMap = {
+  [StrategyName.PureMarketMaking]: 'Pure Market Making',
+};
+
 export default defineComponent({
   components: { Steps, Pager, Form, SettingsForm, SaveForm },
   setup() {
@@ -35,7 +39,14 @@ export default defineComponent({
       console.log(values.value);
     };
 
-    return { currentStep, stepCount, handleSubmit, StrategyName, currentStrategyName };
+    return {
+      currentStep,
+      stepCount,
+      handleSubmit,
+      StrategyName,
+      currentStrategyName,
+      titleDisplayMap,
+    };
   },
 });
 </script>
