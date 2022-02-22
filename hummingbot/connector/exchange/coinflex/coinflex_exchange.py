@@ -22,6 +22,7 @@ from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
     api_call_with_retries,
     build_api_factory,
+    CoinflexAPIError,
     CoinflexRESTRequest,
 )
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
@@ -493,7 +494,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int((self.current_timestamp or time.time()) * 1e3),
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -556,7 +557,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int((self.current_timestamp or time.time()) * 1e3),
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -583,18 +584,26 @@ class CoinflexExchange(ExchangeBase):
                     "clientOrderId": order_id,
                 }
                 api_params["orders"] = [cancel_params]
-                result = await self._api_request(
-                    method=RESTMethod.DELETE,
-                    path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
-                    data=api_params,
-                    is_auth_required=True)
-                cancel_result = result["data"][0]
+                try:
+                    result = await self._api_request(
+                        method=RESTMethod.DELETE,
+                        path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
+                        data=api_params,
+                        is_auth_required=True)
+                    cancel_result = result["data"][0]
+                except CoinflexAPIError as e:
+                    # Catch order not found as cancelled.
+                    if isinstance(e.error_payload, dict) and e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                        cancel_result = e.error_payload["data"][0]
+                        cancel_result["status"] = "CANCELED"
+                    else:
+                        raise
 
                 if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(self.current_timestamp * 1e3),
+                        update_timestamp=int(cancel_result.get("timestamp", (self.current_timestamp or time.time()) * 1e3)),
                         new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
@@ -788,6 +797,24 @@ class CoinflexExchange(ExchangeBase):
                 )
                 self._order_tracker.process_trade_update(trade_update=trade_update)
 
+    def _process_order_not_found(self,
+                                 client_order_id: str,
+                                 tracked_order: InFlightOrder):
+        self._order_not_found_records[client_order_id] = (
+            self._order_not_found_records.get(client_order_id, 0) + 1)
+        if (self._order_not_found_records[client_order_id] >=
+                self.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
+            # Wait until the order not found error have repeated a few times before actually treating
+            # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+
+            order_update: OrderUpdate = OrderUpdate(
+                client_order_id=client_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=int(self.current_timestamp * 1e3),
+                new_state=OrderState.FAILED,
+            )
+            self._order_tracker.process_order_update(order_update)
+
     async def _update_order_status(self):
         """
         This is intended to be a backup measure to close straggler orders, in case CoinFLEX's user stream events
@@ -826,20 +853,7 @@ class CoinflexExchange(ExchangeBase):
                         f"Error fetching status update for the order {client_order_id}: {order_result}.",
                         app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                     )
-                    self._order_not_found_records[client_order_id] = (
-                        self._order_not_found_records.get(client_order_id, 0) + 1)
-                    if (self._order_not_found_records[client_order_id] >=
-                            self.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
-                        # Wait until the order not found error have repeated a few times before actually treating
-                        # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-
-                        order_update: OrderUpdate = OrderUpdate(
-                            client_order_id=client_order_id,
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=int(self.current_timestamp * 1e3),
-                            new_state=OrderState.FAILED,
-                        )
-                        self._order_tracker.process_order_update(order_update)
+                    self._process_order_not_found(client_order_id, tracked_order)
 
                 else:
                     order_update = order_result["data"][0]
