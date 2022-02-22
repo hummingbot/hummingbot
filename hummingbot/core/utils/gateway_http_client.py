@@ -4,6 +4,8 @@ import ssl
 import json
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
+from hummingbot.logger import HummingbotLogger
+import logging
 
 
 class GatewayHttpClient:
@@ -11,9 +13,17 @@ class GatewayHttpClient:
     An HTTP client for making requests to the gateway API.
     """
 
+    _ghc_logger: Optional[HummingbotLogger] = None
+    _shared_client: Optional[aiohttp.ClientSession] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._ghc_logger is None:
+            cls._ghc_logger = logging.getLogger(__name__)
+        return cls._ghc_logger
+
     def __init__(self):
-        super().__init__()
-        self._shared_client: Optional[aiohttp.ClientSession] = None
+        self._http_client()
 
     def _http_client(self) -> aiohttp.ClientSession:
         """
@@ -42,7 +52,7 @@ class GatewayHttpClient:
         base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                    f"{global_config_map['gateway_api_port'].value}"
         url = f"{base_url}/{path_url}"
-        client = self._http_client()
+        client = self._shared_client
 
         parsed_response = {}
         try:
@@ -59,7 +69,10 @@ class GatewayHttpClient:
                     err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
                 else:
                     err_msg = f"Error on {method.upper()} Error: {parsed_response}"
-                    raise Exception(err_msg)
+                    self.logger().error(
+                        err_msg,
+                        exc_info=True
+                    )
         except Exception as e:
             if not fail_silently:
                 raise e
