@@ -31,7 +31,7 @@ from hummingbot.core.utils.gateway_config_utils import (
     native_tokens,
     upsert_connection
 )
-from hummingbot.core.utils.gateway_http_client import gateway_http_client
+from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.global_config_map import global_config_map
