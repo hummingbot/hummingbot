@@ -121,11 +121,6 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def _get_throttler_instance(cls) -> AsyncThrottler:
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()

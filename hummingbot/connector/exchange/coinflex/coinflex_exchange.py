@@ -109,6 +109,8 @@ class CoinflexExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
+        if self._domain != "live":
+            return f"coinflex_{self._domain}"
         return "coinflex"
 
     @property
@@ -441,8 +443,8 @@ class CoinflexExchange(ExchangeBase):
                 for cr in cancellation_results:
                     if isinstance(cr, Exception):
                         continue
-                    if isinstance(cr, dict) and "origClientOrderId" in cr:
-                        client_order_id = cr.get("origClientOrderId")
+                    if isinstance(cr, dict) and "clientOrderId" in cr:
+                        client_order_id = cr.get("clientOrderId")
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
@@ -525,7 +527,8 @@ class CoinflexExchange(ExchangeBase):
                 method=RESTMethod.POST,
                 path_url=CONSTANTS.ORDER_CREATE_PATH_URL,
                 data=api_params,
-                is_auth_required=True)
+                is_auth_required=True,
+                disable_retries=True)
 
             order_result = result["data"][0]
 
@@ -759,10 +762,38 @@ class CoinflexExchange(ExchangeBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    async def _update_order_fills_from_trades(self, tracked_order, order_update):
+        """
+        This is intended to be a backup measure to get filled events from order status
+        in case CoinFLEX's user stream events are not working.
+        """
+        for match_data in order_update["matchIds"]:
+            for trade_id in match_data.keys():
+                trade_data = match_data[trade_id]
+                exec_amt_base = coinflex_utils.decimal_val_or_none(trade_data.get("matchQuantity"))
+                fill_price = coinflex_utils.decimal_val_or_none(trade_data.get("matchPrice"))
+                exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
+                fee_paid = coinflex_utils.decimal_val_or_none(trade_data.get("fees", "0"))
+                trade_update = TradeUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    trade_id=int(trade_id),
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=str(order_update["orderId"]),
+                    fill_timestamp=int(trade_data["timestamp"]),
+                    fill_price=fill_price,
+                    fill_base_amount=exec_amt_base,
+                    fill_quote_amount=exec_amt_quote,
+                    fee_asset=trade_data.get("feeInstrumentId"),
+                    fee_paid=fee_paid,
+                )
+                self._order_tracker.process_trade_update(trade_update=trade_update)
+
     async def _update_order_status(self):
-        # This is intended to be a backup measure to close straggler orders, in case CoinFLEX's user stream events
-        # are not working.
-        # The minimum poll interval for order status is 10 seconds.
+        """
+        This is intended to be a backup measure to close straggler orders, in case CoinFLEX's user stream events
+        are not working.
+        The minimum poll interval for order status is 10 seconds.
+        """
         last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
         current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
 
@@ -773,26 +804,26 @@ class CoinflexExchange(ExchangeBase):
                      method=RESTMethod.GET,
                      path_url=CONSTANTS.ORDER_PATH_URL,
                      params={
-                         "symbol": await CoinflexAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                         "marketCode": await CoinflexAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
                              trading_pair=o.trading_pair,
                              domain=self._domain,
                              api_factory=self._api_factory,
                              throttler=self._throttler),
-                         "origClientOrderId": o.client_order_id},
+                         "clientOrderId": o.client_order_id},
                      is_auth_required=True,
                      endpoint_api_version="v2.1") for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
-            for order_update, tracked_order in zip(results, tracked_orders):
+            for order_result, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
                 # If the order has already been cancelled or has failed do nothing
                 if client_order_id not in self.in_flight_orders:
                     continue
 
-                if isinstance(order_update, Exception):
+                if isinstance(order_result, Exception) or not order_result.get("data"):
                     self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: {order_update}.",
+                        f"Error fetching status update for the order {client_order_id}: {order_result}.",
                         app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                     )
                     self._order_not_found_records[client_order_id] = (
@@ -811,17 +842,34 @@ class CoinflexExchange(ExchangeBase):
                         self._order_tracker.process_order_update(order_update)
 
                 else:
+                    order_update = order_result["data"][0]
+
                     # Update order execution status
                     new_state = CONSTANTS.ORDER_STATE[order_update["status"]]
+
+                    # Get total fees from order data, should only be one fee asset.
+                    order_fees = order_update.get("fees")
+                    fee_asset = None
+                    cumulative_fee_paid = None
+                    if order_fees:
+                        for fee_asset in order_fees.keys():
+                            cumulative_fee_paid = coinflex_utils.decimal_val_or_none(order_fees[fee_asset])
+                            break
 
                     update = OrderUpdate(
                         client_order_id=client_order_id,
                         exchange_order_id=str(order_update["orderId"]),
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(order_update["timestamp"]),
+                        update_timestamp=int(order_update.get("timestamp", order_update.get("orderOpenedTimestamp"))),
                         new_state=new_state,
+                        fee_asset=fee_asset,
+                        cumulative_fee_paid=cumulative_fee_paid,
                     )
                     self._order_tracker.process_order_update(update)
+
+                    # Fill missing trades from order status.
+                    if len(order_update.get("matchIds", [])):
+                        await self._update_order_fills_from_trades(tracked_order, order_update)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -874,7 +922,8 @@ class CoinflexExchange(ExchangeBase):
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            domain_api_version: str = None,
-                           endpoint_api_version: str = None) -> Dict[str, Any]:
+                           endpoint_api_version: str = None,
+                           disable_retries: bool = False) -> Dict[str, Any]:
 
         client = await self._get_rest_assistant()
 
@@ -885,7 +934,8 @@ class CoinflexExchange(ExchangeBase):
                                       endpoint_api_version=endpoint_api_version,
                                       data=data,
                                       params=params,
-                                      is_auth_required=is_auth_required)
+                                      is_auth_required=is_auth_required,
+                                      disable_retries=disable_retries)
 
         response = await api_call_with_retries(request=request, rest_assistant=client, throttler=self._throttler, logger=self.logger())
 

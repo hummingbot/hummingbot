@@ -52,6 +52,8 @@ class CoinflexOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
+        if self._domain != "live":
+            return f"coinflex_{self._domain}"
         return "coinflex"
 
     def start(self):
