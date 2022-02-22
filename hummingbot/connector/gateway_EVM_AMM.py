@@ -114,10 +114,15 @@ class GatewayEVMAMM(ConnectorBase):
         return self._wallet_public_key
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
         """
-        To-do: figure out how to fetch list of trading pairs for gateway connectors in new task.
+        Calls the tokens endpoint on Gateway.
         """
+        try:
+            # return await _api_request("get", "network/tokens", {"chain": chain, "network": network})
+            return []
+        except Exception:
+            pass
         return []
 
     @property
