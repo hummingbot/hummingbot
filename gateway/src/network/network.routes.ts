@@ -10,13 +10,15 @@ import {
   PollResponse,
   StatusRequest,
   StatusResponse,
+  TokensRequest,
+  TokensResponse,
 } from './network.requests';
 
 import {
   validateBalanceRequest,
   validatePollRequest,
 } from '../chains/ethereum/ethereum.validators';
-import { getStatus } from './network.controllers';
+import { getStatus, getTokens } from './network.controllers';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
 
 export namespace NetworkRoutes {
@@ -67,5 +69,19 @@ export namespace NetworkRoutes {
         res.status(200).json(await poll(chain, req.body));
       }
     )
+  );
+
+  router.get(
+    '/tokens',
+    async (
+      req: Request<{}, {}, {}, TokensRequest>,
+      res: Response<TokensResponse, {}>
+    ) => {
+      try {
+        res.status(200).json(await getTokens(req.query));
+      } catch (error: any) {
+        res.status(error.status).json(error);
+      }
+    }
   );
 }
