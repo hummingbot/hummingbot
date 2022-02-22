@@ -63,13 +63,15 @@ import { useStrategies } from '../../composables/useStrategies';
 import { StrategyCategory } from '../../stores/strategies';
 import FeatureBox, { FeatureBoxType } from './components/FeatureBox/Index.vue';
 import StrategyBox from './components/StrategyBox/Index.vue';
+import { useStrategiesByCategory } from './composables/useStrategiesByCategory';
 
 export default defineComponent({
   components: { FeatureBox, StrategyBox },
 
   setup() {
     const category = ref(StrategyCategory.All);
-    const { strategies, categories } = useStrategies(category);
+    const { categories } = useStrategies();
+    const { strategies } = useStrategiesByCategory(category);
 
     return {
       FeatureBoxType,
