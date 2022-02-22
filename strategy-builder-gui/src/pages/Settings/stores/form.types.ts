@@ -41,6 +41,6 @@ export interface $Form {
   [key: string]: Counter | Select | Toggle | Input | BtnToggle;
 }
 
-export type $SettingsForm = {
+export type $Forms = {
   [key in `${StrategyName}`]: $Form;
 };
