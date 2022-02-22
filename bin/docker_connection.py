@@ -23,11 +23,11 @@ async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
     this loop to be cancellable when the user desires to exit. Having any blocking I/O operation in this loop would mean
     the potential for the child process to be stuck while the user is trying to exit from Hummingbot.
     """
+    initialization_error = None
     try:
         docker_client: docker.APIClient = docker.APIClient(base_url="unix://var/run/docker.sock")
     except Exception as e:
-        await docker_pipe.coro_send(e)
-        return
+        initialization_error = e
 
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
@@ -44,6 +44,9 @@ async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
             logging.error("Error parsing docker IPC commands from main process.", exc_info=True)
             await asyncio.sleep(0.5)
             continue
+
+        if initialization_error is not None:
+            await docker_pipe.coro_send(initialization_error)
 
         try:
             method: Callable = getattr(docker_client, method_name)
