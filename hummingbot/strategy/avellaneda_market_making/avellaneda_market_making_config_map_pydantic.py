@@ -385,6 +385,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("exchange", pre=True)
     def validate_exchange(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
@@ -414,6 +415,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("order_refresh_tolerance_pct", pre=True)
     def validate_order_refresh_tolerance_pct(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("-10"), max_value=Decimal("10"), inclusive=True)
         if ret is not None:
             raise ValueError(ret)
@@ -421,6 +423,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("volatility_buffer_size", "trading_intensity_buffer_size", pre=True)
     def validate_buffer_size(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_int(v, 1, 10_000)
         if ret is not None:
             raise ValueError(ret)
@@ -461,6 +464,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         pre=True,
     )
     def validate_bool(cls, v: str):
+        """Used for client-friendly error output."""
         if isinstance(v, str):
             ret = validate_bool(v)
             if ret is not None:
@@ -469,6 +473,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("order_amount_shape_factor", pre=True)
     def validate_decimal_from_zero_to_one(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("1"), inclusive=True)
         if ret is not None:
             raise ValueError(ret)
@@ -483,6 +488,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         pre=True,
     )
     def validate_decimal_above_zero(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), inclusive=False)
         if ret is not None:
             raise ValueError(ret)
@@ -490,6 +496,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("min_spread", pre=True)
     def validate_decimal_zero_or_above(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), inclusive=True)
         if ret is not None:
             raise ValueError(ret)
@@ -497,6 +504,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("inventory_target_base_pct", pre=True)
     def validate_pct_inclusive(cls, v: str):
+        """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=True)
         if ret is not None:
             raise ValueError(ret)
