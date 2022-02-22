@@ -2,8 +2,8 @@
   <div class="column">
     <Steps :in-progress-step="currentStep" />
     <Form :title="currentStep === stepCount ? 'Pure Market Making' : 'Settings'">
-      <SettingsForm v-if="currentStep < stepCount" :strategy-name="StrategyName.PureMarketMaking" />
-      <SaveForm v-if="currentStep === stepCount" :strategy-name="StrategyName.PureMarketMaking" />
+      <SettingsForm v-if="currentStep < stepCount" :strategy-name="currentStrategyName" />
+      <SaveForm v-if="currentStep === stepCount" :strategy-name="currentStrategyName" />
     </Form>
     <Pager v-model="currentStep" :step-count="stepCount" :handle-submit="handleSubmit" />
   </div>
@@ -12,6 +12,7 @@
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
 import { defineComponent, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import Pager from './components/Pager/Index.vue';
 import Steps from './components/Stepper/Steps.vue';
@@ -23,7 +24,9 @@ import SettingsForm from './Forms/SettingsForm.vue';
 export default defineComponent({
   components: { Steps, Pager, Form, SettingsForm, SaveForm },
   setup() {
-    const { values } = useForm(StrategyName.PureMarketMaking); // TODO: calculate via route
+    const route = useRoute();
+    const currentStrategyName = route.params.strategy as StrategyName;
+    const { values } = useForm(currentStrategyName); // TODO: calculate via route
     const currentStep = ref(2);
     const stepCount = 3;
 
@@ -32,7 +35,7 @@ export default defineComponent({
       console.log(values.value);
     };
 
-    return { currentStep, stepCount, handleSubmit, StrategyName };
+    return { currentStep, stepCount, handleSubmit, StrategyName, currentStrategyName };
   },
 });
 </script>
