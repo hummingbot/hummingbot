@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Callable
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel
 from pydantic.schema import default_ref_template
