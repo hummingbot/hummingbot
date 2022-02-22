@@ -4,7 +4,7 @@
   "properties": {
     "enabled": { "type": "boolean" },
     "gasStationURL": { "type": "string" },
-    "APIKey": { "type": "string" },
+    "APIKey": { "type": ["string", "null"] },
     "gasLevel": { "type": "string" },
     "refreshTime": { "type": "integer" }
   },
