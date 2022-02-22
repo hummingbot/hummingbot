@@ -6,7 +6,7 @@ import time
 import copy
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.gateway_http_client import gateway_http_client
+from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
