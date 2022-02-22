@@ -9,7 +9,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     name: 'settings',
-    path: '/settings/:strategy',
+    path: '/settings/:strategyName',
     component: () => import('../pages/Settings/Layout.vue'),
   },
 

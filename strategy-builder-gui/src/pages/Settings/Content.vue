@@ -25,8 +25,8 @@ export default defineComponent({
   components: { Steps, Pager, Form, SettingsForm, SaveForm },
   setup() {
     const route = useRoute();
-    const currentStrategyName = route.params.strategy as StrategyName;
-    const { values } = useForm(currentStrategyName); // TODO: calculate via route
+    const currentStrategyName = route.params.strategyName as StrategyName;
+    const { values } = useForm(currentStrategyName);
     const currentStep = ref(2);
     const stepCount = 3;
 

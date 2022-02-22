@@ -13,7 +13,7 @@
           <q-btn
             class="bg-mono-green-2 rounded-borders"
             padding="sm"
-            :to="{ name: 'settings', params: { strategy: strategyName } }"
+            :to="{ name: 'settings', params: { strategyName } }"
           >
             <q-icon :name="'img:' + require('./play.svg')" size="10px" />
           </q-btn>
