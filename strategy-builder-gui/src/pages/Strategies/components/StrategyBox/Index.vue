@@ -7,10 +7,14 @@
           {{ description }}
         </div>
         <div class="row q-gutter-sm q-mt-auto">
-          <q-btn class="bg-mono-grey-2 rounded-borders" padding="sm" :href="fileHref">
+          <q-btn class="bg-mono-grey-2 rounded-borders" padding="sm" :to="fileHref">
             <q-icon :name="'img:' + require('./file.svg')" size="10px" />
           </q-btn>
-          <q-btn class="bg-mono-green-2 rounded-borders" padding="sm" :href="startHref">
+          <q-btn
+            class="bg-mono-green-2 rounded-borders"
+            padding="sm"
+            :to="{ name: 'settings', params: { strategy: strategyName } }"
+          >
             <q-icon :name="'img:' + require('./play.svg')" size="10px" />
           </q-btn>
         </div>
@@ -28,6 +32,7 @@
 </template>
 
 <script lang="ts">
+import { StrategyName } from 'src/composables/useStrategies';
 import { defineComponent, PropType } from 'vue';
 
 export default defineComponent({
@@ -41,7 +46,7 @@ export default defineComponent({
     title: { type: String, requaried: true, default: () => '' },
     description: { type: String, requaried: true, default: () => '' },
     fileHref: { type: String, default: () => '/' },
-    startHref: { type: String, requaried: true, default: () => '/' },
+    strategyName: { type: String, requaried: true, default: () => StrategyName.PureMarketMaking },
   },
 });
 </script>

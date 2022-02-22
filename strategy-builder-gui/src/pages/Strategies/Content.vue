@@ -49,7 +49,7 @@
           :title="strategy.title"
           :description="strategy.description"
           :file-href="strategy.fileHref"
-          :start-href="strategy.startHref"
+          :strategy-name="strategy.strategyName"
         />
       </div>
     </div>
