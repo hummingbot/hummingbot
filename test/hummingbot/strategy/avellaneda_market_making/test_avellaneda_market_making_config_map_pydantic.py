@@ -14,7 +14,6 @@ from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
-    ExecutionTimeframe,
     FromDateToDateModel,
     InfiniteModel,
 )
@@ -96,7 +95,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         self.assertEqual(expected, prompt)
 
     def test_execution_time_prompts(self):
-        self.config_map.execution_timeframe_model = ExecutionTimeframe.from_date_to_date
+        self.config_map.execution_timeframe_model = FromDateToDateModel.Config.title
         model = self.config_map.execution_timeframe_model
         prompt = model.get_client_prompt("start_datetime")
         expected = "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)"
@@ -105,7 +104,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         expected = "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
-        self.config_map.execution_timeframe_model = ExecutionTimeframe.daily_between_times
+        self.config_map.execution_timeframe_model = DailyBetweenTimesModel.Config.title
         model = self.config_map.execution_timeframe_model
         prompt = model.get_client_prompt("start_time")
         expected = "Please enter the start time (HH:MM:SS)"

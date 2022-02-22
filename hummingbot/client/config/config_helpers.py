@@ -18,13 +18,13 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
+    AllConnectorSettings,
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
     GLOBAL_CONFIG_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
-    AllConnectorSettings
 )
 
 # Use ruamel.yaml to preserve order and comments in .yml file
