@@ -4,6 +4,7 @@ import asyncio
 from typing import Dict, Any, List, Optional
 import time
 import copy
+import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.gateway import gateway_http_client
@@ -114,11 +115,14 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the tokens endpoint on Gateway.
         """
         try:
-            # return await _api_request("get", "network/tokens", {"chain": chain, "network": network})
-            return []
+            tokens = await gateway_http_client.api_request("get", "network/tokens", {"chain": chain, "network": network})
+            token_symbols = [t["symbol"] for t in tokens["tokens"]]
+            trading_pairs = []
+            for base, quote in it.permutations(token_symbols, 2):
+                trading_pairs.append(f"{base}-{quote}")
+            return trading_pairs
         except Exception:
-            pass
-        return []
+            return []
 
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:
