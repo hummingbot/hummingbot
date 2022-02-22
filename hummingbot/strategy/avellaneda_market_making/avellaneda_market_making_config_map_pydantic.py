@@ -18,15 +18,9 @@ from hummingbot.client.settings import AllConnectorSettings, required_exchanges
 from hummingbot.connector.utils import split_hb_trading_pair
 
 
-class ExecutionTimeframe(str, ClientConfigEnum):
-    infinite = "infinite"
-    from_date_to_date = "from_date_to_date"
-    daily_between_times = "daily_between_times"
-
-
 class InfiniteModel(BaseClientModel):
     class Config:
-        title = ExecutionTimeframe.infinite
+        title = "infinite"
         validate_assignment = True
 
 
@@ -49,7 +43,7 @@ class FromDateToDateModel(BaseClientModel):
     )
 
     class Config:
-        title = ExecutionTimeframe.from_date_to_date
+        title = "from_date_to_date"
         validate_assignment = True
 
     @validator("start_datetime", "end_datetime", pre=True)
@@ -79,7 +73,7 @@ class DailyBetweenTimesModel(BaseClientModel):
     )
 
     class Config:
-        title = ExecutionTimeframe.daily_between_times
+        title = "daily_between_times"
         validate_assignment = True
 
     @validator("start_time", "end_time", pre=True)
@@ -90,14 +84,16 @@ class DailyBetweenTimesModel(BaseClientModel):
         return v
 
 
-class OrderLevelsMode(str, ClientConfigEnum):
-    single_order_level = "single_order_level"
-    multi_order_level = "multi_order_level"
+EXECUTION_TIMEFRAME_MODELS = {
+    InfiniteModel.Config.title: InfiniteModel,
+    FromDateToDateModel.Config.title: FromDateToDateModel,
+    DailyBetweenTimesModel.Config.title: DailyBetweenTimesModel,
+}
 
 
 class SingleOrderLevelModel(BaseClientModel):
     class Config:
-        title = OrderLevelsMode.single_order_level
+        title = "single_order_level"
         validate_assignment = True
 
 
@@ -120,7 +116,7 @@ class MultiOrderLevelModel(BaseClientModel):
     )
 
     class Config:
-        title = OrderLevelsMode.multi_order_level
+        title = "multi_order_level"
         validate_assignment = True
 
     @validator("order_levels", pre=True)
@@ -138,9 +134,10 @@ class MultiOrderLevelModel(BaseClientModel):
         return v
 
 
-class HangingOrdersMode(str, ClientConfigEnum):
-    track_hanging_orders = "track_hanging_orders"
-    ignore_hanging_orders = "ignore_hanging_orders"
+ORDER_LEVEL_MODELS = {
+    SingleOrderLevelModel.Config.title: SingleOrderLevelModel,
+    MultiOrderLevelModel.Config.title: MultiOrderLevelModel,
+}
 
 
 class TrackHangingOrdersModel(BaseClientModel):
@@ -158,7 +155,7 @@ class TrackHangingOrdersModel(BaseClientModel):
     )
 
     class Config:
-        title = HangingOrdersMode.track_hanging_orders
+        title = "track_hanging_orders"
         validate_assignment = True
 
     @validator("hanging_orders_cancel_pct", pre=True)
@@ -171,8 +168,14 @@ class TrackHangingOrdersModel(BaseClientModel):
 
 class IgnoreHangingOrdersModel(BaseClientModel):
     class Config:
-        title = HangingOrdersMode.ignore_hanging_orders
+        title = "ignore_hanging_orders"
         validate_assignment = True
+
+
+HANGING_ORDER_MODELS = {
+    TrackHangingOrdersModel.Config.title: TrackHangingOrdersModel,
+    IgnoreHangingOrdersModel.Config.title: IgnoreHangingOrdersModel,
+}
 
 
 def maker_trading_pair_prompt(model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
@@ -215,7 +218,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=...,
         description="The execution timeframe.",
         client_data=ClientFieldData(
-            prompt=lambda mi: f"Select the execution timeframe ({'/'.join(ExecutionTimeframe)})",
+            prompt=lambda mi: f"Select the execution timeframe ({'/'.join(EXECUTION_TIMEFRAME_MODELS.keys())})",
             prompt_on_new=True,
         ),
     )
@@ -345,7 +348,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=SingleOrderLevelModel.construct(),
         description="Allows activating multi-order levels.",
         client_data=ClientFieldData(
-            prompt=lambda mi: f"Select the order levels mode ({'/'.join(OrderLevelsMode)}",
+            prompt=lambda mi: f"Select the order levels mode ({'/'.join(list(ORDER_LEVEL_MODELS.keys()))}",
         ),
     )
     order_override: Optional[Dict] = Field(
@@ -357,7 +360,9 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=IgnoreHangingOrdersModel.construct(),
         description="When tracking hanging orders, the orders on the side opposite to the filled orders remain active.",
         client_data=ClientFieldData(
-            prompt=lambda mi: f"How do you want to handle hanging orders? ({'/'.join(HangingOrdersMode)})",
+            prompt=(
+                lambda mi: f"How do you want to handle hanging orders? ({'/'.join(list(HANGING_ORDER_MODELS.keys()))})"
+            ),
         ),
     )
     should_wait_order_cancel_confirmation: bool = Field(
@@ -374,10 +379,6 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
             ),
         )
     )
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        required_exchanges.append(self.exchange)
 
     class Config:
         validate_assignment = True
@@ -401,20 +402,14 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     def validate_execution_timeframe(
         cls, v: Union[str, InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel]
     ):
-        if not isinstance(v, Dict) and not hasattr(ExecutionTimeframe, v):
+        if isinstance(v, (InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel, Dict)):
+            sub_model = v
+        elif not isinstance(v, Dict) and v not in EXECUTION_TIMEFRAME_MODELS:
             raise ValueError(
-                f"Invalid timeframe, please choose value from {[e.value for e in list(ExecutionTimeframe)]}"
+                f"Invalid timeframe, please choose value from {list(EXECUTION_TIMEFRAME_MODELS.keys())}"
             )
-        elif isinstance(v, (InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel)):
-            sub_model = v
-        elif v == ExecutionTimeframe.infinite:
-            sub_model = InfiniteModel.construct()
-        elif v == ExecutionTimeframe.daily_between_times:
-            sub_model = DailyBetweenTimesModel.construct()
-        elif v == ExecutionTimeframe.from_date_to_date:
-            sub_model = FromDateToDateModel.construct()
-        else:  # isinstance(v, Dict)
-            sub_model = v
+        else:
+            sub_model = EXECUTION_TIMEFRAME_MODELS[v].construct()
         return sub_model
 
     @validator("order_refresh_tolerance_pct", pre=True)
@@ -433,34 +428,28 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @validator("order_levels_mode", pre=True)
     def validate_order_levels_mode(cls, v: Union[str, SingleOrderLevelModel, MultiOrderLevelModel]):
-        if not isinstance(v, Dict) and not hasattr(OrderLevelsMode, v):
+        if isinstance(v, (SingleOrderLevelModel, MultiOrderLevelModel, Dict)):
+            sub_model = v
+        elif not isinstance(v, Dict) and v not in ORDER_LEVEL_MODELS:
             raise ValueError(
-                f"Invalid order levels mode, please choose value from {[e.value for e in list(OrderLevelsMode)]}."
+                f"Invalid order levels mode, please choose value from"
+                f" {[e.value for e in list(ORDER_LEVEL_MODELS.keys())]}."
             )
-        elif isinstance(v, (SingleOrderLevelModel, MultiOrderLevelModel)):
-            sub_model = v
-        elif v == OrderLevelsMode.single_order_level:
-            sub_model = SingleOrderLevelModel.construct()
-        elif v == OrderLevelsMode.multi_order_level:
-            sub_model = MultiOrderLevelModel.construct()
-        else:  # isinstance(v, Dict)
-            sub_model = v
+        else:
+            sub_model = ORDER_LEVEL_MODELS[v].construct()
         return sub_model
 
     @validator("hanging_orders_mode", pre=True)
     def validate_hanging_orders_mode(cls, v: Union[str, TrackHangingOrdersModel, IgnoreHangingOrdersModel]):
-        if not isinstance(v, Dict) and not hasattr(HangingOrdersMode, v):
+        if isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel, Dict)):
+            sub_model = v
+        elif not isinstance(v, Dict) and v not in HANGING_ORDER_MODELS:
             raise ValueError(
-                f"Invalid hanging order mode, please choose value from {[e.value for e in list(HangingOrdersMode)]}."
+                f"Invalid hanging order mode, please choose value from"
+                f" {[e.value for e in list(HANGING_ORDER_MODELS.keys())]}."
             )
-        elif isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel)):
-            sub_model = v
-        elif v == HangingOrdersMode.track_hanging_orders:
-            sub_model = TrackHangingOrdersModel.construct()
-        elif v == HangingOrdersMode.ignore_hanging_orders:
-            sub_model = IgnoreHangingOrdersModel.construct()
-        else:  # isinstance(v, Dict)
-            sub_model = v
+        else:
+            sub_model = HANGING_ORDER_MODELS[v].construct()
         return sub_model
 
     # === generic validations ===
@@ -518,12 +507,17 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     @root_validator()
     def post_validations(cls, values: Dict):
         cls.execution_timeframe_post_validation(values)
+        cls.exchange_post_validation(values)
         return values
 
     @classmethod
     def execution_timeframe_post_validation(cls, values: Dict):
         execution_timeframe = values.get("execution_timeframe")
-        if execution_timeframe is not None and execution_timeframe == ExecutionTimeframe.infinite:
+        if execution_timeframe is not None and execution_timeframe == InfiniteModel.Config.title:
             values["start_time"] = None
             values["end_time"] = None
         return values
+
+    @classmethod
+    def exchange_post_validation(cls, values: Dict):
+        required_exchanges.append(values["exchange"])
