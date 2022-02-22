@@ -10,12 +10,12 @@
 </template>
 
 <script lang="ts">
-import { StrategyName } from 'src/stores/strategies';
+import { StrategyName } from 'src/composables/useStrategies';
 import { defineComponent, ref } from 'vue';
 
 import Pager from './components/Pager/Index.vue';
 import Steps from './components/Stepper/Steps.vue';
-import { useSettingsForm } from './composables/useSettingsForm';
+import { useForm } from './composables/useForm';
 import Form from './Forms/Form.vue';
 import SaveForm from './Forms/SaveForm.vue';
 import SettingsForm from './Forms/SettingsForm.vue';
@@ -23,7 +23,7 @@ import SettingsForm from './Forms/SettingsForm.vue';
 export default defineComponent({
   components: { Steps, Pager, Form, SettingsForm, SaveForm },
   setup() {
-    const { values } = useSettingsForm(StrategyName.PureMarketMaking); // TODO: calculate via route
+    const { values } = useForm(StrategyName.PureMarketMaking); // TODO: calculate via route
     const currentStep = ref(2);
     const stepCount = 3;
 

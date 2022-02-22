@@ -1,4 +1,5 @@
-import { StrategyName } from '../../../stores/strategies';
+import { StrategyName } from 'src/composables/useStrategies';
+
 import { $SettingsForm } from './form.types';
 import { $pureMMForm } from './pureMMForm';
 

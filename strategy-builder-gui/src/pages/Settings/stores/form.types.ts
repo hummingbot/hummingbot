@@ -1,4 +1,4 @@
-import { StrategyName } from 'src/stores/strategies';
+import { StrategyName } from 'src/composables/useStrategies';
 import { Ref } from 'vue';
 
 export enum BtnToggleType {

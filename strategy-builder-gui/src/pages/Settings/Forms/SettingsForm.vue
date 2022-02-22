@@ -344,7 +344,7 @@
   </div>
 </template>
 <script lang="ts">
-import { StrategyName } from 'src/stores/strategies';
+import { StrategyName } from 'src/composables/useStrategies';
 import { defineComponent, PropType, ref } from 'vue';
 
 import Counter, { CounterType } from '../components/Counter.vue';
@@ -352,8 +352,7 @@ import Field from '../components/Field.vue';
 import Input, { InputType } from '../components/Input.vue';
 import Order from '../components/Order.vue';
 import Select from '../components/Select/Index.vue';
-import { useSettingsForm } from '../composables/useSettingsForm';
-import { BtnToggleType } from '../stores/form.types';
+import { BtnToggleType, useForm } from '../composables/useForm';
 
 enum FormType {
   Basic,
@@ -373,7 +372,7 @@ export default defineComponent({
   emits: ['update:formType'],
 
   setup(props) {
-    const { settingsForm } = useSettingsForm(props.form);
+    const { settingsForm } = useForm(props.form);
     const formType = ref(FormType.Basic);
 
     return {

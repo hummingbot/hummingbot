@@ -23,11 +23,11 @@
 </template>
 
 <script lang="ts">
-import { StrategyName } from 'src/stores/strategies';
+import { StrategyName } from 'src/composables/useStrategies';
 import { defineComponent, PropType } from 'vue';
 
 import Input, { InputType } from '../components/Input.vue';
-import { useSettingsForm } from '../composables/useSettingsForm';
+import { useForm } from '../composables/useForm';
 
 export default defineComponent({
   components: { Input },
@@ -40,7 +40,7 @@ export default defineComponent({
   },
 
   setup(props) {
-    const { settingsForm } = useSettingsForm(props.form);
+    const { settingsForm } = useForm(props.form);
 
     return { ...settingsForm, InputType };
   },

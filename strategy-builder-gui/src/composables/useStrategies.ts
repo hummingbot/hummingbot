@@ -1,8 +1,10 @@
 import { computed, Ref } from 'vue';
 
-import { $strategies, StrategyCategory } from '../../../stores/strategies';
+import { $strategies, StrategyCategory } from '../stores/strategies';
 
-export const useStrategiesFilter = (category: Ref<StrategyCategory>) => {
+export { StrategyName } from 'src/stores/strategies';
+
+export const useStrategies = (category: Ref<StrategyCategory>) => {
   const strategies = computed(() =>
     $strategies.value
       .sort((a, b) => a.place - b.place)
