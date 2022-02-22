@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.coinflex.coinflex_utils import (
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, EndpointRESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTResponse, EndpointRESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -32,6 +32,7 @@ class CoinflexRESTRequest(EndpointRESTRequest):
     domain: str = "live"
     domain_api_version: str = None
     endpoint_api_version: str = None
+    disable_retries: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -103,64 +104,73 @@ def retry_sleep_time(try_count: int) -> float:
     return float(2 + float(randSleep * (1 + (try_count ** try_count))))
 
 
-async def rest_response_with_errors(rest_assistant, request):
-    http_status, parsed_response, request_errors = None, None, False
+async def _parse_or_truncate_response(response: RESTResponse):
+    parsed_response, request_errors = None, False
+    http_status = response.status
     try:
-        response = await asyncio.wait_for(rest_assistant.call(request), CONSTANTS.API_CALL_TIMEOUT)
-        http_status = response.status
-        try:
-            parsed_response = await response.json()
-        except Exception:
-            request_errors = True
-            try:
-                parsed_response = await response.text()
-                try:
-                    parsed_response = ujson.loads(parsed_response)
-                except Exception:
-                    if len(parsed_response) < 1:
-                        parsed_response = None
-                    elif len(parsed_response) > 100:
-                        parsed_response = f"{parsed_response[:100]} ... (truncated)"
-            except Exception:
-                pass
-        TempFailure = (parsed_response is None or
-                       (response.status not in [200, 201] and
-                        "errors" not in parsed_response and
-                        "error" not in parsed_response))
-        if TempFailure:
-            parsed_response = response._aiohttp_response.reason if parsed_response is None else parsed_response
-            request_errors = True
+        parsed_response = await response.json()
     except Exception:
         request_errors = True
+        try:
+            parsed_response = await response.text()
+            try:
+                parsed_response = ujson.loads(parsed_response)
+            except Exception:
+                if len(parsed_response) < 1:
+                    parsed_response = None
+                elif len(parsed_response) > 100:
+                    parsed_response = f"{parsed_response[:100]} ... (truncated)"
+        except Exception:
+            pass
+    TempFailure = (parsed_response is None or
+                   (response.status not in [200, 201] and
+                    "errors" not in parsed_response and
+                    "error" not in parsed_response))
+    if TempFailure:
+        parsed_response = response._aiohttp_response.reason if parsed_response is None else parsed_response
+        request_errors = True
     return http_status, parsed_response, request_errors
+
+
+async def rest_response_with_errors(rest_assistant, request):
+    try:
+        response = await asyncio.wait_for(rest_assistant.call(request), CONSTANTS.API_CALL_TIMEOUT)
+        return await _parse_or_truncate_response(response)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        return None, None, True
+
+
+def _extract_error_from_response(response_data: Dict[str, Any]):
+    if "errors" in response_data:
+        raise CoinflexAPIError(response_data)
+    if "error" in response_data:
+        response_data['errors'] = response_data.get('error')
+        raise CoinflexAPIError(response_data)
+    if str(response_data.get("success")).lower() == "false":
+        response_data['errors'] = response_data.get('message')
+        raise CoinflexAPIError(response_data)
+    resp_data = response_data.get("data", [])
+    if len(resp_data) and str(resp_data[0].get("success")).lower() == "false":
+        response_data['errors'] = resp_data[0].get('message')
+        raise CoinflexAPIError(response_data)
 
 
 async def api_call_with_retries(request: CoinflexRESTRequest,
                                 rest_assistant: RESTAssistant,
                                 throttler: AsyncThrottler,
-                                logger: logging.Logger,
-                                try_count: int = 0,
-                                disable_retries: bool = False) -> Dict[str, Any]:
+                                logger: logging.Logger = None,
+                                try_count: int = 0) -> Dict[str, Any]:
 
     async with throttler.execute_task(limit_id=request.throttler_limit_id):
         http_status, resp, request_errors = await rest_response_with_errors(rest_assistant, request)
 
     if isinstance(resp, dict):
-        if "errors" in resp:
-            raise CoinflexAPIError(resp)
-        if "error" in resp:
-            resp['errors'] = resp.get('error')
-            raise CoinflexAPIError(resp)
-        if str(resp.get("success")).lower() == "false":
-            resp['errors'] = resp.get('message')
-            raise CoinflexAPIError(resp)
-        resp_data = resp.get("data", [])
-        if len(resp_data) and str(resp_data[0].get("success")).lower() == "false":
-            resp['errors'] = resp_data[0].get('message')
-            raise CoinflexAPIError(resp)
+        _extract_error_from_response(resp)
 
     if request_errors or resp is None:
-        if try_count < CONSTANTS.API_MAX_RETRIES and not disable_retries:
+        if try_count < CONSTANTS.API_MAX_RETRIES and not request.disable_retries:
             try_count += 1
             time_sleep = retry_sleep_time(try_count)
 
@@ -178,7 +188,7 @@ async def api_call_with_retries(request: CoinflexRESTRequest,
                 logger.debug(err_msg, exc_info=True)
             await asyncio.sleep(time_sleep)
             return await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=throttler,
-                                               logger=logger, try_count=try_count, disable_retries=disable_retries)
+                                               logger=logger, try_count=try_count)
         else:
             raise CoinflexAPIError({"errors": resp, "status": http_status})
     return resp

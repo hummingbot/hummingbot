@@ -35,7 +35,7 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 MESSAGE_TIMEOUT = 30.0
 PING_TIMEOUT = 10.0
 API_CALL_TIMEOUT = 10.0
-API_MAX_RETRIES = 0
+API_MAX_RETRIES = 3
 
 # CoinFLEX params
 
@@ -61,6 +61,7 @@ MAX_REQUEST = 5000
 
 # Order States
 ORDER_CANCELLED_STATES = [
+    "OrderClosed",
     "CANCELED",
     "CANCELED_BY_USER",
     "CANCELED_BY_MAKER_ONLY",
@@ -72,7 +73,9 @@ ORDER_CANCELLED_STATES = [
 
 ORDER_STATE = {
     "PENDING": OrderState.PENDING_CREATE,
+    "OrderOpened": OrderState.OPEN,
     "OPEN": OrderState.OPEN,
+    "OrderMatched": OrderState.FILLED,
     "FILLED": OrderState.FILLED,
     "PARTIAL_FILL": OrderState.PARTIALLY_FILLED,
     "PENDING_CANCEL": OrderState.OPEN,
