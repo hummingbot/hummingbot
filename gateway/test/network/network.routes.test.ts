@@ -65,3 +65,26 @@ describe('GET /network/config', () => {
       .expect(200);
   });
 });
+
+describe('GET /network/tokens', () => {
+  it('should return 200 when retrieving tokens', async () => {
+    request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'ethereum',
+        network: 'kovan',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+  it('should return 500 when retrieving tokens for invalid chain', async () => {
+    request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'unknown',
+        network: 'kovan',
+      })
+      .expect('Content-Type', /json/)
+      .expect(500);
+  });
+});
