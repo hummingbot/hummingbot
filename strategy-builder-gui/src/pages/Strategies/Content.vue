@@ -71,11 +71,11 @@ export default defineComponent({
   setup() {
     const category = ref(StrategyCategory.All);
     const { categories } = useStrategies();
-    const { strategies } = useStrategiesByCategory(category);
+    const strategiesByCategory = useStrategiesByCategory(category);
 
     return {
       FeatureBoxType,
-      strategies,
+      strategies: strategiesByCategory.values,
       category,
       categories,
     };
