@@ -7,9 +7,5 @@
     "keyPath": { "type": "string" }
   },
   "additionalProperties": false,
-  "required": [
-    "caCertificatePath",
-    "certificatePath",
-    "keyPath"
-  ]
+  "required": ["caCertificatePath", "certificatePath", "keyPath"]
 }
