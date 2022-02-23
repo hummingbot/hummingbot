@@ -16,7 +16,7 @@ export const invalidAddressError: string =
   'The address param is not a valid Ethereum private key (64 hexidecimal characters).';
 
 export const invalidSpenderError: string =
-  'The spender param is not a valid Ethereum public key (0x followed by 40 hexidecimal characters).';
+  'The spender param is not a valid Ethereum address (0x followed by 40 hexidecimal characters).';
 
 export const invalidNonceError: string =
   'If nonce is included it must be a non-negative integer.';
@@ -27,19 +27,19 @@ export const invalidMaxFeePerGasError: string =
 export const invalidMaxPriorityFeePerGasError: string =
   'If maxPriorityFeePerGas is included it must be a string of a non-negative integer.';
 
-// test if a string matches the shape of an Ethereum public key
+// test if a string matches the shape of an Ethereum address
 export const isAddress = (str: string): boolean => {
   return /^0x[a-fA-F0-9]{40}$/.test(str);
 };
 
-// given a request, look for a key called address that is an Ethereum private key
+// given a request, look for a key called address that is an Ethereum wallet
 export const validateAddress: Validator = mkValidator(
   'address',
   invalidAddressError,
   (val) => typeof val === 'string' && isAddress(val)
 );
 
-// given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
+// given a request, look for a key called spender that is 'uniswap' or an Ethereum address
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
