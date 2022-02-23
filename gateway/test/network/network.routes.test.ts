@@ -52,7 +52,7 @@ describe('GET /network/status', () => {
       .get(`/network/status`)
       .expect('Content-Type', /json/)
       .expect(200)
-      .expect((res) => expect(Array.isArray(res.body)).toBeTrue());
+      .expect((res) => expect(Array.isArray(res.body)).toEqual(true));
   });
 
   it('should return 500 when asking for invalid network', async () => {
