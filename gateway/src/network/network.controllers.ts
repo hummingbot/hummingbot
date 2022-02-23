@@ -7,13 +7,12 @@ import {
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../services/error-handler';
-import { EthereumBase } from '../services/ethereum-base';
 
 export async function getStatus(
   req: StatusRequest
 ): Promise<StatusResponse | StatusResponse[]> {
   const statuses: StatusResponse[] = [];
-  let connections: EthereumBase[] = [];
+  let connections: any[] = [];
   let chain: string;
   let chainId: number;
   let rpcUrl: string;
@@ -49,7 +48,7 @@ export async function getStatus(
   }
 
   for (const connection of connections) {
-    chain = connection.chainName;
+    chain = connection.chain;
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
     currentBlockNumber = await connection.getCurrentBlockNumber();
