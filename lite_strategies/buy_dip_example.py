@@ -18,19 +18,26 @@ class BuyDipExample(LiteStrategyBase):
     This example demonstrates:
       - How to call Binance REST API for candle stick data
       - How to incorporate external pricing source (Coingecko) into the strategy
+      - How to listen to order filled event
       - How to structure order execution on a more complex strategy
-    Before running this example, make sure you run `config rate_oracle_source coingecko'
+    Before running this example, make sure you run `config rate_oracle_source coingecko`
     """
-    connector_name = "binance_paper_trade"
-    trading_pair = "ETH-BTC"
+    connector_name: str = "binance_paper_trade"
+    trading_pair: str = "ETH-BTC"
     base_asset, quote_asset = trading_pair.split("-")
-    conversion_pair = f"{quote_asset}-USD"
-    buy_usd_amount = Decimal("100")
-    cool_off_interval = 60. * 60. * 24.
-    last_ordered_ts = 0.
+    conversion_pair: str = f"{quote_asset}-USD"
+    buy_usd_amount: Decimal = Decimal("100")
+    moving_avg_period: int = 50
+    dip_percentage: Decimal = Decimal("0.05")
+    #: A cool off period before the next buy (in seconds)
+    cool_off_interval: float = 10.
+    #: The last buy timestamp
+    last_ordered_ts: float = 0.
+    shared_client: aiohttp.ClientSession = None
 
     markets = {connector_name: {trading_pair}}
-    shared_client: aiohttp.ClientSession = None
+    #: Override tick_size to manually set how often the on_tick runs
+    tick_size = 5.
 
     @classmethod
     async def http_client(cls) -> aiohttp.ClientSession:
@@ -44,6 +51,23 @@ class BuyDipExample(LiteStrategyBase):
         Fetches binance candle stick data and returns a list daily close
         :param trading_pair: A market trading pair to
         :return: A list of daily close
+        This is the API response data structure:
+        [
+          [
+            1499040000000,      // Open time
+            "0.01634790",       // Open
+            "0.80000000",       // High
+            "0.01575800",       // Low
+            "0.01577100",       // Close
+            "148976.11427815",  // Volume
+            1499644799999,      // Close time
+            "2434.19055334",    // Quote asset volume
+            308,                // Number of trades
+            "1756.87402397",    // Taker buy base asset volume
+            "28.46694368",      // Taker buy quote asset volume
+            "17928899.62484339" // Ignore.
+          ]
+        ]
         """
         url = "https://api.binance.com/api/v3/klines"
         client = await cls.http_client()
@@ -55,19 +79,34 @@ class BuyDipExample(LiteStrategyBase):
 
     @property
     def connector(self) -> ExchangeBase:
+        """
+        The only connector in this strategy, define it here for easy access
+        """
         return self.connectors[self.connector_name]
 
     async def on_tick(self):
+        """
+        Runs every tick_size seconds, this is the main operation of the strategy.
+        - Create proposal (a list of order candidates)
+        - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
+        - Lastly, execute the proposal on the exchange
+        """
         proposal: List[OrderCandidate] = await self.create_proposal()
-        proposal = self.connector.budget_checker.adjust_candidates(proposal)
+        proposal = self.connector.budget_checker.adjust_candidates(proposal, all_or_none=False)
         if proposal:
             self.execute_proposal(proposal)
 
     async def create_proposal(self) -> List[OrderCandidate]:
+        """
+        Creates and returns a proposal (a list of order candidate), in this strategy the list has 1 element at most.
+        """
         daily_closes = await self.get_daily_close_list(self.trading_pair)
-        avg_close = mean(daily_closes[-51:-2])
+        start_index = (-1 * self.moving_avg_period) - 1
+        # Calculate the average of the 50 element prior to the last element
+        avg_close = mean(daily_closes[start_index:-1])
         proposal = []
-        if daily_closes[-1] < avg_close * Decimal("0.99"):
+        # If the current price (the last close) is below the dip, add a new order candidate to the proposal
+        if daily_closes[-1] < avg_close * (Decimal("1") - self.dip_percentage):
             order_price = self.connector.get_price(self.trading_pair, False)
             usd_conversion_rate = await RateOracle.rate_async(self.conversion_pair)
             amount = (self.buy_usd_amount / usd_conversion_rate) / order_price
@@ -76,6 +115,9 @@ class BuyDipExample(LiteStrategyBase):
         return proposal
 
     def execute_proposal(self, proposal: List[OrderCandidate]):
+        """
+        Places the order candidates on the exchange, if it is not within cool off period and order candidate is valid.
+        """
         if self.last_ordered_ts > time.time() - self.cool_off_interval:
             return
         for order_candidate in proposal:
@@ -86,7 +128,8 @@ class BuyDipExample(LiteStrategyBase):
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
-        Check if order has been completed, log it, notify the hummingbot application.
+        Listens to fill order event to log it and notify the hummingbot application.
+        If you set up Telegram bot, you will get notification there as well.
         """
         msg = f"({event.trading_pair}) {event.trade_type.name} order (price: {event.price}) of {event.amount} " \
               f"{event.trading_pair.split('-')[0]} is filled."

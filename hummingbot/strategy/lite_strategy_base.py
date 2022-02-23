@@ -26,6 +26,7 @@ class LiteStrategyBase(StrategyPyBase):
 
     # This class member defines connectors and their trading pairs needed for the strategy operation,
     markets: Dict[str, Set[str]]
+    tick_size: float = 1.
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -42,7 +43,6 @@ class LiteStrategyBase(StrategyPyBase):
         super().__init__()
         self.connectors: Dict[str, ConnectorBase] = connectors
         self.ready_to_trade: bool = False
-        self.tick_size: float = 1.
         self.add_markets(list(connectors.values()))
 
     def tick(self, timestamp: float):
