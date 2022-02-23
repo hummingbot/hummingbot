@@ -1,11 +1,13 @@
 import asyncio
+from async_timeout import timeout
+import contextlib
 import json
 import re
 import time
 from decimal import Decimal
 from typing import Awaitable, NamedTuple, Optional
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, PropertyMock
 
 from aioresponses import aioresponses
 from bidict import bidict
@@ -31,6 +33,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexExchangeTests(TestCase):
@@ -44,15 +47,17 @@ class CoinflexExchangeTests(TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.exchange_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
-        cls.symbol = f"{cls.base_asset}{cls.quote_asset}"
+        cls.exchange_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.symbol = f"{cls.base_asset}-{cls.quote_asset}"
         cls.domain = "live"
+        cls.stack: contextlib.ExitStack = contextlib.ExitStack()
 
     def setUp(self) -> None:
         super().setUp()
 
         self.log_records = []
         self.test_task: Optional[asyncio.Task] = None
+        self.mocking_assistant = NetworkMockingAssistant()
 
         self.exchange = CoinflexExchange(
             coinflex_api_key="testAPIKey",
@@ -73,8 +78,12 @@ class CoinflexExchangeTests(TestCase):
 
         CoinflexAPIOrderBookDataSource._trading_pair_symbol_map = {
             "live": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
+                {f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
         }
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.stack.close()
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
@@ -199,7 +208,7 @@ class CoinflexExchangeTests(TestCase):
         }
 
     def _get_mock_user_stream_order_data(self,
-                                         order,
+                                         order=None,
                                          trade_id=-1,
                                          client_order_id=None,
                                          status="OPEN",
@@ -214,7 +223,7 @@ class CoinflexExchangeTests(TestCase):
 
         order_data = {
             "clientOrderId": client_order_id or order.client_order_id,
-            "orderId": int(order.exchange_order_id),
+            "orderId": int(order.exchange_order_id if order else 1),
             "timestamp": 1499405658658,
             "status": status,
             "side": side,
@@ -291,13 +300,86 @@ class CoinflexExchangeTests(TestCase):
             "data": balances
         }
 
+    def _get_snapshot_response(self, update_id=1027024):
+        resp = {
+            "event": "depthL1000",
+            "timestamp": update_id,
+            "data": [{
+                "bids": [
+                    [
+                        "4.00000000",
+                        "431.00000000"
+                    ]
+                ],
+                "asks": [
+                    [
+                        "4.00000200",
+                        "12.00000000"
+                    ]
+                ],
+                "marketCode": self.exchange_trading_pair,
+                "timestamp": update_id,
+            }]
+        }
+        return resp
+
+    def _get_mock_login_message(self):
+        resp = {
+            "tag": "1234567890",
+            "event": "login",
+            "success": True,
+            "timestamp": "1234567890"
+        }
+        return resp
+
+    def _get_mock_ticker_data(self):
+        return [{
+            "last": "100.0",
+            "open24h": "38719",
+            "high24h": "38840",
+            "low24h": "36377",
+            "volume24h": "3622970.9407847790",
+            "currencyVolume24h": "96.986",
+            "openInterest": "0",
+            "marketCode": "COINALPHA-HBOT",
+            "timestamp": "1645546950025",
+            "lastQty": "0.086",
+            "markPrice": "37645",
+            "lastMarkPrice": "37628",
+        }]
+
+    async def _wait_til_ready(self, clock: Clock):
+        async with timeout(20):
+            while True:
+                now = time.time()
+                next_iteration = now // 1.0 + 1
+                if self.exchange.ready:
+                    break
+                else:
+                    await clock.run_til(next_iteration)
+                await asyncio.sleep(1.0)
+
+    async def _wait_til_stopped(self, clock: Clock):
+        async with timeout(20):
+            while True:
+                now = time.time()
+                next_iteration = now // 1.0 + 1
+                if not self.exchange.ready:
+                    break
+                else:
+                    await clock.run_til(next_iteration)
+                await asyncio.sleep(1.0)
+
     def _start_exchange_iterator(self):
         clock = Clock(
             ClockMode.BACKTEST,
             start_time=self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL,
             end_time=self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL * 2,
         )
+        clock.add_iterator(self.exchange)
+        clock = self.stack.enter_context(clock)
         TimeIterator.start(self.exchange, clock)
+        return clock
 
     def test_supported_order_types(self):
         supported_types = self.exchange.supported_order_types()
@@ -334,13 +416,60 @@ class CoinflexExchangeTests(TestCase):
 
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
 
-    @aioresponses()
-    def test_connector_not_ready(self, mock_api):
+    def test_connector_not_ready(self):
         self.assertEqual(False, self.exchange.ready)
         self.assertEqual(False, self.exchange.status_dict['order_books_initialized'])
 
-    def test_connector_start_iterator(self):
-        self._start_exchange_iterator()
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_api_user_stream_data_source.CoinflexAPIUserStreamDataSource.listen_for_user_stream")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_api_user_stream_data_source.CoinflexAPIUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_connector_start_iterator(self, mock_api, ws_connect_mock, last_recv_mock, user_stream_mock):
+        mock_repetitions = 20
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        # User stream
+        user_stream_mock.return_value = True
+        last_recv_mock.return_value = int(1)
+
+        # Network check events
+        check_url = self._get_regex_url(CONSTANTS.PING_PATH_URL, public=True)
+        for x in range(mock_repetitions):
+            mock_api.get(check_url, body=json.dumps({"success": "true"}))
+
+        # Balance check events
+        bal_url = self._get_regex_url(CONSTANTS.ACCOUNTS_PATH_URL)
+        for x in range(mock_repetitions):
+            mock_api.get(bal_url, body=json.dumps(self._get_mock_balance_data(with_second=True)))
+
+        # Snapshots
+        snap_url = self._get_regex_url(CONSTANTS.SNAPSHOT_PATH_URL.format(self.trading_pair, 1000))
+        for x in range(mock_repetitions):
+            mock_api.get(snap_url, body=json.dumps(self._get_snapshot_response()))
+
+        # Pub WS
+        for x in range(mock_repetitions):
+            self.mocking_assistant.add_websocket_aiohttp_message(
+                websocket_mock=ws_connect_mock.return_value,
+                message=json.dumps(self._get_mock_login_message()))
+
+        # Mock Trading rules
+        rule_url = self._get_regex_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        for x in range(mock_repetitions):
+            mock_api.get(rule_url, body=json.dumps(self._get_mock_trading_rule_data()))
+
+        # Mock Ticker
+        ticker_url = self._get_regex_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        mock_api.get(ticker_url, body=json.dumps(self._get_mock_ticker_data()))
+
+        # Start connector
+        clock = self._start_exchange_iterator()
+        self.async_run_with_timeout(self._wait_til_ready(clock), timeout=10)
+        self.assertTrue(self.exchange.ready)
+        self.async_run_with_timeout(asyncio.sleep(1), timeout=10)
+        TimeIterator.stop(self.exchange, clock)
+        self.async_run_with_timeout(self._wait_til_stopped(clock), timeout=10)
+        self.assertFalse(self.exchange.ready)
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.coinflex.coinflex_exchange.CoinflexExchange.current_timestamp")

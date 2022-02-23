@@ -75,7 +75,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             await ws.send(subscribe_request)
 
-            self.logger().info("Subscribed to private channels...")
+            self.logger().info("Subscribing to private channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -105,6 +105,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     event_type = data.get("event")
                     if event_type == "subscribe" and data.get("channel"):
                         self._subscribed_channels.append(data.get("channel"))
+                        self.logger().info(f"Subscribed to private channel - {data.get('channel')}...")
                     elif len(data) > 0:
                         output.put_nowait(data)
             except asyncio.CancelledError:
