@@ -894,6 +894,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+
+        await self._binance_time_synchronizer.update_server_time_if_not_initialized(
+            time_provider=self._get_current_server_time())
+
         account_info = await self.__api_request(path=CONSTANTS.ACCOUNT_INFO_URL,
                                                 is_auth_required=True,
                                                 add_timestamp=True,
