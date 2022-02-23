@@ -77,6 +77,17 @@ describe('GET /network/tokens', () => {
       .expect('Content-Type', /json/)
       .expect(200);
   });
+  it('should return 200 when retrieving specific tokens', async () => {
+    request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'ethereum',
+        network: 'kovan',
+        tokenSymbols: ['COIN3', 'COIN1'],
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
   it('should return 500 when retrieving tokens for invalid chain', async () => {
     request(gatewayApp)
       .get(`/network/tokens`)
@@ -84,7 +95,6 @@ describe('GET /network/tokens', () => {
         chain: 'unknown',
         network: 'kovan',
       })
-      .expect('Content-Type', /json/)
       .expect(500);
   });
 });
