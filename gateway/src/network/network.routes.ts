@@ -26,7 +26,7 @@ export namespace NetworkRoutes {
     '/status',
     async (
       req: Request<{}, {}, {}, StatusRequest>,
-      res: Response<StatusResponse, {}>
+      res: Response<StatusResponse | StatusResponse[], {}>
     ) => {
       try {
         res.status(200).json(await getStatus(req.query));
