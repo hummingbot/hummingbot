@@ -19,7 +19,12 @@ s_decimal_nan = Decimal("NaN")
 
 
 class LiteStrategyBase(StrategyPyBase):
+    """
+    This new strategy base class that simplifies strategy creation and implements basic functionality which every
+    stragegy needs.
+    """
 
+    # This class member defines connectors and their trading pairs needed for the strategy operation,
     markets: Dict[str, Set[str]]
 
     @classmethod
@@ -30,6 +35,10 @@ class LiteStrategyBase(StrategyPyBase):
         return lsb_logger
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
+        """
+        Initialising a new lite strategy object.
+        :param connectors: A dictionary of connector names and their corresponding connector.
+        """
         super().__init__()
         self.connectors: Dict[str, ConnectorBase] = connectors
         self.ready_to_trade: bool = False
@@ -39,10 +48,10 @@ class LiteStrategyBase(StrategyPyBase):
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
+        Checks if all connectors are ready, if so the strategy is ready to trade.
         :param timestamp: current tick timestamp
         """
         if not self.ready_to_trade:
-            # Check if there are restored orders, they should be canceled before strategy starts.
             self.ready_to_trade = all(ex.ready for ex in self.connectors.values())
             if not self.ready_to_trade:
                 for con in [c for c in self.connectors.values() if not c.ready]:
@@ -52,6 +61,9 @@ class LiteStrategyBase(StrategyPyBase):
                 self.logger().info("All connector(s) are ready. Trading started.")
 
     async def run(self):
+        """
+        Runs the strategy on perpetuality (til stop is called).
+        """
         while True:
             start_time = perf_counter()
             if self.ready_to_trade:
@@ -60,6 +72,10 @@ class LiteStrategyBase(StrategyPyBase):
             await asyncio.sleep(self.tick_size - (end_time - start_time))
 
     async def on_tick(self):
+        """
+        An event which is called on every tick, a sub class implements this to define what operation the strategy needs
+        to operate on a regular tick basis.
+        """
         pass
 
     def start(self, clock: Clock, timestamp: float):
@@ -75,6 +91,15 @@ class LiteStrategyBase(StrategyPyBase):
             order_type: OrderType,
             price=s_decimal_nan,
             position_action=PositionAction.OPEN):
+        """
+        A wrapper function to buy_with_specific_market.
+        :param connector_name: The name of the connector
+        :param trading_pair: The market trading pair
+        :param amount: An order amount in base token value
+        :param order_type: The type of the order
+        :param price: An order price
+        :param position_action: A position action (for perpetual market only)
+        """
         market_pair = self.get_market_trading_pair_tuple(connector_name, trading_pair)
         self.logger().info(f"Creating {trading_pair} buy order: price: {price} amount: {amount}.")
         self.buy_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
@@ -83,24 +108,38 @@ class LiteStrategyBase(StrategyPyBase):
              connector_name: str,
              trading_pair: str,
              amount: Decimal,
-             order_type,
+             order_type: OrderType,
              price=s_decimal_nan,
              position_action=PositionAction.OPEN):
+        """
+        A wrapper function to sell_with_specific_market.
+        :param connector_name: The name of the connector
+        :param trading_pair: The market trading pair
+        :param amount: An order amount in base token value
+        :param order_type: The type of the order
+        :param price: An order price
+        :param position_action: A position action (for perpetual market only)
+        """
         market_pair = self.get_market_trading_pair_tuple(connector_name, trading_pair)
         self.logger().info(f"Creating {trading_pair} sell order: price: {price} amount: {amount}.")
         self.sell_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
 
-    def get_active_orders(self, connector_name: str = None) -> List[LimitOrder]:
+    def get_active_orders(self, connector_name: str) -> List[LimitOrder]:
+        """
+        Returns a list of active orders for a connector.
+        :param connector_name: The name of the connector.
+        :return: A list of active orders
+        """
         orders = self.order_tracker.active_limit_orders
-        if not connector_name:
-            if len(self.connectors.values()) > 1:
-                raise Exception("There are more than one connector, please specify connector parameter.")
-            connector = self.connectors.values()[0]
-        else:
-            connector = self.connectors[connector_name]
+        connector = self.connectors[connector_name]
         return [o[1] for o in orders if o[0] == connector]
 
     def get_assets(self, connector_name: str) -> List[str]:
+        """
+        Returns a unique list of unique of token names sorted alphabetically
+        :param connector_name: The name of the connector
+        :return: A list of token names
+        """
         result: List = []
         for trading_pair in self.markets[connector_name]:
             for asset in trading_pair.split("-"):
@@ -111,10 +150,20 @@ class LiteStrategyBase(StrategyPyBase):
     def get_market_trading_pair_tuple(self,
                                       connector_name: str,
                                       trading_pair: str) -> MarketTradingPairTuple:
+        """
+        Creates and returns a new MarketTradingPairTuple.
+        :param connector_name: The name of the connector
+        :param trading_pair: The trading pair
+        :return: A new MarketTradingPairTuple object.
+        """
         base, quote = trading_pair.split("-")
         return MarketTradingPairTuple(self.connectors[connector_name], trading_pair, base, quote)
 
     def get_market_trading_pair_tuples(self) -> List[MarketTradingPairTuple]:
+        """
+        Returns a list of MarketTradingPairTuple for all connectors and trading pairs combination.
+        """
+
         result: List[MarketTradingPairTuple] = []
         for name, connector in self.connectors.items():
             for trading_pair in self.markets[name]:
@@ -122,6 +171,9 @@ class LiteStrategyBase(StrategyPyBase):
         return result
 
     def get_balance_df(self) -> pd.DataFrame:
+        """
+        Returns a data frame for all asset balances for displaying purpose.
+        """
         columns: List[str] = ["Exchange", "Asset", "Total Balance", "Available Balance"]
         data: List[Any] = []
         for connector_name, connector in self.connectors.items():
@@ -134,9 +186,9 @@ class LiteStrategyBase(StrategyPyBase):
         df.sort_values(by=["Exchange", "Asset"], inplace=True)
         return df
 
-    async def active_orders_df(self) -> pd.DataFrame:
+    def active_orders_df(self) -> pd.DataFrame:
         """
-        Return the active orders in a DataFrame.
+        Return a data frame of all active orders for displaying purpose.
         """
         columns = ["Exchange", "Market", "Side", "Price", "Amount", "Age"]
         data = []
@@ -157,9 +209,10 @@ class LiteStrategyBase(StrategyPyBase):
         df.sort_values(by=["Exchange", "Market", "Side"], inplace=True)
         return df
 
-    async def format_status(self) -> str:
+    def format_status(self) -> str:
         """
-        Return the budget, market, miner and order statuses.
+        Returns status of the current strategy on user balances and current active orders. This function is called
+        when status command is issued. Override this function to create custom status display output.
         """
         if not self.ready_to_trade:
             return "Market connectors are not ready."
@@ -171,7 +224,7 @@ class LiteStrategyBase(StrategyPyBase):
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
 
         try:
-            df = await self.active_orders_df()
+            df = self.active_orders_df()
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
