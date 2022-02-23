@@ -405,7 +405,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     ):
         if isinstance(v, (InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel, Dict)):
             sub_model = v
-        elif not isinstance(v, Dict) and v not in EXECUTION_TIMEFRAME_MODELS:
+        elif v not in EXECUTION_TIMEFRAME_MODELS:
             raise ValueError(
                 f"Invalid timeframe, please choose value from {list(EXECUTION_TIMEFRAME_MODELS.keys())}"
             )
@@ -433,7 +433,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     def validate_order_levels_mode(cls, v: Union[str, SingleOrderLevelModel, MultiOrderLevelModel]):
         if isinstance(v, (SingleOrderLevelModel, MultiOrderLevelModel, Dict)):
             sub_model = v
-        elif not isinstance(v, Dict) and v not in ORDER_LEVEL_MODELS:
+        elif v not in ORDER_LEVEL_MODELS:
             raise ValueError(
                 f"Invalid order levels mode, please choose value from"
                 f" {[e.value for e in list(ORDER_LEVEL_MODELS.keys())]}."
@@ -446,7 +446,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     def validate_hanging_orders_mode(cls, v: Union[str, TrackHangingOrdersModel, IgnoreHangingOrdersModel]):
         if isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel, Dict)):
             sub_model = v
-        elif not isinstance(v, Dict) and v not in HANGING_ORDER_MODELS:
+        elif v not in HANGING_ORDER_MODELS:
             raise ValueError(
                 f"Invalid hanging order mode, please choose value from"
                 f" {[e.value for e in list(HANGING_ORDER_MODELS.keys())]}."
