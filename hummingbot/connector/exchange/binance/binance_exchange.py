@@ -959,6 +959,9 @@ class BinanceExchange(ExchangeBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
+        await self._binance_time_synchronizer.update_server_time_if_not_initialized(
+            time_provider=self._get_current_server_time())
+
         try:
             account_info = await self._api_request(
                 method=RESTMethod.GET,

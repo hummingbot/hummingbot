@@ -546,6 +546,14 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
+        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"serverTime": 1640000003000}
+
+        mock_api.get(regex_url,
+                     body=json.dumps(response))
+
         url = binance_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -622,6 +630,14 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_balances_logs_errors(self, mock_api):
+        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"serverTime": 1640000003000}
+
+        mock_api.get(regex_url,
+                     body=json.dumps(response))
+
         url = binance_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
