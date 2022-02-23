@@ -39,6 +39,10 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     return Avalanche._instances[network];
   }
 
+  public static getConnectedInstances(): { [name: string]: Avalanche } {
+    return Avalanche._instances;
+  }
+
   // getters
 
   public get gasPrice(): number {
