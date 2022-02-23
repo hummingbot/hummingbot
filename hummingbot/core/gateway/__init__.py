@@ -9,7 +9,6 @@ import ssl
 import json
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.logger import HummingbotLogger
 import logging
 
@@ -18,7 +17,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220221.3"
+GATEWAY_DOCKER_TAG: str = "20220223.3"
 
 
 def is_inside_docker() -> bool:
@@ -185,8 +184,9 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
+            cert_path = get_gateway_paths().local_certs_path.as_posix()
+            ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
@@ -218,7 +218,6 @@ class GatewayHttpClient:
                     response = await client.get(url)
             elif method == "post":
                 response = await client.post(url, json=params)
-            parsed_response = json.loads(await response.text())
             if response.status != 200:
                 if "error" in parsed_response:
                     err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
@@ -228,6 +227,7 @@ class GatewayHttpClient:
                         err_msg,
                         exc_info=True
                     )
+            parsed_response = json.loads(await response.text())
         except Exception as e:
             if not fail_silently:
                 raise e
