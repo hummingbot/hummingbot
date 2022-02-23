@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import asyncio
+import docker
 import itertools
 import json
 import pandas as pd
-import subprocess
+
+
 from os import path
 from typing import (
     Dict,
@@ -11,7 +13,7 @@ from typing import (
     TYPE_CHECKING,
     List,
 )
-from hummingbot import root_path
+
 from hummingbot.core.gateway import (
     docker_ipc,
     docker_ipc_with_generator,
@@ -195,30 +197,26 @@ class GatewayCommand:
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
-    async def _generate_gateway_confs(self, conf_path: str):
-
-        GENERATE_CONF_SCRIPT = path.join(root_path(), "gateway/setup/generate_conf.sh")
-
-        eth_conf_path = f"{conf_path}/ethereum.yml"
-
-        # Generates all the necessary gateway conf
-        subprocess.check_call([GENERATE_CONF_SCRIPT, conf_path],
-                              stdout=subprocess.DEVNULL)
-        self.notify(f"Gateway Configuration files are create in {conf_path}.")
-
+    async def _generate_gateway_confs(self, container_id: str, conf_path: str = "/usr/src/app/conf"):
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
 
-        node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, if you do not have one, make an account at infura.io):  >>> ")
-
-        ethereum_conf = await load_yml_into_dict(yml_path=eth_conf_path)
-        ethereum_conf["nodeAPIKey"] = node_api_key
-        await save_yml_from_dict(yml_path=eth_conf_path, conf_dict=ethereum_conf)
+        node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
+                                                         "if you do not have one, make an account at infura.io):  >>> ")
 
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
+
+        exec_info = await docker_ipc(method_name="exec_create",
+                                     container=container_id,
+                                     cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
+                                     user="hummingbot")
+
+        await docker_ipc(method_name="exec_start",
+                         exec_id=exec_info["Id"],
+                         detach=True)
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()
@@ -245,7 +243,6 @@ class GatewayCommand:
             pass  # silently ignore exception
 
         await self._generate_certs(from_client_password=True)  # create cert
-        await self._generate_gateway_confs(conf_path=gateway_conf_mount_path)  # create Gateway configs
 
         if await self.check_gateway_image(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG):
             self.notify("Found Gateway docker image. No image pull needed.")
@@ -296,6 +293,18 @@ class GatewayCommand:
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
 
         await self._start_gateway()
+
+        # create Gateway configs
+        await self._generate_gateway_confs(container_id=container_info["Id"])
+
+        # Restarts the Gateway container to ensure that Gateway server reloads new configs
+        try:
+            await docker_ipc(method_name="restart",
+                             container=container_info["Id"])
+        except docker.errors.APIError as e:
+            self.notify(f"Error restarting Gateway container. Error: {e}")
+
+        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
@@ -475,7 +484,7 @@ class GatewayCommand:
             self.app.input_field.completer = load_completer(self)
 
     async def _fetch_gateway_configs(self):
-        return await gateway_http_client.api_request("get", "config", {})
+        return await gateway_http_client.api_request("get", "network/config", {})
 
     async def fetch_gateway_config_key_list(self):
         config = await self._fetch_gateway_configs()

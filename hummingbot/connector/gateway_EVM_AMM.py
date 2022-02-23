@@ -85,6 +85,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
+        self._get_chain_info_task = None
         self._auto_approve_task = None
         self._poll_notifier = None
         self._nonce = None
