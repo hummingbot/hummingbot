@@ -68,7 +68,7 @@ describe('GET /network/config', () => {
 
 describe('GET /network/tokens', () => {
   it('should return 200 when retrieving tokens', async () => {
-    request(gatewayApp)
+    await request(gatewayApp)
       .get(`/network/tokens`)
       .query({
         chain: 'ethereum',
@@ -78,7 +78,7 @@ describe('GET /network/tokens', () => {
       .expect(200);
   });
   it('should return 200 when retrieving specific tokens', async () => {
-    request(gatewayApp)
+    await request(gatewayApp)
       .get(`/network/tokens`)
       .query({
         chain: 'ethereum',
@@ -89,7 +89,7 @@ describe('GET /network/tokens', () => {
       .expect(200);
   });
   it('should return 500 when retrieving tokens for invalid chain', async () => {
-    request(gatewayApp)
+    await request(gatewayApp)
       .get(`/network/tokens`)
       .query({
         chain: 'unknown',
