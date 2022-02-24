@@ -1,19 +1,23 @@
 <template>
-  <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders q-mt-md full-width">
-    <div class="text-white text-h4 q-mb-lg">
-      {{ displaySaveForm ? titleDisplayMap[strategyName] : 'Settings' }}
-    </div>
-    <q-form>
+  <q-form @submit="handleSubmit">
+    <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders q-mt-md full-width">
+      <div class="text-white text-h4 q-mb-lg">
+        {{ displaySaveForm ? titleDisplayMap[strategyName] : 'Settings' }}
+      </div>
       <component :is="componentsMap[strategyName]" v-if="!displaySaveForm" />
       <SaveForm v-if="displaySaveForm" :strategy-name="strategyName" />
-    </q-form>
-  </div>
+    </div>
+    <Pager v-model="currentStep" />
+  </q-form>
 </template>
 
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { computed, defineComponent, PropType } from 'vue';
+import { computed, defineComponent } from 'vue';
+import { useRoute } from 'vue-router';
 
+import Pager from '../components/Pager/Index.vue';
+import { useForm } from '../composables/useForm';
 import { useSteps } from '../composables/useSteps';
 import PureMMForm from './PureMMForm.vue';
 import SaveForm from './SaveForm.vue';
@@ -27,20 +31,28 @@ const titleDisplayMap = {
 };
 
 export default defineComponent({
-  components: { PureMMForm, SaveForm },
-  props: {
-    strategyName: {
-      type: String as PropType<StrategyName>,
-      required: true,
-      default: () => StrategyName.PureMarketMaking,
-    },
-  },
+  components: { PureMMForm, SaveForm, Pager },
 
   setup() {
-    const step = useSteps();
-    const displaySaveForm = computed(() => step.current.value === step.count);
+    const steps = useSteps();
+    const route = useRoute();
+    const strategyName = computed(() => route.params.strategyName as StrategyName);
+    const { values } = useForm(strategyName.value);
+    const displaySaveForm = computed(() => steps.current.value === steps.count);
 
-    return { componentsMap, displaySaveForm, titleDisplayMap };
+    const handleSubmit = () => {
+      // eslint-disable-next-line no-console
+      console.log(values.value);
+    };
+
+    return {
+      componentsMap,
+      displaySaveForm,
+      titleDisplayMap,
+      handleSubmit,
+      currentStep: steps.current,
+      strategyName,
+    };
   },
 });
 </script>

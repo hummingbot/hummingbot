@@ -6,7 +6,7 @@
       class="bg-mono-grey-2 text-uppercase text-white q-py-sm"
       flat
       :to="modelValue === 2 ? { name: 'strategies' } : ''"
-      @click="$emit('update:modelValue', modelValue === 0 ? modelValue : modelValue - 1)"
+      @click="$emit('update:modelValue', modelValue === 2 ? modelValue : modelValue - 1)"
     >
       back
     </q-btn>
@@ -25,18 +25,20 @@
       />
     </div>
     <q-btn
+      v-if="modelValue < stepCount"
       class="bg-main-green-1 text-uppercase text-white q-py-sm"
       flat
-      @click="
-        () => {
-          $emit('update:modelValue', modelValue >= stepCount ? modelValue : modelValue + 1);
-          if (modelValue === stepCount) {
-            handleSubmit();
-          }
-        }
-      "
+      @click="$emit('update:modelValue', modelValue >= stepCount ? modelValue : modelValue + 1)"
     >
-      {{ modelValue === stepCount ? 'save' : 'next' }}
+      next
+    </q-btn>
+    <q-btn
+      v-if="modelValue === stepCount"
+      class="bg-main-green-1 text-uppercase text-white q-py-sm"
+      flat
+      type="submit"
+    >
+      save
     </q-btn>
   </div>
 </template>
@@ -53,8 +55,8 @@ export default defineComponent({
   },
   emits: ['update:modelValue'],
   setup() {
-    const step = useSteps();
-    return { stepCount: step.count };
+    const steps = useSteps();
+    return { stepCount: steps.count };
   },
 });
 </script>

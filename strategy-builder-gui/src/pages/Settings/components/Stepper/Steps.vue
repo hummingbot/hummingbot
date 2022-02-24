@@ -1,6 +1,6 @@
 <template>
   <div class="row q-col-gutter-sm">
-    <div v-for="(step, index) in steps" :key="index" class="col-12 col-md">
+    <div v-for="(step, index) in stepsData" :key="index" class="col-12 col-md">
       <Step
         :title="step.title"
         :description="step.description"
@@ -30,8 +30,8 @@ interface StepType {
 export default defineComponent({
   components: { Step },
   setup() {
-    const step = useSteps();
-    const steps: StepType[] = [
+    const steps = useSteps();
+    const stepsData: StepType[] = [
       {
         title: '1. Choose strategy',
         description: 'Pure market making',
@@ -46,7 +46,7 @@ export default defineComponent({
       },
     ];
 
-    return { steps, StepStatus, currentStep: step.current };
+    return { stepsData, StepStatus, currentStep: steps.current };
   },
 });
 </script>
