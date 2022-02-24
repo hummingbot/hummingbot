@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import (
     Any,
     Dict,
-    Optional, List,
+    List,
+    Optional,
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
@@ -21,6 +22,7 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  leverage: int,
                  position: str,
                  initial_state: str = "Created"):
@@ -32,6 +34,7 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.fee_asset = self.quote_asset if self.quote_asset == "USDT" else self.base_asset
@@ -77,14 +80,6 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
         arguments.insert(-1, int(data["leverage"]))
         arguments.insert(-1, data["position"])
         return arguments
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json(data)
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """
