@@ -997,6 +997,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
@@ -1007,6 +1008,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
@@ -1019,6 +1021,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="Filled")
@@ -1041,6 +1044,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
 
@@ -1114,6 +1118,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
@@ -1124,6 +1129,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.MARKET,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
@@ -1143,6 +1149,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
@@ -1153,6 +1160,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.MARKET,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
@@ -1162,11 +1170,13 @@ class BybitPerpetualDerivativeTests(TestCase):
         expected_first_order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
                                      'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
                                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
-                                     'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN'}
+                                     'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN',
+                                     'creation_timestamp': 1640001112.0}
         expected_second_order_json = {'client_order_id': 'O2', 'exchange_order_id': 'EO2', 'trading_pair': 'BTC-USDT',
                                       'order_type': 'MARKET', 'trade_type': 'SELL', 'price': '44000', 'amount': '1',
                                       'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
-                                      'fee_paid': '0', 'last_state': 'New', 'leverage': '10', 'position': 'OPEN'}
+                                      'fee_paid': '0', 'last_state': 'New', 'leverage': '10', 'position': 'OPEN',
+                                      'creation_timestamp': 1640001112.0}
         self.assertEqual(2, len(tracking_states))
         self.assertEqual(expected_first_order_json, tracking_states["O1"])
         self.assertEqual(expected_second_order_json, tracking_states["O2"])
@@ -1180,12 +1190,14 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
                       'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
                       'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
-                      'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN'}
+                      'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN',
+                      'creation_timestamp': 1640001112.0}
 
         self.connector.restore_tracking_states({order.client_order_id: order_json})
 
@@ -1375,6 +1387,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
@@ -1446,6 +1459,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
@@ -1492,6 +1506,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
@@ -1517,6 +1532,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="Created")
@@ -1563,6 +1579,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="Created")
@@ -1616,6 +1633,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="Created")
@@ -1716,6 +1734,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O1"] = order
@@ -1823,6 +1842,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O1"] = order
@@ -1898,6 +1918,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            creation_timestamp=1640001112.0,
             leverage=10,
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O1"] = order

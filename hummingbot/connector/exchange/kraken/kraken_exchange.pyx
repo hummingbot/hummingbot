@@ -13,14 +13,16 @@ from typing import (
 )
 
 from async_timeout import timeout
-from libc.stdint cimport int64_t, int32_t
+from libc.stdint cimport int32_t, int64_t
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
-from hummingbot.connector.exchange.kraken.kraken_in_flight_order import \
-    KrakenInFlightOrder, KrakenInFlightOrderNotCreated
+from hummingbot.connector.exchange.kraken.kraken_in_flight_order import (
+    KrakenInFlightOrder,
+    KrakenInFlightOrderNotCreated,
+)
 from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
 from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
 from hummingbot.connector.exchange.kraken.kraken_utils import (
@@ -864,7 +866,8 @@ cdef class KrakenExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp
                                  ))
 
         except asyncio.CancelledError:
@@ -946,7 +949,8 @@ cdef class KrakenExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp,
                                  ))
         except asyncio.CancelledError:
             raise
@@ -1077,6 +1081,7 @@ cdef class KrakenExchange(ExchangeBase):
             price=price,
             amount=amount,
             order_type=order_type,
+            creation_timestamp=self.current_timestamp,
             userref=userref
         )
 

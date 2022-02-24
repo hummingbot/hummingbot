@@ -24,6 +24,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import calculate_total_order_size
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.utils import order_age
 from .aroon_oscillator_indicator cimport AroonOscillatorIndicator, OscillatorPeriod
 from .aroon_oscillator_indicator import AroonOscillatorIndicator, OscillatorPeriod
 from .aroon_oscillator_order_tracker import AroonOscillatorOrderTracker
@@ -595,7 +596,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                age = pd.Timestamp(int(time.time() - order.creation_timestamp/1e6),
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
@@ -1212,8 +1213,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             list sells = []
 
         for order in active_orders:
-            age = 0 if "//" in order.client_order_id else \
-                int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
+            age = order_age(order)
 
             # To prevent duplicating orders due to delay in receiving cancel response
             refresh_check = [o for o in active_orders if o.price == order.price

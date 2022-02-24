@@ -274,9 +274,18 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, hash, leverage=self._leverage[trading_pair],
-                                                          position=position_action.name))
+                self.trigger_event(event_tag,
+                                   event_class(
+                                       self.current_timestamp,
+                                       OrderType.LIMIT,
+                                       trading_pair,
+                                       amount,
+                                       price,
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       hash,
+                                       leverage=self._leverage[trading_pair],
+                                       position=position_action.name))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
@@ -314,6 +323,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
             trade_type=trade_type,
             price=price,
             amount=amount,
+            creation_timestamp=self.current_timestamp,
             leverage=leverage,
             position=position
         )

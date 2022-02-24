@@ -213,7 +213,7 @@ class BinanceExchangeTests(TestCase):
 
         self.assertIn("OID1", self.exchange.in_flight_orders)
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
@@ -256,7 +256,7 @@ class BinanceExchangeTests(TestCase):
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
         self.assertEquals(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), failure_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual("OID1", failure_event.order_id)
 
@@ -264,7 +264,7 @@ class BinanceExchangeTests(TestCase):
             self._is_logged(
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={int(self.exchange.current_timestamp * 1e3)}, new_state={repr(OrderState.FAILED)}, "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='OID1', exchange_order_id=None)"
             )
         )
@@ -303,7 +303,7 @@ class BinanceExchangeTests(TestCase):
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
         self.assertEquals(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), failure_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual("OID1", failure_event.order_id)
 
@@ -317,7 +317,7 @@ class BinanceExchangeTests(TestCase):
             self._is_logged(
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={int(self.exchange.current_timestamp * 1e3)}, new_state={repr(OrderState.FAILED)}, "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
                 "client_order_id='OID1', exchange_order_id=None)"
             )
         )
@@ -374,7 +374,7 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), cancel_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
 
         self.assertTrue(
@@ -485,7 +485,7 @@ class BinanceExchangeTests(TestCase):
 
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), cancel_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order1.client_order_id, cancel_event.order_id)
 
         self.assertTrue(
@@ -698,7 +698,7 @@ class BinanceExchangeTests(TestCase):
         self._validate_auth_credentials_for_request(trades_request[1][0])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), fill_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
         self.assertEqual(order.client_order_id, fill_event.order_id)
         self.assertEqual(order.trading_pair, fill_event.trading_pair)
         self.assertEqual(order.trade_type, fill_event.trade_type)
@@ -876,7 +876,7 @@ class BinanceExchangeTests(TestCase):
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), buy_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
@@ -946,7 +946,7 @@ class BinanceExchangeTests(TestCase):
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), cancel_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1008,7 +1008,7 @@ class BinanceExchangeTests(TestCase):
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), failure_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(order.client_order_id, failure_event.order_id)
         self.assertEqual(order.order_type, failure_event.order_type)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1016,7 +1016,7 @@ class BinanceExchangeTests(TestCase):
             self._is_logged(
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
-                f" update_timestamp={int(order_status['updateTime'])}, new_state={repr(OrderState.FAILED)}, "
+                f" update_timestamp={order_status['updateTime'] * 1e-3}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
         )
 
@@ -1046,7 +1046,7 @@ class BinanceExchangeTests(TestCase):
             self.async_run_with_timeout(self.exchange._update_order_status())
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), failure_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(order.client_order_id, failure_event.order_id)
         self.assertEqual(order.order_type, failure_event.order_type)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1216,7 +1216,7 @@ class BinanceExchangeTests(TestCase):
             pass
 
         event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, event.timestamp)
         self.assertEqual(order.order_type, event.type)
         self.assertEqual(order.trading_pair, event.trading_pair)
         self.assertEqual(order.amount, event.amount)
@@ -1291,7 +1291,7 @@ class BinanceExchangeTests(TestCase):
             pass
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), cancel_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1360,7 +1360,7 @@ class BinanceExchangeTests(TestCase):
             pass
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), fill_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
         self.assertEqual(order.client_order_id, fill_event.order_id)
         self.assertEqual(order.trading_pair, fill_event.trading_pair)
         self.assertEqual(order.trade_type, fill_event.trade_type)
@@ -1373,7 +1373,7 @@ class BinanceExchangeTests(TestCase):
             fill_event.trade_fee.flat_fees)
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), buy_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
@@ -1451,7 +1451,7 @@ class BinanceExchangeTests(TestCase):
             pass
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), failure_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(order.client_order_id, failure_event.order_id)
         self.assertEqual(order.order_type, failure_event.order_type)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1496,6 +1496,7 @@ class BinanceExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
         ))
         orders.append(InFlightOrder(
             client_order_id="OID2",
@@ -1505,6 +1506,7 @@ class BinanceExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
@@ -1515,6 +1517,7 @@ class BinanceExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FILLED
         ))
         orders.append(InFlightOrder(
@@ -1525,6 +1528,7 @@ class BinanceExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FAILED
         ))
 

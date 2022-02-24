@@ -1,7 +1,7 @@
 import logging
 import unittest
 from decimal import Decimal
-from math import floor, ceil
+from math import ceil, floor
 from typing import List
 
 import pandas as pd
@@ -143,7 +143,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.trading_pair,
                     limit_order.quantity,
                     limit_order.price,
-                    limit_order.client_order_id
+                    limit_order.client_order_id,
+                    limit_order.creation_timestamp * 1e-6
                 )
             )
             market.trigger_event(
@@ -184,7 +185,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.trading_pair,
                     limit_order.quantity,
                     limit_order.price,
-                    limit_order.client_order_id
+                    limit_order.client_order_id,
+                    limit_order.creation_timestamp * 1e-6,
                 )
             )
             market.trigger_event(
@@ -228,6 +230,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 order.quantity,
                 order.price,
                 order.client_order_id,
+                order.creation_timestamp * 1e-6
             )
         )
 
@@ -273,7 +276,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
-                bid_order.client_order_id
+                bid_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -285,7 +289,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
-                ask_order.client_order_id
+                ask_order.client_order_id,
+                ask_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -325,7 +330,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
-                bid_order.client_order_id
+                bid_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -337,7 +343,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
-                ask_order.client_order_id
+                ask_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -393,7 +400,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
-                bid_order.client_order_id
+                bid_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -405,7 +413,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
-                ask_order.client_order_id
+                ask_order.client_order_id,
+                ask_order.creation_timestamp * 1e-6,
             )
         )
 

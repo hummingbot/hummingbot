@@ -2,11 +2,19 @@ import asyncio
 import json
 import logging
 import time
+
+from async_timeout import timeout
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 import aiohttp
-from async_timeout import timeout
 from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange.blocktane.blocktane_auth import BlocktaneAuth
@@ -312,12 +320,13 @@ cdef class BlocktaneExchange(ExchangeBase):
             cls = BuyOrderCreatedEvent
             tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG
         self.c_trigger_event(tag, cls(
-                             self._current_timestamp,
-                             tracked_order.order_type,
-                             tracked_order.trading_pair,
-                             tracked_order.amount,
-                             tracked_order.price,
-                             tracked_order.client_order_id))
+            self._current_timestamp,
+            tracked_order.order_type,
+            tracked_order.trading_pair,
+            tracked_order.amount,
+            tracked_order.price,
+            tracked_order.client_order_id,
+            tracked_order.creation_timestamp))
         self.logger().info(f"Created {tracked_order.order_type} {tracked_order.trade_type} {tracked_order.client_order_id} for "
                            f"{tracked_order.amount} {tracked_order.trading_pair}.")
 
@@ -335,14 +344,17 @@ cdef class BlocktaneExchange(ExchangeBase):
                 tracked_orders = list(self._in_flight_orders.values())
                 for tracked_order in tracked_orders:
                     client_order_id = tracked_order.client_order_id
-                    if tracked_order.last_state == "NEW" and tracked_order.created_at >= (int(time.time()) - self.ORDER_NOT_EXIST_WAIT_TIME):
-                        continue  # Don't query for orders that are waiting for a response from the API unless they are older then ORDER_NOT_EXIST_WAIT_TIME
+                    if (tracked_order.last_state == "NEW"
+                            and tracked_order.creation_timestamp >= (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
+                        continue
+                        # Don't query for orders that are waiting for a response from the API unless they
+                        # are older then ORDER_NOT_EXIST_WAIT_TIME
                     try:
                         order = await self.get_order(client_order_id)
                     except BlocktaneAPIException as e:
                         if e.status_code == 404:
                             if (not e.malformed and e.body == 'record.not_found' and
-                                    tracked_order.created_at < (int(time.time()) - self.ORDER_NOT_EXIST_WAIT_TIME)):
+                                    tracked_order.creation_timestamp < (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
                                 # This was an indeterminate order that may or may not have been live on the exchange
                                 # The exchange has informed us that this never became live on the exchange
                                 self.c_trigger_event(
@@ -353,14 +365,16 @@ cdef class BlocktaneExchange(ExchangeBase):
                                 )
                                 self.logger().warning(
                                     f"Error fetching status update for the order {client_order_id}: "
-                                    f"{tracked_order}. Marking as failed current_timestamp={self._current_timestamp} created_at:{tracked_order.created_at}"
+                                    f"{tracked_order}. Marking as failed current_timestamp={self._current_timestamp} "
+                                    f"created_at:{tracked_order.creation_timestamp}"
                                 )
                                 self.c_stop_tracking_order(client_order_id)
                                 continue
                         else:
                             self.logger().warning(
                                 f"Error fetching status update for the order {client_order_id}:"
-                                f" HTTP status: {e.status_code} {'malformed: ' + str(e.malformed) if e.malformed else e.body}. Will try again."
+                                f" HTTP status: {e.status_code} "
+                                f"{'malformed: ' + str(e.malformed) if e.malformed else e.body}. Will try again."
                             )
                             continue
 
@@ -665,7 +679,7 @@ cdef class BlocktaneExchange(ExchangeBase):
             trade_type,
             price,
             amount,
-            int(time.time())
+            creation_timestamp=time.time()
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -918,16 +932,12 @@ cdef class BlocktaneExchange(ExchangeBase):
             cancel_result = await self._api_request("POST", path_url=path_url)
             self.logger().info(f"Requested cancel of order {order_id}")
 
-            # TODO: this cancel result looks like:
-            # {"id":4699083,"uuid":"2421ceb6-a8b7-445b-9ca9-0f7f1a05e285","side":"buy","ord_type":"limit","price":"0.02","avg_price":"0.0","state":"cancel","market":"ethbtc","created_at":"2020-09-09T18:53:56+02:00","updated_at":"2020-09-09T18:56:41+02:00","origin_volume":"1.0","remaining_volume":"1.0","executed_volume":"0.0","trades_count":0}
-            # and should be used as an order status update
-
             return order_id
         except asyncio.CancelledError:
             raise
         except Exception as err:
             if ("record.not_found" in str(err) and tracked_order is not None and
-                    tracked_order.created_at < (int(time.time()) - self.ORDER_NOT_EXIST_WAIT_TIME)):
+                    tracked_order.creation_timestamp < (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
                 # The order doesn't exist
                 self.logger().info(f"The order {order_id} does not exist on Blocktane. Marking as cancelled.")
                 self.c_stop_tracking_order(order_id)
