@@ -913,7 +913,8 @@ cdef class LiquidExchange(ExchangeBase):
                                                       trading_pair,
                                                       decimal_amount,
                                                       decimal_price,
-                                                      order_id))
+                                                      order_id,
+                                                      tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -977,7 +978,8 @@ cdef class LiquidExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -1187,7 +1189,8 @@ cdef class LiquidExchange(ExchangeBase):
             order_type,
             trade_type,
             price,
-            amount
+            amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

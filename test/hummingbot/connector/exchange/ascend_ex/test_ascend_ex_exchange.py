@@ -262,6 +262,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
         ))
         orders.append(InFlightOrder(
             client_order_id="OID2",
@@ -271,6 +272,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
@@ -281,6 +283,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FILLED
         ))
         orders.append(InFlightOrder(
@@ -291,6 +294,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FAILED
         ))
 
@@ -389,7 +393,7 @@ class TestAscendExExchange(unittest.TestCase):
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), fill_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
         self.assertEqual(order.client_order_id, fill_event.order_id)
         self.assertEqual(order.trading_pair, fill_event.trading_pair)
         self.assertEqual(order.trade_type, fill_event.trade_type)
@@ -401,7 +405,7 @@ class TestAscendExExchange(unittest.TestCase):
                          fill_event.trade_fee.flat_fees)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), fill_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
         self.assertEqual(order.client_order_id, fill_event.order_id)
         self.assertEqual(order.trading_pair, fill_event.trading_pair)
         self.assertEqual(order.trade_type, fill_event.trade_type)
@@ -413,7 +417,7 @@ class TestAscendExExchange(unittest.TestCase):
                          fill_event.trade_fee.flat_fees)
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(int(self.exchange.current_timestamp * 1e3), buy_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)

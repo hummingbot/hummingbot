@@ -74,8 +74,15 @@ class MockAMM(ConnectorBase):
         order_id = f"{side}-{trading_pair}-{get_tracking_nonce()}"
         event_tag = MarketEvent.BuyOrderCreated if is_buy else MarketEvent.SellOrderCreated
         event_class = BuyOrderCreatedEvent if is_buy else SellOrderCreatedEvent
-        self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair,
-                                                  amount, price, order_id))
+        self.trigger_event(event_tag,
+                           event_class(
+                               self.current_timestamp,
+                               OrderType.LIMIT,
+                               trading_pair,
+                               amount,
+                               price,
+                               order_id,
+                               self.current_timestamp))
         return order_id
 
     def get_taker_order_type(self):

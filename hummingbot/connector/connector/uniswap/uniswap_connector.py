@@ -322,8 +322,16 @@ class UniswapConnector(ConnectorBase):
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, hash))
+                self.trigger_event(event_tag,
+                                   event_class(
+                                       self.current_timestamp,
+                                       OrderType.LIMIT,
+                                       trading_pair,
+                                       amount,
+                                       price,
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       hash))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
@@ -360,7 +368,8 @@ class UniswapConnector(ConnectorBase):
             trade_type=trade_type,
             price=price,
             amount=amount,
-            gas_price=gas_price
+            gas_price=gas_price,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

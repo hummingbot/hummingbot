@@ -1,5 +1,8 @@
 from decimal import Decimal
 from typing import (
+    Any,
+    Dict,
+    List,
     Optional,
 )
 
@@ -16,6 +19,7 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  leverage: int,
                  position: str,
                  initial_state: str = "OPEN"):
@@ -27,6 +31,7 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.leverage = leverage
@@ -43,3 +48,18 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
+
+    def to_json(self):
+        json = super().to_json()
+        json.update({
+            "leverage": self.leverage,
+            "position": self.position,
+        })
+        return json
+
+    @classmethod
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        arguments: List[Any] = super()._instance_creation_parameters_from_json(data)
+        arguments.insert(-1, int(data["leverage"]))
+        arguments.insert(-1, data["position"])
+        return arguments

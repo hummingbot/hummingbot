@@ -131,6 +131,7 @@ class TestGateIoExchange(unittest.TestCase):
             TradeType.BUY,
             price=Decimal("5.1"),
             amount=Decimal("1"),
+            creation_timestamp=1640001112.0
         )
         return order
 

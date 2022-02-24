@@ -6,7 +6,7 @@ import unittest
 from collections import Awaitable
 from decimal import Decimal
 from functools import partial
-from typing import Dict, Any
+from typing import Any, Dict
 
 from aioresponses import aioresponses
 
@@ -107,6 +107,7 @@ class TestKucoinExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("10.0"),
             amount=Decimal("1"),
+            creation_timestamp=1640001112.0
         )
         return order
 

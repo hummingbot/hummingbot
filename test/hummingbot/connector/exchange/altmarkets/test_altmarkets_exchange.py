@@ -152,6 +152,7 @@ class AltmarketsExchangeTests(TestCase):
             TradeType.BUY,
             price=Decimal(price),
             amount=Decimal(amount),
+            creation_timestamp=1640001112.223
         )
         return order
 
