@@ -74,6 +74,8 @@ class TimeSynchronizer:
         """
         if not self._time_offset_ms:
             await self.update_server_time_offset_with_time_provider(time_provider)
+        else:
+            time_provider.close()
 
     def _current_seconds_counter(self):
         return time.perf_counter()
