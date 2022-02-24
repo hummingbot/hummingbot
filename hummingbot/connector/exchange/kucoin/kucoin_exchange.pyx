@@ -760,6 +760,7 @@ cdef class KucoinExchange(ExchangeBase):
                                          float(decimal_amount),
                                          float(decimal_price),
                                          order_id,
+                                         tracked_order.creation_timestamp,
                                          exchange_order_id=tracked_order.exchange_order_id
                                      ))
         except asyncio.CancelledError:
@@ -834,6 +835,7 @@ cdef class KucoinExchange(ExchangeBase):
                                          float(decimal_amount),
                                          float(decimal_price),
                                          order_id,
+                                         tracked_order.creation_timestamp,
                                          exchange_order_id=exchange_order_id
                                      ))
         except asyncio.CancelledError:
@@ -961,7 +963,8 @@ cdef class KucoinExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):
