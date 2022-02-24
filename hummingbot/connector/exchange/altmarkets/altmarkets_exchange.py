@@ -511,7 +511,8 @@ class AltmarketsExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

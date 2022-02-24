@@ -21,7 +21,8 @@ class CoinbaseProInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -61,7 +62,8 @@ class CoinbaseProInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {
@@ -136,7 +138,8 @@ class CoinbaseProInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.0
         )
 
         trade_event_info = {

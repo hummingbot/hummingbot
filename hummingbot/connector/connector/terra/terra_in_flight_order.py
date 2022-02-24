@@ -6,6 +6,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class TerraInFlightOrder(InFlightOrderBase):
+
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -14,6 +15,7 @@ class TerraInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
@@ -23,6 +25,7 @@ class TerraInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.trade_id_set = set()

@@ -5,11 +5,11 @@ import math
 import time
 from decimal import Decimal
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
 
 import aiohttp
@@ -22,11 +22,11 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import Coin
 from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
+    CoinzoomAPIError,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
     str_date_to_ts,
-    CoinzoomAPIError,
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -38,14 +38,14 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -469,7 +469,14 @@ class CoinzoomExchange(ExchangeBase):
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
             self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
+                               event_cls(
+                                   self.current_timestamp,
+                                   order_type,
+                                   trading_pair,
+                                   amount,
+                                   price,
+                                   order_id,
+                                   tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except CoinzoomAPIError as e:
@@ -502,7 +509,8 @@ class CoinzoomExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

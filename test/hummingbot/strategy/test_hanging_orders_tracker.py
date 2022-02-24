@@ -100,7 +100,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                "BTC",
                                "USDT",
                                Decimal(101),
-                               Decimal(1))
+                               Decimal(1),
+                               creation_timestamp=1234567890000000)
         # Order executed 1900 seconds ago
         old_order = LimitOrder("Order-1234565991000000",
                                "BTC-USDT",
@@ -108,7 +109,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                "BTC",
                                "USDT",
                                Decimal(105),
-                               Decimal(1))
+                               Decimal(1),
+                               creation_timestamp=1234565991000000)
 
         self.tracker.add_order(new_order)
         strategy_active_orders.append(new_order)
@@ -157,7 +159,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                "BTC",
                                "USDT",
                                Decimal(101),
-                               Decimal(1))
+                               Decimal(1),
+                               creation_timestamp=1234567890000000)
         # Order executed 1900 seconds ago
         old_order = LimitOrder("Order-1234565991000000",
                                "BTC-USDT",
@@ -165,7 +168,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                "BTC",
                                "USDT",
                                Decimal(105),
-                               Decimal(1))
+                               Decimal(1),
+                               creation_timestamp=1234565991000000)
 
         self.tracker.add_order(new_order)
         strategy_active_orders.append(new_order)
@@ -198,7 +202,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                "BTC",
                                "USDT",
                                Decimal(101),
-                               Decimal(1))
+                               Decimal(1),
+                               creation_timestamp=1234567890000000)
 
         self.tracker.add_order(new_order)
         strategy_active_orders.append(new_order)
@@ -237,14 +242,16 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                  "BTC",
                                  "USDT",
                                  Decimal(101),
-                                 Decimal(1))
+                                 Decimal(1),
+                                 creation_timestamp=1234569960000000)
         sell_order_1 = LimitOrder("Order-1234569970000000",
                                   "BTC-USDT",
                                   False,
                                   "BTC",
                                   "USDT",
                                   Decimal(110),
-                                  Decimal(1))
+                                  Decimal(1),
+                                  creation_timestamp=1234569970000000)
 
         self.tracker.add_order(buy_order_1)
         strategy_active_orders.append(buy_order_1)
@@ -302,14 +309,16 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                  "BTC",
                                  "USDT",
                                  Decimal(101),
-                                 Decimal(1))
+                                 Decimal(1),
+                                 creation_timestamp=1234569960000000)
         buy_order_2 = LimitOrder("Order-1234569980000000",
                                  "BTC-USDT",
                                  True,
                                  "BTC",
                                  "USDT",
                                  Decimal(105),
-                                 Decimal(1))
+                                 Decimal(1),
+                                 creation_timestamp=1234569980000000)
 
         sell_order_1 = LimitOrder("Order-1234569970000000",
                                   "BTC-USDT",
@@ -317,7 +326,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                   "BTC",
                                   "USDT",
                                   Decimal(110),
-                                  Decimal(1))
+                                  Decimal(1),
+                                  creation_timestamp=1234569970000000)
 
         self.tracker.add_order(buy_order_1)
         strategy_active_orders.append(buy_order_1)
@@ -356,14 +366,16 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                  "BTC",
                                  "USDT",
                                  Decimal(101),
-                                 Decimal(1))
+                                 Decimal(1),
+                                 creation_timestamp=1234569960000000)
         buy_order_2 = LimitOrder("Order-1234569980000000",
                                  "BTC-USDT",
                                  True,
                                  "BTC",
                                  "USDT",
                                  Decimal(120),
-                                 Decimal(1))
+                                 Decimal(1),
+                                 creation_timestamp=1234569980000000)
 
         self.tracker.add_order(buy_order_1)
         strategy_active_orders.append(buy_order_1)
@@ -412,42 +424,48 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                  "BTC",
                                  "USDT",
                                  Decimal(101),
-                                 Decimal(1))
+                                 Decimal(1),
+                                 creation_timestamp=1234569960000000)
         buy_order_2 = LimitOrder("Order-1234569961000000",
                                  "BTC-USDT",
                                  True,
                                  "BTC",
                                  "USDT",
                                  Decimal(102),
-                                 Decimal(2))
+                                 Decimal(2),
+                                 creation_timestamp=1234569961000000)
         buy_order_3 = LimitOrder("Order-1234569962000000",
                                  "BTC-USDT",
                                  True,
                                  "BTC",
                                  "USDT",
                                  Decimal(103),
-                                 Decimal(3))
+                                 Decimal(3),
+                                 creation_timestamp=1234569962000000)
         sell_order_1 = LimitOrder("Order-1234569980000000",
                                   "BTC-USDT",
                                   False,
                                   "BTC",
                                   "USDT",
                                   Decimal(120),
-                                  Decimal(1))
+                                  Decimal(1),
+                                  creation_timestamp=1234569980000000)
         sell_order_2 = LimitOrder("Order-1234569981000000",
                                   "BTC-USDT",
                                   False,
                                   "BTC",
                                   "USDT",
                                   Decimal(122),
-                                  Decimal(2))
+                                  Decimal(2),
+                                  creation_timestamp=1234569981000000)
         sell_order_3 = LimitOrder("Order-1234569982000000",
                                   "BTC-USDT",
                                   False,
                                   "BTC",
                                   "USDT",
                                   Decimal(123),
-                                  Decimal(3))
+                                  Decimal(3),
+                                  creation_timestamp=1234569982000000)
 
         non_executed_pair = CreatedPairOfOrders(buy_order_1, sell_order_1)
         partially_executed_pair = CreatedPairOfOrders(buy_order_2, sell_order_2)

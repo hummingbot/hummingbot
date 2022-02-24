@@ -82,9 +82,9 @@ class ClientOrderTracker:
     @property
     def current_timestamp(self) -> int:
         """
-        Returns current timestamp in milliseconds.
+        Returns current timestamp in seconds.
         """
-        return int(self._connector.current_timestamp * 1e3)
+        return self._connector.current_timestamp
 
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
@@ -136,6 +136,7 @@ class ClientOrderTracker:
                 order.amount,
                 order.price,
                 order.client_order_id,
+                order.creation_timestamp,
                 exchange_order_id=order.exchange_order_id,
             ),
         )

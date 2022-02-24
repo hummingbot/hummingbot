@@ -7,15 +7,14 @@ import urllib
 from decimal import *
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
 )
 
 import aiohttp
-from ethsnarks_loopring import FQ, SNARK_SCALAR_FIELD
-from ethsnarks_loopring import PoseidonEdDSA
-from ethsnarks_loopring import poseidon_params, poseidon
+from ethsnarks_loopring import FQ, poseidon, PoseidonEdDSA, poseidon_params, SNARK_SCALAR_FIELD
 from libc.stdint cimport int64_t
 
 from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import \
@@ -356,8 +355,15 @@ cdef class LoopringExchange(ExchangeBase):
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
-            created_at: int = int(time.time())
-            in_flight_order = LoopringInFlightOrder.from_loopring_order(self, order_side, client_order_id, created_at, None, trading_pair, price, amount)
+            created_at = time.time()
+            in_flight_order = LoopringInFlightOrder.from_loopring_order(
+                order_side,
+                client_order_id,
+                created_at,
+                None,
+                trading_pair,
+                price,
+                amount)
             self.start_tracking(in_flight_order)
 
             try:
@@ -409,8 +415,16 @@ cdef class LoopringExchange(ExchangeBase):
                           order_type: OrderType,
                           price: Optional[Decimal] = Decimal('NaN')):
         if await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price):
+            tracked_order = self.in_flight_orders[order_id]
             self.c_trigger_event(BUY_ORDER_CREATED_EVENT,
-                                 BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 BuyOrderCreatedEvent(
+                                     now(),
+                                     order_type,
+                                     trading_pair,
+                                     Decimal(amount),
+                                     Decimal(price),
+                                     order_id,
+                                     tracked_order.creation_timestamp,))
 
     async def execute_sell(self,
                            order_id: str,
@@ -419,8 +433,16 @@ cdef class LoopringExchange(ExchangeBase):
                            order_type: OrderType,
                            price: Optional[Decimal] = Decimal('NaN')):
         if await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price):
+            tracked_order = self.in_flight_orders[order_id]
             self.c_trigger_event(SELL_ORDER_CREATED_EVENT,
-                                 SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 SellOrderCreatedEvent(
+                                     now(),
+                                     order_type,
+                                     trading_pair,
+                                     Decimal(amount),
+                                     Decimal(price),
+                                     order_id,
+                                     tracked_order.creation_timestamp,))
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.LIMIT, object price = 0.0,
                    dict kwargs = {}):
@@ -459,6 +481,7 @@ cdef class LoopringExchange(ExchangeBase):
 
             if 'resultInfo' in res:
                 code = res['resultInfo']['code']
+                message = res['resultInfo']['message']
                 if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
@@ -579,8 +602,8 @@ cdef class LoopringExchange(ExchangeBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         for order_id, in_flight_repr in saved_states.iteritems():
-            in_flight_json: Dict[Str, Any] = json.loads(in_flight_repr)
-            self._in_flight_orders[order_id] = LoopringInFlightOrder.from_json(self, in_flight_json)
+            in_flight_json: Dict[str, Any] = json.loads(in_flight_repr)
+            self._in_flight_orders[order_id] = LoopringInFlightOrder.from_json(in_flight_json)
 
     def start_tracking(self, in_flight_order):
         self._in_flight_orders[in_flight_order.client_order_id] = in_flight_order
@@ -593,7 +616,7 @@ cdef class LoopringExchange(ExchangeBase):
     # updates to orders and balances
 
     def _update_inflight_order(self, tracked_order: LoopringInFlightOrder, event: Dict[str, Any]):
-        issuable_events: List[MarketEvent] = tracked_order.update(event)
+        issuable_events: List[MarketEvent] = tracked_order.update(event, self)
 
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
@@ -676,7 +699,7 @@ cdef class LoopringExchange(ExchangeBase):
                     padded_total_amount: str = data['total']
                     token_id: int = data['tokenId']
                     completed_tokens.add(token_id)
-                    padded_amount_locked: string = data['locked']
+                    padded_amount_locked: str = data['locked']
 
                     token_symbol: str = self._token_configuration.get_symbol(token_id)
                     total_amount: Decimal = self._token_configuration.unpad(padded_total_amount, token_id)
