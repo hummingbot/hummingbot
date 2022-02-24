@@ -24,8 +24,8 @@
     </div>
   </div>
   <div class="column">
-    <div class="row justify-between items-center">
-      <div class="text-white text-h4 q-mt-lg q-mb-md col"> Choose Your Strategy </div>
+    <div class="row justify-between items-center q-mt-lg q-mb-md">
+      <div class="text-white text-h4 col"> Choose Your Strategy </div>
       <div class="strategies-select flex items-center justify-center full-width">
         <q-select
           v-model="category"
@@ -41,8 +41,12 @@
         />
       </div>
     </div>
-    <div class="row q-col-gutter-lg fit">
-      <div v-for="strategy in strategies" :key="strategy.place" class="col-12 col-md-6 col-lg-3">
+    <div class="row q-col-gutter-lg fit full-width">
+      <div
+        v-for="strategy in strategies"
+        :key="strategy.place"
+        class="col-12 col-md-6 col-lg-3 q-px-none"
+      >
         <StrategyBox
           :place="strategy.place"
           :place-type="strategy.placeType"
