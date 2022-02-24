@@ -17,6 +17,7 @@ import {
 import {
   validateBalanceRequest,
   validatePollRequest,
+  validateTokensRequest,
 } from '../chains/ethereum/ethereum.validators';
 import { getStatus, getTokens } from './network.controllers';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
@@ -78,6 +79,7 @@ export namespace NetworkRoutes {
       res: Response<TokensResponse, {}>
     ) => {
       try {
+        validateTokensRequest(req.body);
         res.status(200).json(await getTokens(req.query));
       } catch (error: any) {
         res.status(error.status).json(error);
