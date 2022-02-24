@@ -37,6 +37,7 @@ class TestSouthXchangeInFlightOrder(unittest.TestCase):
             'fee_asset': None,
             'fee_paid': '0',
             'last_state': 'executed',
+            'creation_timestamp': 23,
         }
 
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
@@ -61,6 +62,7 @@ class TestSouthXchangeInFlightOrder(unittest.TestCase):
             'fee_asset': None,
             'fee_paid': '0',
             'last_state': 'executed',
+            'creation_timestamp': 23,
         }
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
         assert in_flight_order.exchange_order_id == api_response["exchange_order_id"]
@@ -83,6 +85,7 @@ class TestSouthXchangeInFlightOrder(unittest.TestCase):
             'fee_asset': None,
             'fee_paid': '0',
             'last_state': 'executed',
+            'creation_timestamp': 23,
         }
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
         assert in_flight_order.is_done
@@ -103,6 +106,7 @@ class TestSouthXchangeInFlightOrder(unittest.TestCase):
             'fee_asset': None,
             'fee_paid': '0',
             'last_state': 'cancelednotexecuted',
+            'creation_timestamp': 23,
         }
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
         assert not in_flight_order.is_done

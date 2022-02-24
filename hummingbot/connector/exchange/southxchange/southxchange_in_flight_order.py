@@ -21,6 +21,7 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: int,
                  initial_state: str = "pending"):
         super().__init__(
             client_order_id,
@@ -30,6 +31,7 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.trade_id_set = set()
@@ -61,6 +63,7 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
             getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
             Decimal(data["amount"]),
+            int(data["creation_timestamp"]),
             data["last_state"]
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])

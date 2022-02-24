@@ -22,6 +22,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -33,9 +34,9 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.exchange.southxchange.southxchange_order_book_tracker import SouthxchangeOrderBookTracker
 from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker import SouthxchangeUserStreamTracker
@@ -58,10 +59,14 @@ class SouthXchangeTradingRule(TradingRule):
     def __init__(self,
                  trading_pair: str,
                  min_price_increment: Decimal,
-                 min_base_amount_increment: Decimal):
+                 min_order_size: Decimal,
+                 min_base_amount_increment: Decimal,
+                 min_quote_amount_increment: Decimal):
         super().__init__(trading_pair=trading_pair,
                          min_price_increment=min_price_increment,
-                         min_base_amount_increment=min_base_amount_increment)
+                         min_order_size=min_order_size,
+                         min_base_amount_increment=min_base_amount_increment,
+                         min_quote_amount_increment=min_quote_amount_increment)
 
 
 class SouthxchangeExchange(ExchangePyBase):
@@ -88,6 +93,7 @@ class SouthxchangeExchange(ExchangePyBase):
                  trading_required: bool = True
                  ):
         super().__init__()
+        self._throttler = southxchange_utils._set_throttler_instance_SX()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         # self._markets_enabled = southxchange_utils.get_market_id(trading_pairs=trading_pairs)
@@ -287,25 +293,35 @@ class SouthxchangeExchange(ExchangePyBase):
         Converts json API response into a dictionary of trading rules.
         """
         trading_rules = {}
-        for a in markets:
-            trading_pair = a['ListingCurrencyCode'] + "-" + a['ReferenceCurrencyCode']
-            value_precision = a['PricePrecision']
+        for m in markets:
+            trading_pair = m['ListingCurrencyCode'] + "-" + m['ReferenceCurrencyCode']
             precision_rule = "0."
             dec = ""
-            if value_precision is not None:
-                dec = str("1").zfill(int(a['PricePrecision']))
+            for c in currencies:
+                if(c['Code'] == m['ListingCurrencyCode']):
+                    dec = str("1").zfill(int(c['Precision']))
+                    precision_rule = f"{precision_rule}{dec}"
+                    _min_base_amount_increment = Decimal(str(c['MinAmount']))
+                    continue
+                if(c['Code'] == m['ReferenceCurrencyCode']):
+                    _min_quote_amount_increment = Decimal(str(c['MinAmount']))
+
+            if m['PricePrecision'] is not None:
+                dec = str("1").zfill(int(m['PricePrecision']))
                 precision_rule = f"{precision_rule}{dec}"
+
+            if m['MinOrderListingCurrency'] is not None:
+                _min_order_size = Decimal(str(m['MinOrderListingCurrency']))
             else:
-                for b in currencies:
-                    if(b['Code'] == a['ListingCurrencyCode']):
-                        dec = str("1").zfill(int(b['Precision']))
-                        precision_rule = f"{precision_rule}{dec}"
-                        break
-                trading_rules[trading_pair] = SouthXchangeTradingRule(
-                    trading_pair,
-                    min_price_increment=Decimal(precision_rule),
-                    min_base_amount_increment=Decimal(precision_rule)
-                )
+                _min_order_size = Decimal('0')
+
+            trading_rules[trading_pair] = SouthXchangeTradingRule(
+                trading_pair,
+                min_price_increment=Decimal(m['TakerFee']),
+                min_order_size=_min_order_size,
+                min_base_amount_increment=_min_base_amount_increment,
+                min_quote_amount_increment=_min_quote_amount_increment
+            )
         return trading_rules
 
     async def _update_account_data(self):
@@ -454,6 +470,7 @@ class SouthxchangeExchange(ExchangePyBase):
                                    amount,
                                    price,
                                    order_id,
+                                   self.current_timestamp,
                                    exchange_order_id=exchange_order_id
                                ))
         except asyncio.CancelledError:
@@ -488,7 +505,8 @@ class SouthxchangeExchange(ExchangePyBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -679,14 +697,15 @@ class SouthxchangeExchange(ExchangePyBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -871,27 +890,25 @@ class SouthxchangeExchange(ExchangePyBase):
         if tracked_order.executed_amount_base != cumFilledQty:
             # Update the relevant order information when there is fill event
             new_filled_amount = cumFilledQty - tracked_order.executed_amount_base
-            new_fee_paid = acumalatesFee - tracked_order.fee_paid
             tracked_order.executed_amount_base = cumFilledQty
             tracked_order.executed_amount_quote = Decimal(order_msg.orderPrice) * tracked_order.executed_amount_base
             tracked_order.fee_paid = Decimal(acumalatesFee)
             tracked_order.fee_asset = feeAsset
 
-            self.trigger_event(
-                MarketEvent.OrderFilled,
-                OrderFilledEvent(
-                    self.current_timestamp,
-                    client_order_id,
-                    tracked_order.trading_pair,
-                    tracked_order.trade_type,
-                    tracked_order.order_type,
-                    Decimal(order_msg.orderPrice),
-                    new_filled_amount,
-                    TradeFee(0.0, [(tracked_order.fee_asset, new_fee_paid)]),
-                    exchange_order_id
-                )
+        self.trigger_event(
+            MarketEvent.OrderFilled,
+            OrderFilledEvent(
+                self.current_timestamp,
+                client_order_id,
+                tracked_order.trading_pair,
+                tracked_order.trade_type,
+                tracked_order.order_type,
+                Decimal(order_msg.orderPrice),
+                new_filled_amount,
+                AddedToCostTradeFee(percent_token=feeAsset, flat_fees=[TokenAmount(feeAsset, acumalatesFee)]),
+                exchange_trade_id=str(int(self._time() * 1e6))
             )
-
+        )
         # update order status
         tracked_order.last_state = order_msg.status
         if tracked_order.is_done:
@@ -926,8 +943,13 @@ class SouthxchangeExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def quantize_order_amount(self, trading_pair: str, amount: Decimal, ) -> Decimal:
+    def quantize_order_amount(self, trading_pair: str, amount: Decimal = s_decimal_0) -> Decimal:
         quantized_amount: Decimal = super().quantize_order_amount(trading_pair, amount)
+        trading_rule: SouthXchangeTradingRule = self._trading_rules[trading_pair]
+        # Check against min_order_size and min_notional_size. If not passing either check, return 0.
+        if quantized_amount < trading_rule.min_order_size:
+            return s_decimal_0
+
         return quantized_amount
 
     def quantize_order_price(self, trading_pair: str, price: Decimal = s_decimal_0) -> Decimal:

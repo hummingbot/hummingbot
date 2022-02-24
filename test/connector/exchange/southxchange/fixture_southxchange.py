@@ -6,9 +6,9 @@ class Fixturesouthxchange:
 
     FEES = {
         "Currencies": [
-            {"Code": "BTC", "Name": "Bitcoin", "Precision": 8, "MinDeposit": 0.0, "DepositFeeMin": 0.0, "MinWithdraw": 0.1, "WithdrawFee": 0.001, "WithdrawFeeMin": 0.01},
-            {"Code": "LTC2", "Name": "Litecoin2", "Precision": 8, "MinDeposit": 0.0, "DepositFeeMin": 0.0, "MinWithdraw": 0.1, "WithdrawFee": 0.001, "WithdrawFeeMin": 0.01},
-            {"Code": "USD2", "Name": "US Dollar2", "Precision": 2, "MinDeposit": 0.0, "DepositFeeMin": 0.0, "MinWithdraw": 0.1, "WithdrawFee": 0.001, "WithdrawFeeMin": 0.01}
+            {"Code": "BTC2", "Name": "Bitcoin", "Precision": 8, "MinDeposit": 0.0, "DepositFeeMin": 0.0, "MinWithdraw": 0.1, "WithdrawFee": 0.001, "WithdrawFeeMin": 0.01, "MinAmount": 0.0001},
+            {"Code": "LTC2", "Name": "Litecoin2", "Precision": 8, "MinDeposit": 0.0, "DepositFeeMin": 0.0, "MinWithdraw": 0.1, "WithdrawFee": 0.001, "WithdrawFeeMin": 0.01, "MinAmount": 0.0001},
+            {"Code": "USD2", "Name": "US Dollar2", "Precision": 2, "MinDeposit": 0.0, "DepositFeeMin": 0.0, "MinWithdraw": 0.1, "WithdrawFee": 0.001, "WithdrawFeeMin": 0.01, "MinAmount": 0.0001}
         ],
         "Markets": [
             {"ListingCurrencyCode": "LTC2", "ReferenceCurrencyCode": "BTC2", "MakerFee": 0.001, "TakerFee": 0.001, "MinOrderListingCurrency": None, "PricePrecision": None},

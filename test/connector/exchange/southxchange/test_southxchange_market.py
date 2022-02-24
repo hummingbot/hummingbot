@@ -1,4 +1,4 @@
-# #!/usr/bin/env python
+#!/usr/bin/env python
 import unittest
 import requests
 from decimal import Decimal
@@ -22,6 +22,7 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
@@ -31,7 +32,7 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
+    # TradeFee,
     TradeType,
 )
 from hummingbot.core.utils.async_utils import (
@@ -52,7 +53,6 @@ from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from unittest import mock
 from test.connector.exchange.southxchange.mock_server_web_socket import MockWebSocketServerFactory
 from test.connector.exchange.southxchange.fixture_southxchange import Fixturesouthxchange
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_KEY = "XXX" if API_MOCK_ENABLED else conf.southxchange_api_key
@@ -112,7 +112,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             cls._t_nonce_patcher = unittest.mock.patch("hummingbot.core.utils.tracking_nonce.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
             cls._exch_order_id = 20001
-        cls.clock: Clock = Clock(ClockMode.REALTIME)
+            cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: SouthxchangeExchange = SouthxchangeExchange(
             southxchange_api_key=API_KEY,
             southxchange_secret_key=API_SECRET,
@@ -173,13 +173,13 @@ class TestSouthXchangeExchange(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
+        limit_fee: AddedToCostTradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: AddedToCostTradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
+        sell_trade_fee: AddedToCostTradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
@@ -206,23 +206,11 @@ class TestSouthXchangeExchange(unittest.TestCase):
         order_id_sell, exchange_order_id_sell = self.place_order(False, "LTC2-USD2", 1, OrderType.LIMIT_MAKER, 66)
         return "ok"
 
-    def test_fee_overrides_config(self):
-        fee_overrides_config_map["southxchange_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
-        fee_overrides_config_map["southxchange_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
-        fee_overrides_config_map["southxchange_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
-        fee_overrides_config_map["southxchange_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
+    def test_estimate_fee(self):
+        maker_fee = self.market.estimate_fee_pct(True)
+        self.assertAlmostEqual(maker_fee, Decimal("0.001"))
+        taker_fee = self.market.estimate_fee_pct(False)
+        self.assertAlmostEqual(taker_fee, Decimal("0.001"))
 
     def test_limit_maker_rejections(self):
         if API_MOCK_ENABLED:
@@ -544,8 +532,9 @@ class TestSouthXchangeExchange(unittest.TestCase):
             self.assertEqual(1, len(recorded_orders))
             self.assertEqual(order_id, recorded_orders[0].id)
 
+            sess = recorder._sql_manager.get_new_session()
             # Verify saved market states
-            saved_market_states: MarketState = recorder.get_market_states(config_path, self.market)
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.market, sess)
             self.assertIsNotNone(saved_market_states)
             self.assertIsInstance(saved_market_states.saved_state, dict)
             self.assertGreater(len(saved_market_states.saved_state), 0)
@@ -567,7 +556,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             recorder.stop()
             recorder = MarketsRecorder(sql, [new_connector], config_path, strategy_name)
             recorder.start()
-            saved_market_states = recorder.get_market_states(config_path, new_connector)
+            saved_market_states = recorder.get_market_states(config_path, new_connector, sess)
             self.clock.add_iterator(new_connector)
             self.ev_loop.run_until_complete(self.wait_til_ready(new_connector))
             self.assertEqual(0, len(new_connector.limit_orders))
@@ -591,11 +580,11 @@ class TestSouthXchangeExchange(unittest.TestCase):
                 final = {"k": "order", "v": ws_message}
                 MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url, final, delay=5)
             self.ev_loop.run_until_complete(self.market_logger.wait_for(OrderCancelledEvent))
-            recorder.save_market_states(config_path, new_connector)
+            recorder.save_market_states(config_path, new_connector, sess)
             order_id = None
             self.assertEqual(0, len(new_connector.limit_orders))
             self.assertEqual(0, len(new_connector.tracking_states))
-            saved_market_states = recorder.get_market_states(config_path, new_connector)
+            saved_market_states = recorder.get_market_states(config_path, new_connector, sess)
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:

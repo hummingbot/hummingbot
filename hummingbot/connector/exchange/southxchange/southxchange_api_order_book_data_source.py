@@ -8,6 +8,7 @@ import time
 import pandas as pd
 from dateutil import parser
 from typing import Optional, List, Dict, Any, AsyncIterable
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -15,8 +16,8 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.southxchange.southxchange_active_order_tracker import SouthXchangeActiveOrderTracker
 from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair
-from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, PUBLIC_WS_URL, REST_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair, _get_throttler_instance_SX
+from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, PUBLIC_WS_URL, REST_URL, PONG_PAYLOAD, RATE_LIMITS
 from hummingbot.connector.exchange.southxchange.southxchange_utils import time_to_num, convert_bookWebSocket_to_bookApi, get_market_id
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
@@ -42,10 +43,22 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._idMarket = get_market_id(trading_pairs=trading_pairs)
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(RATE_LIMITS)
+        return throttler
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str], client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> Dict[str, float]:
         result = {}
         for trading_pair in trading_pairs:
-            async with aiohttp.ClientSession() as client:
+            client = client or cls._get_session_instance()
+            throttler = throttler or _get_throttler_instance_SX()
+            async with throttler.execute_task("SXC"):
                 resp = await client.get(f"{REST_URL}trades/{convert_to_exchange_trading_pair(trading_pair)}")
                 if resp.status != 200:
                     raise IOError(
@@ -60,8 +73,10 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return result
 
     @staticmethod
-    async def fetch_id_trading_pairs(trading_pair: str) -> int:
-        async with aiohttp.ClientSession() as client:
+    async def fetch_id_trading_pairs(trading_pair: str, client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> int:
+        client = client or SouthxchangeAPIOrderBookDataSource._get_session_instance()
+        throttler = throttler = throttler or _get_throttler_instance_SX()
+        async with throttler.execute_task("SXC"):
             resp = await client.get(f"{REST_URL}markets")
             if resp.status != 200:
                 # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -73,8 +88,10 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return 0
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
+    async def fetch_trading_pairs(client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+        client = client or SouthxchangeAPIOrderBookDataSource._get_session_instance()
+        throttler = throttler or SouthxchangeAPIOrderBookDataSource._get_throttler_instance()
+        async with throttler.execute_task("SXC"):
             resp = await client.get(f"{REST_URL}markets")
             if resp.status != 200:
                 # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -84,12 +101,14 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return [(f"{item[0]}-{item[1]}") for item in data]
 
     @staticmethod
-    async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
+    async def get_order_book_data(trading_pair: str, client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
         """
         Modify SX
         Get whole orderbook
         """
-        async with aiohttp.ClientSession() as client:
+        client = client or SouthxchangeAPIOrderBookDataSource._get_session_instance()
+        throttler = throttler = throttler or _get_throttler_instance_SX()
+        async with throttler.execute_task("SXC"):
             textUrl = f"{REST_URL}book/{convert_to_exchange_trading_pair(trading_pair)}"
             resp = await client.get(textUrl)
             if resp.status != 200:
