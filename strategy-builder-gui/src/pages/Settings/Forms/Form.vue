@@ -1,6 +1,8 @@
 <template>
   <div class="bg-mono-grey-1 q-px-xl q-py-lg rounded-borders q-mt-md full-width">
-    <div class="text-white text-h4 q-mb-lg">{{ title }}</div>
+    <div class="text-white text-h4 q-mb-lg">
+      {{ displaySaveForm ? titleDisplayMap[strategyName] : 'Settings' }}
+    </div>
     <q-form>
       <component :is="componentsMap[strategyName]" v-if="!displaySaveForm" />
       <SaveForm v-if="displaySaveForm" :strategy-name="strategyName" />
@@ -10,7 +12,7 @@
 
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { defineComponent, PropType } from 'vue';
+import { computed, defineComponent, PropType } from 'vue';
 
 import PureMMForm from './PureMMForm.vue';
 import SaveForm from './SaveForm.vue';
@@ -19,20 +21,26 @@ const componentsMap = {
   [StrategyName.PureMarketMaking]: PureMMForm.name,
 };
 
+const titleDisplayMap = {
+  [StrategyName.PureMarketMaking]: 'Pure Market Making',
+};
+
 export default defineComponent({
   components: { PureMMForm, SaveForm },
   props: {
-    title: { type: String, required: false, default: () => '' },
     strategyName: {
       type: String as PropType<StrategyName>,
       required: true,
       default: () => StrategyName.PureMarketMaking,
     },
-    displaySaveForm: { type: Boolean, required: true, default: () => false },
+    stepCount: { type: Number, required: true, default: () => 3 },
+    currentStep: { type: Number, required: true, default: () => 2 },
   },
 
-  setup() {
-    return { componentsMap };
+  setup(props) {
+    const displaySaveForm = computed(() => props.stepCount === props.currentStep);
+
+    return { componentsMap, displaySaveForm, titleDisplayMap };
   },
 });
 </script>

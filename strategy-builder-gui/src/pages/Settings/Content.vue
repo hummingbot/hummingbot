@@ -3,8 +3,8 @@
     <Steps :in-progress-step="currentStep" />
     <Form
       :strategy-name="currentStrategyName"
-      :title="currentStep === stepCount ? titleDisplayMap[currentStrategyName] : 'Settings'"
-      :display-save-form="currentStep === stepCount"
+      :current-step="currentStep"
+      :step-count="stepCount"
     />
     <Pager v-model="currentStep" :step-count="stepCount" :handle-submit="handleSubmit" />
   </div>
@@ -19,10 +19,6 @@ import Pager from './components/Pager/Index.vue';
 import Steps from './components/Stepper/Steps.vue';
 import { useForm } from './composables/useForm';
 import Form from './Forms/Form.vue';
-
-const titleDisplayMap = {
-  [StrategyName.PureMarketMaking]: 'Pure Market Making',
-};
 
 export default defineComponent({
   components: { Steps, Pager, Form },
@@ -44,7 +40,6 @@ export default defineComponent({
       handleSubmit,
       StrategyName,
       currentStrategyName,
-      titleDisplayMap,
     };
   },
 });
