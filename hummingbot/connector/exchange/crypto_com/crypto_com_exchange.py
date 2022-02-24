@@ -8,8 +8,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 
-from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
-from hummingbot.connector.exchange.crypto_com import crypto_com_utils
+from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS, crypto_com_utils
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
@@ -469,7 +468,8 @@ class CryptoComExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -503,7 +503,8 @@ class CryptoComExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -675,7 +676,7 @@ class CryptoComExchange(ExchangeBase):
                 AddedToCostTradeFee(
                     flat_fees=[TokenAmount(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]
                 ),
-                exchange_trade_id=trade_msg["order_id"]
+                exchange_trade_id=str(trade_msg.get("trade_id", int(self._time() * 1e6)))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \

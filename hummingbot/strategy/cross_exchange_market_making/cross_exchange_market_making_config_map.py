@@ -122,7 +122,7 @@ cross_exchange_market_making_config_map = {
         prompt=order_amount_prompt,
         prompt_on_new=True,
         type_str="decimal",
-        validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
+        validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
