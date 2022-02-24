@@ -209,8 +209,16 @@ class TerraConnector(ConnectorBase):
                 tracked_order.fee_paid = order_result["fee"]["amount"]
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, hash))
+                self.trigger_event(event_tag,
+                                   event_class(
+                                       self.current_timestamp,
+                                       OrderType.LIMIT,
+                                       trading_pair,
+                                       amount,
+                                       price,
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       hash))
                 self.trigger_event(MarketEvent.OrderFilled,
                                    OrderFilledEvent(
                                        self.current_timestamp,
@@ -275,7 +283,8 @@ class TerraConnector(ConnectorBase):
             order_type=OrderType.LIMIT,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

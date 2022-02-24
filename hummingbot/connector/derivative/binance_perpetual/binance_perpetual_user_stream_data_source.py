@@ -36,12 +36,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             cls._bpusds_logger = logging.getLogger(__name__)
         return cls._bpusds_logger
 
-    @property
-    def last_recv_time(self) -> float:
-        if self._ws_assistant:
-            return self._ws_assistant.last_recv_time
-        return 0
-
     def __init__(
         self,
         auth: BinancePerpetualAuth,
@@ -61,6 +55,12 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
         self._manage_listen_key_task = None
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
+
+    @property
+    def last_recv_time(self) -> float:
+        if self._ws_assistant:
+            return self._ws_assistant.last_recv_time
+        return 0
 
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:
@@ -149,6 +149,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 url = f"{utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)}/{self._current_listen_key}"
                 ws: WSAssistant = await self._get_ws_assistant()
                 await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+                await ws.ping()  # to update last_recv_timestamp
 
                 async for msg in ws.iter_messages():
                     if len(msg.data) > 0:
