@@ -1,5 +1,15 @@
 import request from 'supertest';
 import { gatewayApp } from '../../src/app';
+import { patch, unpatch } from '../services/patch';
+import { Ethereum } from '../../src/chains/ethereum/ethereum';
+
+let eth: Ethereum;
+beforeAll(async () => {
+  eth = Ethereum.getInstance('kovan');
+  await eth.init();
+});
+
+afterEach(() => unpatch());
 
 describe('GET /network/status', () => {
   it('should return 200 when asking for harmony network status', async () => {
@@ -18,6 +28,15 @@ describe('GET /network/status', () => {
   });
 
   it('should return 200 when asking for ethereum network status', async () => {
+    patch(eth, 'chain', () => {
+      return 'kovan';
+    });
+    patch(eth, 'rpcUrl', 'http://...');
+    patch(eth, 'chainId', 34);
+    patch(eth, 'getCurrentBlockNumber', () => {
+      return 1;
+    });
+
     await request(gatewayApp)
       .get(`/network/status`)
       .query({
