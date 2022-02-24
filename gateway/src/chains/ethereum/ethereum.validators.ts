@@ -108,7 +108,6 @@ export const validatePollRequest: RequestValidator = mkRequestValidator([
 export const validateTokensRequest: RequestValidator = mkRequestValidator([
   validateChain,
   validateNetwork,
-  validateTokenSymbols,
 ]);
 
 export const validateCancelRequest: RequestValidator = mkRequestValidator([
