@@ -10,7 +10,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 from libc.stdint cimport int64_t
 from libcpp cimport bool
-
+from libcpp import bool as cppbool
 from hummingbot.connector.exchange.bitfinex import (
     AFF_CODE,
     BITFINEX_REST_AUTH_URL,
@@ -1358,7 +1358,7 @@ cdef class BitfinexExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_nan,
-                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+                is_maker: Optional[cppbool] = None) -> AddedToCostTradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
