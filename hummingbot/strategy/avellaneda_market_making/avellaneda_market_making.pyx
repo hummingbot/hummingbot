@@ -40,6 +40,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
+from hummingbot.stragety.conditional_execution_stat import ConditionalExecutionState
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
