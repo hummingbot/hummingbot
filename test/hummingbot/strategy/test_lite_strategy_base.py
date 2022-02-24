@@ -30,7 +30,7 @@ class LiteStrategyBaseTest(unittest.TestCase):
     base_balance: int = 500
     quote_balance: int = 5000
     initial_mid_price: int = 100
-    clock_tick_size = 10
+    clock_tick_size = 1
 
     def handle(self, record):
         self.log_records.append(record)
@@ -55,6 +55,7 @@ class LiteStrategyBaseTest(unittest.TestCase):
                 self.trading_pair, 6, 6, 6, 6
             )
         )
+        self.clock.add_iterator(self.connector)
         LiteStrategyBase.markets = {self.connector_name: {self.trading_pair}}
         self.strategy = LiteStrategyBase({self.connector_name: self.connector})
         self.strategy.logger().setLevel(1)
@@ -100,8 +101,8 @@ class LiteStrategyBaseTest(unittest.TestCase):
         self.assertEqual(market_info.quote_asset, self.quote_asset)
 
     def test_active_orders(self):
-        self.strategy.start(Clock(ClockMode.BACKTEST), self.start_timestamp)
-        self.strategy.tick(self.start_timestamp + 10)
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.strategy.buy(self.connector_name, self.trading_pair, Decimal("1"), OrderType.LIMIT, Decimal("90"))
         self.strategy.sell(self.connector_name, self.trading_pair, Decimal("1.1"), OrderType.LIMIT, Decimal("110"))
         orders = self.strategy.get_active_orders(self.connector_name)
@@ -114,8 +115,8 @@ class LiteStrategyBaseTest(unittest.TestCase):
         self.assertEqual(Decimal("110"), orders[1].price)
 
     def test_format_status(self):
-        self.strategy.start(Clock(ClockMode.BACKTEST), self.start_timestamp)
-        self.strategy.tick(self.start_timestamp + 10)
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.strategy.buy(self.connector_name, self.trading_pair, Decimal("1"), OrderType.LIMIT, Decimal("90"))
         self.strategy.sell(self.connector_name, self.trading_pair, Decimal("1.1"), OrderType.LIMIT, Decimal("110"))
         expected_status = """
@@ -125,11 +126,7 @@ class LiteStrategyBaseTest(unittest.TestCase):
     mock_paper_exchange  USDT           5000               4910
 
   Orders:
-               Exchange    Market Side  Price  Amount Age
-    mock_paper_exchange HBOT-USDT  buy     90       1 n/a
-    mock_paper_exchange HBOT-USDT sell    110     1.1 n/a
-
-*** WARNINGS ***
-  Markets are offline for the HBOT-USDT pair. Continued trading with these markets may be dangerous.
-"""
-        self.assertEqual(expected_status, self.strategy.format_status())
+               Exchange    Market Side  Price  Amount      Age
+    mock_paper_exchange HBOT-USDT  buy     90       1"""
+        self.assertTrue(expected_status in self.strategy.format_status())
+        self.assertTrue("mock_paper_exchange HBOT-USDT sell    110     1.1 " in self.strategy.format_status())
