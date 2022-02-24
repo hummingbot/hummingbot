@@ -5,6 +5,8 @@ from unittest.mock import patch, MagicMock
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.custom_widgets import CustomTextArea
+from hummingbot.core.event.event_listener import EventListener
+from hummingbot.core.event.events import HummingbotUIEvent
 
 
 class HummingbotCLITest(unittest.TestCase):
@@ -98,3 +100,24 @@ class HummingbotCLITest(unittest.TestCase):
         self.app.tab_navigate_right()
         self.assertFalse(tab1.is_selected)
         self.assertTrue(tab2.is_selected)
+
+    @patch("hummingbot.client.ui.hummingbot_cli.global_config_map")
+    @patch("hummingbot.client.ui.hummingbot_cli.check_dev_mode")
+    @patch("hummingbot.client.ui.hummingbot_cli.init_logging")
+    def test_did_start_ui(self, mock_init_logging: MagicMock, mock_dev_mode: MagicMock, mock_config_map: MagicMock):
+        class UIStartHandler(EventListener):
+            def __init__(self):
+                super().__init__()
+                self.mock = MagicMock()
+
+            def __call__(self, _):
+                self.mock()
+
+        handler: UIStartHandler = UIStartHandler()
+        self.app.add_listener(HummingbotUIEvent.Start, handler)
+        self.app.did_start_ui()
+
+        mock_config_map.get.assert_called()
+        mock_dev_mode.assert_called()
+        mock_init_logging.assert_called()
+        handler.mock.assert_called()
