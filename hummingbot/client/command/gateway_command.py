@@ -14,6 +14,7 @@ from typing import (
     List,
 )
 
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 from hummingbot.core.gateway import (
     docker_ipc,
     docker_ipc_with_generator,
@@ -22,6 +23,7 @@ from hummingbot.core.gateway import (
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
     GatewayPaths,
+    get_default_gateway_port,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -36,9 +38,10 @@ from hummingbot.core.utils.gateway_config_utils import (
 )
 from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
+from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.ui.completer import load_completer
 
 if TYPE_CHECKING:
@@ -187,6 +190,7 @@ class GatewayCommand:
         gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
         certificate_mount_path: str = gateway_paths.mount_certs_path.as_posix()
         logs_mount_path: str = gateway_paths.mount_logs_path.as_posix()
+        gateway_port: int = get_default_gateway_port()
 
         # remove existing container(s)
         try:
@@ -223,7 +227,7 @@ class GatewayCommand:
         self.notify("Creating new Gateway docker container...")
         host_config: Dict[str, Any] = await docker_ipc(
             "create_host_config",
-            port_bindings={5000: 5000},
+            port_bindings={5000: gateway_port},
             binds={
                 gateway_conf_mount_path: {
                     "bind": "/usr/src/app/conf/",
@@ -254,6 +258,12 @@ class GatewayCommand:
         )
 
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
+        
+        # Save the gateway port number, if it's not already there.
+        if global_config_map.get("gateway_api_port").value != gateway_port:
+            global_config_map["gateway_api_port"].value = gateway_port
+            global_config_map["gateway_api_host"].value = "localhost"
+            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
         await self._start_gateway()
 
@@ -267,7 +277,12 @@ class GatewayCommand:
         except docker.errors.APIError as e:
             self.notify(f"Error restarting Gateway container. Error: {e}")
 
-        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
+        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")        
+
+    @staticmethod
+    async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
+        image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
+        return len(image_list) > 0
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""

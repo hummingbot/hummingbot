@@ -9,6 +9,7 @@ import ssl
 import json
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils import detect_available_port
 from hummingbot.logger import HummingbotLogger
 import logging
 
@@ -122,6 +123,10 @@ def get_gateway_paths() -> GatewayPaths:
         mount_logs_path=mount_logs_path
     )
     return _default_paths
+
+
+def get_default_gateway_port() -> int:
+    return detect_available_port(16000 + int(global_config_map.get("instance_id").value[:4], 16) % 16000)
 
 
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
