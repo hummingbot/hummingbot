@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.events import OrderType, PositionAction, TradeType
 
 
 class InFlightOrderPyUnitTests(unittest.TestCase):
@@ -247,7 +247,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             "fee_paid": "0",
             "last_state": "0",
             "leverage": "1",
-            "position": "NIL",
+            "position": PositionAction.NIL.value,
         }
 
         expected_order: InFlightOrder = InFlightOrder(
