@@ -5,9 +5,9 @@
         :title="step.title"
         :description="step.description"
         :status="
-          inProgressStep === index + 1
+          currentStep === index + 1
             ? StepStatus.InProgress
-            : inProgressStep > index + 1
+            : currentStep > index + 1
             ? StepStatus.Completed
             : StepStatus.NotStarted
         "
@@ -19,6 +19,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
+import { useSteps } from '../../composables/useSteps';
 import Step, { StepStatus } from './Step.vue';
 
 interface StepType {
@@ -28,10 +29,8 @@ interface StepType {
 
 export default defineComponent({
   components: { Step },
-  props: {
-    inProgressStep: { type: Number, required: true, default: () => 0 },
-  },
   setup() {
+    const step = useSteps();
     const steps: StepType[] = [
       {
         title: '1. Choose strategy',
@@ -47,7 +46,7 @@ export default defineComponent({
       },
     ];
 
-    return { steps, StepStatus };
+    return { steps, StepStatus, currentStep: step.current };
   },
 });
 </script>

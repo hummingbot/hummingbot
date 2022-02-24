@@ -44,13 +44,18 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
+import { useSteps } from '../../composables/useSteps';
+
 export default defineComponent({
   props: {
     modelValue: { type: Number, required: true, default: () => 1 },
-    stepCount: { type: Number, required: true, default: () => 3 },
     handleSubmit: { type: Function, required: false, default: () => ({}) },
   },
   emits: ['update:modelValue'],
+  setup() {
+    const step = useSteps();
+    return { stepCount: step.count };
+  },
 });
 </script>
 

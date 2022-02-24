@@ -14,6 +14,7 @@
 import { StrategyName } from 'src/composables/useStrategies';
 import { computed, defineComponent, PropType } from 'vue';
 
+import { useSteps } from '../composables/useSteps';
 import PureMMForm from './PureMMForm.vue';
 import SaveForm from './SaveForm.vue';
 
@@ -33,12 +34,11 @@ export default defineComponent({
       required: true,
       default: () => StrategyName.PureMarketMaking,
     },
-    stepCount: { type: Number, required: true, default: () => 3 },
-    currentStep: { type: Number, required: true, default: () => 2 },
   },
 
-  setup(props) {
-    const displaySaveForm = computed(() => props.stepCount === props.currentStep);
+  setup() {
+    const step = useSteps();
+    const displaySaveForm = computed(() => step.current.value === step.count);
 
     return { componentsMap, displaySaveForm, titleDisplayMap };
   },

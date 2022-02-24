@@ -1,33 +1,29 @@
 <template>
   <div class="column">
-    <Steps :in-progress-step="currentStep" />
-    <Form
-      :strategy-name="currentStrategyName"
-      :current-step="currentStep"
-      :step-count="stepCount"
-    />
-    <Pager v-model="currentStep" :step-count="stepCount" :handle-submit="handleSubmit" />
+    <Steps />
+    <Form :strategy-name="currentStrategyName" />
+    <Pager v-model="currentStep" :handle-submit="handleSubmit" />
   </div>
 </template>
 
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { defineComponent, ref } from 'vue';
+import { defineComponent } from 'vue';
 import { useRoute } from 'vue-router';
 
 import Pager from './components/Pager/Index.vue';
 import Steps from './components/Stepper/Steps.vue';
 import { useForm } from './composables/useForm';
+import { useSteps } from './composables/useSteps';
 import Form from './Forms/Form.vue';
 
 export default defineComponent({
   components: { Steps, Pager, Form },
   setup() {
     const route = useRoute();
+    const step = useSteps();
     const currentStrategyName = route.params.strategyName as StrategyName;
     const { values } = useForm(currentStrategyName);
-    const currentStep = ref(2);
-    const stepCount = 3;
 
     const handleSubmit = () => {
       // eslint-disable-next-line no-console
@@ -35,10 +31,8 @@ export default defineComponent({
     };
 
     return {
-      currentStep,
-      stepCount,
+      currentStep: step.current,
       handleSubmit,
-      StrategyName,
       currentStrategyName,
     };
   },
