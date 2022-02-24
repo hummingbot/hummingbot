@@ -60,11 +60,11 @@ class GatewayCommand:
             else:
                 safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
         elif option == "connect":
-            safe_ensure_future(self._connect(key))
+            safe_ensure_future(self.connect(key))
         elif option == "test-connection":
-            safe_ensure_future(self._test_connection())
+            safe_ensure_future(self.test_connection())
         elif option == "generate-certs":
-            safe_ensure_future(self._generate_certs())
+            safe_ensure_future(self.generate_certs())
 
     async def _test_connection(self):
         # test that the gateway is running
@@ -213,11 +213,17 @@ class GatewayCommand:
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
+    async def connect(self, connector: str = None):
+        safe_ensure_future(self._connect(connector), loop=self.ev_loop)
+
     async def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
     async def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
+
+    async def test_connection(self):
+        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     async def _update_gateway_configuration(self, key: str, value: Any):
         data = {
