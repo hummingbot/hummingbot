@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import (
     PerpetualFinanceInFlightOrder
@@ -38,6 +37,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     TradeType
 )
+from hummingbot.core.gateway import GatewayPaths, get_gateway_paths
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
@@ -598,9 +598,14 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
         """
         :returns Shared client session instance
         """
+        gateway_paths: GatewayPaths = get_gateway_paths()
+        gateway_ca_cert_path = f"{gateway_paths.local_certs_path.as_posix()}/ca_cert.pem"
+        gateway_client_cert_path = f"{gateway_paths.local_certs_path.as_posix()}/client_cert.pem"
+        gateway_client_key_path = f"{gateway_paths.local_certs_path.as_posix()}/client_key.pem"
+
         if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
+            ssl_ctx = ssl.create_default_context(cafile=gateway_ca_cert_path)
+            ssl_ctx.load_cert_chain(gateway_client_cert_path, gateway_client_key_path)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
