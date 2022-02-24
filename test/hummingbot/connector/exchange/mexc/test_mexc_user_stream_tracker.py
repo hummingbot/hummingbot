@@ -40,10 +40,10 @@ class MexcUserStreamTrackerTests(TestCase):
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.tracker.start())
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value,
                                                              ujson.dumps({'channel': 'push.personal.order'}))
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.tracker.start())
 
         first_received_message = self.async_run_with_timeout(self.tracker.user_stream.get())
 
