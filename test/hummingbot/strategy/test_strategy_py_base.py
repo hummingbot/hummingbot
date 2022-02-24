@@ -90,7 +90,8 @@ class StrategyPyBaseUnitTests(unittest.TestCase):
                 order.trading_pair,
                 order.quantity if isinstance(order, LimitOrder) else order.amount,
                 order.price,
-                order.client_order_id if isinstance(order, LimitOrder) else order.order_id
+                order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
+                time.time()
             )
         )
 
@@ -99,7 +100,7 @@ class StrategyPyBaseUnitTests(unittest.TestCase):
         market_info.market.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
-                int(time.time() * 1e3),
+                time.time(),
                 order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
                 order.trading_pair,
                 TradeType.BUY if order.is_buy else TradeType.SELL,

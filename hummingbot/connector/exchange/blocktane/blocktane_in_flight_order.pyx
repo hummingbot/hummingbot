@@ -1,8 +1,4 @@
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-)
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -19,7 +15,7 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 created_at: int,
+                 creation_timestamp: float,
                  initial_state: str = "NEW"):
         super().__init__(
             client_order_id,
@@ -29,14 +25,9 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state
+            creation_timestamp,
+            initial_state,
         )
-        self.created_at = created_at
-
-    def to_json(self) -> Dict[str, Any]:
-        response = super().to_json()
-        response["created_at"] = self.created_at
-        return response
 
     @property
     def is_done(self) -> bool:
@@ -49,23 +40,3 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        cdef:
-            BlocktaneInFlightOrder retval = BlocktaneInFlightOrder(
-                client_order_id=data["client_order_id"],
-                exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["trading_pair"],
-                order_type=getattr(OrderType, data["order_type"]),
-                trade_type=getattr(TradeType, data["trade_type"]),
-                price=Decimal(data["price"]),
-                amount=Decimal(data["amount"]),
-                created_at=data["created_at"],
-                initial_state=data["last_state"]
-            )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        return retval

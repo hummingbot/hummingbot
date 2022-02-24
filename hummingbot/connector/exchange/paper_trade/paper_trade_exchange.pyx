@@ -33,14 +33,14 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
-    OrderFilledEvent,
     OrderBookEvent,
     OrderBookTradeEvent,
     OrderCancelledEvent,
+    OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
@@ -363,7 +363,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                  trading_pair_str,
                                  quantized_amount,
                                  quantized_price,
-                                 order_id)))
+                                 order_id,
+                                 self._current_timestamp)))
         return order_id
 
     cdef str c_sell(self,
@@ -417,7 +418,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   trading_pair_str,
                                   quantized_amount,
                                   quantized_price,
-                                  order_id)))
+                                  order_id,
+                                  self._current_timestamp)))
         return order_id
 
     cdef c_execute_buy(self, str order_id, str trading_pair_str, object amount):

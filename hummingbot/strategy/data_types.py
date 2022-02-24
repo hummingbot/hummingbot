@@ -57,6 +57,7 @@ class HangingOrder:
     is_buy: bool
     price: Decimal
     amount: Decimal
+    creation_timestamp: float
 
     @property
     def base_asset(self):
@@ -65,12 +66,6 @@ class HangingOrder:
     @property
     def quote_asset(self):
         return self.trading_pair.split('-')[1]
-
-    @property
-    def creation_timestamp(self):
-        if self.order_id:
-            if "//" not in self.order_id:
-                return int(self.order_id[-16:]) / 1e6
 
     def distance_to_price(self, price: Decimal):
         return abs(self.price - price)

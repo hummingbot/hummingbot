@@ -284,7 +284,8 @@ cdef class BeaxyExchange(ExchangeBase):
         """
 
         if self._in_flight_orders:
-            from_date = min(order.created_at for order in self._in_flight_orders.values())
+            timestamp = min(order.creation_timestamp for order in self._in_flight_orders.values())
+            from_date = datetime.utcfromtimestamp(timestamp)
         else:
             from_date = datetime.utcnow() - timedelta(minutes=5)
 
@@ -546,7 +547,8 @@ cdef class BeaxyExchange(ExchangeBase):
                                                       trading_pair,
                                                       decimal_amount,
                                                       decimal_price,
-                                                      order_id))
+                                                      order_id,
+                                                      tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -618,7 +620,8 @@ cdef class BeaxyExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -1130,7 +1133,7 @@ cdef class BeaxyExchange(ExchangeBase):
             trade_type,
             price,
             amount,
-            created_at=datetime.utcnow()
+            creation_timestamp=self._current_timestamp
         )
 
     cdef c_did_timeout_tx(self, str tracking_id):

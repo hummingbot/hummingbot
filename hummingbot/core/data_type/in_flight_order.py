@@ -32,7 +32,7 @@ class OrderState(Enum):
 
 class OrderUpdate(NamedTuple):
     trading_pair: str
-    update_timestamp: int  # milliseconds
+    update_timestamp: float  # seconds
     new_state: OrderState
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
@@ -43,7 +43,7 @@ class TradeUpdate(NamedTuple):
     client_order_id: str
     exchange_order_id: str
     trading_pair: str
-    fill_timestamp: int
+    fill_timestamp: float  # seconds
     fill_price: Decimal
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
@@ -88,14 +88,15 @@ class InFlightOrder:
             order_type: OrderType,
             trade_type: TradeType,
             amount: Decimal,
+            creation_timestamp: float,
             price: Optional[Decimal] = None,
             exchange_order_id: Optional[str] = None,
             initial_state: OrderState = OrderState.PENDING_CREATE,
             leverage: int = 1,
             position: PositionAction = PositionAction.NIL,
-            timestamp: int = -1,
     ) -> None:
         self.client_order_id = client_order_id
+        self.creation_timestamp = creation_timestamp
         self.trading_pair = trading_pair
         self.order_type = order_type
         self.trade_type = trade_type
@@ -109,7 +110,7 @@ class InFlightOrder:
         self.executed_amount_base = s_decimal_0
         self.executed_amount_quote = s_decimal_0
 
-        self.last_update_timestamp: int = timestamp
+        self.last_update_timestamp: float = creation_timestamp
 
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
 
@@ -134,6 +135,7 @@ class InFlightOrder:
                 self.position,
                 self.executed_amount_base,
                 self.executed_amount_quote,
+                self.creation_timestamp,
                 self.last_update_timestamp,
             )
         )
@@ -220,6 +222,7 @@ class InFlightOrder:
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
+            creation_timestamp=data.get("creation_timestamp", -1)
         )
         order.executed_amount_base = Decimal(data["executed_amount_base"])
         order.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -249,6 +252,7 @@ class InFlightOrder:
             "last_state": str(self.current_state.value),
             "leverage": str(self.leverage),
             "position": self.position.value,
+            "creation_timestamp": self.creation_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()}
         }
 
@@ -265,7 +269,8 @@ class InFlightOrder:
             quote_currency=self.quote_asset,
             price=self.price,
             quantity=self.amount,
-            filled_quantity=self.executed_amount_base
+            filled_quantity=self.executed_amount_base,
+            creation_timestamp=int(self.creation_timestamp * 1e6)
         )
 
     def update_exchange_order_id(self, exchange_order_id: str):

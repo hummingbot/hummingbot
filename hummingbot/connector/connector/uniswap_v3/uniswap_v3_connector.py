@@ -13,8 +13,8 @@ from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position imp
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
-    BuyOrderCreatedEvent,
     BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
@@ -694,8 +694,16 @@ class UniswapV3Connector(UniswapConnector):
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, hash))
+                self.trigger_event(event_tag,
+                                   event_class(
+                                       self.current_timestamp,
+                                       OrderType.LIMIT,
+                                       trading_pair,
+                                       amount,
+                                       price,
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       hash))
             else:
                 self.stop_tracking_order(order_id)
                 self.trigger_event(MarketEvent.OrderFailure,

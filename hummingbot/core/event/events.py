@@ -5,7 +5,7 @@ from typing import Dict, List, NamedTuple, Optional
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
 
 
 class MarketEvent(Enum):
@@ -174,6 +174,7 @@ class BuyOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
+    creation_timestamp: float
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
     position: Optional[str] = PositionAction.NIL.value
@@ -187,6 +188,7 @@ class SellOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
+    creation_timestamp: float
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
     position: Optional[str] = PositionAction.NIL.value
