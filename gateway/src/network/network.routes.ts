@@ -79,7 +79,7 @@ export namespace NetworkRoutes {
       res: Response<TokensResponse, {}>
     ) => {
       try {
-        validateTokensRequest(req.body);
+        validateTokensRequest(req.query);
         res.status(200).json(await getTokens(req.query));
       } catch (error: any) {
         res.status(error.status).json(error);
