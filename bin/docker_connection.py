@@ -47,6 +47,7 @@ async def _start_docker_controller(docker_pipe: aioprocessing.AioConnection):
 
         if initialization_error is not None:
             await docker_pipe.coro_send(initialization_error)
+            continue
 
         try:
             method: Callable = getattr(docker_client, method_name)
