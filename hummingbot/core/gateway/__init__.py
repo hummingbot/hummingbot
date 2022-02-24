@@ -142,7 +142,14 @@ async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
         raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
     try:
         _hummingbot_pipe.send((method_name, args, kwargs))
-        return await _hummingbot_pipe.coro_recv()
+        data = await _hummingbot_pipe.coro_recv()
+        if isinstance(data, Exception):
+            HummingbotApplication.main_application().notify(
+                "\nError: Unable to communicate with docker socket. "
+                "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            raise data
+        return data
+
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
             "\nError: Unable to communicate with docker socket. "
@@ -162,6 +169,11 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
             data = await _hummingbot_pipe.coro_recv()
             if data is None:
                 break
+            if isinstance(data, Exception):
+                HummingbotApplication.main_application().notify(
+                    "\nError: Unable to communicate with docker socket. "
+                    "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+                raise data
             yield data
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
