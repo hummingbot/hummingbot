@@ -2,8 +2,6 @@
 
 import path_util        # noqa: F401
 import asyncio
-import errno
-import socket
 
 from typing import (
     List,
@@ -25,22 +23,9 @@ from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils import detect_available_port
 
 from bin.docker_connection import fork_and_start
-
-
-def detect_available_port(starting_port: int) -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        current_port: int = starting_port
-        while current_port < 65535:
-            try:
-                s.bind(("127.0.0.1", current_port))
-                break
-            except OSError as e:
-                if e.errno == errno.EADDRINUSE:
-                    current_port += 1
-                    continue
-        return current_port
 
 
 async def main_async():
