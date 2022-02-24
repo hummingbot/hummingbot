@@ -175,14 +175,17 @@ class GatewayCommand:
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
-        exec_info = await docker_ipc(method_name="exec_create",
-                                     container=container_id,
-                                     cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
-                                     user="hummingbot")
+        try:
+            exec_info = await docker_ipc(method_name="exec_create",
+                                         container=container_id,
+                                         cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
+                                         user="hummingbot")
 
-        await docker_ipc(method_name="exec_start",
-                         exec_id=exec_info["Id"],
-                         detach=True)
+            await docker_ipc(method_name="exec_start",
+                             exec_id=exec_info["Id"],
+                             detach=True)
+        except Exception:
+            raise
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()
@@ -258,7 +261,7 @@ class GatewayCommand:
         )
 
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
-        
+
         # Save the gateway port number, if it's not already there.
         if global_config_map.get("gateway_api_port").value != gateway_port:
             global_config_map["gateway_api_port"].value = gateway_port
@@ -277,12 +280,7 @@ class GatewayCommand:
         except docker.errors.APIError as e:
             self.notify(f"Error restarting Gateway container. Error: {e}")
 
-        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")        
-
-    @staticmethod
-    async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
-        image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
-        return len(image_list) > 0
+        self.notify(f"Loaded new configs into Gateway container {container_info['Id']}")
 
     async def pull_gateway_docker(self, docker_repo: str, docker_tag: str):
         last_id = ""
