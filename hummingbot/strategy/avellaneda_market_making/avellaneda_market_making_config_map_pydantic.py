@@ -178,20 +178,6 @@ HANGING_ORDER_MODELS = {
 }
 
 
-def maker_trading_pair_prompt(model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
-    exchange = model_instance.exchange
-    example = AllConnectorSettings.get_example_pairs().get(exchange)
-    return (
-        f"Enter the token trading pair you would like to trade on {exchange}{f' (e.g. {example})' if example else ''}"
-    )
-
-
-def order_amount_prompt(model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
-    trading_pair = model_instance.market
-    base_asset, quote_asset = split_hb_trading_pair(trading_pair)
-    return f"What is the amount of {base_asset} per order?"
-
-
 class AvellanedaMarketMakingConfigMap(BaseClientModel):
     strategy: str = Field(default="avellaneda_market_making", client_data=None)
     exchange: ClientConfigEnum(
@@ -210,7 +196,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=...,
         description="The trading pair.",
         client_data=ClientFieldData(
-            prompt=maker_trading_pair_prompt,
+            prompt=lambda mi: AvellanedaMarketMakingConfigMap.maker_trading_pair_prompt(mi),
             prompt_on_new=True,
         ),
     )
@@ -226,7 +212,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=...,
         description="The strategy order amount.",
         gt=0,
-        client_data=ClientFieldData(prompt=order_amount_prompt)
+        client_data=ClientFieldData(prompt=lambda mi: AvellanedaMarketMakingConfigMap.order_amount_prompt(mi))
     )
     order_optimization_enabled: bool = Field(
         default=True,
@@ -382,6 +368,21 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     class Config:
         validate_assignment = True
+
+    @classmethod
+    def maker_trading_pair_prompt(cls, model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
+        exchange = model_instance.exchange
+        example = AllConnectorSettings.get_example_pairs().get(exchange)
+        return (
+            f"Enter the token trading pair you would like to trade on"
+            f" {exchange}{f' (e.g. {example})' if example else ''}"
+        )
+
+    @classmethod
+    def order_amount_prompt(cls, model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
+        trading_pair = model_instance.market
+        base_asset, quote_asset = split_hb_trading_pair(trading_pair)
+        return f"What is the amount of {base_asset} per order?"
 
     @validator("exchange", pre=True)
     def validate_exchange(cls, v: str):
