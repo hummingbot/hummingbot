@@ -103,6 +103,10 @@ export class Solana {
     return Solana._instance;
   }
 
+  public static getConnectedInstances(): { [name: string]: Solana } {
+    return { solana: Solana._instance };
+  }
+
   public static reload(): Solana {
     Solana._instance = new Solana();
     return Solana._instance;

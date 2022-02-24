@@ -66,6 +66,14 @@ describe('GET /network/status', () => {
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
   });
 
+  it('should return 200 when requesting network status without specifying', async () => {
+    await request(gatewayApp)
+      .get(`/network/status`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(Array.isArray(res.body)).toEqual(true));
+  });
+
   it('should return 500 when asking for invalid network', async () => {
     await request(gatewayApp)
       .get(`/network/status`)
