@@ -24,7 +24,7 @@
 
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, PropType, ref } from 'vue';
 
 import Input, { InputType } from '../components/Input.vue';
 import { useForm } from '../composables/useForm';
@@ -40,7 +40,7 @@ export default defineComponent({
   },
 
   setup(props) {
-    const { fields } = useForm(props.strategyName);
+    const { fields } = useForm(ref(props.strategyName));
 
     return { ...fields, InputType };
   },

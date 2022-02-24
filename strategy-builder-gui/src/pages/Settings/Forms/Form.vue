@@ -37,7 +37,7 @@ export default defineComponent({
     const steps = useSteps();
     const route = useRoute();
     const strategyName = computed(() => route.params.strategyName as StrategyName);
-    const { values } = useForm(strategyName.value);
+    const { values } = useForm(strategyName);
     const displaySaveForm = computed(() => steps.current.value === steps.count);
 
     const handleSubmit = () => {
