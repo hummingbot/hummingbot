@@ -41,7 +41,7 @@
         />
       </div>
     </div>
-    <div class="row q-col-gutter-lg">
+    <div class="row q-col-gutter-lg fit">
       <div v-for="strategy in strategies" :key="strategy.place" class="col-12 col-md-6 col-lg-3">
         <StrategyBox
           :place="strategy.place"
