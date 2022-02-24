@@ -1,16 +1,10 @@
-#!/usr/bin/env python
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import (
-    Tuple,
-    List,
-    Dict,
-    NamedTuple,
-    Optional)
-from dataclasses import dataclass
+from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
 
 
 class MarketEvent(Enum):
@@ -36,6 +30,10 @@ class MarketEvent(Enum):
 
 class OrderBookEvent(Enum):
     TradeEvent = 901
+
+
+class HummingbotUIEvent(Enum):
+    Start = 1
 
 
 class TradeType(Enum):
@@ -150,65 +148,6 @@ class FundingPaymentCompletedEvent:
     funding_rate: Decimal
 
 
-class TradeFeeType(Enum):
-    Percent = 1
-    FlatFee = 2
-
-
-def interchangeable(token_a: str, token_b: str) -> bool:
-    interchangeable_tokens = {"WETH", "ETH", "WBTC", "BTC"}
-    if token_a == token_b:
-        return True
-    return {token_a, token_b} <= interchangeable_tokens
-
-
-class TradeFee(NamedTuple):
-    percent: Decimal  # 0.1 = 10%
-    flat_fees: List[Tuple[str, Decimal]] = []  # list of (asset, amount) ie: ("ETH", 0.05)
-
-    @classmethod
-    def to_json(cls, trade_fee: "TradeFee") -> Dict[str, any]:
-        return {
-            "percent": float(trade_fee.percent),
-            "flat_fees": [{"asset": asset, "amount": float(amount)}
-                          for asset, amount in trade_fee.flat_fees]
-        }
-
-    @classmethod
-    def from_json(cls, data: Dict[str, any]) -> "TradeFee":
-        return TradeFee(
-            Decimal(data["percent"]),
-            [(fee_entry["asset"], Decimal(fee_entry["amount"]))
-             for fee_entry in data["flat_fees"]]
-        )
-
-    def fee_amount_in_quote(self, trading_pair: str, price: Decimal, order_amount: Decimal):
-        fee_amount = Decimal("0")
-        if self.percent > 0:
-            fee_amount = (price * order_amount) * self.percent
-        base, quote = split_hb_trading_pair(trading_pair)
-        for flat_fee in self.flat_fees:
-            if interchangeable(flat_fee[0], base):
-                fee_amount += (flat_fee[1] * price)
-            elif interchangeable(flat_fee[0], quote):
-                fee_amount += flat_fee[1]
-        return fee_amount
-
-    def order_amount_from_quote_with_fee(
-        self, trading_pair: str, price: Decimal, order_size_with_fee: Decimal
-    ):
-        fee_amount = order_size_with_fee
-        base, quote = split_hb_trading_pair(trading_pair)
-        for flat_fee in self.flat_fees:
-            if interchangeable(flat_fee[0], base):
-                fee_amount -= (flat_fee[1] * price)
-            elif interchangeable(flat_fee[0], quote):
-                fee_amount -= flat_fee[1]
-        order_size = order_size_with_fee / (Decimal("1") + self.percent)
-        order_amount = order_size / price
-        return order_amount
-
-
 class OrderBookTradeEvent(NamedTuple):
     trading_pair: str
     timestamp: float
@@ -225,10 +164,10 @@ class OrderFilledEvent(NamedTuple):
     order_type: OrderType
     price: Decimal
     amount: Decimal
-    trade_fee: TradeFee
+    trade_fee: TradeFeeBase
     exchange_trade_id: str = ""
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -237,13 +176,23 @@ class OrderFilledEvent(NamedTuple):
                                                  trading_pair: str,
                                                  trade_type: TradeType,
                                                  order_type: OrderType,
-                                                 trade_fee: TradeFee,
+                                                 trade_fee: TradeFeeBase,
                                                  order_book_rows: List[OrderBookRow],
-                                                 exchange_trade_id: str = "") -> List["OrderFilledEvent"]:
+                                                 exchange_trade_id: Optional[str] = None) -> List["OrderFilledEvent"]:
+        if exchange_trade_id is None:
+            exchange_trade_id = order_id
         return [
-            OrderFilledEvent(timestamp, order_id, trading_pair, trade_type, order_type,
-                             Decimal(r.price), Decimal(r.amount), trade_fee, exchange_trade_id=exchange_trade_id)
-            for r in order_book_rows
+            OrderFilledEvent(
+                timestamp,
+                order_id,
+                trading_pair,
+                trade_type,
+                order_type,
+                Decimal(row.price),
+                Decimal(row.amount),
+                trade_fee,
+                exchange_trade_id=f"{exchange_trade_id}_{index}")
+            for index, row in enumerate(order_book_rows)
         ]
 
     @classmethod
@@ -259,7 +208,7 @@ class OrderFilledEvent(NamedTuple):
             OrderType[execution_report["o"]],
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
-            TradeFee(percent=Decimal(0.0), flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),
+            AddedToCostTradeFee(flat_fees=[TokenAmount(execution_report["N"], Decimal(execution_report["n"]))]),
             exchange_trade_id=execution_report["t"]
         )
 
@@ -272,9 +221,10 @@ class BuyOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
+    creation_timestamp: float
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
 
 @dataclass
@@ -285,9 +235,10 @@ class SellOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
+    creation_timestamp: float
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
 
 @dataclass

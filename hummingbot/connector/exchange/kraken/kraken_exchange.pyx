@@ -1,10 +1,9 @@
-from libc.stdint cimport int64_t, int32_t
 import asyncio
-from async_timeout import timeout
-from decimal import Decimal
+import copy
 import logging
-from collections import defaultdict
 import re
+from collections import defaultdict
+from decimal import Decimal
 from typing import (
     Any,
     Dict,
@@ -12,63 +11,61 @@ from typing import (
     AsyncIterable,
     Optional,
 )
-import copy
 
-import aiohttp
-import pandas as pd
+from async_timeout import timeout
+from libc.stdint cimport int32_t, int64_t
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_in_flight_order import (
+    KrakenInFlightOrder,
+    KrakenInFlightOrderNotCreated,
+)
+from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
+from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
+from hummingbot.connector.exchange.kraken.kraken_utils import (
+    build_api_factory,
+    build_rate_limits_by_tier,
+    convert_from_exchange_symbol,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    is_dark_pool,
+    split_to_base_quote,
+)
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
-from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-from hummingbot.connector.exchange.kraken.kraken_utils import (
-    convert_from_exchange_symbol,
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-    split_to_base_quote,
-    is_dark_pool,
-    build_rate_limits_by_tier,
-    build_api_factory
-)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketTransactionFailureEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
-from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
-from hummingbot.connector.exchange.kraken.kraken_in_flight_order import \
-    KrakenInFlightOrder, KrakenInFlightOrderNotCreated
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
-from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -254,14 +251,15 @@ cdef class KrakenExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_rules(self):
         cdef:
@@ -502,7 +500,14 @@ cdef class KrakenExchange(ExchangeBase):
                                                                   tracked_order.order_type,
                                                                   Decimal(trade.get("price")),
                                                                   Decimal(trade.get("vol")),
-                                                                  TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
+                                                                  AddedToCostTradeFee(
+                                                                      flat_fees=[
+                                                                          TokenAmount(
+                                                                              tracked_order.fee_asset,
+                                                                              Decimal((trade.get("fee"))),
+                                                                          )
+                                                                      ]
+                                                                  ),
                                                                   trade.get("trade_id")))
 
                             if tracked_order.is_done:
@@ -862,7 +867,8 @@ cdef class KrakenExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp
                                  ))
 
         except asyncio.CancelledError:
@@ -944,7 +950,8 @@ cdef class KrakenExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp,
                                  ))
         except asyncio.CancelledError:
             raise
@@ -1075,6 +1082,7 @@ cdef class KrakenExchange(ExchangeBase):
             price=price,
             amount=amount,
             order_type=order_type,
+            creation_timestamp=self.current_timestamp,
             userref=userref
         )
 
@@ -1125,8 +1133,9 @@ cdef class KrakenExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

@@ -1,19 +1,26 @@
 import asyncio
 import contextlib
-from decimal import Decimal
 import logging
 import unittest
 import unittest.mock
+from decimal import Decimal
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (MarketEvent, OrderType, BuyOrderCreatedEvent, BuyOrderCompletedEvent,
-                                          SellOrderCreatedEvent, SellOrderCompletedEvent, TradeFee)
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
@@ -68,8 +75,15 @@ class MockAMM(ConnectorBase):
         order_id = f"{side}-{trading_pair}-{get_tracking_nonce()}"
         event_tag = MarketEvent.BuyOrderCreated if is_buy else MarketEvent.SellOrderCreated
         event_class = BuyOrderCreatedEvent if is_buy else SellOrderCreatedEvent
-        self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair,
-                                                  amount, price, order_id))
+        self.trigger_event(event_tag,
+                           event_class(
+                               self.current_timestamp,
+                               OrderType.LIMIT,
+                               trading_pair,
+                               amount,
+                               price,
+                               order_id,
+                               self.current_timestamp))
         return order_id
 
     def get_taker_order_type(self):
@@ -101,7 +115,7 @@ class AmmArbUnitTest(unittest.TestCase):
         cls._clock = cls.stack.enter_context(cls.clock)
         cls._patcher = unittest.mock.patch("hummingbot.strategy.amm_arb.data_types.estimate_fee")
         cls._url_mock = cls._patcher.start()
-        cls._url_mock.return_value = TradeFee(percent=0, flat_fees=[])
+        cls._url_mock.return_value = AddedToCostTradeFee(percent=0, flat_fees=[])
 
     @classmethod
     def tearDownClass(cls) -> None:

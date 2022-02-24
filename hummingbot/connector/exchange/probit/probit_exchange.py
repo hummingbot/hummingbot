@@ -1,46 +1,43 @@
-#!/usr/bin/env python
-
-import aiohttp
 import asyncio
 import logging
 import math
 import time
-import ujson
-
 from decimal import Decimal
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
 
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
-from hummingbot.connector.exchange.probit import probit_utils
+import aiohttp
+import ujson
+
+from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS, probit_utils
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
 from hummingbot.connector.exchange.probit.probit_in_flight_order import ProbitInFlightOrder
 from hummingbot.connector.exchange.probit.probit_order_book_tracker import ProbitOrderBookTracker
 from hummingbot.connector.exchange.probit.probit_user_stream_tracker import ProbitUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     OrderFilledEvent,
     OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -496,7 +493,8 @@ class ProbitExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -530,7 +528,8 @@ class ProbitExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -774,7 +773,9 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(order_msg["price"])),
                 Decimal(str(order_msg["quantity"])),
-                TradeFee(0.0, [(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]),
+                AddedToCostTradeFee(
+                    flat_fees=[TokenAmount(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]
+                ),
                 exchange_trade_id=order_msg["id"]
             )
         )
@@ -903,14 +904,15 @@ class ProbitExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

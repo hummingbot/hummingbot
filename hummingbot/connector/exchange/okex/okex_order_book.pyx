@@ -1,21 +1,18 @@
-#!/usr/bin/env python
-from decimal import Decimal
-
-from aiokafka import ConsumerRecord
 import bz2
 import logging
-from sqlalchemy.engine import RowProxy
 from typing import (
     Any,
+    Dict,
     Optional,
-    Dict
 )
+
+from aiokafka import ConsumerRecord
 import ujson
 
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.event.events import TradeType
+from hummingbot.logger import HummingbotLogger
 
 _okexob_logger = None
 

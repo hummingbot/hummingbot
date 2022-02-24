@@ -4,16 +4,13 @@ import json
 import logging
 import time
 import uuid
-
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.bitfinex import (
     AFF_CODE,
     BITFINEX_REST_AUTH_URL,
@@ -33,10 +30,12 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
     get_precision,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_websocket import BitfinexWebsocket
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -48,14 +47,12 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
-
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -224,7 +221,8 @@ cdef class BitfinexExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         """
         *required
         function to calculate fees for a particular order
@@ -687,6 +685,7 @@ cdef class BitfinexExchange(ExchangeBase):
             trade_type,
             price,
             amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef str c_buy(self, str trading_pair, object amount,
@@ -755,7 +754,8 @@ cdef class BitfinexExchange(ExchangeBase):
                     trading_pair,
                     decimal_amount,
                     decimal_price,
-                    order_id
+                    order_id,
+                    tracked_order.creation_timestamp
                 )
             )
         except asyncio.CancelledError:
@@ -841,7 +841,8 @@ cdef class BitfinexExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -938,6 +939,7 @@ cdef class BitfinexExchange(ExchangeBase):
         if _type not in [ContentEventType.TRADE_UPDATE]:
             return
         data = {
+            "trade_id": "",
             "type": _type,
             "order_id": 0,
             "maker_order_id": 0,
@@ -1062,10 +1064,10 @@ cdef class BitfinexExchange(ExchangeBase):
                         tracked_order.order_type,
                         execute_price,
                         tracked_order.executed_amount_base,
-                        TradeFee(
-                            percent=Decimal(0.0),
-                            flat_fees=[(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]),
-                        exchange_trade_id=tracked_order.exchange_order_id
+                        AddedToCostTradeFee(
+                            flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]
+                        ),
+                        exchange_trade_id=str(content["trade_id"])
                     )
                 )
 
@@ -1278,7 +1280,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         base_execute_amount_diff,
                         base_execute_price,
                     ),
-                    exchange_trade_id=exchange_order_id,
+                    exchange_trade_id=str(int(self._time() * 1e6)),
                 )
                 self.logger().info(f"Filled {base_execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -1355,8 +1357,9 @@ cdef class BitfinexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_nan) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_nan,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

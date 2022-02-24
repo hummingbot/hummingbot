@@ -1,15 +1,17 @@
 from decimal import Decimal
 from dataclasses import dataclass
 from typing import (
-    Dict,
-    Optional,
-    List,
     Any,
-    Tuple
+    Dict,
+    List,
+    Optional,
+    Tuple,
 )
-from hummingbot.model.trade_fill import TradeFill
+
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.event.events import TradeType, PositionAction
+from hummingbot.model.trade_fill import TradeFill
 
 s_decimal_0 = Decimal("0")
 s_decimal_nan = Decimal("NaN")
@@ -167,7 +169,11 @@ class PerformanceMetrics:
         return type(trade) == TradeFill
 
     def _are_derivatives(self, trades: List[Any]) -> bool:
-        return trades and self._is_trade_fill(trades[0]) and "NILL" not in [t.position for t in trades]
+        return (
+            trades
+            and self._is_trade_fill(trades[0])
+            and PositionAction.NIL.value not in [t.position for t in trades]
+        )
 
     def _preprocess_trades_and_group_by_type(self, trades: List[Any]) -> Tuple[List[Any], List[Any]]:
         buys = []
@@ -200,20 +206,22 @@ class PerformanceMetrics:
                 if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
                     if quote not in self.fees:
                         self.fees[quote] = s_decimal_0
-                    self.fees[quote] += Decimal(trade.price * trade.amount * trade.trade_fee["percent"])
+                    self.fees[quote] += (Decimal(str(trade.price))
+                                         * Decimal(str(trade.amount))
+                                         * Decimal(str(trade.trade_fee["percent"])))
                 for flat_fee in trade.trade_fee.get("flat_fees", []):
                     if flat_fee["asset"] not in self.fees:
                         self.fees[flat_fee["asset"]] = s_decimal_0
                     self.fees[flat_fee["asset"]] += Decimal(flat_fee["amount"])
             else:  # assume this is Trade object
-                if trade.trade_fee.percent > 0:
+                if trade.trade_fee.percent is not None and trade.trade_fee.percent > 0:
                     if quote not in self.fees:
                         self.fees[quote] = s_decimal_0
                     self.fees[quote] += (trade.price * trade.order_amount) * trade.trade_fee.percent
                 for flat_fee in trade.trade_fee.flat_fees:
-                    if flat_fee[0] not in self.fees:
-                        self.fees[flat_fee[0]] = s_decimal_0
-                    self.fees[flat_fee[0]] += flat_fee[1]
+                    if flat_fee.token not in self.fees:
+                        self.fees[flat_fee.token] = s_decimal_0
+                    self.fees[flat_fee.token] += flat_fee.amount
 
         for fee_token, fee_amount in self.fees.items():
             if fee_token == quote:
@@ -258,7 +266,7 @@ class PerformanceMetrics:
         :param current_balances: current user account balance
         """
 
-        base, quote = trading_pair.split("-")
+        base, quote = split_hb_trading_pair(trading_pair)
         buys, sells = self._preprocess_trades_and_group_by_type(trades)
 
         self.num_buys = len(buys)
@@ -271,7 +279,7 @@ class PerformanceMetrics:
         self.start_quote_bal = self.cur_quote_bal - self.tot_vol_quote
 
         self.start_price = Decimal(str(trades[0].price))
-        self.cur_price = await get_last_price(exchange.replace("_PaperTrade", ""), trading_pair)
+        self.cur_price = await get_last_price(exchange.replace("_paper_trade", ""), trading_pair)
         if self.cur_price is None:
             self.cur_price = Decimal(str(trades[-1].price))
         self.start_base_ratio_pct = self.divide(self.start_base_bal * self.start_price,

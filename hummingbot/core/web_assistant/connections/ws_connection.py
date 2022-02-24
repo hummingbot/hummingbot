@@ -47,6 +47,9 @@ class WSConnection:
         self._ensure_connected()
         await self._connection.send_json(request.payload)
 
+    async def ping(self):
+        await self._connection.ping()
+
     async def receive(self) -> Optional[WSResponse]:
         self._ensure_connected()
         response = None
@@ -86,10 +89,13 @@ class WSConnection:
 
     async def _check_msg_closed_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
         if msg is not None and msg.type in [aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSE]:
-            msg = None
             if self._connected:
+                close_code = self._connection.close_code
                 await self.disconnect()
-                raise ConnectionError("The WS connection was closed unexpectedly.")
+                raise ConnectionError(
+                    f"The WS connection was closed unexpectedly. Close code = {close_code} msg data: {msg.data}"
+                )
+            msg = None
         return msg
 
     async def _check_msg_ping_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:

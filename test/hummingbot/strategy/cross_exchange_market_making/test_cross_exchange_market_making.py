@@ -1,16 +1,19 @@
 import logging
-import pandas as pd
-from typing import List
 import unittest
-
 from decimal import Decimal
-from math import floor, ceil
+from math import ceil, floor
+from typing import List
+
+import pandas as pd
 from nose.plugins.attrib import attr
 
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -20,14 +23,11 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCreatedEvent,
     SellOrderCompletedEvent,
-    TradeFee,
     TradeType,
 )
-from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 logging.basicConfig(level=logging.ERROR)
@@ -144,7 +144,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.trading_pair,
                     limit_order.quantity,
                     limit_order.price,
-                    limit_order.client_order_id
+                    limit_order.client_order_id,
+                    limit_order.creation_timestamp * 1e-6
                 )
             )
             market.trigger_event(
@@ -157,7 +158,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     OrderType.LIMIT,
                     limit_order.price,
                     limit_order.quantity,
-                    TradeFee(Decimal(0)),
+                    AddedToCostTradeFee(Decimal(0)),
                 ),
             )
             market.trigger_event(
@@ -185,7 +186,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.trading_pair,
                     limit_order.quantity,
                     limit_order.price,
-                    limit_order.client_order_id
+                    limit_order.client_order_id,
+                    limit_order.creation_timestamp * 1e-6,
                 )
             )
             market.trigger_event(
@@ -198,7 +200,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     OrderType.LIMIT,
                     limit_order.price,
                     limit_order.quantity,
-                    TradeFee(Decimal(0)),
+                    AddedToCostTradeFee(Decimal(0)),
                 ),
             )
             market.trigger_event(
@@ -229,6 +231,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 order.quantity,
                 order.price,
                 order.client_order_id,
+                order.creation_timestamp * 1e-6
             )
         )
 
@@ -274,7 +277,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
-                bid_order.client_order_id
+                bid_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -286,7 +290,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
-                ask_order.client_order_id
+                ask_order.client_order_id,
+                ask_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -326,7 +331,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
-                bid_order.client_order_id
+                bid_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -338,7 +344,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
-                ask_order.client_order_id
+                ask_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -394,7 +401,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.trading_pair,
                 bid_order.quantity,
                 bid_order.price,
-                bid_order.client_order_id
+                bid_order.client_order_id,
+                bid_order.creation_timestamp * 1e-6,
             )
         )
 
@@ -406,7 +414,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.trading_pair,
                 ask_order.quantity,
                 ask_order.price,
-                ask_order.client_order_id
+                ask_order.client_order_id,
+                ask_order.creation_timestamp * 1e-6,
             )
         )
 

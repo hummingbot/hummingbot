@@ -1,57 +1,58 @@
+import asyncio
+import copy
 import logging
+import math
+import time
+from decimal import Decimal
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
-from decimal import Decimal
-import asyncio
+
 import aiohttp
-import copy
-import math
-import time
 from async_timeout import timeout
 
-from hummingbot.core.network_iterator import NetworkStatus
-
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
-from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
-from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
-from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
 import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
+    CoinzoomAPIError,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
     str_date_to_ts,
-    CoinzoomAPIError,
 )
-from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    OrderCancelledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
+)
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -470,7 +471,14 @@ class CoinzoomExchange(ExchangeBase):
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
             self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
+                               event_cls(
+                                   self.current_timestamp,
+                                   order_type,
+                                   trading_pair,
+                                   amount,
+                                   price,
+                                   order_id,
+                                   tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except CoinzoomAPIError as e:
@@ -503,7 +511,8 @@ class CoinzoomExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -779,7 +788,7 @@ class CoinzoomExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(update_msg.get("averagePrice", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
-                TradeFee(percent=update_msg["trade_fee"]),
+                AddedToCostTradeFee(percent=update_msg["trade_fee"]),
                 update_msg.get("exchange_trade_id", update_msg.get("id", update_msg.get("orderId")))
             )
         )
@@ -871,14 +880,15 @@ class CoinzoomExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

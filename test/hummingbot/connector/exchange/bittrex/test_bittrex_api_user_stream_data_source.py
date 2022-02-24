@@ -2,8 +2,11 @@ import asyncio
 import base64
 import json
 import unittest
-import zlib
+
 from unittest.mock import AsyncMock, patch
+
+import zlib
+
 
 from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import \
     BittrexAPIUserStreamDataSource
@@ -27,7 +30,7 @@ class BittrexAPIUserStreamDataSourceTest(unittest.TestCase):
 
         self.ws_incoming_messages = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
-        self._finalMessage = "FinalDummyMessage"
+        self._finalMessage = {"FinalDummyMessage": None}
 
         self.output_queue = asyncio.Queue()
 

@@ -7,24 +7,23 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
+
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
 from hummingbot.connector.exchange.gate_io.gate_io_user_stream_tracker import GateIoUserStreamTracker
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
-    GateIoAPIError,
-    GateIORESTRequest,
     api_call_with_retries,
     build_gate_io_api_factory,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
+    GateIoAPIError,
+    GateIORESTRequest,
     get_new_client_order_id
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -41,11 +40,13 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
 ctce_logger = None
@@ -462,6 +463,7 @@ class GateIoExchange(ExchangeBase):
                                                  amount,
                                                  price,
                                                  order_id,
+                                                 tracked_order.creation_timestamp,
                                                  exchange_order_id))
         except asyncio.CancelledError:
             raise
@@ -494,7 +496,8 @@ class GateIoExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -813,7 +816,7 @@ class GateIoExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(update_msg.get("fill_price", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
-                TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, tracked_order.fee_paid)]),
                 str(update_msg.get("update_time_ms", update_msg.get("id")))
             )
         )
@@ -916,14 +919,15 @@ class GateIoExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
         To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
         function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
         maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

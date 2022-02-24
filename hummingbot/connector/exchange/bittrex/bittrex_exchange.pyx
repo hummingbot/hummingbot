@@ -29,9 +29,9 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeFee,
     TradeType,
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -185,20 +185,10 @@ cdef class BittrexExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
-        """
-        cdef:
-            object maker_fee = Decimal(0.0025)
-            object taker_fee = Decimal(0.0025)
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
-
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("bittrex", is_maker)
 
@@ -412,7 +402,8 @@ cdef class BittrexExchange(ExchangeBase):
                                                  tracked_order.trade_type,
                                                  executed_price,
                                                  executed_amount_diff
-                                             )
+                                             ),
+                                             exchange_trade_id=str(int(self._time() * 1e6))
                                          ))
 
                 if order_state == "CLOSED":
@@ -533,7 +524,8 @@ cdef class BittrexExchange(ExchangeBase):
                         tracked_order.price)
                     fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair,
                                                          tracked_order.price,
-                                                         tracked_order.amount)
+                                                         tracked_order.amount,
+                                                         self)
                 else:
                     fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
                     fee_amount = tracked_order.fee_paid
@@ -594,9 +586,13 @@ cdef class BittrexExchange(ExchangeBase):
                                              tracked_order.order_type,
                                              Decimal(execution_event["rate"]),
                                              Decimal(execution_event["quantity"]),
-                                             TradeFee(0.0,
-                                                      [(tracked_order.fee_asset,
-                                                        Decimal(execution_event["commission"]))]),
+                                             AddedToCostTradeFee(
+                                                 flat_fees=[
+                                                     TokenAmount(
+                                                         tracked_order.fee_asset, Decimal(execution_event["commission"])
+                                                     )
+                                                 ]
+                                             ),
                                              exchange_trade_id=execution_event["id"]
                                          ))
 
@@ -668,7 +664,8 @@ cdef class BittrexExchange(ExchangeBase):
             order_type,
             trade_type,
             price,
-            amount
+            amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -797,7 +794,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
 
         except asyncio.CancelledError:
@@ -894,7 +892,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
         except asyncio.CancelledError:
             raise
@@ -1085,8 +1084,9 @@ cdef class BittrexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

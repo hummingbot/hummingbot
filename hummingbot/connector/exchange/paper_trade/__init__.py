@@ -1,8 +1,7 @@
 from typing import List, Callable
 from hummingbot.client.config.config_helpers import get_connector_class
-from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange
 from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange
 
 
 def get_order_book_tracker_class(connector_name: str) -> Callable:
@@ -26,5 +25,4 @@ def create_paper_trade_market(exchange_name: str, trading_pairs: List[str]):
     obt_kwargs = conn_setting.add_domain_parameter(obt_params)
     obt_obj = obt_class(**obt_kwargs)
     return PaperTradeExchange(obt_obj,
-                              MarketConfig.default_config(),
                               get_connector_class(exchange_name))

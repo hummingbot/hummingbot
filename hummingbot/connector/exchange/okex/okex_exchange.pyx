@@ -1,10 +1,7 @@
-import aiohttp
 import asyncio
-from decimal import Decimal
-from libc.stdint cimport int64_t
 import logging
-import pandas as pd
 import time
+from decimal import Decimal
 from typing import (
     Any,
     AsyncIterable,
@@ -12,27 +9,39 @@ from typing import (
     List,
     Optional,
 )
-import ujson
 
+import aiohttp
+import ujson
+from libc.stdint cimport int64_t
+
+from hummingbot.connector.exchange.okex.constants import *
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
+from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
+from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
+from hummingbot.connector.exchange_base import (
+    ExchangeBase,
+    s_decimal_NaN)
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketTransactionFailureEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -40,21 +49,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
-from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
-from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
-from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.exchange_base import (
-    ExchangeBase,
-    s_decimal_NaN)
-from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
-
-from hummingbot.connector.exchange.okex.constants import *
-
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -316,7 +313,8 @@ cdef class OkexExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         # https://www.okex.com/fees.html
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("okex", is_maker)
@@ -424,7 +422,7 @@ cdef class OkexExchange(ExchangeBase):
                         execute_amount_diff,
                         execute_price,
                     ),
-                    exchange_trade_id=exchange_order_id
+                    exchange_trade_id=str(int(self._time() * 1e6))
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"order {tracked_order.client_order_id}.")
@@ -579,7 +577,9 @@ cdef class OkexExchange(ExchangeBase):
                                                                   execute_price,
                                                                   execute_amount_diff,
                                                                   current_fee,
-                                                                  exchange_trade_id=order_id))
+                                                                  exchange_trade_id=str(data.get("tradeId",
+                                                                                                 int(self._time() * 1e6))
+                                                                                        )))
 
                         if order_status == "filled":
                             tracked_order.last_state = order_status
@@ -713,7 +713,8 @@ cdef class OkexExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp
                                  ))
         except asyncio.CancelledError:
             raise
@@ -786,7 +787,8 @@ cdef class OkexExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp,
                                  ))
         except asyncio.CancelledError:
             raise
@@ -928,7 +930,8 @@ cdef class OkexExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -991,8 +994,9 @@ cdef class OkexExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)

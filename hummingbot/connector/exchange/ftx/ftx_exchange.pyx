@@ -2,50 +2,55 @@ import asyncio
 import copy
 import logging
 import time
-import requests
-import simplejson
-from requests import Request
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Optional,
+)
 
 import aiohttp
-import ujson
-import pandas as pd
+import requests
+import simplejson
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
+from hummingbot.connector.exchange_base import NaN
+from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
+from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
+from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
+from hummingbot.connector.exchange.ftx.ftx_user_stream_tracker import FtxUserStreamTracker
+from hummingbot.connector.exchange.ftx.ftx_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair
+)
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
-    MarketEvent,
-    TradeFee,
-    OrderType,
-    OrderFilledEvent,
-    TradeType,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source import FtxAPIOrderBookDataSource
-from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
-from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
-from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
-from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
-from hummingbot.connector.exchange.ftx.ftx_user_stream_tracker import FtxUserStreamTracker
-from hummingbot.connector.exchange_base import NaN
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
-from hummingbot.connector.exchange.ftx.ftx_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -227,7 +232,9 @@ cdef class FtxExchange(ExchangeBase):
                         tracked_order.trade_type,
                         new_amount,
                         new_price)
-                    fee_amount = fee.fee_amount_in_quote(tracked_order.trading_pair, new_price, tracked_order.amount)
+                    fee_amount = fee.fee_amount_in_quote(
+                        tracked_order.trading_pair, new_price, tracked_order.amount, self
+                    )
                 else:
                     fee_asset = tracked_order.fee_asset
                     fee_amount = tracked_order.fee_paid
@@ -342,12 +349,15 @@ cdef class FtxExchange(ExchangeBase):
             tracked_orders = list(self._in_flight_orders.values())
             for tracked_order in tracked_orders:
                 try:
-                    response = await self._api_request("GET", path_url=f"/orders/by_client_id/{tracked_order.client_order_id}")
+                    response = await self._api_request(
+                        "GET",
+                        path_url=f"/orders/by_client_id/{tracked_order.client_order_id}")
                     order = response["result"]
 
                     await self._update_inflight_order(tracked_order, order)
                 except RuntimeError as e:
-                    if "Order not found" in str(e) and tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                    if ("Order not found" in str(e)
+                            and tracked_order.creation_timestamp < (time.time() - UNRECOGNIZED_ORDER_DEBOUCE)):
                         tracked_order.set_status("FAILURE")
                         self.c_trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
@@ -357,8 +367,8 @@ cdef class FtxExchange(ExchangeBase):
                         )
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().warning(
-                            f"Order {tracked_order.client_order_id} not found on exchange after {UNRECOGNIZED_ORDER_DEBOUCE} seconds."
-                            f"Marking as failed"
+                            f"Order {tracked_order.client_order_id} not found on exchange after "
+                            f"{UNRECOGNIZED_ORDER_DEBOUCE} seconds. Marking as failed"
                         )
                     else:
                         self.logger().error(
@@ -433,9 +443,13 @@ cdef class FtxExchange(ExchangeBase):
                                          tracked_order.order_type,
                                          Decimal(event_message["price"]),
                                          execute_amount_diff,
-                                         TradeFee(percent=Decimal(0.0),
-                                                  flat_fees=[(event_message["feeCurrency"],
-                                                              Decimal(event_message["fee"]))]),
+                                         AddedToCostTradeFee(
+                                             flat_fees=[
+                                                 TokenAmount(
+                                                     event_message["feeCurrency"], Decimal(event_message["fee"])
+                                                 )
+                                             ]
+                                         ),
                                          exchange_trade_id=event_message["tradeId"]
                                      ))
 
@@ -511,7 +525,7 @@ cdef class FtxExchange(ExchangeBase):
             trade_type,
             price,
             amount,
-            self._current_timestamp
+            creation_timestamp=self._current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -676,7 +690,8 @@ cdef class FtxExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
 
         except asyncio.CancelledError:
@@ -800,7 +815,8 @@ cdef class FtxExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
         except asyncio.CancelledError:
             raise
@@ -956,7 +972,8 @@ cdef class FtxExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("ftx", is_maker)
 
@@ -966,5 +983,6 @@ cdef class FtxExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = Decimal('NaN')) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = Decimal('NaN'),
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
