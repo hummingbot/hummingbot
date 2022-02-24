@@ -22,5 +22,6 @@ export default defineComponent({
 <style lang="scss" scoped>
 .page {
   max-width: 1440px;
+  min-height: auto !important;
 }
 </style>
