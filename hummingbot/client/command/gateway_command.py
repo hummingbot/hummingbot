@@ -63,15 +63,15 @@ class GatewayCommand:
             else:
                 safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
         elif option == "connect":
-            safe_ensure_future(self._connect(key))
+            safe_ensure_future(self.connect(key))
         elif option == "test-connection":
-            safe_ensure_future(self._test_connection())
+            safe_ensure_future(self.test_connection())
         elif option == "start":
             safe_ensure_future(self._start_gateway())
         elif option == "stop":
             safe_ensure_future(self._stop_gateway())
         elif option == "generate-certs":
-            safe_ensure_future(self._generate_certs())
+            safe_ensure_future(self.generate_certs())
 
     @staticmethod
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
@@ -315,11 +315,17 @@ class GatewayCommand:
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
+    async def connect(self, connector: str = None):
+        safe_ensure_future(self._connect(connector), loop=self.ev_loop)
+
     async def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
     async def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
+
+    async def test_connection(self):
+        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     async def _update_gateway_configuration(self, key: str, value: Any):
         data = {
@@ -397,8 +403,8 @@ class GatewayCommand:
                     self.notify("Error: Invalid network")
 
             # get wallets for the selected chain
-            response = await gateway_http_client.api_request("get", "wallet", {})
-            wallets = [w for w in response if w["chain"] == chain]
+            wallets_response = await gateway_http_client.api_request("get", "wallet", {})
+            wallets = [w for w in wallets_response if w["chain"] == chain]
             if len(wallets) < 1:
                 wallets = []
             else:
@@ -435,7 +441,7 @@ class GatewayCommand:
 
                     wallet_df = build_wallet_display(native_token, wallet_table)
                     self.notify(wallet_df.to_string(index=False))
-                    self.app.input_field.completer.set_list_gateway_connection_wallets_parameters(connector, chain, network)
+                    self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
 
                     while True:
                         self.placeholder_mode = True
