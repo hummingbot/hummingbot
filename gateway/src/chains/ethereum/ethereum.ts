@@ -60,6 +60,10 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     return Ethereum._instances[network];
   }
 
+  public static getConnectedInstances(): { [name: string]: Ethereum } {
+    return Ethereum._instances;
+  }
+
   public requestCounter(msg: any): void {
     if (msg.action === 'request') this._requestCount += 1;
   }

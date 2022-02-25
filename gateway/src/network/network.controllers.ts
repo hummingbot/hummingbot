@@ -15,39 +15,59 @@ import {
 } from '../services/error-handler';
 import { EthereumBase } from '../services/ethereum-base';
 
-export async function getStatus(req: StatusRequest): Promise<StatusResponse> {
+export async function getStatus(
+  req: StatusRequest
+): Promise<StatusResponse | StatusResponse[]> {
+  const statuses: StatusResponse[] = [];
+  let connections: any[] = [];
   let chain: string;
   let chainId: number;
   let rpcUrl: string;
   let currentBlockNumber: number;
 
-  if (req.chain === 'avalanche') {
-    const avalanche = Avalanche.getInstance(req.network);
-    chain = avalanche.chain;
-    chainId = avalanche.chainId;
-    rpcUrl = avalanche.rpcUrl;
-    currentBlockNumber = await avalanche.getCurrentBlockNumber();
-  } else if (req.chain === 'harmony') {
-    const harmony = Harmony.getInstance(req.network);
-    chain = harmony.chain;
-    chainId = harmony.chainId;
-    rpcUrl = harmony.rpcUrl;
-    currentBlockNumber = await harmony.getCurrentBlockNumber();
-  } else if (req.chain === 'ethereum') {
-    const ethereum = Ethereum.getInstance(req.network);
-    chain = ethereum.chain;
-    chainId = ethereum.chainId;
-    rpcUrl = ethereum.rpcUrl;
-    currentBlockNumber = await ethereum.getCurrentBlockNumber();
+  if (req.chain) {
+    if (req.chain === 'avalanche') {
+      connections.push(Avalanche.getInstance(req.network as string));
+    } else if (req.chain === 'harmony') {
+      connections.push(Harmony.getInstance(req.network as string));
+    } else if (req.chain === 'ethereum') {
+      connections.push(Ethereum.getInstance(req.network as string));
+    } else {
+      throw new HttpException(
+        500,
+        UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
+        UNKNOWN_CHAIN_ERROR_CODE
+      );
+    }
   } else {
-    throw new HttpException(
-      500,
-      UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
-      UNKNOWN_CHAIN_ERROR_CODE
+    const avalanceConnections = Avalanche.getConnectedInstances();
+    connections = connections.concat(
+      avalanceConnections ? Object.values(avalanceConnections) : []
+    );
+    const harmonyConnections = Harmony.getConnectedInstances();
+    connections = connections.concat(
+      harmonyConnections ? Object.values(harmonyConnections) : []
+    );
+    const ethereumConnections = Ethereum.getConnectedInstances();
+    connections = connections.concat(
+      ethereumConnections ? Object.values(ethereumConnections) : []
     );
   }
 
-  return { chain, chainId, rpcUrl, currentBlockNumber };
+  for (const connection of connections) {
+    chain = connection.chain;
+    chainId = connection.chainId;
+    rpcUrl = connection.rpcUrl;
+    currentBlockNumber = await connection.getCurrentBlockNumber();
+    statuses.push({
+      chain,
+      chainId,
+      rpcUrl,
+      currentBlockNumber,
+    });
+  }
+
+  return req.chain ? statuses[0] : statuses;
 }
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {

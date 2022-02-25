@@ -12,9 +12,7 @@
             "gasLimit": { "type": "integer" },
             "ttl": { "type": "integer" }
           },
-          "required": [
-            "allowedSlippage", "gasLimit", "ttl"
-          ],
+          "required": ["allowedSlippage", "gasLimit", "ttl"],
           "additionalProperties": false
         }
       },
