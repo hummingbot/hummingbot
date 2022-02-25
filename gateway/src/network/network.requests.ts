@@ -4,6 +4,8 @@ import {
   NetworkSelectionRequest,
 } from '../services/common-interfaces';
 
+import { Token } from '../services/ethereum-base';
+
 export interface BalanceRequest extends NetworkSelectionRequest {
   address: string; // the users public Ethereum key
   tokenSymbols: string[]; // a list of token symbol
@@ -41,4 +43,14 @@ export interface StatusResponse {
   chainId: number;
   rpcUrl: string;
   currentBlockNumber: number;
+}
+
+export interface TokensRequest {
+  chain?: string; //the target chain (e.g. ethereum, avalanche, or harmony)
+  network?: string; // the target network of the chain (e.g. mainnet)
+  tokenSymbols?: string[];
+}
+
+export interface TokensResponse {
+  tokens: Token[];
 }
