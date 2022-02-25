@@ -46,8 +46,8 @@ export interface StatusResponse {
 }
 
 export interface TokensRequest {
-  chain: string; //the target chain (e.g. ethereum, avalanche, or harmony)
-  network: string; // the target network of the chain (e.g. mainnet)
+  chain?: string; //the target chain (e.g. ethereum, avalanche, or harmony)
+  network?: string; // the target network of the chain (e.g. mainnet)
   tokenSymbols?: string[];
 }
 
