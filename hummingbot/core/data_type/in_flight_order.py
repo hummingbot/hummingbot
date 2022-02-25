@@ -348,10 +348,10 @@ class InFlightOrder:
         return: True if the order gets updated otherwise False
         """
         trade_id: str = trade_update.trade_id
-        if self.exchange_order_id is None and trade_update.exchange_order_id:
-            self.update_exchange_order_id(trade_update.exchange_order_id)
 
-        if trade_id in self.order_fills or trade_update.exchange_order_id != self.exchange_order_id:
+        if (trade_id in self.order_fills
+                or (self.client_order_id != trade_update.client_order_id
+                    and self.exchange_order_id != trade_update.exchange_order_id)):
             return False
 
         self.executed_amount_base += trade_update.fill_base_amount
