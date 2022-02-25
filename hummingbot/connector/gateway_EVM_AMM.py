@@ -4,6 +4,7 @@ import asyncio
 from typing import Dict, Any, List, Optional
 import time
 import copy
+import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.gateway import gateway_http_client
@@ -110,11 +111,19 @@ class GatewayEVMAMM(ConnectorBase):
         return self._wallet_public_key
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
         """
-        To-do: figure out how to fetch list of trading pairs for gateway connectors in new task.
+        Calls the tokens endpoint on Gateway.
         """
-        return []
+        try:
+            tokens = await gateway_http_client.api_request("get", "network/tokens", {"chain": chain, "network": network})
+            token_symbols = [t["symbol"] for t in tokens["tokens"]]
+            trading_pairs = []
+            for base, quote in it.permutations(token_symbols, 2):
+                trading_pairs.append(f"{base}-{quote}")
+            return trading_pairs
+        except Exception:
+            return []
 
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:

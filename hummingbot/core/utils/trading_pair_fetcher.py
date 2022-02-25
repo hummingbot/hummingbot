@@ -8,7 +8,7 @@ from typing import (
     List
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 import logging
 
 from .async_utils import safe_ensure_future
@@ -55,7 +55,12 @@ class TradingPairFetcher:
             module = getattr(importlib.import_module(module_path), class_name)
             args = {}
             args = conn_setting.add_domain_parameter(args)
-            safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(**args), conn_setting.name))
+            if conn_setting.type == ConnectorType.Connector:
+                connector_params = conn_setting.name.split("_")
+                if len(connector_params) > 2:
+                    safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(connector_params[1], connector_params[2]), conn_setting.name))
+            else:
+                safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(**args), conn_setting.name))
 
         self.ready = True
 

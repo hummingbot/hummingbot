@@ -16,7 +16,7 @@ from hummingbot.client.settings import (
     SCRIPTS_PATH
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
-from hummingbot.core.utils.gateway_config_utils import list_gateway_connection_wallets
+from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
@@ -52,13 +52,13 @@ class HummingbotCompleter(Completer):
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
         self._gateway_networks = []
-        self._list_gateway_connection_wallets_parameters = {"connector": "", "chain": "", "network": ""}
+        self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
 
     def set_gateway_networks(self, gateway_networks):
         self._gateway_networks = gateway_networks
 
-    def set_list_gateway_connection_wallets_parameters(self, connector, chain, network):
-        self._list_gateway_connection_wallets_parameters = {"connector": connector, "chain": chain, "network": network}
+    def set_list_gateway_wallets_parameters(self, wallets, chain):
+        self._list_gateway_wallets_parameters = {"wallets": wallets, "chain": chain}
 
     @property
     def prompt_text(self) -> str:
@@ -92,8 +92,8 @@ class HummingbotCompleter(Completer):
         return WordCompleter(self._gateway_networks, ignore_case=True)
 
     @property
-    def _gateway_connection_wallet_address_completer(self):
-        return WordCompleter(list_gateway_connection_wallets(self._list_gateway_connection_wallets_parameters["connector"], self._list_gateway_connection_wallets_parameters["chain"], self._list_gateway_connection_wallets_parameters["network"]), ignore_case=True)
+    def _gateway_wallet_address_completer(self):
+        return WordCompleter(list_gateway_wallets(self._list_gateway_wallets_parameters["wallets"], self._list_gateway_wallets_parameters["chain"]), ignore_case=True)
 
     @property
     def _option_completer(self):
@@ -179,7 +179,7 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_network(self, document: Document) -> bool:
         return "Which network do you want" in self.prompt_text
 
-    def _complete_gateway_connection_wallet_addresses(self, document: Document) -> bool:
+    def _complete_gateway_wallet_addresses(self, document: Document) -> bool:
         return "Select a gateway wallet" in self.prompt_text
 
     def _complete_command(self, document: Document) -> bool:
@@ -225,8 +225,8 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_network_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_connection_wallet_addresses(document):
-            for c in self._gateway_connection_wallet_address_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_wallet_addresses(document):
+            for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_spot_connectors(document):

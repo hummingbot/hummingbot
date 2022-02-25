@@ -10,13 +10,16 @@ import {
   PollResponse,
   StatusRequest,
   StatusResponse,
+  TokensRequest,
+  TokensResponse,
 } from './network.requests';
 
 import {
   validateBalanceRequest,
   validatePollRequest,
+  validateTokensRequest,
 } from '../chains/ethereum/ethereum.validators';
-import { getStatus } from './network.controllers';
+import { getStatus, getTokens } from './network.controllers';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
 
 export namespace NetworkRoutes {
@@ -24,16 +27,14 @@ export namespace NetworkRoutes {
 
   router.get(
     '/status',
-    async (
-      req: Request<{}, {}, {}, StatusRequest>,
-      res: Response<StatusResponse | StatusResponse[], {}>
-    ) => {
-      try {
+    asyncHandler(
+      async (
+        req: Request<{}, {}, {}, StatusRequest>,
+        res: Response<StatusResponse | StatusResponse[], {}>
+      ) => {
         res.status(200).json(await getStatus(req.query));
-      } catch (error: any) {
-        res.status(error.status).json(error);
       }
-    }
+    )
   );
 
   router.get('/config', (_req: Request, res: Response<any, any>) => {
@@ -65,6 +66,19 @@ export namespace NetworkRoutes {
         validatePollRequest(req.body);
         const chain = await getChain(req.body.chain, req.body.network);
         res.status(200).json(await poll(chain, req.body));
+      }
+    )
+  );
+
+  router.get(
+    '/tokens',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, {}, TokensRequest>,
+        res: Response<TokensResponse, {}>
+      ) => {
+        validateTokensRequest(req.query);
+        res.status(200).json(await getTokens(req.query));
       }
     )
   );
