@@ -239,6 +239,27 @@ async def update_strategy_config_map_from_file(yml_path: str) -> str:
     return strategy
 
 
+async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:
+    data = {}
+    if isfile(yml_path):
+        with open(yml_path) as stream:
+            data = yaml_parser.load(stream) or {}
+
+    return dict(data.items())
+
+
+async def save_yml_from_dict(yml_path: str, conf_dict: Dict[str, Any]):
+    try:
+        with open(yml_path, "w+") as stream:
+            data = yaml_parser.load(stream) or {}
+            for key in conf_dict:
+                data[key] = conf_dict.get(key)
+            with open(yml_path, "w+") as outfile:
+                yaml_parser.dump(data, outfile)
+    except Exception as e:
+        logging.getLogger().error(f"Error writing configs: {str(e)}", exc_info=True)
+
+
 async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
         data = {}

@@ -4,7 +4,7 @@ enabled: true
 gasStationURL: 'https://ethgasstation.info/api/ethgasAPI.json?api-key='
 
 # The API key for the gas station API.
-APIKey: 'zzbbccaa9810283820'
+APIKey: null
 # Use one of the following values: safeLow, average, fast, fastest. The higher
 # the level, the more likely an operation will be included in the block chain.
 gasLevel: fast

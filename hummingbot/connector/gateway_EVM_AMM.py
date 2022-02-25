@@ -86,6 +86,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
+        self._get_chain_info_task = None
         self._auto_approve_task = None
         self._poll_notifier = None
         self._nonce = None
@@ -154,7 +155,7 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
         """
         try:
-            self._chain_info = await self._api_request("get", "network/chain_config", {"chain": self.chain})
+            self._chain_info = await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
@@ -167,7 +168,7 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the status endpoint on Gateway to know basic info about connected networks.
         """
         try:
-            return await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
+            return await self._api_request("get", "network/status", {})
         except Exception as e:
             self.logger().network(
                 "Error fetching gateway status info",

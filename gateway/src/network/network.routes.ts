@@ -27,16 +27,14 @@ export namespace NetworkRoutes {
 
   router.get(
     '/status',
-    async (
-      req: Request<{}, {}, {}, StatusRequest>,
-      res: Response<StatusResponse, {}>
-    ) => {
-      try {
+    asyncHandler(
+      async (
+        req: Request<{}, {}, {}, StatusRequest>,
+        res: Response<StatusResponse | StatusResponse[], {}>
+      ) => {
         res.status(200).json(await getStatus(req.query));
-      } catch (error: any) {
-        res.status(error.status).json(error);
       }
-    }
+    )
   );
 
   router.get('/config', (_req: Request, res: Response<any, any>) => {
