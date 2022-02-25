@@ -131,3 +131,36 @@ describe('GET /network/config', () => {
       .expect(200);
   });
 });
+
+describe('GET /network/tokens', () => {
+  it('should return 200 when retrieving tokens', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'ethereum',
+        network: 'kovan',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+  it('should return 200 when retrieving specific tokens', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'ethereum',
+        network: 'kovan',
+        tokenSymbols: ['COIN3', 'COIN1'],
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+  it('should return 500 when retrieving tokens for invalid chain', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'unknown',
+        network: 'kovan',
+      })
+      .expect(500);
+  });
+});
