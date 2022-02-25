@@ -1,15 +1,10 @@
 import asyncio
 
-from hummingbot.client.settings import (
-    GLOBAL_CONFIG_PATH,
-    ethereum_required_trading_pairs
-)
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    save_to_yml
-)
+from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.client.performance import PerformanceMetrics
@@ -128,19 +123,6 @@ class BalanceCommand:
             except Exception as e:
                 self.notify(f"\ncelo CLI Error: {str(e)}")
 
-        eth_address = global_config_map["ethereum_wallet"].value
-        if eth_address is not None:
-            eth_df = await self.ethereum_balances_df()
-            lines = ["    " + line for line in eth_df.to_string(index=False).split("\n")]
-            self.notify("\nethereum:")
-            self.notify("\n".join(lines))
-
-            # XDAI balances
-            xdai_df = await self.xdai_balances_df()
-            lines = ["    " + line for line in xdai_df.to_string(index=False).split("\n")]
-            self.notify("\nxdai:")
-            self.notify("\n".join(lines))
-
     async def exchange_balances_extra_df(self,  # type: HummingbotApplication
                                          ex_balances: Dict[str, Decimal],
                                          ex_avai_balances: Dict[str, Decimal]):
@@ -172,30 +154,6 @@ class BalanceCommand:
         bals = CeloCLI.balances()
         for token, bal in bals.items():
             rows.append({"Asset": token.upper(), "Amount": round(bal.total, 4)})
-        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
-        df.sort_values(by=["Asset"], inplace=True)
-        return df
-
-    async def ethereum_balances_df(self,  # type: HummingbotApplication
-                                   ):
-        rows = []
-        if ethereum_required_trading_pairs():
-            bals = await UserBalances.eth_n_erc20_balances()
-            for token, bal in bals.items():
-                rows.append({"Asset": token, "Amount": round(bal, 4)})
-        else:
-            eth_bal = UserBalances.ethereum_balance()
-            rows.append({"Asset": "ETH", "Amount": round(eth_bal, 4)})
-        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
-        df.sort_values(by=["Asset"], inplace=True)
-        return df
-
-    async def xdai_balances_df(self,  # type: HummingbotApplication
-                               ):
-        rows = []
-        bals = await UserBalances.xdai_balances()
-        for token, bal in bals.items():
-            rows.append({"Asset": token, "Amount": round(bal, 4)})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
