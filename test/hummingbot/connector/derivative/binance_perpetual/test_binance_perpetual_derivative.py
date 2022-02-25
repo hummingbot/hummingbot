@@ -11,7 +11,7 @@ import pandas as pd
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import \
     BinancePerpetualAPIOrderBookDataSource
@@ -71,6 +71,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         }
 
         self.exchange._set_current_timestamp(1640780000)
+        self.exchange._binance_time_synchronizer.add_time_offset_ms_sample(0)
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
         self.exchange._client_order_tracker.logger().setLevel(1)
@@ -238,7 +239,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_existing_account_position_detected_on_positions_update(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -255,7 +256,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_account_position_updated_on_positions_update(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -280,7 +281,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_new_account_position_detected_on_positions_update(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -301,7 +302,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_closed_account_position_removed_on_positions_update(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -324,7 +325,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
-        url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
@@ -337,7 +338,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         account_update = self._get_account_update_ws_event_single_position_dict()
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -352,7 +353,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_account_position_updated_on_stream_event(self, mock_api, ws_connect_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -362,7 +363,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
 
-        url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
@@ -388,7 +389,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_closed_account_position_removed_on_stream_event(self, mock_api, ws_connect_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -398,7 +399,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
 
-        url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
@@ -421,7 +422,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def test_set_position_mode_initial_mode_is_none(self, mock_api):
         self.assertIsNone(self.exchange.position_mode)
 
-        url = utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
         post_position_mode_response = {"code": 200, "msg": "success"}
@@ -436,7 +437,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_set_position_initial_mode_unchanged(self, mock_api):
         self.exchange._position_mode = PositionMode.ONEWAY
-        url = utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
 
@@ -449,7 +450,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_set_position_mode_diff_initial_mode_change_successful(self, mock_api):
         self.exchange._position_mode = PositionMode.ONEWAY
-        url = utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
         post_position_mode_response = {"code": 200, "msg": "success"}
@@ -465,7 +466,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_set_position_mode_diff_initial_mode_change_fail(self, mock_api):
         self.exchange._position_mode = PositionMode.ONEWAY
-        url = utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        url = web_utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
         post_position_mode_response = {"code": -4059, "msg": "No need to change position side."}
@@ -1111,7 +1112,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                    "symbol": "COINALPHAHBOT",
                    "time": 1000}]
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1166,7 +1167,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             position=PositionAction.OPEN,
         )
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1248,7 +1249,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                  "workingType": "CONTRACT_PRICE",
                  "priceProtect": False}
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1298,7 +1299,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             "symbol": symbol
         }
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.SET_LEVERAGE_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1320,7 +1321,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                     "maxNotionalValue": "1000000",
                     "symbol": symbol}
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.SET_LEVERAGE_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1336,7 +1337,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def test_fetch_funding_payment_successful(self, req_mock):
         income_history = self._get_income_history_dict()
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1345,7 +1346,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         funding_info = self._get_funding_info_dict()
 
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.MARK_PRICE_URL, domain=self.domain
         )
         regex_url_funding_info = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1371,7 +1372,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_funding_payment_failed(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1387,7 +1388,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_cancel_all_successful(self, mocked_api):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1433,7 +1434,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_cancel_all_unknown_order(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1473,7 +1474,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_cancel_all_exception(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1511,7 +1512,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_create_order_successful(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1538,7 +1539,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_create_order_exception(self, req_mock):
-        url = utils.rest_url(
+        url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1624,7 +1625,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"serverTime": 1640000003000}
@@ -1632,7 +1633,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.get(regex_url,
                      body=json.dumps(response))
 
-        url = utils.rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
+        url = web_utils.rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
