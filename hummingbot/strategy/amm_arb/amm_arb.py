@@ -10,6 +10,7 @@ from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConn
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.logger import HummingbotLogger
@@ -62,7 +63,6 @@ class AmmArbStrategy(StrategyPyBase):
         :param concurrent_orders_submission: whether to submit both arbitrage taker orders (buy and sell) simultaneously
         If false, the bot will wait for first exchange order filled before submitting the other order.
         :param status_report_interval: Amount of seconds to wait to refresh the status report
-        :param rate_source: Provider of conversion rates between tokens
         """
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
@@ -89,7 +89,7 @@ class AmmArbStrategy(StrategyPyBase):
         self._market_1_quote_eth_rate = None
         self._market_2_quote_eth_rate = None
 
-        self._rate_source = rate_source
+        self._rate_source = RateOracle.get_instance()
 
     @property
     def min_profitability(self) -> Decimal:
