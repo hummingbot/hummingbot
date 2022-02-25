@@ -51,6 +51,7 @@ class ConnectorType(Enum):
     The types of exchanges that hummingbot client can communicate with.
     """
 
+    EVM_AMM = "EVM_AMM"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -73,19 +74,37 @@ class ConnectorSetting(NamedTuple):
     the connector file.
     """
 
+    def uses_gateway_generic_connector(self):
+        none_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
+        return True if self.type not in none_gateway_connectors_types else False
+
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
+        if self.uses_gateway_generic_connector():
+            return f"gateway_{self.type.name}"
         return f"{self.base_name()}_{self.type.name.lower()}"
 
     def module_path(self) -> str:
         # return connector full path name, e.g. hummingbot.connector.exchange.binance.binance_exchange
+        if self.uses_gateway_generic_connector():
+            return f"hummingbot.connector.{self.module_name()}"
         return f"hummingbot.connector.{self.type.name.lower()}.{self.base_name()}.{self.module_name()}"
 
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
+        if self.uses_gateway_generic_connector():
+            splited_name = self.module_name().split('_')
+            splited_name[0] = splited_name[0].capitalize()
+            return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
-    def conn_init_parameters(self, api_keys: Dict[str, Any]) -> Dict[str, Any]:
+    def conn_init_parameters(self, api_keys: Dict[str, Any] = {}) -> Dict[str, Any]:
+        if self.uses_gateway_generic_connector():  # init parameters for gateway connectors
+            params = {k: v.value for k, v in self.config_keys.items()}
+            name, chain, network = self.name.split("_")
+            params.update(connector_name = name, chain = chain, network = network)
+            return params
+
         if not self.is_sub_domain:
             return api_keys
         else:
@@ -187,7 +206,7 @@ class AllConnectorSettings:
             wallet_config.value = connection["wallet_address"]
             cls.all_connector_settings[gateway_connector_name] = ConnectorSetting(
                 name=gateway_connector_name,
-                type=ConnectorType["Connector"],
+                type=ConnectorType[connection["trading_type"]],
                 centralised = False,
                 example_pair = "WETH-USDC",
                 use_ethereum_wallet = False,
@@ -248,14 +267,6 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
     @classmethod
-    def get_all_connectors_map(cls) -> Dict[str, str]:
-        return {
-            ConnectorType.Exchange.value: cls.get_exchange_names(),
-            ConnectorType.Derivative.value: cls.get_derivative_names(),
-            ConnectorType.Connector.value: cls.get_other_connector_names(),
-        }
-
-    @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
         return {name: cs.example_pair for name, cs in cls.get_connector_settings().items()}
 
@@ -304,6 +315,18 @@ def ethereum_required_trading_pairs() -> List[str]:
     ret_val = []
     for conn, t_pair in requried_connector_trading_pairs.items():
         if AllConnectorSettings.get_connector_settings()[conn].use_ethereum_wallet:
+            ret_val += t_pair
+    return ret_val
+
+
+def gateway_connector_trading_pairs(connector: str) -> List[str]:
+    """
+    Returns trading pair used by specified gateway connnector.
+    """
+    ret_val = []
+    for conn, t_pair in requried_connector_trading_pairs.items():
+        if AllConnectorSettings.get_connector_settings()[conn].uses_gateway_generic_connector() and \
+           conn == connector:
             ret_val += t_pair
     return ret_val
 
