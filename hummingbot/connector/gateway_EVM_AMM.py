@@ -56,7 +56,7 @@ class GatewayEVMAMM(ConnectorBase):
                  chain: str,
                  network: str,
                  wallet_public_key: str,
-                 trading_pairs: List[str],
+                 trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
         """
@@ -73,8 +73,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._network = network
         self._trading_pairs = trading_pairs
         self._tokens = set()
-        for trading_pair in trading_pairs:
-            self._tokens.update(set(trading_pair.split("-")))
+        [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
         self._wallet_public_key = wallet_public_key
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
@@ -88,6 +87,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._auto_approve_task = None
         self._poll_notifier = None
         self._nonce = None
+        self._native_currency = "ETH"  # make ETH the default asset
 
     @property
     def connector_name(self):
@@ -146,6 +146,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         try:
             self._chain_info = await self._api_request("get", "network/chain_config", {"chain": self.chain})
+            self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
@@ -364,13 +365,13 @@ class GatewayEVMAMM(ConnectorBase):
 
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair} on {self._chain_info.get('name', '--')}. Estimated Gas Cost: {gas_cost} "
+                                   f"for {amount} {trading_pair} on {self.network}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
                 tracked_order.nonce = nonce
-                tracked_order.fee_asset = self._chain_info["nativeCurrency"]["symbol"]
+                tracked_order.fee_asset = self._native_currency
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
@@ -385,7 +386,7 @@ class GatewayEVMAMM(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self._chain_info['name']} for "
+                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self.network} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -610,12 +611,12 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json = await self._api_request("get",
+            resp_json = await self._api_request("post",
                                                 "network/balances",
                                                 {"chain": self.chain,
                                                  "network": self.network,
                                                  "address": self.address,
-                                                 "tokenSymbols": list(self._tokens)})
+                                                 "tokenSymbols": list(self._tokens) + [self._native_currency]})
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
