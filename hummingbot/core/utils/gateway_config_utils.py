@@ -22,8 +22,8 @@ def list_gateway_connection_wallets(connector: str, chain: str, network: str):
         return []
 
 
-def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, wallet):
-    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": "on_chain", "wallet_address": wallet}
+def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, trading_type, wallet):
+    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": trading_type, "wallet_address": wallet}
 
     updated = False
 

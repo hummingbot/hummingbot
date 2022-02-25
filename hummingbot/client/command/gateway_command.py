@@ -267,10 +267,12 @@ class GatewayCommand:
         else:
             # get available networks
             connector_configs = await gateway_http_client.api_request("get", "connectors", {})
-            available_networks = [d["available_networks"] for d in connector_configs["connectors"] if d["name"] == connector]
+            connector_config = [d for d in connector_configs["connectors"] if d["name"] == connector]
+            available_networks = connector_config[0]["available_networks"]
+            trading_type = connector_config[0]["trading_type"][0]
 
             # ask user to select a chain. Automatically select if there is only one.
-            chains = [d[0]['chain'] for d in available_networks]
+            chains = [d['chain'] for d in available_networks]
             if len(chains) == 1:
                 chain = chains[0]
             else:
@@ -280,7 +282,7 @@ class GatewayCommand:
                 chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
 
             # ask user to select a network. Automatically select if there is only one.
-            networks = list(itertools.chain.from_iterable([d[0]['networks'] for d in available_networks if d[0]['chain'] == chain]))
+            networks = list(itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain]))
 
             if len(networks) == 1:
                 network = networks[0]
@@ -356,7 +358,7 @@ class GatewayCommand:
 
             # write wallets to json
             with open(connections_fp, "w+") as outfile:
-                upsert_connection(connections, connector, chain, network, wallet)
+                upsert_connection(connections, connector, chain, network, trading_type, wallet)
                 json.dump(connections, outfile)
                 self.notify(f"The {connector} connector now uses wallet {wallet} on {chain}-{network}")
 
