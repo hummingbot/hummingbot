@@ -169,6 +169,7 @@ jobs:
           INFURA_KEY: ${{ secrets.INFURA_KEY }}
           ETH_GAS_STATION_API_KEY: ${{ secrets.ETH_GAS_STATION_API_KEY }}
         run: |
+          mkdir -p ./gateway/conf/
           cat << EOF >> ./gateway/conf/ethereum.yml
           networks:
             mainnet:
@@ -201,6 +202,7 @@ jobs:
         env:
           CERT_PASSPHRASE: ${{ secrets.CERT_PASSPHRASE }}
         run: |
+          mkdir -p ./gateway/conf/
           cat << EOF >> ./gateway/conf/gateway-passphrase.yml
           CERT_PASSPHRASE: "$CERT_PASSPHRASE"
           EOF
