@@ -21,7 +21,7 @@ export namespace PangolinConfig {
       ConfigManagerV2.getInstance().get(
         'pangolin.contractAddresses.' + network + '.routerAddress'
       ),
-    tradingTypes: ['AMM'],
+    tradingTypes: ['EVM_AMM'],
     availableNetworks: [
       { chain: 'avalanche', networks: ['avalanche', 'fuji'] },
     ],

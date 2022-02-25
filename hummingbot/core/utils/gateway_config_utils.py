@@ -23,8 +23,8 @@ def list_gateway_wallets(wallets: List[Any], chain: str) -> List[str]:
     return list(flatten([w["walletAddresses"] for w in wallets if w["chain"] == chain]))
 
 
-def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, wallet):
-    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": "on_chain", "wallet_address": wallet}
+def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, trading_type, wallet):
+    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": trading_type, "wallet_address": wallet}
 
     updated = False
 
