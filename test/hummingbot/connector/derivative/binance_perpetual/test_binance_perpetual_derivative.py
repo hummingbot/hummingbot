@@ -1809,7 +1809,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"serverTime": 1640000003000}
@@ -1817,7 +1817,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.get(regex_url,
                      body=json.dumps(response))
 
-        url = utils.rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
+        url = web_utils.rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
