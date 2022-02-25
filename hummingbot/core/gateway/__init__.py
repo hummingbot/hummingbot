@@ -9,7 +9,6 @@ import ssl
 import json
 
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.core.utils import detect_available_port
 from hummingbot.logger import HummingbotLogger
 import logging
@@ -19,7 +18,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220215-test2"
+GATEWAY_DOCKER_TAG: str = "20220224.2"
 
 
 def is_inside_docker() -> bool:
@@ -143,7 +142,14 @@ async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
         raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
     try:
         _hummingbot_pipe.send((method_name, args, kwargs))
-        return await _hummingbot_pipe.coro_recv()
+        data = await _hummingbot_pipe.coro_recv()
+        if isinstance(data, Exception):
+            HummingbotApplication.main_application().notify(
+                "\nError: Unable to communicate with docker socket. "
+                "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            raise data
+        return data
+
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
             "\nError: Unable to communicate with docker socket. "
@@ -163,6 +169,11 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
             data = await _hummingbot_pipe.coro_recv()
             if data is None:
                 break
+            if isinstance(data, Exception):
+                HummingbotApplication.main_application().notify(
+                    "\nError: Unable to communicate with docker socket. "
+                    "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+                raise data
             yield data
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
@@ -190,8 +201,9 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
+            cert_path = get_gateway_paths().local_certs_path.as_posix()
+            ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
@@ -223,7 +235,6 @@ class GatewayHttpClient:
                     response = await client.get(url)
             elif method == "post":
                 response = await client.post(url, json=params)
-            parsed_response = json.loads(await response.text())
             if response.status != 200:
                 if "error" in parsed_response:
                     err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
@@ -233,6 +244,7 @@ class GatewayHttpClient:
                         err_msg,
                         exc_info=True
                     )
+            parsed_response = json.loads(await response.text())
         except Exception as e:
             if not fail_silently:
                 raise e
