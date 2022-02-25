@@ -52,6 +52,10 @@ export class Harmony extends EthereumBase implements Ethereumish {
     return Harmony._instances[network];
   }
 
+  public static getConnectedInstances(): { [name: string]: Harmony } {
+    return Harmony._instances;
+  }
+
   // public static reload(): Harmony {
   //   Harmony._instance = new Harmony();
   //   return Harmony._instance;
