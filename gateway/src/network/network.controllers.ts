@@ -74,12 +74,20 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
   let connection: EthereumBase;
   let tokens: Token[] = [];
 
-  if (req.chain === 'avalanche') {
-    connection = Avalanche.getInstance(req.network);
-  } else if (req.chain === 'harmony') {
-    connection = Harmony.getInstance(req.network);
-  } else if (req.chain === 'ethereum') {
-    connection = Ethereum.getInstance(req.network);
+  if (req.chain && req.network) {
+    if (req.chain === 'avalanche') {
+      connection = Avalanche.getInstance(req.network);
+    } else if (req.chain === 'harmony') {
+      connection = Harmony.getInstance(req.network);
+    } else if (req.chain === 'ethereum') {
+      connection = Ethereum.getInstance(req.network);
+    } else {
+      throw new HttpException(
+        500,
+        UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
+        UNKNOWN_CHAIN_ERROR_CODE
+      );
+    }
   } else {
     throw new HttpException(
       500,
