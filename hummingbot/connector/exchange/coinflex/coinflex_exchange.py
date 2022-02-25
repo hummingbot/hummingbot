@@ -305,6 +305,7 @@ class CoinflexExchange(ExchangeBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
+                creation_timestamp=self.current_timestamp
             )
         )
 
@@ -494,7 +495,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int((self.current_timestamp or time.time()) * 1e3),
+                update_timestamp=self.current_timestamp,
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -539,7 +540,7 @@ class CoinflexExchange(ExchangeBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(order_result["timestamp"]),
+                update_timestamp=int(order_result["timestamp"]) * 1e-3,
                 new_state=OrderState.OPEN,
             )
             self._order_tracker.process_order_update(order_update)
@@ -557,7 +558,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int((self.current_timestamp or time.time()) * 1e3),
+                update_timestamp=self.current_timestamp,
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -600,10 +601,11 @@ class CoinflexExchange(ExchangeBase):
                         raise
 
                 if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
+                    cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(cancel_result.get("timestamp", (self.current_timestamp or time.time()) * 1e3)),
+                        update_timestamp=int(cancelled_timestamp) * 1e-3 if cancelled_timestamp else self.current_timestamp,
                         new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
@@ -745,7 +747,7 @@ class CoinflexExchange(ExchangeBase):
                                 trade_id=int(order_data["matchId"]),
                                 client_order_id=client_order_id,
                                 exchange_order_id=str(order_data["orderId"]),
-                                fill_timestamp=int(order_data["timestamp"]),
+                                fill_timestamp=int(order_data["timestamp"]) * 1e-3,
                                 fill_price=fill_price,
                                 fill_base_amount=exec_amt_base,
                                 fill_quote_amount=exec_amt_quote,
@@ -755,7 +757,7 @@ class CoinflexExchange(ExchangeBase):
                             self._order_tracker.process_trade_update(trade_update=trade_update)
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=int(order_data["timestamp"]),
+                            update_timestamp=int(order_data["timestamp"]) * 1e-3,
                             new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
                             client_order_id=client_order_id,
                             exchange_order_id=str(order_data["orderId"]),
@@ -788,7 +790,7 @@ class CoinflexExchange(ExchangeBase):
                     trade_id=int(trade_id),
                     client_order_id=tracked_order.client_order_id,
                     exchange_order_id=str(order_update["orderId"]),
-                    fill_timestamp=int(trade_data["timestamp"]),
+                    fill_timestamp=int(trade_data["timestamp"]) * 1e-3,
                     fill_price=fill_price,
                     fill_base_amount=exec_amt_base,
                     fill_quote_amount=exec_amt_quote,
@@ -810,7 +812,7 @@ class CoinflexExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=self.current_timestamp,
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -870,11 +872,15 @@ class CoinflexExchange(ExchangeBase):
                             cumulative_fee_paid = coinflex_utils.decimal_val_or_none(order_fees[fee_asset])
                             break
 
+                    order_update_timestamp = order_update.get("timestamp",
+                                                              order_update.get("orderOpenedTimestamp",
+                                                                               order_result.get("timestamp")))
+
                     update = OrderUpdate(
                         client_order_id=client_order_id,
                         exchange_order_id=str(order_update["orderId"]),
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(order_update.get("timestamp", order_update.get("orderOpenedTimestamp"))),
+                        update_timestamp=int(order_update_timestamp) * 1e-3,
                         new_state=new_state,
                         fee_asset=fee_asset,
                         cumulative_fee_paid=cumulative_fee_paid,
