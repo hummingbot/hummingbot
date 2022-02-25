@@ -17,7 +17,6 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import (
     AllConnectorSettings,
-    ConnectorType,
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
 )
 from hummingbot.client.ui.interface_utils import format_df_for_printout
@@ -101,16 +100,9 @@ class HistoryCommand:
             if paper_balances is None:
                 return {}
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
-        elif "perpetual_finance" == market:
-            return await UserBalances.xdai_balances()
         else:
-            gateway_eth_connectors = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-                                      if cs.use_ethereum_wallet and cs.type == ConnectorType.Connector]
-            if market in gateway_eth_connectors:
-                return await UserBalances.instance().eth_n_erc20_balances()
-            else:
-                await UserBalances.instance().update_exchange_balance(market)
-                return UserBalances.instance().all_balances(market)
+            await UserBalances.instance().update_exchange_balance(market)
+            return UserBalances.instance().all_balances(market)
 
     def report_header(self,  # type: HummingbotApplication
                       start_time: float):
