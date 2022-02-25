@@ -270,30 +270,19 @@ class HummingbotApplication(*commands):
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
 
-            if conn_setting:
-                if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
-                    connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
-                    paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                    for asset, balance in paper_trade_account_balance.items():
-                        connector.set_balance(asset, balance)
-                else:
-                    Security.update_config_map(global_config_map)
-                    keys = {key: config.value for key, config in global_config_map.items()
-                            if key in conn_setting.config_keys}
-                    init_params = conn_setting.conn_init_parameters(keys)
-                    init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                    connector_class = get_connector_class(connector_name)
-                    connector = connector_class(**init_params)
-            else:  # gateway connector
-                init_params = {}
+            if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
+                connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
+                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+                for asset, balance in paper_trade_account_balance.items():
+                    connector.set_balance(asset, balance)
+            else:
+                Security.update_config_map(global_config_map)
+                keys = {key: config.value for key, config in global_config_map.items()
+                        if key in conn_setting.config_keys}
+                init_params = conn_setting.conn_init_parameters(keys)
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                if conn_setting.type == ConnectorType.Connector:
-                    name, chain, network = connector_name.split("_")
-                    init_params.update(connector_name = name, chain = chain, network = network)
-                    connector = GatewayEVMAMM(**init_params)  # should be updated wrt trading_type when more gateway classes are added
-                else:
-                    connector_class = get_connector_class(connector_name)
-                    connector = connector_class(**init_params)
+                connector_class = get_connector_class(connector_name)
+                connector = connector_class(**init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(
