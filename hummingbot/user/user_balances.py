@@ -1,15 +1,11 @@
 from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.client.settings import AllConnectorSettings, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
+from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_derivative import PerpetualFinanceDerivative
 
 from typing import Optional, Dict, List
 from decimal import Decimal
-
-from web3 import Web3
 
 
 class UserBalances:
@@ -19,9 +15,10 @@ class UserBalances:
     def connect_market(exchange, **api_details):
         connector = None
         conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
-        if not conn_setting.use_ethereum_wallet:
+        if api_details or conn_setting.uses_gateway_generic_connector():
             connector_class = get_connector_class(exchange)
             init_params = conn_setting.conn_init_parameters(api_details)
+            init_params.update(trading_pairs = gateway_connector_trading_pairs(conn_setting.name))
             connector = connector_class(**init_params)
         return connector
 
@@ -65,24 +62,27 @@ class UserBalances:
             return await self._update_balances(self._markets[exchange])
         else:
             api_keys = await Security.api_keys(exchange)
-            if api_keys:
-                return await self.add_exchange(exchange, **api_keys)
-            else:
-                return "Connections parameters have not been added connectors being used."\
-                       " Use `connect` or `gateway connect` command."
+            return await self.add_exchange(exchange, **api_keys)
 
     # returns error message for each exchange
     async def update_exchanges(self, reconnect: bool = False,
                                exchanges: List[str] = []) -> Dict[str, Optional[str]]:
         tasks = []
-        # Update user balances, except connectors that use Ethereum wallet.
+        # Update user balances
         if len(exchanges) == 0:
             exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
         exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values() if not cs.use_ethereum_wallet
-                     and cs.name in exchanges and not cs.name.endswith("paper_trade") and cs.type != ConnectorType.Connector]
+                     and cs.name in exchanges and not cs.name.endswith("paper_trade")]
+
+        gateway_connectors = [cs.name for cs in AllConnectorSettings.get_connector_settings().values() if cs.uses_gateway_generic_connector()]
+
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:
+            if exchange in gateway_connectors and exchange in self._markets:
+                # we want to refresh gateway connectors always
+                # doing this will reinitialize and fetch balances for active trading pair
+                del self._markets[exchange]
             tasks.append(self.update_exchange_balance(exchange))
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
@@ -104,43 +104,8 @@ class UserBalances:
             return results
 
     @staticmethod
-    def ethereum_balance() -> Decimal:
-        ethereum_wallet = global_config_map.get("ethereum_wallet").value
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
-        balance = web3.eth.getBalance(ethereum_wallet)
-        balance = web3.fromWei(balance, "ether")
-        return balance
-
-    @staticmethod
-    async def eth_n_erc20_balances() -> Dict[str, Decimal]:
-        # TODO: integrate with gateway v2.
-        return {}
-
-    @staticmethod
-    async def xdai_balances() -> Dict[str, Decimal]:
-        connector = PerpetualFinanceDerivative("",
-                                               get_eth_wallet_private_key(),
-                                               "",
-                                               True)
-        await connector._update_balances()
-        return connector.get_all_balances()
-
-    @staticmethod
     def validate_ethereum_wallet() -> Optional[str]:
-        if global_config_map.get("ethereum_wallet").value is None:
-            return "Ethereum wallet is required."
-        if global_config_map.get("ethereum_rpc_url").value is None:
-            return "ethereum_rpc_url is required."
-        if global_config_map.get("ethereum_rpc_ws_url").value is None:
-            return "ethereum_rpc_ws_url is required."
-        if global_config_map.get("ethereum_wallet").value not in Security.private_keys():
-            return "Ethereum private key file does not exist or corrupts."
-        try:
-            UserBalances.ethereum_balance()
-        except Exception as e:
-            return str(e)
-        return None
+        return "Connector deprecated."
 
     @staticmethod
     async def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
