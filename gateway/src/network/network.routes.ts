@@ -72,16 +72,14 @@ export namespace NetworkRoutes {
 
   router.get(
     '/tokens',
-    async (
-      req: Request<{}, {}, {}, TokensRequest>,
-      res: Response<TokensResponse, {}>
-    ) => {
-      try {
+    asyncHandler(
+      async (
+        req: Request<{}, {}, {}, TokensRequest>,
+        res: Response<TokensResponse, {}>
+      ) => {
         validateTokensRequest(req.query);
         res.status(200).json(await getTokens(req.query));
-      } catch (error: any) {
-        res.status(error.status).json(error);
       }
-    }
+    )
   );
 }
