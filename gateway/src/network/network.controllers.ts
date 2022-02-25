@@ -1,12 +1,19 @@
-import { StatusRequest, StatusResponse } from './network.requests';
+import {
+  StatusRequest,
+  StatusResponse,
+  TokensRequest,
+  TokensResponse,
+} from './network.requests';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
+import { Token } from '../services/ethereum-base';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../services/error-handler';
+import { EthereumBase } from '../services/ethereum-base';
 
 export async function getStatus(
   req: StatusRequest
@@ -61,4 +68,45 @@ export async function getStatus(
   }
 
   return req.chain ? statuses[0] : statuses;
+}
+
+export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
+  let connection: EthereumBase;
+  let tokens: Token[] = [];
+
+  if (req.chain && req.network) {
+    if (req.chain === 'avalanche') {
+      connection = Avalanche.getInstance(req.network);
+    } else if (req.chain === 'harmony') {
+      connection = Harmony.getInstance(req.network);
+    } else if (req.chain === 'ethereum') {
+      connection = Ethereum.getInstance(req.network);
+    } else {
+      throw new HttpException(
+        500,
+        UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
+        UNKNOWN_CHAIN_ERROR_CODE
+      );
+    }
+  } else {
+    throw new HttpException(
+      500,
+      UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
+      UNKNOWN_CHAIN_ERROR_CODE
+    );
+  }
+
+  if (!connection.ready()) {
+    await connection.init();
+  }
+
+  if (!req.tokenSymbols) {
+    tokens = connection.storedTokenList;
+  } else {
+    for (const t of req.tokenSymbols as []) {
+      tokens.push(connection.getTokenForSymbol(t) as Token);
+    }
+  }
+
+  return { tokens };
 }
