@@ -74,7 +74,7 @@ def start(self):
             sell_list = [['sell', spread, amount] for spread, amount in zip(ask_order_level_spreads, ask_order_level_amounts)]
             both_list = buy_list + sell_list
             order_override = {
-                i: order for i, order in enumerate(both_list)
+                f'split_level_{i}': order for i, order in enumerate(both_list)
             }
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
@@ -135,6 +135,9 @@ def start(self):
             minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
+            split_order_levels_enabled=split_order_levels_enabled,
+            bid_order_level_spreads=bid_order_level_spreads,
+            ask_order_level_spreads=ask_order_level_spreads,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
         )
     except Exception as e:
