@@ -5,7 +5,7 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, List, Optional
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 from aioresponses.core import aioresponses
@@ -1109,7 +1109,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                    "side": "SELL",
                    "positionSide": "SHORT",
                    "symbol": "COINALPHAHBOT",
-                   "time": 1}]
+                   "time": 1000}]
 
         url = utils.rest_url(
             CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
@@ -1150,11 +1150,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative.current_timestamp")
-    def test_update_order_fills_from_trades_failed(self, req_mock, mock_timestamp):
+    def test_update_order_fills_from_trades_failed(self, req_mock):
+        self.exchange._set_current_timestamp(1640001112.0)
         self.exchange._last_poll_timestamp = 0
-        mock_timestamp.return_value = 1
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1202,7 +1200,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0, in_flight_orders["OID1"].last_filled_price)
         self.assertEqual(0, in_flight_orders["OID1"].last_filled_amount)
         self.assertEqual(0, in_flight_orders["OID1"].last_fee_paid)
-        self.assertEqual(-1, in_flight_orders["OID1"].last_update_timestamp)
+        self.assertEqual(1640001112.0, in_flight_orders["OID1"].last_update_timestamp)
         self.assertEqual(-1, in_flight_orders["OID1"].last_trade_id)
 
         # Error was logged
@@ -1242,11 +1240,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                  "status": "PARTIALLY_FILLED",
                  "closePosition": False,
                  "symbol": f"{self.base_asset}{self.quote_asset}",
-                 "time": 1,
+                 "time": 1000,
                  "timeInForce": "GTC",
                  "type": "LIMIT",
                  "priceRate": "0.3",
-                 "updateTime": 2,
+                 "updateTime": 2000,
                  "workingType": "CONTRACT_PRICE",
                  "priceProtect": False}
 
@@ -1284,9 +1282,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0.5, in_flight_orders["OID1"].last_filled_amount)
         self.assertEqual(None, in_flight_orders["OID1"].last_fee_paid)
         self.assertEqual(2, in_flight_orders["OID1"].last_update_timestamp)
-        self.assertEqual(2, in_flight_orders["OID1"].last_trade_id)
+        self.assertEqual(str(order["updateTime"]), in_flight_orders["OID1"].last_trade_id)
 
-        self.assertTrue(2 in in_flight_orders["OID1"].order_fills.keys())
+        self.assertTrue(str(order["updateTime"]) in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
     def test_set_leverage_successful(self, req_mock):
@@ -1579,6 +1577,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
         ))
         orders.append(InFlightOrder(
             client_order_id="OID2",
@@ -1588,6 +1587,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
@@ -1598,6 +1598,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FILLED
         ))
         orders.append(InFlightOrder(
@@ -1608,6 +1609,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FAILED
         ))
 
