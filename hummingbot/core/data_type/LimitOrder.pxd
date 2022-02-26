@@ -35,5 +35,5 @@ cdef extern from "../cpp/LimitOrder.h":
         PyObject *getPrice()
         PyObject *getQuantity()
         PyObject *getFilledQuantity()
-        long getCreationTimestamp()
+        long long getCreationTimestamp()
         short int getStatus()
