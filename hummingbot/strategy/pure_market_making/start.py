@@ -62,9 +62,9 @@ def start(self):
         order_override = c_map.get("order_override").value
         split_order_levels_enabled = c_map.get("split_order_levels_enabled").value
         bid_order_level_spreads = convert_decimal_string_to_list(
-            c_map.get("bid_order_level_spreads").value, Decimal("100"))
+            c_map.get("bid_order_level_spreads").value)
         ask_order_level_spreads = convert_decimal_string_to_list(
-            c_map.get("ask_order_level_spreads").value, Decimal("100"))
+            c_map.get("ask_order_level_spreads").value)
         bid_order_level_amounts = convert_decimal_string_to_list(
             c_map.get("bid_order_level_amounts").value)
         ask_order_level_amounts = convert_decimal_string_to_list(
