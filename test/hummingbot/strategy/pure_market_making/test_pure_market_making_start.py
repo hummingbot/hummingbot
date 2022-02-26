@@ -99,9 +99,9 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.price_type, PriceType.BestBid)
         self.assertEqual(self.strategy.order_refresh_tolerance_pct, Decimal("0.02"))
         self.assertEqual(self.strategy.split_order_levels_enabled, True)
-        self.assertEqual(self.strategy.bid_order_level_spreads, [Decimal("0.01"), Decimal("0.02")])
-        self.assertEqual(self.strategy.ask_order_level_spreads, [Decimal("0.01"), Decimal("0.02")])
-        self.assertEqual(self.strategy.order_override, {"split_level_1": ['buy', 1, 1],
-                                                        "split_level_2": ['buy', 2, 2],
-                                                        "split_level_3": ['sell', 1, 1]
+        self.assertEqual(self.strategy.bid_order_level_spreads, [Decimal("1"), Decimal("2")])
+        self.assertEqual(self.strategy.ask_order_level_spreads, [Decimal("1"), Decimal("2")])
+        self.assertEqual(self.strategy.order_override, {"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                                                        "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                                                        "split_level_2": ['sell', Decimal("1"), Decimal("1")]
                                                         })
