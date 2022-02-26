@@ -1,13 +1,19 @@
 import asyncio
 import datetime
+
+import pandas as pd
 import psutil
 from decimal import Decimal
 from typing import (
     List,
     Set,
     Tuple,
+    Optional,
 )
 
+from tabulate import tabulate
+
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.model.trade_fill import TradeFill
 
@@ -91,3 +97,19 @@ async def start_trade_monitor(trade_monitor):
             raise
         except Exception:
             hb.logger().exception("start_trade_monitor failed.")
+
+
+def format_df_for_printout(
+    df: pd.DataFrame, max_col_width: Optional[int] = None, index: bool = False, table_format: Optional[str] = None
+) -> str:
+    if max_col_width is not None:  # in anticipation of the next release of tabulate which will include maxcolwidth
+        max_col_width = max(max_col_width, 4)
+        df = df.astype(str).apply(
+            lambda s: s.apply(
+                lambda e: e if len(e) < max_col_width else f"{e[:max_col_width - 3]}..."
+            )
+        )
+        df.columns = [c if len(c) < max_col_width else f"{c[:max_col_width - 3]}..." for c in df.columns]
+    table_format = table_format or global_config_map.get("tables_format").value
+    formatted_df = tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
+    return formatted_df

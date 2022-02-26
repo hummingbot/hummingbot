@@ -92,9 +92,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     status_report_interval: float = 900,
                     minimum_spread: Decimal = Decimal(0),
                     hb_app_notification: bool = False,
-                    order_override: Dict[str, List[str]] = {},
+                    order_override: Dict[str, List[str]] = None,
                     should_wait_order_cancel_confirmation = True,
                     ):
+        if order_override is None:
+            order_override = {}
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
@@ -554,7 +556,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                age = pd.Timestamp(int(time.time() - (order.creation_timestamp/1e6)),
                                    unit='s').strftime('%H:%M:%S')
 
             if is_hanging_order:

@@ -13,7 +13,9 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
     OrderType,
-    TradeType,
+    PositionAction,
+    SellOrderCreatedEvent,
+    TradeType
 )
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
@@ -83,7 +85,7 @@ class MarketsRecorderTests(TestCase):
                     leverage=1,
                     trade_fee=AddedToCostTradeFee().to_json(),
                     exchange_trade_id="EOID1",
-                    position="NILL")
+                    position=PositionAction.NIL.value)
                 session.add(trade_fill_record)
 
             fill_id = trade_fill_record.exchange_trade_id
@@ -92,7 +94,7 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(1, len(trades))
         self.assertEqual(fill_id, trades[0].exchange_trade_id)
 
-    def test_create_order_event_creates_order_record(self):
+    def test_buy_order_created_event_creates_order_record(self):
         recorder = MarketsRecorder(
             sql=self.manager,
             markets=[self],
@@ -107,6 +109,7 @@ class MarketsRecorderTests(TestCase):
             amount=Decimal(1),
             price=Decimal(1000),
             order_id="OID1",
+            creation_timestamp=1640001112.223,
             exchange_order_id="EOID1",
         )
 
@@ -122,8 +125,45 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(1, len(orders))
         self.assertEqual(self.config_file_path, orders[0].config_file_path)
         self.assertEqual(event.order_id, orders[0].id)
+        self.assertEqual(1640001112223, orders[0].creation_timestamp)
         self.assertEqual(1, len(order_status))
         self.assertEqual(MarketEvent.BuyOrderCreated.name, order_status[0].status)
+        self.assertEqual(0, len(trade_fills))
+
+    def test_sell_order_created_event_creates_order_record(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name
+        )
+
+        event = SellOrderCreatedEvent(
+            timestamp=int(time.time()),
+            type=OrderType.LIMIT,
+            trading_pair=self.trading_pair,
+            amount=Decimal(1),
+            price=Decimal(1000),
+            order_id="OID1",
+            creation_timestamp=1640001112.223,
+            exchange_order_id="EOID1",
+        )
+
+        recorder._did_create_order(MarketEvent.SellOrderCreated.value, self, event)
+
+        with self.manager.get_new_session() as session:
+            query = session.query(Order)
+            orders = query.all()
+            order = orders[0]
+            order_status = order.status
+            trade_fills = order.trade_fills
+
+        self.assertEqual(1, len(orders))
+        self.assertEqual(self.config_file_path, orders[0].config_file_path)
+        self.assertEqual(event.order_id, orders[0].id)
+        self.assertEqual(1640001112223, orders[0].creation_timestamp)
+        self.assertEqual(1, len(order_status))
+        self.assertEqual(MarketEvent.SellOrderCreated.name, order_status[0].status)
         self.assertEqual(0, len(trade_fills))
 
     def test_create_order_and_process_fill(self):
@@ -141,6 +181,7 @@ class MarketsRecorderTests(TestCase):
             amount=Decimal(1),
             price=Decimal(1000),
             order_id="OID1-1642010000000000",
+            creation_timestamp=1640001112.223,
             exchange_order_id="EOID1",
         )
 
@@ -155,7 +196,7 @@ class MarketsRecorderTests(TestCase):
             price=Decimal(1010),
             amount=create_event.amount,
             trade_fee=AddedToCostTradeFee(),
-            exchange_trade_id=create_event.exchange_order_id
+            exchange_trade_id="TradeId1"
         )
 
         recorder._did_fill_order(MarketEvent.OrderFilled.value, self, fill_event)
@@ -192,6 +233,7 @@ class MarketsRecorderTests(TestCase):
             amount=Decimal(1),
             price=Decimal(1000),
             order_id="OID1-1642010000000000",
+            creation_timestamp=1640001112.223,
             exchange_order_id="EOID1",
         )
 
