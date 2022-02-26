@@ -55,7 +55,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("bid_order_level_spreads").value = "1,2"
         c_map.get("ask_order_level_spreads").value = "1,2"
         c_map.get("bid_order_level_amounts").value = "1,2"
-        c_map.get("ask_order_level_amounts").value = "1"
+        c_map.get("ask_order_level_amounts").value = None
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
