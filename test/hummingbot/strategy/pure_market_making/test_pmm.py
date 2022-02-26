@@ -578,6 +578,21 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
         self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
 
+    def test_order_optimization_with_split_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
+        strategy = self.one_level_strategy
+        strategy.order_optimization_enabled = True
+        strategy.split_order_levels_enabled = True
+        strategy.bid_order_levels_spread = [Decimal("0.01")]
+        strategy.ask_order_levels_spread = [Decimal("0.01")]
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(Decimal("99.0001"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("100.9999"), strategy.active_sells[0].price)
+
     def test_order_optimization_with_multiple_order_levels(self):
         # Widening the order book, top bid is now 97.5 and top ask 102.5
         simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
