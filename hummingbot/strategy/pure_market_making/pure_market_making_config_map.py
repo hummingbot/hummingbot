@@ -108,7 +108,7 @@ def exchange_on_validated(value: str):
     required_exchanges.append(value)
 
 
-def validate_decimal_list(value: str, config: str) -> Optional[str]:
+def validate_decimal_list(value: str) -> Optional[str]:
     decimal_list = list(value.split(","))
     for number in decimal_list:
         try:
@@ -385,7 +385,7 @@ pure_market_making_config_map = {
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get(
                       "split_order_levels_enabled").value,
-                  validator=lambda v: validate_decimal_list(v, "bid_order_level_spreads")),
+                  validator=validate_decimal_list),
     "ask_order_level_spreads":
         ConfigVar(key="ask_order_level_spreads",
                   prompt="Enter the spreads (as percentage) for all ask spreads "
@@ -396,7 +396,7 @@ pure_market_making_config_map = {
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get(
                       "split_order_levels_enabled").value,
-                  validator=lambda v: validate_decimal_list(v, "ask_order_level_spreads")),
+                  validator=validate_decimal_list),
     "bid_order_level_amounts":
         ConfigVar(key="bid_order_level_amounts",
                   prompt="Enter the amount for all bid amounts. "
@@ -407,7 +407,7 @@ pure_market_making_config_map = {
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get(
                       "split_order_levels_enabled").value,
-                  validator=lambda v: validate_decimal_list(v, "bid_order_level_amounts")),
+                  validator=validate_decimal_list),
     "ask_order_level_amounts":
         ConfigVar(key="ask_order_level_amounts",
                   prompt="Enter the amount for all ask amounts. "
@@ -418,5 +418,5 @@ pure_market_making_config_map = {
                   required_if=lambda: pure_market_making_config_map.get(
                       "split_order_levels_enabled").value,
                   type_str="str",
-                  validator=lambda v: validate_decimal_list(v, "ask_order_level_amounts")),
+                  validator=validate_decimal_list),
 }
