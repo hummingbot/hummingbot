@@ -1711,3 +1711,99 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("100.12345678"), available_balances["BUSD"])
         self.assertEqual(Decimal("23.72469206"), total_balances["USDT"])
         self.assertEqual(Decimal("103.12345678"), total_balances["BUSD"])
+
+    @aioresponses()
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    def test_account_info_request_includes_timestamp(self, mock_api, mock_seconds_counter):
+        mock_seconds_counter.return_value = 1000
+
+        url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"serverTime": 1640000003000}
+
+        mock_api.get(regex_url,
+                     body=json.dumps(response))
+
+        url = web_utils.rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {
+            "feeTier": 0,
+            "canTrade": True,
+            "canDeposit": True,
+            "canWithdraw": True,
+            "updateTime": 0,
+            "totalInitialMargin": "0.00000000",
+            "totalMaintMargin": "0.00000000",
+            "totalWalletBalance": "23.72469206",
+            "totalUnrealizedProfit": "0.00000000",
+            "totalMarginBalance": "23.72469206",
+            "totalPositionInitialMargin": "0.00000000",
+            "totalOpenOrderInitialMargin": "0.00000000",
+            "totalCrossWalletBalance": "23.72469206",
+            "totalCrossUnPnl": "0.00000000",
+            "availableBalance": "23.72469206",
+            "maxWithdrawAmount": "23.72469206",
+            "assets": [
+                {
+                    "asset": "USDT",
+                    "walletBalance": "23.72469206",
+                    "unrealizedProfit": "0.00000000",
+                    "marginBalance": "23.72469206",
+                    "maintMargin": "0.00000000",
+                    "initialMargin": "0.00000000",
+                    "positionInitialMargin": "0.00000000",
+                    "openOrderInitialMargin": "0.00000000",
+                    "crossWalletBalance": "23.72469206",
+                    "crossUnPnl": "0.00000000",
+                    "availableBalance": "23.72469206",
+                    "maxWithdrawAmount": "23.72469206",
+                    "marginAvailable": True,
+                    "updateTime": 1625474304765,
+                },
+                {
+                    "asset": "BUSD",
+                    "walletBalance": "103.12345678",
+                    "unrealizedProfit": "0.00000000",
+                    "marginBalance": "103.12345678",
+                    "maintMargin": "0.00000000",
+                    "initialMargin": "0.00000000",
+                    "positionInitialMargin": "0.00000000",
+                    "openOrderInitialMargin": "0.00000000",
+                    "crossWalletBalance": "103.12345678",
+                    "crossUnPnl": "0.00000000",
+                    "availableBalance": "100.12345678",
+                    "maxWithdrawAmount": "103.12345678",
+                    "marginAvailable": True,
+                    "updateTime": 1625474304765,
+                }
+            ],
+            "positions": [{
+                "symbol": "BTCUSDT",
+                "initialMargin": "0",
+                "maintMargin": "0",
+                "unrealizedProfit": "0.00000000",
+                "positionInitialMargin": "0",
+                "openOrderInitialMargin": "0",
+                "leverage": "100",
+                "isolated": True,
+                "entryPrice": "0.00000",
+                "maxNotional": "250000",
+                "bidNotional": "0",
+                "askNotional": "0",
+                "positionSide": "BOTH",
+                "positionAmt": "0",
+                "updateTime": 0,
+            }
+            ]
+        }
+
+        mock_api.get(regex_url, body=json.dumps(response))
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        account_request = next(((key, value) for key, value in mock_api.requests.items()
+                                if key[1].human_repr().startswith(url)))
+        request_params = account_request[1][0].kwargs["params"]
+        self.assertEqual("20000", request_params["recvWindow"])
+        self.assertEqual(str(int(mock_seconds_counter.return_value * 1e3)), request_params["timestamp"])
