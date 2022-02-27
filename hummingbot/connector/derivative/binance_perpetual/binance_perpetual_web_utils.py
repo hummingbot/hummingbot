@@ -70,11 +70,11 @@ async def api_request(path: str,
             if method == RESTMethod.POST:
                 data = data or {}
                 data["recvWindow"] = f"{20000}"
-                data["timestamp"] = str(int(time_synchronizer.time()) * 1e3)
+                data["timestamp"] = str(int(time_synchronizer.time() * 1e3))
             else:
                 params = params or {}
                 params["recvWindow"] = f"{20000}"
-                params["timestamp"] = str(int(time_synchronizer.time()) * 1e3)
+                params["timestamp"] = str(int(time_synchronizer.time() * 1e3))
 
         url = rest_url(path, domain, api_version)
 
