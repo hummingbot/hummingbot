@@ -119,8 +119,6 @@ class TestPMMConfigMap(unittest.TestCase):
         self.assertIsNone(validate_price_source_exchange(value='binance_perpetual'))
 
     def test_validate_decimal_list(self):
-        pmm_config_map["bid_order_level_spreads"].value = "1"
-
         error = validate_decimal_list(value="1")
         self.assertIsNone(error)
         error = validate_decimal_list(value="1,2")
