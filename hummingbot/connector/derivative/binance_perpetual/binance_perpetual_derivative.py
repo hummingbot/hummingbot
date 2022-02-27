@@ -1313,7 +1313,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     domain=self._domain,
                     throttler=self._throttler,
                     api_factory=self._api_factory,
-                    time_synchronizer=self._binance_time_synchronizer
+                    time_synchronizer=self._binance_time_syncƒhronizer
                 )
             }
             response = await self._api_request(
