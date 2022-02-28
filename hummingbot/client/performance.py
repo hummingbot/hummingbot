@@ -1,17 +1,15 @@
 from decimal import Decimal
 from dataclasses import dataclass
 from typing import (
-    Any,
     Dict,
-    List,
     Optional,
-    Tuple,
+    List,
+    Any,
+    Tuple
 )
-
-from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.core.event.events import TradeType, PositionAction
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.core.utils.market_price import get_last_price
+from hummingbot.core.event.events import TradeType
 
 s_decimal_0 = Decimal("0")
 s_decimal_nan = Decimal("NaN")
@@ -169,11 +167,7 @@ class PerformanceMetrics:
         return type(trade) == TradeFill
 
     def _are_derivatives(self, trades: List[Any]) -> bool:
-        return (
-            trades
-            and self._is_trade_fill(trades[0])
-            and PositionAction.NIL.value not in [t.position for t in trades]
-        )
+        return trades and self._is_trade_fill(trades[0]) and "NILL" not in [t.position for t in trades]
 
     def _preprocess_trades_and_group_by_type(self, trades: List[Any]) -> Tuple[List[Any], List[Any]]:
         buys = []
@@ -266,7 +260,7 @@ class PerformanceMetrics:
         :param current_balances: current user account balance
         """
 
-        base, quote = split_hb_trading_pair(trading_pair)
+        base, quote = trading_pair.split("-")
         buys, sells = self._preprocess_trades_and_group_by_type(trades)
 
         self.num_buys = len(buys)
@@ -279,7 +273,7 @@ class PerformanceMetrics:
         self.start_quote_bal = self.cur_quote_bal - self.tot_vol_quote
 
         self.start_price = Decimal(str(trades[0].price))
-        self.cur_price = await get_last_price(exchange.replace("_paper_trade", ""), trading_pair)
+        self.cur_price = await get_last_price(exchange.replace("_PaperTrade", ""), trading_pair)
         if self.cur_price is None:
             self.cur_price = Decimal(str(trades[-1].price))
         self.start_base_ratio_pct = self.divide(self.start_base_bal * self.start_price,
