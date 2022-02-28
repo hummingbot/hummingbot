@@ -85,26 +85,12 @@ class StartCommand:
             import appnope
             appnope.nope()
 
-        self._initialize_notifiers()
-
-        self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
             self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
         for exchange in settings.required_exchanges:
             connector = str(exchange)
-            self.notify(connector)
             status = get_connector_status(connector)
-
-            # Display custom warning message for specific connectors
             warning_msg = warning_messages.get(connector, None)
-            if warning_msg is not None:
-                self.notify(f"\nConnector status: {status}\n"
-                            f"{warning_msg}")
-
-            # Display warning message if the exchange connector has outstanding issues or not working
-            elif status != "GREEN":
-                self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
-                            "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
             # confirm gateway connection
             conn_setting = settings.AllConnectorSettings.get_connector_settings()[connector]
@@ -132,6 +118,18 @@ class StartCommand:
                     if use_configuration not in ["Y", "y", "Yes", "yes"]:
                         return
 
+            # Display custom warning message for specific connectors
+            elif warning_msg is not None:
+                self.notify(f"\nConnector status: {status}\n"
+                            f"{warning_msg}")
+
+            # Display warning message if the exchange connector has outstanding issues or not working
+            elif status != "GREEN":
+                self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
+                            "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
+
+        self._initialize_notifiers()
+        self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making(self.strategy_name, restore)
 
     async def start_market_making(self,  # type: HummingbotApplication
