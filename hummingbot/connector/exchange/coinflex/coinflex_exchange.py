@@ -594,11 +594,11 @@ class CoinflexExchange(ExchangeBase):
                     cancel_result = result["data"][0]
                 except CoinflexAPIError as e:
                     # Catch order not found as cancelled.
-                    if isinstance(e.error_payload, dict) and e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                    cancel_result = {}
+                    if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
                         cancel_result = e.error_payload["data"][0]
-                        cancel_result["status"] = "CANCELED"
                     else:
-                        raise
+                        self.logger().error(f"Unhandled error cancelling order: {order_id}. Error: {e.error_payload}", exc_info=True)
 
                 if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
                     cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
@@ -609,6 +609,9 @@ class CoinflexExchange(ExchangeBase):
                         new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
+                else:
+                    if not self._process_order_not_found(order_id, tracked_order):
+                        raise IOError
                 return cancel_result
 
             except asyncio.CancelledError:
@@ -801,7 +804,7 @@ class CoinflexExchange(ExchangeBase):
 
     def _process_order_not_found(self,
                                  client_order_id: str,
-                                 tracked_order: InFlightOrder):
+                                 tracked_order: InFlightOrder) -> bool:
         self._order_not_found_records[client_order_id] = (
             self._order_not_found_records.get(client_order_id, 0) + 1)
         if (self._order_not_found_records[client_order_id] >=
@@ -816,6 +819,8 @@ class CoinflexExchange(ExchangeBase):
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
+            return True
+        return False
 
     async def _update_order_status(self):
         """
