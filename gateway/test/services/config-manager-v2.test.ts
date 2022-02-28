@@ -69,7 +69,6 @@ describe('Configuration manager v2 tests', () => {
 
   it('reading from config file', (done) => {
     expect(configManager.get('ssl.keyPath')).toEqual('gateway.key');
-    expect(configManager.get('ssl.passPhrasePath')).toEqual('gateway.passwd');
     expect(configManager.get('ethereum.networks.kovan.chainID')).toEqual(42);
     expect(configManager.get('ethereum.nativeCurrencySymbol')).toEqual('ETH');
     done();
@@ -202,7 +201,6 @@ describe('Configuration manager v2 tests', () => {
   it('Get all configuration', (done) => {
     const allConfigs = configManager.allConfigurations;
     expect(allConfigs.ssl.keyPath).toEqual('gateway.key');
-    expect(allConfigs.ssl.passPhrasePath).toEqual('gateway.passwd');
     expect(allConfigs.ethereum.networks.kovan.chainID).toEqual(42);
     done();
   });

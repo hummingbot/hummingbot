@@ -1,14 +1,13 @@
 import logging
 from decimal import Decimal
 import asyncio
-import aiohttp
 from typing import Dict, Any, List, Optional
-import json
 import time
-import ssl
 import copy
+import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -29,8 +28,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
 
 s_logger = None
@@ -60,7 +57,7 @@ class GatewayEVMAMM(ConnectorBase):
                  chain: str,
                  network: str,
                  wallet_public_key: str,
-                 trading_pairs: List[str],
+                 trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
         """
@@ -77,12 +74,10 @@ class GatewayEVMAMM(ConnectorBase):
         self._network = network
         self._trading_pairs = trading_pairs
         self._tokens = set()
-        for trading_pair in trading_pairs:
-            self._tokens.update(set(trading_pair.split("-")))
+        [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
         self._wallet_public_key = wallet_public_key
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
         self._last_est_gas_cost_reported = 0
@@ -90,9 +85,11 @@ class GatewayEVMAMM(ConnectorBase):
         self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
+        self._get_chain_info_task = None
         self._auto_approve_task = None
         self._poll_notifier = None
         self._nonce = None
+        self._native_currency = "ETH"  # make ETH the default asset
 
     @property
     def connector_name(self):
@@ -114,11 +111,19 @@ class GatewayEVMAMM(ConnectorBase):
         return self._wallet_public_key
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
         """
-        To-do: figure out how to fetch list of trading pairs for gateway connectors in new task.
+        Calls the tokens endpoint on Gateway.
         """
-        return []
+        try:
+            tokens = await gateway_http_client.api_request("get", "network/tokens", {"chain": chain, "network": network})
+            token_symbols = [t["symbol"] for t in tokens["tokens"]]
+            trading_pairs = []
+            for base, quote in it.permutations(token_symbols, 2):
+                trading_pairs.append(f"{base}-{quote}")
+            return trading_pairs
+        except Exception:
+            return []
 
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:
@@ -150,7 +155,8 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
         """
         try:
-            self._chain_info = await self._api_request("get", "network/chain_config", {"chain": self.chain})
+            self._chain_info = await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
+            self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
@@ -163,7 +169,7 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the status endpoint on Gateway to know basic info about connected networks.
         """
         try:
-            return await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
+            return await self._api_request("get", "network/status", {})
         except Exception as e:
             self.logger().network(
                 "Error fetching gateway status info",
@@ -369,13 +375,13 @@ class GatewayEVMAMM(ConnectorBase):
 
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair} on {self._chain_info.get('name', '--')}. Estimated Gas Cost: {gas_cost} "
+                                   f"for {amount} {trading_pair} on {self.network}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
                 tracked_order.nonce = nonce
-                tracked_order.fee_asset = self._chain_info["nativeCurrency"]["symbol"]
+                tracked_order.fee_asset = self._native_currency
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
@@ -390,7 +396,7 @@ class GatewayEVMAMM(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self._chain_info['name']} for "
+                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self.network} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -615,12 +621,12 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json = await self._api_request("get",
+            resp_json = await self._api_request("post",
                                                 "network/balances",
                                                 {"chain": self.chain,
                                                  "network": self.network,
                                                  "address": self.address,
-                                                 "tokenSymbols": list(self._tokens)})
+                                                 "tokenSymbols": list(self._tokens) + [self._native_currency]})
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
@@ -634,51 +640,18 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
-            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
-            self._shared_client = aiohttp.ClientSession(connector=conn)
-        return self._shared_client
+    async def ping_gateway(self):
+        return await self._api_request("get", "", {}, fail_silently = True)
 
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {}) -> Dict[str, Any]:
-        """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
-        :param params: A dictionary of required params for the end point
-        :returns A response in json format.
-        """
-        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                   f"{global_config_map['gateway_api_port'].value}"
-        url = f"{base_url}/{path_url}"
-        client = await self._http_client()
-        if method == "get":
-            if len(params) > 0:
-                response = await client.get(url, params=params)
-            else:
-                response = await client.get(url)
-        elif method == "post":
-            response = await client.post(url, json=params)
-        parsed_response = json.loads(await response.text())
-        if response.status != 200:
-            err_msg = ""
-            if "error" in parsed_response:
-                err_msg = f" Message: {parsed_response['error']}"
-            elif "message" in parsed_response:
-                err_msg = f" Message: {parsed_response['message']}"
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
-        if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
-
-        return parsed_response
+                           params: Dict[str, Any] = {},
+                           fail_silently: bool = False) -> Optional[Dict[str, Any]]:
+        return await gateway_http_client.api_request(method,
+                                                     path_url,
+                                                     params = params,
+                                                     fail_silently = fail_silently)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
