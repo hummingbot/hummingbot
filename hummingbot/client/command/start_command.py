@@ -77,8 +77,9 @@ class StartCommand:
         RateOracle.get_instance().start()
 
         if lite_file_name:
-            self.strategy_file_name = lite_file_name
-            self.strategy_name = lite_file_name.split(".")[0]
+            file_name = lite_file_name.split(".")[0]
+            self.strategy_file_name = file_name
+            self.strategy_name = file_name
         elif not await self.status_check_all(notify_success=False):
             self._notify("Status checks failed. Start aborted.")
             return
