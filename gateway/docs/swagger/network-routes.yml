@@ -1,0 +1,72 @@
+paths:
+  /network/balances:
+    post:
+      summary: 'Get the balances of a private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/BalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/BalancesResponse'
+  /network/poll:
+    post:
+      summary: 'Poll the status of a transaction'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PollResponse'
+  /network/status:
+    get:
+      summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /network/config:
+    get:
+      summary: 'Get every gateway configuration option'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /network/tokens:
+    get:
+      summary: 'Returns a list of tokens available on the specified network'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'query'
+          name: 'chain'
+          required: true
+          type: 'string'
+          example: 'ethereum'
+        - in: 'query'
+          name: 'network'
+          required: true
+          type: 'string'
+          example: 'kovan'
+        - in: 'query'
+          name: 'tokenSymbols'
+          required: false
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TokensResponse'

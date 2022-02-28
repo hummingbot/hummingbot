@@ -1,6 +1,8 @@
 import { patch, unpatch } from '../patch';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { Avalanche } from '../../../src/chains/avalanche/avalanche';
+import { Harmony } from '../../../src/chains/harmony/harmony';
+
 import {
   addWallet,
   getWallets,
@@ -14,19 +16,18 @@ import {
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 
-// import fse from 'fs-extra';
-
 let avalanche: Avalanche;
 let eth: Ethereum;
+let harmony: Harmony;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
 
-  avalanche = Avalanche.getInstance();
-  await avalanche.init();
+  avalanche = Avalanche.getInstance('fuji');
 
-  eth = Ethereum.getInstance();
-  await eth.init();
+  eth = Ethereum.getInstance('kovan');
+
+  harmony = Harmony.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -38,7 +39,7 @@ afterEach(() => unpatch());
 const oneAddress = '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf';
 
 const onePrivateKey =
-  '0000000000000000000000000000000000000000000000000000000000000001';
+  '0000000000000000000000000000000000000000000000000000000000000001'; // noqa: mock
 
 // encoding of onePrivateKey with the password 'a'
 const encodedPrivateKey = {
@@ -49,16 +50,16 @@ const encodedPrivateKey = {
     cipher: 'aes-128-ctr',
     cipherparams: { iv: '60276d7bf5fa57ce0ae8e65fc578c3ac' },
     ciphertext:
-      'be98ee3d44744e1417531b15a7b1e47b945cfc100d3ff2680f757a824840fb67',
+      'be98ee3d44744e1417531b15a7b1e47b945cfc100d3ff2680f757a824840fb67', // noqa: mock
     kdf: 'scrypt',
     kdfparams: {
-      salt: '90b7e0017b4f9df67aa5f2de73495c14de086b8abb5b68ce3329596eb14f991c',
+      salt: '90b7e0017b4f9df67aa5f2de73495c14de086b8abb5b68ce3329596eb14f991c', // noqa: mock
       n: 131072,
       dklen: 32,
       p: 1,
       r: 8,
     },
-    mac: '0cea1492f67ed43234b69100d873e17b4a289dd508cf5e866a3b18599ff0a5fc',
+    mac: '0cea1492f67ed43234b69100d873e17b4a289dd508cf5e866a3b18599ff0a5fc', // noqa: mock
   },
 };
 
@@ -74,9 +75,10 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'ethereum',
+      chain: 'ethereum',
+      network: 'kovan',
     });
 
     const wallets = await getWallets();
@@ -99,9 +101,10 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'avalanche',
+      chain: 'avalanche',
+      network: 'fuji',
     });
 
     const wallets = await getWallets();
@@ -113,11 +116,38 @@ describe('addWallet and getWallets', () => {
     expect(addresses[0]).toContain(oneAddress);
   });
 
+  it('add an Harmony wallet', async () => {
+    patch(harmony, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'harmony',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'harmony')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
-      addWallet(eth, avalanche, {
+      addWallet({
         privateKey: onePrivateKey,
-        chainName: 'shibainu',
+        chain: 'shibainu',
+        network: 'doge',
       })
     ).rejects.toThrow(
       new HttpException(
@@ -130,7 +160,7 @@ describe('addWallet and getWallets', () => {
   });
 });
 
-describe('addWallet and getWallets', () => {
+describe('addWallet and removeWallets', () => {
   it('remove an Ethereum wallet', async () => {
     patch(eth, 'getWallet', () => {
       return {
@@ -142,17 +172,46 @@ describe('addWallet and getWallets', () => {
       return JSON.stringify(encodedPrivateKey);
     });
 
-    await addWallet(eth, avalanche, {
+    await addWallet({
       privateKey: onePrivateKey,
-      chainName: 'ethereum',
+      chain: 'ethereum',
+      network: 'kovan',
     });
 
-    await removeWallet({ chainName: 'ethereum', address: oneAddress });
+    await removeWallet({ chain: 'ethereum', address: oneAddress });
 
     const wallets = await getWallets();
 
     const addresses: string[][] = wallets
       .filter((wallet) => wallet.chain === 'ethereum')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).not.toContain(oneAddress);
+  });
+
+  it('remove an Harmony wallet', async () => {
+    patch(harmony, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(harmony, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'harmony',
+      network: 'testnet',
+    });
+
+    await removeWallet({ chain: 'harmony', address: oneAddress });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'harmony')
       .map((wallet) => wallet.walletAddresses);
 
     expect(addresses[0]).not.toContain(oneAddress);

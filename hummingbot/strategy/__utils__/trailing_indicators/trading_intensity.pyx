@@ -110,17 +110,19 @@ cdef class TradingIntensityIndicator():
         price_levels = sorted(price_levels, reverse=True)
 
         for price_level in price_levels:
-            if len(lambdas) == 0:
-                lambdas += [trades_consolidated[price_level]]
-            else:
-                lambdas += [trades_consolidated[price_level]]
+            lambdas += [trades_consolidated[price_level]]
 
         # Adjust to be able to calculate log
         lambdas_adj = [10**-10 if x==0 else x for x in lambdas]
 
         # Fit the probability density function; reuse previously calculated parameters as initial values
         try:
-            params = curve_fit(lambda t, a, b: a*np.exp(-b*t), price_levels, lambdas_adj, p0=(self._alpha, self._kappa), method='dogbox')
+            params = curve_fit(lambda t, a, b: a*np.exp(-b*t),
+                               price_levels,
+                               lambdas_adj,
+                               p0=(self._alpha, self._kappa),
+                               method='dogbox',
+                               bounds=([0, 0], [np.inf, np.inf]))
 
             self._kappa = Decimal(str(params[0][1]))
             self._alpha = Decimal(str(params[0][0]))

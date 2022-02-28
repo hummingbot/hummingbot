@@ -1,5 +1,5 @@
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
 
 import hummingbot.strategy.twap.start as twap_start_module
 import hummingbot.strategy.twap.twap_config_map as twap_config_map_module
@@ -39,7 +39,7 @@ class TwapStartTest(unittest.TestCase):
         if self.raise_exception_for_market_initialization:
             raise Exception("Exception for testing")
 
-    def _notify(self, message):
+    def notify(self, message):
         self.notifications.append(message)
 
     def logger(self):

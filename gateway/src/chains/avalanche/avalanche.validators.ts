@@ -3,20 +3,20 @@ import {
   mkValidator,
   RequestValidator,
   Validator,
+  validateAmount,
+  validateToken,
+  validateTokenSymbols,
 } from '../../services/validators';
 import {
   isAddress,
-  validateAmount,
   validateNonce,
   validateAddress,
-  validateToken,
-  validateTokenSymbols,
 } from '../ethereum/ethereum.validators';
 
 export const invalidSpenderError: string =
-  'The spender param is not a valid Avalanche public key (0x followed by 40 hexidecimal characters).';
+  'The spender param is not a valid Avalanche address (0x followed by 40 hexidecimal characters).';
 
-// given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
+// given a request, look for a key called spender that is 'uniswap' or an Ethereum address
 export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,

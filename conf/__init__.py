@@ -121,6 +121,10 @@ coinzoom_username = os.getenv("COINZOOM_USERNAME")
 wazirx_api_key = os.getenv("WAZIRX_API_KEY")
 wazirx_secret_key = os.getenv("WAZIRX_SECRET_KEY")
 
+# AltMarkets.io Test
+altmarkets_api_key = os.getenv("ALTMARKETS_API_KEY")
+altmarkets_secret_key = os.getenv("ALTMARKETS_SECRET_KEY")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")

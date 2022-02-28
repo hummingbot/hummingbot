@@ -1,49 +1,50 @@
-import re
-import time
 import asyncio
-import aiohttp
-import copy
 import json
 import logging
-import pandas as pd
-import traceback
+import time
 from decimal import Decimal
-from libc.stdint cimport int64_t
-from threading import Lock
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+
+import aiohttp
 from async_timeout import timeout
-from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
+from libc.stdint cimport int64_t
 
-
-from hummingbot.core.clock cimport Clock
-from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.connector.exchange_base import s_decimal_NaN
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.blocktane.blocktane_auth import BlocktaneAuth
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.event.events import (
-    MarketEvent,
-    TradeFee,
-    OrderType,
-    OrderFilledEvent,
-    TradeType,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent
-)
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.connector.exchange.blocktane.blocktane_in_flight_order import BlocktaneInFlightOrder
 from hummingbot.connector.exchange.blocktane.blocktane_order_book_tracker import BlocktaneOrderBookTracker
 from hummingbot.connector.exchange.blocktane.blocktane_user_stream_tracker import BlocktaneUserStreamTracker
-from hummingbot.connector.exchange.blocktane.blocktane_api_order_book_data_source import BlocktaneAPIOrderBookDataSource
-from hummingbot.connector.exchange.blocktane.blocktane_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair, split_trading_pair
+from hummingbot.connector.exchange.blocktane.blocktane_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    split_trading_pair,
+)
+from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.connector.exchange_base import s_decimal_NaN
+from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -204,17 +205,20 @@ cdef class BlocktaneExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price):
+                          object price,
+                          object is_maker = None):
         # Fee info from https://trade.blocktane.io/api/v2/xt/public/trading_fees
-        cdef:
-            object maker_fee = Decimal(0.002)
-            object taker_fee = Decimal(0.002)
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["blocktane_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["blocktane_maker_fee"].value)
-        if order_type is OrderType.MARKET and fee_overrides_config_map["blocktane_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["blocktane_taker_fee"].value)
-
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        fee = build_trade_fee(
+            exchange=self.name,
+            is_maker=is_maker,
+            base_currency=base_currency,
+            quote_currency=quote_currency,
+            order_type=order_type,
+            order_side=order_side,
+            amount=amount,
+            price=price,
+        )
+        return fee
 
     async def _update_balances(self):
         cdef:
@@ -400,7 +404,8 @@ cdef class BlocktaneExchange(ExchangeBase):
                                                      tracked_order.trade_type,
                                                      executed_price,
                                                      executed_amount_base_diff
-                                                 )
+                                                 ),
+                                                 exchange_trade_id=str(int(self._time() * 1e6))
                                              ))
 
                     if order_state == "done":
@@ -532,7 +537,8 @@ cdef class BlocktaneExchange(ExchangeBase):
                                                      tracked_order.trade_type,
                                                      executed_price,
                                                      executed_amount_base_diff
-                                                 )
+                                                 ),
+                                                 exchange_trade_id=str(int(self._time() * 1e6))
                                              ))
 
                     if order_status == "done":  # FILL(COMPLETE)
@@ -1058,5 +1064,6 @@ cdef class BlocktaneExchange(ExchangeBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = s_decimal_NaN) -> TradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)

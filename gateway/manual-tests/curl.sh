@@ -6,7 +6,7 @@
 
 # Here are some examples
 # export ETH_PUBLIC_KEY='0x...'
-# export ETH_PRIVATE_KEY='0000000000000000000000000000000000000000000000000000000000000001'
+# export ETH_PRIVATE_KEY='...'
 # export GATEWAY_CERT='/home/hummingbot/gateway/certs/client_cert.pem'
 # export GATEWAY_KEY='/home/hummingbot/gateway/certs/client_key.pem'
 
@@ -33,6 +33,33 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 # TEST Ethereum
 # get Ethereum balances for your private key
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_balances.json)" https://localhost:5000/eth/balances | jq
+
+
+
+
+
+
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/balances_0x14.json)" https://localhost:5000/network/balances | jq
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/balances_0x82.json)" https://localhost:5000/network/balances | jq
+
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/nonce_0x14.json)" https://localhost:5000/evm/nonce | jq
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/nonce_0x82.json)" https://localhost:5000/evm/nonce | jq
+
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/allowances_0x14.json)" https://localhost:5000/evm/allowances | jq
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/allowances_0x82.json)" https://localhost:5000/evm/allowances | jq
+
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/approve_0x14.json)" https://localhost:5000/evm/approve | jq
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/approve_0x82.json)" https://localhost:5000/evm/approve | jq
+
+
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/price_uniswap.json)" https://localhost:5000/trading/price | jq
+
+
+
+
+
+
+
 
 # get Ethereum allowances for uniswap on an address
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_allowances.json)" https://localhost:5000/eth/allowances | jq

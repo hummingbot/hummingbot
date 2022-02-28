@@ -70,7 +70,6 @@ export class EVMNonceManager {
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
   public async init(provider: ethers.providers.Provider): Promise<void> {
-    logger.info('initialize nonce');
     if (this.#delay < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(

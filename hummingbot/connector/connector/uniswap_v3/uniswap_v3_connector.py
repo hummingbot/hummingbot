@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.connector.gateway_base import GatewayBase
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
 from hummingbot.core.event.events import (
@@ -21,9 +21,9 @@ from hummingbot.core.event.events import (
     RangePositionFailureEvent,
     RangePositionUpdatedEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
@@ -34,35 +34,34 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class UniswapV3Connector(GatewayBase):
+class UniswapV3Connector(GatewayEVMAMM):
     """
-    UniswapV3Connector extends GatewayBase to provide v3 specific functionality, e.g. ranged positions
+    UniswapV3Connector extends GatewayEVMAMM to provide v3 specific functionality, e.g. ranged positions
     """
 
     def __init__(self,
+                 connector_name: str,
+                 chain: str,
+                 network: str,
+                 wallet_public_key: str,
                  trading_pairs: List[str],
-                 wallet_private_key: str,
-                 ethereum_rpc_url: str,
                  trading_required: bool = True
                  ):
         """
+        :param connector_name: name of connector on gateway
+        :param chain: refers to a block chain, e.g. ethereum or avalanche
+        :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
+        :param wallet_public_key: a public key for eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
-        :param wallet_private_key: a private key for eth wallet
-        :param ethereum_rpc_url: this is usually infura RPC URL
-        :param trading_required: Whether actual trading is needed.
+        :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
-        super().__init__(trading_pairs,
-                         wallet_private_key,
+        super().__init__(connector_name,
+                         chain,
+                         network,
+                         wallet_public_key,
+                         trading_pairs,
                          trading_required)
         self._in_flight_positions: Dict[str, UniswapV3InFlightPosition] = {}
-
-    @property
-    def name(self) -> str:
-        return "uniswap_v3"
-
-    @property
-    def base_path(self):
-        return "eth/uniswap/v3"
 
     async def initiate_pool(self) -> str:
         """
@@ -146,7 +145,7 @@ class UniswapV3Connector(GatewayBase):
                         tracked_order.order_type,
                         Decimal(str(tracked_order.price)),
                         Decimal(str(tracked_order.amount)),
-                        TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                        AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]),
                         exchange_trade_id=order_id
                     )
                 )
@@ -581,9 +580,12 @@ class UniswapV3Connector(GatewayBase):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
-                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
-                    fee_overrides_config_map["uniswap_maker_fee_amount"].value = Decimal(str(gas_cost))
-                    fee_overrides_config_map["uniswap_taker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["uniswap_v3_maker_fixed_fees"].value = [
+                        TokenAmount("ETH", Decimal(str(gas_cost)))
+                    ]
+                    fee_overrides_config_map["uniswap_v3_taker_fixed_fees"].value = [
+                        TokenAmount("ETH", Decimal(str(gas_cost)))
+                    ]
                     return Decimal(str(price))
         except asyncio.CancelledError:
             raise

@@ -1,5 +1,13 @@
 version: 1
 configurations:
+  $namespace harmony:
+    configurationPath: harmony.yml
+    schemaPath: harmony-schema.json
+    
+  $namespace solana:
+    configurationPath: solana.yml
+    schemaPath: solana-schema.json
+
   $namespace avalanche:
     configurationPath: avalanche.yml
     schemaPath: ethereum-schema.json

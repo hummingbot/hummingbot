@@ -8,8 +8,9 @@ import {
   Wallet,
 } from 'ethers';
 import axios from 'axios';
-import fs from 'fs/promises';
-import { TokenListType, TokenValue } from './base';
+// import fs from 'fs/promises';
+import { promises as fs } from 'fs';
+import { TokenListType, TokenValue, walletPath } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
 import { EvmTxStorage } from './evm.tx-storage';
@@ -28,8 +29,6 @@ export interface Token {
 export type NewBlockHandler = (bn: number) => void;
 
 export type NewDebugMsgHandler = (msg: any) => void;
-
-const walletPath = './conf/wallets';
 
 export class EthereumBase {
   private _provider;
@@ -112,9 +111,11 @@ export class EthereumBase {
     tokenListType: TokenListType
   ): Promise<void> {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
-    this.tokenList.forEach(
-      (token: Token) => (this._tokenMap[token.symbol] = token)
-    );
+    if (this.tokenList) {
+      this.tokenList.forEach(
+        (token: Token) => (this._tokenMap[token.symbol] = token)
+      );
+    }
   }
 
   // returns a Tokens for a given list source and list type
@@ -156,7 +157,8 @@ export class EthereumBase {
   getWalletFromPrivateKey(privateKey: string): Wallet {
     return new Wallet(privateKey, this._provider);
   }
-  // returns Wallet for a public key
+  // returns Wallet for an address
+  // TODO: Abstract-away into base.ts
   async getWallet(address: string): Promise<Wallet> {
     const path = `${walletPath}/${this.chainName}`;
 
@@ -289,7 +291,7 @@ export class EthereumBase {
       params.maxFeePerGas = maxFeePerGas;
       params.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else if (gasPrice) {
-      params.gasPrice = gasPrice * 1e9;
+      params.gasPrice = (gasPrice * 1e9).toString();
     }
     const response = await contract.approve(spender, amount, params);
     logger.info(response);

@@ -4,11 +4,13 @@ import path_util        # noqa: F401
 import argparse
 import asyncio
 import logging
+import os
+from pathlib import Path
+import pwd
 from typing import (
     Coroutine,
     List,
 )
-import os
 import subprocess
 
 from hummingbot import (
@@ -26,13 +28,15 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
+from hummingbot.core.utils.async_utils import safe_gather
 from bin.hummingbot import (
     detect_available_port,
 )
 from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
+
+from bin.docker_connection import fork_and_start
 
 
 class CmdlineParser(argparse.ArgumentParser):
@@ -58,12 +62,22 @@ class CmdlineParser(argparse.ArgumentParser):
 
 
 def autofix_permissions(user_group_spec: str):
+    uid, gid = [int(i) for i in user_group_spec.split(':')]
+    os.environ["HOME"] = pwd.getpwuid(uid).pw_dir
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
-    subprocess.run(f"cd '{project_home}' && "
-                   f"sudo chown -R {user_group_spec} conf/ data/ logs/", capture_output=True, shell=True)
+
+    gateway_path: str = Path.home().joinpath(".hummingbot-gateway").as_posix()
+    subprocess.run(
+        f"cd '{project_home}' && "
+        f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/ {gateway_path}",
+        capture_output=True,
+        shell=True
+    )
+    os.setgid(gid)
+    os.setuid(uid)
 
 
-async def quick_start(args):
+async def quick_start(args: argparse.Namespace):
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
@@ -143,4 +157,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    fork_and_start(main)

@@ -24,7 +24,8 @@ cdef class KrakenExchange(ExchangeBase):
         object _async_scheduler
         object _set_server_time_offset_task
         public object _kraken_auth
-        object _shared_client
+        object _api_factory
+        object _rest_assistant
         dict _asset_pairs
         int32_t _last_userref
         object _throttler

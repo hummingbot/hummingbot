@@ -2,14 +2,14 @@ import asyncio
 import json
 import logging
 import time
+import warnings
 from collections import defaultdict
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from dateutil.parser import parse as dateparse
-
 from dydx3.errors import DydxApiError
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
@@ -28,16 +28,29 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.event.events import (BuyOrderCompletedEvent, BuyOrderCreatedEvent, FundingInfo,
-                                          FundingPaymentCompletedEvent, MarketEvent, MarketOrderFailureEvent,
-                                          OrderCancelledEvent, OrderExpiredEvent, OrderFilledEvent, OrderType,
-                                          PositionAction, PositionMode, PositionSide, SellOrderCompletedEvent,
-                                          SellOrderCreatedEvent, TradeFee, TradeType)
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderExpiredEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
@@ -161,7 +174,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._in_flight_orders = {}
         self._trading_pairs = trading_pairs
         self._fee_rules = {}
-        self._fee_override = "dydx_maker_fee_amount" in fee_overrides_config_map
         self._reserved_balances = {}
         self._unclaimed_fills = defaultdict(set)
         self._in_flight_orders_by_exchange_id = {}
@@ -564,9 +576,16 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         order_side: TradeType,
         amount: Decimal,
         price: Decimal = s_decimal_0,
+        is_maker: Optional[bool] = None,
     ):
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("dydx_perpetual", is_maker)
+        warnings.warn(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise DeprecationWarning(
+            "The 'estimate_fee' method is deprecated, use 'build_trade_fee' and 'build_perpetual_trade_fee' instead."
+        )
 
     # ==========================================================
     # Runtime
@@ -711,8 +730,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         new_price,
                         new_amount,
-                        TradeFee(Decimal(0), [(tracked_order.fee_asset, new_fee)]),
-                        tracked_order.client_order_id,
+                        AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]),
+                        str(int(self._time() * 1e6)),
                         self._leverage[tracked_order.trading_pair],
                         tracked_order.position,
                     ),

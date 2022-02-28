@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
-import { app } from '../../../src/app';
+import { gatewayApp } from '../../../src/app';
 import {
   NETWORK_ERROR_CODE,
   RATE_LIMIT_ERROR_CODE,
@@ -19,7 +19,7 @@ import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-r
 
 let eth: Ethereum;
 beforeAll(async () => {
-  eth = Ethereum.getInstance();
+  eth = Ethereum.getInstance('kovan');
   await eth.init();
 });
 
@@ -87,35 +87,25 @@ const patchApproveERC20 = (tx_type?: string) => {
     gasLimit: { toString: () => '100000' },
     to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
     value: { toString: () => '0' },
-    data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', // noqa: mock
     accessList: [],
-    hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
+    hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9', // noqa: mock
     v: 0,
-    r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
-    s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
+    r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643', // noqa: mock
+    s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100', // noqa: mock
     from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     confirmations: 0,
   };
   if (tx_type === 'overwritten_tx') {
     default_tx.hash =
-      '0x5a1ed682d0d7a58fbd7828bbf5994cd024feb8895d4da82c741ec4a191b9e849';
+      '0x5a1ed682d0d7a58fbd7828bbf5994cd024feb8895d4da82c741ec4a191b9e849'; // noqa: mock
   }
   patch(eth, 'approveERC20', () => {
     return default_tx;
   });
 };
 
-describe('GET /eth', () => {
-  it('should return 200', async () => {
-    await request(app)
-      .get(`/eth`)
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect((res) => expect(res.body.connection).toBe(true));
-  });
-});
-
-describe('POST /eth/allowances', () => {
+describe('POST /evm/allowances', () => {
   it('should return 200 asking for allowances', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
@@ -126,9 +116,11 @@ describe('POST /eth/allowances', () => {
     });
     patchGetERC20Allowance();
 
-    await request(app)
-      .post(`/eth/allowances`)
+    await request(gatewayApp)
+      .post(`/evm/allowances`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: theSpender,
         tokenSymbols: ['WETH', 'DAI'],
@@ -142,9 +134,11 @@ describe('POST /eth/allowances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
-      .post(`/eth/allowances`)
+    await request(gatewayApp)
+      .post(`/evm/allowances`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: '0xSpender',
         tokenSymbols: ['WETH', 'DAI'],
@@ -153,7 +147,7 @@ describe('POST /eth/allowances', () => {
   });
 });
 
-describe('POST /eth/balances', () => {
+describe('POST /network/balances', () => {
   it('should return 200 asking for supported tokens', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
@@ -163,9 +157,11 @@ describe('POST /eth/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
-      .post(`/eth/balances`)
+    await request(gatewayApp)
+      .post(`/network/balances`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['WETH', 'DAI'],
       })
@@ -185,9 +181,11 @@ describe('POST /eth/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
-      .post(`/eth/balances`)
+    await request(gatewayApp)
+      .post(`/network/balances`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['ETH'],
       })
@@ -207,9 +205,11 @@ describe('POST /eth/balances', () => {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    await request(app)
-      .post(`/eth/balances`)
+    await request(gatewayApp)
+      .post(`/network/balances`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         tokenSymbols: ['XXX', 'YYY'],
       })
@@ -219,23 +219,27 @@ describe('POST /eth/balances', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
-      .post(`/eth/balances`)
+    await request(gatewayApp)
+      .post(`/network/balances`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
 });
 
-describe('POST /eth/nonce', () => {
+describe('POST /evm/nonce', () => {
   it('should return 200', async () => {
     patchGetWallet();
     patchGetNonce();
 
-    await request(app)
-      .post(`/eth/nonce`)
+    await request(gatewayApp)
+      .post(`/evm/nonce`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       })
       .set('Accept', 'application/json')
@@ -245,16 +249,18 @@ describe('POST /eth/nonce', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
-      .post(`/eth/nonce`)
+    await request(gatewayApp)
+      .post(`/evm/nonce`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: 'da857cbda0ba96757fed842617a4',
       })
       .expect(404);
   });
 });
 
-describe('POST /eth/approve', () => {
+describe('POST /evm/approve', () => {
   it('approve without nonce parameter should return 200', async () => {
     patchGetWallet();
     eth.getContract = jest.fn().mockReturnValue({
@@ -264,9 +270,11 @@ describe('POST /eth/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
-      .post(`/eth/approve`)
+    await request(gatewayApp)
+      .post(`/evm/approve`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
@@ -282,9 +290,11 @@ describe('POST /eth/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
-      .post(`/eth/approve`)
+    await request(gatewayApp)
+      .post(`/evm/approve`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
@@ -304,9 +314,11 @@ describe('POST /eth/approve', () => {
     patchGetTokenBySymbol();
     patchApproveERC20();
 
-    await request(app)
-      .post(`/eth/approve`)
+    await request(gatewayApp)
+      .post(`/evm/approve`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 'WETH',
@@ -320,9 +332,11 @@ describe('POST /eth/approve', () => {
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
-      .post(`/eth/approve`)
+    await request(gatewayApp)
+      .post(`/evm/approve`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         spender: 'uniswap',
         token: 123,
@@ -332,7 +346,7 @@ describe('POST /eth/approve', () => {
   });
 });
 
-describe('POST /eth/cancel', () => {
+describe('POST /evm/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     eth.getWallet = jest.fn().mockReturnValue({
@@ -340,12 +354,14 @@ describe('POST /eth/cancel', () => {
     });
 
     eth.cancelTx = jest.fn().mockReturnValue({
-      hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
+      hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77', // noqa: mock
     });
 
-    await request(app)
-      .post(`/eth/cancel`)
+    await request(gatewayApp)
+      .post(`/evm/cancel`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
         nonce: 23,
       })
@@ -354,15 +370,17 @@ describe('POST /eth/cancel', () => {
       .expect(200)
       .then((res: any) => {
         expect(res.body.txHash).toEqual(
-          '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77'
+          '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77' // noqa: mock
         );
       });
   });
 
   it('should return 404 when parameters are invalid', async () => {
-    await request(app)
-      .post(`/eth/cancel`)
+    await request(gatewayApp)
+      .post(`/evm/cancel`)
       .send({
+        chain: 'ethereum',
+        network: 'kovan',
         address: '',
         nonce: '23',
       })
@@ -370,7 +388,7 @@ describe('POST /eth/cancel', () => {
   });
 });
 
-describe('POST /eth/poll', () => {
+describe('POST /network/poll', () => {
   it('should get a NETWORK_ERROR_CODE when the network is unavailable', async () => {
     patch(eth, 'getCurrentBlockNumber', () => {
       const error: any = new Error('something went wrong');
@@ -378,9 +396,11 @@ describe('POST /eth/poll', () => {
       throw error;
     });
 
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
 
     expect(res.statusCode).toEqual(503);
@@ -393,9 +413,9 @@ describe('POST /eth/poll', () => {
       throw new Error();
     });
 
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
 
     expect(res.statusCode).toEqual(503);
@@ -406,9 +426,11 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
 
     expect(res.statusCode).toEqual(503);
@@ -420,9 +442,11 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
     expect(res.statusCode).toEqual(200);
     expect(res.body.txReceipt).toEqual(null);
@@ -433,9 +457,11 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
     expect(res.statusCode).toEqual(200);
     expect(res.body.txReceipt).toEqual(null);
@@ -446,9 +472,11 @@ describe('POST /eth/poll', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionSuccesful);
     patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
+        '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d', // noqa: mock
     });
     expect(res.statusCode).toEqual(200);
     expect(res.body.txReceipt).toBeDefined();
@@ -469,9 +497,11 @@ describe('POST /eth/poll', () => {
       };
       throw error;
     });
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
     expect(res.statusCode).toEqual(503);
     expect(res.body.errorCode).toEqual(RATE_LIMIT_ERROR_CODE);
@@ -484,9 +514,11 @@ describe('POST /eth/poll', () => {
       error.code = -32006;
       throw error;
     });
-    const res = await request(app).post('/eth/poll').send({
+    const res = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362', // noqa: mock
     });
     expect(res.statusCode).toEqual(503);
     expect(res.body.errorCode).toEqual(UNKNOWN_ERROR_ERROR_CODE);
@@ -501,6 +533,8 @@ describe('overwrite existing transaction', () => {
     patchGetTokenBySymbol();
 
     const requestParam = {
+      chain: 'ethereum',
+      network: 'kovan',
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
       spender: 'uniswap',
       token: 'WETH',
@@ -510,8 +544,8 @@ describe('overwrite existing transaction', () => {
     };
 
     patchApproveERC20('overwritten_tx');
-    const tx_1 = await request(app)
-      .post(`/eth/approve`)
+    const tx_1 = await request(gatewayApp)
+      .post(`/evm/approve`)
       .send(requestParam)
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -519,8 +553,8 @@ describe('overwrite existing transaction', () => {
 
     patchApproveERC20(); // patch to return different tx_hash
     requestParam.maxPriorityFeePerGas = '8000000000'; // we only increase maxPriorityFeePerGas
-    const tx_2 = await request(app)
-      .post(`/eth/approve`)
+    const tx_2 = await request(gatewayApp)
+      .post(`/evm/approve`)
       .send(requestParam)
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
@@ -530,7 +564,9 @@ describe('overwrite existing transaction', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
-    const res_1 = await request(app).post('/eth/poll').send({
+    const res_1 = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash: tx_1.body.approval.hash,
     });
     expect(res_1.statusCode).toEqual(200);
@@ -540,7 +576,9 @@ describe('overwrite existing transaction', () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionSuccesful);
     patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
-    const res_2 = await request(app).post('/eth/poll').send({
+    const res_2 = await request(gatewayApp).post('/network/poll').send({
+      chain: 'ethereum',
+      network: 'kovan',
       txHash: tx_2.body.approval.hash,
     });
     expect(res_2.statusCode).toEqual(200);
