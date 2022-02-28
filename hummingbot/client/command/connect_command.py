@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
+           if not cs.use_ethereum_wallet}.union({"celo"})
 
 
 class ConnectCommand:
@@ -34,6 +34,11 @@ class ConnectCommand:
 
     async def connect_exchange(self,  # type: HummingbotApplication
                                exchange):
+        # instruct users to use gateway connect if connector is a gateway connector
+        if AllConnectorSettings.get_connector_settings()[exchange].uses_gateway_generic_connector():
+            self.notify("This is a gateway connector. Use `gateway connect` command instead.")
+            return
+
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
@@ -41,6 +46,7 @@ class ConnectCommand:
             self.notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         exchange_configs = [c for c in global_config_map.values()
                             if c.key in AllConnectorSettings.get_connector_settings()[exchange].config_keys and c.is_connect_key]
+
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
@@ -112,16 +118,7 @@ class ConnectCommand:
             keys_added = "No"
             keys_confirmed = 'No'
             status = get_connector_status(option)
-            if option == "ethereum":
-                eth_address = global_config_map["ethereum_wallet"].value
-                if eth_address is not None and eth_address in Security.private_keys():
-                    keys_added = "Yes"
-                    err_msg = UserBalances.validate_ethereum_wallet()
-                    if err_msg is not None:
-                        failed_msgs[option] = err_msg
-                    else:
-                        keys_confirmed = 'Yes'
-            elif option == "celo":
+            if option == "celo":
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
                     keys_added = "Yes"
@@ -144,38 +141,7 @@ class ConnectCommand:
 
     async def connect_ethereum(self,  # type: HummingbotApplication
                                ):
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        ether_wallet = global_config_map["ethereum_wallet"].value
-        to_connect = True
-        if ether_wallet is not None:
-            answer = await self.app.prompt(prompt=f"Would you like to replace your existing Ethereum wallet "
-                                                  f"{ether_wallet} (Yes/No)? >>> ")
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            if answer.lower() not in ("yes", "y"):
-                to_connect = False
-        if to_connect:
-            private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
-            public_address = Security.add_private_key(private_key)
-            global_config_map["ethereum_wallet"].value = public_address
-            if global_config_map["ethereum_rpc_url"].value is None:
-                await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
-            if global_config_map["ethereum_rpc_ws_url"].value is None:
-                await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-            err_msg = UserBalances.validate_ethereum_wallet()
-            if err_msg is None:
-                self.notify(f"Wallet {public_address} connected to hummingbot.")
-            else:
-                self.notify(f"\nError: {err_msg}")
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
+        self.notify("\nError: Feature deprecated. Use 'gateway connect' instead.")
 
     async def connect_celo(self,  # type: HummingbotApplication
                            ):

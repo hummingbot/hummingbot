@@ -3,15 +3,22 @@ from dataclasses import dataclass
 import os
 from os import getenv
 from pathlib import Path
-from typing import Optional, Any, AsyncIterable
+from typing import Optional, Any, Dict, AsyncIterable
+import aiohttp
+import ssl
+import json
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils import detect_available_port
+from hummingbot.logger import HummingbotLogger
+import logging
+
 
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220215-test2"
+GATEWAY_DOCKER_TAG: str = "20220224.2"
 
 
 def is_inside_docker() -> bool:
@@ -118,6 +125,10 @@ def get_gateway_paths() -> GatewayPaths:
     return _default_paths
 
 
+def get_default_gateway_port() -> int:
+    return detect_available_port(16000 + int(global_config_map.get("instance_id").value[:4], 16) % 16000)
+
+
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
     global _hummingbot_pipe
     _hummingbot_pipe = conn
@@ -131,7 +142,14 @@ async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
         raise RuntimeError("Not in the main process, or hummingbot wasn't started via `fork_and_start()`.")
     try:
         _hummingbot_pipe.send((method_name, args, kwargs))
-        return await _hummingbot_pipe.coro_recv()
+        data = await _hummingbot_pipe.coro_recv()
+        if isinstance(data, Exception):
+            HummingbotApplication.main_application().notify(
+                "\nError: Unable to communicate with docker socket. "
+                "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+            raise data
+        return data
+
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
             "\nError: Unable to communicate with docker socket. "
@@ -151,9 +169,87 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
             data = await _hummingbot_pipe.coro_recv()
             if data is None:
                 break
+            if isinstance(data, Exception):
+                HummingbotApplication.main_application().notify(
+                    "\nError: Unable to communicate with docker socket. "
+                    "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
+                raise data
             yield data
     except Exception as e:  # unable to communicate with docker socket
         HummingbotApplication.main_application().notify(
             "\nError: Unable to communicate with docker socket. "
             "\nEnsure dockerd is running and /var/run/docker.sock exists, then restart Hummingbot.")
         raise e
+
+
+class GatewayHttpClient:
+    """
+    An HTTP client for making requests to the gateway API.
+    """
+
+    _ghc_logger: Optional[HummingbotLogger] = None
+    _shared_client: Optional[aiohttp.ClientSession] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._ghc_logger is None:
+            cls._ghc_logger = logging.getLogger(__name__)
+        return cls._ghc_logger
+
+    def _http_client(self) -> aiohttp.ClientSession:
+        """
+        :returns Shared client session instance
+        """
+        if self._shared_client is None:
+            cert_path = get_gateway_paths().local_certs_path.as_posix()
+            ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
+            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            self._shared_client = aiohttp.ClientSession(connector=conn)
+        return self._shared_client
+
+    async def api_request(self,
+                          method: str,
+                          path_url: str,
+                          params: Dict[str, Any] = {},
+                          fail_silently: bool = False) -> Optional[Dict[str, Any]]:
+        """
+        Sends an aiohttp request and waits for a response.
+        :param method: The HTTP method, e.g. get or post
+        :param path_url: The path url or the API end point
+        :param params: A dictionary of required params for the end point
+        :param fail_silently: used to determine if errors will be raise or silently ignored
+        :returns A response in json format.
+        """
+        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                   f"{global_config_map['gateway_api_port'].value}"
+        url = f"{base_url}/{path_url}"
+        client = self._http_client()
+
+        parsed_response = {}
+        try:
+            if method == "get":
+                if len(params) > 0:
+                    response = await client.get(url, params=params)
+                else:
+                    response = await client.get(url)
+            elif method == "post":
+                response = await client.post(url, json=params)
+            if response.status != 200:
+                if "error" in parsed_response:
+                    err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
+                else:
+                    err_msg = f"Error on {method.upper()} Error: {parsed_response}"
+                    self.logger().error(
+                        err_msg,
+                        exc_info=True
+                    )
+            parsed_response = json.loads(await response.text())
+        except Exception as e:
+            if not fail_silently:
+                raise e
+
+        return parsed_response
+
+
+gateway_http_client = GatewayHttpClient()

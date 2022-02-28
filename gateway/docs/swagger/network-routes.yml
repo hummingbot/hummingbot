@@ -47,3 +47,26 @@ paths:
       produces:
         - 'application/json'
       responses: '200'
+  /network/tokens:
+    get:
+      summary: 'Returns a list of tokens available on the specified network'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'query'
+          name: 'chain'
+          required: true
+          type: 'string'
+          example: 'ethereum'
+        - in: 'query'
+          name: 'network'
+          required: true
+          type: 'string'
+          example: 'kovan'
+        - in: 'query'
+          name: 'tokenSymbols'
+          required: false
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TokensResponse'
