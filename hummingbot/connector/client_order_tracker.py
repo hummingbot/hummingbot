@@ -1,6 +1,5 @@
-import logging
 import asyncio
-
+import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, Optional
@@ -120,13 +119,16 @@ class ClientOrderTracker:
     def fetch_order(
         self, client_order_id: Optional[str] = None, exchange_order_id: Optional[str] = None
     ) -> Optional[InFlightOrder]:
-        if client_order_id in self.all_orders:
-            return self.all_orders[client_order_id]
+        found_order = None
 
-        for order in self.all_orders.values():
-            if order.exchange_order_id == exchange_order_id:
-                return order
-        return None
+        if client_order_id in self.all_orders:
+            found_order = self.all_orders[client_order_id]
+        elif exchange_order_id is not None:
+            found_order = next(
+                (order for order in self.all_orders.values() if order.exchange_order_id == exchange_order_id),
+                None)
+
+        return found_order
 
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
