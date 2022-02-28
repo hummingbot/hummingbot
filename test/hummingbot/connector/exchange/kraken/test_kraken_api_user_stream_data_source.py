@@ -110,7 +110,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.assertEqual(ret, resp["result"]["token"])
 
     @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream(self, mocked_api, ws_connect_mock):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.GET_TOKEN_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -122,7 +122,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
 
         resp = self.get_open_orders_mock()
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
@@ -130,7 +130,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.assertEqual(ret, resp)
 
         resp = self.get_own_trades_mock()
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())

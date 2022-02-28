@@ -1,5 +1,65 @@
 from copy import deepcopy
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Iterable
+import pandas as pd
+
+native_tokens = {"ethereum": "ETH", "avalanche": "AVAX", "solana": "SOL"}
+
+
+def flatten(items):
+    """
+    Deep flatten any iterable item.
+    """
+    for x in items:
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            yield from flatten(x)
+        else:
+            yield x
+
+
+def list_gateway_wallets(wallets: List[Any], chain: str) -> List[str]:
+    """
+    Get the public keys for a chain supported by gateway.
+    """
+    return list(flatten([w["walletAddresses"] for w in wallets if w["chain"] == chain]))
+
+
+def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, trading_type, wallet):
+    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": trading_type, "wallet_address": wallet}
+
+    updated = False
+
+    for i, c in enumerate(connectors):
+        if c["connector"] == connector and c["chain"] == chain and c["network"] == network:
+            connectors[i] = new_connector
+            updated = True
+            break
+
+    if updated is False:
+        connectors.append(new_connector)
+
+
+def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]):
+    """
+    Display user wallets for a particular chain as a table
+    """
+    columns = ["Wallet", native_token]
+    data = []
+    for dict in wallets:
+        data.extend([[dict['address'], dict['balance']]])
+
+    return pd.DataFrame(data=data, columns=columns)
+
+
+def build_connector_display(connectors: List[Dict[str, Any]]):
+    """
+    Display connector information as a table
+    """
+    columns = ["Exchange", "Network", "Wallet"]
+    data = []
+    for dict in connectors:
+        data.extend([[dict['connector'], f"{dict['chain']} - {dict['network']}", dict['wallet_address']]])
+
+    return pd.DataFrame(data=data, columns=columns)
 
 
 def build_config_dict_display(lines: List[str], config_dict: Dict[str, Any], level: int = 0):

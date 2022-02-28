@@ -1,5 +1,6 @@
-import { request, ethTests } from './ethereum.test.base';
+import { ethTests } from './ethereum.test.base';
 import 'jest-extended';
+import { request } from './test.base';
 
 // constants
 const TOKENS = ['WETH', 'DAI', 'ETH'];

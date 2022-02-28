@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import time
-import docker
 from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
 
@@ -26,7 +25,6 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     get_connector_class,
-    get_eth_wallet_private_key,
 )
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
@@ -40,7 +38,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway_base import GatewayBase
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
 
@@ -101,7 +99,7 @@ class HummingbotApplication(*commands):
 
         # gateway variables and monitor
         self._shared_client = None
-        self._gateway_monitor: Optional[GatewayBase] = None
+        self._gateway_monitor: Optional[GatewayEVMAMM] = None
         self._gateway_monitor_clock: Optional[Clock] = None
         self._init_gateway_monitor()
         self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
@@ -117,9 +115,6 @@ class HummingbotApplication(*commands):
             completer=load_completer(self),
             command_tabs=command_tabs
         )
-
-        # docker client instance
-        self._docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
 
     @property
     def strategy_file_name(self) -> str:
@@ -141,10 +136,13 @@ class HummingbotApplication(*commands):
         return None
 
     def _init_gateway_monitor(self):
-        self._gateway_monitor = GatewayBase(trading_pairs = [],
-                                            wallet_private_key = "",
-                                            trading_required = False
-                                            )
+        self._gateway_monitor = GatewayEVMAMM(connector_name = "",
+                                              chain = "",
+                                              network = "",
+                                              wallet_public_key = "",
+                                              trading_pairs = [],
+                                              trading_required = False)
+
         self._gateway_monitor_clock = Clock(ClockMode.REALTIME)
         self._gateway_monitor_clock.add_iterator(self._gateway_monitor)
 
@@ -152,7 +150,7 @@ class HummingbotApplication(*commands):
         with self._gateway_monitor_clock as clock:
             await clock.run()
 
-    def _notify(self, msg: str):
+    def notify(self, msg: str):
         self.app.log(msg)
         for notifier in self.notifiers:
             notifier.add_msg_to_queue(msg)
@@ -162,12 +160,21 @@ class HummingbotApplication(*commands):
         if self.app.to_stop_config:
             self.app.to_stop_config = False
 
-        raw_command = raw_command.strip()
-        command_split = raw_command.split()
+        raw_command = raw_command.lower().strip()
+        # NOTE: Only done for config command
+        if raw_command.startswith("config"):
+            command_split = raw_command.split(maxsplit=2)
+        else:
+            command_split = raw_command.split()
         try:
             if self.placeholder_mode:
                 pass
             else:
+                # Check if help is requested, if yes, print & terminate
+                if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
+                    self.help(command_split[0])
+                    return
+
                 shortcuts = global_config_map.get("command_shortcuts").value
                 shortcut = None
                 # see if we match against shortcut command
@@ -190,10 +197,10 @@ class HummingbotApplication(*commands):
                             for i in range(1, num_shortcut_args + 1):
                                 final_cmd = final_cmd.replace(f'${i}', command_split[i])
                             if verbose is True:
-                                self._notify(f'  >>> {final_cmd}')
+                                self.notify(f'  >>> {final_cmd}')
                             self._handle_command(final_cmd)
                     else:
-                        self._notify('Invalid number of arguments for shortcut')
+                        self.notify('Invalid number of arguments for shortcut')
                 # regular command
                 else:
                     args = self.parser.parse_args(args=command_split)
@@ -206,9 +213,9 @@ class HummingbotApplication(*commands):
                         f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
-                self._notify(str(e))
+                self.notify(str(e))
         except NotImplementedError:
-            self._notify("Command not yet implemented. This feature is currently under development.")
+            self.notify("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
             self.logger().error(e, exc_info=True)
 
@@ -216,7 +223,7 @@ class HummingbotApplication(*commands):
         success = True
         try:
             kill_timeout: float = self.KILL_TIMEOUT
-            self._notify("Cancelling outstanding orders...")
+            self.notify("Cancelling outstanding orders...")
 
             for market_name, market in self.markets.items():
                 cancellation_results = await market.cancel_all(kill_timeout)
@@ -224,7 +231,7 @@ class HummingbotApplication(*commands):
                 if len(uncancelled) > 0:
                     success = False
                     uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                    self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
+                    self.notify("\nFailed to cancel the following orders on %s:\n%s" % (
                         market_name,
                         '\n'.join(uncancelled_order_ids)
                     ))
@@ -233,7 +240,7 @@ class HummingbotApplication(*commands):
             success = False
 
         if success:
-            self._notify("All outstanding orders cancelled.")
+            self.notify("All outstanding orders cancelled.")
         return success
 
     async def run(self):
@@ -274,12 +281,6 @@ class HummingbotApplication(*commands):
                         if key in conn_setting.config_keys}
                 init_params = conn_setting.conn_init_parameters(keys)
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                if conn_setting.use_ethereum_wallet:
-                    ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-                    # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
-                    if connector_name in ["balancer", "uniswap", "uniswap_v3", "perpetual_finance"]:
-                        private_key = get_eth_wallet_private_key()
-                        init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**init_params)
             self.markets[connector_name] = connector

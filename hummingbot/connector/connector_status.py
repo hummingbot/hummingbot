@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 connector_status = {
+    'altmarkets': 'yellow',
     'ascend_ex': 'yellow',
-    'balancer': 'green',
     'beaxy': 'green',
     'binance': 'green',
     'binance_perpetual': 'yellow',
     'binance_perpetual_testnet': 'yellow',
     'binance_us': 'green',
     'bitfinex': 'yellow',
-    'bitmart': 'green',
+    'bitmart': 'yellow',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
     'bybit_perpetual': 'yellow',
@@ -17,12 +17,12 @@ connector_status = {
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
     'coinzoom': 'yellow',
-    'crypto_com': 'green',
+    'crypto_com': 'yellow',
     'digifinex': "yellow",
-    'dydx_perpetual': 'green',
+    'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'ftx': 'green',
-    'gate_io': 'green',
+    'gate_io': 'yellow',
     'hitbtc': 'green',
     'huobi': 'green',
     'kraken': 'yellow',
@@ -37,8 +37,7 @@ connector_status = {
     'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
-    'terra': 'green',
-    'uniswap': 'yellow',
+    'terra': 'yellow',
     'uniswap_v3': 'yellow',
     'wazirx': 'yellow'
 }

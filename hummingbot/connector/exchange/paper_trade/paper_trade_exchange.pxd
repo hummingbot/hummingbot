@@ -10,10 +10,6 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.event.events import MarketEvent, OrderType
 
-from .market_config import (
-    MarketConfig,
-    AssetType
-)
 ctypedef cpp_set[CPPLimitOrder] SingleTradingPairLimitOrders
 ctypedef unordered_map[string, SingleTradingPairLimitOrders].iterator LimitOrdersIterator
 ctypedef pair[string, SingleTradingPairLimitOrders] LimitOrdersPair
@@ -38,7 +34,6 @@ cdef class PaperTradeExchange(ExchangeBase):
         LimitOrders _ask_limit_orders
         bint _paper_trade_market_initialized
         dict _trading_pairs
-        object _config
         object _queued_orders
         dict _quantization_params
         object _order_book_trade_listener
@@ -56,7 +51,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                           object order_type,
                           object order_side,
                           object amount,
-                          object price)
+                          object price,
+                          object is_maker=*)
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,

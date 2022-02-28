@@ -19,28 +19,32 @@ import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
 
 import {
-  EthereumAllowancesRequest,
-  EthereumAllowancesResponse,
-  EthereumApproveRequest,
-  EthereumApproveResponse,
-  EthereumBalanceResponse,
-  EthereumBalanceRequest,
-  EthereumCancelRequest,
-  EthereumCancelResponse,
-  EthereumNonceRequest,
-  EthereumNonceResponse,
-  EthereumPollRequest,
-  EthereumPollResponse,
-  EthereumTransactionReceipt,
-  EthereumTransaction,
-  EthereumTransactionResponse,
+  PollRequest,
+  PollResponse,
+  CustomTransactionReceipt,
+  CustomTransaction,
+  CustomTransactionResponse,
 } from './ethereum.requests';
-import { Ethereumish } from '../../services/ethereumish.interface';
+import { Ethereumish } from '../../services/common-interfaces';
+import {
+  NonceRequest,
+  NonceResponse,
+  AllowancesRequest,
+  AllowancesResponse,
+  ApproveRequest,
+  ApproveResponse,
+  CancelRequest,
+  CancelResponse,
+} from '../../evm/evm.requests';
+import {
+  BalanceRequest,
+  BalanceResponse,
+} from '../../network/network.requests';
 
 export async function nonce(
   ethereum: Ethereumish,
-  req: EthereumNonceRequest
-): Promise<EthereumNonceResponse> {
+  req: NonceRequest
+): Promise<NonceResponse> {
   // get the address via the public key since we generally use the public
   // key to interact with gateway and the address is not part of the user config
   const wallet = await ethereum.getWallet(req.address);
@@ -65,8 +69,8 @@ export const getTokenSymbolsToTokens = (
 
 export async function allowances(
   ethereumish: Ethereumish,
-  req: EthereumAllowancesRequest
-): Promise<EthereumAllowancesResponse | string> {
+  req: AllowancesRequest
+): Promise<AllowancesResponse | string> {
   const initTime = Date.now();
   const wallet = await ethereumish.getWallet(req.address);
   const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
@@ -102,8 +106,8 @@ export async function allowances(
 
 export async function balances(
   ethereumish: Ethereumish,
-  req: EthereumBalanceRequest
-): Promise<EthereumBalanceResponse | string> {
+  req: BalanceRequest
+): Promise<BalanceResponse | string> {
   const initTime = Date.now();
 
   let wallet: Wallet;
@@ -156,9 +160,7 @@ export async function balances(
   };
 }
 
-const toEthereumTransaction = (
-  transaction: Transaction
-): EthereumTransaction => {
+const toEthereumTransaction = (transaction: Transaction): CustomTransaction => {
   let maxFeePerGas = null;
   if (transaction.maxFeePerGas) {
     maxFeePerGas = transaction.maxFeePerGas.toString();
@@ -182,10 +184,11 @@ const toEthereumTransaction = (
 
 export async function approve(
   ethereumish: Ethereumish,
-  req: EthereumApproveRequest
-): Promise<EthereumApproveResponse> {
+  req: ApproveRequest
+): Promise<ApproveResponse | string> {
   const { amount, nonce, address, token, maxFeePerGas, maxPriorityFeePerGas } =
     req;
+
   const spender = ethereumish.getSpender(req.spender);
   const initTime = Date.now();
   let wallet: Wallet;
@@ -261,7 +264,7 @@ export async function approve(
 
 const toEthereumTransactionReceipt = (
   receipt: ethers.providers.TransactionReceipt | null
-): EthereumTransactionReceipt | null => {
+): CustomTransactionReceipt | null => {
   if (receipt) {
     let effectiveGasPrice = null;
     if (receipt.effectiveGasPrice) {
@@ -280,7 +283,7 @@ const toEthereumTransactionReceipt = (
 
 const toEthereumTransactionResponse = (
   response: ethers.providers.TransactionResponse | null
-): EthereumTransactionResponse | null => {
+): CustomTransactionResponse | null => {
   if (response) {
     let gasPrice = null;
     if (response.gasPrice) {
@@ -317,8 +320,8 @@ export function willTxSucceed(
 // 0: in the mempool but we dont have data to guess its status
 export async function poll(
   ethereumish: Ethereumish,
-  req: EthereumPollRequest
-): Promise<EthereumPollResponse> {
+  req: PollRequest
+): Promise<PollResponse> {
   const initTime = Date.now();
   const currentBlock = await ethereumish.getCurrentBlockNumber();
   const txData = await ethereumish.getTransaction(req.txHash);
@@ -384,8 +387,8 @@ export async function poll(
 
 export async function cancel(
   ethereumish: Ethereumish,
-  req: EthereumCancelRequest
-): Promise<EthereumCancelResponse> {
+  req: CancelRequest
+): Promise<CancelResponse> {
   const initTime = Date.now();
   let wallet: Wallet;
   try {

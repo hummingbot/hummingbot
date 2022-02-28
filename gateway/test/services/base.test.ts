@@ -3,8 +3,22 @@ import {
   bigNumberWithDecimalToStr,
   stringWithDecimalToBigNumber,
   gasCostInEthString,
+  countDecimals,
 } from '../../src/services/base';
 import 'jest-extended';
+
+test('countDecimals', () => {
+  const rangeError = 'countDecimals() is only valid for values between (0, 1).';
+  expect(() => countDecimals(0)).toThrow(rangeError);
+  expect(() => countDecimals(1)).toThrow(rangeError);
+  expect(() => countDecimals(-1)).toThrow(rangeError);
+  expect(() => countDecimals(100)).toThrow(rangeError);
+  expect(() => countDecimals(1.0000123)).toThrow(rangeError);
+  expect(() => countDecimals(100.0000123)).toThrow(rangeError);
+  expect(() => countDecimals(1e9)).toThrow(rangeError);
+  expect(countDecimals(0.0000123)).toEqual(5);
+  expect(countDecimals(1e-9)).toEqual(9);
+});
 
 test('bigNumberWithDecimalToStr', () => {
   expect(bigNumberWithDecimalToStr(BigNumber.from(10), 1)).toEqual('1.0');

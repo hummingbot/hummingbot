@@ -60,18 +60,18 @@ class StartCommand:
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False):
         if self.strategy_task is not None and not self.strategy_task.done():
-            self._notify('The bot is already running - please run "stop" first')
+            self.notify('The bot is already running - please run "stop" first')
             return
 
         if settings.required_rate_oracle:
             if not (await self.confirm_oracle_conversion_rate()):
-                self._notify("The strategy failed to start.")
+                self.notify("The strategy failed to start.")
                 return
             else:
                 RateOracle.get_instance().start()
         is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
-            self._notify("Status checks failed. Start aborted.")
+            self.notify("Status checks failed. Start aborted.")
             return
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",
@@ -86,9 +86,9 @@ class StartCommand:
 
         self._initialize_notifiers()
 
-        self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
+        self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
-            self._notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
+            self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
 
         for exchange in settings.required_exchanges:
             connector = str(exchange)
@@ -97,13 +97,13 @@ class StartCommand:
             # Display custom warning message for specific connectors
             warning_msg = warning_messages.get(connector, None)
             if warning_msg is not None:
-                self._notify(f"\nConnector status: {status}\n"
-                             f"{warning_msg}")
+                self.notify(f"\nConnector status: {status}\n"
+                            f"{warning_msg}")
 
             # Display warning message if the exchange connector has outstanding issues or not working
             elif status != "GREEN":
-                self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
-                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
+                self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
+                            "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
         await self.start_market_making(self.strategy_name, restore)
 
@@ -126,10 +126,10 @@ class StartCommand:
                     self.markets_recorder.restore_market_states(config_path, market)
                     if len(market.limit_orders) > 0:
                         if restore is False:
-                            self._notify(f"Cancelling dangling limit orders on {market.name}...")
+                            self.notify(f"Cancelling dangling limit orders on {market.name}...")
                             await market.cancel_all(5.0)
                         else:
-                            self._notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")
+                            self.notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             if global_config_map["script_enabled"].value:
@@ -138,20 +138,20 @@ class StartCommand:
                 if folder == "":
                     script_file = join(settings.SCRIPTS_PATH, script_file)
                 if self.strategy_name != "pure_market_making":
-                    self._notify("Error: script feature is only available for pure_market_making strategy (for now).")
+                    self.notify("Error: script feature is only available for pure_market_making strategy (for now).")
                 else:
                     self._script_iterator = ScriptIterator(script_file, list(self.markets.values()),
                                                            self.strategy, 0.1)
                     self.clock.add_iterator(self._script_iterator)
-                    self._notify(f"Script ({script_file}) started.")
+                    self.notify(f"Script ({script_file}) started.")
 
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
-            self._notify(f"\n'{strategy_name}' strategy started.\n"
-                         f"Run `status` command to query the progress.")
+            self.notify(f"\n'{strategy_name}' strategy started.\n"
+                        f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
 
             if self.strategy_name == "uniswap_v3_lp":  # this would be removed in subsequent iterations
-                self._notify("Warning: Ensure that the trading pair is in the right order .i.e. {BASE}-{QUOTE}.")
+                self.notify("Warning: Ensure that the trading pair is in the right order .i.e. {BASE}-{QUOTE}.")
 
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)
@@ -168,7 +168,7 @@ class StartCommand:
             self.app.hide_input = True
             for pair in settings.rate_oracle_pairs:
                 msg = await RateCommand.oracle_rate_msg(pair)
-                self._notify("\nRate Oracle:\n" + msg)
+                self.notify("\nRate Oracle:\n" + msg)
             config = ConfigVar(key="confirm_oracle_use",
                                type_str="bool",
                                prompt="Please confirm to proceed if the above oracle source and rates are correct for "
@@ -179,7 +179,7 @@ class StartCommand:
             if config.value:
                 result = True
         except OracleRateUnavailable:
-            self._notify("Oracle rate is not available.")
+            self.notify("Oracle rate is not available.")
         finally:
             self.placeholder_mode = False
             self.app.hide_input = False

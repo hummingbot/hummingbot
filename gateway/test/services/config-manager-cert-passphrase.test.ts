@@ -1,11 +1,8 @@
 import { patch, unpatch } from './patch';
-import fs from 'fs';
 import { ConfigManagerCertPassphrase } from '../../src/services/config-manager-cert-passphrase';
 import 'jest-extended';
 
 describe('ConfigManagerCertPassphrase.readPassphrase', () => {
-  const passphraseFile = 'conf/gateway-passphrase.yml';
-  const passExists = fs.existsSync(passphraseFile);
   let witnessFailure = false;
 
   afterEach(() => {
@@ -19,62 +16,24 @@ describe('ConfigManagerCertPassphrase.readPassphrase', () => {
     });
   });
 
-  const backupAndRemove = () => {
-    // backup passphrase file if it exits
-    if (passExists) {
-      fs.copyFileSync(passphraseFile, passphraseFile + '.backup');
-      fs.rmSync(passphraseFile, { force: true });
-    }
-  };
-
-  beforeAll(() => {
-    backupAndRemove();
-  });
-
-  const restore = () => {
-    // restore original passphrase file
-    if (passExists) {
-      fs.copyFileSync(passphraseFile + '.backup', passphraseFile);
-      fs.rmSync(passphraseFile + '.backup', { force: true });
-    }
-  };
-
-  afterAll(() => {
-    restore();
-  });
-
-  it('returns correct passphrase with right permision', () => {
-    fs.writeFileSync(passphraseFile, "CERT_PASSPHRASE: 'TEST'", {
-      mode: 0o600,
-    });
-    expect(ConfigManagerCertPassphrase.readPassphrase()).toEqual('TEST');
-    fs.rmSync(passphraseFile, { force: true });
-  });
-
-  it('fails if the file contents are incorrect', () => {
-    fs.rmSync(passphraseFile, { force: true });
-
-    fs.writeFileSync(passphraseFile, "PASSPHRASE: 'TEST'", {
-      mode: 0o600,
-    });
+  it('should get an error if there is no cert phrase', async () => {
     ConfigManagerCertPassphrase.readPassphrase();
     expect(witnessFailure).toEqual(true);
   });
 
-  it('fails without the right permision', () => {
-    fs.rmSync(passphraseFile, { force: true });
-    fs.writeFileSync(passphraseFile, "CERT_PASSPHRASE: 'TEST'", {
-      mode: 0o660,
-    });
-    ConfigManagerCertPassphrase.readPassphrase();
-    expect(witnessFailure).toEqual(true);
-    fs.rmSync(passphraseFile, { force: true });
+  it('should get the cert phrase from the process args', async () => {
+    const passphrase = 'args_passphrase';
+    process.argv.push(`--passphrase=${passphrase}`);
+    const certPhrase = ConfigManagerCertPassphrase.readPassphrase();
+    expect(certPhrase).toEqual(passphrase);
+    process.argv.pop();
   });
 
-  it('fails if the file does not exist', () => {
-    fs.rmSync(passphraseFile, { force: true });
-
-    ConfigManagerCertPassphrase.readPassphrase();
-    expect(witnessFailure).toEqual(true);
+  it('should get the cert phrase from an env variable', async () => {
+    const passphrase = 'env_var_passphrase';
+    process.env['GATEWAY_PASSPHRASE'] = passphrase;
+    const certPhrase = ConfigManagerCertPassphrase.readPassphrase();
+    expect(certPhrase).toEqual(passphrase);
+    delete process.env['GATEWAY_PASSPHRASE'];
   });
 });

@@ -3,7 +3,7 @@ import ethers, { Transaction } from 'ethers';
 // gasUsed and cumulativeGasUsed are BigNumbers
 // then need to be converted to strings before being
 // passed to the client
-export interface EthereumTransactionReceipt
+export interface CustomTransactionReceipt
   extends Omit<
     ethers.providers.TransactionReceipt,
     'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
@@ -13,7 +13,7 @@ export interface EthereumTransactionReceipt
   effectiveGasPrice: string | null;
 }
 
-export interface EthereumTransaction
+export interface CustomTransaction
   extends Omit<
     Transaction,
     'maxPriorityFeePerGas' | 'maxFeePerGas' | 'gasLimit' | 'value'
@@ -24,7 +24,7 @@ export interface EthereumTransaction
   value: string;
 }
 
-export interface EthereumTransactionResponse
+export interface CustomTransactionResponse
   extends Omit<
     ethers.providers.TransactionResponse,
     'gasPrice' | 'gasLimit' | 'value'
@@ -86,22 +86,22 @@ export interface EthereumApproveResponse {
   spender: string;
   amount: string;
   nonce: number;
-  approval: EthereumTransaction;
+  approval: CustomTransaction;
 }
 
-export interface EthereumPollRequest {
+export interface PollRequest {
   txHash: string;
 }
 
-export interface EthereumPollResponse {
+export interface PollResponse {
   network: string;
   timestamp: number;
   currentBlock: number;
   txHash: string;
   txStatus: number;
   txBlock: number;
-  txData: EthereumTransactionResponse | null;
-  txReceipt: EthereumTransactionReceipt | null;
+  txData: CustomTransactionResponse | null;
+  txReceipt: CustomTransactionReceipt | null;
 }
 
 export interface EthereumCancelRequest {

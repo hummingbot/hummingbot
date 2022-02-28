@@ -1,9 +1,12 @@
 import fse from 'fs-extra';
 import { Avalanche } from '../../chains/avalanche/avalanche';
 import { Ethereum } from '../../chains/ethereum/ethereum';
+import { Solana } from '../../chains/solana/solana';
+import { Harmony } from '../../chains/harmony/harmony';
 
 import {
   AddWalletRequest,
+  AddWalletResponse,
   RemoveWalletRequest,
   GetWalletResponse,
 } from './wallet.requests';
@@ -18,6 +21,8 @@ import {
 
 const walletPath = './conf/wallets';
 
+const solana = Solana.getInstance();
+
 export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
   if (!exists) {
@@ -26,38 +31,48 @@ export async function mkdirIfDoesNotExist(path: string): Promise<void> {
 }
 
 export async function addWallet(
-  ethereum: Ethereum,
-  avalanche: Avalanche,
   req: AddWalletRequest
-): Promise<void> {
+): Promise<AddWalletResponse> {
   const passphrase = ConfigManagerCertPassphrase.readPassphrase();
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
   let address: string;
   let encryptedPrivateKey: string;
-  if (req.chainName === 'ethereum') {
+  if (req.chain === 'ethereum') {
+    const ethereum = Ethereum.getInstance(req.network);
     address = ethereum.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await ethereum.encrypt(req.privateKey, passphrase);
-  } else if (req.chainName === 'avalanche') {
+  } else if (req.chain === 'avalanche') {
+    const avalanche = Avalanche.getInstance(req.network);
     address = avalanche.getWalletFromPrivateKey(req.privateKey).address;
     encryptedPrivateKey = await avalanche.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'solana') {
+    address = solana
+      .getKeypairFromPrivateKey(req.privateKey)
+      .publicKey.toBase58();
+    encryptedPrivateKey = await solana.encrypt(req.privateKey, passphrase);
+  } else if (req.chain === 'harmony') {
+    const harmony = Harmony.getInstance(req.network);
+    address = harmony.getWalletFromPrivateKey(req.privateKey).address;
+    encryptedPrivateKey = await harmony.encrypt(req.privateKey, passphrase);
   } else {
     throw new HttpException(
       500,
-      UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chainName),
+      UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
       UNKNOWN_CHAIN_ERROR_CODE
     );
   }
 
-  const path = `${walletPath}/${req.chainName}`;
+  const path = `${walletPath}/${req.chain}`;
   await mkdirIfDoesNotExist(path);
   await fse.writeFile(`${path}/${address}.json`, encryptedPrivateKey);
+  return { address };
 }
 
 // if the file does not exist, this should not fail
 export async function removeWallet(req: RemoveWalletRequest): Promise<void> {
-  await fse.rm(`./conf/wallets/${req.chainName}/${req.address}.json`, {
+  await fse.rm(`./conf/wallets/${req.chain}/${req.address}.json`, {
     force: true,
   });
 }

@@ -1,41 +1,44 @@
 import asyncio
-from typing import (
-    List,
-    Any,
-)
 from decimal import Decimal
-import pandas as pd
 from os.path import join
-from sqlalchemy.orm import Session
-from hummingbot.client.settings import (
-    GLOBAL_CONFIG_PATH,
-    CONF_FILE_PATH,
+from typing import (
+    Any,
+    List,
+    TYPE_CHECKING,
 )
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_validators import validate_bool, validate_decimal
+
+import pandas as pd
+
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
-    save_to_yml
+    save_to_yml,
 )
-from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import (
+    CONF_FILE_PATH,
+    GLOBAL_CONFIG_PATH,
+)
+from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.client.ui.style import load_style
 from hummingbot.core.utils import map_df_to_str
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.inventory_cost import InventoryCost
-from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategy
-)
-from hummingbot.strategy.perpetual_market_making import (
-    PerpetualMarketMakingStrategy
-)
+from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
+from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.user.user_balances import UserBalances
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.ui.style import load_style
 
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
-no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
+no_restart_pmm_keys = ["order_amount",
+                       "order_levels",
+                       "filled_order_delay",
+                       "inventory_skew_enabled",
+                       "inventory_range_multiplier"]
 global_configs_to_display = ["autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
@@ -55,7 +58,8 @@ global_configs_to_display = ["autofill_import",
                              "global_token_symbol",
                              "rate_limits_share_pct",
                              "create_command_timeout",
-                             "other_commands_timeout"]
+                             "other_commands_timeout",
+                             "tables_format"]
 color_settings_to_display = ["top-pane",
                              "bottom-pane",
                              "output-pane",
@@ -74,7 +78,7 @@ class ConfigCommand:
             return
         else:
             if key not in self.config_able_keys():
-                self._notify("Invalid key, please choose from the list.")
+                self.notify("Invalid key, please choose from the list.")
                 return
             safe_ensure_future(self._config_single_key(key, value), loop=self.ev_loop)
 
@@ -84,23 +88,23 @@ class ConfigCommand:
         data = [[cv.key, cv.value] for cv in global_config_map.values()
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-        self._notify("\nGlobal Configurations:")
-        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
-        self._notify("\n".join(lines))
+        self.notify("\nGlobal Configurations:")
+        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+        self.notify("\n".join(lines))
 
         data = [[cv.key, cv.value] for cv in global_config_map.values()
                 if cv.key in color_settings_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-        self._notify("\nColor Settings:")
-        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
-        self._notify("\n".join(lines))
+        self.notify("\nColor Settings:")
+        lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+        self.notify("\n".join(lines))
 
         if self.strategy_name is not None:
             data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-            self._notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
-            self._notify("\n".join(lines))
+            self.notify("\nStrategy Configurations:")
+            lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
+            self.notify("\n".join(lines))
 
     def config_able_keys(self  # type: HummingbotApplication
                          ) -> List[str]:
@@ -117,7 +121,7 @@ class ConfigCommand:
                              ):
         password = await self.app.prompt(prompt="Enter your password >>> ", is_password=True)
         if password != Security.password:
-            self._notify("Invalid password, please try again.")
+            self.notify("Invalid password, please try again.")
             return False
         else:
             return True
@@ -154,7 +158,7 @@ class ConfigCommand:
                 file_path = join(CONF_FILE_PATH, self.strategy_file_name)
             config_var = config_map[key]
             if input_value is None:
-                self._notify("Please follow the prompt to complete configurations: ")
+                self.notify("Please follow the prompt to complete configurations: ")
             if config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
             elif config_var.key == "inventory_price":
@@ -167,20 +171,20 @@ class ConfigCommand:
             await self.update_all_secure_configs()
             missings = missing_required_configs(config_map)
             if missings:
-                self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
+                self.notify("\nThere are other configuration required, please follow the prompt to complete them.")
             missings = await self._prompt_missing_configs(config_map)
             save_to_yml(file_path, config_map)
-            self._notify("\nNew configuration saved:")
-            self._notify(f"{key}: {str(config_var.value)}")
+            self.notify("\nNew configuration saved:")
+            self.notify(f"{key}: {str(config_var.value)}")
             self.app.app.style = load_style()
             for config in missings:
-                self._notify(f"{config.key}: {str(config.value)}")
+                self.notify(f"{config.key}: {str(config.value)}")
             if isinstance(self.strategy, PureMarketMakingStrategy) or \
                isinstance(self.strategy, PerpetualMarketMakingStrategy):
                 updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
                 if updated:
-                    self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
-                                 f"to reflect the new configuration.")
+                    self.notify(f"\nThe current {self.strategy_name} strategy has been updated "
+                                f"to reflect the new configuration.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -278,15 +282,16 @@ class ConfigCommand:
                 quote_volume = balances[base_asset] * cvar.value
             except TypeError:
                 # TypeError: unsupported operand type(s) for *: 'decimal.Decimal' and 'NoneType' - bad input / no input
-                self._notify("Inventory price not updated due to bad input")
+                self.notify("Inventory price not updated due to bad input")
                 return
 
-            session: Session = self.trade_fill_db.get_shared_session()
-            InventoryCost.add_volume(
-                session,
-                base_asset=base_asset,
-                quote_asset=quote_asset,
-                base_volume=balances[base_asset],
-                quote_volume=quote_volume,
-                overwrite=True,
-            )
+            with self.trade_fill_db.get_new_session() as session:
+                with session.begin():
+                    InventoryCost.add_volume(
+                        session,
+                        base_asset=base_asset,
+                        quote_asset=quote_asset,
+                        base_volume=balances[base_asset],
+                        quote_volume=quote_volume,
+                        overwrite=True,
+                    )

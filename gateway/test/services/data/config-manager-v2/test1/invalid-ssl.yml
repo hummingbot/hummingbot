@@ -1,5 +1,4 @@
 caCertificatePath: ca.crt
 certificatePath: gateway.crt
 keyPath: gateway.key
-passPhrasePath: gateway.passwd
 funnyKeyPath: funny.key
