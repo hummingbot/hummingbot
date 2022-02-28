@@ -310,7 +310,7 @@ class AmmArbUnitTest(unittest.TestCase):
                            "    3   garlic  USDT            500                500\n\n"
                            "  Profitability:\n"
                            "    buy at onion, sell at garlic: 3.96%\n\n"
-                           "  Quotes Rates (fixed rates)\n"
+                           "  Quotes Rates (Binance rate oracle)\n"
                            "      Quotes pair Rate\n"
                            "    0   USDT-USDT    1")
 
