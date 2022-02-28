@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from hummingbot.core.utils.dynamic_import import import_lite_strategy_sub_class
 from hummingbot.strategy.lite_strategy_base import LiteStrategyBase
+from hummingbot.exceptions import InvalidLiteStrategyFile
 
 
 class DynamicImportTest(unittest.TestCase):
@@ -22,6 +23,6 @@ class DynamicImportTest(unittest.TestCase):
         with open(file_path, 'w') as f:
             f.write("class LiteTest:\n")
             f.write("  pass\n")
-        with self.assertRaises(Exception) as context:
+        with self.assertRaises(InvalidLiteStrategyFile) as context:
             import_lite_strategy_sub_class(file_path)
         self.assertEqual(str(context.exception), "The file does not contain any LiteStrategyBase derived class.")

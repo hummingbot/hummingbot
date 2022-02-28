@@ -3,6 +3,7 @@ import inspect
 import os
 
 from hummingbot.strategy.lite_strategy_base import LiteStrategyBase
+from hummingbot.exceptions import InvalidLiteStrategyFile
 
 
 def import_lite_strategy_sub_class(lite_file_name: str) -> LiteStrategyBase:
@@ -17,4 +18,4 @@ def import_lite_strategy_sub_class(lite_file_name: str) -> LiteStrategyBase:
         obj = getattr(module, x)
         if inspect.isclass(obj) and issubclass(obj, LiteStrategyBase) and obj.__name__ != "LiteStrategyBase":
             return obj
-    raise Exception("The file does not contain any LiteStrategyBase derived class.")
+    raise InvalidLiteStrategyFile("The file does not contain any LiteStrategyBase derived class.")

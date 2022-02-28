@@ -8,7 +8,7 @@ from typing import (
     Optional,
     Callable,
 )
-from os.path import dirname, join
+from os.path import dirname, join, exists
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -115,11 +115,10 @@ class StartCommand:
                 self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                              "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        await self.start_market_making(self.strategy_name, restore, lite_file_name)
+        await self.start_market_making(self.strategy_name, restore)
 
-    def start_lite(self,  # type: HummingbotApplication
-                   lite_file_name: str):
-
+    def start_lite(self):
+        lite_file_name = join(settings.LITE_STRATEGIES_PATH, f"{self.strategy_file_name}.py")
         lite_strategy = import_lite_strategy_sub_class(join(settings.LITE_STRATEGIES_PATH, lite_file_name))
         markets_list = []
         for conn, pairs in lite_strategy.markets.items():
@@ -127,12 +126,15 @@ class StartCommand:
         self._initialize_markets(markets_list)
         self.strategy = lite_strategy(self.markets)
 
+    def is_current_strategy_lite_strategy(self) -> bool:
+        lite_file_name = join(settings.LITE_STRATEGIES_PATH, f"{self.strategy_file_name}.py")
+        return exists(lite_file_name)
+
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str,
-                                  restore: Optional[bool] = False,
-                                  lite_file: Optional[str] = None):
-        if lite_file:
-            self.start_lite(lite_file)
+                                  restore: Optional[bool] = False):
+        if self.is_current_strategy_lite_strategy():
+            self.start_lite()
         else:
             start_strategy: Callable = get_strategy_starter_file(strategy_name)
             if strategy_name in settings.STRATEGIES:
