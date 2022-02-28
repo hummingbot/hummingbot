@@ -1,18 +1,17 @@
-from decimal import Decimal
 import logging
 import asyncio
 import pandas as pd
-from typing import List, Dict, Tuple, Optional, Any
-from hummingbot.client.settings import AllConnectorSettings
+
+from decimal import Decimal
+from typing import List, Dict, Tuple, Optional
+
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.amm_arb.utils import create_arb_proposals, ArbProposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -46,7 +45,7 @@ class AmmArbStrategy(StrategyPyBase):
                     market_2_slippage_buffer: Decimal = Decimal("0"),
                     concurrent_orders_submission: bool = True,
                     status_report_interval: float = 900,
-                    rate_source: Any = FixedRateSource()):
+                    ):
         """
         Assigns strategy parameters, this function must be called directly after init.
         The reason for this is to make the parameters discoverable on introspect (it is not possible on init of
@@ -336,43 +335,10 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        if self._market_info_1.market.name in AllConnectorSettings.get_eth_wallet_connector_names() or \
-                self._market_info_2.market.name in AllConnectorSettings.get_eth_wallet_connector_names():
-            self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
+        super.start(clock, timestamp)
 
     def stop(self, clock: Clock):
-        if self._quote_eth_rate_fetch_loop_task is not None:
-            self._quote_eth_rate_fetch_loop_task.cancel()
-            self._quote_eth_rate_fetch_loop_task = None
         if self._main_task is not None:
             self._main_task.cancel()
             self._main_task = None
-
-    async def quote_in_eth_rate_fetch_loop(self):
-        while True:
-            try:
-                if self._market_info_1.market.name in AllConnectorSettings.get_eth_wallet_connector_names() and \
-                        "WETH" not in self._market_info_1.trading_pair.split("-"):
-                    self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
-                    self.logger().warning(f"Estimate conversion rate - "
-                                          f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
-
-                if self._market_info_2.market.name in AllConnectorSettings.get_eth_wallet_connector_names() and \
-                        "WETH" not in self._market_info_2.trading_pair.split("-"):
-                    self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
-                    self.logger().warning(f"Estimate conversion rate - "
-                                          f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
-                await asyncio.sleep(60 * 1)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching ETH conversion rate.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch ETH conversion rate from Gateway API.")
-                await asyncio.sleep(0.5)
-
-    async def request_rate_in_eth(self, quote: str) -> int:
-        if self._uniswap is None:
-            self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
-        return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
+        super.stop(clock)
