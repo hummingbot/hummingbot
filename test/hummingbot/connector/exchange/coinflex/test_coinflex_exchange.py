@@ -782,6 +782,76 @@ class CoinflexExchangeTests(TestCase):
                 f"There was a an error when requesting cancellation of order {order.client_order_id}"
             )
         )
+        expected_error = {"errors": None, "status": None}
+
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Unhandled error cancelling order: {order.client_order_id}. Error: {expected_error}"
+            )
+        )
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    def test_cancel_order_succeeds_after_max_failures(self, mock_api, retry_sleep_time_mock):
+        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        order = self.exchange.in_flight_orders["OID1"]
+
+        url, regex_url = self._get_regex_url(CONSTANTS.ORDER_CANCEL_PATH_URL, return_url=True)
+
+        response = {
+            "data": [{
+                "clientOrderId": "OID1",
+                "success": "false",
+                "message": "Open order not found with clientOrderId or orderId",
+            }]
+        }
+
+        for i in range(CONSTANTS.API_MAX_RETRIES):
+            mock_api.delete(regex_url,
+                            body=json.dumps(response),
+                            callback=lambda *args, **kwargs: request_sent_event.set())
+
+        for i in range(self.exchange.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
+            self.exchange.cancel(trading_pair=self.trading_pair, order_id="OID1")
+
+        self.async_run_with_timeout(request_sent_event.wait())
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        cancel_request = next(((key, value) for key, value in mock_api.requests.items()
+                               if key[1].human_repr().startswith(url)))
+        self._validate_auth_credentials_for_request(cancel_request[1][0])
+
+        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+            )
+        )
+        expected_error = (
+            f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
+            f" update_timestamp={'1640780000.0'}, new_state={repr(OrderState.FAILED)}, "
+            f"client_order_id='{order.client_order_id}', exchange_order_id=None, "
+            f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
+            f"fee_asset=None, cumulative_fee_paid=None, trade_fee_percent=None)")
+
+        self.assertTrue(self._is_logged("INFO", expected_error))
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
