@@ -335,10 +335,10 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        super.start(clock, timestamp)
+        super().start(clock, timestamp)
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
             self._main_task.cancel()
             self._main_task = None
-        super.stop(clock)
+        super().stop(clock)
