@@ -156,7 +156,8 @@ class GatewayEVMAMM(ConnectorBase):
         """
         try:
             self._chain_info = await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
-            self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
+            if type(self._chain_info) != list:
+                self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
