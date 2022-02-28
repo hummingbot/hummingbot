@@ -29,6 +29,7 @@ from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.exceptions import OracleRateUnavailable
 from hummingbot.user.user_balances import UserBalances
+from hummingbot.client.performance import PerformanceMetrics
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -102,7 +103,8 @@ class StartCommand:
                     data.append(["network", connector_details['network']])
                     data.append(["wallet_address", connector_details['wallet_public_key']])
                     await UserBalances.instance().update_exchange_balance(connector)
-                    balances = [f"{str(v)} {k}" for k, v in UserBalances.instance().all_balances(connector).items()]
+                    balances = [f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
+                                for k, v in UserBalances.instance().all_balances(connector).items()]
                     data.append(["balances", ""])
                     for bal in balances:
                         data.append(["", bal])
