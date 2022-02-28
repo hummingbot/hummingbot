@@ -8,7 +8,7 @@ from os.path import (
     join,
     isfile
 )
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import json
 from typing import (
     Any,
@@ -187,8 +187,8 @@ def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
         strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
                                      fromlist=[f"hummingbot.strategy.{strategy}"])
         return getattr(strategy_module, cm_key)
-    except Exception as e:
-        logging.getLogger().error(e, exc_info=True)
+    except Exception:
+        return defaultdict()
 
 
 def get_strategy_starter_file(strategy: str) -> Callable:
