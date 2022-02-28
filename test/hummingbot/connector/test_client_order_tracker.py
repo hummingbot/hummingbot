@@ -213,6 +213,23 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
 
         self.assertTrue(fetched_order == order)
 
+    def test_fetch_order_does_not_match_orders_with_undefined_exchange_id(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("1.0"),
+        )
+        self.tracker.start_tracking_order(order)
+        self.assertEqual(1, len(self.tracker.active_orders))
+
+        fetched_order = self.tracker.fetch_order("invalid_order_id")
+
+        self.assertIsNone(fetched_order)
+
     def test_process_order_update_invalid_order_update(self):
 
         order_creation_update: OrderUpdate = OrderUpdate(

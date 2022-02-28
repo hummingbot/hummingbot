@@ -522,8 +522,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         )
 
         self.assertTrue(order.update_with_trade_update(trade_update))
-        self.assertIsNotNone(order.exchange_order_id)
-        self.assertTrue(order.exchange_order_id_update_event.is_set())
         self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
         self.assertEqual(order.fee_asset, trade_update.fee_asset)
@@ -559,8 +557,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         )
 
         self.assertTrue(order.update_with_trade_update(trade_update))
-        self.assertIsNotNone(order.exchange_order_id)
-        self.assertTrue(order.exchange_order_id_update_event.is_set())
         self.assertEqual(order.executed_amount_base, trade_update.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update.fill_quote_amount)
         self.assertEqual(order.fee_asset, trade_update.fee_asset)
@@ -617,8 +613,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         self.assertTrue(order.update_with_trade_update(trade_update_1))
         self.assertIn(trade_update_1.trade_id, order.order_fills)
-        self.assertIsNotNone(order.exchange_order_id)
-        self.assertTrue(order.exchange_order_id_update_event.is_set())
         self.assertEqual(order.executed_amount_base, trade_update_1.fill_base_amount)
         self.assertEqual(order.executed_amount_quote, trade_update_1.fill_quote_amount)
         self.assertEqual(order.fee_asset, trade_update_1.fee_asset)
@@ -649,3 +643,31 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         self.assertTrue(order.is_filled)
         self.assertEqual(order.current_state, OrderState.FILLED)
+
+    def test_trade_update_does_not_change_exchange_order_id(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("1.0"),
+        )
+
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id="someTradeId",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("1.0"),
+            fill_base_amount=Decimal("500.0"),
+            fill_quote_amount=Decimal("500.0"),
+            fee_asset=self.base_asset,
+            fee_paid=self.trade_fee_percent * Decimal("500.0"),
+            fill_timestamp=1,
+        )
+
+        self.assertTrue(order.update_with_trade_update(trade_update))
+        self.assertIsNone(order.exchange_order_id)
+        self.assertFalse(order.exchange_order_id_update_event.is_set())
