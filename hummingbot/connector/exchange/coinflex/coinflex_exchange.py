@@ -27,7 +27,6 @@ from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
 )
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -71,13 +70,11 @@ class CoinflexExchange(ExchangeBase):
                  domain="live"
                  ):
         self._domain = domain
-        self._coinflex_time_synchronizer = TimeSynchronizer()
         super().__init__()
         self._trading_required = trading_required
         self._auth = CoinflexAuth(
             api_key=coinflex_api_key,
-            secret_key=coinflex_api_secret,
-            time_provider=self._coinflex_time_synchronizer)
+            secret_key=coinflex_api_secret)
         self._api_factory = build_api_factory(auth=self._auth)
         self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)

@@ -67,8 +67,6 @@ class CoinflexExchangeTests(TestCase):
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
-        self.exchange._coinflex_time_synchronizer.logger().setLevel(1)
-        self.exchange._coinflex_time_synchronizer.logger().addHandler(self)
         self.exchange._order_tracker.logger().setLevel(1)
         self.exchange._order_tracker.logger().addHandler(self)
 

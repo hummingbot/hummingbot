@@ -2,6 +2,7 @@ from base64 import b64encode
 from datetime import datetime
 import hashlib
 import hmac
+import time
 
 from typing import (
     Dict
@@ -11,17 +12,21 @@ from urllib.parse import urlencode
 from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
     CoinflexRESTRequest,
 )
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 
 
 class CoinflexAuth(AuthBase):
 
-    def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
+    def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
-        self.time_provider = time_provider
+
+    def _time(self):
+        """ Function created to enable patching during unit tests execution.
+        :return: current time
+        """
+        return time.time()
 
     async def rest_authenticate(self, request: CoinflexRESTRequest) -> CoinflexRESTRequest:
         """
@@ -44,7 +49,7 @@ class CoinflexAuth(AuthBase):
         It should be used with empty requests to send an initial login payload.
         :param request: the request to be configured for authenticated interaction
         """
-        time_now = self.time_provider.time()
+        time_now = self._time()
         tag = datetime.fromtimestamp(int(time_now)).isoformat()
         timestamp = int(time_now * 1e3)
 
@@ -61,7 +66,7 @@ class CoinflexAuth(AuthBase):
 
     def _header_for_authentication(self,
                                    request: CoinflexRESTRequest) -> Dict[str, str]:
-        time_now = self.time_provider.time()
+        time_now = self._time()
         timestamp = datetime.fromtimestamp(int(time_now)).isoformat()
         nonce = int(time_now * 1e3)
 
