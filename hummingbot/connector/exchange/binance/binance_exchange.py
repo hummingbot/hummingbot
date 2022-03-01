@@ -43,7 +43,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -73,9 +72,14 @@ class BinanceExchange(ExchangeBase):
             api_key=binance_api_key,
             secret_key=binance_api_secret,
             time_provider=self._binance_time_synchronizer)
-        self._api_factory = WebAssistantsFactory(auth=self._auth)
-        self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = web_utils.build_api_factory(
+            time_synchronizer=self._binance_time_synchronizer,
+            time_provider=lambda: web_utils.get_current_server_time(
+                throttler=self._throttler,
+                domain=self._domain),
+            auth=self._auth)
+        self._rest_assistant = None
         self._order_book_tracker = BinanceOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=domain,
@@ -960,12 +964,6 @@ class BinanceExchange(ExchangeBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-
-        await self._binance_time_synchronizer.update_server_time_if_not_initialized(
-            time_provider=web_utils.get_current_server_time(
-                throttler=self._throttler,
-                domain=self._domain,
-            ))
 
         try:
             account_info = await self._api_request(
