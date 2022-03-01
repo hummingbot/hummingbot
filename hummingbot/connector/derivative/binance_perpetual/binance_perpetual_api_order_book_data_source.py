@@ -51,7 +51,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer=self._time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
                 domain=self._domain))
         self._ws_assistant: Optional[WSAssistant] = None
         self._order_book_create_function = lambda: OrderBook()
@@ -103,7 +102,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer=time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=throttler,
-                time_synchronizer=time_synchronizer,
                 domain=domain)
         )
         rest_assistant = await api_factory.get_rest_assistant()
@@ -119,7 +117,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             path=CONSTANTS.TICKER_PRICE_CHANGE_URL,
             rest_assistant=rest_assistant,
             throttler=throttler,
-            time_synchronizer=time_synchronizer,
             domain=domain,
             params=params,
             method=RESTMethod.GET)
@@ -167,7 +164,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer=time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=throttler,
-                time_synchronizer=time_synchronizer,
                 domain=domain)
         )
         rest_assistant = await api_factory.get_rest_assistant()
@@ -177,7 +173,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 path=CONSTANTS.EXCHANGE_INFO_URL,
                 rest_assistant=rest_assistant,
                 throttler=throttler,
-                time_synchronizer=time_synchronizer,
                 domain=domain,
                 method=RESTMethod.GET,
                 timeout=10)
@@ -271,7 +266,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer=time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=throttler,
-                time_synchronizer=time_synchronizer,
                 domain=domain)
         )
         rest_assistant = await api_factory.get_rest_assistant()
@@ -289,7 +283,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             path=CONSTANTS.SNAPSHOT_REST_URL,
             rest_assistant=rest_assistant,
             throttler=throttler,
-            time_synchronizer=time_synchronizer,
             domain=domain,
             params=params,
             method=RESTMethod.GET)
@@ -331,7 +324,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 path=CONSTANTS.MARK_PRICE_URL,
                 rest_assistant=rest_assistant,
                 throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 params=params,
                 method=RESTMethod.GET)
