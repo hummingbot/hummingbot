@@ -57,10 +57,12 @@ async def api_request(path: str,
                       is_auth_required: bool = False,
                       return_err: bool = False,
                       limit_id: Optional[str] = None,
-                      timeout: Optional[float] = None):
+                      timeout: Optional[float] = None,
+                      headers: Dict[str, Any] = {}):
 
-    headers = {
+    local_headers = {
         "Content-Type": "application/json" if method == RESTMethod.POST else "application/x-www-form-urlencoded"}
+    local_headers.update(headers)
     if is_auth_required:
         url = private_rest_url(path, domain=domain)
     else:
@@ -71,7 +73,7 @@ async def api_request(path: str,
         url=url,
         params=params,
         data=data,
-        headers=headers,
+        headers=local_headers,
         is_auth_required=is_auth_required,
         throttler_limit_id=limit_id if limit_id else path
     )
