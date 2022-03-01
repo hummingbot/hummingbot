@@ -1,4 +1,6 @@
 {
+  "chain": "ethereum",
+  "network": "kovan",
   "address": "$ETH_ADDRESS",
   "nonce": 83
 }

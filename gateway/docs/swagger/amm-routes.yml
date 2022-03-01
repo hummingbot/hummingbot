@@ -1,25 +1,4 @@
 paths:
-  /amm/trade:
-    post:
-      tags:
-        - 'amm'
-      summary: 'Perform a trade on an AMM'
-      operationId: 'trade'
-      consumes:
-        - 'application/json'
-      produces:
-        - 'application/json'
-      parameters:
-        - in: 'body'
-          name: 'body'
-          required: true
-          schema:
-            $ref: '#/definitions/TradeRequest'
-      responses:
-        '200':
-          schema:
-            $ref: '#/definitions/TradeResponse'
-
   /amm/price:
     post:
       tags:
@@ -40,3 +19,23 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/PriceResponse'
+  /amm/trade:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Perform a trade on an AMM'
+      operationId: 'trade'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/TradeRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/TradeResponse'
