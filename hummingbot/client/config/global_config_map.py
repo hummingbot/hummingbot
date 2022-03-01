@@ -125,7 +125,7 @@ main_config_map = {
                   is_connect_key=True),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
-                  prompt="Enter your wallet private key >>> ",
+                  prompt="Enter your ETH wallet private key >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   is_connect_key=True),
