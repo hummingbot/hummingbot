@@ -56,7 +56,7 @@ class GatewayEVMAMM(ConnectorBase):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 wallet_public_key: str,
+                 wallet_address: str,
                  trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
@@ -64,7 +64,7 @@ class GatewayEVMAMM(ConnectorBase):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_public_key: a public key for eth wallet which has been added on gateway
+        :param wallet_address: the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
@@ -75,7 +75,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
-        self._wallet_public_key = wallet_public_key
+        self._wallet_address = wallet_address
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._last_poll_timestamp = 0.0
@@ -108,7 +108,7 @@ class GatewayEVMAMM(ConnectorBase):
 
     @property
     def address(self):
-        return self._wallet_public_key
+        return self._wallet_address
 
     @staticmethod
     async def fetch_trading_pairs(chain: str, network: str) -> List[str]:
