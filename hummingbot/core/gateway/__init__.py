@@ -1,18 +1,17 @@
+import aiohttp
 import aioprocessing
 from dataclasses import dataclass
 from decimal import Decimal
+import logging
 import os
-from os import getenv
 from pathlib import Path
-from typing import Optional, Any, Dict, AsyncIterable, List, Union
-import aiohttp
 import ssl
+from typing import Optional, Any, Dict, AsyncIterable, List, Union
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 from hummingbot.logger import HummingbotLogger
-import logging
 
 
 _default_paths: Optional["GatewayPaths"] = None
@@ -95,9 +94,9 @@ def get_gateway_paths() -> GatewayPaths:
     inside_docker: bool = is_inside_docker()
 
     gateway_container_name: str = get_gateway_container_name()
-    external_certs_path: Optional[Path] = getenv("CERTS_FOLDER") and Path(getenv("CERTS_FOLDER"))
-    external_conf_path: Optional[Path] = getenv("GATEWAY_CONF_FOLDER") and Path(getenv("GATEWAY_CONF_FOLDER"))
-    external_logs_path: Optional[Path] = getenv("GATEWAY_LOGS_FOLDER") and Path(getenv("GATEWAY_LOGS_FOLDER"))
+    external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
+    external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
+    external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
 
     if inside_docker and not (external_certs_path and external_conf_path and external_logs_path):
         raise EnvironmentError("CERTS_FOLDER, GATEWAY_CONF_FOLDER and GATEWAY_LOGS_FOLDER must be defined when "
@@ -133,6 +132,27 @@ def get_default_gateway_port() -> int:
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
     global _hummingbot_pipe
     _hummingbot_pipe = conn
+
+
+async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
+    try:
+        results: List[Dict[str, Any]] = await docker_ipc(
+            "containers",
+            all=True,
+            filters={
+                "name": get_gateway_container_name(),
+            })
+        if len(results) > 0:
+            return results[0]
+        return
+    except Exception:
+        return
+
+
+async def start_existing_gateway_container():
+    container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
+    if container_info is not None and container_info["State"] != "running":
+        await docker_ipc("start", get_gateway_container_name())
 
 
 async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
@@ -197,17 +217,26 @@ class GatewayHttpClient:
             cls._ghc_logger = logging.getLogger(__name__)
         return cls._ghc_logger
 
-    def _http_client(self) -> aiohttp.ClientSession:
+    @classmethod
+    def _http_client(cls, re_init: bool = False) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
         """
-        if self._shared_client is None:
+        if cls._shared_client is None or re_init:
             cert_path = get_gateway_paths().local_certs_path.as_posix()
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
-            self._shared_client = aiohttp.ClientSession(connector=conn)
-        return self._shared_client
+            cls._shared_client = aiohttp.ClientSession(connector=conn)
+        return cls._shared_client
+
+    @classmethod
+    def reload_certs(cls):
+        """
+        Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
+        Certificates used to secure a HTTPS connection to the Gateway service.
+        """
+        cls._http_client(re_init=True)
 
     async def api_request(
             self,

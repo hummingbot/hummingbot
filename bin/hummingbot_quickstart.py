@@ -28,6 +28,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
+from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 from bin.hummingbot import (
@@ -128,7 +129,7 @@ async def quick_start(args: argparse.Namespace):
             await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
             hb.start(log_level)
 
-        tasks: List[Coroutine] = [hb.run()]
+        tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container()]
         if global_config_map.get("debug_console").value:
             management_port: int = detect_available_port(8211)
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
