@@ -56,7 +56,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer=self._time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=self._throttler,
-                domain=self._domain)
+                domain=self._domain),
         )
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
@@ -542,7 +542,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         local_api_factory = api_factory or web_utils.build_api_factory(
             time_synchronizer=time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
-                throttler=throttler,
+                throttler=local_throttler,
                 domain=domain)
         )
         rest_assistant = await local_api_factory.get_rest_assistant()
