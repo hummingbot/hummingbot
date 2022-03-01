@@ -1,9 +1,9 @@
-from decimal import Decimal
 import logging
-from typing import Any
+
+from decimal import Decimal
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
@@ -61,13 +61,16 @@ class ArbProposal:
         self.second_side: ArbProposalSide = second_side
 
     def profit_pct(self, account_for_fee: bool = False,
-                   rate_source: Any = FixedRateSource(),
+                   rate_source: RateOracle = None,
                    first_side_quote_eth_rate: Decimal = None,
                    second_side_quote_eth_rate: Decimal = None) -> Decimal:
         """
         Returns a profit in percentage value (e.g. 0.01 for 1% profitability)
         Assumes the base token is the same in both arbitrage sides
         """
+        if not rate_source:
+            rate_source = RateOracle.get_instance()
+
         buy = self.first_side if self.first_side.is_buy else self.second_side
         sell = self.first_side if not self.first_side.is_buy else self.second_side
         base_conversion_pair = f"{sell.market_info.base_asset}-{buy.market_info.base_asset}"
