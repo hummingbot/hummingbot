@@ -47,7 +47,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             time_synchronizer=self._time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
                 domain=self._domain))
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
@@ -87,9 +86,9 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 path=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
                 rest_assistant=rest_assistant,
                 throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
-                method=RESTMethod.POST)
+                method=RESTMethod.POST,
+                is_auth_required=True)
         except asyncio.CancelledError:
             raise
         except Exception as exception:
@@ -108,7 +107,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 path=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
                 rest_assistant=rest_assistant,
                 throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
