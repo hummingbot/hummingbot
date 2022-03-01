@@ -43,7 +43,7 @@ class UniswapV3Connector(GatewayEVMAMM):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 wallet_public_key: str,
+                 wallet_address: str,
                  trading_pairs: List[str],
                  trading_required: bool = True
                  ):
@@ -51,14 +51,14 @@ class UniswapV3Connector(GatewayEVMAMM):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_public_key: a public key for eth wallet which has been added on gateway
+        :param wallet_address: refers to the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         super().__init__(connector_name,
                          chain,
                          network,
-                         wallet_public_key,
+                         wallet_address,
                          trading_pairs,
                          trading_required)
         self._in_flight_positions: Dict[str, UniswapV3InFlightPosition] = {}

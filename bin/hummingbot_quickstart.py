@@ -49,7 +49,7 @@ class CmdlineParser(argparse.ArgumentParser):
         self.add_argument("--wallet", "-w",
                           type=str,
                           required=False,
-                          help="Specify the wallet public key you would like to use.")
+                          help="Specify the wallet address you would like to use.")
         self.add_argument("--config-password", "--wallet-password", "-p",
                           type=str,
                           required=False,
