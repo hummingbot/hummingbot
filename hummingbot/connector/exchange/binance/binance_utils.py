@@ -1,6 +1,5 @@
 from typing import Any, Dict
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 
