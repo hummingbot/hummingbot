@@ -1,13 +1,12 @@
 import aiohttp
 import aioprocessing
+from dataclasses import dataclass
 import json
 import logging
 import os
-import ssl
-
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Any, Dict, AsyncIterable
+import ssl
+from typing import Optional, Any, Dict, AsyncIterable, List
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils import detect_available_port
@@ -132,6 +131,27 @@ def get_default_gateway_port() -> int:
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
     global _hummingbot_pipe
     _hummingbot_pipe = conn
+
+
+async def detect_existing_gateway_container() -> Optional[Dict[str, Any]]:
+    try:
+        results: List[Dict[str, Any]] = await docker_ipc(
+            "containers",
+            all=True,
+            filters={
+                "name": get_gateway_container_name(),
+            })
+        if len(results) > 0:
+            return results[0]
+        return
+    except Exception:
+        return
+
+
+async def start_existing_gateway_container():
+    container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
+    if container_info is not None and container_info["State"] != "running":
+        await docker_ipc("start", get_gateway_container_name())
 
 
 async def docker_ipc(method_name: str, *args, **kwargs) -> Any:
