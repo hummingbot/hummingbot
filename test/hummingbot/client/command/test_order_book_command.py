@@ -33,7 +33,7 @@ class OrderBookCommandTest(unittest.TestCase):
         for key, value in self.global_config_backup.items():
             global_config_map[key] = value
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_show_order_book(self, notify_mock):
         global_config_map["tables_format"].value = "psql"
 
