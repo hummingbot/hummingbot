@@ -323,12 +323,8 @@ class GatewayCommand:
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
     async def _update_gateway_configuration(self, key: str, value: Any):
-        data = {
-            "configPath": key,
-            "configValue": value
-        }
         try:
-            response = await gateway_http_client.api_request("post", "config/update", data)
+            response = await gateway_http_client.update_config(key, value)
             self.notify(response["message"])
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
@@ -369,7 +365,7 @@ class GatewayCommand:
 
         else:
             # get available networks
-            connector_configs = await gateway_http_client.api_request("get", "connectors")
+            connector_configs = await gateway_http_client.get_connectors()
             connector_config = [d for d in connector_configs["connectors"] if d["name"] == connector]
             available_networks = connector_config[0]["available_networks"]
             trading_type = connector_config[0]["trading_type"][0]
@@ -400,7 +396,7 @@ class GatewayCommand:
                     self.notify("Error: Invalid network")
 
             # get wallets for the selected chain
-            wallets_response = await gateway_http_client.api_request("get", "wallet")
+            wallets_response = await gateway_http_client.get_wallets()
             wallets = [w for w in wallets_response if w["chain"] == chain]
             if len(wallets) < 1:
                 wallets = []
@@ -411,12 +407,9 @@ class GatewayCommand:
             if len(wallets) < 1:
                 self.app.clear_input()
                 self.placeholder_mode = True
-                new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                response = await gateway_http_client.api_request("post",
-                                                                 "wallet/add",
-                                                                 {"chain": chain, "network": network, "privateKey": new_wallet})
-
-                wallet = response.address
+                new_wallet: str = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                response: Dict[str, Any] = await gateway_http_client.add_wallet(chain, network, new_wallet)
+                wallet_address: str = response["address"]
 
             # the user has a wallet. Ask if they want to use it or create a new one.
             else:
@@ -431,9 +424,9 @@ class GatewayCommand:
                     native_token = native_tokens[chain]
                     wallet_table = []
                     for w in wallets:
-                        balances = await gateway_http_client.api_request("post",
-                                                                         "network/balances",
-                                                                         {"chain": chain, "network": network, "address": w, "tokenSymbols": [native_token]})
+                        balances: Dict[str, Any] = await gateway_http_client.get_balances(
+                            chain, network, w, [native_token]
+                        )
                         wallet_table.append({"balance": balances['balances'][native_token], "address": w})
 
                     wallet_df = build_wallet_display(native_token, wallet_table)
@@ -443,9 +436,9 @@ class GatewayCommand:
                     while True:
                         self.placeholder_mode = True
 
-                        wallet = await self.app.prompt(prompt="Select a gateway wallet >>> ")
-                        if wallet in wallets:
-                            self.notify(f"You have selected {wallet}")
+                        wallet_address = await self.app.prompt(prompt="Select a gateway wallet >>> ")
+                        if wallet_address in wallets:
+                            self.notify(f"You have selected {wallet_address}")
                             break
                         self.notify("Error: Invalid wallet address")
 
@@ -453,17 +446,14 @@ class GatewayCommand:
                 else:
                     self.placeholder_mode = True
                     new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                    response = await gateway_http_client.api_request("post",
-                                                                     "wallet/add",
-                                                                     {"chain": chain, "network": network, "privateKey": new_wallet})
-
-                    wallet = response.address
+                    response = await gateway_http_client.add_wallet(chain, network, new_wallet)
+                    wallet_address = response["address"]
 
             # write wallets to json
             with open(connections_fp, "w+") as outfile:
-                upsert_connection(connections, connector, chain, network, trading_type, wallet)
+                upsert_connection(connections, connector, chain, network, trading_type, wallet_address)
                 json.dump(connections, outfile)
-                self.notify(f"The {connector} connector now uses wallet {wallet} on {chain}-{network}")
+                self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
@@ -474,8 +464,9 @@ class GatewayCommand:
             # Reload completer here to include newly added gateway connectors
             self.app.input_field.completer = load_completer(self)
 
-    async def _fetch_gateway_configs(self):
-        return await gateway_http_client.api_request("get", "network/config", fail_silently=True)
+    @staticmethod
+    async def _fetch_gateway_configs() -> Dict[str, Any]:
+        return await gateway_http_client.get_configuration(fail_silently=True)
 
     async def fetch_gateway_config_key_list(self):
         config = await self._fetch_gateway_configs()
