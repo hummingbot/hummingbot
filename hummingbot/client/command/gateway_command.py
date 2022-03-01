@@ -163,6 +163,8 @@ class GatewayCommand:
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
+        gateway_http_client.reload_certs()
+
     async def _generate_gateway_confs(self, container_id: str, conf_path: str = "/usr/src/app/conf"):
         self.app.clear_input()
         self.placeholder_mode = True
