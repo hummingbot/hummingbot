@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-
 from collections import defaultdict
 from decimal import Decimal
 from typing import (
@@ -16,20 +15,16 @@ from bidict import bidict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.exchange.binance import binance_utils
+from hummingbot.connector.exchange.binance import binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    RESTRequest,
-    RESTResponse,
-    WSRequest,
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -37,7 +32,6 @@ from hummingbot.logger import HummingbotLogger
 
 
 class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
@@ -51,12 +45,19 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  trading_pairs: List[str],
                  domain="com",
                  api_factory: Optional[WebAssistantsFactory] = None,
-                 throttler: Optional[AsyncThrottler] = None):
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
+        self._time_synchronizer = time_synchronizer or TimeSynchronizer()
         self._order_book_create_function = lambda: OrderBook()
         self._domain = domain
         self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory or web_utils.build_api_factory(
+            time_synchronizer=self._time_synchronizer,
+            time_provider=lambda: web_utils.get_current_server_time(
+                throttler=self._throttler,
+                domain=self._domain)
+        )
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -72,22 +73,38 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                      trading_pairs: List[str],
                                      domain: str = "com",
                                      api_factory: Optional[WebAssistantsFactory] = None,
-                                     throttler: Optional[AsyncThrottler] = None) -> Dict[str, float]:
+                                     throttler: Optional[AsyncThrottler] = None,
+                                     time_synchronizer: Optional[TimeSynchronizer] = None) -> Dict[str, float]:
         """
         Return a dictionary the trading_pair as key and the current price as value for each trading pair passed as
         parameter
+
         :param trading_pairs: list of trading pairs to get the prices for
         :param domain: which Binance domain we are connecting to (the default value is 'com')
         :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
-        If no instance is provided then a new one will be created.
+            If no instance is provided then a new one will be created.
         :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
         the function will create a new one.
+        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
+            exchange
+
         :return: Dictionary of associations between token pair and its latest price
         """
-        local_api_factory = api_factory or build_api_factory()
-        rest_assistant = await local_api_factory.get_rest_assistant()
         local_throttler = throttler or cls._get_throttler_instance()
-        tasks = [cls._get_last_traded_price(t_pair, domain, rest_assistant, local_throttler) for t_pair in trading_pairs]
+        time_synchronizer = time_synchronizer or TimeSynchronizer()
+        local_api_factory = api_factory or web_utils.build_api_factory(
+            time_synchronizer=time_synchronizer,
+            time_provider=lambda: web_utils.get_current_server_time(
+                throttler=local_throttler,
+                domain=domain)
+        )
+        tasks = [cls._get_last_traded_price(
+            trading_pair=t_pair,
+            domain=domain,
+            api_factory=local_api_factory,
+            throttler=local_throttler,
+            time_synchronizer=time_synchronizer) for t_pair in
+            trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
@@ -100,23 +117,33 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param domain: Domain to use for the connection with the exchange (either "com" or "us"). Default value is "com"
         :return: Dictionary with the trading pair as key, and the mid price as value
         """
-        local_api_factory = build_api_factory()
+        local_throttler = BinanceAPIOrderBookDataSource._get_throttler_instance()
+        time_synchronizer = TimeSynchronizer()
+        local_api_factory = web_utils.build_api_factory(
+            time_synchronizer=time_synchronizer,
+            time_provider=lambda: web_utils.get_current_server_time(
+                throttler=local_throttler,
+                domain=domain)
+        )
         rest_assistant = await local_api_factory.get_rest_assistant()
-        throttler = BinanceAPIOrderBookDataSource._get_throttler_instance()
 
-        url = binance_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
-        request = RESTRequest(method=RESTMethod.GET, url=url)
-
-        async with throttler.execute_task(limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
-            resp: RESTResponse = await rest_assistant.call(request=request)
-            resp_json = await resp.json()
+        resp_json = await web_utils.api_request(
+            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            rest_assistant=rest_assistant,
+            throttler=local_throttler,
+            domain=domain,
+            method=RESTMethod.GET,
+        )
 
         ret_val = {}
         for record in resp_json:
             try:
                 pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
                     symbol=record["symbol"],
-                    domain=domain)
+                    domain=domain,
+                    api_factory=local_api_factory,
+                    throttler=local_throttler,
+                    time_synchronizer=time_synchronizer)
                 ret_val[pair] = ((Decimal(record.get("bidPrice", "0")) +
                                   Decimal(record.get("askPrice", "0")))
                                  / Decimal("2"))
@@ -139,22 +166,31 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls,
             domain: str = "com",
             api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None
+            throttler: Optional[AsyncThrottler] = None,
+            time_synchronizer: Optional[TimeSynchronizer] = None,
     ):
         """
         Returns the internal map used to translate trading pairs from and to the exchange notation.
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
         `trading_pair_associated_to_exchange_symbol`
+
         :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
+            exchange
+
         :return: bidirectional mapping between trading pair exchange notation and client notation
         """
         if not cls.trading_pair_symbol_map_ready(domain=domain):
             async with cls._mapping_initialization_lock:
                 # Check condition again (could have been initialized while waiting for the lock to be released)
                 if not cls.trading_pair_symbol_map_ready(domain=domain):
-                    await cls._init_trading_pair_symbols(domain, api_factory, throttler)
+                    await cls._init_trading_pair_symbols(
+                        domain=domain,
+                        api_factory=api_factory,
+                        throttler=throttler,
+                        time_synchronizer=time_synchronizer)
 
         return cls._trading_pair_symbol_map[domain]
 
@@ -164,19 +200,25 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             domain="com",
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
+            time_synchronizer: Optional[TimeSynchronizer] = None,
     ) -> str:
         """
         Used to translate a trading pair from the client notation to the exchange notation
+
         :param trading_pair: trading pair in client notation
         :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
+            exchange
+
         :return: trading pair in exchange notation
         """
         symbol_map = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(
             domain=domain,
             api_factory=api_factory,
-            throttler=throttler)
+            throttler=throttler,
+            time_synchronizer=time_synchronizer)
         return symbol_map.inverse[trading_pair]
 
     @staticmethod
@@ -184,29 +226,50 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             symbol: str,
             domain="com",
             api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None) -> str:
+            throttler: Optional[AsyncThrottler] = None,
+            time_synchronizer: Optional[TimeSynchronizer] = None) -> str:
         """
         Used to translate a trading pair from the exchange notation to the client notation
+
         :param symbol: trading pair in exchange notation
         :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
+            exchange
+
         :return: trading pair in client notation
         """
         symbol_map = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(
             domain=domain,
             api_factory=api_factory,
-            throttler=throttler)
+            throttler=throttler,
+            time_synchronizer=time_synchronizer)
         return symbol_map[symbol]
 
     @staticmethod
-    async def fetch_trading_pairs(domain="com") -> List[str]:
+    async def fetch_trading_pairs(
+            domain: str = "com",
+            throttler: Optional[AsyncThrottler] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
+            time_synchronizer: Optional[TimeSynchronizer] = None) -> List[str]:
         """
         Returns a list of all known trading pairs enabled to operate with
+
         :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
+        :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
+            exchange
+
         :return: list of trading pairs in client notation
         """
-        mapping = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain)
+        mapping = await BinanceAPIOrderBookDataSource.trading_pair_symbol_map(
+            domain=domain,
+            throttler=throttler,
+            api_factory=api_factory,
+            time_synchronizer=time_synchronizer,
+        )
         return list(mapping.values())
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
@@ -243,7 +306,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     symbol=json_msg["s"],
                     domain=self._domain,
                     api_factory=self._api_factory,
-                    throttler=self._throttler)
+                    throttler=self._throttler,
+                    time_synchronizer=self._time_synchronizer)
                 trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(
                     json_msg, {"trading_pair": trading_pair})
                 output.put_nowait(trade_msg)
@@ -270,7 +334,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     symbol=json_msg["s"],
                     domain=self._domain,
                     api_factory=self._api_factory,
-                    throttler=self._throttler)
+                    throttler=self._throttler,
+                    time_synchronizer=self._time_synchronizer)
                 order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
                     json_msg, time.time(), {"trading_pair": trading_pair})
                 output.put_nowait(order_book_message)
@@ -348,11 +413,14 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_snapshot(
             self,
             trading_pair: str,
-            limit: int = 1000) -> Dict[str, Any]:
+            limit: int = 1000,
+    ) -> Dict[str, Any]:
         """
         Retrieves a copy of the full order book from the exchange, for a particular trading pair.
+
         :param trading_pair: the trading pair for which the order book will be retrieved
         :param limit: the depth of the order book to retrieve
+
         :return: the response from the exchange (JSON dictionary)
         """
         rest_assistant = await self._get_rest_assistant()
@@ -361,20 +429,20 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pair=trading_pair,
                 domain=self._domain,
                 api_factory=self._api_factory,
-                throttler=self._throttler)
+                throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer)
         }
         if limit != 0:
             params["limit"] = str(limit)
 
-        url = binance_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain)
-        request = RESTRequest(method=RESTMethod.GET, url=url, params=params)
-
-        async with self._throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_PATH_URL):
-            response: RESTResponse = await rest_assistant.call(request=request)
-            if response.status != 200:
-                raise IOError(f"Error fetching market snapshot for {trading_pair}. "
-                              f"Response: {response}.")
-            data = await response.json()
+        data = await web_utils.api_request(
+            path=CONSTANTS.SNAPSHOT_PATH_URL,
+            rest_assistant=rest_assistant,
+            throttler=self._throttler,
+            domain=self._domain,
+            params=params,
+            method=RESTMethod.GET,
+        )
 
         return data
 
@@ -391,7 +459,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     trading_pair=trading_pair,
                     domain=self._domain,
                     api_factory=self._api_factory,
-                    throttler=self._throttler)
+                    throttler=self._throttler,
+                    time_synchronizer=self._time_synchronizer)
                 trade_params.append(f"{symbol.lower()}@trade")
                 depth_params.append(f"{symbol.lower()}@depth@100ms")
             payload = {
@@ -430,48 +499,66 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _get_last_traded_price(cls,
                                      trading_pair: str,
                                      domain: str,
-                                     rest_assistant: RESTAssistant,
-                                     throttler: AsyncThrottler) -> float:
+                                     api_factory: WebAssistantsFactory,
+                                     throttler: AsyncThrottler,
+                                     time_synchronizer: TimeSynchronizer) -> float:
 
-        url = binance_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
-        symbol = await cls.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
+        params = {
+            "symbol": await cls.exchange_symbol_associated_to_pair(
+                trading_pair=trading_pair,
+                domain=domain,
+                api_factory=api_factory,
+                throttler=throttler,
+                time_synchronizer=time_synchronizer)
+        }
+
+        rest_assistant = await api_factory.get_rest_assistant()
+
+        resp_json = await web_utils.api_request(
+            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            rest_assistant=rest_assistant,
+            throttler=throttler,
             domain=domain,
-            throttler=throttler)
-        request = RESTRequest(
+            params=params,
             method=RESTMethod.GET,
-            url=f"{url}?symbol={symbol}")
+        )
 
-        async with throttler.execute_task(limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
-            resp: RESTResponse = await rest_assistant.call(request=request)
-            if resp.status == 200:
-                resp_json = await resp.json()
-                return float(resp_json["lastPrice"])
+        return float(resp_json["lastPrice"])
 
     @classmethod
     async def _init_trading_pair_symbols(
             cls,
             domain: str = "com",
             api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None):
+            throttler: Optional[AsyncThrottler] = None,
+            time_synchronizer: Optional[TimeSynchronizer] = None):
         """
         Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
         """
         mapping = bidict()
 
-        local_api_factory = api_factory or build_api_factory()
-        rest_assistant = await local_api_factory.get_rest_assistant()
+        time_synchronizer = time_synchronizer or TimeSynchronizer()
         local_throttler = throttler or cls._get_throttler_instance()
-        url = binance_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=domain)
-        request = RESTRequest(method=RESTMethod.GET, url=url)
+        local_api_factory = api_factory or web_utils.build_api_factory(
+            time_synchronizer=time_synchronizer,
+            time_provider=lambda: web_utils.get_current_server_time(
+                throttler=throttler,
+                domain=domain)
+        )
+        rest_assistant = await local_api_factory.get_rest_assistant()
 
         try:
-            async with local_throttler.execute_task(limit_id=CONSTANTS.EXCHANGE_INFO_PATH_URL):
-                response: RESTResponse = await rest_assistant.call(request=request)
-                if response.status == 200:
-                    data = await response.json()
-                    for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
-                        mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
+            data = await web_utils.api_request(
+                path=CONSTANTS.EXCHANGE_INFO_PATH_URL,
+                rest_assistant=rest_assistant,
+                throttler=local_throttler,
+                domain=domain,
+                method=RESTMethod.GET,
+            )
+
+            for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
+                mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
+
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
 

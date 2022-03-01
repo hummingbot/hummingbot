@@ -1,25 +1,16 @@
 import asyncio
 import logging
 import time
-
-from typing import (
-    Dict,
-    Optional,
-    Tuple,
-)
+from typing import Optional
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance import binance_utils
+import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    RESTRequest,
-    RESTResponse,
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -106,32 +97,46 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _get_listen_key(self):
         rest_assistant = await self._get_rest_assistant()
-        url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-        request = RESTRequest(method=RESTMethod.POST, url=url, headers=self._auth.header_for_authentication())
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
-            response: RESTResponse = await rest_assistant.call(request=request)
+        try:
+            data = await web_utils.api_request(
+                path=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                rest_assistant=rest_assistant,
+                throttler=self._throttler,
+                domain=self._domain,
+                method=RESTMethod.POST,
+                is_auth_required=True)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            raise IOError(f"Error fetching user stream listen key. Error: {exception}")
 
-            if response.status != 200:
-                raise IOError(f"Error fetching user stream listen key. Response: {response}")
-            data: Dict[str, str] = await response.json()
-            return data["listenKey"]
+        return data["listenKey"]
 
     async def _ping_listen_key(self) -> bool:
         rest_assistant = await self._get_rest_assistant()
-        url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-        request = RESTRequest(method=RESTMethod.PUT, url=url,
-                              headers=self._auth.header_for_authentication(),
-                              params={"listenKey": self._current_listen_key})
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
-            response: RESTResponse = await rest_assistant.call(request=request)
+        try:
+            data = await web_utils.api_request(
+                path=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                rest_assistant=rest_assistant,
+                throttler=self._throttler,
+                domain=self._domain,
+                params={"listenKey": self._current_listen_key},
+                method=RESTMethod.PUT,
+                return_err=True)
 
-            data: Tuple[str, any] = await response.json()
             if "code" in data:
                 self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
                 return False
-            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {exception}")
+            return False
+
+        return True
 
     async def _manage_listen_key_task_loop(self):
         try:
