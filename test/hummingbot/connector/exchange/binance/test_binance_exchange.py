@@ -57,6 +57,7 @@ class BinanceExchangeTests(TestCase):
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
+        self.exchange._binance_time_synchronizer.add_time_offset_ms_sample(0)
         self.exchange._binance_time_synchronizer.logger().setLevel(1)
         self.exchange._binance_time_synchronizer.logger().addHandler(self)
         self.exchange._order_tracker.logger().setLevel(1)
@@ -506,6 +507,7 @@ class BinanceExchangeTests(TestCase):
         request_sent_event = asyncio.Event()
         seconds_counter_mock.side_effect = [0, 0, 0]
 
+        self.exchange._binance_time_synchronizer.clear_time_offset_ms_samples()
         url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
