@@ -1,7 +1,7 @@
 import logging
 from decimal import Decimal
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 import time
 import copy
 import itertools as it
@@ -155,24 +155,15 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
         """
         try:
-            self._chain_info = await self._api_request("get", "network/status", {"chain": self.chain, "network": self.network})
+            self._chain_info = await gateway_http_client.api_request(
+                "get",
+                "network/status",
+                {"chain": self.chain, "network": self.network}
+            )
             self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-
-    async def get_gateway_status(self):
-        """
-        Calls the status endpoint on Gateway to know basic info about connected networks.
-        """
-        try:
-            return await self._api_request("get", "network/status", {})
-        except Exception as e:
-            self.logger().network(
-                "Error fetching gateway status info",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
@@ -194,14 +185,14 @@ class GatewayEVMAMM(ConnectorBase):
         """
         order_id = f"approve_{self.connector_name}_{token_symbol}"
         await self._update_nonce()
-        resp = await self._api_request("post",
-                                       "evm/approve",
-                                       {"chain": self.chain,
-                                        "network": self.network,
-                                        "address": self.address,
-                                        "token": token_symbol,
-                                        "spender": self.connector_name,
-                                        "nonce": self._nonce})
+        resp = await gateway_http_client.api_request("post",
+                                                     "evm/approve",
+                                                     {"chain": self.chain,
+                                                      "network": self.network,
+                                                      "address": self.address,
+                                                      "token": token_symbol,
+                                                      "spender": self.connector_name,
+                                                      "nonce": self._nonce})
         self.start_tracking_order(order_id, None, token_symbol)
 
         if "hash" in resp.get("approval", {}).keys():
@@ -220,12 +211,15 @@ class GatewayEVMAMM(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp = await self._api_request("get", "evm/allowances",
-                                       {"chain": self.chain,
-                                        "network": self.network,
-                                        "address": self.address,
-                                        "tokenSymbols": list(self._tokens),
-                                        "spender": self.connector_name})
+        resp = await gateway_http_client.api_request(
+            "get",
+            "evm/allowances",
+            {"chain": self.chain,
+             "network": self.network,
+             "address": self.address,
+             "tokenSymbols": list(self._tokens),
+             "spender": self.connector_name}
+        )
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -243,15 +237,17 @@ class GatewayEVMAMM(ConnectorBase):
         try:
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
-            resp = await self._api_request("get",
-                                           "amm/price",
-                                           {"chain": self.chain,
-                                            "network": self.network,
-                                            "connector": self.connector_name,
-                                            "base": base,
-                                            "quote": quote,
-                                            "amount": str(amount),
-                                            "side": side.upper()})
+            resp = await gateway_http_client.api_request(
+                "get",
+                "amm/price",
+                {"chain": self.chain,
+                 "network": self.network,
+                 "connector": self.connector_name,
+                 "base": base,
+                 "quote": quote,
+                 "amount": str(amount),
+                 "side": side.upper()}
+            )
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
                 if "info" in resp.keys():
@@ -364,7 +360,7 @@ class GatewayEVMAMM(ConnectorBase):
                       "nonce": self._nonce,
                       }
         try:
-            order_result = await self._api_request("post", "amm/trade", api_params)
+            order_result = await gateway_http_client.api_request("post", "amm/trade", api_params)
             hash = order_result.get("txHash")
             nonce = order_result.get("nonce")
             gas_price = order_result.get("gasPrice")
@@ -443,9 +439,11 @@ class GatewayEVMAMM(ConnectorBase):
             tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
-                tasks.append(self._api_request("post",
-                                               "eth/poll",
-                                               {"txHash": order_id}))
+                tasks.append(gateway_http_client.api_request(
+                    "post",
+                    "eth/poll",
+                    {"txHash": order_id})
+                )
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for tracked_order, update_result in zip(tracked_orders, update_results):
                 self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
@@ -560,16 +558,13 @@ class GatewayEVMAMM(ConnectorBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            response = await self._api_request("get", "")
-            if 'status' in response and response['status'] == 'ok':
-                pass
-            else:
-                raise Exception(f"Error connecting to Gateway API. Response is {response}.")
+            if await gateway_http_client.ping_gateway():
+                return NetworkStatus.CONNECTED
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
+        return NetworkStatus.NOT_CONNECTED
 
     def tick(self, timestamp: float):
         """
@@ -584,11 +579,13 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Call the gateway API to get the current nonce for self.address
         """
-        resp_json = await self._api_request("post",
-                                            "evm/nonce",
-                                            {"chain": self.chain,
-                                             "network": self.network,
-                                             "address": self.address})
+        resp_json = await gateway_http_client.api_request(
+            "post",
+            "evm/nonce",
+            {"chain": self.chain,
+             "network": self.network,
+             "address": self.address}
+        )
         self._nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
@@ -621,12 +618,14 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json = await self._api_request("post",
-                                                "network/balances",
-                                                {"chain": self.chain,
-                                                 "network": self.network,
-                                                 "address": self.address,
-                                                 "tokenSymbols": list(self._tokens) + [self._native_currency]})
+            resp_json = await gateway_http_client.api_request(
+                "post",
+                "network/balances",
+                {"chain": self.chain,
+                 "network": self.network,
+                 "address": self.address,
+                 "tokenSymbols": list(self._tokens) + [self._native_currency]}
+            )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
@@ -639,19 +638,6 @@ class GatewayEVMAMM(ConnectorBase):
 
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
-
-    async def ping_gateway(self):
-        return await self._api_request("get", "", {}, fail_silently = True)
-
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Dict[str, Any] = {},
-                           fail_silently: bool = False) -> Optional[Dict[str, Any]]:
-        return await gateway_http_client.api_request(method,
-                                                     path_url,
-                                                     params = params,
-                                                     fail_silently = fail_silently)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []

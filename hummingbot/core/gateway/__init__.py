@@ -3,10 +3,9 @@ from dataclasses import dataclass
 import os
 from os import getenv
 from pathlib import Path
-from typing import Optional, Any, Dict, AsyncIterable
+from typing import Optional, Any, Dict, AsyncIterable, List, Union
 import aiohttp
 import ssl
-import json
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils import detect_available_port
@@ -212,7 +211,7 @@ class GatewayHttpClient:
                           method: str,
                           path_url: str,
                           params: Dict[str, Any] = {},
-                          fail_silently: bool = False) -> Optional[Dict[str, Any]]:
+                          fail_silently: bool = False) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -235,21 +234,40 @@ class GatewayHttpClient:
                     response = await client.get(url)
             elif method == "post":
                 response = await client.post(url, json=params)
-            if response.status != 200:
+            else:
+                raise ValueError(f"Unsupported request method {method}")
+            if response.status != 200 and not fail_silently:
                 if "error" in parsed_response:
-                    err_msg = f"Error on {method.upper()} Error: {parsed_response['error']}"
+                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response['error']}"
                 else:
-                    err_msg = f"Error on {method.upper()} Error: {parsed_response}"
-                    self.logger().error(
-                        err_msg,
-                        exc_info=True
-                    )
-            parsed_response = json.loads(await response.text())
+                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response}"
+                self.logger().error(err_msg)
+            parsed_response = await response.json()
         except Exception as e:
             if not fail_silently:
                 raise e
 
         return parsed_response
+
+    async def ping_gateway(self) -> bool:
+        try:
+            response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
+            return response["status"] == "ok"
+        except Exception:
+            return False
+
+    async def get_gateway_status(self) -> List[Dict[str, Any]]:
+        """
+        Calls the status endpoint on Gateway to know basic info about connected networks.
+        """
+        try:
+            return await gateway_http_client.api_request("get", "network/status", {})
+        except Exception as e:
+            self.logger().network(
+                "Error fetching gateway status info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
 
 
 gateway_http_client = GatewayHttpClient()
