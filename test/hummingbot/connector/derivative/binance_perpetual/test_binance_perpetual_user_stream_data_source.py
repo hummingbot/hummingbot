@@ -34,8 +34,6 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.api_key = "TEST_API_KEY"
         cls.secret_key = "TEST_SECRET_KEY"
         cls.listen_key = "TEST_LISTEN_KEY"
-        cls.auth = BinancePerpetualAuth(api_key=cls.api_key,
-                                        api_secret=cls.secret_key)
 
     def setUp(self) -> None:
         super().setUp()
@@ -43,6 +41,10 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
 
+        self.emulated_time = 1640001112.223
+        self.auth = BinancePerpetualAuth(api_key=self.api_key,
+                                         api_secret=self.secret_key,
+                                         time_provider=self)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.data_source = BinancePerpetualUserStreamDataSource(
             auth=self.auth, domain=self.domain, throttler=self.throttler
@@ -131,6 +133,10 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
             },
         }
         return ujson.dumps(resp)
+
+    def time(self):
+        # Implemented to emulate a TimeSynchronizer
+        return self.emulated_time
 
     def test_last_recv_time(self):
         # Initial last_recv_time
