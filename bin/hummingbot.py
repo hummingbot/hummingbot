@@ -22,6 +22,7 @@ from hummingbot import (
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils import detect_available_port
 
@@ -47,7 +48,7 @@ async def main_async():
         init_logging("hummingbot_logs.yml",
                      override_log_level=global_config_map.get("log_level").value,
                      dev_mode=dev_mode)
-        tasks: List[Coroutine] = [hb.run()]
+        tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container()]
         if global_config_map.get("debug_console").value:
             if not hasattr(__builtins__, "help"):
                 import _sitebuiltins
