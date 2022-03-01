@@ -1805,5 +1805,4 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         account_request = next(((key, value) for key, value in mock_api.requests.items()
                                 if key[1].human_repr().startswith(url)))
         request_params = account_request[1][0].kwargs["params"]
-        self.assertEqual("20000", request_params["recvWindow"])
-        self.assertEqual(str(int(mock_seconds_counter.return_value * 1e3)), request_params["timestamp"])
+        self.assertEqual(int(mock_seconds_counter.return_value * 1e3), request_params["timestamp"])

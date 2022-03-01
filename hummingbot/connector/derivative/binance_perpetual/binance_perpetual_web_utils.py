@@ -53,12 +53,10 @@ def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistants
 async def api_request(path: str,
                       rest_assistant: RESTAssistant,
                       throttler: AsyncThrottler,
-                      time_synchronizer: TimeSynchronizer,
                       domain: str = CONSTANTS.DOMAIN,
                       params: Optional[Dict[str, Any]] = None,
                       data: Optional[Dict[str, Any]] = None,
                       method: RESTMethod = RESTMethod.GET,
-                      add_timestamp: bool = False,
                       is_auth_required: bool = False,
                       return_err: bool = False,
                       api_version: str = CONSTANTS.API_VERSION,
@@ -66,16 +64,6 @@ async def api_request(path: str,
                       timeout: Optional[float] = None):
 
     async with throttler.execute_task(limit_id=limit_id if limit_id else path):
-        if add_timestamp:
-            if method == RESTMethod.POST:
-                data = data or {}
-                data["recvWindow"] = f"{20000}"
-                data["timestamp"] = str(int(time_synchronizer.time() * 1e3))
-            else:
-                params = params or {}
-                params["recvWindow"] = f"{20000}"
-                params["timestamp"] = str(int(time_synchronizer.time() * 1e3))
-
         url = rest_url(path, domain, api_version)
 
         request = RESTRequest(
@@ -101,7 +89,6 @@ async def api_request(path: str,
 
 async def get_current_server_time(
         throttler: AsyncThrottler,
-        time_synchronizer: TimeSynchronizer,
         domain: str,
 ) -> float:
     rest_assistant = await build_api_factory_without_time_synchronizer_pre_processor().get_rest_assistant()
@@ -109,7 +96,6 @@ async def get_current_server_time(
         path=CONSTANTS.SERVER_TIME_PATH_URL,
         rest_assistant=rest_assistant,
         throttler=throttler,
-        time_synchronizer=time_synchronizer,
         domain=domain,
         method=RESTMethod.GET)
     server_time = response["serverTime"]
