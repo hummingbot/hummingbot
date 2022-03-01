@@ -1,0 +1,6 @@
+{
+  "chain": "ethereum",
+  "network": "kovan",
+  "address": "$ETH_PUBLIC_KEY",
+  "tokenSymbols": ["ETH", "WETH", "DAI"]
+}

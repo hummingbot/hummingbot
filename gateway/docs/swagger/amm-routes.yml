@@ -1,6 +1,8 @@
 paths:
   /amm/trade:
     post:
+      tags:
+        - 'amm'
       summary: 'Perform a trade on an AMM'
       operationId: 'trade'
       consumes:
@@ -20,6 +22,8 @@ paths:
 
   /amm/price:
     post:
+      tags:
+        - 'amm'
       summary: 'Get the price for a quote base pair on an AMM'
       operationId: 'poll'
       consumes:
