@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_utils
+from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -142,7 +142,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_check_network_successful(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps({}))
@@ -153,7 +153,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_check_network_unsuccessful(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=404)
@@ -164,7 +164,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_check_network_raises_cancel_exception(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -176,7 +176,7 @@ class BinanceExchangeTests(TestCase):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         creation_response = {
@@ -233,7 +233,7 @@ class BinanceExchangeTests(TestCase):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url,
@@ -275,7 +275,7 @@ class BinanceExchangeTests(TestCase):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url,
@@ -340,7 +340,7 @@ class BinanceExchangeTests(TestCase):
         self.assertIn("OID1", self.exchange.in_flight_orders)
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
@@ -402,7 +402,7 @@ class BinanceExchangeTests(TestCase):
         self.assertIn("OID1", self.exchange.in_flight_orders)
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.delete(regex_url,
@@ -455,7 +455,7 @@ class BinanceExchangeTests(TestCase):
         self.assertIn("OID2", self.exchange.in_flight_orders)
         order2 = self.exchange.in_flight_orders["OID2"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
@@ -501,7 +501,7 @@ class BinanceExchangeTests(TestCase):
         request_sent_event = asyncio.Event()
         seconds_counter_mock.side_effect = [0, 0, 0]
 
-        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"serverTime": 1640000003000}
@@ -518,7 +518,7 @@ class BinanceExchangeTests(TestCase):
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
         request_sent_event = asyncio.Event()
 
-        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"code": -1121, "msg": "Dummy error"}
@@ -533,7 +533,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_time_synchronizer_raises_cancelled_error(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url,
@@ -545,7 +545,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL, domain=self.exchange._domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"serverTime": 1640000003000}
@@ -553,7 +553,15 @@ class BinanceExchangeTests(TestCase):
         mock_api.get(regex_url,
                      body=json.dumps(response))
 
-        url = binance_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"serverTime": 1640000003000}
+
+        mock_api.get(regex_url,
+                     body=json.dumps(response))
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
@@ -629,7 +637,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_balances_logs_errors(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"serverTime": 1640000003000}
@@ -637,7 +645,7 @@ class BinanceExchangeTests(TestCase):
         mock_api.get(regex_url,
                      body=json.dumps(response))
 
-        url = binance_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=401)
@@ -664,7 +672,7 @@ class BinanceExchangeTests(TestCase):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         trade_fill = {
@@ -749,7 +757,7 @@ class BinanceExchangeTests(TestCase):
         self.exchange._set_current_timestamp(0)
         self.exchange._last_poll_timestamp = -1
 
-        url = binance_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = []
@@ -783,7 +791,7 @@ class BinanceExchangeTests(TestCase):
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
-        url = binance_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         trade_fill_non_tracked_order = {
@@ -852,7 +860,7 @@ class BinanceExchangeTests(TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -925,7 +933,7 @@ class BinanceExchangeTests(TestCase):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -987,7 +995,7 @@ class BinanceExchangeTests(TestCase):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -1053,7 +1061,7 @@ class BinanceExchangeTests(TestCase):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = binance_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=401)
@@ -1069,7 +1077,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_trading_rules(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -1133,7 +1141,7 @@ class BinanceExchangeTests(TestCase):
 
     @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
-        url = binance_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
