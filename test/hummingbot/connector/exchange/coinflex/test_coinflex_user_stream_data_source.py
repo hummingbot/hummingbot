@@ -43,10 +43,8 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant = NetworkMockingAssistant()
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.mock_time_provider = MagicMock()
-        self.mock_time_provider.time.return_value = 1000
         self.data_source = CoinflexAPIUserStreamDataSource(
-            auth=CoinflexAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
+            auth=CoinflexAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET"),
             domain=self.domain,
             throttler=self.throttler
         )
@@ -241,7 +239,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_user_stream_tracker(self, mock_ws):
         user_stream_tracker = CoinflexUserStreamTracker(
-            auth=CoinflexAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
+            auth=CoinflexAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET"),
             domain=self.domain,
             throttler=self.throttler
         )
