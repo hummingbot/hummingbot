@@ -76,18 +76,18 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
+        self._binance_time_synchronizer = TimeSynchronizer()
         self._auth: BinancePerpetualAuth = BinancePerpetualAuth(api_key=binance_perpetual_api_key,
-                                                                api_secret=binance_perpetual_api_secret)
+                                                                api_secret=binance_perpetual_api_secret,
+                                                                time_provider=self._binance_time_synchronizer)
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
-        self._binance_time_synchronizer = TimeSynchronizer()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._domain = domain
         self._api_factory = web_utils.build_api_factory(
             time_synchronizer=self._binance_time_synchronizer,
             time_provider=lambda: web_utils.get_current_server_time(
                 throttler=self._throttler,
-                time_synchronizer=self._binance_time_synchronizer,
                 domain=self._domain),
             auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
@@ -349,7 +349,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 path=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL,
                 params=params,
                 method=RESTMethod.DELETE,
-                add_timestamp=True,
                 is_auth_required=True,
             )
             if response.get("code") == 200:
@@ -833,7 +832,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     "startTime": self._next_funding_fee_timestamp - 3600,  # We provide a buffer time of 1hr.
                 },
                 method=RESTMethod.GET,
-                add_timestamp=True,
                 is_auth_required=True,
             )
 
@@ -925,7 +923,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         account_info = await self._api_request(path=CONSTANTS.ACCOUNT_INFO_URL,
                                                is_auth_required=True,
-                                               add_timestamp=True,
                                                api_version=CONSTANTS.API_VERSION_V2,
                                                )
         assets = account_info.get("assets")
@@ -944,7 +941,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def _update_positions(self):
         positions = await self._api_request(path=CONSTANTS.POSITION_INFORMATION_URL,
-                                            add_timestamp=True,
                                             is_auth_required=True,
                                             api_version=CONSTANTS.API_VERSION_V2,
                                             )
@@ -994,7 +990,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         time_synchronizer=self._binance_time_synchronizer
                     )},
                     is_auth_required=True,
-                    add_timestamp=True,
                 )
                 for trading_pair in trading_pairs
             ]
@@ -1058,7 +1053,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         "origClientOrderId": order.client_order_id
                     },
                     method=RESTMethod.GET,
-                    add_timestamp=True,
                     is_auth_required=True,
                     return_err=True,
                 )
@@ -1122,7 +1116,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             path=CONSTANTS.SET_LEVERAGE_URL,
             data=params,
             method=RESTMethod.POST,
-            add_timestamp=True,
             is_auth_required=True,
         )
         if set_leverage["leverage"] == leverage:
@@ -1142,7 +1135,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 method=RESTMethod.POST,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 data=params,
-                add_timestamp=True,
                 is_auth_required=True,
                 limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
                 return_err=True
@@ -1164,7 +1156,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             response = await self._api_request(
                 method=RESTMethod.GET,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
-                add_timestamp=True,
                 is_auth_required=True,
                 limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
                 return_err=True
@@ -1255,7 +1246,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 path=CONSTANTS.ORDER_URL,
                 data=api_params,
                 method=RESTMethod.POST,
-                add_timestamp=True,
                 is_auth_required=True,
             )
 
@@ -1321,7 +1311,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 params=params,
                 method=RESTMethod.DELETE,
                 is_auth_required=True,
-                add_timestamp=True,
                 return_err=True,
             )
             if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
@@ -1338,7 +1327,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
                            method: RESTMethod = RESTMethod.GET,
-                           add_timestamp: bool = False,
                            is_auth_required: bool = False,
                            return_err: bool = False,
                            api_version: str = CONSTANTS.API_VERSION,
@@ -1350,12 +1338,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 path=path,
                 rest_assistant=rest_assistant,
                 throttler=self._throttler,
-                time_synchronizer=self._binance_time_synchronizer,
                 domain=self._domain,
                 params=params,
                 data=data,
                 method=method,
-                add_timestamp=add_timestamp,
                 is_auth_required=is_auth_required,
                 return_err=return_err,
                 api_version=api_version,
@@ -1370,7 +1356,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             await self._binance_time_synchronizer.update_server_time_offset_with_time_provider(
                 time_provider=web_utils.get_current_server_time(
                     throttler=self._throttler,
-                    time_synchronizer=self._binance_time_synchronizer,
                     domain=self._domain)
             )
         except asyncio.CancelledError:
