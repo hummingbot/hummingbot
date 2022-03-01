@@ -134,7 +134,7 @@ cdef class LimitOrder:
     def status(self) -> LimitOrderStatus:
         return LimitOrderStatus(self._cpp_limit_order.getStatus())
 
-    cdef long long c_age_til(self, long end_timestamp):
+    cdef long long c_age_til(self, long long end_timestamp):
         """
         Calculates and returns age of the order since it was created til end_timestamp in seconds
         :param end_timestamp: The end timestamp
