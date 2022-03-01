@@ -23,7 +23,7 @@ from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
 )
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.gateway.status_monitor import Status as GatewayStatus
 
 
 HEADER = """
@@ -229,7 +229,7 @@ def get_strategy_file():
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    gateway_status = "ON" if hb._gateway_monitor.network_status is NetworkStatus.CONNECTED else "OFF"
+    gateway_status = "ON" if hb._gateway_monitor.current_status is GatewayStatus.ONLINE else "OFF"
     style = "class:log-field"
     return [(style, f"Gateway: {gateway_status}")]
 

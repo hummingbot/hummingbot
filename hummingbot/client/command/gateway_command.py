@@ -25,7 +25,7 @@ from hummingbot.core.gateway import (
     GatewayPaths,
     get_default_gateway_port,
 )
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_namespace_keys,
@@ -300,12 +300,13 @@ class GatewayCommand:
     async def _gateway_status(self):
         can_reach_docker = await self.ping_gateway_docker()
         if not can_reach_docker:
-            self.notify("\nError: It looks like you do not have Docker installed or running. Gateway commands will not work without it. Please install or start Docker and restart Hummingbot.")
+            self.notify("\nError: It looks like you do not have Docker installed or running. Gateway commands will not "
+                        "work without it. Please install or start Docker and restart Hummingbot.")
             return
 
-        if self._gateway_monitor.network_status == NetworkStatus.CONNECTED:
+        if self._gateway_monitor.current_status == Status.ONLINE:
             try:
-                status = await self._gateway_monitor.get_gateway_status()
+                status = await gateway_http_client.get_gateway_status()
                 self.notify(pd.DataFrame(status))
             except Exception:
                 self.notify("\nError: Unable to fetch status of connected Gateway server.")
@@ -480,7 +481,7 @@ class GatewayCommand:
             self.app.input_field.completer = load_completer(self)
 
     async def _fetch_gateway_configs(self):
-        return await gateway_http_client.api_request("get", "network/config", {})
+        return await gateway_http_client.api_request("get", "network/config", {}, fail_silently=True)
 
     async def fetch_gateway_config_key_list(self):
         config = await self._fetch_gateway_configs()
