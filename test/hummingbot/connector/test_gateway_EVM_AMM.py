@@ -27,7 +27,7 @@ class GatewayEVMAMMTest(unittest.TestCase):
             connector_name = "uniswap",
             chain = "ethereum",
             network = "mainnet",
-            wallet_public_key = "0xABCD....1234",
+            wallet_address = "0xABCD....1234",
             trading_pairs=[self.trading_pair],
         )
         self.ev_loop = asyncio.get_event_loop()
