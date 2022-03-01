@@ -8,10 +8,7 @@ from typing import List, Dict, Optional, Tuple, Deque
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.tab import __all__ as tab_classes
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.core.clock import Clock
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -28,6 +25,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
+from hummingbot.core.gateway.status_monitor import StatusMonitor as GatewayStatusMonitor
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -38,7 +36,6 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
 
@@ -99,10 +96,9 @@ class HummingbotApplication(*commands):
 
         # gateway variables and monitor
         self._shared_client = None
-        self._gateway_monitor: Optional[GatewayEVMAMM] = None
-        self._gateway_monitor_clock: Optional[Clock] = None
+        self._gateway_monitor: Optional[GatewayStatusMonitor] = None
         self._init_gateway_monitor()
-        self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
+
         # A list of gateway configuration key for auto-complete on gateway config command
         self.gateway_config_keys: List[str] = []
         safe_ensure_future(self.fetch_gateway_config_key_list(), loop=self.ev_loop)
@@ -136,19 +132,8 @@ class HummingbotApplication(*commands):
         return None
 
     def _init_gateway_monitor(self):
-        self._gateway_monitor = GatewayEVMAMM(connector_name = "",
-                                              chain = "",
-                                              network = "",
-                                              wallet_public_key = "",
-                                              trading_pairs = [],
-                                              trading_required = False)
-
-        self._gateway_monitor_clock = Clock(ClockMode.REALTIME)
-        self._gateway_monitor_clock.add_iterator(self._gateway_monitor)
-
-    async def _run_gateway_monitor_clock(self):
-        with self._gateway_monitor_clock as clock:
-            await clock.run()
+        self._gateway_monitor = GatewayStatusMonitor()
+        self._gateway_monitor.start()
 
     def notify(self, msg: str):
         self.app.log(msg)
