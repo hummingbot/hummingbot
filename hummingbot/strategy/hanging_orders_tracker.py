@@ -14,7 +14,6 @@ from hummingbot.core.event.events import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.data_types import HangingOrder
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.strategy.utils import order_age
 
 s_decimal_zero = Decimal(0)
 sb_logger = None
@@ -174,7 +173,8 @@ class HangingOrdersTracker:
                                                renewing_order.trading_pair,
                                                renewing_order.is_buy,
                                                renewing_order.price,
-                                               renewing_order.amount)
+                                               renewing_order.amount,
+                                               self.strategy.current_timestamp)
 
             executed_orders = self._execute_orders_in_strategy([order_to_be_created])
             self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
@@ -325,7 +325,8 @@ class HangingOrdersTracker:
                                                      order.trading_pair,
                                                      order.is_buy,
                                                      order.price,
-                                                     order.amount)
+                                                     order.amount,
+                                                     self.strategy.current_timestamp)
 
                     new_hanging_orders.add(new_hanging_order)
             # If it's a preexistent order we don't create it but we add it to hanging orders
@@ -351,11 +352,13 @@ class HangingOrdersTracker:
         self.current_created_pairs_of_orders.clear()
 
     def _get_hanging_order_from_limit_order(self, order: LimitOrder):
-        return HangingOrder(order.client_order_id, order.trading_pair, order.is_buy, order.price, order.quantity)
-
-    def _limit_order_age(self, order: LimitOrder):
-        calculated_age = order_age(order)
-        return calculated_age if calculated_age >= 0 else 0
+        return HangingOrder(
+            order.client_order_id,
+            order.trading_pair,
+            order.is_buy,
+            order.price,
+            order.quantity,
+            order.creation_timestamp * 1e-6)
 
     def candidate_hanging_orders_from_pairs(self):
         candidate_orders = []
