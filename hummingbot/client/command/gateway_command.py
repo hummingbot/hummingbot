@@ -418,10 +418,10 @@ class GatewayCommand:
             if len(wallets) < 1:
                 self.app.clear_input()
                 self.placeholder_mode = True
-                new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
                 response = await gateway_http_client.api_request("post",
                                                                  "wallet/add",
-                                                                 {"chain": chain, "network": network, "privateKey": new_wallet})
+                                                                 {"chain": chain, "network": network, "privateKey": wallet_private_key})
 
                 wallet = response.address
 
@@ -459,10 +459,10 @@ class GatewayCommand:
                 # they want to create a new wallet even though they have other ones
                 else:
                     self.placeholder_mode = True
-                    new_wallet = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                    wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
                     response = await gateway_http_client.api_request("post",
                                                                      "wallet/add",
-                                                                     {"chain": chain, "network": network, "privateKey": new_wallet})
+                                                                     {"chain": chain, "network": network, "privateKey": wallet_private_key})
 
                     wallet = response.address
 

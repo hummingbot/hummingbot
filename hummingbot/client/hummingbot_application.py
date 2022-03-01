@@ -139,7 +139,7 @@ class HummingbotApplication(*commands):
         self._gateway_monitor = GatewayEVMAMM(connector_name = "",
                                               chain = "",
                                               network = "",
-                                              wallet_public_key = "",
+                                              wallet_address = "",
                                               trading_pairs = [],
                                               trading_required = False)
 
