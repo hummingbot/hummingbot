@@ -27,8 +27,8 @@ class ExitCommand:
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
 
-        if self._gateway_monitor_task is not None and not self._gateway_monitor_task.cancelled():
-            self._gateway_monitor_task.cancel()
+        if self._gateway_monitor is not None:
+            self._gateway_monitor.stop()
 
         self.notify("Winding down notifiers...")
         for notifier in self.notifiers:

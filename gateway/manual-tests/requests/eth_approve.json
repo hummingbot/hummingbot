@@ -1,6 +1,6 @@
 {
   "chain": "ethereum",
-  "network": "kovan",  
+  "network": "kovan",
   "address": "$ETH_ADDRESS",
   "spender": "uniswap",
   "token": "DAI"

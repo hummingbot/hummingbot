@@ -6,5 +6,5 @@
   "side": "BUY",
   "chain": "ethereum",
   "network": "kovan",
-  "connector": "uniswap"  
+  "connector": "uniswap"
 }
