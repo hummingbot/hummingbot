@@ -6,7 +6,7 @@ from typing import Optional
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -28,14 +28,21 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                  auth: BinanceAuth,
                  domain: str = "com",
                  api_factory: Optional[WebAssistantsFactory] = None,
-                 throttler: Optional[AsyncThrottler] = None):
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
         self._auth: BinanceAuth = auth
+        self._time_synchronizer = time_synchronizer or TimeSynchronizer()
         self._current_listen_key = None
         self._last_recv_time: float = 0
         self._domain = domain
         self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory or web_utils.build_api_factory(
+            time_synchronizer=self._time_synchronizer,
+            time_provider=lambda: web_utils.get_current_server_time(
+                throttler=self._throttler,
+                domain=self._domain),
+            auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
 
@@ -105,7 +112,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 throttler=self._throttler,
                 domain=self._domain,
                 method=RESTMethod.POST,
-                is_auth_required=True)
+                headers=self._auth.header_for_authentication())
         except asyncio.CancelledError:
             raise
         except Exception as exception:

@@ -51,6 +51,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
             throttler=self.throttler
         )
 
+        self.data_source._time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
