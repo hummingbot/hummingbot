@@ -1,6 +1,9 @@
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 from os.path import join, realpath, dirname
+
+from hummingbot.client.config.global_config_map import color_config_map
+
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
@@ -9,7 +12,7 @@ with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
 dialog_style = Style.from_dict({
     'dialog': 'bg:#171E2B',
     'dialog frame.label': 'bg:#ffffff #000000',
-    'dialog.body': 'bg:#000000 #1CD085',
+    'dialog.body': 'bg:#000000 ' + color_config_map["terminal-primary"].default,
     'dialog shadow': 'bg:#171E2B',
     'button': 'bg:#000000',
     'text-area': 'bg:#000000 #ffffff',
@@ -31,7 +34,7 @@ def show_welcome():
     =======================================================================================
 
     Version: {version}
-    Codebase: https://github.com/coinalpha/hummingbot
+    Codebase: https://github.com/hummingbot/hummingbot
 
 
         """.format(version=version),
