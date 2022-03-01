@@ -126,13 +126,7 @@ class GatewayCommand:
 
     async def _test_connection(self):
         # test that the gateway is running
-        try:
-            resp = await gateway_http_client.api_request("get", "", {}, fail_silently = True)
-        except Exception as e:
-            self.notify("\nUnable to ping gateway.")
-            raise e
-
-        if resp is not None and resp.get('message', None) == 'ok' or resp.get('status', None) == 'ok':
+        if await gateway_http_client.ping_gateway():
             self.notify("\nSuccesfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
@@ -375,7 +369,7 @@ class GatewayCommand:
 
         else:
             # get available networks
-            connector_configs = await gateway_http_client.api_request("get", "connectors", {})
+            connector_configs = await gateway_http_client.api_request("get", "connectors")
             connector_config = [d for d in connector_configs["connectors"] if d["name"] == connector]
             available_networks = connector_config[0]["available_networks"]
             trading_type = connector_config[0]["trading_type"][0]
@@ -406,7 +400,7 @@ class GatewayCommand:
                     self.notify("Error: Invalid network")
 
             # get wallets for the selected chain
-            wallets_response = await gateway_http_client.api_request("get", "wallet", {})
+            wallets_response = await gateway_http_client.api_request("get", "wallet")
             wallets = [w for w in wallets_response if w["chain"] == chain]
             if len(wallets) < 1:
                 wallets = []
@@ -481,7 +475,7 @@ class GatewayCommand:
             self.app.input_field.completer = load_completer(self)
 
     async def _fetch_gateway_configs(self):
-        return await gateway_http_client.api_request("get", "network/config", {}, fail_silently=True)
+        return await gateway_http_client.api_request("get", "network/config", fail_silently=True)
 
     async def fetch_gateway_config_key_list(self):
         config = await self._fetch_gateway_configs()
