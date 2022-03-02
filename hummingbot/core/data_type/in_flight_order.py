@@ -1,11 +1,11 @@
 import asyncio
 import copy
 import math
-
-from async_timeout import timeout
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
+
+from async_timeout import timeout
 
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -28,7 +28,7 @@ class OrderState(Enum):
 
 class OrderUpdate(NamedTuple):
     trading_pair: str
-    update_timestamp: int  # milliseconds
+    update_timestamp: float  # seconds
     new_state: OrderState
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
@@ -46,7 +46,7 @@ class TradeUpdate(NamedTuple):
     client_order_id: str
     exchange_order_id: str
     trading_pair: str
-    fill_timestamp: int
+    fill_timestamp: float  # seconds
     fill_price: Decimal
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
@@ -63,15 +63,16 @@ class InFlightOrder:
         order_type: OrderType,
         trade_type: TradeType,
         amount: Decimal,
+        creation_timestamp: float,
         price: Optional[Decimal] = None,
         exchange_order_id: Optional[str] = None,
         initial_state: OrderState = OrderState.PENDING_CREATE,
         leverage: int = 1,
         position: PositionAction = PositionAction.NIL,
         trade_fee_percent: Decimal = None,
-        timestamp: int = -1,
     ) -> None:
         self.client_order_id = client_order_id
+        self.creation_timestamp = creation_timestamp
         self.trading_pair = trading_pair
         self.order_type = order_type
         self.trade_type = trade_type
@@ -91,7 +92,7 @@ class InFlightOrder:
         self.last_filled_price: Decimal = s_decimal_0
         self.last_filled_amount: Decimal = s_decimal_0  # in base asset
         self.last_fee_paid: Decimal = s_decimal_0
-        self.last_update_timestamp: int = timestamp
+        self.last_update_timestamp: float = creation_timestamp
         self.last_trade_id = -1
 
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
@@ -121,6 +122,7 @@ class InFlightOrder:
                 self.last_filled_price,
                 self.last_filled_amount,
                 self.last_fee_paid,
+                self.creation_timestamp,
                 self.last_update_timestamp,
             )
         )
@@ -207,6 +209,7 @@ class InFlightOrder:
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
+            creation_timestamp=data.get("creation_timestamp", -1)
         )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -233,7 +236,8 @@ class InFlightOrder:
             "fee_paid": str(self.cumulative_fee_paid),
             "last_state": str(self.current_state.value),
             "leverage": str(self.leverage),
-            "position": self.position.value
+            "position": self.position.value,
+            "creation_timestamp": self.creation_timestamp
         }
 
     def to_limit_order(self) -> LimitOrder:
@@ -249,7 +253,8 @@ class InFlightOrder:
             quote_currency=self.quote_asset,
             price=self.price,
             quantity=self.amount,
-            filled_quantity=self.executed_amount_base
+            filled_quantity=self.executed_amount_base,
+            creation_timestamp=int(self.creation_timestamp * 1e6)
         )
 
     @property
@@ -317,7 +322,7 @@ class InFlightOrder:
                     else order_update.cumulative_fee_paid - prev_cumulative_fee_paid
                 )
                 # trade_id defaults to update timestamp if not provided
-                trade_id: str = order_update.trade_id or order_update.update_timestamp
+                trade_id: str = order_update.trade_id or str(int(order_update.update_timestamp * 1e3))
                 self.last_trade_id = trade_id
                 self.order_fills[trade_id] = TradeUpdate(
                     trade_id=trade_id,
@@ -343,10 +348,10 @@ class InFlightOrder:
         return: True if the order gets updated otherwise False
         """
         trade_id: str = trade_update.trade_id
-        if self.exchange_order_id is None and trade_update.exchange_order_id:
-            self.update_exchange_order_id(trade_update.exchange_order_id)
 
-        if trade_id in self.order_fills or trade_update.exchange_order_id != self.exchange_order_id:
+        if (trade_id in self.order_fills
+                or (self.client_order_id != trade_update.client_order_id
+                    and self.exchange_order_id != trade_update.exchange_order_id)):
             return False
 
         self.executed_amount_base += trade_update.fill_base_amount

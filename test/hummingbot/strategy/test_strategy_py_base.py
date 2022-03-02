@@ -1,26 +1,25 @@
-#!/usr/bin/env python
-import unittest
 import asyncio
 import time
-
+import unittest
 from collections import deque
 from decimal import Decimal
 from typing import Union
+
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    TradeType,
+    BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    OrderFilledEvent,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
-    BuyOrderCompletedEvent,
+    OrderFilledEvent,
+    OrderType,
     SellOrderCompletedEvent,
-    FundingPaymentCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -92,7 +91,8 @@ class StrategyPyBaseUnitTests(unittest.TestCase):
                 order.trading_pair,
                 order.quantity if isinstance(order, LimitOrder) else order.amount,
                 order.price,
-                order.client_order_id if isinstance(order, LimitOrder) else order.order_id
+                order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
+                time.time()
             )
         )
 

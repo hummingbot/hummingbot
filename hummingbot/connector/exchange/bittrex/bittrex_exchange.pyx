@@ -664,7 +664,8 @@ cdef class BittrexExchange(ExchangeBase):
             order_type,
             trade_type,
             price,
-            amount
+            amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -793,7 +794,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
 
         except asyncio.CancelledError:
@@ -890,7 +892,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
         except asyncio.CancelledError:
             raise
