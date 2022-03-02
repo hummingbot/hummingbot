@@ -6,7 +6,7 @@ from typing import (
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
+from hummingbot.core.data_type.common import (
     OrderType,
     TradeType
 )
@@ -21,7 +21,9 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "live"):
+                 creation_timestamp: float,
+                 initial_state: str = "live",
+                 ):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -30,7 +32,8 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state
+            creation_timestamp,
+            initial_state,
         )
         self.trade_id_set = set()
 
@@ -55,14 +58,6 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
         order_type = "limit_maker" if self.order_type is OrderType.LIMIT_MAKER else "limit"
         side = "buy" if self.trade_type == TradeType.BUY else "sell"
         return f"{order_type} {side}"
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        return cls._basic_from_json(data)
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """

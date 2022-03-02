@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-
 import asyncio
+import pandas as pd
 import platform
 import threading
 import time
@@ -20,7 +20,6 @@ from hummingbot.client.config.config_helpers import (
 import hummingbot.client.settings as settings
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
-from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
@@ -29,6 +28,9 @@ from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.exceptions import OracleRateUnavailable
+from hummingbot.user.user_balances import UserBalances
+from hummingbot.client.performance import PerformanceMetrics
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -86,17 +88,42 @@ class StartCommand:
 
         self._initialize_notifiers()
 
-        self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
             self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
-
         for exchange in settings.required_exchanges:
             connector = str(exchange)
             status = get_connector_status(connector)
+            warning_msg = warning_messages.get(connector, None)
+
+            # confirm gateway connection
+            conn_setting = settings.AllConnectorSettings.get_connector_settings()[connector]
+            if conn_setting.uses_gateway_generic_connector():
+                connector_details = conn_setting.conn_init_parameters()
+                if connector_details:
+                    data = []
+                    data.append(["chain", connector_details['chain']])
+                    data.append(["network", connector_details['network']])
+                    data.append(["wallet_address", connector_details['wallet_public_key']])
+                    await UserBalances.instance().update_exchange_balance(connector)
+                    balances = [f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
+                                for k, v in UserBalances.instance().all_balances(connector).items()]
+                    data.append(["balances", ""])
+                    for bal in balances:
+                        data.append(["", bal])
+                    wallet_df = pd.DataFrame(data=data, columns=["", f"{connector} configuration"])
+                    self.notify(wallet_df.to_string(index=False))
+
+                    self.app.clear_input()
+                    self.placeholder_mode = True
+                    use_configuration = await self.app.prompt(prompt="Do you want to continue? (Yes/No) >>> ")
+                    self.placeholder_mode = False
+                    self.app.change_prompt(prompt=">>> ")
+
+                    if use_configuration not in ["Y", "y", "Yes", "yes"]:
+                        return
 
             # Display custom warning message for specific connectors
-            warning_msg = warning_messages.get(connector, None)
-            if warning_msg is not None:
+            elif warning_msg is not None:
                 self.notify(f"\nConnector status: {status}\n"
                             f"{warning_msg}")
 
@@ -105,6 +132,7 @@ class StartCommand:
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
+        self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making(self.strategy_name, restore)
 
     async def start_market_making(self,  # type: HummingbotApplication

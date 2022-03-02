@@ -6,8 +6,7 @@ import math
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
-from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS, bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import BitmartInFlightOrder
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_tracker import BitmartOrderBookTracker
@@ -17,7 +16,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -28,14 +27,12 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
@@ -493,7 +490,8 @@ class BitmartExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp
                                ))
         except asyncio.CancelledError:
             raise
@@ -527,7 +525,8 @@ class BitmartExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
