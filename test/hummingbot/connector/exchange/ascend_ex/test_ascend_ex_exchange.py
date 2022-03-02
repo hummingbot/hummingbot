@@ -309,7 +309,6 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_partial_fill_and_full_fill_generate_fill_events(self):
         self.exchange._set_current_timestamp(1640780000)
 
