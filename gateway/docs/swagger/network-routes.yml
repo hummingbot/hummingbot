@@ -1,24 +1,24 @@
 paths:
-  /network/balances:
-    post:
-      summary: 'Get the balances of a private key'
-      operationId: 'balances'
-      consumes:
-        - 'application/json'
+  /network/config:
+    get:
+      tags:
+        - 'network'
+      summary: 'Get every gateway configuration option'
       produces:
         - 'application/json'
-      parameters:
-        - in: 'body'
-          name: 'body'
-          required: true
-          schema:
-            $ref: '#/definitions/BalancesRequest'
-      responses:
-        '200':
-          schema:
-            $ref: '#/definitions/BalancesResponse'
+      responses: '200'
+  /network/status:
+    get:
+      tags:
+        - 'network'
+      summary: 'Returns a list of the currently connected networks'
+      produces:
+        - 'application/json'
+      responses: '200'
   /network/poll:
     post:
+      tags:
+        - 'network'
       summary: 'Poll the status of a transaction'
       operationId: 'poll'
       consumes:
@@ -35,20 +35,30 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/PollResponse'
-  /network/status:
-    get:
-      summary: 'Returns a list of the currently connected networks'
+  /network/balances:
+    post:
+      tags:
+        - 'network'
+      summary: 'Get the balances of a private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
       produces:
         - 'application/json'
-      responses: '200'
-  /network/config:
-    get:
-      summary: 'Get every gateway configuration option'
-      produces:
-        - 'application/json'
-      responses: '200'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/BalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/BalancesResponse'
   /network/tokens:
     get:
+      tags:
+        - 'network'
       summary: 'Returns a list of tokens available on the specified network'
       produces:
         - 'application/json'

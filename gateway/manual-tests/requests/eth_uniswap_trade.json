@@ -2,6 +2,9 @@
   "address": "$ETH_ADDRESS",
   "quote": "WETH",
   "base": "DAI",
-  "amount": "100000000000000",
-  "side": "BUY"
+  "amount": "10000000000",
+  "side": "BUY",
+  "chain": "ethereum",
+  "network": "kovan",
+  "connector": "uniswap"
 }
