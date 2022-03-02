@@ -70,7 +70,9 @@ describe('Configuration manager v2 tests', () => {
   it('reading from config file', (done) => {
     expect(configManager.get('ssl.keyPath')).toEqual('gateway.key');
     expect(configManager.get('ethereum.networks.kovan.chainID')).toEqual(42);
-    expect(configManager.get('ethereum.nativeCurrencySymbol')).toEqual('ETH');
+    expect(
+      configManager.get('ethereum.networks.kovan.nativeCurrencySymbol')
+    ).toEqual('ETH');
     done();
   });
 
