@@ -35,12 +35,10 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import (
     DeductedFromReturnsTradeFee,
+    TokenAmount,
     TradeFeeBase,
 )
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -742,6 +740,21 @@ class CoinflexExchange(ExchangeBase):
                             fill_price = coinflex_utils.decimal_val_or_none(order_data.get("matchPrice"))
                             exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
                             fee_paid = coinflex_utils.decimal_val_or_none(order_data.get("fees"))
+                            if fee_paid:
+                                fee = TradeFeeBase.new_spot_fee(
+                                    fee_schema=self.trade_fee_schema(),
+                                    trade_type=tracked_order.trade_type,
+                                    percent_token=order_data.get("feeInstrumentId"),
+                                    flat_fees=[TokenAmount(amount=fee_paid, token=order_data.get("feeInstrumentId"))]
+                                )
+                            else:
+                                fee = self.get_fee(base_currency=tracked_order.base_asset,
+                                                   quote_currency=tracked_order.quote_asset,
+                                                   order_type=tracked_order.order_type,
+                                                   order_side=tracked_order.trade_type,
+                                                   amount=tracked_order.amount,
+                                                   price=tracked_order.price,
+                                                   is_maker=True)
                             trade_update = TradeUpdate(
                                 trading_pair=tracked_order.trading_pair,
                                 trade_id=int(order_data["matchId"]),
@@ -751,8 +764,7 @@ class CoinflexExchange(ExchangeBase):
                                 fill_price=fill_price,
                                 fill_base_amount=exec_amt_base,
                                 fill_quote_amount=exec_amt_quote,
-                                fee_asset=order_data.get("feeInstrumentId"),
-                                fee_paid=fee_paid,
+                                fee=fee,
                             )
                             self._order_tracker.process_trade_update(trade_update=trade_update)
                         order_update = OrderUpdate(
@@ -778,13 +790,27 @@ class CoinflexExchange(ExchangeBase):
         This is intended to be a backup measure to get filled events from order status
         in case CoinFLEX's user stream events are not working.
         """
+        fee_collected = False
         for match_data in order_update["matchIds"]:
             for trade_id in match_data.keys():
                 trade_data = match_data[trade_id]
                 exec_amt_base = coinflex_utils.decimal_val_or_none(trade_data.get("matchQuantity"))
                 fill_price = coinflex_utils.decimal_val_or_none(trade_data.get("matchPrice"))
                 exec_amt_quote = exec_amt_base * fill_price if exec_amt_base and fill_price else None
-                fee_paid = coinflex_utils.decimal_val_or_none(trade_data.get("fees", "0"))
+                if not fee_collected and len(order_update.get("fees", {})):
+                    fee_collected = True
+                    fee_data = order_update.get("fees")
+                    fee_token = list(fee_data.keys())[0]
+                    fee_paid = coinflex_utils.decimal_val_or_none(fee_data[fee_token])
+                else:
+                    fee_token = tracked_order.quote_asset
+                    fee_paid = s_decimal_0
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=tracked_order.trade_type,
+                    percent_token=fee_token,
+                    flat_fees=[TokenAmount(amount=fee_paid, token=fee_token)]
+                )
                 trade_update = TradeUpdate(
                     trading_pair=tracked_order.trading_pair,
                     trade_id=int(trade_id),
@@ -794,8 +820,7 @@ class CoinflexExchange(ExchangeBase):
                     fill_price=fill_price,
                     fill_base_amount=exec_amt_base,
                     fill_quote_amount=exec_amt_quote,
-                    fee_asset=trade_data.get("feeInstrumentId"),
-                    fee_paid=fee_paid,
+                    fee=fee,
                 )
                 self._order_tracker.process_trade_update(trade_update=trade_update)
 
@@ -865,14 +890,15 @@ class CoinflexExchange(ExchangeBase):
                     # Update order execution status
                     new_state = CONSTANTS.ORDER_STATE[order_update["status"]]
 
-                    # Get total fees from order data, should only be one fee asset.
-                    order_fees = order_update.get("fees")
-                    fee_asset = None
-                    cumulative_fee_paid = None
-                    if order_fees:
-                        for fee_asset in order_fees.keys():
-                            cumulative_fee_paid = coinflex_utils.decimal_val_or_none(order_fees[fee_asset])
-                            break
+                    # Deprecated
+                    # # Get total fees from order data, should only be one fee asset.
+                    # order_fees = order_update.get("fees")
+                    # fee_asset = None
+                    # cumulative_fee_paid = None
+                    # if order_fees:
+                    #     for fee_asset in order_fees.keys():
+                    #         cumulative_fee_paid = coinflex_utils.decimal_val_or_none(order_fees[fee_asset])
+                    #         break
 
                     order_update_timestamp = order_update.get("timestamp",
                                                               order_update.get("orderOpenedTimestamp",
@@ -884,8 +910,6 @@ class CoinflexExchange(ExchangeBase):
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=int(order_update_timestamp) * 1e-3,
                         new_state=new_state,
-                        fee_asset=fee_asset,
-                        cumulative_fee_paid=cumulative_fee_paid,
                     )
                     self._order_tracker.process_order_update(update)
 
