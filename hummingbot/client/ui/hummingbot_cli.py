@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+from contextlib import ExitStack
 import logging
 import threading
 from prompt_toolkit.application import Application
@@ -11,6 +12,7 @@ from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 from prompt_toolkit.key_binding import KeyBindings
 from typing import Callable, Optional, Dict, Any, TYPE_CHECKING
 
+from hummingbot import init_logging, check_dev_mode
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.ui.layout import (
@@ -26,9 +28,13 @@ from hummingbot.client.ui.layout import (
     create_live_field,
     create_tab_button,
 )
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.interface_utils import start_timer, start_process_monitor, start_trade_monitor
+from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.style import load_style
+from hummingbot.core.event.events import HummingbotUIEvent
+from hummingbot.core.pubsub import PubSub
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
@@ -42,12 +48,13 @@ def _handle_exception_patch(self, loop, context):
 Application._handle_exception = _handle_exception_patch
 
 
-class HummingbotCLI:
+class HummingbotCLI(PubSub):
     def __init__(self,
                  input_handler: Callable,
                  bindings: KeyBindings,
                  completer: Completer,
                  command_tabs: Dict[str, CommandTab]):
+        super().__init__()
         self.command_tabs = command_tabs
         self.search_field = create_search_field()
         self.input_field = create_input_field(completer=completer)
@@ -79,16 +86,31 @@ class HummingbotCLI:
         self.input_event = None
         self.hide_input = False
 
+        # stdout redirection stack
+        self._stdout_redirect_context: ExitStack = ExitStack()
+
         # start ui tasks
         loop = asyncio.get_event_loop()
         loop.create_task(start_timer(self.timer))
         loop.create_task(start_process_monitor(self.process_usage))
         loop.create_task(start_trade_monitor(self.trade_monitor))
 
+    def did_start_ui(self):
+        self._stdout_redirect_context.enter_context(patch_stdout(log_field=self.log_field))
+
+        log_level = global_config_map.get("log_level").value
+        dev_mode = check_dev_mode()
+        init_logging("hummingbot_logs.yml",
+                     override_log_level=log_level,
+                     dev_mode=dev_mode)
+
+        self.trigger_event(HummingbotUIEvent.Start, self)
+
     async def run(self):
         self.app = Application(layout=self.layout, full_screen=True, key_bindings=self.bindings, style=load_style(),
                                mouse_support=True, clipboard=PyperclipClipboard())
-        await self.app.run_async()
+        await self.app.run_async(pre_run=self.did_start_ui)
+        self._stdout_redirect_context.close()
 
     def accept(self, buff):
         self.pending_input = self.input_field.text.strip()

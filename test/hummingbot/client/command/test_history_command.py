@@ -112,7 +112,7 @@ class HistoryCommandTest(unittest.TestCase):
             )
         )
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_trades(self, notify_mock):
         global_config_map["tables_format"].value = "psql"
 
@@ -172,8 +172,8 @@ class HistoryCommandTest(unittest.TestCase):
             f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
             f"\n    | Timestamp           | Exchange   | Market   | Order_type   | Side   |   Price |   Amount |   Leverage | Position   | Age   |"  # noqa: E501
             f"\n    |---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------|"  # noqa: E501
-            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 |            | n/a   |"  # noqa: E501
-            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 |            | n/a   |"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 | NIL        | n/a   |"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 | NIL        | n/a   |"  # noqa: E501
             f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
         )
 

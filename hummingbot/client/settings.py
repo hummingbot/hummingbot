@@ -74,7 +74,7 @@ class ConnectorSetting(NamedTuple):
     the connector file.
     """
 
-    def uses_gateway_generic_connector(self):
+    def uses_gateway_generic_connector(self) -> bool:
         none_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
         return True if self.type not in none_gateway_connectors_types else False
 
@@ -199,7 +199,7 @@ class AllConnectorSettings:
 
         for connection in connections:
             gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['network']}"
-            wallet_config = ConfigVar(key="wallet_public_key",
+            wallet_config = ConfigVar(key="wallet_address",
                                       prompt="",
                                       is_secure=False,
                                       is_connect_key=True)
@@ -211,7 +211,7 @@ class AllConnectorSettings:
                 example_pair = "WETH-USDC",
                 use_ethereum_wallet = False,
                 trade_fee_schema=trade_fee_schema,
-                config_keys={"wallet_public_key": wallet_config},
+                config_keys={"wallet_address": wallet_config},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
