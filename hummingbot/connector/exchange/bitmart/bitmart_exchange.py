@@ -6,8 +6,7 @@ import math
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
-from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
-from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS, bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import BitmartInFlightOrder
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_tracker import BitmartOrderBookTracker
@@ -493,7 +492,8 @@ class BitmartExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp
                                ))
         except asyncio.CancelledError:
             raise
@@ -527,7 +527,8 @@ class BitmartExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

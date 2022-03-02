@@ -61,8 +61,9 @@ class TradeFill(HummingbotBase):
         return f"TradeFill(config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
                f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
                f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
-               f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, amount={self.amount}, " \
-               f"leverage={self.leverage}, trade_fee={self.trade_fee}, exchange_trade_id={self.exchange_trade_id}, position={self.position})"
+               f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, " \
+               f"amount={self.amount}, leverage={self.leverage}, trade_fee={self.trade_fee}, " \
+               f"exchange_trade_id={self.exchange_trade_id}, position={self.position})"
 
     @staticmethod
     def get_trades(sql_session: Session,
@@ -122,8 +123,8 @@ class TradeFill(HummingbotBase):
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             age = "n/a"
             if "//" not in trade.order_id:
-                age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime(
-                    '%H:%M:%S')
+                age = pd.Timestamp(int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3),
+                                   unit='s').strftime('%H:%M:%S')
             data.append([
                 trade.exchange_trade_id,
                 datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
