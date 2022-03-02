@@ -402,7 +402,8 @@ class GatewayEVMAMM(ConnectorBase):
             trade_type=trade_type,
             price=price,
             amount=amount,
-            gas_price=gas_price
+            gas_price=gas_price,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

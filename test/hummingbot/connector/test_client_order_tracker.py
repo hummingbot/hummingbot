@@ -60,6 +60,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
 
@@ -76,6 +77,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -94,6 +96,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
                 amount=Decimal("1000.0"),
+                creation_timestamp=1640001112.0,
                 price=Decimal("1.0"),
             )
             self.tracker._cached_orders[order.client_order_id] = order
@@ -110,6 +113,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker._cached_orders[order.client_order_id] = order
@@ -125,6 +129,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         tracker._cached_orders[order.client_order_id] = order
@@ -143,6 +148,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -162,6 +168,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker._cached_orders[order.client_order_id] = order
@@ -178,6 +185,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -195,6 +203,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -203,6 +212,23 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         fetched_order: InFlightOrder = self.tracker.fetch_order(exchange_order_id=order.exchange_order_id)
 
         self.assertTrue(fetched_order == order)
+
+    def test_fetch_order_does_not_match_orders_with_undefined_exchange_id(self):
+        order: InFlightOrder = InFlightOrder(
+            client_order_id="someClientOrderId",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("1.0"),
+        )
+        self.tracker.start_tracking_order(order)
+        self.assertEqual(1, len(self.tracker.active_orders))
+
+        fetched_order = self.tracker.fetch_order("invalid_order_id")
+
+        self.assertIsNone(fetched_order)
 
     def test_process_order_update_invalid_order_update(self):
 
@@ -249,6 +275,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -300,6 +327,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -351,6 +379,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -385,6 +414,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -421,6 +451,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -516,6 +547,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -565,6 +597,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
             trade_fee_percent=self.trade_fee_percent,
@@ -611,6 +644,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -680,6 +714,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
         self.tracker.start_tracking_order(order)
@@ -739,6 +774,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -758,6 +794,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
             initial_state=OrderState.OPEN,
         )
@@ -778,6 +815,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
         ))
         orders.append(InFlightOrder(
             client_order_id="OID2",
@@ -787,6 +825,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
@@ -797,6 +836,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FILLED
         ))
         orders.append(InFlightOrder(
@@ -807,6 +847,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FAILED
         ))
 

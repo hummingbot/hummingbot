@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import asyncio
 
 from decimal import Decimal
@@ -25,7 +24,9 @@ class K2InFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "New"):
+                 creation_timestamp: int,
+                 initial_state: str = "New",
+                 ):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -34,7 +35,8 @@ class K2InFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
-            initial_state
+            creation_timestamp,
+            initial_state,
         )
         self.last_executed_amount_base = Decimal("nan")
         self.trade_id_set = set()
@@ -51,34 +53,6 @@ class K2InFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"Cancelled", "Expired"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        Converts Order details into InFlightOrderBase object
-        :param data: json data from Private/GetOrders API endpoint
-        :return InFlightOrder obj
-        """
-        retval = K2InFlightOrder(
-            client_order_id=data["client_order_id"],
-            exchange_order_id=data["exchange_order_id"],
-            trading_pair=data["trading_pair"],
-            order_type=getattr(OrderType, data["order_type"]),
-            trade_type=getattr(TradeType, data["trade_type"]),
-            price=Decimal(data["price"]),
-            amount=Decimal(data["amount"]),
-            initial_state=data["last_state"]
-        )
-        retval.executed_amount_base = retval.amount - Decimal(str(data["executed_amount_base"]))
-        # TODO: Determine best way to calculate the following
-        # retval.executed_amount_quote = None
-        # retval.executed_amount_quote = None
-        # retval.fee_asset = None
-        # retval.fee_paid = None
-
-        retval.last_state = data["last_state"]
-
-        return retval
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """
