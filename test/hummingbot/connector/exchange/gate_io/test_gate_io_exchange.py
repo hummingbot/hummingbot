@@ -12,8 +12,9 @@ from aioresponses import aioresponses
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
-from hummingbot.core.event.events import MarketEvent, OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
