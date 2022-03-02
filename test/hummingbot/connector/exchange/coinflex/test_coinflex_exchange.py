@@ -18,6 +18,7 @@ from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExc
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
@@ -28,8 +29,6 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
@@ -198,7 +197,7 @@ class CoinflexExchangeTests(TestCase):
                 },
             ]
             order_data["fees"] = {
-                f"{self.base_asset}": "-0.00440786"
+                f"{self.quote_asset}": "-0.00440786"
             }
 
         return {
@@ -614,9 +613,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                f"executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None, "
-                f"trade_fee_percent=None)"
+                f"client_order_id='OID1', exchange_order_id=None)"
             )
         )
 
@@ -668,9 +665,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                "executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None, "
-                "trade_fee_percent=None)"
+                "client_order_id='OID1', exchange_order_id=None)"
             )
         )
 
@@ -845,9 +840,7 @@ class CoinflexExchangeTests(TestCase):
         expected_error = (
             f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
             f" update_timestamp={'1640780000.0'}, new_state={repr(OrderState.FAILED)}, "
-            f"client_order_id='{order.client_order_id}', exchange_order_id=None, "
-            f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
-            f"fee_asset=None, cumulative_fee_paid=None, trade_fee_percent=None)")
+            f"client_order_id='{order.client_order_id}', exchange_order_id=None)")
 
         self.assertTrue(self._is_logged("INFO", expected_error))
 
@@ -982,12 +975,15 @@ class CoinflexExchangeTests(TestCase):
 
         url, regex_url = self._get_regex_url(CONSTANTS.ORDER_PATH_URL, return_url=True, endpoint_api_version="v2.1")
 
-        order_status = self._get_mock_order_data(order)
+        order_status = self._get_mock_order_data(order, is_matched=True)
 
         mock_response = order_status
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
+        # Simulate the order has been filled with a TradeUpdate
+        order.completely_filled_event.set()
         self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(order.wait_until_completely_filled())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
@@ -1001,10 +997,9 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
-        self.assertEqual("COINALPHA", buy_event.fee_asset)
-        self.assertEqual(Decimal("0"), buy_event.base_asset_amount)
-        self.assertEqual(Decimal("0"), buy_event.quote_asset_amount)
-        self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
+        self.assertEqual("HBOT", buy_event.fee_asset)
+        self.assertEqual(Decimal("1"), buy_event.base_asset_amount)
+        self.assertEqual(Decimal("10000"), buy_event.quote_asset_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1100,9 +1095,7 @@ class CoinflexExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={int(order_status['data'][0]['orderClosedTimestamp']) * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
-                f"fee_asset=None, cumulative_fee_paid=None, trade_fee_percent=None)")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
         )
 
     @aioresponses()
@@ -1274,7 +1267,7 @@ class CoinflexExchangeTests(TestCase):
                                                               is_matched=True,
                                                               fill_base_amount="1.00000000",
                                                               fill_price="10050.00000000",
-                                                              fee_asset="BNB",
+                                                              fee_asset="HBOT",
                                                               fee_paid="50")
         sent_order_data = event_message["data"][0]
 
@@ -1309,7 +1302,6 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.amount, buy_event.base_asset_amount)
         exec_amt_quote = Decimal(sent_order_data["matchQuantity"]) * Decimal(sent_order_data["matchPrice"])
         self.assertEqual(exec_amt_quote, buy_event.quote_asset_amount)
-        self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
