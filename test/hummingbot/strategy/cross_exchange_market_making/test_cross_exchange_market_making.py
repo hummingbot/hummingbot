@@ -9,6 +9,7 @@ from nose.plugins.attrib import attr
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -20,10 +21,8 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCreatedEvent,
     SellOrderCompletedEvent,
-    TradeType,
 )
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair

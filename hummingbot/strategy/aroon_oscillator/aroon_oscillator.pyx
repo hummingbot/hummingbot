@@ -3,10 +3,7 @@ import logging
 import os.path
 import time
 from decimal import Decimal
-from math import (
-    ceil,
-    floor,
-)
+from math import ceil, floor
 from typing import (
     List,
     Dict,
@@ -19,14 +16,12 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType
-from hummingbot.core.event.events import PriceType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport \
-    c_calculate_bid_ask_ratios_from_base_asset_ratio
+from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import calculate_total_order_size
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age

@@ -5,10 +5,10 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.core.data_type.common import PositionAction
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.event.events import PositionAction
-from hummingbot.model.trade_fill import TradeFill
 from hummingbot.model.order import Order  # noqa — Order needs to be defined for TradeFill
+from hummingbot.model.trade_fill import TradeFill
 
 trading_pair = "HBOT-USDT"
 base, quote = trading_pair.split("-")
@@ -159,29 +159,31 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         is_trade_fill_mock.return_value = True
         trades = []
         trades.append(self.mock_trade(id="order1",
-                                      amount=100,
-                                      price=10,
+                                      amount=Decimal("100"),
+                                      price=Decimal("10"),
                                       position="OPEN",
                                       type="BUY",
-                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, 0)])))
+                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])))
         trades.append(self.mock_trade(id="order2",
-                                      amount=100,
-                                      price=15,
+                                      amount=Decimal("100"),
+                                      price=Decimal("15"),
                                       position="CLOSE",
                                       type="SELL",
-                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, 0)])))
+                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])))
         trades.append(self.mock_trade(id="order3",
-                                      amount=100,
-                                      price=20,
+                                      amount=Decimal("100"),
+                                      price=Decimal("20"),
                                       position="OPEN",
                                       type="SELL",
-                                      fee=AddedToCostTradeFee(0.1, flat_fees=[TokenAmount("USD", 0)])))
+                                      fee=AddedToCostTradeFee(Decimal("0.1"),
+                                                              flat_fees=[TokenAmount("USD", Decimal("0"))])))
         trades.append(self.mock_trade(id="order4",
-                                      amount=100,
-                                      price=15,
+                                      amount=Decimal("100"),
+                                      price=Decimal("15"),
                                       position="CLOSE",
                                       type="BUY",
-                                      fee=AddedToCostTradeFee(0.1, flat_fees=[TokenAmount("USD", 0)])))
+                                      fee=AddedToCostTradeFee(Decimal("0.1"),
+                                                              flat_fees=[TokenAmount("USD", Decimal("0"))])))
 
         cur_bals = {base: 100, quote: 10000}
         metrics = asyncio.get_event_loop().run_until_complete(
