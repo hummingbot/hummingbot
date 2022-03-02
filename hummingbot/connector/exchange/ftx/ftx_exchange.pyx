@@ -17,7 +17,6 @@ import simplejson
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
-from hummingbot.connector.exchange_base import NaN
 from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
 from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
@@ -26,9 +25,11 @@ from hummingbot.connector.exchange.ftx.ftx_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair
 )
+from hummingbot.connector.exchange_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -40,17 +41,14 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -232,8 +230,12 @@ cdef class FtxExchange(ExchangeBase):
                         tracked_order.trade_type,
                         new_amount,
                         new_price)
-                    fee_amount = fee.fee_amount_in_quote(
-                        tracked_order.trading_pair, new_price, tracked_order.amount, self
+                    fee_amount = fee.fee_amount_in_token(
+                        tracked_order.trading_pair,
+                        new_price,
+                        tracked_order.amount,
+                        token=tracked_order.quote_asset,
+                        exchange=self
                     )
                 else:
                     fee_asset = tracked_order.fee_asset

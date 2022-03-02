@@ -3,12 +3,12 @@ from typing import Dict, List, Optional, Iterator
 
 from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult, ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import OrderType, TradeType, PriceType
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")

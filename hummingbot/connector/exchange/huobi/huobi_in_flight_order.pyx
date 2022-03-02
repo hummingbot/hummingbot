@@ -1,15 +1,8 @@
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict
-)
+from typing import Any, Dict
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
-
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 cdef class HuobiInFlightOrder(InFlightOrderBase):
     def __init__(self,
