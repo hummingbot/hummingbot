@@ -15,7 +15,8 @@ class AltmarketsInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(45000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.223
         )
 
         self.assertTrue(order.is_local)
@@ -28,7 +29,8 @@ class AltmarketsInFlightOrderTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(45000),
-            amount=Decimal(1)
+            amount=Decimal(1),
+            creation_timestamp=1640001112.223
         )
 
         order.update_exchange_order_id("EOID1")

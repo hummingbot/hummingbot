@@ -24,10 +24,10 @@ class GatewayEVMAMMTest(unittest.TestCase):
         global_config_map["gateway_api_host"].value = self.gateway_host
         global_config_map["gateway_api_port"].value = self.gateway_port
         self.connector = GatewayEVMAMM(
-            connector_name = "uniswap",
-            chain = "ethereum",
-            network = "mainnet",
-            wallet_public_key = "0xABCD....1234",
+            connector_name="uniswap",
+            chain="ethereum",
+            network="mainnet",
+            wallet_address="0xABCD....1234",
             trading_pairs=[self.trading_pair],
         )
         self.ev_loop = asyncio.get_event_loop()
@@ -38,7 +38,7 @@ class GatewayEVMAMMTest(unittest.TestCase):
 
     @aioresponses()
     @patch(
-        "hummingbot.connector.gateway_EVM_AMM.GatewayEVMAMM._http_client",
+        "hummingbot.connector.gateway_EVM_AMM.gateway_http_client",
         new_callable=AsyncMock
     )
     def test_get_quote_price_updates_fee_overrides_config_map(self, mocked_api, mocked_http_client):
