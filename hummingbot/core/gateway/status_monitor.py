@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 
 from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 POLL_INTERVAL = 2.0
 POLL_TIMEOUT = 1.0
@@ -34,7 +35,7 @@ class StatusMonitor:
         return self._current_status
 
     def start(self):
-        self._monitor_task = asyncio.create_task(self._monitor_loop())
+        self._monitor_task = safe_ensure_future(self._monitor_loop())
 
     def stop(self):
         if self._monitor_task is not None:

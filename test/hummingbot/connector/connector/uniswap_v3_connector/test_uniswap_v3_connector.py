@@ -1,3 +1,6 @@
+# File commented out because UniswapV3Connector is being rewritten
+
+"""
 import asyncio
 import json
 import unittest
@@ -66,3 +69,4 @@ class UniswapV3ConnectorTest(unittest.TestCase):
         self.assertEqual(
             fee_overrides_config_map["uniswap_v3_taker_fixed_fees"].value, [TokenAmount("ETH", Decimal(str("2")))]
         )
+"""
