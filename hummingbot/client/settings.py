@@ -74,7 +74,7 @@ class ConnectorSetting(NamedTuple):
     the connector file.
     """
 
-    def uses_gateway_generic_connector(self):
+    def uses_gateway_generic_connector(self) -> bool:
         none_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
         return True if self.type not in none_gateway_connectors_types else False
 
