@@ -102,6 +102,7 @@ describe('Configuration manager v2 tests', () => {
       tokenListType: 'URL',
       tokenListSource:
         'https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link',
+      nativeCurrencySymbol: 'ETH',
     });
     expect(configManager.get('ssl.keyPath')).toEqual(newKeyPath);
 
