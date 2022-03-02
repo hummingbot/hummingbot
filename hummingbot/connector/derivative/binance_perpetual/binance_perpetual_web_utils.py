@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -6,7 +6,6 @@ from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -33,9 +32,17 @@ def wss_url(endpoint: str, domain: str = "binance_perpetual"):
 
 
 def build_api_factory(
-        time_synchronizer: TimeSynchronizer,
-        time_provider: Callable,
-        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+        throttler: Optional[AsyncThrottler] = None,
+        time_synchronizer: Optional[TimeSynchronizer] = None,
+        domain: str = CONSTANTS.DOMAIN,
+        time_provider: Optional[Callable] = None,
+        auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+
+    time_synchronizer = time_synchronizer or TimeSynchronizer()
+    time_provider = time_provider or (lambda: get_current_server_time(
+        throttler=throttler,
+        domain=domain,
+    ))
     api_factory = WebAssistantsFactory(
         auth=auth,
         rest_pre_processors=[
@@ -50,9 +57,14 @@ def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistants
     return api_factory
 
 
+def create_throttler() -> AsyncThrottler:
+    return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
+
 async def api_request(path: str,
-                      rest_assistant: RESTAssistant,
-                      throttler: AsyncThrottler,
+                      api_factory: Optional[WebAssistantsFactory] = None,
+                      throttler: Optional[AsyncThrottler] = None,
+                      time_synchronizer: Optional[TimeSynchronizer] = None,
                       domain: str = CONSTANTS.DOMAIN,
                       params: Optional[Dict[str, Any]] = None,
                       data: Optional[Dict[str, Any]] = None,
@@ -62,6 +74,18 @@ async def api_request(path: str,
                       api_version: str = CONSTANTS.API_VERSION,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None):
+
+    throttler = throttler or create_throttler()
+    time_synchronizer = time_synchronizer or TimeSynchronizer()
+
+    # If api_factory is not provided a default one is created
+    # The default instance has no authentication capabilities and all authenticated requests will fail
+    api_factory = api_factory or build_api_factory(
+        throttler=throttler,
+        time_synchronizer=time_synchronizer,
+        domain=domain,
+    )
+    rest_assistant = await api_factory.get_rest_assistant()
 
     async with throttler.execute_task(limit_id=limit_id if limit_id else path):
         url = rest_url(path, domain, api_version)
@@ -88,13 +112,13 @@ async def api_request(path: str,
 
 
 async def get_current_server_time(
-        throttler: AsyncThrottler,
-        domain: str,
+        throttler: Optional[AsyncThrottler] = None,
+        domain: str = CONSTANTS.DOMAIN,
 ) -> float:
-    rest_assistant = await build_api_factory_without_time_synchronizer_pre_processor().get_rest_assistant()
+    api_factory = build_api_factory_without_time_synchronizer_pre_processor()
     response = await api_request(
         path=CONSTANTS.SERVER_TIME_PATH_URL,
-        rest_assistant=rest_assistant,
+        api_factory=api_factory,
         throttler=throttler,
         domain=domain,
         method=RESTMethod.GET)

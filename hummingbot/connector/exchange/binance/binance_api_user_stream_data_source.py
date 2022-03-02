@@ -26,22 +26,21 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: BinanceAuth,
-                 domain: str = "com",
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
         self._auth: BinanceAuth = auth
-        self._time_synchronizer = time_synchronizer or TimeSynchronizer()
+        self._time_synchronizer = time_synchronizer
         self._current_listen_key = None
         self._last_recv_time: float = 0
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory(
+            throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=self._throttler,
-                domain=self._domain),
+            domain=self._domain,
             auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
@@ -98,18 +97,13 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._listen_key_initialized_event.clear()
                 await self._sleep(5)
 
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
-
     async def _get_listen_key(self):
-        rest_assistant = await self._get_rest_assistant()
-
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                rest_assistant=rest_assistant,
+                api_factory=self._api_factory,
                 throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 method=RESTMethod.POST,
                 headers=self._auth.header_for_authentication())
@@ -121,13 +115,12 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return data["listenKey"]
 
     async def _ping_listen_key(self) -> bool:
-        rest_assistant = await self._get_rest_assistant()
-
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                rest_assistant=rest_assistant,
+                api_factory=self._api_factory,
                 throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
@@ -168,11 +161,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
