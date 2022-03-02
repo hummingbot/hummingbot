@@ -11,7 +11,6 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -39,16 +38,15 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         time_synchronizer: Optional[TimeSynchronizer] = None,
     ):
         super().__init__()
-        self._time_synchronizer = time_synchronizer or TimeSynchronizer()
+        self._time_synchronizer = time_synchronizer
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler = throttler
         self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory(
-            auth=auth,
+            throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=self._throttler,
-                domain=self._domain))
-        self._rest_assistant: Optional[RESTAssistant] = None
+            domain=self._domain,
+            auth=auth,
+        )
         self._ws_assistant: Optional[WSAssistant] = None
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -63,29 +61,20 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant.last_recv_time
         return 0
 
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
-
     async def get_listen_key(self):
-        rest_assistant = await self._get_rest_assistant()
         data = None
 
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
-                rest_assistant=rest_assistant,
+                api_factory=self._api_factory,
                 throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 method=RESTMethod.POST,
                 is_auth_required=True)
@@ -100,13 +89,12 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         return data["listenKey"]
 
     async def ping_listen_key(self) -> bool:
-        rest_assistant = await self._get_rest_assistant()
-
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
-                rest_assistant=rest_assistant,
+                api_factory=self._api_factory,
                 throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
