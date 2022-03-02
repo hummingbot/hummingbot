@@ -16,13 +16,12 @@ from typing import (
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
@@ -99,7 +98,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         market_info.market.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
-                int(time.time() * 1e3),
+                time.time(),
                 order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
                 order.trading_pair,
                 TradeType.BUY if order.is_buy else TradeType.SELL,

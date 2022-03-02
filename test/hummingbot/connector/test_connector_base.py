@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 
 

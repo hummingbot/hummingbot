@@ -12,9 +12,8 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class FtxExchangeTests(TestCase):
