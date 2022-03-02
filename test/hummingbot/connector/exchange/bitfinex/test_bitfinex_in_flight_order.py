@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from hummingbot.connector.exchange.bitfinex import OrderStatus
 from hummingbot.connector.exchange.bitfinex.bitfinex_in_flight_order import BitfinexInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class BitfinexInFlightOrderTests(TestCase):

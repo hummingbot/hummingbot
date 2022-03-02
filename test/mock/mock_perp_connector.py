@@ -3,8 +3,8 @@ from typing import Optional
 
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
-from hummingbot.core.event.events import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from test.mock.mock_paper_exchange import MockPaperExchange
 

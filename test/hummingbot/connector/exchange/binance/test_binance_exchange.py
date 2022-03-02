@@ -14,6 +14,7 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
@@ -24,8 +25,6 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 
@@ -266,9 +265,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                f"executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None, "
-                f"trade_fee_percent=None)"
+                f"client_order_id='OID1', exchange_order_id=None)"
             )
         )
 
@@ -321,9 +318,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, trade_id=None, fill_price=None, "
-                "executed_amount_base=None, executed_amount_quote=None, fee_asset=None, cumulative_fee_paid=None, "
-                "trade_fee_percent=None)"
+                "client_order_id='OID1', exchange_order_id=None)"
             )
         )
 
@@ -665,7 +660,7 @@ class BinanceExchangeTests(TestCase):
             "qty": "1",
             "quoteQty": "48.000012",
             "commission": "10.10000000",
-            "commissionAsset": "BNB",
+            "commissionAsset": self.quote_asset,
             "time": 1499865549590,
             "isBuyer": True,
             "isMaker": False,
@@ -868,7 +863,10 @@ class BinanceExchangeTests(TestCase):
         mock_response = order_status
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
+        # Simulate the order has been filled with a TradeUpdate
+        order.completely_filled_event.set()
         self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(order.wait_until_completely_filled())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
@@ -882,10 +880,8 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
-        self.assertIsNone(buy_event.fee_asset)
         self.assertEqual(Decimal(0), buy_event.base_asset_amount)
         self.assertEqual(Decimal(0), buy_event.quote_asset_amount)
-        self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1021,9 +1017,7 @@ class BinanceExchangeTests(TestCase):
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={order_status['updateTime'] * 1e-3}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                f"trade_id=None, fill_price=None, executed_amount_base=None, executed_amount_quote=None, "
-                f"fee_asset=None, cumulative_fee_paid=None, trade_fee_percent=None)")
+                f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}')")
         )
 
     @aioresponses()
@@ -1343,7 +1337,7 @@ class BinanceExchangeTests(TestCase):
             "z": "1.00000000",
             "L": "10050.00000000",
             "n": "50",
-            "N": "BNB",
+            "N": self.quote_asset,
             "T": 1499405658657,
             "t": 1,
             "I": 8641984,
@@ -1386,7 +1380,6 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(event_message["N"], buy_event.fee_asset)
         self.assertEqual(order.amount, buy_event.base_asset_amount)
         self.assertEqual(Decimal(event_message["Z"]), buy_event.quote_asset_amount)
-        self.assertEqual(order.cumulative_fee_paid, buy_event.fee_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)

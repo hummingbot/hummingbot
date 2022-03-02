@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.liquid.liquid_in_flight_order import LiquidInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class LiquidInFlightOrderTests(TestCase):
