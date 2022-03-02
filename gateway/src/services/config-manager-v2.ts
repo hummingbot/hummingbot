@@ -361,7 +361,6 @@ export class ConfigManagerV2 {
 
   loadConfigRoot(configRootPath: string) {
     // Load the config root file.
-    console.log(configRootPath);
     const configRootFullPath: string = fs.realpathSync(configRootPath);
     const configRootTemplateFullPath: string = path.join(
       ConfigTemplatesDir,

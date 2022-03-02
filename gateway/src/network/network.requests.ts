@@ -43,6 +43,7 @@ export interface StatusResponse {
   chainId: number;
   rpcUrl: string;
   currentBlockNumber: number;
+  nativeCurrency: string;
 }
 
 export interface TokensRequest {
