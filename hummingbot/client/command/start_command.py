@@ -86,6 +86,8 @@ class StartCommand:
             import appnope
             appnope.nope()
 
+        self._initialize_notifiers()
+
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
             self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
         for exchange in settings.required_exchanges:
@@ -130,7 +132,6 @@ class StartCommand:
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        self._initialize_notifiers()
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making(self.strategy_name, restore)
 
