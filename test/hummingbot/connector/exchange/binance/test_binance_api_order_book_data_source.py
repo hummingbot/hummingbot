@@ -333,9 +333,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(0, len(result))
 
-    def test_get_throttler_instance(self):
-        self.assertIsInstance(BinanceAPIOrderBookDataSource._get_throttler_instance(), AsyncThrottler)
-
     @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)

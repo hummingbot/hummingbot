@@ -13,6 +13,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth im
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import (
     BinancePerpetualUserStreamDataSource,
 )
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -46,11 +47,12 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
                                          api_secret=self.secret_key,
                                          time_provider=self)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.time_synchronizer = TimeSynchronizer()
+        self.time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source = BinancePerpetualUserStreamDataSource(
-            auth=self.auth, domain=self.domain, throttler=self.throttler
+            auth=self.auth, domain=self.domain, throttler=self.throttler, time_synchronizer=self.time_synchronizer
         )
 
-        self.data_source._time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -141,9 +143,6 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     def test_last_recv_time(self):
         # Initial last_recv_time
         self.assertEqual(0, self.data_source.last_recv_time)
-
-    def test_get_throttler_instance(self):
-        self.assertIsInstance(self.data_source._get_throttler_instance(), AsyncThrottler)
 
     @aioresponses()
     def test_get_listen_key_exception_raised(self, mock_api):

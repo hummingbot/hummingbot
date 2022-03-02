@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -6,11 +6,10 @@ from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-def public_rest_url(path_url: str, domain: str = "com") -> str:
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
@@ -20,7 +19,7 @@ def public_rest_url(path_url: str, domain: str = "com") -> str:
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
 
 
-def private_rest_url(path_url: str, domain: str = "com") -> str:
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
@@ -31,9 +30,16 @@ def private_rest_url(path_url: str, domain: str = "com") -> str:
 
 
 def build_api_factory(
-        time_synchronizer: TimeSynchronizer,
-        time_provider: Callable,
+        throttler: Optional[AsyncThrottler] = None,
+        time_synchronizer: Optional[TimeSynchronizer] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+    time_synchronizer = time_synchronizer or TimeSynchronizer()
+    time_provider = time_provider or (lambda: get_current_server_time(
+        throttler=throttler,
+        domain=domain,
+    ))
     api_factory = WebAssistantsFactory(
         auth=auth,
         rest_pre_processors=[
@@ -47,10 +53,15 @@ def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistants
     return api_factory
 
 
+def create_throttler() -> AsyncThrottler:
+    return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
+
 async def api_request(path: str,
-                      rest_assistant: RESTAssistant,
-                      throttler: AsyncThrottler,
-                      domain: str = "com",
+                      api_factory: Optional[WebAssistantsFactory] = None,
+                      throttler: Optional[AsyncThrottler] = None,
+                      time_synchronizer: Optional[TimeSynchronizer] = None,
+                      domain: str = CONSTANTS.DEFAULT_DOMAIN,
                       params: Optional[Dict[str, Any]] = None,
                       data: Optional[Dict[str, Any]] = None,
                       method: RESTMethod = RESTMethod.GET,
@@ -59,6 +70,17 @@ async def api_request(path: str,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None,
                       headers: Dict[str, Any] = {}):
+    throttler = throttler or create_throttler()
+    time_synchronizer = time_synchronizer or TimeSynchronizer()
+
+    # If api_factory is not provided a default one is created
+    # The default instance has no authentication capabilities and all authenticated requests will fail
+    api_factory = api_factory or build_api_factory(
+        throttler=throttler,
+        time_synchronizer=time_synchronizer,
+        domain=domain,
+    )
+    rest_assistant = await api_factory.get_rest_assistant()
 
     local_headers = {
         "Content-Type": "application/json" if method == RESTMethod.POST else "application/x-www-form-urlencoded"}
@@ -97,13 +119,13 @@ async def api_request(path: str,
 
 
 async def get_current_server_time(
-        throttler: AsyncThrottler,
-        domain: str,
+        throttler: Optional[AsyncThrottler] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
-    rest_assistant = await build_api_factory_without_time_synchronizer_pre_processor().get_rest_assistant()
+    api_factory = build_api_factory_without_time_synchronizer_pre_processor()
     response = await api_request(
         path=CONSTANTS.SERVER_TIME_PATH_URL,
-        rest_assistant=rest_assistant,
+        api_factory=api_factory,
         throttler=throttler,
         domain=domain,
         method=RESTMethod.GET)

@@ -44,15 +44,14 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer: Optional[TimeSynchronizer] = None,
     ):
         super().__init__(trading_pairs)
-        self._time_synchronizer = time_synchronizer or TimeSynchronizer()
+        self._time_synchronizer = time_synchronizer
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler = throttler
         self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory(
+            throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=self._throttler,
-                domain=self._domain))
-        self._ws_assistant: Optional[WSAssistant] = None
+            domain=self._domain,
+        )
         self._order_book_create_function = lambda: OrderBook()
         self._funding_info: Dict[str, FundingInfo] = {}
 
@@ -71,15 +70,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._bpobds_logger = logging.getLogger(__name__)
         return cls._bpobds_logger
 
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
-
     @classmethod
     async def get_last_traded_prices(cls,
                                      trading_pairs: List[str],
@@ -96,16 +86,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     throttler: Optional[AsyncThrottler] = None,
                                     time_synchronizer: Optional[TimeSynchronizer] = None) -> float:
 
-        time_synchronizer = time_synchronizer or TimeSynchronizer()
-        throttler = throttler or cls._get_throttler_instance()
-        api_factory = api_factory or web_utils.build_api_factory(
-            time_synchronizer=time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=throttler,
-                domain=domain)
-        )
-        rest_assistant = await api_factory.get_rest_assistant()
-
         params = {"symbol": await cls.convert_to_exchange_trading_pair(
             hb_trading_pair=trading_pair,
             domain=domain,
@@ -115,8 +95,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         response = await web_utils.api_request(
             path=CONSTANTS.TICKER_PRICE_CHANGE_URL,
-            rest_assistant=rest_assistant,
+            api_factory=api_factory,
             throttler=throttler,
+            time_synchronizer=time_synchronizer,
             domain=domain,
             params=params,
             method=RESTMethod.GET)
@@ -158,21 +139,12 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """Initialize _trading_pair_symbol_map class variable"""
         mapping = bidict()
 
-        time_synchronizer = time_synchronizer or TimeSynchronizer()
-        throttler = throttler or cls._get_throttler_instance()
-        api_factory = api_factory or web_utils.build_api_factory(
-            time_synchronizer=time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=throttler,
-                domain=domain)
-        )
-        rest_assistant = await api_factory.get_rest_assistant()
-
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.EXCHANGE_INFO_URL,
-                rest_assistant=rest_assistant,
+                api_factory=api_factory,
                 throttler=throttler,
+                time_synchronizer=time_synchronizer,
                 domain=domain,
                 method=RESTMethod.GET,
                 timeout=10)
@@ -196,9 +168,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: Optional[WebAssistantsFactory] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
     ) -> List[str]:
-        ob_source_cls = BinancePerpetualAPIOrderBookDataSource
         trading_pair_list: List[str] = []
-        symbols_map = await ob_source_cls.trading_pair_symbol_map(
+        symbols_map = await BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map(
             domain=domain,
             throttler=throttler,
             api_factory=api_factory,
@@ -259,18 +230,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             time_synchronizer: Optional[TimeSynchronizer] = None
     ) -> Dict[str, Any]:
 
-        ob_source_cls = BinancePerpetualAPIOrderBookDataSource
-        time_synchronizer = time_synchronizer or TimeSynchronizer()
-        throttler = throttler or ob_source_cls._get_throttler_instance()
-        api_factory = api_factory or web_utils.build_api_factory(
-            time_synchronizer=time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=throttler,
-                domain=domain)
-        )
-        rest_assistant = await api_factory.get_rest_assistant()
-
-        params = {"symbol": await ob_source_cls.convert_to_exchange_trading_pair(
+        params = {"symbol": await BinancePerpetualAPIOrderBookDataSource.convert_to_exchange_trading_pair(
             hb_trading_pair=trading_pair,
             domain=domain,
             throttler=throttler,
@@ -281,8 +241,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         data = await web_utils.api_request(
             path=CONSTANTS.SNAPSHOT_REST_URL,
-            rest_assistant=rest_assistant,
+            api_factory=api_factory,
             throttler=throttler,
+            time_synchronizer=time_synchronizer,
             domain=domain,
             params=params,
             method=RESTMethod.GET)
@@ -310,8 +271,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: Funding Information of the given trading pair
         :rtype: FundingInfo
         """
-        rest_assistant = await self._api_factory.get_rest_assistant()
-
         params = {"symbol": await self.convert_to_exchange_trading_pair(
             hb_trading_pair=trading_pair,
             domain=self._domain,
@@ -322,8 +281,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.MARK_PRICE_URL,
-                rest_assistant=rest_assistant,
+                api_factory=self._api_factory,
                 throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
                 domain=self._domain,
                 params=params,
                 method=RESTMethod.GET)
@@ -353,7 +313,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_to_order_book_streams(self) -> WSAssistant:
         url = f"{web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
-        ws: WSAssistant = await self._get_ws_assistant()
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
 
         stream_id_channel_pairs = [
