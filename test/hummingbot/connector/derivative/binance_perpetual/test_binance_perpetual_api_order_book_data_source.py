@@ -14,7 +14,7 @@ from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource,
 )
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -41,11 +41,14 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task = None
         self.async_tasks: List[asyncio.Task] = []
 
+        self.time_synchronizer = TimeSynchronizer()
+        self.time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source = BinancePerpetualAPIOrderBookDataSource(
+            time_synchronizer=self.time_synchronizer,
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )
-        self.data_source._time_synchronizer.add_time_offset_ms_sample(0)
+
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -161,9 +164,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         )
         self.assertTrue(self.trading_pair in result)
         self.assertEqual(10.0, result[self.trading_pair])
-
-    def test_get_throttler_instance(self):
-        self.assertTrue(isinstance(self.data_source._get_throttler_instance(), AsyncThrottler))
 
     @aioresponses()
     def test_init_trading_pair_symbols_failure(self, mock_api):

@@ -26,6 +26,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -38,7 +39,6 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -62,7 +62,7 @@ class BinanceExchange(ExchangeBase):
                  binance_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
-                 domain="com"
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
         self._domain = domain
         self._binance_time_synchronizer = TimeSynchronizer()
@@ -74,10 +74,9 @@ class BinanceExchange(ExchangeBase):
             time_provider=self._binance_time_synchronizer)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
             time_synchronizer=self._binance_time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=self._throttler,
-                domain=self._domain),
+            domain=self._domain,
             auth=self._auth)
         self._rest_assistant = None
         self._order_book_tracker = BinanceOrderBookTracker(
@@ -1000,8 +999,9 @@ class BinanceExchange(ExchangeBase):
 
         return await web_utils.api_request(
             path=path_url,
-            rest_assistant=await self._get_rest_assistant(),
+            api_factory=self._api_factory,
             throttler=self._throttler,
+            time_synchronizer=self._binance_time_synchronizer,
             domain=self._domain,
             params=params,
             data=data,

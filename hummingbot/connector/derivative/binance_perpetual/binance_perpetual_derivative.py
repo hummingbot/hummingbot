@@ -85,10 +85,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._domain = domain
         self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
             time_synchronizer=self._binance_time_synchronizer,
-            time_provider=lambda: web_utils.get_current_server_time(
-                throttler=self._throttler,
-                domain=self._domain),
+            domain=self._domain,
             auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
@@ -1323,12 +1322,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                            api_version: str = CONSTANTS.API_VERSION,
                            limit_id: Optional[str] = None):
 
-        rest_assistant = await self._get_rest_assistant()
         try:
             return await web_utils.api_request(
                 path=path,
-                rest_assistant=rest_assistant,
+                api_factory=self._api_factory,
                 throttler=self._throttler,
+                time_synchronizer=self._binance_time_synchronizer,
                 domain=self._domain,
                 params=params,
                 data=data,
