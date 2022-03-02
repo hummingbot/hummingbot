@@ -33,11 +33,10 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee

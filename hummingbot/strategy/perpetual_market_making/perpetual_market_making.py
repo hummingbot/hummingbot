@@ -11,17 +11,19 @@ import pandas as pd
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.common import (
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PriceType,
+    TradeType,
+)
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PriceType,
     SellOrderCompletedEvent,
-    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str

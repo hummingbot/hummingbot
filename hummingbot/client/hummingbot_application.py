@@ -159,6 +159,8 @@ class HummingbotApplication(*commands):
         try:
             if self.placeholder_mode:
                 pass
+            elif len(command_split) == 0:
+                pass
             else:
                 # Check if help is requested, if yes, print & terminate
                 if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):

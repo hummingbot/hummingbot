@@ -11,9 +11,7 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent
-)
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_profits
 from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
