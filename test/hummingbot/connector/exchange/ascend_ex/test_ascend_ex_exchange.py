@@ -3,7 +3,6 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 

@@ -14,7 +14,6 @@ from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchang
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
