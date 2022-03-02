@@ -65,7 +65,7 @@ class HummingbotApplication(*commands):
     def __init__(self):
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
-        self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self.markets: Dict[str, ExchangeBase] = {}
         # strategy file name and name get assigned value after import or create command
         self._strategy_file_name: str = None
@@ -132,8 +132,13 @@ class HummingbotApplication(*commands):
         return None
 
     def _init_gateway_monitor(self):
-        self._gateway_monitor = GatewayStatusMonitor()
-        self._gateway_monitor.start()
+        try:
+            # Do not start the gateway monitor during unit tests.
+            if asyncio.get_running_loop() is not None:
+                self._gateway_monitor = GatewayStatusMonitor()
+                self._gateway_monitor.start()
+        except RuntimeError:
+            pass
 
     def notify(self, msg: str):
         self.app.log(msg)
@@ -153,6 +158,8 @@ class HummingbotApplication(*commands):
             command_split = raw_command.split()
         try:
             if self.placeholder_mode:
+                pass
+            elif len(command_split) == 0:
                 pass
             else:
                 # Check if help is requested, if yes, print & terminate

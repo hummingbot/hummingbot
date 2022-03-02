@@ -1,36 +1,32 @@
+import logging
 from collections import (
     defaultdict,
     deque
 )
 from decimal import Decimal
-import logging
-from math import (
-    floor,
-    ceil
-)
-from numpy import isnan
-import pandas as pd
+from math import ceil, floor
 from typing import (
     List,
+    Optional,
     Tuple,
-    Optional
 )
-from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
-from hummingbot.core.data_type.limit_order cimport LimitOrder
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
+
+import pandas as pd
+
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.event.events import OrderType
-
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.client.performance import PerformanceMetrics
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)

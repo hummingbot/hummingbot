@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from typing import List, Optional
 from decimal import Decimal
 import logging
@@ -6,27 +5,26 @@ import logging
 import pandas as pd
 import unittest
 
+from hummingbot.client.command.config_command import ConfigCommand
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    TradeType,
-    PriceType,
     OrderCancelledEvent)
+from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType,
 )
-from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.client.command.config_command import ConfigCommand
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from test.mock.mock_paper_exchange import MockPaperExchange
 from test.mock.mock_asset_price_delegate import MockAssetPriceDelegate
 
@@ -101,6 +99,7 @@ class PMMUnitTest(unittest.TestCase):
             order_refresh_tolerance_pct=-1,
             minimum_spread=-1
         )
+        self.one_level_strategy.order_tracker._set_current_timestamp(1640001112.223)
 
         self.multi_levels_strategy = PureMarketMakingStrategy()
         self.multi_levels_strategy.init_params(

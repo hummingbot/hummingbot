@@ -1,40 +1,39 @@
 # distutils: language=c++
-from decimal import Decimal
-from libc.stdint cimport int64_t
+import asyncio
 import logging
+from decimal import Decimal
+from functools import partial
 from typing import (
+    Dict,
     List,
     Tuple,
-    Dict
 )
+
 import pandas as pd
-import asyncio
-from functools import partial
-from hummingbot.core.clock cimport Clock
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.limit_order cimport LimitOrder
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler, safe_ensure_future
+from libc.stdint cimport int64_t
+
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.connector.other.celo.celo_cli import (
     CeloCLI,
     CELO_BASE,
     CELO_QUOTE,
 )
 from hummingbot.connector.other.celo.celo_data_types import (
+    CeloArbTradeProfit,
     CeloOrder,
-    CeloArbTradeProfit
 )
-from hummingbot.core.event.events import (
-    OrderType
-)
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler, safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 from hummingbot.model.trade_fill import TradeFill
-
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.strategy_base import StrategyBase
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
