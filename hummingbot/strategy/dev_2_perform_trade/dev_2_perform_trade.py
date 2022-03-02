@@ -12,10 +12,8 @@ import pandas as pd
 from hummingbot.connector.connector_base import OrderType
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    OrderFilledEvent,
-    PriceType,
-)
+from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase

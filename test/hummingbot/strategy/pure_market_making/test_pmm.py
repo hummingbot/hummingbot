@@ -15,10 +15,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    OrderCancelledEvent,
-    PriceType,
-    TradeType,
-)
+    OrderCancelledEvent)
+from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType,

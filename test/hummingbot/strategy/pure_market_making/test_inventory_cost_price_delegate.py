@@ -1,8 +1,8 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.core.event.events import OrderFilledEvent, TradeType
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.model.sql_connection_manager import (
