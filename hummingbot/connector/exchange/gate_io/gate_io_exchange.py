@@ -7,24 +7,23 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
+
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
 from hummingbot.connector.exchange.gate_io.gate_io_user_stream_tracker import GateIoUserStreamTracker
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
-    GateIoAPIError,
-    GateIORESTRequest,
     api_call_with_retries,
     build_gate_io_api_factory,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
+    GateIoAPIError,
+    GateIORESTRequest,
     get_new_client_order_id
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -38,14 +37,15 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
 ctce_logger = None
@@ -462,6 +462,7 @@ class GateIoExchange(ExchangeBase):
                                                  amount,
                                                  price,
                                                  order_id,
+                                                 tracked_order.creation_timestamp,
                                                  exchange_order_id))
         except asyncio.CancelledError:
             raise
@@ -494,7 +495,8 @@ class GateIoExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

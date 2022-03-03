@@ -1,25 +1,20 @@
-#!/usr/bin/env python
-
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
 import asyncio
 import logging
 import math
 import time
 import unittest
-
 from typing import (
     Dict,
-    Optional,
     List,
+    Optional,
 )
 
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker
 from hummingbot.connector.exchange.k2.k2_api_order_book_data_source import K2APIOrderBookDataSource
+from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
 
 
 class K2OrderBookTrackerUnitTest(unittest.TestCase):

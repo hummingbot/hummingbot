@@ -1,8 +1,6 @@
-#!/usr/bin/env python
-
 from hummingbot.strategy.dev_2_perform_trade import PerformTradeStrategy
 from hummingbot.strategy.dev_2_perform_trade.dev_2_perform_trade_config_map import dev_2_perform_trade_config_map
-from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import PriceType
 
 
 def start(self):

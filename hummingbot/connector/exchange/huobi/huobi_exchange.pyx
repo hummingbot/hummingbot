@@ -27,6 +27,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -39,10 +40,8 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -625,11 +624,12 @@ cdef class HuobiExchange(ExchangeBase):
                     tracked_order.trade_type,
                     tracked_order.amount,
                     tracked_order.price)
-                fee_amount = fee.fee_amount_in_quote(
+                fee_amount = fee.fee_amount_in_token(
                     tracked_order.trading_pair,
                     tracked_order.price,
                     tracked_order.amount,
-                    self)
+                    token=tracked_order.quote_asset,
+                    exchange=self)
             else:
                 fee_asset = tracked_order.fee_asset
                 fee_amount = tracked_order.fee_paid
@@ -775,7 +775,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp,
                                  ))
         except asyncio.CancelledError:
             raise
@@ -845,7 +846,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp
                                  ))
         except asyncio.CancelledError:
             raise
@@ -981,7 +983,8 @@ cdef class HuobiExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

@@ -1,6 +1,7 @@
 {
+  "chain": "ethereum",
+  "network": "kovan",
   "address": "$ETH_ADDRESS",
   "spender": "uniswap",
-  "token": "DAI",
-  "nonce": 132
+  "token": "DAI"
 }
