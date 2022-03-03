@@ -1,47 +1,43 @@
-#!/usr/bin/env python
-
-import aiohttp
 import asyncio
 import logging
 import math
 import time
-import ujson
-
 from decimal import Decimal
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
 
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
-from hummingbot.connector.exchange.probit import probit_utils
+import aiohttp
+import ujson
+
+from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS, probit_utils
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
 from hummingbot.connector.exchange.probit.probit_in_flight_order import ProbitInFlightOrder
 from hummingbot.connector.exchange.probit.probit_order_book_tracker import ProbitOrderBookTracker
 from hummingbot.connector.exchange.probit.probit_user_stream_tracker import ProbitUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -496,7 +492,8 @@ class ProbitExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -530,7 +527,8 @@ class ProbitExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

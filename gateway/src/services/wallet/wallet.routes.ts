@@ -36,8 +36,7 @@ export namespace WalletRoutes {
         res: Response<AddWalletResponse, {}>
       ) => {
         validateAddWalletRequest(req.body);
-        await addWallet(req.body);
-        res.status(200).json();
+        res.status(200).json(await addWallet(req.body));
       }
     )
   );

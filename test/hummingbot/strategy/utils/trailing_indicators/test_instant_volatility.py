@@ -19,4 +19,4 @@ class InstantVolatilityTest(unittest.TestCase):
         for sample in samples:
             self.indicator.add_sample(sample)
 
-        self.assertAlmostEqual(self.indicator.current_value, 14.06933307647705, 4)
+        self.assertAlmostEqual(self.indicator.current_value, 14.068197250366211, 4)

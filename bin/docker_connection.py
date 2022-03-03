@@ -130,8 +130,10 @@ def fork_and_start(main_function: Callable):
         # fork the docker process as child.
         docker_process.start()
 
-        # run the main function as parent.
+        # Set the pipe for docker_ipc() functions.
         set_hummingbot_pipe(p1)
+
+        # run the main function as parent.
         main_function()
 
         # stop the gateway container.

@@ -3,31 +3,33 @@ import json
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import (
+    UniswapV3InFlightPosition,
+    UniswapV3PositionStatus,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
-    RangePositionInitiatedEvent,
     RangePositionCreatedEvent,
-    RangePositionRemovedEvent,
     RangePositionFailureEvent,
+    RangePositionInitiatedEvent,
+    RangePositionRemovedEvent,
     RangePositionUpdatedEvent,
-    OrderType,
-    TradeType
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -43,7 +45,7 @@ class UniswapV3Connector(GatewayEVMAMM):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 wallet_public_key: str,
+                 wallet_address: str,
                  trading_pairs: List[str],
                  trading_required: bool = True
                  ):
@@ -51,14 +53,14 @@ class UniswapV3Connector(GatewayEVMAMM):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_public_key: a public key for eth wallet which has been added on gateway
+        :param wallet_address: refers to the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         super().__init__(connector_name,
                          chain,
                          network,
-                         wallet_public_key,
+                         wallet_address,
                          trading_pairs,
                          trading_required)
         self._in_flight_positions: Dict[str, UniswapV3InFlightPosition] = {}
@@ -703,8 +705,16 @@ class UniswapV3Connector(GatewayEVMAMM):
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, hash))
+                self.trigger_event(event_tag,
+                                   event_class(
+                                       self.current_timestamp,
+                                       OrderType.LIMIT,
+                                       trading_pair,
+                                       amount,
+                                       price,
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       hash))
             else:
                 self.stop_tracking_order(order_id)
                 self.trigger_event(MarketEvent.OrderFailure,

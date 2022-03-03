@@ -1,42 +1,43 @@
-#!/usr/bin/env python
-import sys
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 import asyncio
 import contextlib
-import unittest
+import logging
 import os
+import sys
 import time
+import unittest
 from os.path import join, realpath
+from typing import List, Iterator, NamedTuple, Dict
+
+import pandas as pd
+
+from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.clock import (
     ClockMode,
-    Clock
+    Clock,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
+    OrderBookTradeEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
-    OrderBookTradeEvent,
 )
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
-import pandas as pd
-from typing import List, Iterator, NamedTuple, Dict
-import logging
+
 logging.basicConfig(level=logging.INFO)
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
