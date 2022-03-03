@@ -24,6 +24,7 @@ export async function getStatus(
   let chainId: number;
   let rpcUrl: string;
   let currentBlockNumber: number;
+  let nativeCurrency: string;
 
   if (req.chain) {
     if (req.chain === 'avalanche') {
@@ -59,11 +60,13 @@ export async function getStatus(
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
     currentBlockNumber = await connection.getCurrentBlockNumber();
+    nativeCurrency = connection.nativeTokenSymbol;
     statuses.push({
       chain,
       chainId,
       rpcUrl,
       currentBlockNumber,
+      nativeCurrency,
     });
   }
 
