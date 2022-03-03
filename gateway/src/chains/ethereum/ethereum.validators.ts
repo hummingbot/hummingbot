@@ -26,6 +26,10 @@ export const invalidMaxFeePerGasError: string =
 export const invalidMaxPriorityFeePerGasError: string =
   'If maxPriorityFeePerGas is included it must be a string of a non-negative integer.';
 
+export const invalidChainError: string = 'The chain param is not a string.';
+
+export const invalidNetworkError: string = 'The network param is not a string.';
+
 // test if a string matches the shape of an Ethereum address
 export const isAddress = (str: string): boolean => {
   return /^0x[a-fA-F0-9]{40}$/.test(str);
@@ -70,6 +74,18 @@ export const validateMaxPriorityFeePerGas: Validator = mkValidator(
   invalidMaxPriorityFeePerGasError,
   (val) => typeof val === 'string' && isNaturalNumberString(val),
   true
+);
+
+export const validateChain: Validator = mkValidator(
+  'chain',
+  invalidChainError,
+  (val) => typeof val === 'string'
+);
+
+export const validateNetwork: Validator = mkValidator(
+  'network',
+  invalidNetworkError,
+  (val) => typeof val === 'string'
 );
 
 // request types and corresponding validators
