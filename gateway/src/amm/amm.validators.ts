@@ -63,6 +63,10 @@ export const validateBase: Validator = mkValidator(
   (val) => typeof val === 'string'
 );
 
+export const isAddress = (str: string): boolean => {
+  return /^0x[a-fA-F0-9]{40}$/.test(str);
+};
+
 export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,

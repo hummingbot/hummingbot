@@ -7,9 +7,7 @@ import {
   Validator,
   validateToken,
   validateAmount,
-  validateTxHash,
 } from '../../services/validators';
-import { validateNetwork, validateChain } from '../../amm/amm.validators';
 
 // invalid parameter errors
 
@@ -99,15 +97,6 @@ export const validateApproveRequest: RequestValidator = mkRequestValidator([
   validateNonce,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
-]);
-
-export const validatePollRequest: RequestValidator = mkRequestValidator([
-  validateTxHash,
-]);
-
-export const validateTokensRequest: RequestValidator = mkRequestValidator([
-  validateChain,
-  validateNetwork,
 ]);
 
 export const validateCancelRequest: RequestValidator = mkRequestValidator([
