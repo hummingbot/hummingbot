@@ -13,8 +13,11 @@ import {
   TokensRequest,
   TokensResponse,
 } from './network.requests';
-import { validateNetwork, validateChain } from '../amm/amm.validators';
-import { validateBalanceRequest } from '../chains/ethereum/ethereum.validators';
+import {
+  validateNetwork,
+  validateChain,
+  validateBalanceRequest,
+} from '../chains/ethereum/ethereum.validators';
 import { getStatus, getTokens } from './network.controllers';
 import { ConfigManagerV2 } from '../services/config-manager-v2';
 import {
