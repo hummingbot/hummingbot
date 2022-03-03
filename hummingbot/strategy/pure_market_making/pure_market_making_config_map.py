@@ -370,8 +370,9 @@ pure_market_making_config_map = {
                   validator=validate_bool),
     "split_order_levels_enabled":
         ConfigVar(key="split_order_levels_enabled",
-                  prompt="Enable splitting and multiple different order levels spread and amount. "
-                         "This acts as an order overrides which replaces order_amount, order_spreads, order_level_amount, order_level_spreads >>> ",
+                  prompt="Do you want bid and ask orders to be placed at multiple defined spread and amount? "
+                         "(This acts as an overrides which replaces order_amount, order_spreads, "
+                         "order_level_amount, order_level_spreads) (Yes/No) >>> ",
                   default=False,
                   type_str="bool",
                   validator=validate_bool),
