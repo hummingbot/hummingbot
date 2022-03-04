@@ -1,5 +1,6 @@
 import asyncio
 import json
+import platform
 from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable
@@ -96,7 +97,7 @@ class TradeVolumeMetricCollectorTests(TestCase):
 
         self.assertEqual(DummyMetricsCollector, type(metrics_collector))
 
-        del(global_config_map["anonymized_metrics_enabled"])
+        del (global_config_map["anonymized_metrics_enabled"])
 
         metrics_collector = TradeVolumeMetricCollector.from_configuration(
             connector=MagicMock(),
@@ -185,15 +186,21 @@ class TradeVolumeMetricCollectorTests(TestCase):
         self.async_run_with_timeout(self.metrics_collector.collect_metrics([event]))
 
         expected_dispatch_request = {
-            "url": f"{self.metrics_collector_url}/{TradeVolumeMetricCollector.METRIC_NAME}",
+            "url": f"{self.metrics_collector_url}/client_metrics",
             "method": "POST",
             "request_obj": {
                 "headers": {
                     'Content-Type': "application/json"
                 },
-                "data": json.dumps({"instance_id": self.instance_id,
-                                    "exchange": self.connector_name,
-                                    f"{TradeVolumeMetricCollector.METRIC_NAME}": str(event.amount * event.price * 100)}),
+                "data": json.dumps({
+                    "source": "hummingbot",
+                    "name": TradeVolumeMetricCollector.METRIC_NAME,
+                    "instance_id": self.instance_id,
+                    "exchange": self.connector_name,
+                    "version": self.client_version,
+                    "system": f"{platform.system()} {platform.release()}({platform.platform()})",
+                    "value": str(event.amount * event.price * 100)
+                }),
                 "params": {"ddtags": f"instance_id:{self.instance_id},"
                                      f"client_version:{self.client_version},"
                                      f"type:metrics",
@@ -254,15 +261,21 @@ class TradeVolumeMetricCollectorTests(TestCase):
         expected_volume += event_2.amount * Decimal("200")
 
         expected_dispatch_request = {
-            "url": f"{self.metrics_collector_url}/{TradeVolumeMetricCollector.METRIC_NAME}",
+            "url": f"{self.metrics_collector_url}/client_metrics",
             "method": "POST",
             "request_obj": {
                 "headers": {
                     'Content-Type': "application/json"
                 },
-                "data": json.dumps({"instance_id": self.instance_id,
-                                    "exchange": self.connector_name,
-                                    f"{TradeVolumeMetricCollector.METRIC_NAME}": str(expected_volume)}),
+                "data": json.dumps({
+                    "source": "hummingbot",
+                    "name": TradeVolumeMetricCollector.METRIC_NAME,
+                    "instance_id": self.instance_id,
+                    "exchange": self.connector_name,
+                    "version": self.client_version,
+                    "system": f"{platform.system()} {platform.release()}({platform.platform()})",
+                    "value": str(expected_volume)
+                }),
                 "params": {"ddtags": f"instance_id:{self.instance_id},"
                                      f"client_version:{self.client_version},"
                                      f"type:metrics",
