@@ -18,7 +18,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220301"
+GATEWAY_DOCKER_TAG: str = "20220303"
 
 
 def is_inside_docker() -> bool:
@@ -393,7 +393,7 @@ class GatewayHttpClient:
             spender: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "evm/allowances", {
+        return await self.api_request("post", "evm/allowances", {
             "chain": chain,
             "network": network,
             "address": address,
@@ -415,7 +415,7 @@ class GatewayHttpClient:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
-        return await self.api_request("get", "amm/price", {
+        return await self.api_request("post", "amm/price", {
             "chain": chain,
             "network": network,
             "connector": connector,

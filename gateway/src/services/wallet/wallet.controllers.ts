@@ -78,6 +78,7 @@ export async function removeWallet(req: RemoveWalletRequest): Promise<void> {
 }
 
 export async function getDirectories(source: string): Promise<string[]> {
+  await mkdirIfDoesNotExist(walletPath);
   const files = await fse.readdir(source, { withFileTypes: true });
   return files
     .filter((dirent) => dirent.isDirectory())
