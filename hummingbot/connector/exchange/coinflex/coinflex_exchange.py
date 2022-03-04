@@ -878,11 +878,17 @@ class CoinflexExchange(ExchangeBase):
                     continue
 
                 if isinstance(order_result, Exception) or not order_result.get("data"):
-                    self.logger().network(
-                        f"Error fetching status update for the order {client_order_id}: {order_result}.",
-                        app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                    )
-                    self._process_order_not_found(client_order_id, tracked_order)
+                    if not isinstance(order_result, CoinflexAPIError) or order_result.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                        self.logger().network(
+                            f"Error fetching status update for the order {client_order_id}, marking as not found: {order_result}.",
+                            app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
+                        )
+                        self._process_order_not_found(client_order_id, tracked_order)
+                    else:
+                        self.logger().network(
+                            f"Error fetching status update for the order {client_order_id}: {order_result}.",
+                            app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
+                        )
 
                 else:
                     order_update = order_result["data"][0]
