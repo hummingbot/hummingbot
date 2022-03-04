@@ -1099,10 +1099,9 @@ class CoinflexExchangeTests(TestCase):
         )
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_constants.API_MAX_RETRIES")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_constants.API_MAX_RETRIES", new=int(1))
     @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
-    def test_update_order_status_marks_order_as_failure_after_three_errors(self, mock_api, retry_sleep_time_mock, max_retries_mock):
-        max_retries_mock.return_value = 2
+    def test_update_order_status_when_unauthorised(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
@@ -1121,8 +1120,55 @@ class CoinflexExchangeTests(TestCase):
 
         url, regex_url = self._get_regex_url(CONSTANTS.ORDER_PATH_URL, return_url=True, endpoint_api_version="v2.1")
 
-        for i in range(2 * self.exchange.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
+        for i in range(2):
             mock_api.get(regex_url, status=401)
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertEqual(self.exchange_trading_pair, request_params["marketCode"])
+        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self._validate_auth_credentials_for_request(order_request[1][0])
+
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+        expected_error = {"errors": "Unauthorized", "status": 401}
+        self.assertTrue(
+            self._is_logged(
+                "NETWORK",
+                f"Error fetching status update for the order {order.client_order_id}: {expected_error}.")
+        )
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_constants.API_MAX_RETRIES", new=int(2))
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    def test_update_order_status_marks_order_as_failure_after_three_not_found(self, mock_api, retry_sleep_time_mock):
+        retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="100234",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        url, regex_url = self._get_regex_url(CONSTANTS.ORDER_PATH_URL, return_url=True, endpoint_api_version="v2.1")
+
+        order_status = {"data": [{
+            "success": "false",
+            "message": CONSTANTS.ORDER_NOT_FOUND_ERROR
+        }]}
+
+        for i in range(2 * self.exchange.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
+            mock_api.get(regex_url, body=json.dumps(order_status))
 
         for i in range(self.exchange.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
             self.async_run_with_timeout(self.exchange._update_order_status())
@@ -1132,6 +1178,15 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, failure_event.order_id)
         self.assertEqual(order.order_type, failure_event.order_type)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        expected_error = {
+            **order_status,
+            "errors": CONSTANTS.ORDER_NOT_FOUND_ERROR
+        }
+        self.assertTrue(
+            self._is_logged(
+                "NETWORK",
+                f"Error fetching status update for the order {order.client_order_id}, marking as not found: {expected_error}.")
+        )
 
     @aioresponses()
     def test_update_trading_rules(self, mock_api):
