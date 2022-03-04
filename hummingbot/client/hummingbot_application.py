@@ -150,7 +150,7 @@ class HummingbotApplication(*commands):
         if self.app.to_stop_config:
             self.app.to_stop_config = False
 
-        raw_command = raw_command.lower().strip()
+        raw_command = raw_command.strip()
         # NOTE: Only done for config command
         if raw_command.startswith("config"):
             command_split = raw_command.split(maxsplit=2)
