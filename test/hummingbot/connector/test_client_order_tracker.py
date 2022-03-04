@@ -773,7 +773,6 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.223,
             price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
         ))
         orders.append(InFlightOrder(
             client_order_id="OID2",
@@ -784,7 +783,6 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.223,
             price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
             initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
