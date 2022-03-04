@@ -5,12 +5,7 @@ import math
 import random
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
+from typing import Dict, List, Optional, Tuple
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
@@ -18,6 +13,7 @@ from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
 
 from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
@@ -167,6 +163,9 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
+
+        # Trade volume metrics should never be gather for paper trade connector
+        self._trade_volume_metric_collector = DummyMetricsCollector()
 
     @property
     def order_book_tracker(self) -> OrderBookTracker:
