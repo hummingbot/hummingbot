@@ -89,11 +89,15 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
-    gateway_parser = subparsers.add_parser("gateway", help="Gateway API configurations")
-    gateway_parser.add_argument("option", nargs="?", choices=("create", "config", "connect", "generate-certs",
-                                                              "status", "test-connection", "start", "stop"), help="Gateway configuration choices")
-    gateway_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to change")
-    gateway_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
+    gateway_parser = subparsers.add_parser("gateway", help="Gateway API commands")
+    gateway_parser.add_argument("--create", nargs="?", metavar='', default=argparse.SUPPRESS, help="Create gateway docker container instance")
+    gateway_parser.add_argument("--config", nargs="*", default=argparse.SUPPRESS, help="View or update gateway configuration")
+    gateway_parser.add_argument("--connect", nargs="?", metavar='CONNECTOR', default=argparse.SUPPRESS, help="Create/view connection info for gateway connector")
+    gateway_parser.add_argument("--generate-certs", metavar='', nargs="?", default=argparse.SUPPRESS, help="Create ssl certifcate for gateway")
+    gateway_parser.add_argument("--start", nargs="?", metavar='', default=argparse.SUPPRESS, help="Start gateway docker instance")
+    gateway_parser.add_argument("--status", nargs="?", metavar='', default=argparse.SUPPRESS, help="Check status of gateway docker instance")
+    gateway_parser.add_argument("--stop", nargs="?", metavar='', default=argparse.SUPPRESS, help="Stop gateway docker instance")
+    gateway_parser.add_argument("--test-connection", metavar='', nargs="?", default=argparse.SUPPRESS, help="Ping gateway api server")
     gateway_parser.set_defaults(func=hummingbot.gateway)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
