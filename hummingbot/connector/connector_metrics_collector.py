@@ -1,5 +1,6 @@
 import asyncio
 import json
+import platform
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from os.path import dirname, join, realpath
@@ -167,15 +168,20 @@ class TradeVolumeMetricCollector(MetricsCollector):
 
     def _dispatch_trade_volume(self, volume: Decimal):
         metric_request = {
-            "url": f"{self._dispatcher.log_server_url}/{self.METRIC_NAME}",
+            "url": f"{self._dispatcher.log_server_url}/client_metrics",
             "method": "POST",
             "request_obj": {
                 "headers": {
                     'Content-Type': "application/json"
                 },
-                "data": json.dumps({"instance_id": self._instance_id,
-                                    "exchange": self._connector.name,
-                                    f"{self.METRIC_NAME}": str(volume)}),
+                "data": json.dumps({
+                    "source": "hummingbot",
+                    "name": self.METRIC_NAME,
+                    "instance_id": self._instance_id,
+                    "exchange": self._connector.name,
+                    "version": self._client_version,
+                    "system": f"{platform.system()} {platform.release()}({platform.platform()})",
+                    "value": str(volume)}),
                 "params": {"ddtags": f"instance_id:{self._instance_id},"
                                      f"client_version:{self._client_version},"
                                      f"type:metrics",
