@@ -37,6 +37,8 @@ export async function price(
 ): Promise<PriceResponse> {
   const initTime = Date.now();
 
+  // XXX (martin_kou): it's not obvious what getAmount() means.
+  // Also, no type hint.
   const amount = getAmount(
     ethereumish,
     req.amount,
@@ -44,6 +46,7 @@ export async function price(
     req.quote,
     req.base
   );
+  // XXX (martin_kou): no type hints for these either.
   const baseToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.base);
   const quoteToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.quote);
 

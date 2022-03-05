@@ -19,6 +19,7 @@ import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
+
 export class Uniswap implements Uniswapish {
   private static _instances: { [name: string]: Uniswap };
   private ethereum: Ethereum;
@@ -115,11 +116,15 @@ export class Uniswap implements Uniswapish {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
+
+    // XXX (martin_kou): need type hints
     const pair = await Fetcher.fetchPairData(
       tokenIn,
       tokenOut,
       this.ethereum.provider
     );
+
+    // XXX (martin_kou): need type hints.
     const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
       maxHops: 1,
     });
