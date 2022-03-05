@@ -18,7 +18,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220303"
+GATEWAY_DOCKER_TAG: str = "20220305"
 
 
 def is_inside_docker() -> bool:
