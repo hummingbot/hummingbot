@@ -1,5 +1,5 @@
 jest.useFakeTimers();
-import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
+import { Pangolin } from '../../../../src/connectors/pangolin/pangolin';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import {
@@ -10,31 +10,31 @@ import {
   TokenAmount,
   Trade,
   TradeType,
-} from '@uniswap/sdk';
+} from '@pangolindex/sdk';
 import { BigNumber } from 'ethers';
-import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
+import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 
-let ethereum: Ethereum;
-let uniswap: Uniswap;
+let avalanche: Avalanche;
+let pangolin: Pangolin;
 
 const WETH = new Token(
-  3,
+  43114,
   '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
   18,
   'WETH'
 );
-const DAI = new Token(
-  3,
-  '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+const WAVAX = new Token(
+  43114,
+  '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
   18,
-  'DAI'
+  'WAVAX'
 );
 
 beforeAll(async () => {
-  ethereum = Ethereum.getInstance('kovan');
-  await ethereum.init();
-  uniswap = Uniswap.getInstance('ethereum', 'kovan');
-  await uniswap.init();
+  avalanche = Avalanche.getInstance('fuji');
+  await avalanche.init();
+  pangolin = Pangolin.getInstance('avalanche', 'fuji');
+  await pangolin.init();
 });
 
 afterEach(() => {
@@ -45,7 +45,8 @@ const patchFetchPairData = () => {
   patch(Fetcher, 'fetchPairData', () => {
     return new Pair(
       new TokenAmount(WETH, '2000000000000000000'),
-      new TokenAmount(DAI, '1000000000000000000')
+      new TokenAmount(WAVAX, '1000000000000000000'),
+      43114
     );
   });
 };
@@ -53,28 +54,31 @@ const patchFetchPairData = () => {
 const patchTrade = (key: string, error?: Error) => {
   patch(Trade, key, () => {
     if (error) return [];
-    const WETH_DAI = new Pair(
+    const WETH_WAVAX = new Pair(
       new TokenAmount(WETH, '2000000000000000000'),
-      new TokenAmount(DAI, '1000000000000000000')
+      new TokenAmount(WAVAX, '1000000000000000000'),
+      43114
     );
-    const DAI_TO_WETH = new Route([WETH_DAI], DAI);
+    const WAVAX_TO_WETH = new Route([WETH_WAVAX], WAVAX);
     return [
       new Trade(
-        DAI_TO_WETH,
-        new TokenAmount(DAI, '1000000000000000'),
-        TradeType.EXACT_INPUT
+        WAVAX_TO_WETH,
+        new TokenAmount(WAVAX, '1000000000000000'),
+        TradeType.EXACT_INPUT,
+        43114
       ),
     ];
   });
 };
-describe('verify Uniswap estimateSellTrade', () => {
+
+describe('verify Pangolin estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn');
 
-    const expectedTrade = await uniswap.estimateSellTrade(
+    const expectedTrade = await pangolin.estimateSellTrade(
       WETH,
-      DAI,
+      WAVAX,
       BigNumber.from(1)
     );
     expect(expectedTrade).toHaveProperty('trade');
@@ -86,19 +90,19 @@ describe('verify Uniswap estimateSellTrade', () => {
     patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
     await expect(async () => {
-      await uniswap.estimateSellTrade(WETH, DAI, BigNumber.from(1));
+      await pangolin.estimateSellTrade(WETH, WAVAX, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
 
-describe('verify Uniswap estimateBuyTrade', () => {
+describe('verify Pangolin estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut');
 
-    const expectedTrade = await uniswap.estimateBuyTrade(
+    const expectedTrade = await pangolin.estimateBuyTrade(
       WETH,
-      DAI,
+      WAVAX,
       BigNumber.from(1)
     );
     expect(expectedTrade).toHaveProperty('trade');
@@ -110,7 +114,7 @@ describe('verify Uniswap estimateBuyTrade', () => {
     patchTrade('bestTradeExactOut', new Error('error getting trade'));
 
     await expect(async () => {
-      await uniswap.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
+      await pangolin.estimateBuyTrade(WETH, WAVAX, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
   });
 });
