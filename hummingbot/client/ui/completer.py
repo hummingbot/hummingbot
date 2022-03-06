@@ -45,7 +45,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["--create", "--config", "--connect", "--generate-certs", "--status", "--test-connection", "--start", "--stop"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["create", "config", "connect", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
@@ -155,15 +155,15 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_connect_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway --connect ")
+        return text_before_cursor.startswith("gateway connect ")
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway ") and not text_before_cursor.startswith("gateway --config ")
+        return text_before_cursor.startswith("gateway ") and not text_before_cursor.startswith("gateway config ")
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway --config ")
+        return text_before_cursor.startswith("gateway config ")
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
