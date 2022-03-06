@@ -72,7 +72,7 @@ describe('verify Uniswap priceSwapIn', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn');
 
-    const expectedTrade = await uniswap.priceSwapIn(
+    const expectedTrade = await uniswap.estimateSellTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -85,7 +85,7 @@ describe('verify Uniswap priceSwapIn', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
-    const expectedTrade = await uniswap.priceSwapIn(
+    const expectedTrade = await uniswap.estimateSellTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -99,7 +99,7 @@ describe('verify Uniswap priceSwapOut', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut');
 
-    const expectedTrade = await uniswap.priceSwapOut(
+    const expectedTrade = await uniswap.estimateBuyTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -112,7 +112,7 @@ describe('verify Uniswap priceSwapOut', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut', new Error('error getting trade'));
 
-    const expectedTrade = await uniswap.priceSwapOut(
+    const expectedTrade = await uniswap.estimateBuyTrade(
       WETH,
       DAI,
       BigNumber.from(1)

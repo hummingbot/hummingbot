@@ -12,16 +12,16 @@ import {
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE,
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
+  UNKNOWN_ERROR_ERROR_CODE,
+  UNKNOWN_ERROR_MESSAGE,
 } from '../../services/error-handler';
-import {
-  latency,
-  gasCostInEthString,
-  stringWithDecimalToBigNumber,
-} from '../../services/base';
+import { TokenInfo } from '../../services/ethereum-base';
+import { latency, gasCostInEthString } from '../../services/base';
 import {
   Ethereumish,
   ExpectedTrade,
   Uniswapish,
+  Tokenish,
 } from '../../services/common-interfaces';
 import {
   PriceRequest,
@@ -30,68 +30,111 @@ import {
   TradeResponse,
 } from '../../amm/amm.requests';
 
+export interface TradeInfo {
+  baseToken: Tokenish;
+  quoteToken: Tokenish;
+  requestAmount: BigNumber;
+  expectedTrade: ExpectedTrade;
+}
+
+export async function getTradeInfo(
+  ethereumish: Ethereumish,
+  uniswapish: Uniswapish,
+  baseAsset: string,
+  quoteAsset: string,
+  baseAmount: Decimal,
+  tradeSide: string
+): Promise<TradeInfo> {
+  const baseToken: Tokenish = getFullTokenFromSymbol(
+    ethereumish,
+    uniswapish,
+    baseAsset
+  );
+  const quoteToken: Tokenish = getFullTokenFromSymbol(
+    ethereumish,
+    uniswapish,
+    quoteAsset
+  );
+  const requestAmount: BigNumber = BigNumber.from(
+    baseAmount.toFixed(baseToken.decimals).replace('.', '')
+  );
+
+  let expectedTrade: ExpectedTrade;
+  if (tradeSide === 'BUY') {
+    expectedTrade = await uniswapish.estimateBuyTrade(
+      quoteToken,
+      baseToken,
+      requestAmount
+    );
+  } else {
+    expectedTrade = await uniswapish.estimateSellTrade(
+      baseToken,
+      quoteToken,
+      requestAmount
+    );
+  }
+
+  return {
+    baseToken,
+    quoteToken,
+    requestAmount,
+    expectedTrade,
+  };
+}
+
 export async function price(
   ethereumish: Ethereumish,
   uniswapish: Uniswapish,
   req: PriceRequest
 ): Promise<PriceResponse> {
-  const initTime = Date.now();
-
-  // XXX (martin_kou): it's not obvious what getAmount() means.
-  // Also, no type hint.
-  const amount = getAmount(
-    ethereumish,
-    req.amount,
-    req.side,
-    req.quote,
-    req.base
-  );
-  // XXX (martin_kou): no type hints for these either.
-  const baseToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.base);
-  const quoteToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.quote);
-
-  const result: ExpectedTrade | string =
-    req.side === 'BUY'
-      ? await uniswapish.priceSwapOut(
-          quoteToken, // tokenIn is quote asset
-          baseToken, // tokenOut is base asset
-          amount
-        )
-      : await uniswapish.priceSwapIn(
-          baseToken, // tokenIn is base asset
-          quoteToken, // tokenOut is quote asset
-          amount
-        );
-
-  if (typeof result === 'string') {
-    throw new HttpException(
-      500,
-      TRADE_FAILED_ERROR_MESSAGE + result,
-      TRADE_FAILED_ERROR_CODE
+  const startTimestamp: number = Date.now();
+  let tradeInfo: TradeInfo;
+  try {
+    tradeInfo = await getTradeInfo(
+      ethereumish,
+      uniswapish,
+      req.base,
+      req.quote,
+      new Decimal(req.amount),
+      req.side
     );
-  } else {
-    const trade = result.trade;
-    const expectedAmount = result.expectedAmount;
-
-    const tradePrice =
-      req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
-
-    const gasLimit = uniswapish.gasLimit;
-    const gasPrice = ethereumish.gasPrice;
-    return {
-      network: ethereumish.chain,
-      timestamp: initTime,
-      latency: latency(initTime, Date.now()),
-      base: baseToken.address,
-      quote: quoteToken.address,
-      amount: amount.toString(),
-      expectedAmount: expectedAmount.toSignificant(8),
-      price: tradePrice.toSignificant(8),
-      gasPrice: gasPrice,
-      gasLimit: gasLimit,
-      gasCost: gasCostInEthString(gasPrice, gasLimit),
-    };
+  } catch (e) {
+    if (e instanceof Error) {
+      throw new HttpException(
+        500,
+        TRADE_FAILED_ERROR_MESSAGE + e.message,
+        TRADE_FAILED_ERROR_CODE
+      );
+    } else {
+      throw new HttpException(
+        500,
+        UNKNOWN_ERROR_MESSAGE,
+        UNKNOWN_ERROR_ERROR_CODE
+      );
+    }
   }
+
+  const trade = tradeInfo.expectedTrade.trade;
+  const expectedAmount = tradeInfo.expectedTrade.expectedAmount;
+
+  const tradePrice =
+    req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
+
+  const gasLimit = uniswapish.gasLimit;
+  const gasPrice = ethereumish.gasPrice;
+  return {
+    network: ethereumish.chain,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    base: tradeInfo.baseToken.address,
+    quote: tradeInfo.quoteToken.address,
+    amount: tradeInfo.requestAmount.toString(),
+    expectedAmount: expectedAmount.toSignificant(8),
+    price: tradePrice.toSignificant(8),
+    gasPrice: gasPrice,
+    gasLimit: gasLimit,
+    gasCost: gasCostInEthString(gasPrice, gasLimit),
+  };
 }
 
 export async function trade(
@@ -99,7 +142,7 @@ export async function trade(
   uniswapish: Uniswapish,
   req: TradeRequest
 ): Promise<TradeResponse> {
-  const initTime = Date.now();
+  const startTimestamp: number = Date.now();
 
   const { limitPrice, maxFeePerGas, maxPriorityFeePerGas } = req;
 
@@ -122,41 +165,38 @@ export async function trade(
       LOAD_WALLET_ERROR_CODE
     );
   }
-  const amount = getAmount(
-    ethereumish,
-    req.amount,
-    req.side,
-    req.quote,
-    req.base
-  );
-  const baseToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.base);
-  const quoteToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.quote);
 
-  const result: ExpectedTrade | string =
-    req.side === 'BUY'
-      ? await uniswapish.priceSwapOut(
-          quoteToken, // tokenIn is quote asset
-          baseToken, // tokenOut is base asset
-          amount
-        )
-      : await uniswapish.priceSwapIn(
-          baseToken, // tokenIn is base asset
-          quoteToken, // tokenOut is quote asset
-          amount
-        );
-
-  if (typeof result === 'string')
-    throw new HttpException(
-      500,
-      TRADE_FAILED_ERROR_MESSAGE + result,
-      TRADE_FAILED_ERROR_CODE
+  let tradeInfo: TradeInfo;
+  try {
+    tradeInfo = await getTradeInfo(
+      ethereumish,
+      uniswapish,
+      req.base,
+      req.quote,
+      new Decimal(req.amount),
+      req.side
     );
+  } catch (e) {
+    if (e instanceof Error) {
+      throw new HttpException(
+        500,
+        TRADE_FAILED_ERROR_MESSAGE + e.message,
+        TRADE_FAILED_ERROR_CODE
+      );
+    } else {
+      throw new HttpException(
+        500,
+        UNKNOWN_ERROR_MESSAGE,
+        UNKNOWN_ERROR_ERROR_CODE
+      );
+    }
+  }
 
-  const gasPrice = ethereumish.gasPrice;
-  const gasLimit = uniswapish.gasLimit;
+  const gasPrice: number = ethereumish.gasPrice;
+  const gasLimit: number = uniswapish.gasLimit;
 
   if (req.side === 'BUY') {
-    const price = result.trade.executionPrice.invert();
+    const price = tradeInfo.expectedTrade.trade.executionPrice.invert();
     if (
       limitPrice &&
       new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
@@ -169,7 +209,7 @@ export async function trade(
 
     const tx = await uniswapish.executeTrade(
       wallet,
-      result.trade,
+      tradeInfo.expectedTrade.trade,
       gasPrice,
       uniswapish.router,
       uniswapish.ttl,
@@ -192,12 +232,12 @@ export async function trade(
 
     return {
       network: ethereumish.chain,
-      timestamp: initTime,
-      latency: latency(initTime, Date.now()),
-      base: baseToken.address,
-      quote: quoteToken.address,
-      amount: amount.toString(),
-      expectedIn: result.expectedAmount.toSignificant(8),
+      timestamp: startTimestamp,
+      latency: latency(startTimestamp, Date.now()),
+      base: tradeInfo.baseToken.address,
+      quote: tradeInfo.quoteToken.address,
+      amount: tradeInfo.requestAmount.toString(),
+      expectedIn: tradeInfo.expectedTrade.expectedAmount.toSignificant(8),
       price: price.toSignificant(8),
       gasPrice: gasPrice,
       gasLimit: gasLimit,
@@ -206,7 +246,7 @@ export async function trade(
       txHash: tx.hash,
     };
   } else {
-    const price = result.trade.executionPrice;
+    const price = tradeInfo.expectedTrade.trade.executionPrice;
     if (
       limitPrice &&
       new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
@@ -219,7 +259,7 @@ export async function trade(
 
     const tx = await uniswapish.executeTrade(
       wallet,
-      result.trade,
+      tradeInfo.expectedTrade.trade,
       gasPrice,
       uniswapish.router,
       uniswapish.ttl,
@@ -231,12 +271,12 @@ export async function trade(
     );
     return {
       network: ethereumish.chain,
-      timestamp: initTime,
-      latency: latency(initTime, Date.now()),
-      base: baseToken.address,
-      quote: quoteToken.address,
-      amount: amount.toString(),
-      expectedOut: result.expectedAmount.toSignificant(8),
+      timestamp: startTimestamp,
+      latency: latency(startTimestamp, Date.now()),
+      base: tradeInfo.baseToken.address,
+      quote: tradeInfo.quoteToken.address,
+      amount: tradeInfo.requestAmount.toString(),
+      expectedOut: tradeInfo.expectedTrade.expectedAmount.toSignificant(8),
       price: price.toSignificant(8),
       gasPrice: gasPrice,
       gasLimit,
@@ -247,15 +287,16 @@ export async function trade(
   }
 }
 
-function getFullTokenFromSymbol(
+export function getFullTokenFromSymbol(
   ethereumish: Ethereumish,
   uniswapish: Uniswapish,
   tokenSymbol: string
-) {
-  const token = ethereumish.getTokenBySymbol(tokenSymbol);
-  let fullToken;
-  if (token) {
-    fullToken = uniswapish.getTokenByAddress(token.address);
+): Tokenish {
+  const tokenInfo: TokenInfo | undefined =
+    ethereumish.getTokenBySymbol(tokenSymbol);
+  let fullToken: Tokenish | undefined;
+  if (tokenInfo) {
+    fullToken = uniswapish.getTokenByAddress(tokenInfo.address);
   }
   if (!fullToken)
     throw new HttpException(
@@ -264,38 +305,4 @@ function getFullTokenFromSymbol(
       TOKEN_NOT_SUPPORTED_ERROR_CODE
     );
   return fullToken;
-}
-
-function getAmount(
-  ethereumish: Ethereumish,
-  amountAsString: string,
-  side: string,
-  quote: string,
-  base: string
-) {
-  // the amount is passed in as a string. We must validate the value.
-  // If it is a strictly an integer string, we can pass it interpet it as a BigNumber.
-  // If is a float string, we need to know how many decimal places it has then we can
-  // convert it to a BigNumber.
-  let amount: BigNumber;
-  if (amountAsString.indexOf('.') > -1) {
-    let token;
-    if (side === 'BUY') {
-      token = ethereumish.getTokenBySymbol(quote);
-    } else {
-      token = ethereumish.getTokenBySymbol(base);
-    }
-    if (token) {
-      amount = stringWithDecimalToBigNumber(amountAsString, token.decimals);
-    } else {
-      throw new HttpException(
-        500,
-        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
-        TOKEN_NOT_SUPPORTED_ERROR_CODE
-      );
-    }
-  } else {
-    amount = BigNumber.from(amountAsString);
-  }
-  return amount;
 }
