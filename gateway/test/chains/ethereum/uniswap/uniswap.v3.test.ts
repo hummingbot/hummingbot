@@ -200,7 +200,7 @@ describe('verify UniswapV3 priceSwapIn', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
 
-    const expectedTrade = await uniswapV3.priceSwapIn(
+    const expectedTrade = await uniswapV3.estimateSellTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -212,7 +212,7 @@ describe('verify UniswapV3 priceSwapIn', () => {
   it('Should return an error if no pair is available', async () => {
     patchFetchPairData(true);
 
-    const expectedTrade = await uniswapV3.priceSwapIn(
+    const expectedTrade = await uniswapV3.estimateSellTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -225,7 +225,7 @@ describe('verify UniswapV3 priceSwapOut', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
 
-    const expectedTrade = await uniswapV3.priceSwapOut(
+    const expectedTrade = await uniswapV3.estimateBuyTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -237,7 +237,7 @@ describe('verify UniswapV3 priceSwapOut', () => {
   it('Should return an error if no pair is available', async () => {
     patchFetchPairData(true);
 
-    const expectedTrade = await uniswapV3.priceSwapOut(
+    const expectedTrade = await uniswapV3.estimateBuyTrade(
       WETH,
       DAI,
       BigNumber.from(1)

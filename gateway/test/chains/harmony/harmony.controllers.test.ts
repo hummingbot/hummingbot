@@ -1,7 +1,7 @@
 import { BigNumber } from 'ethers';
 import { Harmony } from '../../../src/chains/harmony/harmony';
 import { patch, unpatch } from '../../services/patch';
-import { Token } from '../../../src/services/ethereum-base';
+import { TokenInfo } from '../../../src/services/ethereum-base';
 import {
   nonce,
   getTokenSymbolsToTokens,
@@ -49,7 +49,7 @@ describe('nonce', () => {
   });
 });
 
-const wone: Token = {
+const wone: TokenInfo = {
   chainId: 1666700000,
   name: '"Wrapped ONE',
   symbol: 'WONE',
