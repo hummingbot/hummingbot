@@ -50,27 +50,27 @@ if TYPE_CHECKING:
 
 class GatewayCommand:
     def gateway(self,
-                **kwargs):
-        option = [k for k in kwargs.keys()]
-        if "create" in option:
+                option: str = None,
+                key: str = None,
+                value: str = None):
+        if option == "create":
             safe_ensure_future(self.create_gateway())
-        elif "status" in option:
+        elif option == "status":
             safe_ensure_future(self.gateway_status())
-        elif "config" in option:
-            args = kwargs["config"]
-            if len(args) > 1:
-                safe_ensure_future(self._update_gateway_configuration(*args), loop=self.ev_loop)
+        elif option == "config":
+            if value:
+                safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
             else:
-                safe_ensure_future(self._show_gateway_configuration(*args), loop=self.ev_loop)
-        elif "connect" in option:
-            safe_ensure_future(self.connect_protocol(kwargs["connect"]))
-        elif "test_connection" in option:
+                safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
+        elif option == "connect":
+            safe_ensure_future(self.connect(key))
+        elif option == "test-connection":
             safe_ensure_future(self.test_connection())
-        elif "start" in option:
+        elif option == "start":
             safe_ensure_future(self._start_gateway())
-        elif "stop" in option:
+        elif option == "stop":
             safe_ensure_future(self._stop_gateway())
-        elif "generate_certs" in option:
+        elif option == "generate-certs":
             safe_ensure_future(self.generate_certs())
 
     @staticmethod
@@ -312,7 +312,7 @@ class GatewayCommand:
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
-    async def connect_protocol(self, connector: str = None):
+    async def connect(self, connector: str = None):
         safe_ensure_future(self._connect(connector), loop=self.ev_loop)
 
     async def gateway_status(self):
