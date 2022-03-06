@@ -99,8 +99,8 @@ const patchGasPrice = () => {
   patch(ethereum, 'gasPrice', () => 100);
 };
 
-const patchPriceSwapOut = () => {
-  patch(uniswap, 'priceSwapOut', () => {
+const patchEstimateBuyTrade = () => {
+  patch(uniswap, 'estimateBuyTrade', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -117,8 +117,8 @@ const patchPriceSwapOut = () => {
   });
 };
 
-const patchPriceSwapIn = () => {
-  patch(uniswap, 'priceSwapIn', () => {
+const patchEstimateSellTrade = () => {
+  patch(uniswap, 'estimateSellTrade', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -151,7 +151,7 @@ describe('POST /amm/price', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapOut();
+    patchEstimateBuyTrade();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -169,7 +169,7 @@ describe('POST /amm/price', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.amount).toEqual('10000');
+        expect(res.body.amount).toEqual('10000000000000000000000');
       });
   });
 
@@ -180,7 +180,7 @@ describe('POST /amm/price', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapIn();
+    patchEstimateSellTrade();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -198,7 +198,7 @@ describe('POST /amm/price', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.amount).toEqual('10000');
+        expect(res.body.amount).toEqual('10000000000000000000000');
       });
   });
 
@@ -348,7 +348,7 @@ describe('POST /amm/trade', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapOut();
+    patchEstimateBuyTrade();
     patchGetNonce();
     patchExecuteTrade();
   };
@@ -420,7 +420,7 @@ describe('POST /amm/trade', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapIn();
+    patchEstimateSellTrade();
     patchGetNonce();
     patchExecuteTrade();
   };

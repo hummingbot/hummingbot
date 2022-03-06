@@ -1,6 +1,7 @@
 jest.useFakeTimers();
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { patch, unpatch } from '../../../services/patch';
+import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import {
   Fetcher,
   Pair,
@@ -67,7 +68,7 @@ const patchTrade = (key: string, error?: Error) => {
     ];
   });
 };
-describe('verify Uniswap priceSwapIn', () => {
+describe('verify Uniswap estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn');
@@ -81,20 +82,17 @@ describe('verify Uniswap priceSwapIn', () => {
     expect(expectedTrade).toHaveProperty('expectedAmount');
   });
 
-  it('Should return an error if no pair is available', async () => {
+  it('Should throw an error if no pair is available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactIn', new Error('error getting trade'));
 
-    const expectedTrade = await uniswap.estimateSellTrade(
-      WETH,
-      DAI,
-      BigNumber.from(1)
-    );
-    expect(typeof expectedTrade).toBe('string');
+    await expect(async () => {
+      await uniswap.estimateSellTrade(WETH, DAI, BigNumber.from(1));
+    }).rejects.toThrow(UniswapishPriceError);
   });
 });
 
-describe('verify Uniswap priceSwapOut', () => {
+describe('verify Uniswap estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut');
@@ -112,11 +110,8 @@ describe('verify Uniswap priceSwapOut', () => {
     patchFetchPairData();
     patchTrade('bestTradeExactOut', new Error('error getting trade'));
 
-    const expectedTrade = await uniswap.estimateBuyTrade(
-      WETH,
-      DAI,
-      BigNumber.from(1)
-    );
-    expect(typeof expectedTrade).toBe('string');
+    await expect(async () => {
+      await uniswap.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
+    }).rejects.toThrow(UniswapishPriceError);
   });
 });
