@@ -155,7 +155,8 @@ describe('POST /amm/price', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.amount).toEqual('10000000000000000000000');
+        expect(res.body.amount).toEqual('10000.000000000000000000');
+        expect(res.body.rawAmount).toEqual('10000000000000000000000');
       });
   });
 
@@ -183,7 +184,8 @@ describe('POST /amm/price', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.amount).toEqual('10000000000000000000000');
+        expect(res.body.amount).toEqual('10000.000000000000000000');
+        expect(res.body.rawAmount).toEqual('10000000000000000000000');
       });
   });
 
