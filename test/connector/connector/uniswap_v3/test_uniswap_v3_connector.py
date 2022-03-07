@@ -6,13 +6,10 @@ import time
 import unittest
 from decimal import Decimal
 from os.path import join, realpath
-from typing import (
-    List,
-)
+from typing import List
 from unittest import mock
 
 import conf
-
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_connector import UniswapV3Connector
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -20,11 +17,11 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderType,
     RangePositionCreatedEvent,
     RangePositionRemovedEvent,
 )

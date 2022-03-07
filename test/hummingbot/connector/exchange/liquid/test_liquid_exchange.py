@@ -6,14 +6,13 @@ from unittest import TestCase
 from unittest.mock import AsyncMock
 
 from hummingbot.connector.exchange.liquid.liquid_exchange import LiquidExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
 
 

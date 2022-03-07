@@ -14,10 +14,10 @@ from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConn
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
-    OrderType,
+    MarketOrderFailureEvent,
     SellOrderCompletedEvent,
-    MarketOrderFailureEvent
 )
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
