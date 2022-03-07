@@ -89,12 +89,32 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
-    gateway_parser = subparsers.add_parser("gateway", help="Gateway API configurations")
-    gateway_parser.add_argument("option", nargs="?", choices=("create", "config", "connect", "generate-certs",
-                                                              "status", "test-connection", "start", "stop"), help="Gateway configuration choices")
-    gateway_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to change")
-    gateway_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
-    gateway_parser.set_defaults(func=hummingbot.gateway)
+    gateway_create_parser = subparsers.add_parser("gateway create", help="Create gateway docker container instance")
+    gateway_create_parser.set_defaults(func=hummingbot.create_gateway)
+
+    gateway_config_parser = subparsers.add_parser("gateway config", help="View or update gateway configuration")
+    gateway_config_parser.add_argument("key", nargs=1, default=None, help="Name of the parameter you want to view/change")
+    gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
+    gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
+
+    gateway_connect_parser = subparsers.add_parser("gateway connect", help="Create/view connection info for gateway connector")
+    gateway_connect_parser.add_argument("connector", nargs=1, default=None, help="Name of connector you want to create a profile for")
+    gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
+
+    gateway_cert_parser = subparsers.add_parser("gateway generate-certs", help="Create ssl certifcate for gateway")
+    gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
+
+    gateway_start_parser = subparsers.add_parser("gateway start", help="Start gateway docker instance")
+    gateway_start_parser.set_defaults(func=hummingbot.gateway_start)
+
+    gateway_status_parser = subparsers.add_parser("gateway status", help="Check status of gateway docker instance")
+    gateway_status_parser.set_defaults(func=hummingbot.gateway_status)
+
+    gateway_stop_parser = subparsers.add_parser("gateway stop", help="Stop gateway docker instance")
+    gateway_stop_parser.set_defaults(func=hummingbot.gateway_stop)
+
+    gateway_test_parser = subparsers.add_parser("gateway test-connection", help="Ping gateway api server")
+    gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without cancelling outstanding orders",
