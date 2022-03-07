@@ -52,8 +52,8 @@ class GatewayCommand:
     def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
-    def gateway_connect(self, connector: List[str]):
-        safe_ensure_future(self._connect(connector[0]), loop=self.ev_loop)
+    def gateway_connect(self, connector: str = None):
+        safe_ensure_future(self._connect(connector), loop=self.ev_loop)
 
     def gateway_start(self):
         safe_ensure_future(self._start_gateway(), loop=self.ev_loop)
