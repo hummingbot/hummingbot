@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Any
 import time
 import copy
 import itertools as it
+from async_timeout import timeout
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.gateway import gateway_http_client
@@ -608,8 +609,61 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
+    async def execute_cancel(self, order_id: str, cancel_age: Optional[int] = None) -> str:
+        try:
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                self.logger().error(f"The order {order_id} is not tracked. ")
+                raise ValueError
+
+            # if cancel_age is included, then cancel only if the age of the order
+            # is geq to the cancel_age
+            if cancel_age is not None:
+
+                if (self.current_timestamp - tracked_order.creation_timestamp).total_seconds() < cancel_age:
+                    return
+
+            await gateway_http_client.cancel_evm_transaction(
+                self.chain,
+                self.network,
+                self.address,
+                tracked_order.nonce)
+
+            self.logger().info(f"Requested cancel of order {order_id}")
+
+            return order_id
+
+        except Exception as err:
+            self.logger().error(
+                f"Failed to cancel order {order_id}: {str(err)}.",
+                exc_info=True
+            )
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        return []
+        incomplete_orders = [(key, o) for (key, o) in self._in_flight_orders.items() if not o.is_done]
+        tasks = [self.execute_cancel(key) for (key, _o) in incomplete_orders]
+        order_id_set = set([key for (key, o) in incomplete_orders])
+        successful_cancellations = []
+
+        try:
+            async with timeout(timeout_seconds):
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cr in cancellation_results:
+                    if isinstance(cr, Exception):
+                        continue
+                    if isinstance(cr, dict) and "origClientOrderId" in cr:
+                        client_order_id = cr.get("origClientOrderId")
+                        order_id_set.remove(client_order_id)
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
+        except Exception:
+            self.logger().network(
+                "Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel orders on {self.chain}-{self.network}."
+            )
+
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     @property
     def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
