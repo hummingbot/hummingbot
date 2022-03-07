@@ -103,7 +103,7 @@ class StartCommand:
                     data = []
                     data.append(["chain", connector_details['chain']])
                     data.append(["network", connector_details['network']])
-                    data.append(["wallet_address", connector_details['wallet_public_key']])
+                    data.append(["wallet_address", connector_details['wallet_address']])
                     await UserBalances.instance().update_exchange_balance(connector)
                     balances = [f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
                                 for k, v in UserBalances.instance().all_balances(connector).items()]
