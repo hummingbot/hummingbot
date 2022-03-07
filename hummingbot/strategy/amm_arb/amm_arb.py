@@ -7,6 +7,7 @@ from typing import List, Dict, Tuple, Optional
 
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -90,6 +91,7 @@ class AmmArbStrategy(StrategyPyBase):
         self._market_2_quote_eth_rate = None
 
         self._rate_source = RateOracle.get_instance()
+        self._gateway_transaction_cancel_interval = gateway_transaction_cancel_interval
 
     @property
     def min_profitability(self) -> Decimal:
@@ -148,10 +150,13 @@ class AmmArbStrategy(StrategyPyBase):
             return
         self.apply_slippage_buffers(arb_proposals)
         self.apply_budget_constraint(arb_proposals)
+        await self.apply_gateway_transaction_cancel_interval(self._market_info_1)
+        await self.apply_gateway_transaction_cancel_interval(self._market_info_2)
         await self.execute_arb_proposals(arb_proposals)
 
-    # def apply_gateway_transaction_cancel_interval(self):
-    # run cancel for any gateway connector
+    async def apply_gateway_transaction_cancel_interval(self, market: MarketTradingPairTuple):
+        if isinstance(market, GatewayEVMAMM):
+            await market.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
 
     def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
         """
