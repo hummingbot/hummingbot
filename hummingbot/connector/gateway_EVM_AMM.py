@@ -639,9 +639,12 @@ class GatewayEVMAMM(ConnectorBase):
                 exc_info=True
             )
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def cancel_outdated_orders(self, cancel_age: int):
+        self.cancel_all(30.0, cancel_age)
+
+    async def cancel_all(self, timeout_seconds: float, cancel_age: Optional[int]) -> List[CancellationResult]:
         incomplete_orders = [(key, o) for (key, o) in self._in_flight_orders.items() if not o.is_done]
-        tasks = [self.execute_cancel(key) for (key, _o) in incomplete_orders]
+        tasks = [self.execute_cancel(key, cancel_age) for (key, _o) in incomplete_orders]
         order_id_set = set([key for (key, o) in incomplete_orders])
         successful_cancellations = []
 
