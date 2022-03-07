@@ -101,9 +101,11 @@ class ConnectorSetting(NamedTuple):
 
     def base_name(self) -> str:
         if self.is_sub_domain:
+            if self.parent_name == "peerplays": # CORE GRAPHENE EDIT
+                return "graphene"
             return self.parent_name
         else:
-            return self.name
+            return self.name if self.name != "peerplays" else "graphene" # CORE GRAPHENE EDIT
 
 
 class AllConnectorSettings:
@@ -131,10 +133,11 @@ class AllConnectorSettings:
                     util_module = importlib.import_module(path)
                 except ModuleNotFoundError:
                     continue
+                name = "peerplays" if connector_dir.name == "graphene" else connector_dir.name # CORE GRAPHENE EDIT
                 trade_fee_schema = getattr(util_module, "DEFAULT_FEES", None)
-                trade_fee_schema = cls._validate_trade_fee_schema(connector_dir.name, trade_fee_schema)
-                cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
-                    name=connector_dir.name,
+                trade_fee_schema = cls._validate_trade_fee_schema(name, trade_fee_schema)
+                cls.all_connector_settings[name] = ConnectorSetting( # CORE GRAPHENE EDIT
+                    name=name, # CORE GRAPHENE EDIT
                     type=ConnectorType[type_dir.name.capitalize()],
                     centralised=getattr(util_module, "CENTRALIZED", True),
                     example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
@@ -151,7 +154,7 @@ class AllConnectorSettings:
                 for domain in other_domains:
                     trade_fee_schema = getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain]
                     trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_schema)
-                    parent = cls.all_connector_settings[connector_dir.name]
+                    parent = cls.all_connector_settings[name] # CORE GRAPHENE EDIT
                     cls.all_connector_settings[domain] = ConnectorSetting(
                         name=domain,
                         type=parent.type,

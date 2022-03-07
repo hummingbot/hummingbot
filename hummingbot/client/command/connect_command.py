@@ -66,7 +66,8 @@ class ConnectCommand:
             network_timeout = float(global_config_map["other_commands_timeout"].value)
             try:
                 err_msg = await asyncio.wait_for(
-                    UserBalances.instance().add_exchange(exchange, **api_keys), network_timeout
+                    UserBalances.instance().add_exchange(exchange, **api_keys), 
+                    network_timeout if exchange not in ["peerplays", "bitshares", "peerplays testnet", "bitshares testnet"] else 120 # CORE GRAPHENE EDIT
                 )
             except asyncio.TimeoutError:
                 self._notify("\nA network error prevented the connection to complete. See logs for more details.")

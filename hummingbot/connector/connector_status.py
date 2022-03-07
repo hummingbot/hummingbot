@@ -11,6 +11,9 @@ connector_status = {
     'binance_us': 'green',
     'bitfinex': 'yellow',
     'bitmart': 'yellow',
+    # CORE GRAPHENE EDIT
+    'bitshares': 'green',
+    'bitshares_testnet': 'green',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
     'bybit_perpetual': 'yellow',
@@ -35,6 +38,9 @@ connector_status = {
     'ndax': 'yellow',
     'ndax_testnet': 'yellow',
     'okex': 'yellow',
+    # CORE GRAPHENE EDIT
+    'peerplays': 'green',
+    'peerplays_testnet': 'green',
     'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
