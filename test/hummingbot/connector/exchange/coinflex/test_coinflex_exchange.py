@@ -989,7 +989,7 @@ class CoinflexExchangeTests(TestCase):
                               if key[1].human_repr().startswith(url)))
         request_params = order_request[1][0].kwargs["params"]
         self.assertEqual(self.exchange_trading_pair, request_params["marketCode"])
-        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
@@ -1040,7 +1040,7 @@ class CoinflexExchangeTests(TestCase):
                               if key[1].human_repr().startswith(url)))
         request_params = order_request[1][0].kwargs["params"]
         self.assertEqual(self.exchange_trading_pair, request_params["marketCode"])
-        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
@@ -1082,7 +1082,7 @@ class CoinflexExchangeTests(TestCase):
                               if key[1].human_repr().startswith(url)))
         request_params = order_request[1][0].kwargs["params"]
         self.assertEqual(self.exchange_trading_pair, request_params["marketCode"])
-        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
@@ -1129,7 +1129,7 @@ class CoinflexExchangeTests(TestCase):
                               if key[1].human_repr().startswith(url)))
         request_params = order_request[1][0].kwargs["params"]
         self.assertEqual(self.exchange_trading_pair, request_params["marketCode"])
-        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
         self._validate_auth_credentials_for_request(order_request[1][0])
 
         self.assertIn(order.client_order_id, self.exchange.in_flight_orders)

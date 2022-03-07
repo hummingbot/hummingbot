@@ -844,6 +844,34 @@ class CoinflexExchange(ExchangeBase):
             return True
         return False
 
+    async def _fetch_order_status(self, tracked_order) -> Dict[str, Any]:
+        """
+        Helper function to fetch order status.
+        Returns a dictionary with the response.
+        """
+        order_params = {
+            "marketCode": await CoinflexAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                trading_pair=tracked_order.trading_pair,
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler)
+        }
+
+        # If we get the exchange order id, use that, otherwise use client order id.
+        try:
+            async with timeout(self._sleep_time(1)):
+                await tracked_order.get_exchange_order_id()
+            order_params["orderId"] = tracked_order.exchange_order_id
+        except asyncio.TimeoutError:
+            order_params["clientOrderId"] = tracked_order.client_order_id
+
+        return await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.ORDER_PATH_URL,
+            params=order_params,
+            is_auth_required=True,
+            endpoint_api_version="v2.1")
+
     async def _update_order_status(self):
         """
         This is intended to be a backup measure to close straggler orders, in case CoinFLEX's user stream events
@@ -856,18 +884,7 @@ class CoinflexExchange(ExchangeBase):
         tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
         if current_tick > last_tick and len(tracked_orders) > 0:
 
-            tasks = [self._api_request(
-                     method=RESTMethod.GET,
-                     path_url=CONSTANTS.ORDER_PATH_URL,
-                     params={
-                         "marketCode": await CoinflexAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                             trading_pair=o.trading_pair,
-                             domain=self._domain,
-                             api_factory=self._api_factory,
-                             throttler=self._throttler),
-                         "clientOrderId": o.client_order_id},
-                     is_auth_required=True,
-                     endpoint_api_version="v2.1") for o in tracked_orders]
+            tasks = [self._fetch_order_status(o) for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_result, tracked_order in zip(results, tracked_orders):
