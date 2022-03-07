@@ -8,11 +8,10 @@ from typing import (
 from hummingbot.connector.exchange.bitfinex import OrderStatus
 from hummingbot.connector.exchange.bitfinex.bitfinex_utils import convert_from_exchange_token, split_trading_pair
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
+from hummingbot.core.data_type.common import (
     OrderType,
     TradeType,
 )
-
 
 cdef class BitfinexInFlightOrder(InFlightOrderBase):
     def __init__(self,

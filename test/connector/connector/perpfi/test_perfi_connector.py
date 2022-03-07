@@ -14,11 +14,10 @@ from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_derivat
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
-    OrderType,
     SellOrderCompletedEvent,
     MarketOrderFailureEvent,
-    PositionAction, PositionMode
 )
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType

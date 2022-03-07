@@ -22,11 +22,11 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
     OrderCancelledEvent
 )
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
