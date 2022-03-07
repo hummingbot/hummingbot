@@ -5,14 +5,14 @@ from collections import OrderedDict
 from decimal import Decimal
 from os import listdir, unlink
 from os.path import isfile, join
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 import ruamel.yaml
 from eth_account import Account
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
-from hummingbot import get_strategy_list
+from hummingbot import get_strategy_list, root_path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
@@ -26,6 +26,9 @@ from hummingbot.client.settings import (
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
 )
+
+if TYPE_CHECKING:  # avoid circular import problems
+    from hummingbot.client.config.config_data_types import BaseClientModel
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -222,12 +225,47 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
     return None
 
 
+def read_yml_file(yml_path: str) -> Dict[str, Any]:
+    with open(yml_path, "r") as file:
+        data = yaml_parser.load(file) or {}
+    return dict(data)
+
+
+def load_pydantic_config(strategy_name: str, yml_path: str) -> Optional["BaseClientModel"]:
+    """
+    Resolves the pydantic model with the given strategy filepath. Subsequenty load and return the config as a `Model`
+
+    :param strategy_name: Strategy name.
+    :type strategy_name: str
+    :param yml_path: Strategy file path.
+    :type yml_path: str
+    :return: The strategy configurations.
+    :rtype: Optional[BaseClientModel]
+    """
+    try:
+        pydantic_cm_pkg = f"{strategy_name}_config_map_pydantic"
+        if not isfile(f"{root_path()}/hummingbot/strategy/{strategy_name}/{pydantic_cm_pkg}.py"):
+            return None
+
+        pydantic_cm_class_name = f"{''.join([s.capitalize() for s in strategy_name.split('_')])}ConfigMap"
+        pydantic_cm_mod = __import__(f"hummingbot.strategy.{strategy_name}.{pydantic_cm_pkg}",
+                                     fromlist=[f"{pydantic_cm_class_name}"])
+        pydantic_cm_class = getattr(pydantic_cm_mod, pydantic_cm_class_name)
+        return pydantic_cm_class(**read_yml_file(yml_path))
+    except Exception as e:
+        logging.getLogger().error(f"Error loading pydantic configs. Your config file may be corrupt. {e}",
+                                  exc_info=True)
+        return None
+
+
 async def update_strategy_config_map_from_file(yml_path: str) -> str:
-    strategy = strategy_name_from_file(yml_path)
-    config_map = get_strategy_config_map(strategy)
-    template_path = get_strategy_template_path(strategy)
-    await load_yml_into_cm(yml_path, template_path, config_map)
-    return strategy
+    strategy_name = strategy_name_from_file(yml_path)
+    pydantic_conf: "BaseClientModel" = load_pydantic_config(strategy_name, yml_path)
+    if pydantic_conf is None:
+        config_map = get_strategy_config_map(strategy_name)
+        template_path = get_strategy_template_path(strategy_name)
+        await load_yml_into_cm(yml_path, template_path, config_map)
+    return strategy_name
 
 
 async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
