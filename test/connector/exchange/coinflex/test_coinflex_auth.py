@@ -15,7 +15,6 @@ from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
     CoinflexRESTRequest,
 )
 from hummingbot.connector.exchange.coinflex import coinflex_utils
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import (
     RESTMethod,
@@ -35,19 +34,34 @@ class TestAuth(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         cls._domain = os.getenv("COINFLEX_DOMAIN", "live")
+        cls._test_order_id = os.getenv("TEST_ORDER_STATUS_ID")
         cls._logger = logging.getLogger(__name__)
         api_key = conf.coinflex_api_key
         secret_key = conf.coinflex_api_secret
-        cls._coinflex_time_synchronizer = TimeSynchronizer()
         cls._auth = CoinflexAuth(
             api_key=api_key,
-            secret_key=secret_key,
-            time_provider=cls._coinflex_time_synchronizer)
+            secret_key=secret_key)
         cls._api_factory = build_api_factory(auth=cls._auth)
 
     async def rest_auth(self) -> RESTResponse:
         rest_assistant = await self._api_factory.get_rest_assistant()
         request = CoinflexRESTRequest(method=RESTMethod.GET, endpoint=CONSTANTS.ACCOUNTS_PATH_URL, domain=self._domain, is_auth_required=True)
+        response = await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=self._throttler, logger=self._logger)
+        return response
+
+    async def rest_auth_order_status(self) -> RESTResponse:
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        params = {
+            "marketCode": "BTC-USD",
+            "orderId": self._test_order_id,
+        }
+        request = CoinflexRESTRequest(method=RESTMethod.GET,
+                                      endpoint=CONSTANTS.ORDER_PATH_URL,
+                                      domain=self._domain,
+                                      is_auth_required=True,
+                                      params=params,
+                                      endpoint_api_version="v2.1",
+                                      disable_retries=True)
         response = await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=self._throttler, logger=self._logger)
         return response
 
@@ -73,6 +87,12 @@ class TestAuth(unittest.TestCase):
         assert "event" in result
         assert result["event"] == "balances"
         assert "data" in result
+
+    def test_rest_auth_order_status(self):
+        if self._test_order_id:
+            print()
+            result = self.ev_loop.run_until_complete(self.rest_auth_order_status())
+            print(result)
 
     def test_ws_auth(self):
         try:
