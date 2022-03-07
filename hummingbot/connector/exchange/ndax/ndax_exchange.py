@@ -1,10 +1,7 @@
-import aiohttp
 import asyncio
 import logging
 import math
 import time
-import ujson
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -15,21 +12,28 @@ from typing import (
     Union,
 )
 
+import aiohttp
+import ujson
+
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
-    NdaxInFlightOrder, NdaxInFlightOrderNotCreated
+    NdaxInFlightOrder,
+    NdaxInFlightOrderNotCreated,
 )
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -37,16 +41,12 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -475,6 +475,7 @@ class NdaxExchange(ExchangeBase):
                                order.amount,
                                order.price,
                                order.client_order_id,
+                               order.creation_timestamp,
                                exchange_order_id=order.exchange_order_id
                            ))
 
@@ -742,7 +743,8 @@ class NdaxExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
