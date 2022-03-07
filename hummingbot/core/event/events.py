@@ -1,11 +1,11 @@
-#!/usr/bin/env python
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
 
 
 class MarketEvent(Enum):
@@ -33,42 +33,12 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class HummingbotUIEvent(Enum):
+    Start = 1
+
+
 class RemoteEvent(Enum):
     RemoteCmdEvent = 2001
-
-
-class TradeType(Enum):
-    BUY = 1
-    SELL = 2
-    RANGE = 3
-
-
-class OrderType(Enum):
-    MARKET = 1
-    LIMIT = 2
-    LIMIT_MAKER = 3
-
-    def is_limit_type(self):
-        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
-
-
-class PositionAction(Enum):
-    OPEN = "OPEN"
-    CLOSE = "CLOSE"
-    NIL = "NIL"
-
-
-# For Derivatives Exchanges
-class PositionSide(Enum):
-    LONG = "LONG"
-    SHORT = "SHORT"
-    BOTH = "BOTH"
-
-
-# For Derivatives Exchanges
-class PositionMode(Enum):
-    HEDGE = True
-    ONEWAY = False
 
 
 class FundingInfo(NamedTuple):
@@ -77,16 +47,6 @@ class FundingInfo(NamedTuple):
     mark_price: Decimal
     next_funding_utc_timestamp: int
     rate: Decimal
-
-
-class PriceType(Enum):
-    MidPrice = 1
-    BestBid = 2
-    BestAsk = 3
-    LastTrade = 4
-    LastOwnTrade = 5
-    InventoryCost = 6
-    Custom = 7
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -168,7 +128,7 @@ class OrderFilledEvent(NamedTuple):
     trade_fee: TradeFeeBase
     exchange_trade_id: str = ""
     leverage: Optional[int] = 1
-    position: Optional[str] = "NIL"
+    position: Optional[str] = PositionAction.NIL.value
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -179,11 +139,21 @@ class OrderFilledEvent(NamedTuple):
                                                  order_type: OrderType,
                                                  trade_fee: TradeFeeBase,
                                                  order_book_rows: List[OrderBookRow],
-                                                 exchange_trade_id: str = "") -> List["OrderFilledEvent"]:
+                                                 exchange_trade_id: Optional[str] = None) -> List["OrderFilledEvent"]:
+        if exchange_trade_id is None:
+            exchange_trade_id = order_id
         return [
-            OrderFilledEvent(timestamp, order_id, trading_pair, trade_type, order_type,
-                             Decimal(r.price), Decimal(r.amount), trade_fee, exchange_trade_id=exchange_trade_id)
-            for r in order_book_rows
+            OrderFilledEvent(
+                timestamp,
+                order_id,
+                trading_pair,
+                trade_type,
+                order_type,
+                Decimal(row.price),
+                Decimal(row.amount),
+                trade_fee,
+                exchange_trade_id=f"{exchange_trade_id}_{index}")
+            for index, row in enumerate(order_book_rows)
         ]
 
     @classmethod
@@ -212,9 +182,10 @@ class BuyOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
+    creation_timestamp: float
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
 
 @dataclass
@@ -225,9 +196,10 @@ class SellOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
+    creation_timestamp: float
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
-    position: Optional[str] = "NILL"
+    position: Optional[str] = PositionAction.NIL.value
 
 
 @dataclass

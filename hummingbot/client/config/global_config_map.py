@@ -3,6 +3,9 @@ import re
 from typing import Callable, Optional
 from decimal import Decimal
 import os.path
+
+from tabulate import tabulate_formats
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
@@ -366,6 +369,14 @@ main_config_map = {
                   validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   required_if=lambda: False,
                   default=Decimal("30")),
+    "tables_format":
+        ConfigVar(key="tables_format",
+                  prompt="What tabulate formatting to apply to the tables?"
+                         " [https://github.com/astanin/python-tabulate#table-format] >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=lambda value: "Invalid format" if value not in tabulate_formats else None,
+                  default="psql"),
 }
 
 key_config_map = connector_keys()

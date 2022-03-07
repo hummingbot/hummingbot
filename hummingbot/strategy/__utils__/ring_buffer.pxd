@@ -5,13 +5,12 @@ cimport numpy as np
 cdef class RingBuffer:
     cdef:
         np.float64_t[:] _buffer
-        int64_t _start_index
-        int64_t _stop_index
+        int64_t _delimiter
         int64_t _length
         bint _is_full
 
     cdef void c_add_value(self, float val)
-    cdef void c_increment_index(self)
+    cdef void c_increment_delimiter(self)
     cdef double c_get_last_value(self)
     cdef bint c_is_full(self)
     cdef bint c_is_empty(self)

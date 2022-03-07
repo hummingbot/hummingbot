@@ -1,4 +1,3 @@
-
 import logging
 from typing import (
     Any,
@@ -7,10 +6,10 @@ from typing import (
 )
 
 from hummingbot.connector.exchange.mexc.mexc_order_book_message import MexcOrderBookMessage
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.logger import HummingbotLogger
 
 _logger = None
 

@@ -1,16 +1,16 @@
-#!/usr/bin/env python
 import logging
 from typing import (
     Dict,
     Optional
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.event.events import TradeType
+
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
+from hummingbot.logger import HummingbotLogger
 
 _krob_logger = None
 

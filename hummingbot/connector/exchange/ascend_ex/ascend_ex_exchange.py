@@ -1,39 +1,36 @@
-import aiohttp
 import asyncio
 import json
 import logging
 import time
-
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
 
+import aiohttp
+
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import (
-    OrderType, TradeType
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -204,8 +201,7 @@ class AscendExExchange(ExchangePyBase):
         when it disconnects.
         :param saved_states: The saved tracking_states.
         """
-        for data in saved_states.values():
-            self._in_flight_order_tracker.start_tracking_order(InFlightOrder.from_json(data))
+        self._in_flight_order_tracker.restore_tracking_states(tracking_states=saved_states)
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -563,7 +559,7 @@ class AscendExExchange(ExchangePyBase):
                         client_order_id=order_id,
                         exchange_order_id=str(order_data["orderId"]),
                         trading_pair=trading_pair,
-                        update_timestamp=order_data["lastExecTime"],
+                        update_timestamp=order_data["lastExecTime"] * 1e-3,
                         new_state=OrderState.OPEN,
                     )
                 elif resp_status == "DONE":
@@ -571,20 +567,15 @@ class AscendExExchange(ExchangePyBase):
                         client_order_id=order_id,
                         exchange_order_id=str(order_data["orderId"]),
                         trading_pair=trading_pair,
-                        update_timestamp=order_data["lastExecTime"],
+                        update_timestamp=order_data["lastExecTime"] * 1e-3,
                         new_state=CONSTANTS.ORDER_STATE[order_data["status"]],
-                        fill_price=Decimal(order_data["avgPx"]),
-                        executed_amount_base=Decimal(order_data["cumFilledQty"]),
-                        executed_amount_quote=Decimal(order_data["avgPx"]) * Decimal(order_data["cumFilledQty"]),
-                        fee_asset=order_data["feeAsset"],
-                        cumulative_fee_paid=Decimal(order_data["cumFee"]),
                     )
                 elif resp_status == "ERR":
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         exchange_order_id=str(order_data["orderId"]),
                         trading_pair=trading_pair,
-                        update_timestamp=order_data["lastExecTime"],
+                        update_timestamp=order_data["lastExecTime"] * 1e-3,
                         new_state=OrderState.FAILED,
                     )
                 self._in_flight_order_tracker.process_order_update(order_update)
@@ -620,6 +611,7 @@ class AscendExExchange(ExchangePyBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
+                creation_timestamp=self.current_timestamp
             )
         )
 
@@ -772,13 +764,8 @@ class AscendExExchange(ExchangePyBase):
                             client_order_id=client_order_id,
                             exchange_order_id=exchange_order_id,
                             trading_pair=ascend_ex_utils.convert_from_exchange_trading_pair(order_data["symbol"]),
-                            update_timestamp=order_data["lastExecTime"],
+                            update_timestamp=order_data["lastExecTime"] * 1e-3,
                             new_state=new_state,
-                            fill_price=Decimal(order_data["avgPx"]),
-                            executed_amount_base=Decimal(order_data["cumFilledQty"]),
-                            executed_amount_quote=Decimal(order_data["avgPx"]) * Decimal(order_data["cumFilledQty"]),
-                            fee_asset=order_data["feeAsset"],
-                            cumulative_fee_paid=Decimal(order_data["cumFee"]),
                         )
                     )
                 for update in order_updates:
@@ -802,7 +789,7 @@ class AscendExExchange(ExchangePyBase):
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 client_order_id=tracked_order.client_order_id,
-                update_timestamp=int(time.time() * 1e3),
+                update_timestamp=time.time(),
                 new_state=OrderState.FAILED,
             )
             self._in_flight_order_tracker.process_order_update(order_update)
@@ -998,20 +985,48 @@ class AscendExExchange(ExchangePyBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
+        tracked_order = self._in_flight_order_tracker.fetch_order(exchange_order_id=order_msg.orderId)
 
-        order_update = OrderUpdate(
-            exchange_order_id=order_msg.orderId,
-            trading_pair=ascend_ex_utils.convert_to_exchange_trading_pair(order_msg.symbol),
-            update_timestamp=order_msg.lastExecTime,
-            new_state=CONSTANTS.ORDER_STATE[order_msg.status],
-            fill_price=Decimal(order_msg.avgPx),
-            executed_amount_base=Decimal(order_msg.cumFilledQty),
-            executed_amount_quote=Decimal(order_msg.avgPx) * Decimal(order_msg.cumFilledQty),
-            fee_asset=order_msg.feeAsset,
-            cumulative_fee_paid=Decimal(order_msg.cumFee),
-        )
+        if tracked_order is not None:
+            order_status = CONSTANTS.ORDER_STATE[order_msg.status]
+            cumulative_filled_amount = Decimal(order_msg.cumFilledQty)
+            if (order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
+                    and cumulative_filled_amount > tracked_order.executed_amount_base):
+                filled_amount = cumulative_filled_amount - tracked_order.executed_amount_base
+                cumulative_fee = Decimal(order_msg.cumFee)
+                fee_already_paid = tracked_order.cumulative_fee_paid(token=order_msg.feeAsset, exchange=self)
+                if cumulative_fee > fee_already_paid:
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=tracked_order.trade_type,
+                        percent_token=order_msg.feeAsset,
+                        flat_fees=[TokenAmount(amount=cumulative_fee - fee_already_paid, token=order_msg.feeAsset)]
+                    )
+                else:
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=tracked_order.trade_type)
+                trade_update = TradeUpdate(
+                    trade_id=str(order_msg.lastExecTime),
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=tracked_order.exchange_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    fee=fee,
+                    fill_base_amount=filled_amount,
+                    fill_quote_amount=filled_amount * Decimal(order_msg.avgPx),
+                    fill_price=Decimal(order_msg.avgPx),
+                    fill_timestamp=int(order_msg.lastExecTime),
+                )
+                self._in_flight_order_tracker.process_trade_update(trade_update)
 
-        self._in_flight_order_tracker.process_order_update(order_update=order_update)
+            order_update = OrderUpdate(
+                exchange_order_id=order_msg.orderId,
+                trading_pair=ascend_ex_utils.convert_to_exchange_trading_pair(order_msg.symbol),
+                update_timestamp=order_msg.lastExecTime * 1e-3,
+                new_state=order_status,
+            )
+
+            self._in_flight_order_tracker.process_order_update(order_update=order_update)
 
     def _process_balances(self, balances: List[AscendExBalance], is_complete_list: bool = True):
         local_asset_names = set(self._account_balances.keys())

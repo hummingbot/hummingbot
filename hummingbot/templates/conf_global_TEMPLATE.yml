@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 32
+template_version: 33
 
 # Exchange configs
 
@@ -61,6 +61,9 @@ loopring_private_key: null
 kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
+
+altmarkets_api_key: null
+altmarkets_secret_key: null
 
 kraken_api_key: null
 kraken_secret_key: null
@@ -300,3 +303,6 @@ info-label: "#5FD7FF"
 
 # Error label color
 error-label: "#FF0000"
+
+# tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
+tables_format: 'psql'
