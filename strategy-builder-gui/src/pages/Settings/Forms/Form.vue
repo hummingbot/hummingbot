@@ -41,6 +41,7 @@ export default defineComponent({
     const displaySaveForm = computed(() => steps.current.value === steps.count);
 
     const handleSubmit = () => {
+      localStorage.setItem(strategyName.value, JSON.stringify(values.value));
       // eslint-disable-next-line no-console
       console.log(values.value);
     };

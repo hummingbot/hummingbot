@@ -1,3 +1,4 @@
+import { LocalStorage } from 'quasar';
 import { StrategyName } from 'src/composables/useStrategies';
 import { computed, Ref } from 'vue';
 
@@ -13,13 +14,25 @@ const fixValue = (value: number | string | boolean) => {
   return value;
 };
 
-export const useForm = (strategyName: Ref<StrategyName>) => {
+export const useForm = (strategyName: Ref<StrategyName>, localStorageDataUpdate?: boolean) => {
+  const form = $form[strategyName.value];
+
   const values = computed(() =>
-    Object.keys($form[strategyName.value]).reduce(
-      (acc, key) => ({ ...acc, [key]: fixValue($form[strategyName.value][key].value.value) }),
+    Object.keys(form).reduce(
+      (acc, key) => ({ ...acc, [key]: fixValue(form[key].value.value) }),
       {},
     ),
   );
 
-  return { fields: $form[strategyName.value], values };
+  const localStorageData = LocalStorage.getItem(strategyName.value)?.toString();
+
+  if (localStorageData && localStorageDataUpdate) {
+    const parsedLocalStorage = JSON.parse(localStorageData);
+
+    Object.keys(form).forEach((val) => {
+      form[val].value.value = parsedLocalStorage[val];
+    });
+  }
+
+  return { fields: form, values };
 };
