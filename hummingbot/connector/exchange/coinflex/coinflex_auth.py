@@ -7,7 +7,6 @@ import time
 from typing import (
     Dict
 )
-from urllib.parse import urlencode
 
 from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
     CoinflexRESTRequest,
@@ -86,17 +85,12 @@ class CoinflexAuth(AuthBase):
                             nonce: int,
                             request: WSRequest) -> str:
 
-        if request.should_use_data:
-            request_params = request.data or ""
-        else:
-            request_params = urlencode(request.params or {})
-
         payload = '{}\n{}\n{}\n{}\n{}\n{}'.format(timestamp,
                                                   nonce,
                                                   request.method,
                                                   request.auth_url,
-                                                  request.auth_path,
-                                                  request_params)
+                                                  request.auth_path.strip(),
+                                                  request.auth_body.strip())
 
         digest = hmac.new(self.secret_key.encode("utf8"), payload.encode("utf8"), hashlib.sha256).digest()
         return b64encode(digest).decode().strip()

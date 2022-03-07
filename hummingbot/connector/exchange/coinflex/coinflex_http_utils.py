@@ -67,13 +67,21 @@ class CoinflexRESTRequest(EndpointRESTRequest):
         if self.endpoint is None:
             raise ValueError("No endpoint specified. Cannot build auth url.")
         uri = private_rest_auth_path(self.endpoint, self.domain, endpoint_api_version=self.endpoint_api_version)
-        if self.method != RESTMethod.POST and self.params:
-            uri = f"{uri}?{urlencode(self.params)}"
+        if not self.should_use_data and self.params and self.endpoint_api_version != "v2.1":
+            return f"{uri}?{urlencode(self.params)}"
         return uri
 
     @property
     def auth_url(self) -> str:
         return private_rest_url(domain=self.domain, only_hostname=True)
+
+    @property
+    def auth_body(self) -> str:
+        if self.should_use_data and self.data:
+            return f"{self.data}"
+        elif self.params:
+            return urlencode(self.params)
+        return ""
 
 
 class CoinflexAPIError(IOError):
