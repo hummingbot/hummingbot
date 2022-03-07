@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import platform
 from abc import ABC, abstractmethod
 from decimal import Decimal
@@ -12,6 +13,7 @@ from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.log_server_client import LogServerClient
 
 if TYPE_CHECKING:
@@ -56,6 +58,8 @@ class DummyMetricsCollector(MetricsCollector):
 
 class TradeVolumeMetricCollector(MetricsCollector):
 
+    _logger = None
+
     METRIC_NAME = "filled_usdt_volume"
 
     def __init__(self,
@@ -83,6 +87,12 @@ class TradeVolumeMetricCollector(MetricsCollector):
         self._event_pairs: List[Tuple[MarketEvent, EventForwarder]] = [
             (MarketEvent.OrderFilled, self._fill_event_forwarder),
         ]
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     @classmethod
     def from_configuration(cls, connector: 'ConnectorBase', rate_provider: RateOracle, valuation_token: str = "USDT"):
@@ -149,15 +159,19 @@ class TradeVolumeMetricCollector(MetricsCollector):
 
             for fill_event in events:
                 trade_base, trade_quote = split_hb_trading_pair(fill_event.trading_pair)
-                rate = self._rate_provider.rate(combine_to_hb_trading_pair(base=trade_quote, quote=self._valuation_token))
+                from_quote_conversion_pair = combine_to_hb_trading_pair(base=trade_quote, quote=self._valuation_token)
+                rate = self._rate_provider.rate(from_quote_conversion_pair)
 
                 if rate is not None:
                     total_volume += fill_event.amount * fill_event.price * rate
                 else:
-                    rate = self._rate_provider.rate(
-                        combine_to_hb_trading_pair(base=trade_base, quote=self._valuation_token))
+                    from_base_conversion_pair = combine_to_hb_trading_pair(base=trade_base, quote=self._valuation_token)
+                    rate = self._rate_provider.rate(from_base_conversion_pair)
                     if rate is not None:
                         total_volume += fill_event.amount * rate
+                    else:
+                        self.logger().debug(f"Could not find a conversion rate rate using Rate Oracle for any of "
+                                            f"the pairs {from_quote_conversion_pair} or {from_base_conversion_pair}")
 
             if total_volume > Decimal("0"):
                 self._dispatch_trade_volume(total_volume)

@@ -50,6 +50,7 @@ class TradeVolumeMetricCollectorTests(TestCase):
         super().tearDown()
 
     def _reset_global_config(self):
+        global_config_map.clear()
         for key, value in self._global_config_backup.items():
             global_config_map[key] = value
 
