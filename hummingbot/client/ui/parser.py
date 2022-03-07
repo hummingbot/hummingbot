@@ -98,7 +98,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_connect_parser = subparsers.add_parser("gateway connect", help="Create/view connection info for gateway connector")
-    gateway_connect_parser.add_argument("connector", nargs=1, default=None, help="Name of connector you want to create a profile for")
+    gateway_connect_parser.add_argument("connector", nargs="?", default=None, help="Name of connector you want to create a profile for")
     gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
 
     gateway_cert_parser = subparsers.add_parser("gateway generate-certs", help="Create ssl certifcate for gateway")
