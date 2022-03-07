@@ -45,6 +45,7 @@ class AmmArbStrategy(StrategyPyBase):
                     market_2_slippage_buffer: Decimal = Decimal("0"),
                     concurrent_orders_submission: bool = True,
                     status_report_interval: float = 900,
+                    gateway_transaction_cancel_interval: int = 600,
                     ):
         """
         Assigns strategy parameters, this function must be called directly after init.
@@ -148,6 +149,9 @@ class AmmArbStrategy(StrategyPyBase):
         self.apply_slippage_buffers(arb_proposals)
         self.apply_budget_constraint(arb_proposals)
         await self.execute_arb_proposals(arb_proposals)
+
+    # def apply_gateway_transaction_cancel_interval(self):
+    # run cancel for any gateway connector
 
     def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
         """
