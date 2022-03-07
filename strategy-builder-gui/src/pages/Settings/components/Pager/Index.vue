@@ -37,6 +37,8 @@
       class="bg-main-green-1 text-uppercase text-white q-py-sm"
       flat
       type="submit"
+      :href="fileHref"
+      :download="`${fileName}.yml`"
     >
       save
     </q-btn>
@@ -52,6 +54,8 @@ export default defineComponent({
   props: {
     modelValue: { type: Number, required: true, default: () => 1 },
     handleSubmit: { type: Function, required: false, default: () => ({}) },
+    fileHref: { type: String, required: true, default: () => '' },
+    fileName: { type: String, required: true, default: () => '' },
   },
   emits: ['update:modelValue'],
   setup() {

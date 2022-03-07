@@ -7,7 +7,7 @@
       <component :is="componentsMap[strategyName]" v-if="!displaySaveForm" />
       <SaveForm v-if="displaySaveForm" :strategy-name="strategyName" />
     </div>
-    <Pager v-model="currentStep" />
+    <Pager v-model="currentStep" :file-name="strategyName" :file-href="fileHref" />
   </q-form>
 </template>
 
@@ -17,6 +17,7 @@ import { computed, defineComponent } from 'vue';
 import { useRoute } from 'vue-router';
 
 import Pager from '../components/Pager/Index.vue';
+import { useFileHref } from '../composables/useFileHref';
 import { useForm } from '../composables/useForm';
 import { useSteps } from '../composables/useSteps';
 import PureMMForm from './PureMMForm.vue';
@@ -38,6 +39,7 @@ export default defineComponent({
     const route = useRoute();
     const strategyName = computed(() => route.params.strategyName as StrategyName);
     const { values } = useForm(strategyName);
+    const fileHref = useFileHref(values); // TODO: sort  values and rename fields, based on template
     const displaySaveForm = computed(() => steps.current.value === steps.count);
 
     const handleSubmit = () => {
@@ -53,6 +55,7 @@ export default defineComponent({
       handleSubmit,
       currentStep: steps.current,
       strategyName,
+      fileHref,
     };
   },
 });
