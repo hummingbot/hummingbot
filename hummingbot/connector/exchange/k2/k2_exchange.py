@@ -7,8 +7,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 
-from hummingbot.connector.exchange.k2 import k2_constants as constants
-from hummingbot.connector.exchange.k2 import k2_utils
+from hummingbot.connector.exchange.k2 import k2_constants as constants, k2_utils
 from hummingbot.connector.exchange.k2.k2_auth import K2Auth
 from hummingbot.connector.exchange.k2.k2_in_flight_order import K2InFlightOrder
 from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker
@@ -28,11 +27,10 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -460,7 +458,8 @@ class K2Exchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -494,7 +493,8 @@ class K2Exchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

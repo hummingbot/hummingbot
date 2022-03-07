@@ -1,10 +1,8 @@
-#!/usr/bin/env python
-import unittest
-import unittest.mock
 import asyncio
 import logging
 import time
-
+import unittest
+import unittest.mock
 from datetime import datetime
 from decimal import Decimal
 from typing import (
@@ -14,20 +12,20 @@ from typing import (
     Union,
     Tuple,
 )
+
 from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.event.events import (
     MarketEvent,
-    OrderType,
-    TradeType,
     OrderFilledEvent,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 ms_logger = None
@@ -92,6 +90,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
         self.strategy: StrategyBase = MockStrategy()
         self.strategy.add_markets([self.market])
+        self.strategy.order_tracker._set_current_timestamp(1640001112.223)
 
     @staticmethod
     def simulate_order_filled(market_info: MarketTradingPairTuple, order: Union[LimitOrder, MarketOrder]):
@@ -99,7 +98,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         market_info.market.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
-                int(time.time() * 1e3),
+                time.time(),
                 order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
                 order.trading_pair,
                 TradeType.BUY if order.is_buy else TradeType.SELL,
@@ -390,6 +389,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
                 trade_type=TradeType.BUY,
                 price=Decimal(f"{i+1}"),
                 amount=Decimal(f"{10 * (i+1)}"),
+                creation_timestamp=1640001112.0,
                 initial_state="OPEN"
             )
             for i in range(10)

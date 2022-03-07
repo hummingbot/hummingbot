@@ -33,6 +33,7 @@ from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -45,10 +46,8 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -760,6 +759,7 @@ cdef class KucoinExchange(ExchangeBase):
                                          float(decimal_amount),
                                          float(decimal_price),
                                          order_id,
+                                         tracked_order.creation_timestamp,
                                          exchange_order_id=tracked_order.exchange_order_id
                                      ))
         except asyncio.CancelledError:
@@ -834,6 +834,7 @@ cdef class KucoinExchange(ExchangeBase):
                                          float(decimal_amount),
                                          float(decimal_price),
                                          order_id,
+                                         tracked_order.creation_timestamp,
                                          exchange_order_id=exchange_order_id
                                      ))
         except asyncio.CancelledError:
@@ -961,7 +962,8 @@ cdef class KucoinExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

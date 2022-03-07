@@ -7,7 +7,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 s_decimal_NaN = Decimal("nan")
 

@@ -1,15 +1,13 @@
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
     Dict,
     Optional,
 )
-import asyncio
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class WazirxInFlightOrder(InFlightOrderBase):
@@ -21,6 +19,7 @@ class WazirxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
@@ -30,6 +29,7 @@ class WazirxInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.trade_id_set = set()
@@ -46,29 +46,6 @@ class WazirxInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"cancel"}
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        retval = WazirxInFlightOrder(
-            data["client_order_id"],
-            data["exchange_order_id"],
-            data["trading_pair"],
-            getattr(OrderType, data["order_type"]),
-            getattr(TradeType, data["trade_type"]),
-            Decimal(data["price"]),
-            Decimal(data["amount"]),
-            data["last_state"]
-        )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """

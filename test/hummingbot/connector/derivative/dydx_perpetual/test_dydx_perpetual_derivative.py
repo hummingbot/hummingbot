@@ -1,21 +1,29 @@
 import asyncio
 import time
-import pandas as pd
 import unittest
-
 from collections import Awaitable
 from datetime import datetime
 from decimal import Decimal
-from dydx3 import DydxApiError
 from typing import Dict, Optional
-from unittest.mock import AsyncMock, PropertyMock, patch
-from requests import Response
+from unittest.mock import AsyncMock, patch, PropertyMock
 
+import pandas as pd
+from dydx3 import DydxApiError
+from requests import Response
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.event.events import PositionSide, FundingInfo
+from hummingbot.core.data_type.common import PositionSide
+from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    MarketEvent,
+    OrderType,
+    PositionAction,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.event.event_logger import EventLogger
 
 
 class DydxPerpetualDerivativeTest(unittest.TestCase):
@@ -51,11 +59,34 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
 
+        self._initialize_event_loggers()
+
         self.ev_loop = asyncio.get_event_loop()
 
     def tearDown(self) -> None:
         self.exchange_task and self.exchange_task.cancel()
         super().tearDown()
+
+    def _initialize_event_loggers(self):
+        self.buy_order_completed_logger = EventLogger()
+        self.buy_order_created_logger = EventLogger()
+        self.order_cancelled_logger = EventLogger()
+        self.order_failure_logger = EventLogger()
+        self.order_filled_logger = EventLogger()
+        self.sell_order_completed_logger = EventLogger()
+        self.sell_order_created_logger = EventLogger()
+
+        events_and_loggers = [
+            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
+            (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
+            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+            (MarketEvent.OrderFailure, self.order_failure_logger),
+            (MarketEvent.OrderFilled, self.order_filled_logger),
+            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+
+        for event, logger in events_and_loggers:
+            self.exchange.add_listener(event, logger)
 
     def handle(self, record):
         self.log_records.append(record)
@@ -74,6 +105,16 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
                 self.base_asset: Decimal("20"),
             }
         self.exchange._account_balances = account_balances
+
+    def _simulate_trading_rules_initialized(self):
+        self.exchange._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=Decimal("0.01"),
+                min_price_increment=Decimal("0.0001"),
+                min_base_amount_increment=Decimal("0.000001"),
+            )
+        }
 
     def _simulate_reset_poll_notifier(self):
         self.exchange._poll_notifier.clear()
@@ -424,3 +465,75 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
 
         self.assertEqual(self.quote_asset, buy_collateral_token)
         self.assertEqual(self.quote_asset, sell_collateral_token)
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
+           ".time_now_s")
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.place_order")
+    def test_create_buy_order(self, place_order_mock, time_mock):
+        self._simulate_trading_rules_initialized()
+        time_mock.return_value = 1640001112.223
+        place_order_mock.return_value = {  # irrelevant fields removed
+            "order": {
+                "id": "EOID1",
+                "status": "OPEN",
+            }
+        }
+
+        self.async_run_with_timeout(self.exchange.execute_buy(
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
+            price=Decimal(1000)
+        ))
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        self.assertTrue(self.check_is_logged(
+            "INFO",
+            f"Created LIMIT BUY order OID1 for 1.000000 {self.trading_pair}."
+        ))
+        order = self.exchange.in_flight_orders["OID1"]
+        self.assertEqual(time_mock.return_value, order.creation_timestamp)
+
+        self.assertTrue(1, len(self.buy_order_created_logger.event_log))
+        buy_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual("OID1", buy_event.order_id)
+        self.assertEqual(1640001112.223, buy_event.creation_timestamp)
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
+           ".time_now_s")
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.place_order")
+    def test_create_sell_order(self, place_order_mock, time_mock):
+        self._simulate_trading_rules_initialized()
+        time_mock.return_value = 1640001112.223
+        place_order_mock.return_value = {  # irrelevant fields removed
+            "order": {
+                "id": "EOID1",
+                "status": "OPEN",
+            }
+        }
+
+        self.async_run_with_timeout(self.exchange.execute_sell(
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
+            price=Decimal(1000)
+        ))
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        self.assertTrue(self.check_is_logged(
+            "INFO",
+            f"Created LIMIT SELL order OID1 for 1.000000 {self.trading_pair}."
+        ))
+        order = self.exchange.in_flight_orders["OID1"]
+        self.assertEqual(time_mock.return_value, order.creation_timestamp)
+
+        self.assertTrue(1, len(self.sell_order_created_logger.event_log))
+        sell_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual("OID1", sell_event.order_id)
+        self.assertEqual(1640001112.223, sell_event.creation_timestamp)
