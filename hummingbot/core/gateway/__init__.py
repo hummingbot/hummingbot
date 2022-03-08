@@ -18,7 +18,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220303"
+GATEWAY_DOCKER_TAG: str = "20220306"
 
 
 def is_inside_docker() -> bool:
@@ -415,13 +415,14 @@ class GatewayHttpClient:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
+        # XXX(martin_kou): The amount is always output with 18 decimal places.
         return await self.api_request("post", "amm/price", {
             "chain": chain,
             "network": network,
             "connector": connector,
             "base": base_asset,
             "quote": quote_asset,
-            "amount": str(amount),
+            "amount": f"{amount:.18f}",
             "side": side.name
         }, fail_silently=fail_silently)
 
@@ -464,6 +465,7 @@ class GatewayHttpClient:
             price: Decimal,
             nonce: int
     ) -> Dict[str, Any]:
+        # XXX(martin_kou): The amount is always output with 18 decimal places.
         return await self.api_request("post", "amm/trade", {
             "chain": chain,
             "network": network,
@@ -472,7 +474,7 @@ class GatewayHttpClient:
             "base": base_asset,
             "quote": quote_asset,
             "side": side.name,
-            "amount": str(amount),
+            "amount": f"{amount:.18f}",
             "limitPrice": str(price),
             "nonce": nonce
         })

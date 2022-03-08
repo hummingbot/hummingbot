@@ -12,6 +12,7 @@ export interface PriceResponse {
   base: string;
   quote: string;
   amount: string;
+  rawAmount: string;
   expectedAmount: string;
   price: string;
   network: string;
@@ -41,6 +42,7 @@ export interface TradeResponse {
   base: string;
   quote: string;
   amount: string;
+  rawAmount: string;
   expectedIn?: string;
   expectedOut?: string;
   price: string;
