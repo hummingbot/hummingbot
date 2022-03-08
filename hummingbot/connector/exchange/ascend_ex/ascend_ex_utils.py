@@ -2,11 +2,10 @@ import random
 import string
 import time
 from typing import Optional, Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
@@ -24,14 +23,6 @@ def get_rest_url_private(account_id: int) -> str:
 
 def get_ws_url_private(account_id: int) -> str:
     return f"wss://ascendex.com:443/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
-
-
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    return exchange_trading_pair.replace("/", "-")
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "/")
 
 
 def _time():

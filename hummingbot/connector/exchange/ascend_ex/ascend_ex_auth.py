@@ -1,6 +1,7 @@
-import hmac
 import hashlib
-from typing import Dict, Any
+import hmac
+from typing import Any, Dict
+
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ms_timestamp
 
 
@@ -20,6 +21,8 @@ class AscendExAuth:
     ):
         """
         Generates authentication signature and return it in a dictionary along with other inputs
+        :param path_url: URL of the auth API endpoint
+        :param data: data to be included in the headers
         :return: a dictionary of request info including the request signature
         """
 

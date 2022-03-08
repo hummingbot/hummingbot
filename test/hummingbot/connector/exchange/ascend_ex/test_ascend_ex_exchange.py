@@ -7,8 +7,10 @@ from typing import Awaitable, List, Optional
 from unittest.mock import MagicMock, AsyncMock
 
 from aioresponses import aioresponses
+from bidict import bidict
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExCommissionType,
     AscendExExchange,
@@ -43,6 +45,10 @@ class TestAscendExExchange(unittest.TestCase):
         cls.api_key = "someKey"
         cls.api_secret_key = "someSecretKey"
 
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {cls.ex_trading_pair: f"{cls.base_asset}-{cls.quote_asset}"}
+        )
+
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
@@ -58,8 +64,8 @@ class TestAscendExExchange(unittest.TestCase):
         self.exchange._in_flight_order_tracker.logger().addHandler(self)
 
     def tearDown(self) -> None:
-        self.exchange._shared_client and self.exchange._shared_client.close()
         self.async_task and self.async_task.cancel()
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = None
         super().tearDown()
 
     def _initialize_event_loggers(self):
@@ -308,6 +314,10 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
 
     def test_partial_fill_and_full_fill_generate_fill_events(self):
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {self.ex_trading_pair: f"{self.base_asset}-{self.quote_asset}"}
+        )
+
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
