@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { $Form, BtnToggleType } from './form.types';
 
 export const $pureMMForm: $Form = {
-  bidSpread: {
+  bid_spread: {
     value: ref(0),
     properties: {
       min: 0,
@@ -11,7 +11,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  askSpread: {
+  ask_spread: {
     value: ref(0),
     properties: {
       min: 0,
@@ -19,7 +19,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  orderRefreshTime: {
+  order_refresh_time: {
     value: ref(0),
     properties: {
       min: 0,
@@ -41,17 +41,17 @@ export const $pureMMForm: $Form = {
       labelText: 'Select market',
     },
   },
-  orderAmount: {
+  order_amount: {
     value: ref(''),
     properties: {
       placeholder: '0.00',
       rightText: 'BTC',
     },
   },
-  pingPong: {
+  ping_pong_enabled: {
     value: ref(false),
   },
-  orderLevels: {
+  order_levels: {
     value: ref(0),
     properties: {
       min: 0,
@@ -59,7 +59,7 @@ export const $pureMMForm: $Form = {
       step: 1,
     },
   },
-  orderLevelAmount: {
+  order_level_amount: {
     value: ref(0),
     properties: {
       min: 0,
@@ -67,7 +67,7 @@ export const $pureMMForm: $Form = {
       step: 1,
     },
   },
-  orderLevelSpread: {
+  order_level_spread: {
     value: ref(0),
     properties: {
       min: 0,
@@ -75,10 +75,10 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  inventorySkew: {
+  inventory_skew_enabled: {
     value: ref(false),
   },
-  inventoryTargetBaseCounter: {
+  inventory_target_base_pctCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -86,10 +86,10 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  inventoryTargetBaseToggle: {
+  inventory_target_base_pctToggle: {
     value: ref(false),
   },
-  inventoryRangeMultiplier: {
+  inventory_range_multiplier: {
     value: ref(0),
     properties: {
       min: 0,
@@ -97,14 +97,14 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  inventoryPrice: {
+  inventory_price: {
     value: ref(''),
     properties: {
       placeholder: 'Input Price',
       rightText: '',
     },
   },
-  filledOrderDelay: {
+  filled_order_delay: {
     value: ref(0),
     properties: {
       min: 1,
@@ -112,10 +112,10 @@ export const $pureMMForm: $Form = {
       step: 1,
     },
   },
-  hangingOrders: {
+  hanging_orders_enabled: {
     value: ref(false),
   },
-  hangingOrderCancel: {
+  hanging_orders_cancel_pct: {
     value: ref(0),
     properties: {
       min: 0,
@@ -123,7 +123,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  minimumSpread: {
+  minimum_spread: {
     value: ref(0),
     properties: {
       min: 0,
@@ -131,7 +131,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  orderRefreshTollerance: {
+  order_refresh_tolerance_pct: {
     value: ref(0),
     properties: {
       min: 0,
@@ -139,14 +139,14 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  priceCeiling: {
+  price_ceiling: {
     value: ref(''),
     properties: {
       placeholder: 'Price ceiling',
       rightText: '',
     },
   },
-  priceFloor: {
+  price_floor: {
     value: ref(''),
     properties: {
       placeholder: 'Price floor',
@@ -156,59 +156,68 @@ export const $pureMMForm: $Form = {
   orderOptimisation: {
     value: ref(false),
   },
-  askOrderOptimizationDepth: {
+  ask_order_optimization_depth: {
     value: ref(''),
     properties: {
       placeholder: 'Ask order',
       rightText: '',
     },
   },
-  bidOrderOptimizationDepth: {
+  bid_order_optimization_depth: {
     value: ref(''),
     properties: {
       placeholder: 'Bid order',
       rightText: '',
     },
   },
-  addTransactionCosts: {
+  add_transaction_costs: {
     value: ref(false),
   },
-  priceSource: {
+  price_source: {
     value: ref(''),
     properties: {
       options: ['1', '2', '3', '4', '5'],
       labelText: 'Choose source',
     },
   },
-  priceType: {
+  price_type: {
     value: ref(''),
     properties: {
       options: ['1', '2', '3', '4', '5'],
       labelText: 'Choose type',
     },
   },
-  priceSourceExchange: {
+  price_source_exchange: {
     value: ref(''),
     properties: {
       options: ['1', '2', '3', '4', '5'],
       labelText: 'Choose exchange',
     },
   },
-  priceSourceMarket: {
+  price_source_market: {
     value: ref(''),
     properties: {
       options: ['1', '2', '3', '4', '5'],
       labelText: 'Choose pair',
     },
   },
-  takeIfCrossed: {
+  take_if_crossed: {
     value: ref(false),
   },
-  priceSourceCustomAPI: {
+  price_source_custom_api: {
     value: ref(''),
     properties: {
       placeholder: 'Pricing API url',
       rightText: '',
+    },
+  },
+
+  custom_api_update_interval: {
+    value: ref(0),
+    properties: {
+      min: 1,
+      max: 10,
+      step: 1,
     },
   },
 
@@ -290,7 +299,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  maxOrderAge: {
+  max_order_age: {
     value: ref(0),
     properties: {
       min: 1,
