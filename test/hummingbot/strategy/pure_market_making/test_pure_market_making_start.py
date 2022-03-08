@@ -51,6 +51,11 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("price_source_custom_api").value = "localhost.test"
         c_map.get("order_refresh_tolerance_pct").value = Decimal("2")
         c_map.get("order_override").value = None
+        c_map.get("split_order_levels_enabled").value = True
+        c_map.get("bid_order_level_spreads").value = "1,2"
+        c_map.get("ask_order_level_spreads").value = "1,2"
+        c_map.get("bid_order_level_amounts").value = "1,2"
+        c_map.get("ask_order_level_amounts").value = None
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
@@ -93,3 +98,9 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.add_transaction_costs_to_orders, False)
         self.assertEqual(self.strategy.price_type, PriceType.BestBid)
         self.assertEqual(self.strategy.order_refresh_tolerance_pct, Decimal("0.02"))
+        self.assertEqual(self.strategy.split_order_levels_enabled, True)
+        self.assertEqual(self.strategy.bid_order_level_spreads, [Decimal("1"), Decimal("2")])
+        self.assertEqual(self.strategy.ask_order_level_spreads, [Decimal("1"), Decimal("2")])
+        self.assertEqual(self.strategy.order_override, {"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                                                        "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                                                        })
