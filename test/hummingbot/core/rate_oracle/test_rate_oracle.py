@@ -9,6 +9,7 @@ from bidict import bidict
 from yarl import URL
 
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -30,6 +31,14 @@ class RateOracleTest(unittest.TestCase):
                 {"BTCUSD": "BTC-USD",
                  "ETHUSD": "ETH-USD"})
         }
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {"ETH/BTC": "ETH-BTC",
+             "LTC/BTC": "LTC-BTC",
+             "BTC/USDT": "BTC-USDT",
+             "SCRT/BTC": "SCRT-BTC",
+             "MAPS/USDT": "MAPS-USDT",
+             "QTUM/BTC": "QTUM-BTC"}
+        )
 
         cls.web_app = MockWebServer.get_instance()
         cls.web_app.add_host_to_mock(URL(RateOracle.binance_price_url).host)
@@ -75,6 +84,7 @@ class RateOracleTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = {}
         cls.web_app.stop()
         cls._patcher.stop()
 

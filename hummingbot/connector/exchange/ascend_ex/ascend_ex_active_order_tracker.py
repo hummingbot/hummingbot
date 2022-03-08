@@ -1,20 +1,18 @@
-# distutils: language=c++
-# distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
-
 import logging
-import numpy as np
-import random
-
 from decimal import Decimal
 from typing import Dict
-from hummingbot.logger import HummingbotLogger
+
+import numpy as np
+
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.logger import HummingbotLogger
 
 _logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 AscendExOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 
-cdef class AscendExActiveOrderTracker:
+
+class AscendExActiveOrderTracker:
     def __init__(self,
                  active_asks: AscendExOrderBookTrackingDictionary = None,
                  active_bids: AscendExOrderBookTrackingDictionary = None):
@@ -49,28 +47,16 @@ cdef class AscendExActiveOrderTracker:
         # price, quantity
         return float(entry[0]), float(entry[1])
 
-    cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
-        cdef:
-            dict content = message.content
-            list bid_entries = []
-            list ask_entries = []
-            str order_id
-            str order_side
-            str price_raw
-            object price
-            dict order_dict
-            double timestamp = message.timestamp
-            double amount = 0
-
-        bid_entries = content["bids"]
-        ask_entries = content["asks"]
+    def convert_diff_message_to_np_arrays(self, message: object) -> tuple:
+        bid_entries = message.content["bids"]
+        ask_entries = message.content["asks"]
 
         bids = s_empty_diff
         asks = s_empty_diff
 
         if len(bid_entries) > 0:
             bids = np.array(
-                [[timestamp,
+                [[message.timestamp,
                   float(price),
                   float(amount),
                   message.update_id]
@@ -81,7 +67,7 @@ cdef class AscendExActiveOrderTracker:
 
         if len(ask_entries) > 0:
             asks = np.array(
-                [[timestamp,
+                [[message.timestamp,
                   float(price),
                   float(amount),
                   message.update_id]
@@ -92,13 +78,7 @@ cdef class AscendExActiveOrderTracker:
 
         return bids, asks
 
-    cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
-        cdef:
-            float price
-            float amount
-            str order_id
-            dict order_dict
-
+    def convert_snapshot_message_to_np_arrays(self, message: object) -> tuple:
         # Refresh all order tracking.
         self._active_bids.clear()
         self._active_asks.clear()
@@ -121,22 +101,21 @@ cdef class AscendExActiveOrderTracker:
                         timestamp: order_dict
                     }
 
-        cdef:
-            np.ndarray[np.float64_t, ndim=2] bids = np.array(
-                [[message.timestamp,
-                  price,
-                  sum([order_dict["amount"]
-                       for order_dict in self._active_bids[price].values()]),
-                  message.update_id]
-                 for price in sorted(self._active_bids.keys(), reverse=True)], dtype="float64", ndmin=2)
-            np.ndarray[np.float64_t, ndim=2] asks = np.array(
-                [[message.timestamp,
-                  price,
-                  sum([order_dict["amount"]
-                       for order_dict in self.active_asks[price].values()]),
-                  message.update_id]
-                 for price in sorted(self.active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
-            )
+        bids = np.array(
+            [[message.timestamp,
+              price,
+              sum([order_dict["amount"]
+                   for order_dict in self._active_bids[price].values()]),
+              message.update_id]
+             for price in sorted(self._active_bids.keys(), reverse=True)], dtype="float64", ndmin=2)
+        asks = np.array(
+            [[message.timestamp,
+              price,
+              sum([order_dict["amount"]
+                   for order_dict in self.active_asks[price].values()]),
+              message.update_id]
+             for price in sorted(self.active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
+        )
 
         if bids.shape[1] != 4:
             bids = bids.reshape((0, 4))
@@ -145,9 +124,8 @@ cdef class AscendExActiveOrderTracker:
 
         return bids, asks
 
-    cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
-        cdef:
-            double trade_type_value = 2.0
+    def convert_trade_message_to_np_array(self, message: object) -> np.ndarray:
+        trade_type_value = 2.0
 
         timestamp = message.timestamp
         content = message.content
@@ -158,13 +136,13 @@ cdef class AscendExActiveOrderTracker:
         )
 
     def convert_diff_message_to_order_book_row(self, message):
-        np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)
+        np_bids, np_asks = self.convert_diff_message_to_np_arrays(message)
         bids_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
         asks_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
         return bids_row, asks_row
 
     def convert_snapshot_message_to_order_book_row(self, message):
-        np_bids, np_asks = self.c_convert_snapshot_message_to_np_arrays(message)
+        np_bids, np_asks = self.convert_snapshot_message_to_np_arrays(message)
         bids_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
         asks_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
         return bids_row, asks_row
