@@ -17,6 +17,10 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import convert_from
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_utils import convert_from_exchange_trading_pair as \
     kucoin_convert_from_exchange_pair
+from hummingbot.connector.exchange.graphene.graphene_constants import \
+    GrapheneConstants
+from metanode.graphene_metanode_client import \
+    GrapheneTrustlessClient
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -33,6 +37,8 @@ class RateOracleSource(Enum):
     coingecko = 1
     kucoin = 2
     ascend_ex = 3
+    peerplays = 4
+    bitshares = 5
 
 
 class RateOracle(NetworkBase):
@@ -182,8 +188,35 @@ class RateOracle(NetworkBase):
             return await cls.get_kucoin_prices()
         elif cls.source == RateOracleSource.ascend_ex:
             return await cls.get_ascend_ex_prices()
+        # CORE GRAPHENE EDIT
+        elif cls.source == RateOracleSource.peerplays:
+            return await cls.get_graphene_prices("peerplays")
+        elif cls.source == RateOracleSource.bitshares:
+            return await cls.get_graphene_prices("bitshares")
         else:
             raise NotImplementedError
+
+    # CORE GRAPHENE EDIT
+    @classmethod
+    async def get_graphene_prices(cls, domain) -> Dict[str, Decimal]:
+
+        constants = GrapheneConstants(domain)
+        metanode = GrapheneTrustlessClient(constants)
+        metanode_pairs = metanode.pairs # DISCRETE SQL QUERY
+        await asyncio.sleep(0.01)
+        results = {}
+        for pair in constants.chain.ALL_PAIRS:
+            try:
+                cls.logger().info(metanode_pairs[pair]["last"])
+                results[pair] = Decimal(metanode_pairs[pair]["last"])
+            except Exception as e:
+                msg = (
+                 "Unexpected error while retrieving rates from Graphene. "
+                 f"Check the log file for more info. Trading Pair {pair}"
+                )
+                cls.logger().error(msg, exc_info=True,)
+        return results
+
 
     @classmethod
     @async_ttl_cache(ttl=1, maxsize=1)

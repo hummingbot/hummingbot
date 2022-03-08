@@ -59,7 +59,8 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | logo | id | name | ver | doc| maintainer | status |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | 3 | [API](https://docs3.loopring.io/en/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-
+| <img src="assets/bitshares-logo.jpg" alt="Bitshares" width="90" /> | bitshares | [Bitshares](https://bitshares.org/) | 1 | [API](https://how.bitshares.works/en/master/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/peerplays-logo.jpg" alt="Peerplays" width="90" /> | peerplays | [Peerplays](https://peerplays.io/) | 1 | [API](https://peerplays.tech/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 ## Supported protocol exchanges
 | logo | id | name | ver | doc| status |

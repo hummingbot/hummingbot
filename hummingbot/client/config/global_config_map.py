@@ -304,7 +304,7 @@ main_config_map = {
                   default="USD"),
     "global_token_symbol":
         ConfigVar(key="global_token_symbol",
-                  prompt="What is your default display token symbol? (e.g. $,€)  >>> ",
+                  prompt="What is your default display token symbol? (e.g. $, €, ₿, ¤)  >>> ", # CORE GRAPHENE EDIT
                   type_str="str",
                   required_if=lambda: False,
                   on_validated=global_token_symbol_on_validated,
