@@ -1,14 +1,10 @@
-from itertools import islice
-import aiohttp
-from aiohttp import WSMsgType
 import asyncio
-from async_timeout import timeout
-from collections import defaultdict
-from enum import Enum
 import json
 import logging
-import pandas as pd
 import time
+from collections import defaultdict
+from enum import Enum
+from itertools import islice
 from typing import (
     Any,
     AsyncIterable,
@@ -20,21 +16,25 @@ from typing import (
     Tuple,
 )
 from urllib.parse import urlencode
+
+import aiohttp
+import pandas as pd
+from aiohttp import WSMsgType
+from async_timeout import timeout
 from yarl import URL
 
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_order_book import KucoinOrderBook
-from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.kucoin.kucoin_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
 )
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 DIFF_STREAM_URL = ""
@@ -384,16 +384,14 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, self._auth, self._throttler)
-            snapshot_timestamp: float = time.time()
+            snapshot_timestamp: float = snapshot["data"]["time"] * 1e-3
             snapshot_msg: OrderBookMessage = KucoinOrderBook.snapshot_message_from_exchange(
                 snapshot,
                 snapshot_timestamp,
                 metadata={"symbol": trading_pair}
             )
             order_book: OrderBook = self.order_book_create_function()
-            active_order_tracker: KucoinActiveOrderTracker = KucoinActiveOrderTracker()
-            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
             return order_book
 
     async def get_markets_per_ws_connection(self) -> List[str]:

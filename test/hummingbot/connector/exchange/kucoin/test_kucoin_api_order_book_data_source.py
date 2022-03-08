@@ -1,25 +1,21 @@
-import aiohttp
-from aioresponses import aioresponses
+import asyncio
 import json
 import re
 import unittest
-import asyncio
-from typing import (
-    AsyncIterable,
-    Awaitable,
-    Dict,
-)
-from unittest.mock import patch, AsyncMock
+from typing import AsyncIterable, Awaitable, Dict
+from unittest.mock import AsyncMock, patch
 
+import aiohttp
+from aioresponses import aioresponses
+
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import (
     KucoinAPIOrderBookDataSource,
     KucoinWSConnectionIterator,
     StreamType
 )
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -274,8 +270,16 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.ob_data_source.get_new_order_book(self.trading_pair))
-
-        self.assertTrue(isinstance(ret, OrderBook))
+        bid_entries = list(ret.bid_entries())
+        ask_entries = list(ret.ask_entries())
+        self.assertEqual(1, len(bid_entries))
+        self.assertEqual(0.3003, bid_entries[0].price)
+        self.assertEqual(4146.5645, bid_entries[0].amount)
+        self.assertEqual(1630556205455, bid_entries[0].update_id)
+        self.assertEqual(1, len(ask_entries))
+        self.assertEqual(0.3004, ask_entries[0].price)
+        self.assertEqual(1553.6412, ask_entries[0].amount)
+        self.assertEqual(1630556205455, ask_entries[0].update_id)
 
     @aioresponses()
     @patch("aiohttp.client.ClientSession.ws_connect")
