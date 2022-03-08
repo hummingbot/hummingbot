@@ -1,6 +1,7 @@
 jest.useFakeTimers();
 import { UniswapV3 } from '../../../../src/connectors/uniswap/uniswap.v3';
 import { patch, unpatch } from '../../../services/patch';
+import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import { Token } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
@@ -200,7 +201,7 @@ describe('verify UniswapV3 priceSwapIn', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
 
-    const expectedTrade = await uniswapV3.priceSwapIn(
+    const expectedTrade = await uniswapV3.estimateSellTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -209,15 +210,12 @@ describe('verify UniswapV3 priceSwapIn', () => {
     expect(expectedTrade).toHaveProperty('expectedAmount');
   });
 
-  it('Should return an error if no pair is available', async () => {
+  it('Should throw an error if no pair is available', async () => {
     patchFetchPairData(true);
 
-    const expectedTrade = await uniswapV3.priceSwapIn(
-      WETH,
-      DAI,
-      BigNumber.from(1)
-    );
-    expect(typeof expectedTrade).toBe('string');
+    await expect(async () => {
+      await uniswapV3.estimateSellTrade(WETH, DAI, BigNumber.from(1));
+    }).rejects.toThrow(UniswapishPriceError);
   });
 });
 
@@ -225,7 +223,7 @@ describe('verify UniswapV3 priceSwapOut', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
 
-    const expectedTrade = await uniswapV3.priceSwapOut(
+    const expectedTrade = await uniswapV3.estimateBuyTrade(
       WETH,
       DAI,
       BigNumber.from(1)
@@ -234,15 +232,12 @@ describe('verify UniswapV3 priceSwapOut', () => {
     expect(expectedTrade).toHaveProperty('expectedAmount');
   });
 
-  it('Should return an error if no pair is available', async () => {
+  it('Should throw an error if no pair is available', async () => {
     patchFetchPairData(true);
 
-    const expectedTrade = await uniswapV3.priceSwapOut(
-      WETH,
-      DAI,
-      BigNumber.from(1)
-    );
-    expect(typeof expectedTrade).toBe('string');
+    await expect(async () => {
+      await uniswapV3.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
+    }).rejects.toThrow(UniswapishPriceError);
   });
 });
 

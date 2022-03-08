@@ -1,5 +1,6 @@
 import {
   InitializationError,
+  UniswapishPriceError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
@@ -22,6 +23,9 @@ export type Overrides = {
   maxFeePerGas?: BigNumber;
   maxPriorityFeePerGas?: BigNumber;
 };
+
+type SellTrade = uniV3.Trade<Token, Token, TradeType.EXACT_INPUT>;
+type BuyTrade = uniV3.Trade<Token, Token, TradeType.EXACT_OUTPUT>;
 
 export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
   private static _instances: { [name: string]: UniswapV3 };
@@ -59,59 +63,103 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     return this._ready;
   }
 
+  /**
+   * Default gas limit for swap transactions.
+   */
   public get gasLimit(): number {
     return this._gasLimit;
   }
 
-  // get the expected amount of token out, for a given pair and a token amount in.
-  // this only considers direct routes.
-
-  async priceSwapIn(
-    tokenIn: Token,
-    tokenOut: Token,
-    tokenInAmount: BigNumber
-  ): Promise<ExpectedTrade | string> {
-    const tokenAmountIn = CurrencyAmount.fromRawAmount(
-      tokenIn,
-      tokenInAmount.toString()
+  /**
+   * Given the amount of `baseToken` to put into a transaction, calculate the
+   * amount of `quoteToken` that can be expected from the transaction.
+   *
+   * This is typically used for calculating token sell prices.
+   *
+   * @param baseToken Token input for the transaction
+   * @param quoteToken Output from the transaction
+   * @param amount Amount of `baseToken` to put into the transaction
+   */
+  async estimateSellTrade(
+    baseToken: Token,
+    quoteToken: Token,
+    amount: BigNumber
+  ): Promise<ExpectedTrade> {
+    const tokenAmountIn: CurrencyAmount<Token> = CurrencyAmount.fromRawAmount(
+      baseToken,
+      amount.toString()
     );
-    const pools = await this.getPairs(tokenIn, tokenOut);
-    const trades = await uniV3.Trade.bestTradeExactIn(
+    const pools: uniV3.Pool[] = await this.getPairs(baseToken, quoteToken);
+    const trades: SellTrade[] = await uniV3.Trade.bestTradeExactIn(
       pools,
       tokenAmountIn,
-      tokenOut,
+      quoteToken,
       { maxHops: 1 }
     );
-    if (!trades || trades.length === 0)
-      return `priceSwapOut: no trade pair found for ${tokenIn.address} to ${tokenOut.address}.`;
-    const trade = trades[0];
-    const expectedAmount = trade.minimumAmountOut(this.getSlippagePercentage());
+    if (!trades || trades.length === 0) {
+      throw new UniswapishPriceError(
+        `priceSwapOut: no trade pair found for ${baseToken.address} to ${quoteToken.address}.`
+      );
+    }
+    const trade: SellTrade = trades[0];
+    const expectedAmount: CurrencyAmount<Token> = trade.minimumAmountOut(
+      this.getSlippagePercentage()
+    );
     return { trade, expectedAmount };
   }
 
-  async priceSwapOut(
-    tokenIn: Token,
-    tokenOut: Token,
-    tokenOutAmount: BigNumber
-  ): Promise<ExpectedTrade | string> {
-    const tokenAmountOut = CurrencyAmount.fromRawAmount(
-      tokenOut,
-      tokenOutAmount.toString()
+  /**
+   * Given the amount of `baseToken` desired to acquire from a transaction,
+   * calculate the amount of `quoteToken` needed for the transaction.
+   *
+   * This is typically used for calculating token buy prices.
+   *
+   * @param quoteToken Token input for the transaction
+   * @param baseToken Token output from the transaction
+   * @param amount Amount of `baseToken` desired from the transaction
+   */
+  async estimateBuyTrade(
+    quoteToken: Token,
+    baseToken: Token,
+    amount: BigNumber
+  ): Promise<ExpectedTrade> {
+    const tokenAmountOut: CurrencyAmount<Token> = CurrencyAmount.fromRawAmount(
+      baseToken,
+      amount.toString()
     );
-    const pools = await this.getPairs(tokenIn, tokenOut);
-    const trades = await uniV3.Trade.bestTradeExactOut(
+    const pools: uniV3.Pool[] = await this.getPairs(quoteToken, baseToken);
+    const trades: BuyTrade[] = await uniV3.Trade.bestTradeExactOut(
       pools,
-      tokenIn,
+      quoteToken,
       tokenAmountOut,
       { maxHops: 1 }
     );
-    if (!trades || trades.length === 0)
-      return `priceSwapOut: no trade pair found for ${tokenIn.address} to ${tokenOut.address}.`;
-    const trade = trades[0];
-    const expectedAmount = trade.maximumAmountIn(this.getSlippagePercentage());
+    if (!trades || trades.length === 0) {
+      throw new UniswapishPriceError(
+        `priceSwapOut: no trade pair found for ${quoteToken.address} to ${baseToken.address}.`
+      );
+    }
+    const trade: BuyTrade = trades[0];
+    const expectedAmount: CurrencyAmount<Token> = trade.maximumAmountIn(
+      this.getSlippagePercentage()
+    );
     return { trade, expectedAmount };
   }
 
+  /**
+   * Given a wallet and a Uniswap-ish trade, try to execute it on blockchain.
+   *
+   * @param wallet Wallet
+   * @param trade Expected trade
+   * @param gasPrice Base gas price, for pre-EIP1559 transactions
+   * @param uniswapRouter Router smart contract address
+   * @param ttl How long the swap is valid before expiry, in seconds
+   * @param abi Router contract ABI
+   * @param gasLimit Gas limit
+   * @param nonce (Optional) EVM transaction nonce
+   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
+   */
   async executeTrade(
     wallet: Wallet,
     trade: uniV3.Trade<Token, Token, TradeType>,
@@ -129,9 +177,9 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
       recipient: wallet.address,
       slippageTolerance: this.getSlippagePercentage(),
     });
-    const contract = new Contract(uniswapRouter, abi, wallet);
+    const contract: Contract = new Contract(uniswapRouter, abi, wallet);
 
-    const tx = await contract.multicall(
+    const tx: Transaction = await contract.multicall(
       [calldata],
       this.generateOverrides(
         gasLimit,
