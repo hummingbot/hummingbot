@@ -16,7 +16,7 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { tokenValueToString } from '../../services/base';
-import { Token } from '../../services/ethereum-base';
+import { TokenInfo } from '../../services/ethereum-base';
 
 import {
   PollRequest,
@@ -55,8 +55,8 @@ export async function nonce(
 export const getTokenSymbolsToTokens = (
   ethereum: Ethereumish,
   tokenSymbols: Array<string>
-): Record<string, Token> => {
-  const tokens: Record<string, Token> = {};
+): Record<string, TokenInfo> => {
+  const tokens: Record<string, TokenInfo> = {};
 
   for (let i = 0; i < tokenSymbols.length; i++) {
     const symbol = tokenSymbols[i];

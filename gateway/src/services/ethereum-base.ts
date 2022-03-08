@@ -18,7 +18,7 @@ import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 
 // information about an Ethereum token
-export interface Token {
+export interface TokenInfo {
   chainId: number;
   address: string;
   name: string;
@@ -32,8 +32,8 @@ export type NewDebugMsgHandler = (msg: any) => void;
 
 export class EthereumBase {
   private _provider;
-  protected tokenList: Token[] = [];
-  private _tokenMap: Record<string, Token> = {};
+  protected tokenList: TokenInfo[] = [];
+  private _tokenMap: Record<string, TokenInfo> = {};
   // there are async values set in the constructor
   private _ready: boolean = false;
   private _initializing: boolean = false;
@@ -113,7 +113,7 @@ export class EthereumBase {
     this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
     if (this.tokenList) {
       this.tokenList.forEach(
-        (token: Token) => (this._tokenMap[token.symbol] = token)
+        (token: TokenInfo) => (this._tokenMap[token.symbol] = token)
       );
     }
   }
@@ -122,7 +122,7 @@ export class EthereumBase {
   async getTokenList(
     tokenListSource: string,
     tokenListType: TokenListType
-  ): Promise<Token[]> {
+  ): Promise<TokenInfo[]> {
     let tokens;
     if (tokenListType === 'URL') {
       ({
@@ -145,12 +145,12 @@ export class EthereumBase {
   // ethereum token lists are large. instead of reloading each time with
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
-  public get storedTokenList(): Token[] {
+  public get storedTokenList(): TokenInfo[] {
     return this.tokenList;
   }
 
   // return the Token object for a symbol
-  getTokenForSymbol(symbol: string): Token | null {
+  getTokenForSymbol(symbol: string): TokenInfo | null {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
@@ -299,9 +299,10 @@ export class EthereumBase {
     return response;
   }
 
-  public getTokenBySymbol(tokenSymbol: string): Token | undefined {
+  public getTokenBySymbol(tokenSymbol: string): TokenInfo | undefined {
     return this.tokenList.find(
-      (token: Token) => token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
+      (token: TokenInfo) =>
+        token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
     );
   }
 

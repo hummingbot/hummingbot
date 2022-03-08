@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import express from 'express';
-import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
+import { Server } from 'http';
 import { SolanaRoutes } from './chains/solana/solana.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger, updateLoggerToStdout } from './services/logger';
@@ -21,6 +21,7 @@ import { AmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
+import morgan from 'morgan';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -30,6 +31,9 @@ let swaggerServer: Server;
 
 // parse body for application/json
 gatewayApp.use(express.json());
+
+// logging middleware
+gatewayApp.use(morgan('combined'));
 
 // parse url for application/x-www-form-urlencoded
 gatewayApp.use(express.urlencoded({ extended: true }));
