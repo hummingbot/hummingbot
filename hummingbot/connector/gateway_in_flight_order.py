@@ -67,6 +67,10 @@ class GatewayInFlightOrder(InFlightOrderBase):
         return self.last_state in {"CANCELED", "EXPIRED"}
 
     @property
+    def is_cancelling(self) -> bool:
+        return self.last_state == "CANCELING"
+
+    @property
     def gas_price(self) -> Decimal:
         return self._gas_price
 
