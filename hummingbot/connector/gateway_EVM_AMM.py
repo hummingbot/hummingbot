@@ -628,13 +628,22 @@ class GatewayEVMAMM(ConnectorBase):
                 if (self.current_timestamp - tracked_order.creation_timestamp).total_seconds() < cancel_age:
                     return
 
+            if tracked_order.is_cancelled or tracked_order.is_cancelling:
+                return
+
+            tracked_order.last_state == "CANCELING"
+
+            self.logger().info(f"Requesting cancel of order {order_id}")
+
             await gateway_http_client.cancel_evm_transaction(
                 self.chain,
                 self.network,
                 self.address,
                 tracked_order.nonce)
 
-            self.logger().info(f"Requested cancel of order {order_id}")
+            tracked_order.last_state == "CANCELED"
+
+            self.logger().info(f"Order {order_id} has been canceled")
 
             return order_id
 
