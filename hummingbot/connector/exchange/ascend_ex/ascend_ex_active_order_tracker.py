@@ -85,7 +85,8 @@ class AscendExActiveOrderTracker:
         timestamp = message.timestamp
         content = message.content
 
-        for snapshot_orders, active_orders in [(content["bids"], self._active_bids), (content["asks"], self.active_asks)]:
+        for snapshot_orders, active_orders in [(content["bids"], self._active_bids),
+                                               (content["asks"], self.active_asks)]:
             for order in snapshot_orders:
                 price, amount = self.get_rates_and_quantities(order)
 

@@ -338,13 +338,18 @@ class AscendExExchange(ExchangePyBase):
         return trading_rules
 
     async def _update_account_data(self):
-        url = f"{CONSTANTS.REST_URL}/info"
-        async with self._throttler.execute_task("info"):
-            response = await self._api_request(
-                method=RESTMethod.GET,
-                path_url=url,
-                is_auth_required=True
-            )
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
+        headers = self._ascend_ex_auth.get_headers(CONSTANTS.INFO_PATH_URL)
+
+        rest_assistant = await self._get_rest_assistant()
+
+        request = RESTRequest(method=RESTMethod.GET,
+                              url=url,
+                              headers=headers,
+                              is_auth_required=True)
+
+        async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
+            response = await rest_assistant.call(request)
 
             try:
                 parsed_response = await response.json()
@@ -382,19 +387,10 @@ class AscendExExchange(ExchangePyBase):
                 await self._update_account_data()
 
             url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
-            headers = {
-                **self._ascend_ex_auth.get_headers(),
-                **self._ascend_ex_auth.get_auth_headers(
-                    path_url if force_auth_path_url is None else force_auth_path_url
-                ),
-                **self._ascend_ex_auth.get_hb_id_headers(),
-            }
+            headers = self._ascend_ex_auth.get_headers(path_url if force_auth_path_url is None else force_auth_path_url)
         else:
             url = f"{CONSTANTS.REST_URL}/{path_url}"
-            headers = {
-                **self._ascend_ex_auth.get_headers(),
-                **self._ascend_ex_auth.get_hb_id_headers(),
-            }
+            headers = self._ascend_ex_auth.get_headers()
 
         rest_assistant = await self._get_rest_assistant()
 

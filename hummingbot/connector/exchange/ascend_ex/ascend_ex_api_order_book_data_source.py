@@ -102,7 +102,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
 
             trades = resp_json.get("data").get("data")
-            if (len(trades) == 0):
+            if len(trades) == 0:
                 continue
 
             # last trade is the most recent trade
