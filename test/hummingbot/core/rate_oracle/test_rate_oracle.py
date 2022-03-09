@@ -95,7 +95,7 @@ class RateOracleTest(unittest.TestCase):
         mock_response: Fixture.Binance
         mock_api.get(regex_url, body=json.dumps(Fixture.BinanceUS))
 
-        oracle = RateOracle.get_instance()
+        oracle = RateOracle()
         oracle.start()
         self.async_run_with_timeout(oracle.get_ready())
         self.assertGreater(len(oracle.prices), 0)
