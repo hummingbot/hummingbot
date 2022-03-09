@@ -14,6 +14,28 @@ class AscendExAuth:
         self.api_key = api_key
         self.secret_key = secret_key
 
+    def get_headers(self,
+                    path_url: str = None,
+                    data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Generates final headers
+        :param path_url: URL of the auth API endpoint
+        :param data: data to be included in the headers
+        :return: a dictionary of request info including auth & meta headers
+        """
+        if path_url is not None:
+            headers = {
+                **self.get_meta_headers(),
+                **self.get_auth_headers(path_url, data),
+                **self.get_hb_id_headers(),
+            }
+        else:
+            headers = {
+                **self.get_meta_headers(),
+                **self.get_hb_id_headers(),
+            }
+        return headers
+
     def get_auth_headers(
         self,
         path_url: str,
@@ -41,7 +63,7 @@ class AscendExAuth:
         }
 
     @staticmethod
-    def get_headers() -> Dict[str, Any]:
+    def get_meta_headers() -> Dict[str, Any]:
         """
         Generates generic headers required by AscendEx
         :return: a dictionary of headers

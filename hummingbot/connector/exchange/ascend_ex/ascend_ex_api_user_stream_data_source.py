@@ -67,12 +67,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws = None
         while True:
             try:
-                headers = {
-                    **self._ascend_ex_auth.get_headers(),
-                    **self._ascend_ex_auth.get_auth_headers("info"),
-                    **self._ascend_ex_auth.get_hb_id_headers(),
-                }
-
+                headers = self._ascend_ex_auth.get_headers(CONSTANTS.INFO_PATH_URL)
                 rest_assistant = await self._get_rest_assistant()
                 url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
                 request = RESTRequest(method=RESTMethod.GET, url=url, headers=headers)
@@ -82,17 +77,14 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 info = await response.json()
                 accountGroup = info.get("data").get("accountGroup")
-                headers = {
-                    **self._ascend_ex_auth.get_auth_headers("stream"),
-                    **self._ascend_ex_auth.get_hb_id_headers(),
-                }
+                headers = self._ascend_ex_auth.get_headers(CONSTANTS.STREAM_PATH_URL)
                 payload = {
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": "order:cash"
                 }
 
                 ws: WSAssistant = await self._get_ws_assistant()
-                url = f"{get_ws_url_private(accountGroup)}/stream"
+                url = f"{get_ws_url_private(accountGroup)}/{CONSTANTS.STREAM_PATH_URL}"
                 await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
 
                 subscribe_request: WSRequest = WSRequest(payload)

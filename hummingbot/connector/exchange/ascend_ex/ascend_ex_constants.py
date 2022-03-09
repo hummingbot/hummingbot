@@ -18,6 +18,7 @@ PRODUCTS_PATH_URL = "products"
 TRADES_PATH_URL = "trades"
 DEPTH_PATH_URL = "depth"
 INFO_PATH_URL = "info"
+STREAM_PATH_URL = "stream"
 
 # WS API ENDPOINTS
 SUB_ENDPOINT_NAME = "sub"
