@@ -231,7 +231,7 @@
       <Order title="Order 1" hint="Order hint">
         <template #toggle>
           <q-btn-toggle
-            v-model="order1Toggle.value.value"
+            v-model="order_1_Toggle.value.value"
             class="flex justify-between full-width"
             unelevated
             :ripple="false"
@@ -245,21 +245,21 @@
         </template>
         <template #counters>
           <Counter
-            v-model="order1FirstCounter.value.value"
+            v-model="order_1_FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order1FirstCounter.properties }"
+            v-bind="{ ...order_1_FirstCounter.properties }"
           />
           <Counter
-            v-model="order1SecondCounter.value.value"
+            v-model="order_1_SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order1SecondCounter.properties }"
+            v-bind="{ ...order_1_SecondCounter.properties }"
           />
         </template>
       </Order>
       <Order title="Order 2" hint="Order hint">
         <template #toggle>
           <q-btn-toggle
-            v-model="order2Toggle.value.value"
+            v-model="order_2_Toggle.value.value"
             class="flex justify-between full-width"
             unelevated
             :ripple="false"
@@ -273,21 +273,21 @@
         </template>
         <template #counters>
           <Counter
-            v-model="order2FirstCounter.value.value"
+            v-model="order_2_FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order2FirstCounter.properties }"
+            v-bind="{ ...order_2_FirstCounter.properties }"
           />
           <Counter
-            v-model="order2SecondCounter.value.value"
+            v-model="order_2_SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order2SecondCounter.properties }"
+            v-bind="{ ...order_2_SecondCounter.properties }"
           />
         </template>
       </Order>
       <Order title="Order 3" hint="Order hint">
         <template #toggle>
           <q-btn-toggle
-            v-model="order3Toggle.value.value"
+            v-model="order_3_Toggle.value.value"
             class="flex justify-between full-width"
             unelevated
             :ripple="false"
@@ -301,21 +301,21 @@
         </template>
         <template #counters>
           <Counter
-            v-model="order3FirstCounter.value.value"
+            v-model="order_3_FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order3FirstCounter.properties }"
+            v-bind="{ ...order_3_FirstCounter.properties }"
           />
           <Counter
-            v-model="order3SecondCounter.value.value"
+            v-model="order_3_SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order3SecondCounter.properties }"
+            v-bind="{ ...order_3_SecondCounter.properties }"
           />
         </template>
       </Order>
       <Order title="Order 4" hint="Order hint">
         <template #toggle>
           <q-btn-toggle
-            v-model="order4Toggle.value.value"
+            v-model="order_4_Toggle.value.value"
             class="flex justify-between full-width"
             unelevated
             :ripple="false"
@@ -329,14 +329,14 @@
         </template>
         <template #counters>
           <Counter
-            v-model="order4FirstCounter.value.value"
+            v-model="order_4_FirstCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order4FirstCounter.properties }"
+            v-bind="{ ...order_4_FirstCounter.properties }"
           />
           <Counter
-            v-model="order4SecondCounter.value.value"
+            v-model="order_4_SecondCounter.value.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order4SecondCounter.properties }"
+            v-bind="{ ...order_4_SecondCounter.properties }"
           />
         </template>
       </Order>

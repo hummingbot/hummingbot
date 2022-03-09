@@ -2,8 +2,8 @@ import { StrategyName } from 'src/composables/useStrategies';
 import { Ref } from 'vue';
 
 export enum BtnToggleType {
-  Sell = 'Sell',
-  Buy = 'Buy',
+  Sell = 'sell',
+  Buy = 'buy',
 }
 
 export interface Counter {
@@ -35,6 +35,12 @@ export interface Toggle {
 
 export interface BtnToggle {
   value: Ref<BtnToggleType>;
+}
+
+export interface Order {
+  value: Ref<BtnToggleType>;
+  orderAmount: Counter;
+  orderLevelParam: Counter;
 }
 
 export interface $Form {

@@ -221,11 +221,11 @@ export const $pureMMForm: $Form = {
     },
   },
 
-  order1Toggle: {
+  order_1_Toggle: {
     value: ref(BtnToggleType.Buy),
   },
 
-  order1FirstCounter: {
+  order_1_FirstCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -233,7 +233,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  order1SecondCounter: {
+  order_1_SecondCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -242,10 +242,10 @@ export const $pureMMForm: $Form = {
     },
   },
 
-  order2Toggle: {
+  order_2_Toggle: {
     value: ref(BtnToggleType.Buy),
   },
-  order2FirstCounter: {
+  order_2_FirstCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -253,7 +253,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  order2SecondCounter: {
+  order_2_SecondCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -261,10 +261,10 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  order3Toggle: {
+  order_3_Toggle: {
     value: ref(BtnToggleType.Buy),
   },
-  order3FirstCounter: {
+  order_3_FirstCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -272,7 +272,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  order3SecondCounter: {
+  order_3_SecondCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -280,10 +280,10 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  order4Toggle: {
+  order_4_Toggle: {
     value: ref(BtnToggleType.Buy),
   },
-  order4FirstCounter: {
+  order_4_FirstCounter: {
     value: ref(0),
     properties: {
       min: 0,
@@ -291,7 +291,7 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
-  order4SecondCounter: {
+  order_4_SecondCounter: {
     value: ref(0),
     properties: {
       min: 0,
