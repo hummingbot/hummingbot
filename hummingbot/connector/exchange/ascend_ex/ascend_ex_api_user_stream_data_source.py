@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import logging
+import time
 from typing import Any, AsyncIterable, List, Optional
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
@@ -95,6 +96,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     msg = raw_msg.data
                     if msg is None:
                         continue
+                    self._last_recv_time = time.time()
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
