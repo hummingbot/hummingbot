@@ -45,12 +45,12 @@ class RateOracleTest(unittest.TestCase):
     def test_find_rate_from_source(self, mock_api):
         url = RateOracle.binance_price_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, body=json.dumps(Fixture.Binance))
+        mock_api.get(regex_url, body=json.dumps(Fixture.Binance), repeat=True)
 
         url = RateOracle.binance_us_price_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: Fixture.Binance
-        mock_api.get(regex_url, body=json.dumps(Fixture.BinanceUS))
+        mock_api.get(regex_url, body=json.dumps(Fixture.BinanceUS), repeat=True)
 
         expected_rate = (Decimal("33327.43000000") + Decimal("33327.44000000")) / Decimal(2)
 
@@ -83,27 +83,6 @@ class RateOracleTest(unittest.TestCase):
         self._assert_rate_dict(rates)
         rates = self.async_run_with_timeout(RateOracle.get_coingecko_prices("USD"))
         self._assert_rate_dict(rates)
-
-    @aioresponses()
-    def test_rate_oracle_network(self, mock_api):
-        url = RateOracle.binance_price_url
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, body=json.dumps(Fixture.Binance))
-
-        url = RateOracle.binance_us_price_url
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_response: Fixture.Binance
-        mock_api.get(regex_url, body=json.dumps(Fixture.BinanceUS))
-
-        oracle = RateOracle()
-        oracle.start()
-        self.async_run_with_timeout(oracle.get_ready())
-        self.assertGreater(len(oracle.prices), 0)
-        rate = oracle.rate("SCRT-USDT")
-        self.assertGreater(rate, 0)
-        rate1 = oracle.rate("BTC-USDT")
-        self.assertGreater(rate1, 100)
-        oracle.stop()
 
     def test_find_rate(self):
         prices = {"HBOT-USDT": Decimal("100"), "AAVE-USDT": Decimal("50"), "USDT-GBP": Decimal("0.75")}
