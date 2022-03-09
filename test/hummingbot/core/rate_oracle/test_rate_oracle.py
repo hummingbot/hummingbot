@@ -30,12 +30,19 @@ class RateOracleTest(unittest.TestCase):
                 {"BTCUSD": "BTC-USD",
                  "ETHUSD": "ETH-USD"})
         }
-        RateOracle.source = RateOracleSource.binance
 
     @classmethod
     def tearDownClass(cls) -> None:
         BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDownClass()
+
+    def setUp(self) -> None:
+        super().setUp()
+        RateOracle.source = RateOracleSource.binance
+        RateOracle.get_binance_prices.cache_clear()
+        RateOracle.get_kucoin_prices.cache_clear()
+        RateOracle.get_ascend_ex_prices.cache_clear()
+        RateOracle.get_coingecko_prices.cache_clear()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -83,6 +90,27 @@ class RateOracleTest(unittest.TestCase):
         self._assert_rate_dict(rates)
         rates = self.async_run_with_timeout(RateOracle.get_coingecko_prices("USD"))
         self._assert_rate_dict(rates)
+
+    @aioresponses()
+    def test_rate_oracle_network(self, mock_api):
+        url = RateOracle.binance_price_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.Binance))
+
+        url = RateOracle.binance_us_price_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response: Fixture.Binance
+        mock_api.get(regex_url, body=json.dumps(Fixture.BinanceUS))
+
+        oracle = RateOracle()
+        oracle.start()
+        self.async_run_with_timeout(oracle.get_ready())
+        self.assertGreater(len(oracle.prices), 0)
+        rate = oracle.rate("SCRT-USDT")
+        self.assertGreater(rate, 0)
+        rate1 = oracle.rate("BTC-USDT")
+        self.assertGreater(rate1, 100)
+        oracle.stop()
 
     def test_find_rate(self):
         prices = {"HBOT-USDT": Decimal("100"), "AAVE-USDT": Decimal("50"), "USDT-GBP": Decimal("0.75")}

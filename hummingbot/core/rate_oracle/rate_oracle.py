@@ -219,7 +219,6 @@ class RateOracle(NetworkBase):
                                    "Check the log file for more info.")
                 break
             else:
-                print(f"\n**** response {task_result}")
                 results.update(task_result)
         return results
 
