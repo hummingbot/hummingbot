@@ -614,7 +614,10 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
-    async def execute_cancel(self, order_id: str, cancel_age: Optional[int] = None) -> str:
+    async def execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
+        self._general_cancel(client_order_id, None)
+
+    async def _general_cancel(self, order_id: str, cancel_age: Optional[int] = None) -> str:
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -628,7 +631,7 @@ class GatewayEVMAMM(ConnectorBase):
                 if (self.current_timestamp - tracked_order.creation_timestamp).total_seconds() < cancel_age:
                     return
 
-            if tracked_order.is_cancelled or tracked_order.is_cancelling:
+            if tracked_order.is_done or tracked_order.is_cancelling:
                 return
 
             tracked_order.last_state == "CANCELING"
@@ -656,9 +659,12 @@ class GatewayEVMAMM(ConnectorBase):
     async def cancel_outdated_orders(self, cancel_age: int):
         self.cancel_all(30.0, cancel_age)
 
-    async def cancel_all(self, timeout_seconds: float, cancel_age: Optional[int]) -> List[CancellationResult]:
-        incomplete_orders = [(key, o) for (key, o) in self._in_flight_orders.items() if not o.is_done]
-        tasks = [self.execute_cancel(key, cancel_age) for (key, _o) in incomplete_orders]
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        self._general_cancel_all(timeout_seconds, None)
+
+    async def _general_cancel_all(self, timeout_seconds: float, cancel_age: Optional[int]) -> List[CancellationResult]:
+        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+        tasks = [self._general_cancel(o.trading_pair, o.client_order_id, cancel_age) for o in incomplete_orders]
         order_id_set = set([key for (key, o) in incomplete_orders])
         successful_cancellations = []
 
