@@ -809,7 +809,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self.c_apply_price_band(proposal)
         if self._ping_pong_enabled:
             self.c_apply_ping_pong(proposal)
-
+    ##
     cdef c_apply_price_band(self, proposal):
         price_ceiling = ((self._price_ceiling_pct * self.get_price())/100) + self.get_price()
         if price_ceiling > 0 and self.get_price() >= price_ceiling:
