@@ -154,10 +154,6 @@ class HummingbotApplication(*commands):
         # NOTE: Only done for config command
         if raw_command.startswith("config"):
             command_split = raw_command.split(maxsplit=2)
-        elif raw_command.startswith("gateway"):
-            init_command_split = raw_command.split()
-            command_split = [f"{init_command_split[0]} {init_command_split[1]}"]
-            command_split.extend(init_command_split[2:])
         else:
             command_split = raw_command.split()
         try:
@@ -168,7 +164,7 @@ class HummingbotApplication(*commands):
             else:
                 # Check if help is requested, if yes, print & terminate
                 if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
-                    self.help(command_split[0])
+                    self.help(raw_command)
                     return
 
                 shortcuts = global_config_map.get("command_shortcuts").value
