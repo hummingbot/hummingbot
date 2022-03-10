@@ -23,6 +23,7 @@ from hummingbot.connector.exchange_base import (
     ExchangeBase,
     s_decimal_NaN)
 from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -55,7 +56,6 @@ from hummingbot.logger import HummingbotLogger
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = "-"
-CLIENT_ID_PREFIX = "93027a12dac34fBC"
 
 
 class OKExAPIError(IOError):
@@ -660,7 +660,10 @@ cdef class OkexExchange(ExchangeBase):
             data=data,
             is_auth_required=True
         )
-        return str(exchange_order_id['data'][0]['ordId'])
+        data = exchange_order_id["data"][0]
+        if data["sCode"] != "0":
+            raise IOError(f"Error submitting order {order_id}: {data['sMsg']}")
+        return str(data['ordId'])
 
     async def execute_buy(self,
                           order_id: str,
@@ -731,8 +734,12 @@ cdef class OkexExchange(ExchangeBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"{CLIENT_ID_PREFIX}{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = get_new_client_order_id(
+                is_buy=True,
+                trading_pair=trading_pair,
+                hbot_order_id_prefix=CLIENT_ID_PREFIX,
+                max_id_len=MAX_ID_LEN,
+            )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -790,7 +797,6 @@ cdef class OkexExchange(ExchangeBase):
                 f"Error submitting sell {order_type_str} order to OKEx for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
-                f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to OKEx. Check API key and network connection."
             )
@@ -803,8 +809,12 @@ cdef class OkexExchange(ExchangeBase):
                     object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"{CLIENT_ID_PREFIX}{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = get_new_client_order_id(
+                is_buy=False,
+                trading_pair=trading_pair,
+                hbot_order_id_prefix=CLIENT_ID_PREFIX,
+                max_id_len=MAX_ID_LEN,
+            )
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id

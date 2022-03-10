@@ -353,7 +353,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -408,7 +411,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
