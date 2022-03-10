@@ -179,5 +179,4 @@ cdef class InFlightOrderBase:
             nonce_component = self.client_order_id[-16:]
             timestamp_string = f"{nonce_component[:10]}.{nonce_component[-6:]}"
             timestamp = float(timestamp_string) if nonce_component.isnumeric() else -1
-            start_timestamp = int(timestamp)
         return timestamp
