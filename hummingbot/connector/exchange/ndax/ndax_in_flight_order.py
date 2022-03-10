@@ -6,10 +6,7 @@ from typing import (
 )
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 WORKING_LOCAL_STATUS = "WorkingLocal"
 

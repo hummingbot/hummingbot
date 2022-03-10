@@ -17,8 +17,8 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (MarketOrderFailureEvent,
                                           OrderCancelledEvent,
                                           OrderExpiredEvent,
-                                          OrderType,
-                                          TradeType)
+                                          )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
@@ -48,7 +48,7 @@ class TwapTradeStrategy(StrategyPyBase):
                  order_step_size: Decimal,
                  order_price: Decimal,
                  order_delay_time: float = 10.0,
-                 execution_state: ConditionalExecutionState = RunAlwaysExecutionState(),
+                 execution_state: ConditionalExecutionState = None,
                  cancel_order_wait_time: Optional[float] = 60.0,
                  status_report_interval: float = 900):
         """
@@ -84,7 +84,7 @@ class TwapTradeStrategy(StrategyPyBase):
         self._previous_timestamp = 0
         self._last_timestamp = 0
         self._order_price = order_price
-        self._execution_state = execution_state
+        self._execution_state = execution_state or RunAlwaysExecutionState()
 
         if cancel_order_wait_time is not None:
             self._cancel_order_wait_time = cancel_order_wait_time
@@ -361,8 +361,8 @@ class TwapTradeStrategy(StrategyPyBase):
         quantized_amount = market.quantize_order_amount(market_info.trading_pair, Decimal(curr_order_amount))
         quantized_price = market.quantize_order_price(market_info.trading_pair, Decimal(self._order_price))
 
-        self.logger().info("Checking to see if the incremental order size is possible")
-        self.logger().info("Checking to see if the user has enough balance to place orders")
+        self.logger().debug("Checking to see if the incremental order size is possible")
+        self.logger().debug("Checking to see if the user has enough balance to place orders")
 
         if quantized_amount != 0:
             if self.has_enough_balance(market_info):

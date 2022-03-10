@@ -2,7 +2,7 @@ import unittest
 from decimal import Decimal
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.core.event.events import PositionSide
+from hummingbot.core.data_type.common import PositionSide
 
 
 class DydxPerpetualPositionTest(unittest.TestCase):
