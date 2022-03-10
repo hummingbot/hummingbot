@@ -37,8 +37,7 @@
       class="bg-main-green-1 text-uppercase text-white q-py-sm"
       flat
       type="submit"
-      :href="fileHref"
-      :download="`${fileName}.yml`"
+      @click="clickSubmit"
     >
       save
     </q-btn>
@@ -58,9 +57,17 @@ export default defineComponent({
     fileName: { type: String, required: true, default: () => '' },
   },
   emits: ['update:modelValue'],
-  setup() {
+  setup(props) {
     const steps = useSteps();
-    return { stepCount: steps.count };
+
+    const clickSubmit = () => {
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `${props.fileName}.yml`;
+      downloadLink.href = props.fileHref;
+      downloadLink.click();
+      downloadLink.remove();
+    };
+    return { stepCount: steps.count, clickSubmit };
   },
 });
 </script>

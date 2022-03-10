@@ -1,4 +1,3 @@
-import { LocalStorage } from 'quasar';
 import { StrategyName } from 'src/composables/useStrategies';
 import { computed, Ref } from 'vue';
 
@@ -24,7 +23,7 @@ export const useForm = (strategyName: Ref<StrategyName>, localStorageDataUpdate?
     ),
   );
 
-  const localStorageData = LocalStorage.getItem(strategyName.value)?.toString();
+  const localStorageData = localStorage.getItem(strategyName.value);
 
   if (localStorageData && localStorageDataUpdate) {
     const parsedLocalStorage = JSON.parse(localStorageData);
