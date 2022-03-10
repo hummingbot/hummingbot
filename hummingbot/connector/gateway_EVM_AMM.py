@@ -354,6 +354,7 @@ class GatewayEVMAMM(ConnectorBase):
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
             gas_cost = order_result.get("gasCost")
+            created_timestamp: int = (order_result.get("timestamp"))
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
 
@@ -371,7 +372,7 @@ class GatewayEVMAMM(ConnectorBase):
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, transaction_hash))
+                                                          price, order_id, created_timestamp, transaction_hash))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
@@ -458,7 +459,7 @@ class GatewayEVMAMM(ConnectorBase):
                                     AddedToCostTradeFee(
                                         flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
                                     ),
-                                    exchange_trade_id=tracked_order.get_exchange_order_id()
+                                    exchange_trade_id=await tracked_order.get_exchange_order_id()
                                 )
                             )
                             tracked_order.last_state = "FILLED"
@@ -478,7 +479,8 @@ class GatewayEVMAMM(ConnectorBase):
                                                            tracked_order.executed_amount_base,
                                                            tracked_order.executed_amount_quote,
                                                            float(fee),
-                                                           tracked_order.order_type))
+                                                           tracked_order.order_type,
+                                                           await tracked_order.get_exchange_order_id()))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:
                         self.logger().info(
