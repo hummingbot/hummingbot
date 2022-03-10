@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 22
+template_version: 23
 strategy: null
 
 # Exchange and token parameters.
@@ -125,6 +125,12 @@ take_if_crossed: null
 # Please make sure there is a space between : and [
 order_override: null
 
+# Simpler override config for seperate bid and order level spreads
+split_order_levels_enabled: null
+bid_order_level_spreads: null
+ask_order_level_spreads: null
+bid_order_level_amounts: null
+ask_order_level_amounts: null
 # If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
 should_wait_order_cancel_confirmation: True
 
