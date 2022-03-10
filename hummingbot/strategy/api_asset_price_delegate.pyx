@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.data_feed.custom_api_data_feed import CustomAPIDataFeed, NetworkStatus
 from .asset_price_delegate cimport AssetPriceDelegate
 
