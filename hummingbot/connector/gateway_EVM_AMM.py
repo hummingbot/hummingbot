@@ -441,6 +441,7 @@ class GatewayEVMAMM(ConnectorBase):
                     if update_result["txReceipt"]["status"] == 1:
                         if tracked_order in self.approval_orders:
                             self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
+                            self._allowances = await self.get_allowances()  # update allowances
                         else:
                             gas_used = update_result["txReceipt"]["gasUsed"]
                             gas_price = tracked_order.gas_price
