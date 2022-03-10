@@ -17,6 +17,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_ord
     BinancePerpetualAPIOrderBookDataSource
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import \
     BinancePerpetualDerivative
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -1572,3 +1573,39 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertNotIn("OID2", self.exchange.in_flight_orders)
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 4
+
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+            position_action="OPEN",
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+            position_action="OPEN",
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
+
+        self.assertEqual(result, expected_client_order_id)
