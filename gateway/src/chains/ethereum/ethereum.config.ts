@@ -60,7 +60,7 @@ export function getEthereumConfig(
     },
     nodeAPIKey: ConfigManagerV2.getInstance().get(chainName + '.nodeAPIKey'),
     nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      chainName + '.nativeCurrencySymbol'
+      chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
     manualGasPrice: ConfigManagerV2.getInstance().get(
       chainName + '.manualGasPrice'

@@ -30,6 +30,14 @@ export class InitializationError extends Error {
   }
 }
 
+export class UniswapishPriceError extends Error {
+  message: string;
+  constructor(message: string) {
+    super(message);
+    this.message = message;
+  }
+}
+
 // Capture errors from an async route, this must wrap any route that uses async.
 // For example, `app.get('/', asyncHandler(async (req, res) -> {...}))`
 export const asyncHandler =

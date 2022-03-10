@@ -7,6 +7,8 @@ import {
 } from '../services/validators';
 
 import {
+  validateChain,
+  validateNetwork,
   validateNonce,
   validateAddress,
   validateMaxFeePerGas,
@@ -15,10 +17,6 @@ import {
 
 export const invalidConnectorError: string =
   'The connector param is not a string.';
-
-export const invalidChainError: string = 'The chain param is not a string.';
-
-export const invalidNetworkError: string = 'The network param is not a string.';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
@@ -36,18 +34,6 @@ export const invalidLimitPriceError: string =
 export const validateConnector: Validator = mkValidator(
   'connector',
   invalidConnectorError,
-  (val) => typeof val === 'string'
-);
-
-export const validateChain: Validator = mkValidator(
-  'chain',
-  invalidChainError,
-  (val) => typeof val === 'string'
-);
-
-export const validateNetwork: Validator = mkValidator(
-  'network',
-  invalidNetworkError,
   (val) => typeof val === 'string'
 );
 

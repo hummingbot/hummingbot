@@ -1,7 +1,7 @@
 """
 A collection of utility functions for querying and checking Ethereum data
 """
-
+from decimal import Decimal
 import aiohttp
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils import async_ttl_cache
@@ -45,14 +45,14 @@ def check_transaction_exceptions(trade_data: dict) -> list:
     exception_list = []
 
     gas_limit = trade_data["gas_limit"]
-    gas_cost = trade_data["gas_cost"]
-    amount = trade_data["amount"]
+    gas_cost = Decimal(str(trade_data["gas_cost"]))
+    amount = Decimal(str(trade_data["amount"]))
     side = trade_data["side"]
     base = trade_data["base"]
     quote = trade_data["quote"]
     balances = trade_data["balances"]
     allowances = trade_data["allowances"]
-    swaps_message = f"Total swaps: {trade_data['swaps']}" if "swaps" in trade_data.keys() else ''
+    swaps_message = f"Total swaps: {trade_data.get('swaps', 'UNKNOWN')}"
 
     eth_balance = balances["ETH"]
 

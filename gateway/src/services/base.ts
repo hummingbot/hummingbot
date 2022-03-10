@@ -40,28 +40,6 @@ export const bigNumberWithDecimalToStr = (n: BigNumber, d: number): string => {
     .join('');
 };
 
-export const stringWithDecimalToBigNumber = (
-  numberStr: string,
-  d: number
-): BigNumber => {
-  const leftAndRight = numberStr.split('.');
-
-  if (leftAndRight.length === 2) {
-    const existingDecimals = leftAndRight[1];
-    if (existingDecimals.length > d) {
-      const right = leftAndRight[1].substr(0, d);
-      return BigNumber.from(leftAndRight[0] + right);
-    } else {
-      const neededZeros = d - existingDecimals.length;
-      const zeros = '0'.repeat(neededZeros);
-      return BigNumber.from(leftAndRight[0] + leftAndRight[1] + zeros);
-    }
-  }
-
-  const zeros = '0'.repeat(d);
-  return BigNumber.from(numberStr + zeros);
-};
-
 export const gasCostInEthString = (
   gasPrice: number,
   gasLimit: number
