@@ -1,3 +1,4 @@
+import { StrategyName } from 'src/stores/strategies';
 import { ref } from 'vue';
 
 import { $Form, BtnToggleType } from './form.types';
@@ -308,7 +309,7 @@ export const $pureMMForm: $Form = {
     },
   },
   fileName: {
-    value: ref(''),
+    value: ref(StrategyName.PureMarketMaking),
     properties: {
       placeholder: 'Title',
       rightText: '.yml',

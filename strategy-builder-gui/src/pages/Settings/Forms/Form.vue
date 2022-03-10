@@ -7,7 +7,7 @@
       <component :is="componentsMap[strategyName]" v-if="!displaySaveForm" />
       <SaveForm v-if="displaySaveForm" :strategy-name="strategyName" />
     </div>
-    <Pager v-model="currentStep" :file-name="strategyName" :file-href="fileHref" />
+    <Pager v-model="currentStep" :file-name="fileName" :file-href="fileHref" />
   </q-form>
 </template>
 
@@ -38,9 +38,12 @@ export default defineComponent({
     const steps = useSteps();
     const route = useRoute();
     const strategyName = computed(() => route.params.strategyName as StrategyName);
-    const { values } = useForm(strategyName);
+    const { values } = useForm(strategyName, true);
     const fileHref = useFileHref(values); // TODO: sort  values and rename fields, based on template
     const displaySaveForm = computed(() => steps.current.value === steps.count);
+    const fileName = computed(
+      () => Object.getOwnPropertyDescriptor(values.value, 'fileName')?.value,
+    );
 
     const handleSubmit = () => {
       localStorage.setItem(strategyName.value, JSON.stringify(values.value));
@@ -56,6 +59,7 @@ export default defineComponent({
       currentStep: steps.current,
       strategyName,
       fileHref,
+      fileName,
     };
   },
 });
