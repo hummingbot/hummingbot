@@ -9,6 +9,7 @@ import ssl
 from typing import Optional, Any, Dict, AsyncIterable, List, Union
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 from hummingbot.logger import HummingbotLogger
@@ -18,7 +19,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220301"
+GATEWAY_DOCKER_TAG: str = "20220306"
 
 
 def is_inside_docker() -> bool:
@@ -225,7 +226,9 @@ class GatewayHttpClient:
         if cls._shared_client is None or re_init:
             cert_path = get_gateway_paths().local_certs_path.as_posix()
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
-            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
+            ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                    keyfile=f"{cert_path}/client_key.pem",
+                                    password=Security.password)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client
@@ -393,7 +396,7 @@ class GatewayHttpClient:
             spender: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "evm/allowances", {
+        return await self.api_request("post", "evm/allowances", {
             "chain": chain,
             "network": network,
             "address": address,
@@ -415,13 +418,14 @@ class GatewayHttpClient:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
-        return await self.api_request("get", "amm/price", {
+        # XXX(martin_kou): The amount is always output with 18 decimal places.
+        return await self.api_request("post", "amm/price", {
             "chain": chain,
             "network": network,
             "connector": connector,
             "base": base_asset,
             "quote": quote_asset,
-            "amount": str(amount),
+            "amount": f"{amount:.18f}",
             "side": side.name
         }, fail_silently=fail_silently)
 
@@ -464,6 +468,7 @@ class GatewayHttpClient:
             price: Decimal,
             nonce: int
     ) -> Dict[str, Any]:
+        # XXX(martin_kou): The amount is always output with 18 decimal places.
         return await self.api_request("post", "amm/trade", {
             "chain": chain,
             "network": network,
@@ -472,7 +477,7 @@ class GatewayHttpClient:
             "base": base_asset,
             "quote": quote_asset,
             "side": side.name,
-            "amount": str(amount),
+            "amount": f"{amount:.18f}",
             "limitPrice": str(price),
             "nonce": nonce
         })

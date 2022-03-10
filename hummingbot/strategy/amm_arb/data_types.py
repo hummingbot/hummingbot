@@ -74,9 +74,12 @@ class ArbProposal:
         sell = self.first_side if not self.first_side.is_buy else self.second_side
         base_conversion_pair = f"{sell.market_info.base_asset}-{buy.market_info.base_asset}"
         quote_conversion_pair = f"{sell.market_info.quote_asset}-{buy.market_info.quote_asset}"
+        unwrapped_conversion_pair = f"{sell.market_info.quote_asset.lstrip('w')}-{buy.market_info.quote_asset.lstrip('w')}"
 
         sell_base_to_buy_base_rate = Decimal(1)
         sell_quote_to_buy_quote_rate = rate_source.rate(quote_conversion_pair)
+        sell_quote_to_buy_quote_rate = sell_quote_to_buy_quote_rate if sell_quote_to_buy_quote_rate else \
+            rate_source.rate(unwrapped_conversion_pair)
 
         buy_fee_amount = s_decimal_0
         sell_fee_amount = s_decimal_0
@@ -121,7 +124,6 @@ class ArbProposal:
             self.logger().warning("The arbitrage proposal profitability could not be calculated due to a missing rate"
                                   f" ({base_conversion_pair}={sell_base_to_buy_base_rate},"
                                   f" {quote_conversion_pair}={sell_quote_to_buy_quote_rate})")
-
         return result
 
     def __repr__(self):

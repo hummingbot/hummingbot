@@ -339,7 +339,7 @@ class GatewayCommand:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
-    async def _connect(self, connector: str = None):
+    async def _gateway_connect(self, connector: str = None):
         # it is possible that gateway_connections.json does not exist
         connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
         if path.exists(connections_fp):

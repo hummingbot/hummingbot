@@ -7,7 +7,7 @@ import {
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Ethereum } from '../chains/ethereum/ethereum';
 import { Harmony } from '../chains/harmony/harmony';
-import { Token } from '../services/ethereum-base';
+import { TokenInfo } from '../services/ethereum-base';
 import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
@@ -24,6 +24,7 @@ export async function getStatus(
   let chainId: number;
   let rpcUrl: string;
   let currentBlockNumber: number;
+  let nativeCurrency: string;
 
   if (req.chain) {
     if (req.chain === 'avalanche') {
@@ -59,11 +60,13 @@ export async function getStatus(
     chainId = connection.chainId;
     rpcUrl = connection.rpcUrl;
     currentBlockNumber = await connection.getCurrentBlockNumber();
+    nativeCurrency = connection.nativeTokenSymbol;
     statuses.push({
       chain,
       chainId,
       rpcUrl,
       currentBlockNumber,
+      nativeCurrency,
     });
   }
 
@@ -72,7 +75,7 @@ export async function getStatus(
 
 export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
   let connection: EthereumBase;
-  let tokens: Token[] = [];
+  let tokens: TokenInfo[] = [];
 
   if (req.chain && req.network) {
     if (req.chain === 'avalanche') {
@@ -104,7 +107,7 @@ export async function getTokens(req: TokensRequest): Promise<TokensResponse> {
     tokens = connection.storedTokenList;
   } else {
     for (const t of req.tokenSymbols as []) {
-      tokens.push(connection.getTokenForSymbol(t) as Token);
+      tokens.push(connection.getTokenForSymbol(t) as TokenInfo);
     }
   }
 

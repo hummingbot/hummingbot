@@ -69,6 +69,7 @@ class GatewayEVMAMM(ConnectorBase):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
+        self._name = "_".join([connector_name, chain, network])
         super().__init__()
         self._chain = chain
         self._network = network
@@ -105,6 +106,10 @@ class GatewayEVMAMM(ConnectorBase):
     @property
     def network(self):
         return self._network
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def address(self):
@@ -253,7 +258,7 @@ class GatewayEVMAMM(ConnectorBase):
                     "gas_price": gas_price,
                     "gas_cost": gas_cost,
                     "price": price,
-                    "swaps": len(resp["swaps"])
+                    "swaps": len(resp.get("swaps", []))
                 }
                 exceptions = check_transaction_exceptions(account_standing)
                 for index in range(len(exceptions)):

@@ -1,7 +1,7 @@
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
-import { Token } from '../../../src/services/ethereum-base';
+import { TokenInfo } from '../../../src/services/ethereum-base';
 import {
   nonce,
   getTokenSymbolsToTokens,
@@ -47,7 +47,7 @@ describe('nonce', () => {
   });
 });
 
-const weth: Token = {
+const weth: TokenInfo = {
   chainId: 42,
   name: 'WETH',
   symbol: 'WETH',
