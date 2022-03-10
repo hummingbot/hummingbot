@@ -1,15 +1,7 @@
 import logging
-import time
 from decimal import Decimal
-from math import (
-    ceil,
-    floor,
-)
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from math import ceil, floor
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -24,18 +16,12 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
-from hummingbot.strategy.hanging_orders_tracker import (
-    CreatedPairOfOrders,
-    HangingOrdersTracker,
-)
+from hummingbot.strategy.hanging_orders_tracker import CreatedPairOfOrders, HangingOrdersTracker
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
-from .data_types import (
-    PriceSize,
-    Proposal,
-)
+from .data_types import PriceSize, Proposal
 from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
@@ -570,11 +556,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.creation_timestamp/1e6)),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
 
             if is_hanging_order:
                 level_for_calculation = lvl_buy if order.is_buy else lvl_sell
@@ -1153,7 +1135,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             list active_orders = self.active_non_hanging_orders
 
-        if active_orders and any(order_age(o) > self._max_order_age for o in active_orders):
+        if active_orders and any(order_age(o, self._current_timestamp) > self._max_order_age for o in active_orders):
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
