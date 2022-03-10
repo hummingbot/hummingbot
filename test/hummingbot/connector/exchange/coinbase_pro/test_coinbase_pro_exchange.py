@@ -16,9 +16,9 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
-    OrderType,
     SellOrderCreatedEvent
 )
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.network_iterator import NetworkStatus
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 

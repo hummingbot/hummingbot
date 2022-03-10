@@ -3,8 +3,8 @@ from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import MarketEvent, OrderType, TradeType
-
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import MarketEvent
 
 cdef class FtxInFlightOrder(InFlightOrderBase):
     def __init__(self,
