@@ -9,6 +9,7 @@ import ssl
 from typing import Optional, Any, Dict, AsyncIterable, List, Union
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 from hummingbot.logger import HummingbotLogger
@@ -225,7 +226,9 @@ class GatewayHttpClient:
         if cls._shared_client is None or re_init:
             cert_path = get_gateway_paths().local_certs_path.as_posix()
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
-            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
+            ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                    keyfile=f"{cert_path}/client_key.pem",
+                                    password=Security.password)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client

@@ -63,7 +63,7 @@ class GatewayCommand:
             else:
                 safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
         elif option == "connect":
-            safe_ensure_future(self.connect(key))
+            safe_ensure_future(self.gateway_connect(key))
         elif option == "test-connection":
             safe_ensure_future(self.test_connection())
         elif option == "start":
@@ -312,8 +312,8 @@ class GatewayCommand:
     async def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
-    async def connect(self, connector: str = None):
-        safe_ensure_future(self._connect(connector), loop=self.ev_loop)
+    async def gateway_connect(self, connector: str = None):
+        safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
 
     async def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
@@ -349,7 +349,7 @@ class GatewayCommand:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
-    async def _connect(self, connector: str = None):
+    async def _gateway_connect(self, connector: str = None):
         # it is possible that gateway_connections.json does not exist
         connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
         if path.exists(connections_fp):
