@@ -205,6 +205,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
+
         :return: bidirectional mapping between trading pair exchange notation and client notation
         """
         if not cls.trading_pair_symbol_map_ready():
