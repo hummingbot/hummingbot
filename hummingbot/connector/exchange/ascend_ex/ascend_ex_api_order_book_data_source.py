@@ -153,6 +153,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         If no instance is provided then a new one will be created.
         :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
         the function will create a new one.
+
         :return current order book for the specified trading pair
         """
         api_factory = api_factory or build_api_factory()
