@@ -272,15 +272,15 @@ class GatewayHttpClient:
                 response = await client.post(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
+            parsed_response = await response.json()
             if response.status != 200 and not fail_silently:
                 if "error" in parsed_response:
-                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response['error']}"
+                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
                 else:
-                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response}"
-                self.logger().error(err_msg)
-            parsed_response = await response.json()
+                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
         except Exception as e:
             if not fail_silently:
+                self.logger().error(e)
                 raise e
 
         return parsed_response

@@ -20,7 +20,7 @@ class GatewayInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  creation_timestamp: float,
                  gas_price: Decimal,
-                 initial_state: str = "OPEN"):
+                 initial_state: str = "PENDING_CREATE"):
         super().__init__(
             client_order_id,
             exchange_order_id,
