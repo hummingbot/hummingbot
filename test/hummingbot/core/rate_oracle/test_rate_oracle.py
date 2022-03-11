@@ -66,19 +66,19 @@ class RateOracleTest(unittest.TestCase):
 
     @aioresponses()
     def test_get_rate_coingecko(self, mock_api):
-        url = RateOracle.coingecko_usd_price_url.format("USD", 1)
+        url = RateOracle.coingecko_usd_price_url.format(1, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage1), repeat=True)
 
-        url = RateOracle.coingecko_usd_price_url.format("USD", 2)
+        url = RateOracle.coingecko_usd_price_url.format(2, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage2), repeat=True)
 
-        url = RateOracle.coingecko_usd_price_url.format("USD", 3)
+        url = RateOracle.coingecko_usd_price_url.format(3, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage3), repeat=True)
 
-        url = RateOracle.coingecko_usd_price_url.format("USD", 4)
+        url = RateOracle.coingecko_usd_price_url.format(4, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage4), repeat=True)
 
