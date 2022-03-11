@@ -10,13 +10,6 @@ class AscendExUtilsTests(TestCase):
     def _get_ms_timestamp(self):
         return 1633084102569
 
-    @patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_utils.get_tracking_nonce')
-    def test_gen_client_order_id(self, nonce_provider_mock):
-        nonce_provider_mock.return_value = int(1e15)
-        self.assertEqual("HMBot-BBTCUSD1000000000000000", utils.gen_client_order_id(True, "BTC-USDT"))
-        nonce_provider_mock.return_value = int(1e15) + 1
-        self.assertEqual("HMBot-SETHUSD1000000000000001", utils.gen_client_order_id(False, "ETH-USDT"))
-
     def test_gen_exchange_order_id(self):
         with mock.patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_utils.get_ms_timestamp') as get_ms_timestamp_mock:
             timestamp = self._get_ms_timestamp()

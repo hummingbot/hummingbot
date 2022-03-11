@@ -17,6 +17,7 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker impor
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -460,7 +461,9 @@ class AscendExExchange(ExchangePyBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        client_order_id = ascend_ex_utils.gen_client_order_id(True, trading_pair)
+        client_order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=trading_pair, hbot_order_id_prefix=ascend_ex_utils.HBOT_BROKER_ID
+        )
         safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
@@ -477,7 +480,9 @@ class AscendExExchange(ExchangePyBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        client_order_id = ascend_ex_utils.gen_client_order_id(False, trading_pair)
+        client_order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=trading_pair, hbot_order_id_prefix=ascend_ex_utils.HBOT_BROKER_ID
+        )
         safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
