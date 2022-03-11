@@ -658,7 +658,7 @@ class GatewayEVMAMM(ConnectorBase):
         await self._general_cancel_all(30.0, cancel_age)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        await self._general_cancel_all(timeout_seconds, None)
+        return []
 
     async def _general_cancel_all(self, timeout_seconds: float, cancel_age: Optional[int]) -> List[CancellationResult]:
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
