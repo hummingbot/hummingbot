@@ -147,6 +147,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                   throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
         """
         Get whole orderbook
+
         :param trading_pair: a trading pair for which the order book should be retrieved
         :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
         If no instance is provided then a new one will be created.
