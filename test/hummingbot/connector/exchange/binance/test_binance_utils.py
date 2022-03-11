@@ -1,6 +1,5 @@
 import unittest
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.exchange.binance import binance_utils as utils
 
 
