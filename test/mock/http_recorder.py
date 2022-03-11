@@ -127,6 +127,19 @@ class HttpPlayerBase(TransactionBase):
 
 
 class HttpRecorder(HttpPlayerBase):
+    """
+    Records HTTP conversations made over any aiohttp.ClientSession object, and records them to an SQLite database file
+    for replaying.
+
+    Usage:
+    recorder = HttpRecorder('test.db')
+    with recorder.patch_aiohttp_client:
+      # all aiohttp conversations inside this block will be recorded to test.db
+      async with aiohttp.ClientSession() as client:
+        async with client.get("https://api.binance.com/api/v3/time") as resp:
+          data = await resp.json()      # the request and response are recorded to test.db
+          ...
+    """
     async def aiohttp_request_method(
             self,
             client: ClientSession,
@@ -194,6 +207,23 @@ class HttpPlayerResponse:
 
 
 class HttpPlayer(HttpPlayerBase):
+    """
+    Given a HTTP conversation record db, patch aiohttp.ClientSession such that it will only replay matched recorded
+    conversations.
+
+    When aiohttp.ClientSession makes any request inside `patch_aiohttp_client()`, the player will search for a matching
+    response by URL, request params and request JSON. If no matching response is found, then an exception will be
+    raised.
+
+    Usage:
+    recorder = HttpPlayer('test.db')
+    with recorder.patch_aiohttp_client:
+      # all aiohttp responses within this block will be replays from past records in test.db.
+      async with aiohttp.ClientSession() as client:
+        async with client.get("https://api.binance.com/api/v3/time") as resp:
+          data = await resp.json()      # the data returned will be the recorded response
+          ...
+    """
     async def aiohttp_request_method(
             self,
             _: ClientSession,
