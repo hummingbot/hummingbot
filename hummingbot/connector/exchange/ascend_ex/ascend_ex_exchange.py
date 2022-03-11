@@ -608,13 +608,14 @@ class AscendExExchange(ExchangePyBase):
     ):
         """
         Starts tracking an order by adding it to the order tracker.
+        
         :param order_id: the order identifier
         :param exchange_order_id: the identifier for the order in the exchange
         :param trading_pair: the token pair for the operation
         :param trade_type: the type of order (buy or sell)
         :param price: the price for the order
         :param amount: the amount for the order
-        :order order_type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
         """
         self._in_flight_order_tracker.start_tracking_order(
             InFlightOrder(
