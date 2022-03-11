@@ -370,6 +370,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Reads the order diffs events queue. For each event creates a diff message instance and adds it to the
         output queue
+
         :param ev_loop: the event loop the method will run in
         :param output: a queue to add the created diff messages
         """
