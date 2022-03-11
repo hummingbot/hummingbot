@@ -268,6 +268,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         """
         Creates a local instance of the exchange order book for a particular trading pair
+
         :param trading_pair: the trading pair for which the order book has to be retrieved
         :return: a local copy of the current order book in the exchange
         """
