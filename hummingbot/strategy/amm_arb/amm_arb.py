@@ -64,6 +64,8 @@ class AmmArbStrategy(StrategyPyBase):
         :param concurrent_orders_submission: whether to submit both arbitrage taker orders (buy and sell) simultaneously
         If false, the bot will wait for first exchange order filled before submitting the other order.
         :param status_report_interval: Amount of seconds to wait to refresh the status report
+        :param gateway_transaction_cancel_interval: Amount of seconds to wait before trying to cancel orders that are
+        blockchain transactions that have not been included in a block (they are still in the mempool).
         """
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
@@ -122,6 +124,8 @@ class AmmArbStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info("Markets are ready. Trading started.")
+        await self.apply_gateway_transaction_cancel_interval(self._market_info_1)
+        await self.apply_gateway_transaction_cancel_interval(self._market_info_2)
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
@@ -150,8 +154,6 @@ class AmmArbStrategy(StrategyPyBase):
             return
         self.apply_slippage_buffers(arb_proposals)
         self.apply_budget_constraint(arb_proposals)
-        await self.apply_gateway_transaction_cancel_interval(self._market_info_1)
-        await self.apply_gateway_transaction_cancel_interval(self._market_info_2)
         await self.execute_arb_proposals(arb_proposals)
 
     async def apply_gateway_transaction_cancel_interval(self, market: MarketTradingPairTuple):
