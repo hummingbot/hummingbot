@@ -228,6 +228,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param trading_pair: trading pair in client notation
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
+
         :return: trading pair in exchange notation
         """
         symbol_map = await AscendExAPIOrderBookDataSource.trading_pair_symbol_map(
