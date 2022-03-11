@@ -49,6 +49,7 @@ class AscendExOrderBook(OrderBook):
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
         :param metadata: a dictionary with extra information to add to diff message
+        
         :return: AscendExOrderBookMessage
         """
 
