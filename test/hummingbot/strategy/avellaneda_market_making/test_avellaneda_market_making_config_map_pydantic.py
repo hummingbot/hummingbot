@@ -1,8 +1,8 @@
-import json
+import asyncio
 import unittest
 from datetime import datetime, time
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Awaitable
 from unittest.mock import patch
 
 import yaml
@@ -23,6 +23,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
         cls.exchange = "binance"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
@@ -32,6 +33,10 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         super().setUp()
         config_settings = self.get_default_map()
         self.config_map = AvellanedaMarketMakingConfigMap(**config_settings)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def get_default_map(self) -> Dict[str, str]:
         config_settings = {
@@ -48,15 +53,6 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             "inventory_target_base_pct": "50",
         }
         return config_settings
-
-    def test_schema_encoding_removes_client_data_functions(self):
-        s = AvellanedaMarketMakingConfigMap.schema_json()
-        j = json.loads(s)
-        expected = {
-            "prompt": None,
-            "prompt_on_new": True,
-        }
-        self.assertEqual(expected, j["properties"]["market"]["client_data"])
 
     def test_initial_sequential_build(self):
         config_map: AvellanedaMarketMakingConfigMap = AvellanedaMarketMakingConfigMap.construct()
@@ -80,7 +76,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         validate_model(config_map.__class__, config_map.__dict__)
 
     def test_order_amount_prompt(self):
-        prompt = self.config_map.get_client_prompt("order_amount")
+        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("order_amount"))
         expected = f"What is the amount of {self.base_asset} per order?"
 
         self.assertEqual(expected, prompt)
@@ -89,7 +85,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         exchange = self.config_map.exchange
         example = AllConnectorSettings.get_example_pairs().get(exchange)
 
-        prompt = self.config_map.get_client_prompt("market")
+        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("market"))
         expected = f"Enter the token trading pair you would like to trade on {exchange} (e.g. {example})"
 
         self.assertEqual(expected, prompt)
@@ -97,19 +93,19 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
     def test_execution_time_prompts(self):
         self.config_map.execution_timeframe_model = FromDateToDateModel.Config.title
         model = self.config_map.execution_timeframe_model
-        prompt = model.get_client_prompt("start_datetime")
+        prompt = self.async_run_with_timeout(model.get_client_prompt("start_datetime"))
         expected = "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
-        prompt = model.get_client_prompt("end_datetime")
+        prompt = self.async_run_with_timeout(model.get_client_prompt("end_datetime"))
         expected = "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
         self.config_map.execution_timeframe_model = DailyBetweenTimesModel.Config.title
         model = self.config_map.execution_timeframe_model
-        prompt = model.get_client_prompt("start_time")
+        prompt = self.async_run_with_timeout(model.get_client_prompt("start_time"))
         expected = "Please enter the start time (HH:MM:SS)"
         self.assertEqual(expected, prompt)
-        prompt = model.get_client_prompt("end_time")
+        prompt = self.async_run_with_timeout(model.get_client_prompt("end_time"))
         expected = "Please enter the end time (HH:MM:SS)"
         self.assertEqual(expected, prompt)
 

@@ -8,13 +8,17 @@ from collections import (
 )
 import inspect
 from typing import List, Dict
+
+from pydantic import ValidationError, validate_model
+
 from hummingbot import check_dev_mode
+from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
-    missing_required_configs,
+    missing_required_configs_legacy,
     get_strategy_config_map
 )
 from hummingbot.client.config.security import Security
@@ -100,7 +104,7 @@ class StatusCommand:
             if err_msg is not None:
                 invalid_conns["celo"] = err_msg
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
-            await self.update_all_secure_configs()
+            await self.update_all_secure_configs_legacy()
             connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
@@ -110,10 +114,26 @@ class StatusCommand:
                     invalid_conns["ethereum"] = err_msg
         return invalid_conns
 
-    def missing_configurations(self) -> List[str]:
-        missing_globals = missing_required_configs(global_config_map)
-        missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
+    def missing_configurations_legacy(self) -> List[str]:
+        missing_globals = missing_required_configs_legacy(global_config_map)
+        config_map = self.strategy_config_map
+        missing_configs = []
+        if not isinstance(config_map, BaseStrategyConfigMap):
+            missing_configs = missing_required_configs_legacy(get_strategy_config_map(self.strategy_name))
         return missing_globals + missing_configs
+
+    def validate_configs(self) -> List[ValidationError]:
+        config_map = self.strategy_config_map
+        validation_errors = []
+        if isinstance(config_map, BaseStrategyConfigMap):
+            validation_results = validate_model(type(config_map), config_map.dict())
+            if len(validation_results) == 3 and validation_results[2] is not None:
+                validation_errors = validation_results[2].errors()
+                validation_errors = [
+                    f"{'.'.join(e['loc'])} - {e['msg']}"
+                    for e in validation_errors
+                ]
+        return validation_errors
 
     def status(self,  # type: HummingbotApplication
                live: bool = False):
@@ -162,14 +182,19 @@ class StatusCommand:
         elif notify_success:
             self._notify('  - Exchange check: All connections confirmed.')
 
-        missing_configs = self.missing_configurations()
+        missing_configs = self.missing_configurations_legacy()
         if missing_configs:
             self._notify("  - Strategy check: Incomplete strategy configuration. The following values are missing.")
             for config in missing_configs:
                 self._notify(f"    {config.key}")
         elif notify_success:
             self._notify('  - Strategy check: All required parameters confirmed.')
-        if invalid_conns or missing_configs:
+        validation_errors = self.validate_configs()
+        if len(validation_errors) != 0:
+            self._notify("  - Strategy check: Validation of the config maps failed. The following errors were flagged.")
+            for error in validation_errors:
+                self._notify(f"    {error}")
+        if invalid_conns or missing_configs or len(validation_errors) != 0:
             return False
 
         loading_markets: List[ConnectorBase] = []

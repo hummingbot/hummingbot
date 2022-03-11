@@ -10,8 +10,8 @@ from typing import (
 import pandas as pd
 
 from hummingbot.client.config.config_helpers import (
-    missing_required_configs,
-    save_to_yml,
+    missing_required_configs_legacy,
+    save_to_yml_legacy,
 )
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
@@ -164,16 +164,16 @@ class ConfigCommand:
             elif config_var.key == "inventory_price":
                 await self.inventory_price_prompt(config_map, input_value)
             else:
-                await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
+                await self.prompt_a_config_legacy(config_var, input_value=input_value, assign_default=False)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
-            await self.update_all_secure_configs()
-            missings = missing_required_configs(config_map)
+            await self.update_all_secure_configs_legacy()
+            missings = missing_required_configs_legacy(config_map)
             if missings:
                 self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
             missings = await self._prompt_missing_configs(config_map)
-            save_to_yml(file_path, config_map)
+            save_to_yml_legacy(file_path, config_map)
             self._notify("\nNew configuration saved:")
             self._notify(f"{key}: {str(config_var.value)}")
             self.app.app.style = load_style()
@@ -196,13 +196,13 @@ class ConfigCommand:
 
     async def _prompt_missing_configs(self,  # type: HummingbotApplication
                                       config_map):
-        missings = missing_required_configs(config_map)
+        missings = missing_required_configs_legacy(config_map)
         for config in missings:
-            await self.prompt_a_config(config)
+            await self.prompt_a_config_legacy(config)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
-        if missing_required_configs(config_map):
+        if missing_required_configs_legacy(config_map):
             return missings + (await self._prompt_missing_configs(config_map))
         return missings
 
@@ -234,14 +234,14 @@ class ConfigCommand:
                              required_if=lambda: True,
                              type_str="bool",
                              validator=validate_bool)
-            await self.prompt_a_config(cvar)
+            await self.prompt_a_config_legacy(cvar)
             if cvar.value:
                 config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
             else:
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
-                await self.prompt_a_config(config_map["inventory_target_base_pct"])
+                await self.prompt_a_config_legacy(config_map["inventory_target_base_pct"])
 
     async def inventory_price_prompt(
         self,  # type: HummingbotApplication
@@ -275,7 +275,7 @@ class ConfigCommand:
                     v, min_value=Decimal("0"), inclusive=True
                 ),
             )
-            await self.prompt_a_config(cvar)
+            await self.prompt_a_config_legacy(cvar)
             config_map[key].value = cvar.value
 
             try:
