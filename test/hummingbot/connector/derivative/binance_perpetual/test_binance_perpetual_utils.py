@@ -1,18 +1,10 @@
 import asyncio
-import os
-import socket
 import unittest
-
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
-
-from mock import patch
 from typing import Awaitable
 
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import (
-    BROKER_ID,
-    BinancePerpetualRESTPreProcessor,
-)
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import BinancePerpetualRESTPreProcessor
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -55,21 +47,8 @@ class BinancePerpetualUtilsUnitTests(unittest.TestCase):
         self.assertIn("Content-Type", result_request.headers)
         self.assertEqual(result_request.headers["Content-Type"], "application/json")
 
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.get_tracking_nonce")
-    def test_get_client_order_id(self, mock_nonce):
-        mock_nonce.return_value = int("1" * 16)
-        client_instance_id = hex(abs(hash(f"{socket.gethostname()}{os.getpid()}")))[2:6]
-
-        result = utils.get_client_order_id("buy", self.trading_pair)
-
-        expected_client_order_id = f"{BROKER_ID}-BCAHT{client_instance_id}{int('1'*16)}"
-
-        self.assertEqual(result, expected_client_order_id)
-
     def test_rest_url_main_domain(self):
         path_url = "/TEST_PATH_URL"
-
-        expected_url = path_url = "/TEST_PATH_URL"
 
         expected_url = f"{CONSTANTS.PERPETUAL_BASE_URL}{CONSTANTS.API_VERSION_V2}{path_url}"
         self.assertEqual(expected_url, utils.rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
