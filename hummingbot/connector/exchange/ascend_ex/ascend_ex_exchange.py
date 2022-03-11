@@ -1077,9 +1077,11 @@ class AscendExExchange(ExchangePyBase):
     def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = s_decimal_0) -> Decimal:
         """
         Applies the trading rules to calculate the correct order amount for the market
+        
         :param trading_pair: the token pair for which the order will be created
         :param amount: the intended amount for the order
         :param price: the intended price for the order
+        
         :return: the quantized order amount after applying the trading rules
         """
         trading_rule: AscendExTradingRule = self._trading_rules[trading_pair]
