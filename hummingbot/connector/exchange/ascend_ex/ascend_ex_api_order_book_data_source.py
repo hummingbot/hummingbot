@@ -400,6 +400,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         This method runs continuously and request the full order book content from the exchange every hour.
         The method uses the REST API from the exchange because it does not provide an endpoint to get the full order
         book through websocket. With the information creates a snapshot messages that is added to the output queue
+        
         :param ev_loop: the event loop the method will run in
         :param output: a queue to add the created snapshot messages
         """
