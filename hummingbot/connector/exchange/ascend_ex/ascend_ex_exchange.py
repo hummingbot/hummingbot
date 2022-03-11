@@ -889,6 +889,7 @@ class AscendExExchange(ExchangePyBase):
     ) -> AddedToCostTradeFee:
         """
         Calculates the estimated fee an order would pay based on the connector configuration
+
         :param base_currency: the order base currency
         :param quote_currency: the order quote currency
         :param order_type: the type of order (MARKET, LIMIT, LIMIT_MAKER)
@@ -896,6 +897,7 @@ class AscendExExchange(ExchangePyBase):
         :param amount: the order amount
         :param price: the order price
         :param is_maker: is it running as a market maker or as a market taker
+        
         :return: the estimated fee for the order
         """
         trading_pair = f"{base_currency}-{quote_currency}"
