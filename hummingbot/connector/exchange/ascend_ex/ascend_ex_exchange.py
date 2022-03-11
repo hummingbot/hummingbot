@@ -427,6 +427,7 @@ class AscendExExchange(ExchangePyBase):
         """
         Used by quantize_order_price() in _create_order()
         Returns a price step, a minimum price increment for a given trading pair.
+
         :param trading_pair: the trading pair to check for market conditions
         :param price: the starting point price
         """
