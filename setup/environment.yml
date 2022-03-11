@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - aiounittest=1.4.1
   - appnope=0.1.0
   - bidict
   - certifi=2021.5.30

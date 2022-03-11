@@ -9,12 +9,13 @@ from sqlalchemy import (
     BigInteger,
     Enum as SQLEnum,
     create_engine,
+    and_,
 )
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, Query
 import time
-from typing import Callable, Optional, Any, Generator, Type, Dict
+from typing import Callable, Optional, Any, Generator, Type, Dict, cast
 from weakref import ref, ReferenceType
 
 from hummingbot.model.transaction_base import TransactionBase
@@ -203,11 +204,11 @@ class HttpPlayer(HttpPlayerBase):
             session: Session = session
             query: Query = (HttpPlayback.url == url)
             if "params" in kwargs:
-                query = query.intersect(HttpPlayback.request_params == kwargs["params"])
+                query = cast(Query, and_(query, HttpPlayback.request_params == kwargs["params"]))
             if "json" in kwargs:
-                query = query.intersect(HttpPlayback.request_json == kwargs["json"])
+                query = cast(Query, and_(query, HttpPlayback.request_json == kwargs["json"]))
             playback_entry: HttpPlayback = (
-                session.query(HttpPlayback).filter(query).one()
+                session.query(HttpPlayback).filter(query).first()
             )
             return HttpPlayerResponse(
                 method,

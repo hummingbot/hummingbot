@@ -210,6 +210,11 @@ class GatewayHttpClient:
 
     _ghc_logger: Optional[HummingbotLogger] = None
     _shared_client: Optional[aiohttp.ClientSession] = None
+    _base_url: str
+
+    def __init__(self):
+        self._base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                         f"{global_config_map['gateway_api_port'].value}"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -238,6 +243,14 @@ class GatewayHttpClient:
         """
         cls._http_client(re_init=True)
 
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
+    @base_url.setter
+    def base_url(self, url: str):
+        self._base_url = url
+
     async def api_request(
             self,
             method: str,
@@ -253,9 +266,7 @@ class GatewayHttpClient:
         :param fail_silently: used to determine if errors will be raise or silently ignored
         :returns A response in json format.
         """
-        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                   f"{global_config_map['gateway_api_port'].value}"
-        url = f"{base_url}/{path_url}"
+        url = f"{self.base_url}/{path_url}"
         client = self._http_client()
 
         parsed_response = {}
