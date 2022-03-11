@@ -224,6 +224,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ) -> str:
         """
         Used to translate a trading pair from the client notation to the exchange notation
+
         :param trading_pair: trading pair in client notation
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
