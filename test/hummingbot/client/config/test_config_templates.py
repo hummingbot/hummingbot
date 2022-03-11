@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
 from os.path import (
-    isdir,
     join,
     realpath,
 )
-from os import listdir
 import logging; logging.basicConfig(level=logging.INFO)
 import unittest
 import ruamel.yaml
@@ -37,11 +35,26 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
             for key in global_config_map:
                 self.assertTrue(key in template_data, f"{key} not in {global_config_template_path}")
 
-    def test_strategy_config_template_complete(self):
-        folder = realpath(join(__file__, "../../../../../hummingbot/strategy"))
-        # Only include valid directories
-        strategies = [d for d in listdir(folder) if isdir(join(folder, d)) and not d.startswith("__")]
-        strategies.sort()
+    def test_strategy_config_template_complete_legacy(self):
+        strategies = [  # templates is a legacy approach — new strategies won't use it
+            "amm_arb",
+            "arbitrage",
+            "aroon_oscillator",
+            "celo_arb",
+            "cross_exchange_market_making",
+            "dev_0_hello_world",
+            "dev_1_get_order_book",
+            "dev_2_perform_trade",
+            "dev_5_vwap",
+            "dev_simple_trade",
+            "hedge",
+            "liquidity_mining",
+            "perpetual_market_making",
+            "pure_market_making",
+            "spot_perpetual_arbitrage",
+            "twap",
+            "uniswap_v3_lp",
+        ]
 
         for strategy in strategies:
             strategy_template_path: str = get_strategy_template_path(strategy)

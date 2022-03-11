@@ -175,7 +175,7 @@ class StartCommand:
                                       "this strategy (Yes/No)  >>> ",
                                required_if=lambda: True,
                                validator=lambda v: validate_bool(v))
-            await self.prompt_a_config(config)
+            await self.prompt_a_config_legacy(config)
             if config.value:
                 result = True
         except OracleRateUnavailable:

@@ -4,7 +4,12 @@ from typing import Dict, Optional, Union
 
 from pydantic import Field, validator, root_validator
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_data_types import (
+    BaseClientModel,
+    BaseStrategyConfigMap,
+    ClientConfigEnum,
+    ClientFieldData,
+)
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_datetime_iso_string,
@@ -178,7 +183,7 @@ HANGING_ORDER_MODELS = {
 }
 
 
-class AvellanedaMarketMakingConfigMap(BaseClientModel):
+class AvellanedaMarketMakingConfigMap(BaseStrategyConfigMap):
     strategy: str = Field(default="avellaneda_market_making", client_data=None)
     exchange: ClientConfigEnum(
         value="Exchanges",  # noqa: F821
@@ -212,7 +217,10 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=...,
         description="The strategy order amount.",
         gt=0,
-        client_data=ClientFieldData(prompt=lambda mi: AvellanedaMarketMakingConfigMap.order_amount_prompt(mi))
+        client_data=ClientFieldData(
+            prompt=lambda mi: AvellanedaMarketMakingConfigMap.order_amount_prompt(mi),
+            prompt_on_new=True,
+        )
     )
     order_optimization_enabled: bool = Field(
         default=True,
@@ -367,6 +375,7 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     )
 
     class Config:
+        title = "avellaneda_market_making"
         validate_assignment = True
 
     @classmethod
