@@ -346,7 +346,7 @@ class GatewayHttpClient:
             self,
             chain: str,
             network: str,
-            fail_silently: bool = False
+            fail_silently: bool = True
     ) -> Dict[str, Any]:
         return await self.api_request("get", "network/tokens", {
             "chain": chain,
