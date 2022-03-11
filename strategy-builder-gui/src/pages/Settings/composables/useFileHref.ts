@@ -1,13 +1,22 @@
-import { computed, ComputedRef } from 'vue';
+import { StrategyName } from 'src/stores/strategies';
+import { computed, Ref } from 'vue';
 
-export const useFileHref = (values: ComputedRef) =>
-  computed(() => {
-    const valuesObj = { ...values.value };
+import { pureMMFormFileFieldsMap } from '../stores/pureMMForm';
+import { useForm } from './useForm';
 
-    delete valuesObj.fileName;
+export const useFileHref = (strategyName: Ref<StrategyName>) => {
+  const { values } = useForm(strategyName);
+  return computed(() => {
+    const valuesObj = Object.keys(pureMMFormFileFieldsMap).reduce(
+      (acc, key) => ({
+        ...acc,
+        [Object.getOwnPropertyDescriptor(pureMMFormFileFieldsMap, key)?.value]: `${
+          Object.getOwnPropertyDescriptor(values.value, key)?.value ?? ''
+        }`,
+      }),
+      {},
+    );
 
-    return `data:application/octet-stream,${JSON.stringify(valuesObj)
-      .replace(/,/g, '\n')
-      .replace(/[{}]/g, '')
-      .replace(/"/g, ' ')}`;
+    return `data:text/plain,${JSON.stringify(valuesObj, null, 1).replace(/[{}",]/g, '')}`;
   });
+};
