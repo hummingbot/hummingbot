@@ -3,6 +3,42 @@ import { ref } from 'vue';
 
 import { $Form, BtnToggleType } from './form.types';
 
+export const pureMMFormFileFieldsMap = {
+  bidSpread: 'bid_spread',
+  askSpread: 'ask_spread',
+  orderRefreshTime: 'order_refresh_time',
+  exchange: 'exchange',
+  market: 'market',
+  orderAmount: 'order_amount',
+  pingPong: 'ping_pong_enabled',
+  orderLevels: 'order_levels',
+  orderLevelAmount: 'orderLevelAmount',
+  orderLevelSpread: 'orderLevelSpread',
+  inventorySkew: 'inventory_skew_enabled',
+  inventoryTargetBase: 'inventory_target_base_pct',
+  inventoryRangeMultiplier: 'inventory_range_multiplier',
+  inventoryPrice: 'inventory_price',
+  filledOrderDelay: 'filled_order_delay',
+  hangingOrders: 'hanging_orders_enabled',
+  hangingOrdersCancel: 'hanging_orders_cancel_pct',
+  minimumSpread: 'minimum_spread',
+  orderRefreshTolerance: 'order_refresh_tolerance_pct',
+  priceCelling: 'price_ceiling',
+  priceFloor: 'price_floor',
+  orderOptimization: 'order_optimization_enabled',
+  askOrderOptimizationDepth: 'ask_order_optimization_depth',
+  bidOrderOptimizationDepth: 'bid_order_optimization_depth',
+  addTransactionCosts: 'add_transaction_costs',
+  priceSource: 'price_source',
+  priceType: 'price_type',
+  priceSourceExchange: 'price_source_exchange',
+  priceSourceMarket: 'price_source_market',
+  takeIfCrossed: 'take_if_crossed',
+  priceSourceCustomApi: 'price_source_custom_api',
+  customApiUpdateInterval: 'custom_api_update_interval',
+  maxOrderAge: 'max_order_age',
+};
+
 export const $pureMMForm: $Form = {
   bidSpread: {
     value: ref(0),
