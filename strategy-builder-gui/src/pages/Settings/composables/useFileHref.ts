@@ -1,16 +1,16 @@
 import { StrategyName } from 'src/stores/strategies';
 import { computed, Ref } from 'vue';
 
-import { pureMMFormFileFieldsMap } from '../stores/pureMMForm';
+import { $fileMap } from '../stores/form';
 import { useForm } from './useForm';
 
 export const useFileHref = (strategyName: Ref<StrategyName>) => {
   const { values } = useForm(strategyName);
   return computed(() => {
-    const valuesObj = Object.keys(pureMMFormFileFieldsMap).reduce(
+    const valuesObj = Object.keys($fileMap).reduce(
       (acc, key) => ({
         ...acc,
-        [Object.getOwnPropertyDescriptor(pureMMFormFileFieldsMap, key)?.value]: `${
+        [Object.getOwnPropertyDescriptor($fileMap[strategyName.value], key)?.value]: `${
           Object.getOwnPropertyDescriptor(values.value, key)?.value ?? ''
         }`,
       }),
