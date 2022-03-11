@@ -34,7 +34,7 @@ async def main():
               await gateway_http_client.add_wallet(
                   "ethereum",
                   "ropsten",
-                  "000000000000000000000000000000000000000000000000000001"
+                  "0000000000000000000000000000000000000000000000000000000000000001"        # noqa: mock
               ))
         print("get wallets:", await gateway_http_client.get_wallets())
         print("get connectors:", await gateway_http_client.get_connectors())
@@ -62,13 +62,13 @@ async def main():
               await gateway_http_client.get_transaction_status(
                   "ethereum",
                   "ropsten",
-                  "0xa8d428627dc7f453be79a32129dc18ea29d1a715249a4a5762ca6273da5d96e3"
+                  "0xa8d428627dc7f453be79a32129dc18ea29d1a715249a4a5762ca6273da5d96e3"      # noqa: mock
               ))
         print("get transaction status:",
               await gateway_http_client.get_transaction_status(
                   "ethereum",
                   "ropsten",
-                  "0xa8d428627dc7f453be79a32129dc18ea29d1a715249a4a5762ca6273da5d96e1"
+                  "0xa8d428627dc7f453be79a32129dc18ea29d1a715249a4a5762ca6273da5d96e1"      # noqa: mock
               ))
         print("get evm nonce:",
               await gateway_http_client.get_evm_nonce(
