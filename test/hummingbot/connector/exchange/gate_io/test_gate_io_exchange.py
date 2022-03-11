@@ -12,6 +12,7 @@ from aioresponses import aioresponses
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
@@ -585,3 +586,37 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(Decimal(5000), order.executed_amount_quote)
         self.assertEqual(Decimal("0.002"), order.fee_paid)
         self.assertEqual(self.quote_asset, order.fee_asset)
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 7
+
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID,
+            max_id_len=CONSTANTS.MAX_ID_LEN,
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=self.trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID,
+            max_id_len=CONSTANTS.MAX_ID_LEN,
+        )
+
+        self.assertEqual(result, expected_client_order_id)

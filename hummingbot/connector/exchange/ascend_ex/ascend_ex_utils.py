@@ -5,7 +5,6 @@ from typing import Optional, Tuple
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
@@ -72,16 +71,6 @@ def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optiona
         ),
         time
     ]
-
-
-def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    """
-    Generates the client order id.
-    Note: All AscendEx API interactions, after order creation, utilizes the exchange_order_id instead.
-    """
-    side = "B" if is_buy else "S"
-    base, quote = trading_pair.split("-")
-    return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{get_tracking_nonce()}"
 
 
 KEYS = {
