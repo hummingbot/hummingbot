@@ -187,6 +187,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def trading_pair_symbol_map_ready(cls):
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
+
         :return: True if the mapping has been initialized, False otherwise
         """
         return cls._trading_pair_symbol_map is not None and len(cls._trading_pair_symbol_map) > 0
