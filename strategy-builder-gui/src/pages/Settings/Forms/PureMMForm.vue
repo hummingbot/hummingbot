@@ -35,9 +35,9 @@
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
       <Counter
-        v-model="bid_spread.value.value"
+        v-model="bidSpread.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...bid_spread.properties }"
+        v-bind="{ ...bidSpread.properties }"
       />
     </Field>
     <Field
@@ -45,9 +45,9 @@
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
       <Counter
-        v-model="ask_spread.value.value"
+        v-model="askSpread.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...ask_spread.properties }"
+        v-bind="{ ...askSpread.properties }"
       />
     </Field>
     <Field
@@ -55,9 +55,9 @@
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
       <Counter
-        v-model="order_refresh_time.value.value"
+        v-model="orderRefreshTime.value.value"
         :type="CounterType.Seconds"
-        v-bind="{ ...order_refresh_time.properties }"
+        v-bind="{ ...orderRefreshTime.properties }"
       />
     </Field>
     <Field
@@ -65,110 +65,107 @@
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
       <Input
-        v-model="order_amount.value.value"
+        v-model="orderAmount.value.value"
         :type="InputType.Number"
-        v-bind="{ ...order_amount.properties }"
+        v-bind="{ ...orderAmount.properties }"
       />
     </Field>
     <Field
       title="Ping pong"
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
-      <q-toggle v-model="ping_pong_enabled.value.value" color="main-green-1" />
+      <q-toggle v-model="pingPong.value.value" color="main-green-1" />
     </Field>
   </div>
   <div v-if="formType === FormType.Advanced" class="q-gutter-md">
     <Field title="Order levels">
       <Counter
-        v-model="order_levels.value.value"
+        v-model="orderLevels.value.value"
         :type="CounterType.CountInt"
-        v-bind="{ ...order_levels.properties }"
+        v-bind="{ ...orderLevels.properties }"
       />
     </Field>
     <Field title="Order level amount">
       <Counter
-        v-model="order_level_amount.value.value"
+        v-model="orderLevelAmount.value.value"
         :type="CounterType.CountInt"
-        v-bind="{ ...order_level_amount.properties }"
+        v-bind="{ ...orderLevelAmount.properties }"
       />
     </Field>
     <Field title="Order level spread">
       <Counter
-        v-model="order_levelspread.value.value"
+        v-model="orderLevelspread.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...order_levelspread.properties }"
+        v-bind="{ ...orderLevelspread.properties }"
       />
     </Field>
     <Field title="Inventory skew">
-      <q-toggle v-model="inventory_skew_enabled.value.value" color="main-green-1" />
+      <q-toggle v-model="inventorySkew.value.value" color="main-green-1" />
     </Field>
     <Field title="Inventory target base">
-      <div class="row q-col-gutter-md">
-        <Counter
-          v-model="inventory_target_base_pctCounter.value.value"
-          :type="CounterType.Percentage"
-          v-bind="{ ...inventory_target_base_pctCounter.properties }"
-        />
-        <q-toggle v-model="inventory_target_base_pctToggle.value.value" color="main-green-1" />
-      </div>
+      <Counter
+        v-model="inventoryTargetBase.value.value"
+        :type="CounterType.Percentage"
+        v-bind="{ ...inventoryTargetBase.properties }"
+      />
     </Field>
     <Field title="Inventory range multiplier">
       <Counter
-        v-model="inventory_range_multiplier.value.value"
+        v-model="inventoryRangeMultiplier.value.value"
         :type="CounterType.FloatCount"
-        v-bind="{ ...inventory_range_multiplier.properties }"
+        v-bind="{ ...inventoryRangeMultiplier.properties }"
       />
     </Field>
     <Field title="Inventory price">
       <Input
-        v-model="inventory_price.value.value"
+        v-model="inventoryPrice.value.value"
         :type="InputType.Number"
-        v-bind="{ ...inventory_price.properties }"
+        v-bind="{ ...inventoryPrice.properties }"
       />
     </Field>
     <Field title="Filled order delay">
       <Counter
-        v-model="filled_order_delay.value.value"
+        v-model="filledOrderDelay.value.value"
         :type="CounterType.Seconds"
-        v-bind="{ ...filled_order_delay.properties }"
+        v-bind="{ ...filledOrderDelay.properties }"
       />
     </Field>
     <Field title="Hanging orders">
-      <q-toggle v-model="hanging_orders_enabled.value.value" color="main-green-1" />
+      <q-toggle v-model="hangingOrders.value.value" color="main-green-1" />
     </Field>
     <Field title="Hanging order cancel percentage">
       <Counter
-        v-model="hanging_orders_cancel_pct.value.value"
+        v-model="hangingOrdersCancel.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...hanging_orders_cancel_pct.properties }"
+        v-bind="{ ...hangingOrdersCancel.properties }"
       />
     </Field>
     <Field title="Minimum spread">
       <Counter
-        v-model="minimum_spread.value.value"
+        v-model="minimumSpread.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...minimum_spread.properties }"
+        v-bind="{ ...minimumSpread.properties }"
       />
     </Field>
     <Field title="Order refresh tollerance">
       <Counter
-        v-model="order_refresh_tolerance_pct.value.value"
+        v-model="orderRefreshTolerance.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...order_refresh_tolerance_pct.properties }"
+        v-bind="{ ...orderRefreshTolerance.properties }"
       />
     </Field>
     <Field title="Price ceiling">
       <Input
-        v-model="price_ceiling.value.value"
+        v-model="priceCelling.value.value"
         :type="InputType.Number"
-        v-bind="{ ...price_ceiling.properties }"
+        v-bind="{ ...priceCelling.properties }"
       />
     </Field>
     <Field title="Price floor">
       <Input
-        v-model="price_floor.value.value"
+        v-model="priceFloor.value.value"
         :type="InputType.Number"
-        v-bind="{ ...price_floor.properties }"
+        v-bind="{ ...priceFloor.properties }"
       />
     </Field>
     <Field title="Order optimisation">
@@ -176,55 +173,55 @@
     </Field>
     <Field title="Ask order optimization depth">
       <Input
-        v-model="ask_order_optimization_depth.value.value"
+        v-model="askOrderOptimizationDepth.value.value"
         :type="InputType.Number"
-        v-bind="{ ...ask_order_optimization_depth.properties }"
+        v-bind="{ ...askOrderOptimizationDepth.properties }"
       />
     </Field>
     <Field title="Bid order optimization depth">
       <Input
-        v-model="bid_order_optimization_depth.value.value"
+        v-model="bidOrderOptimizationDepth.value.value"
         :type="InputType.Number"
-        v-bind="{ ...bid_order_optimization_depth.properties }"
+        v-bind="{ ...bidOrderOptimizationDepth.properties }"
       />
     </Field>
     <Field title="Add transaction costs">
-      <q-toggle v-model="add_transaction_costs.value.value" color="main-green-1" />
+      <q-toggle v-model="addTransactionCosts.value.value" color="main-green-1" />
     </Field>
     <Field title="Price source">
-      <Select v-model="price_source.value.value" v-bind="{ ...price_source.properties }" />
+      <Select v-model="priceSource.value.value" v-bind="{ ...priceSource.properties }" />
     </Field>
     <Field title="Price type">
-      <Select v-model="price_type.value.value" v-bind="{ ...price_type.properties }" />
+      <Select v-model="priceType.value.value" v-bind="{ ...priceType.properties }" />
     </Field>
     <Field title="Price source exchange">
       <Select
-        v-model="price_source_exchange.value.value"
-        v-bind="{ ...price_source_exchange.properties }"
+        v-model="priceSourceExchange.value.value"
+        v-bind="{ ...priceSourceExchange.properties }"
       />
     </Field>
     <Field title="Price source market">
       <Select
-        v-model="price_source_market.value.value"
-        v-bind="{ ...price_source_market.properties }"
+        v-model="priceSourceMarket.value.value"
+        v-bind="{ ...priceSourceMarket.properties }"
       />
     </Field>
     <Field title="Take if crossed">
-      <q-toggle v-model="take_if_crossed.value.value" color="main-green-1" />
+      <q-toggle v-model="takeIfCrossed.value.value" color="main-green-1" />
     </Field>
     <Field title="Price source custom API">
       <Input
-        v-model="price_source_custom_api.value.value"
+        v-model="priceSourceCustomApi.value.value"
         :type="InputType.Number"
-        v-bind="{ ...price_source_custom_api.properties }"
+        v-bind="{ ...priceSourceCustomApi.properties }"
         class="col-6"
       />
     </Field>
     <Field title="Custom API update interval">
       <Counter
-        v-model="custom_api_update_interval.value.value"
+        v-model="customApiUpdateInterval.value.value"
         :type="CounterType.Seconds"
-        v-bind="{ ...custom_api_update_interval.properties }"
+        v-bind="{ ...customApiUpdateInterval.properties }"
       />
     </Field>
     <Field>
@@ -343,9 +340,9 @@
     </Field>
     <Field title="Max. order age">
       <Counter
-        v-model="max_order_age.value.value"
+        v-model="maxOrderAge.value.value"
         :type="CounterType.Seconds"
-        v-bind="{ ...max_order_age.properties }"
+        v-bind="{ ...maxOrderAge.properties }"
       />
     </Field>
   </div>
