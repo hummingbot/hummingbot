@@ -455,7 +455,7 @@ class GatewayHttpClient:
             "address": address
         }, fail_silently=fail_silently)
 
-    async def cancel_evm_transation(
+    async def cancel_evm_transaction(
             self,
             chain: str,
             network: str,
