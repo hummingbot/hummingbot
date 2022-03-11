@@ -202,6 +202,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns the internal map used to translate trading pairs from and to the exchange notation.
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
         `trading_pair_associated_to_exchange_symbol`
+
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :return: bidirectional mapping between trading pair exchange notation and client notation
