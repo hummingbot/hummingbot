@@ -259,6 +259,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         """
         Returns a list of all known trading pairs enabled to operate with
+
         :return: list of trading pairs in client notation
         """
         mapping = await AscendExAPIOrderBookDataSource.trading_pair_symbol_map()
