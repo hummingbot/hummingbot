@@ -38,7 +38,14 @@ no_restart_pmm_keys = ["order_amount",
                        "order_levels",
                        "filled_order_delay",
                        "inventory_skew_enabled",
-                       "inventory_range_multiplier"]
+                       "inventory_range_multiplier",
+                       "price_ceiling",
+                       "price_floor",
+                       "moving_price_band_enabled",
+                       "price_ceiling_pct",
+                       "price_floor_pct",
+                       "price_band_refresh_time"
+                       ]
 global_configs_to_display = ["autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
