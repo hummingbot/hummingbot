@@ -41,12 +41,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
-logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
 class GatewayEVMAMM(ConnectorBase):
@@ -298,6 +296,9 @@ class GatewayEVMAMM(ConnectorBase):
 
                 if price is not None and len(exceptions) == 0:
                     return Decimal(str(price))
+
+            # Didn't pass all the checks - no price available.
+            return None
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -492,7 +493,7 @@ class GatewayEVMAMM(ConnectorBase):
                 continue
             if transaction_status["txStatus"] == 1:
                 self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
-                                   f"confirmed.")
+                                   f"successful.")
                 self.trigger_event(
                     TokenApprovalEvent.ApprovalSuccessful,
                     TokenApprovalSuccessEvent(

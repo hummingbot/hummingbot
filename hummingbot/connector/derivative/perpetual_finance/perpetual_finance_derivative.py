@@ -41,12 +41,10 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
-logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
 class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
