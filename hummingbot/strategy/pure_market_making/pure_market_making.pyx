@@ -859,7 +859,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if not self._moving_price_band.enabled:
             return
         self._moving_price_band.check_and_update_price_band(self.get_price())
-        print(self._moving_price_band)
         if self.get_price() >= self._moving_price_band.price_ceiling:
             proposal.buys = []
         if self.get_price() <= self._moving_price_band.price_floor:
