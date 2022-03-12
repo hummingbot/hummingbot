@@ -1,34 +1,46 @@
-import logging
-from decimal import Decimal
 import asyncio
-from typing import Dict, List, Optional, Any
-import time
 import copy
+from decimal import Decimal
 import itertools as it
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+import logging
+import re
+import time
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Any,
+    Type,
+    Union,
+)
+
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     MarketEvent,
+    TokenApprovalEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
+    TokenApprovalSuccessEvent,
+    TokenApprovalFailureEvent,
     OrderType,
     TradeType,
 )
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
+from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -44,6 +56,7 @@ class GatewayEVMAMM(ConnectorBase):
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_BALANCE_INTERVAL = 30.0
+    APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve_(\w+)_(\w+)")
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -134,7 +147,8 @@ class GatewayEVMAMM(ConnectorBase):
     def approval_orders(self) -> List[GatewayInFlightOrder]:
         return [
             approval_order
-            for approval_order in self._in_flight_orders.values() if approval_order.client_order_id.split("_")[0] == "approve"
+            for approval_order in self._in_flight_orders.values() if
+            approval_order.client_order_id.split("_")[0] == "approve"
         ]
 
     @property
@@ -151,8 +165,24 @@ class GatewayEVMAMM(ConnectorBase):
             for in_flight_order in self.amm_orders
         ]
 
+    def create_approval_order_id(self, token_symbol: str) -> str:
+        return f"approve_{self.connector_name}_{token_symbol}"
+
+    def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
+        match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
+        if match:
+            return match.group(2)
+        return None
+
+    @staticmethod
+    def create_market_order_id(side: TradeType, trading_pair: str) -> str:
+        return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
+
     def is_pending_approval(self, token: str) -> bool:
-        pending_approval_tokens = [tk.split("_")[2] for tk in self._in_flight_orders.keys()]
+        pending_approval_tokens: List[Optional[str]] = [
+            self.get_token_symbol_from_approval_order_id(order_id)
+            for order_id in self._in_flight_orders.keys()
+        ]
         return True if token in pending_approval_tokens else False
 
     async def get_chain_info(self):
@@ -185,7 +215,7 @@ class GatewayEVMAMM(ConnectorBase):
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
         """
-        order_id = f"approve_{self.connector_name}_{token_symbol}"
+        order_id: str = self.create_approval_order_id(token_symbol)
         await self._update_nonce()
         resp: Dict[str, Any] = await gateway_http_client.approve_token(
             self.chain,
@@ -202,7 +232,8 @@ class GatewayEVMAMM(ConnectorBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.update_exchange_order_id(hash)
             tracked_order.nonce = resp["nonce"]
-            self.logger().info(f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}.")
+            self.logger().info(
+                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}.")
         else:
             self.stop_tracking_order(order_id)
             self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
@@ -262,7 +293,7 @@ class GatewayEVMAMM(ConnectorBase):
                 }
                 exceptions = check_transaction_exceptions(account_standing)
                 for index in range(len(exceptions)):
-                    self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
+                    self.logger().info(f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
                     return Decimal(str(price))
@@ -312,8 +343,8 @@ class GatewayEVMAMM(ConnectorBase):
         :param price: The minimum price for the order.
         :return: A newly created order id (internal).
         """
-        side = TradeType.BUY if is_buy else TradeType.SELL
-        order_id = f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
+        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
+        order_id: str = self.create_market_order_id(side, trading_pair)
         safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price))
         return order_id
 
@@ -351,9 +382,9 @@ class GatewayEVMAMM(ConnectorBase):
             )
             transaction_hash: str = order_result.get("txHash")
             nonce: int = order_result.get("nonce")
-            gas_price = order_result.get("gasPrice")
-            gas_limit = order_result.get("gasLimit")
-            gas_cost = order_result.get("gasCost")
+            gas_price: float = order_result.get("gasPrice")
+            gas_limit: int = order_result.get("gasLimit")
+            gas_cost: int = order_result.get("gasCost")
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
 
@@ -368,10 +399,22 @@ class GatewayEVMAMM(ConnectorBase):
                 tracked_order.fee_asset = self._native_currency
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
-                event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-                event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, transaction_hash))
+                event_tag: MarketEvent = (
+                    MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY
+                    else MarketEvent.SellOrderCreated
+                )
+                event_class: Union[Type[BuyOrderCreatedEvent], Type[SellOrderCreatedEvent]] = (
+                    BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+                )
+                self.trigger_event(event_tag, event_class(
+                    self.current_timestamp,
+                    OrderType.LIMIT,
+                    trading_pair,
+                    amount,
+                    price,
+                    order_id,
+                    transaction_hash
+                ))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
@@ -391,7 +434,7 @@ class GatewayEVMAMM(ConnectorBase):
 
     def start_tracking_order(self,
                              order_id: str,
-                             exchange_order_id: str,
+                             exchange_order_id: Optional[str],
                              trading_pair: str = "",
                              trade_type: TradeType = TradeType.BUY,
                              price: Decimal = s_decimal_0,
@@ -419,83 +462,140 @@ class GatewayEVMAMM(ConnectorBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _update_approval_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+    async def _update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
         """
-        Calls REST API to get status update for each in-flight order.
-        This function can also be used to update status of simple swap orders.
+        Calls REST API to get status update for each in-flight token approval transaction.
         """
-        if len(tracked_orders) > 0:
-            tasks = []
-            for tracked_order in tracked_orders:
-                tx_hash: str = await tracked_order.get_exchange_order_id()
-                tasks.append(gateway_http_client.get_transaction_status(self.chain, self.network, tx_hash))
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for tracked_order, update_result in zip(tracked_orders, update_results):
-                self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "txHash" not in update_result:
-                    self.logger().info(f"_update_order_status txHash not in resp: {update_result}")
-                    continue
-                if update_result["txStatus"] == 1:
-                    if update_result["txReceipt"]["status"] == 1:
-                        if tracked_order in self.approval_orders:
-                            self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
-                        else:
-                            gas_used = update_result["txReceipt"]["gasUsed"]
-                            gas_price = tracked_order.gas_price
-                            fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
-                            self.trigger_event(
-                                MarketEvent.OrderFilled,
-                                OrderFilledEvent(
-                                    self.current_timestamp,
-                                    tracked_order.client_order_id,
-                                    tracked_order.trading_pair,
-                                    tracked_order.trade_type,
-                                    tracked_order.order_type,
-                                    Decimal(str(tracked_order.price)),
-                                    Decimal(str(tracked_order.amount)),
-                                    AddedToCostTradeFee(
-                                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                                    ),
-                                    exchange_trade_id=tracked_order.get_exchange_order_id()
-                                )
-                            )
-                            tracked_order.last_state = "FILLED"
-                            self.logger().info(f"The {tracked_order.trade_type.name} order "
-                                               f"{tracked_order.client_order_id} has completed "
-                                               f"according to order status API.")
-                            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                                else MarketEvent.SellOrderCompleted
-                            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                                else SellOrderCompletedEvent
-                            self.trigger_event(event_tag,
-                                               event_class(self.current_timestamp,
-                                                           tracked_order.client_order_id,
-                                                           tracked_order.base_asset,
-                                                           tracked_order.quote_asset,
-                                                           tracked_order.fee_asset,
-                                                           tracked_order.executed_amount_base,
-                                                           tracked_order.executed_amount_quote,
-                                                           float(fee),
-                                                           tracked_order.order_type))
-                        self.stop_tracking_order(tracked_order.client_order_id)
-                    else:
-                        self.logger().info(
-                            f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
-                        self.trigger_event(MarketEvent.OrderFailure,
-                                           MarketOrderFailureEvent(
-                                               self.current_timestamp,
-                                               tracked_order.client_order_id,
-                                               tracked_order.order_type
-                                           ))
-                        self.stop_tracking_order(tracked_order.client_order_id)
+        if len(tracked_approvals) < 1:
+            return
+        tx_hash_list: List[str] = await safe_gather(*[
+            tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
+        ])
+        transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            gateway_http_client.get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in tx_hash_list
+        ], return_exceptions=True)
+        for tracked_approval, transaction_status in zip(tracked_approvals, transaction_states):
+            token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
+            if isinstance(transaction_status, Exception):
+                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
+                                    f"{transaction_status}")
+                continue
+            if "txHash" not in transaction_status:
+                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
+                                    "txHash key not found in transaction status.")
+                continue
+            if transaction_status["txStatus"] == 1:
+                self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
+                                   f"confirmed.")
+                self.trigger_event(
+                    TokenApprovalEvent.ApprovalSuccessful,
+                    TokenApprovalSuccessEvent(
+                        self.current_timestamp,
+                        self.connector_name,
+                        token_symbol
+                    )
+                )
+            else:
+                self.logger().warning(
+                    f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
+                )
+                self.trigger_event(
+                    TokenApprovalEvent.ApprovalFailed,
+                    TokenApprovalFailureEvent(
+                        self.current_timestamp,
+                        self.connector_name,
+                        token_symbol
+                    )
+                )
+            self.stop_tracking_order(tracked_approval.client_order_id)
 
     async def _update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
         """
-        await self._update_approval_order_status(tracked_orders)
+        if len(tracked_orders) < 1:
+            return
+        tx_hash_list: List[str] = await safe_gather(*[
+            tracked_order.get_exchange_order_id() for tracked_order in tracked_orders
+        ])
+        self.logger().info(f"Polling for order status updates of {len(tracked_orders)} orders.")
+        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            gateway_http_client.get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in tx_hash_list
+        ], return_exceptions=True)
+        for tracked_order, update_result in zip(tracked_orders, update_results):
+            if isinstance(update_result, Exception):
+                raise update_result
+            if "txHash" not in update_result:
+                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+                                    f"{update_result}.")
+                continue
+            if update_result["txStatus"] == 1:
+                if update_result["txReceipt"]["status"] == 1:
+                    gas_used: int = update_result["txReceipt"]["gasUsed"]
+                    gas_price: Decimal = tracked_order.gas_price
+                    fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                    self.trigger_event(
+                        MarketEvent.OrderFilled,
+                        OrderFilledEvent(
+                            self.current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.trading_pair,
+                            tracked_order.trade_type,
+                            tracked_order.order_type,
+                            Decimal(str(tracked_order.price)),
+                            Decimal(str(tracked_order.amount)),
+                            AddedToCostTradeFee(
+                                flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                            ),
+                            exchange_trade_id=tracked_order.get_exchange_order_id()
+                        )
+                    )
+                    tracked_order.last_state = "FILLED"
+                    self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                       f"{tracked_order.client_order_id} has completed "
+                                       f"according to order status API.")
+                    event_tag: MarketEvent = (
+                        MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
+                        else MarketEvent.SellOrderCompleted
+                    )
+                    event_class: Union[Type[BuyOrderCompletedEvent], Type[SellOrderCompletedEvent]] = (
+                        BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY
+                        else SellOrderCompletedEvent
+                    )
+                    self.trigger_event(
+                        event_tag,
+                        event_class(
+                            self.current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.base_asset,
+                            tracked_order.quote_asset,
+                            tracked_order.fee_asset,
+                            tracked_order.executed_amount_base,
+                            tracked_order.executed_amount_quote,
+                            float(fee),
+                            tracked_order.order_type
+                        )
+                    )
+                else:
+                    self.logger().info(
+                        f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
+                    self.trigger_event(MarketEvent.OrderFailure,
+                                       MarketOrderFailureEvent(
+                                           self.current_timestamp,
+                                           tracked_order.client_order_id,
+                                           tracked_order.order_type
+                                       ))
+                self.stop_tracking_order(tracked_order.client_order_id)
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
@@ -514,8 +614,8 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == len(self._tokens) and \
-            all(amount > s_decimal_0 for amount in self._allowances.values())
+        return ((len(self._allowances.values()) == len(self._tokens)) and
+                (all(amount > s_decimal_0 for amount in self._allowances.values())))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -575,7 +675,7 @@ class GatewayEVMAMM(ConnectorBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(on_interval=True),
-                    self._update_approval_order_status(self.approval_orders),
+                    self._update_token_approval_status(self.approval_orders),
                     self._update_order_status(self.amm_orders)
                 )
                 self._last_poll_timestamp = self.current_timestamp
