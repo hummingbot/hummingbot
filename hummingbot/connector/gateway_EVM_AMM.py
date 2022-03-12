@@ -12,6 +12,7 @@ from typing import (
     Any,
     Type,
     Union,
+    cast,
 )
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -63,7 +64,7 @@ class GatewayEVMAMM(ConnectorBase):
         global s_logger
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
-        return s_logger
+        return cast(HummingbotLogger, s_logger)
 
     def __init__(self,
                  connector_name: str,
@@ -261,9 +262,9 @@ class GatewayEVMAMM(ConnectorBase):
         :return: The quote price.
         """
 
+        base, quote = trading_pair.split("-")
+        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         try:
-            base, quote = trading_pair.split("-")
-            side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
             resp: Dict[str, Any] = await gateway_http_client.get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
@@ -301,7 +302,7 @@ class GatewayEVMAMM(ConnectorBase):
             raise
         except Exception as e:
             self.logger().network(
-                f"Error getting quote price for {trading_pair}  {side} order for {amount} amount.",
+                f"Error getting quote price for {trading_pair} {side} order for {amount} amount.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
@@ -382,7 +383,7 @@ class GatewayEVMAMM(ConnectorBase):
             )
             transaction_hash: str = order_result.get("txHash")
             nonce: int = order_result.get("nonce")
-            gas_price: float = order_result.get("gasPrice")
+            gas_price: Decimal = Decimal(order_result.get("gasPrice"))
             gas_limit: int = order_result.get("gasLimit")
             gas_cost: int = order_result.get("gasCost")
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
