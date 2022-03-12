@@ -1,15 +1,16 @@
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
     Dict,
     Optional,
 )
-import asyncio
+
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 class BtcMarketsInFlightOrder(InFlightOrderBase):
@@ -21,6 +22,7 @@ class BtcMarketsInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 creation_timestamp: float,
                  initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
@@ -30,6 +32,7 @@ class BtcMarketsInFlightOrder(InFlightOrderBase):
             trade_type,
             price,
             amount,
+            creation_timestamp,
             initial_state,
         )
         self.trade_id_set = set()

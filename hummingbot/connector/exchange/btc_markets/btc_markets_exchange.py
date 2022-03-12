@@ -518,7 +518,8 @@ class BtcMarketsExchange(ExchangeBase):
                                    amount,
                                    price,
                                    order_id,
-                                   exchange_order_id
+                                   exchange_order_id,
+                                   tracked_order.creation_timestamp
                                ))
         except asyncio.CancelledError:
             raise
@@ -552,7 +553,8 @@ class BtcMarketsExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
