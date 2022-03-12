@@ -38,6 +38,7 @@ async def main():
               ))
         print("get wallets:", await gateway_http_client.get_wallets())
         print("get connectors:", await gateway_http_client.get_connectors())
+        print("set configuration:", await gateway_http_client.update_config("telemetry.enabled", False))
         print("get configuration:", await gateway_http_client.get_configuration())
         print("get tokens:", await gateway_http_client.get_tokens("ethereum", "ropsten"))
         print("get network status:", await gateway_http_client.get_network_status("ethereum", "ropsten"))
