@@ -86,6 +86,11 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertIn("ethereum", result)
 
     @async_test(loop=ev_loop)
+    async def test_update_configuration(self):
+        result: Dict[str, Any] = await gateway_http_client.update_config("telemetry.enabled", False)
+        self.assertIn("message", result)
+
+    @async_test(loop=ev_loop)
     async def test_get_tokens(self):
         result: Dict[str, Any] = await gateway_http_client.get_tokens("ethereum", "ropsten")
         self.assertIn("tokens", result)
