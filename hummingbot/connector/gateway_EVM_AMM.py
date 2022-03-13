@@ -55,7 +55,7 @@ class GatewayEVMAMM(ConnectorBase):
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_BALANCE_INTERVAL = 30.0
-    APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve_(\w+)_(\w+)")
+    APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -165,7 +165,7 @@ class GatewayEVMAMM(ConnectorBase):
         ]
 
     def create_approval_order_id(self, token_symbol: str) -> str:
-        return f"approve_{self.connector_name}_{token_symbol}"
+        return f"approve-{self.connector_name}-{token_symbol}"
 
     def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
         match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
