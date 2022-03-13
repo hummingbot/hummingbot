@@ -1,9 +1,9 @@
 import { StrategyName } from 'src/stores/strategies';
 import { ref } from 'vue';
 
-import { $Form, BtnToggleType } from './form.types';
+import { $Form, BtnToggleType, FileMap } from './form.types';
 
-export const pureMMFormFileFieldsMap = {
+export const pureMMFormFileFieldsMap: FileMap = {
   bidSpread: 'bid_spread',
   askSpread: 'ask_spread',
   orderRefreshTime: 'order_refresh_time',
@@ -187,7 +187,7 @@ export const $pureMMForm: $Form = {
       rightText: '',
     },
   },
-  orderOptimisation: {
+  orderOptimization: {
     value: ref(false),
   },
   askOrderOptimizationDepth: {

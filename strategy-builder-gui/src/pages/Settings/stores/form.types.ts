@@ -50,3 +50,19 @@ export interface $Form {
 export type $Forms = {
   [key in `${StrategyName}`]: $Form;
 };
+
+export interface FileMap {
+  [key: string]: string;
+}
+
+export type FileMapContainer = {
+  [key in `${StrategyName}`]: FileMap;
+};
+
+export interface FormValue {
+  [key: string]: number | string | boolean;
+}
+
+export type FormValueContainer = {
+  [key in `${StrategyName}`]: FormValue;
+};

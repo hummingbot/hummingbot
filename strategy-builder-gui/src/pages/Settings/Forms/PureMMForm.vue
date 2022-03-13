@@ -94,9 +94,9 @@
     </Field>
     <Field title="Order level spread">
       <Counter
-        v-model="orderLevelspread.value.value"
+        v-model="orderLevelSpread.value.value"
         :type="CounterType.Percentage"
-        v-bind="{ ...orderLevelspread.properties }"
+        v-bind="{ ...orderLevelSpread.properties }"
       />
     </Field>
     <Field title="Inventory skew">
@@ -169,7 +169,7 @@
       />
     </Field>
     <Field title="Order optimisation">
-      <q-toggle v-model="orderOptimisation.value.value" color="main-green-1" />
+      <q-toggle v-model="orderOptimization.value.value" color="main-green-1" />
     </Field>
     <Field title="Ask order optimization depth">
       <Input
