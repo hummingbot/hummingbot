@@ -14,7 +14,7 @@ const fixValue = (value: number | string | boolean) => {
   return value;
 };
 
-export const useForm = (strategyName: Ref<StrategyName>, localStorageDataUpdate?: boolean) => {
+export const useForm = (strategyName: Ref<StrategyName>) => {
   const form = $form[strategyName.value];
 
   const values = computed(
@@ -25,15 +25,17 @@ export const useForm = (strategyName: Ref<StrategyName>, localStorageDataUpdate?
       ) as FormValue,
   );
 
-  const localStorageData = localStorage.getItem(strategyName.value);
+  const init = () => {
+    const localStorageData = localStorage.getItem(strategyName.value);
 
-  if (localStorageData && localStorageDataUpdate) {
-    const parsedLocalStorage = JSON.parse(localStorageData);
+    if (localStorageData) {
+      const parsedLocalStorage = JSON.parse(localStorageData);
 
-    Object.keys(form).forEach((val) => {
-      form[val].value.value = parsedLocalStorage[val];
-    });
-  }
+      Object.keys(form).forEach((val) => {
+        form[val].value.value = parsedLocalStorage[val];
+      });
+    }
+  };
 
-  return { fields: form, values };
+  return { fields: form, values, init };
 };

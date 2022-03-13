@@ -38,7 +38,9 @@ export default defineComponent({
     const steps = useSteps();
     const route = useRoute();
     const strategyName = computed(() => route.params.strategyName as StrategyName);
-    const { values } = useForm(strategyName, true);
+    const { values, init } = useForm(strategyName);
+    init();
+
     const fileHref = useFileHref(strategyName); // TODO: sort  values and rename fields, based on template
     const displaySaveForm = computed(() => steps.current.value === steps.count);
     const fileName = computed(

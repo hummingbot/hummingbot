@@ -370,7 +370,7 @@ export default defineComponent({
   emits: ['update:formType'],
 
   setup() {
-    const { fields } = useForm(ref(StrategyName.PureMarketMaking), true);
+    const { fields } = useForm(ref(StrategyName.PureMarketMaking));
     const formType = ref(FormType.Basic);
 
     return {
