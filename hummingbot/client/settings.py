@@ -267,6 +267,10 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
     @classmethod
+    def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values if cs.type == ConnectorType.EVM_AMM}
+
+    @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
         return {name: cs.example_pair for name, cs in cls.get_connector_settings().items()}
 
