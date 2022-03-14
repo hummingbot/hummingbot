@@ -101,10 +101,11 @@ async def api_request(path: str,
         response = await rest_assistant.call(request=request, timeout=timeout)
 
         if response.status != 200:
-            error_response = await response.json()
             if return_err:
+                error_response = await response.json()
                 return error_response
             else:
+                error_response = await response.text()
                 raise IOError(f"Error executing request {method.name} {path}. "
                               f"HTTP status is {response.status}. "
                               f"Error: {error_response}")
