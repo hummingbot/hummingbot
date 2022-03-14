@@ -41,6 +41,7 @@ class HummingbotCompleter(Completer):
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(AllConnectorSettings.get_derivative_dex_names()), ignore_case=True)
+        self._amm_arb_connector_completer = WordCompleter(set(AllConnectorSettings.get_connector_settings().keys()).difference(AllConnectorSettings.get_derivative_names()), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
@@ -199,6 +200,9 @@ class HummingbotCompleter(Completer):
     def _complete_rate_oracle_source(self, document: Document):
         return all(x in self.prompt_text for x in ("source", "rate oracle"))
 
+    def _complete_amm_arb_connectors(self, document: Document):
+        return "(Exchange/AMM)" in self.prompt_text
+
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         """
         Get completions for the current scope. This is the defining function for the completer
@@ -227,6 +231,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_wallet_addresses(document):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_amm_arb_connectors(document):
+            for c in self._amm_arb_connector_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_spot_connectors(document):
