@@ -266,7 +266,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     time_synchronizer=self.data_source._time_synchronizer)
             )
 
-        self.assertEqual("Error executing request GET /depth. HTTP status is 400. Error: ['ERROR']",
+        self.assertEqual("Error executing request GET /depth. HTTP status is 400. Error: [\"ERROR\"]",
                          str(context.exception))
 
     @aioresponses()
