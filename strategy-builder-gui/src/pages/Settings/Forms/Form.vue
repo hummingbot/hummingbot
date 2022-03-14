@@ -43,9 +43,7 @@ export default defineComponent({
 
     const fileHref = useFileHref(strategyName); // TODO: sort  values and rename fields, based on template
     const displaySaveForm = computed(() => steps.current.value === steps.count);
-    const fileName = computed(
-      () => Object.getOwnPropertyDescriptor(values.value, 'fileName')?.value,
-    );
+    const fileName = computed(() => values.value.fileName);
 
     const handleSubmit = () => {
       localStorage.setItem(strategyName.value, JSON.stringify(values.value));
