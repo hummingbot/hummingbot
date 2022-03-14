@@ -104,10 +104,11 @@ async def api_request(path: str,
         response = await rest_assistant.call(request=request, timeout=timeout)
 
         if response.status != 200:
-            error_response = await response.json()
             if return_err:
+                error_response = await response.json()
                 return error_response
             else:
+                error_response = await response.text()
                 if error_response is not None and "code" in error_response and "msg" in error_response:
                     raise IOError(f"The request to Binance failed. Error: {error_response}. Request: {request}")
                 else:
