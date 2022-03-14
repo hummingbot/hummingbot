@@ -147,8 +147,12 @@ class HttpRecorder(HttpPlayerBase):
             url: str,
             **kwargs) -> HttpRecorderClientResponse:
         try:
-            client._original_response_class = client._response_class
-            client._response_class = HttpRecorderClientResponse
+            if hasattr(client, "_reentrant_ref_count"):
+                client._reentrant_ref_count += 1
+            else:
+                client._reentrant_ref_count = 1
+                client._original_response_class = client._response_class
+                client._response_class = HttpRecorderClientResponse
             request_type: HttpRequestType = HttpRequestType.PLAIN
             request_params: Optional[Dict[str, str]] = None
             request_json: Optional[Any] = None
@@ -177,8 +181,11 @@ class HttpRecorder(HttpPlayerBase):
                 response.database_id = playback_entry.id
             return response
         finally:
-            client._response_class = client._original_response_class
-            del client._original_response_class
+            client._reentrant_ref_count -= 1
+            if client._reentrant_ref_count < 1:
+                client._response_class = client._original_response_class
+                del client._original_response_class
+                del client._reentrant_ref_count
 
 
 class HttpPlayerResponse:

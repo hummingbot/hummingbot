@@ -492,29 +492,30 @@ class GatewayEVMAMM(ConnectorBase):
                                     "txHash key not found in transaction status.")
                 continue
             if transaction_status["txStatus"] == 1:
-                self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
-                                   f"successful.")
-                self.trigger_event(
-                    TokenApprovalEvent.ApprovalSuccessful,
-                    TokenApprovalSuccessEvent(
-                        self.current_timestamp,
-                        self.connector_name,
-                        token_symbol
+                if transaction_status["txReceipt"]["status"] == 1:
+                    self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
+                                       f"successful.")
+                    self.trigger_event(
+                        TokenApprovalEvent.ApprovalSuccessful,
+                        TokenApprovalSuccessEvent(
+                            self.current_timestamp,
+                            self.connector_name,
+                            token_symbol
+                        )
                     )
-                )
-            else:
-                self.logger().warning(
-                    f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
-                )
-                self.trigger_event(
-                    TokenApprovalEvent.ApprovalFailed,
-                    TokenApprovalFailureEvent(
-                        self.current_timestamp,
-                        self.connector_name,
-                        token_symbol
+                else:
+                    self.logger().warning(
+                        f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
                     )
-                )
-            self.stop_tracking_order(tracked_approval.client_order_id)
+                    self.trigger_event(
+                        TokenApprovalEvent.ApprovalFailed,
+                        TokenApprovalFailureEvent(
+                            self.current_timestamp,
+                            self.connector_name,
+                            token_symbol
+                        )
+                    )
+                self.stop_tracking_order(tracked_approval.client_order_id)
 
     async def _update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
@@ -559,7 +560,7 @@ class GatewayEVMAMM(ConnectorBase):
                             AddedToCostTradeFee(
                                 flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
                             ),
-                            exchange_trade_id=tracked_order.get_exchange_order_id()
+                            exchange_trade_id=await tracked_order.get_exchange_order_id()
                         )
                     )
                     tracked_order.last_state = "FILLED"

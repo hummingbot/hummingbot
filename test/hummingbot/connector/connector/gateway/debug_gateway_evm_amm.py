@@ -21,7 +21,6 @@ from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.gateway import gateway_http_client
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from test.mock.http_recorder import HttpRecorder
 
 s_decimal_0 = Decimal(0)
@@ -55,6 +54,7 @@ class GatewayEVMAMMDataCollector:
         gateway_http_client.base_url = "https://localhost:5000"
 
     async def wait_til_ready(self):
+        print("Waiting til ready...\t\t", end="")
         while True:
             now: float = time.time()
             next_iteration = now // 1.0 + 1
@@ -63,6 +63,7 @@ class GatewayEVMAMMDataCollector:
             else:
                 await self._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
+        print("done")
 
     async def collect_testing_data(self):
         with self._http_recorder.patch_aiohttp_client():
@@ -72,12 +73,14 @@ class GatewayEVMAMMDataCollector:
             await self.collect_get_price()
 
     async def collect_update_balances(self):
+        print("Updating balances...\t\t", end="")
         await self._connector._update_balances(on_interval=False)
+        print("done")
 
     async def collect_approval_status(self):
         def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightOrder:
             return GatewayInFlightOrder(
-                client_order_id=f"approve_uniswap_{token_symbol}",
+                client_order_id=self._connector.create_approval_order_id(token_symbol),
                 exchange_order_id=tx_hash,
                 trading_pair=token_symbol,
                 order_type=OrderType.LIMIT,
@@ -87,6 +90,7 @@ class GatewayEVMAMMDataCollector:
                 gas_price=s_decimal_0,
                 creation_timestamp=self._connector.current_timestamp
             )
+        print("Getting token approval status...\t\t", end="")
         successful_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
@@ -109,6 +113,7 @@ class GatewayEVMAMMDataCollector:
             ),
         ]
         await self._connector._update_token_approval_status(fake_records)
+        print("done")
 
     async def collect_order_status(self):
         def create_order_record(
@@ -119,7 +124,7 @@ class GatewayEVMAMMDataCollector:
                 amount: Decimal,
                 gas_price: Decimal) -> GatewayInFlightOrder:
             return GatewayInFlightOrder(
-                client_order_id=f"{trade_type.name.lower()}-{trading_pair}-{get_tracking_nonce()}",
+                client_order_id=self._connector.create_market_order_id(trade_type, trading_pair),
                 exchange_order_id=tx_hash,
                 trading_pair=trading_pair,
                 order_type=OrderType.LIMIT,
@@ -129,6 +134,7 @@ class GatewayEVMAMMDataCollector:
                 gas_price=gas_price,
                 creation_timestamp=self._connector.current_timestamp
             )
+        print("Getting uniswap order status...\t\t", end="")
         successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
@@ -151,10 +157,13 @@ class GatewayEVMAMMDataCollector:
             )
         ]
         await self._connector._update_order_status(fake_records)
+        print("done")
 
     async def collect_get_price(self):
+        print("Getting current prices...\t\t", end="")
         await self._connector.get_quote_price("DAI-WETH", True, Decimal(1000))
         await self._connector.get_quote_price("DAI-WETH", False, Decimal(1000))
+        print("done")
 
 
 if __name__ == "__main__":
