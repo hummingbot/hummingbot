@@ -34,11 +34,8 @@ connector_status = {
     'ndax': 'yellow',
     'ndax_testnet': 'yellow',
     'okex': 'yellow',
-    'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
-    'terra': 'yellow',
-    'uniswap_v3': 'yellow',
     'wazirx': 'yellow'
 }
 

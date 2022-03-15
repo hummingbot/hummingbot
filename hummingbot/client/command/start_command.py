@@ -178,9 +178,6 @@ class StartCommand:
                         f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
 
-            if self.strategy_name == "uniswap_v3_lp":  # this would be removed in subsequent iterations
-                self.notify("Warning: Ensure that the trading pair is in the right order .i.e. {BASE}-{QUOTE}.")
-
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)
                 await self.wait_till_ready(self.kill_switch.start)
