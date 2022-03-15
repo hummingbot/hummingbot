@@ -204,6 +204,44 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
         raise e
 
 
+def check_transaction_exceptions(trade_data: dict) -> list:
+    """
+    Check trade data for Ethereum decentralized exchanges
+    """
+    exception_list = []
+
+    gas_limit = trade_data["gas_limit"]
+    gas_cost = Decimal(str(trade_data["gas_cost"]))
+    amount = Decimal(str(trade_data["amount"]))
+    side = trade_data["side"]
+    base = trade_data["base"]
+    quote = trade_data["quote"]
+    balances = trade_data["balances"]
+    allowances = trade_data["allowances"]
+    swaps_message = f"Total swaps: {trade_data.get('swaps', 'UNKNOWN')}"
+
+    eth_balance = balances["ETH"]
+
+    # check for sufficient gas
+    if eth_balance < gas_cost:
+        exception_list.append(f"Insufficient ETH balance to cover gas:"
+                              f" Balance: {eth_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
+
+    trade_token = base if side == "side" else quote
+    trade_allowance = allowances[trade_token]
+
+    # check for gas limit set to low
+    gas_limit_threshold = 21000
+    if gas_limit < gas_limit_threshold:
+        exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
+
+    # check for insufficient token allowance
+    if allowances[trade_token] < amount:
+        exception_list.append(f"Insufficient {trade_token} allowance {trade_allowance}. Amount to trade: {amount}")
+
+    return exception_list
+
+
 class GatewayHttpClient:
     """
     An HTTP client for making requests to the gateway API.
