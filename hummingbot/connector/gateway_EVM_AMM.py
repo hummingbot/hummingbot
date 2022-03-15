@@ -336,6 +336,12 @@ class GatewayEVMAMM(ConnectorBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
+        self.start_tracking_order(order_id=order_id,
+                                  trading_pair=trading_pair,
+                                  trade_type=trade_type,
+                                  price=price,
+                                  amount=amount)
+
         await self._update_nonce()
         try:
             order_result: Dict[str, Any] = await gateway_http_client.amm_trade(
@@ -355,7 +361,6 @@ class GatewayEVMAMM(ConnectorBase):
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
             gas_cost = order_result.get("gasCost")
-            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
 
             if tracked_order is not None:
@@ -364,6 +369,7 @@ class GatewayEVMAMM(ConnectorBase):
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(transaction_hash)
                 tracked_order.gas_price = gas_price
+                tracked_order.last_state = "OPEN"
             if transaction_hash is not None:
                 tracked_order.nonce = nonce
                 tracked_order.fee_asset = self._native_currency
@@ -372,27 +378,26 @@ class GatewayEVMAMM(ConnectorBase):
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, transaction_hash))
+                                                          price, order_id, tracked_order.creation_timestamp, transaction_hash))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except Exception:
             self.stop_tracking_order(order_id)
-            self.logger().network(
+            self.logger().error(
                 f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self.network} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
-                exc_info=True,
-                app_warning_msg=str(e)
+                exc_info=True
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
 
     def start_tracking_order(self,
                              order_id: str,
-                             exchange_order_id: str,
+                             exchange_order_id: Optional[str] = None,
                              trading_pair: str = "",
                              trade_type: TradeType = TradeType.BUY,
                              price: Decimal = s_decimal_0,
@@ -428,6 +433,8 @@ class GatewayEVMAMM(ConnectorBase):
         if len(tracked_orders) > 0:
             tasks = []
             for tracked_order in tracked_orders:
+                if tracked_order.last_state == "PENDING_CREATE":
+                    continue
                 tx_hash: str = await tracked_order.get_exchange_order_id()
                 tasks.append(gateway_http_client.get_transaction_status(self.chain, self.network, tx_hash))
             update_results = await safe_gather(*tasks, return_exceptions=True)
@@ -442,6 +449,7 @@ class GatewayEVMAMM(ConnectorBase):
                     if update_result["txReceipt"]["status"] == 1:
                         if tracked_order in self.approval_orders:
                             self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
+                            self._allowances = await self.get_allowances()  # update allowances
                         else:
                             gas_used = update_result["txReceipt"]["gasUsed"]
                             gas_price = tracked_order.gas_price
@@ -459,7 +467,7 @@ class GatewayEVMAMM(ConnectorBase):
                                     AddedToCostTradeFee(
                                         flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
                                     ),
-                                    exchange_trade_id=tracked_order.get_exchange_order_id()
+                                    exchange_trade_id=await tracked_order.get_exchange_order_id()
                                 )
                             )
                             tracked_order.last_state = "FILLED"
@@ -479,7 +487,8 @@ class GatewayEVMAMM(ConnectorBase):
                                                            tracked_order.executed_amount_base,
                                                            tracked_order.executed_amount_quote,
                                                            float(fee),
-                                                           tracked_order.order_type))
+                                                           tracked_order.order_type,
+                                                           await tracked_order.get_exchange_order_id()))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:
                         self.logger().info(
@@ -584,9 +593,6 @@ class GatewayEVMAMM(ConnectorBase):
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch balances from Gateway API.")
 
     async def _update_balances(self, on_interval=False):
         """
