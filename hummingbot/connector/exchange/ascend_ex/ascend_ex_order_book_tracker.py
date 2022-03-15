@@ -58,6 +58,12 @@ class AscendExOrderBookTracker(OrderBookTracker):
         """
         return constants.EXCHANGE_NAME
 
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
+
     def start(self):
         """
         Starts the background task that connects to the exchange and listens to order book updates and trade events.
