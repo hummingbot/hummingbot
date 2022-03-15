@@ -9,7 +9,6 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_user_stream_data_sour
     AscendExAPIUserStreamDataSource
 )
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -33,7 +32,7 @@ class AscendExUserStreamTracker(UserStreamTracker):
                  ascend_ex_auth: Optional[AscendExAuth] = None,
                  trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory
         self._throttler = throttler
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs: List[str] = trading_pairs or []

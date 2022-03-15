@@ -10,10 +10,8 @@ import pandas as pd
 from bidict import bidict
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_active_order_tracker import AscendExActiveOrderTracker
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book import AscendExOrderBook
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory, get_hb_id_headers
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -33,6 +31,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     TRADE_TOPIC_ID = "trades"
     DIFF_TOPIC_ID = "depth"
+    PING_TOPIC_ID = "ping"
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Mapping[str, str] = None
@@ -51,15 +50,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._api_factory = api_factory or build_api_factory()
         self._throttler = throttler or self._get_throttler_instance()
-        self._ws_assistant: Optional[WSAssistant] = None
         self._trading_pairs: List[str] = trading_pairs
 
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
-
-    @classmethod
-    def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
@@ -73,6 +66,19 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         api_factory: Optional[WebAssistantsFactory] = None,
         throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
+        """
+        Return a dictionary the trading_pair as key and the current price as value for each trading pair passed as
+        parameter
+
+        :param trading_pairs: list of trading pairs to get the prices for
+        :param domain: which Binance domain we are connecting to (the default value is 'com')
+        :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
+        If no instance is provided then a new one will be created.
+        :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
+        the function will create a new one.
+
+        :return: Dictionary of associations between token pair and its latest price
+        """
         result = {}
 
         for trading_pair in trading_pairs:
@@ -80,11 +86,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             throttler = throttler or cls._get_throttler_instance()
             rest_assistant = await api_factory.get_rest_assistant()
 
-            headers = AscendExAuth.get_hb_id_headers()
-
             url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TRADES_PATH_URL}"\
                   f"?symbol={await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)}"
-            request = RESTRequest(method=RESTMethod.GET, url=url, headers=headers)
+            request = RESTRequest(method=RESTMethod.GET, url=url)
 
             async with throttler.execute_task(CONSTANTS.TRADES_PATH_URL):
                 resp: RESTResponse = await rest_assistant.call(request=request)
@@ -102,11 +106,10 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
 
             trades = resp_json.get("data").get("data")
-            if len(trades) == 0:
-                continue
 
             # last trade is the most recent trade
-            result[trading_pair] = float(trades[-1].get("p"))
+            for trade in trades[-1:]:
+                result[trading_pair] = float(trade.get("p"))
 
         return result
 
@@ -124,10 +127,8 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         rest_assistant = await api_factory.get_rest_assistant()
         throttler = throttler or cls._get_throttler_instance()
 
-        headers = AscendExAuth.get_hb_id_headers()
-
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
-        request = RESTRequest(method=RESTMethod.GET, url=url, headers=headers)
+        request = RESTRequest(method=RESTMethod.GET, url=url)
 
         try:
             async with throttler.execute_task(limit_id=CONSTANTS.PRODUCTS_PATH_URL):
@@ -160,11 +161,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
         rest_assistant = await api_factory.get_rest_assistant()
 
-        headers = AscendExAuth.get_hb_id_headers()
-
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}"\
               f"?symbol={await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)}"
-        request = RESTRequest(method=RESTMethod.GET, url=url, headers=headers)
+        request = RESTRequest(method=RESTMethod.GET, url=url)
 
         async with throttler.execute_task(CONSTANTS.DEPTH_PATH_URL):
             resp: RESTResponse = await rest_assistant.call(request=request)
@@ -283,12 +282,13 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
-        active_order_tracker: AscendExActiveOrderTracker = AscendExActiveOrderTracker()
-        bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
 
     async def _subscribe_to_order_book_streams(self) -> aiohttp.ClientWebSocketResponse:
+        """
+        Subscribes to the order book diff orders events through the provided websocket connection.
+        """
         try:
             trading_pairs = ",".join([
                 await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
@@ -301,10 +301,10 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 }
                 for topic in [self.DIFF_TOPIC_ID, self.TRADE_TOPIC_ID]
             ]
-            headers = AscendExAuth.get_hb_id_headers()
 
-            ws: WSAssistant = await self._get_ws_assistant()
+            ws: WSAssistant = await self._api_factory.get_ws_assistant()
             url = CONSTANTS.WS_URL
+            headers = get_hb_id_headers()
             await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
 
             for payload in subscription_payloads:
@@ -321,7 +321,22 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
 
+    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
+        """
+        Responds with pong to a ping message send by a server to keep a websocket connection alive
+        """
+        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+            payload = {
+                "op": "pong"
+            }
+            pong_request: WSRequest = WSRequest(payload)
+            await ws.send(pong_request)
+
     async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
         ws = None
         while True:
             try:
@@ -333,6 +348,8 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     event_type = data.get("m")
                     if event_type in [self.TRADE_TOPIC_ID, self.DIFF_TOPIC_ID]:
                         self._message_queue[event_type].put_nowait(data)
+                    if event_type in [self.PING_TOPIC_ID]:
+                        await self._handle_ping_message(ws)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -344,6 +361,12 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws and await ws.disconnect()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        Reads the trade events queue. For each event creates a trade message instance and adds it to the output queue
+
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created trade messages
+        """
         msg_queue = self._message_queue[self.TRADE_TOPIC_ID]
         while True:
             try:
@@ -400,7 +423,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         This method runs continuously and request the full order book content from the exchange every hour.
         The method uses the REST API from the exchange because it does not provide an endpoint to get the full order
         book through websocket. With the information creates a snapshot messages that is added to the output queue
-        
+
         :param ev_loop: the event loop the method will run in
         :param output: a queue to add the created snapshot messages
         """
@@ -420,7 +443,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                         # Be careful not to go above API rate limits.
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                     except asyncio.CancelledError:
                         raise
                     except Exception:
@@ -430,18 +453,13 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
                                             "Check network connection."
                         )
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
-
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
+                await self._sleep(5.0)
