@@ -146,15 +146,16 @@ class GatewayEVMAMM(ConnectorBase):
     def approval_orders(self) -> List[GatewayInFlightOrder]:
         return [
             approval_order
-            for approval_order in self._in_flight_orders.values() if
-            approval_order.client_order_id.split("_")[0] == "approve"
+            for approval_order in self._in_flight_orders.values()
+            if approval_order.client_order_id.split("-")[0] == "approve"
         ]
 
     @property
     def amm_orders(self) -> List[GatewayInFlightOrder]:
         return [
             in_flight_order
-            for in_flight_order in self._in_flight_orders.values() if in_flight_order not in self.approval_orders
+            for in_flight_order in self._in_flight_orders.values()
+            if in_flight_order.client_order_id.split("-")[0] in {"buy", "sell"}
         ]
 
     @property
@@ -209,7 +210,7 @@ class GatewayEVMAMM(ConnectorBase):
             if amount <= s_decimal_0 and not self.is_pending_approval(token):
                 await self.approve_token(token)
 
-    async def approve_token(self, token_symbol: str):
+    async def approve_token(self, token_symbol: str) -> Optional[GatewayInFlightOrder]:
         """
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
@@ -232,10 +233,13 @@ class GatewayEVMAMM(ConnectorBase):
             tracked_order.update_exchange_order_id(hash)
             tracked_order.nonce = resp["nonce"]
             self.logger().info(
-                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}.")
+                f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}."
+            )
+            return tracked_order
         else:
             self.stop_tracking_order(order_id)
             self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
+            return None
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -409,13 +413,14 @@ class GatewayEVMAMM(ConnectorBase):
                     BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 )
                 self.trigger_event(event_tag, event_class(
-                    self.current_timestamp,
-                    OrderType.LIMIT,
-                    trading_pair,
-                    amount,
-                    price,
-                    order_id,
-                    transaction_hash
+                    timestamp=self.current_timestamp,
+                    type=OrderType.LIMIT,
+                    trading_pair=trading_pair,
+                    amount=amount,
+                    price=price,
+                    order_id=order_id,
+                    creation_timestamp=self.current_timestamp,
+                    exchange_order_id=transaction_hash
                 ))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
@@ -560,7 +565,7 @@ class GatewayEVMAMM(ConnectorBase):
                             AddedToCostTradeFee(
                                 flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
                             ),
-                            exchange_trade_id=await tracked_order.get_exchange_order_id()
+                            exchange_trade_id=tracked_order.exchange_order_id
                         )
                     )
                     tracked_order.last_state = "FILLED"
@@ -578,15 +583,16 @@ class GatewayEVMAMM(ConnectorBase):
                     self.trigger_event(
                         event_tag,
                         event_class(
-                            self.current_timestamp,
-                            tracked_order.client_order_id,
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            tracked_order.fee_asset,
-                            tracked_order.executed_amount_base,
-                            tracked_order.executed_amount_quote,
-                            float(fee),
-                            tracked_order.order_type
+                            timestamp=self.current_timestamp,
+                            order_id=tracked_order.client_order_id,
+                            base_asset=tracked_order.base_asset,
+                            quote_asset=tracked_order.quote_asset,
+                            fee_asset=tracked_order.fee_asset,
+                            base_asset_amount=tracked_order.executed_amount_base,
+                            quote_asset_amount=tracked_order.executed_amount_quote,
+                            fee_amount=fee,
+                            order_type=tracked_order.order_type,
+                            exchange_order_id=tracked_order.exchange_order_id
                         )
                     )
                 else:

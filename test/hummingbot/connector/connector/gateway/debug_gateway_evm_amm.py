@@ -19,8 +19,17 @@ from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    OrderType,
+    TradeType,
+    MarketEvent,
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    OrderFilledEvent,
+)
 from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.mock.http_recorder import HttpRecorder
 
 s_decimal_0 = Decimal(0)
@@ -54,16 +63,22 @@ class GatewayEVMAMMDataCollector:
         gateway_http_client.base_url = "https://localhost:5000"
 
     async def wait_til_ready(self):
-        print("Waiting til ready...\t\t", end="")
+        print("Waiting til ready...\t\t", end="", flush=True)
         while True:
             now: float = time.time()
             next_iteration = now // 1.0 + 1
             if self._connector.ready:
                 break
             else:
-                await self._clock.run_til(next_iteration)
+                await self._clock.run_til(next_iteration + 0.1)
             await asyncio.sleep(1.0)
         print("done")
+
+    async def run_clock(self):
+        while True:
+            now: float = time.time()
+            next_iteration = now // 1.0 + 1
+            await self._clock.run_til(next_iteration + 0.1)
 
     async def collect_testing_data(self):
         with self._http_recorder.patch_aiohttp_client():
@@ -71,9 +86,12 @@ class GatewayEVMAMMDataCollector:
             await self.collect_approval_status()
             await self.collect_order_status()
             await self.collect_get_price()
+            await self.collect_approve_token()
+            await self.collect_buy_order()
+            await self.collect_sell_order()
 
     async def collect_update_balances(self):
-        print("Updating balances...\t\t", end="")
+        print("Updating balances...\t\t", end="", flush=True)
         await self._connector._update_balances(on_interval=False)
         print("done")
 
@@ -90,7 +108,7 @@ class GatewayEVMAMMDataCollector:
                 gas_price=s_decimal_0,
                 creation_timestamp=self._connector.current_timestamp
             )
-        print("Getting token approval status...\t\t", end="")
+        print("Getting token approval status...\t\t", end="", flush=True)
         successful_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
@@ -134,7 +152,7 @@ class GatewayEVMAMMDataCollector:
                 gas_price=gas_price,
                 creation_timestamp=self._connector.current_timestamp
             )
-        print("Getting uniswap order status...\t\t", end="")
+        print("Getting uniswap order status...\t\t", end="", flush=True)
         successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
@@ -160,12 +178,73 @@ class GatewayEVMAMMDataCollector:
         print("done")
 
     async def collect_get_price(self):
-        print("Getting current prices...\t\t", end="")
+        print("Getting current prices...\t\t", end="", flush=True)
         await self._connector.get_quote_price("DAI-WETH", True, Decimal(1000))
         await self._connector.get_quote_price("DAI-WETH", False, Decimal(1000))
         print("done")
 
+    async def collect_approve_token(self):
+        print("Approving tokens...")
+        weth_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("WETH")
+        dai_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("DAI")
+        print(f"\tSent WETH approval with txHash: {weth_in_flight_order.exchange_order_id}")
+        print(f"\tSent DAI approval with txHash: {dai_in_flight_order.exchange_order_id}")
+        while len(self._connector.approval_orders) > 0:
+            await asyncio.sleep(5)
+            await self._connector._update_token_approval_status(self._connector.approval_orders)
+        print("\tdone")
+
+    async def collect_buy_order(self):
+        print("Buying DAI tokens...")
+        event_logger: EventLogger = EventLogger()
+        self._connector.add_listener(MarketEvent.BuyOrderCreated, event_logger)
+        self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
+        clock_task: asyncio.Task = asyncio.create_task(self.run_clock())
+        try:
+            price: Decimal = await self._connector.get_quote_price("DAI-WETH", True, Decimal(100))
+            price *= Decimal("1.005")
+            self._connector.buy("DAI-WETH", Decimal(100), OrderType.LIMIT, price)
+            buy_order_event: BuyOrderCreatedEvent = await event_logger.wait_for(BuyOrderCreatedEvent)
+            print(f"\tSent buy order with txHash: {buy_order_event.exchange_order_id}")
+            await event_logger.wait_for(OrderFilledEvent, timeout_seconds=600)
+        finally:
+            self._connector.remove_listener(MarketEvent.BuyOrderCreated, event_logger)
+            self._connector.remove_listener(MarketEvent.OrderFilled, event_logger)
+            clock_task.cancel()
+            try:
+                await clock_task
+            except asyncio.CancelledError:
+                pass
+        print("\tdone")
+
+    async def collect_sell_order(self):
+        print("Selling DAI tokens...")
+        event_logger: EventLogger = EventLogger()
+        self._connector.add_listener(MarketEvent.SellOrderCreated, event_logger)
+        self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
+        clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
+        try:
+            price: Decimal = await self._connector.get_quote_price("DAI-WETH", False, Decimal(100))
+            price *= Decimal("0.995")
+            self._connector.sell("DAI-WETH", Decimal(100), OrderType.LIMIT, price)
+            sell_order_event: SellOrderCreatedEvent = await event_logger.wait_for(SellOrderCreatedEvent)
+            print(f"\tSent sell order with txHash: {sell_order_event.exchange_order_id}")
+            await event_logger.wait_for(OrderFilledEvent, timeout_seconds=600)
+        finally:
+            self._connector.remove_listener(MarketEvent.SellOrderCreated, event_logger)
+            self._connector.remove_listener(MarketEvent.OrderFilled, event_logger)
+            clock_task.cancel()
+            try:
+                await clock_task
+            except asyncio.CancelledError:
+                pass
+        print("\tdone")
+
 
 if __name__ == "__main__":
     data_collector: GatewayEVMAMMDataCollector = GatewayEVMAMMDataCollector()
-    asyncio.run(data_collector.main())
+    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    try:
+        ev_loop.run_until_complete(data_collector.main())
+    except KeyboardInterrupt:
+        pass
