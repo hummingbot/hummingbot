@@ -35,6 +35,7 @@ class GatewayInFlightOrder(InFlightOrderBase):
         self.trade_id_set = set()
         self._gas_price = gas_price
         self.nonce = 0
+        self._cancel_tx_hash: Optional[str] = None
 
     @property
     def is_done(self) -> bool:
@@ -77,3 +78,11 @@ class GatewayInFlightOrder(InFlightOrderBase):
     @gas_price.setter
     def gas_price(self, gas_price):
         self._gas_price = gas_price
+
+    @property
+    def cancel_tx_hash(self) -> Optional[str]:
+        return self._cancel_tx_hash
+
+    @cancel_tx_hash.setter
+    def cancel_tx_hash(self, cancel_tx_hash):
+        self._cancel_tx_hash = cancel_tx_hash

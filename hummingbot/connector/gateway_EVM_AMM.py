@@ -23,6 +23,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     MarketOrderFailureEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
     TradeType,
@@ -435,7 +436,10 @@ class GatewayEVMAMM(ConnectorBase):
             for tracked_order in tracked_orders:
                 if tracked_order.last_state == "PENDING_CREATE":
                     continue
-                tx_hash: str = await tracked_order.get_exchange_order_id()
+                if tracked_order.is_cancelling and tracked_order.cancel_tx_hash is not None:
+                    tx_hash: str = tracked_order.cancel_tx_hash
+                else:
+                    tx_hash: str = await tracked_order.get_exchange_order_id()
                 tasks.append(gateway_http_client.get_transaction_status(self.chain, self.network, tx_hash))
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for tracked_order, update_result in zip(tracked_orders, update_results):
@@ -447,7 +451,20 @@ class GatewayEVMAMM(ConnectorBase):
                     continue
                 if update_result["txStatus"] == 1:
                     if update_result["txReceipt"]["status"] == 1:
-                        if tracked_order in self.approval_orders:
+                        if tracked_order.last_state == "CANCELING":
+                            self.trigger_event(
+                                MarketEvent.OrderCancelled,
+                                OrderCancelledEvent(
+                                    self.current_timestamp,
+                                    tracked_order.client_order_id,
+                                    tracked_order.exchange_order_id,
+                                )
+                            )
+                            tracked_order.last_state = "CANCELED"
+                            self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                               f"{tracked_order.client_order_id} has been canceled "
+                                               f"according to order status API.")
+                        elif tracked_order in self.approval_orders:
                             self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
                             self._allowances = await self.get_allowances()  # update allowances
                         else:
@@ -643,16 +660,19 @@ class GatewayEVMAMM(ConnectorBase):
             if tracked_order.is_cancelling:
                 return order_id
 
-            tracked_order.last_state = "CANCELING"
-
-            self.logger().info(f"Requesting cancel of order {order_id}")
-
-            await gateway_http_client.cancel_evm_transaction(
+            resp: Dict[str, Any] = await gateway_http_client.cancel_evm_transaction(
                 self.chain,
                 self.network,
                 self.address,
                 tracked_order.nonce)
 
+            if "txHash" in resp.keys.items():
+                tracked_order.cancel_tx_hash = resp["txHash"]
+            else:
+                raise Exception(f"txHash not in resp: {resp}")
+
+            tracked_order.last_state = "CANCELING"
+            self.logger().info(f"Requesting cancel of order {order_id}")
             return order_id
 
         except Exception as err:
