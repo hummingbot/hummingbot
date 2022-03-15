@@ -463,7 +463,7 @@ class GatewayEVMAMM(ConnectorBase):
                             tracked_order.last_state = "CANCELED"
                             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                                f"{tracked_order.client_order_id} has been canceled "
-                                               f"according to order status API.")
+                                               f"according to the order status API.")
                         elif tracked_order in self.approval_orders:
                             self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
                             self._allowances = await self.get_allowances()  # update allowances
