@@ -49,7 +49,7 @@ class AscendExOrderBook(OrderBook):
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
         :param metadata: a dictionary with extra information to add to diff message
-        
+
         :return: AscendExOrderBookMessage
         """
 
@@ -73,7 +73,7 @@ class AscendExOrderBook(OrderBook):
         :param msg: the trade event details sent by the exchange
         :param timestamp: timestamp attached to incoming data
         :param metadata: a dictionary with extra information to add to trade message
-        
+
         :return: a trade message with the details of the trade as provided by the exchange
         """
 

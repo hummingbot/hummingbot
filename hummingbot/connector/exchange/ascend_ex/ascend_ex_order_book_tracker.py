@@ -128,4 +128,4 @@ class AscendExOrderBookTracker(OrderBookTracker):
                     exc_info=True,
                     app_warning_msg="Unexpected error processing order book messages. Retrying after 5 seconds.",
                 )
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)

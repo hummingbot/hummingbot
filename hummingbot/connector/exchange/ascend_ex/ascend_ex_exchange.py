@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from collections import namedtuple
@@ -9,14 +10,13 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import \
-    AscendExAPIOrderBookDataSource as OBDS
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import build_api_factory
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
@@ -280,7 +280,7 @@ class AscendExExchange(ExchangePyBase):
         while True:
             try:
                 await self._update_trading_rules()
-                await asyncio.sleep(60)
+                await self._sleep(60)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -289,9 +289,12 @@ class AscendExExchange(ExchangePyBase):
                     exc_info=True,
                     app_warning_msg="Could not fetch new trading rules from AscendEx. " "Check network connection.",
                 )
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
 
     async def _update_trading_rules(self):
+        """
+        Updates local trading rules from rules obtained from the exchange
+        """
         instruments_info = await self._api_request(method=RESTMethod.GET, path_url=CONSTANTS.PRODUCTS_PATH_URL)
         self._trading_rules.clear()
         self._trading_rules = await self._format_trading_rules(instruments_info)
@@ -324,7 +327,7 @@ class AscendExExchange(ExchangePyBase):
         trading_rules = {}
         for rule in instruments_info["data"]:
             try:
-                trading_pair = await OBDS.trading_pair_associated_to_exchange_symbol(rule["symbol"])
+                trading_pair = await AscendExAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(rule["symbol"])
                 trading_rules[trading_pair] = AscendExTradingRule(
                     trading_pair,
                     min_price_increment=Decimal(rule["tickSize"]),
@@ -339,8 +342,11 @@ class AscendExExchange(ExchangePyBase):
         return trading_rules
 
     async def _update_account_data(self):
+        """
+        Updates account group and uid from data obtained from the exchange
+        """
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
-        headers = self._ascend_ex_auth.get_headers(CONSTANTS.INFO_PATH_URL)
+        headers = self._ascend_ex_auth.get_auth_headers(CONSTANTS.INFO_PATH_URL)
 
         rest_assistant = await self._get_rest_assistant()
 
@@ -383,15 +389,19 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
+
+        data = json.dumps(data)
+
         if is_auth_required:
             if self._account_group is None:
                 await self._update_account_data()
 
             url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
-            headers = self._ascend_ex_auth.get_headers(path_url if force_auth_path_url is None else force_auth_path_url)
+            headers = self._ascend_ex_auth.get_auth_headers(
+                path_url if force_auth_path_url is None else force_auth_path_url)
         else:
             url = f"{CONSTANTS.REST_URL}/{path_url}"
-            headers = self._ascend_ex_auth.get_headers()
+            headers = {}
 
         rest_assistant = await self._get_rest_assistant()
 
@@ -417,11 +427,6 @@ class AscendExExchange(ExchangePyBase):
                 raise IOError(f"{url} API call failed, response: {parsed_response}")
 
         return parsed_response
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -529,7 +534,7 @@ class AscendExExchange(ExchangePyBase):
             api_params = {
                 "id": order_uuid,
                 "time": timestamp,
-                "symbol": await OBDS.exchange_symbol_associated_to_pair(trading_pair),
+                "symbol": await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair),
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
@@ -609,7 +614,7 @@ class AscendExExchange(ExchangePyBase):
     ):
         """
         Starts tracking an order by adding it to the order tracker.
-        
+
         :param order_id: the order identifier
         :param exchange_order_id: the identifier for the order in the exchange
         :param trading_pair: the token pair for the operation
@@ -656,7 +661,7 @@ class AscendExExchange(ExchangePyBase):
                 ex_order_id = await tracked_order.get_exchange_order_id()
 
                 api_params = {
-                    "symbol": await OBDS.exchange_symbol_associated_to_pair(trading_pair),
+                    "symbol": await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair),
                     "orderId": ex_order_id,
                     "time": ascend_ex_utils.get_ms_timestamp(),
                 }
@@ -702,7 +707,7 @@ class AscendExExchange(ExchangePyBase):
                     app_warning_msg="Could not fetch account updates from AscendEx. "
                                     "Check API key and network connection.",
                 )
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
             finally:
                 self._poll_notifier = asyncio.Event()
 
@@ -782,7 +787,7 @@ class AscendExExchange(ExchangePyBase):
                         OrderUpdate(
                             client_order_id=client_order_id,
                             exchange_order_id=exchange_order_id,
-                            trading_pair=await OBDS.trading_pair_associated_to_exchange_symbol(order_data["symbol"]),
+                            trading_pair=await AscendExAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(order_data["symbol"]),
                             update_timestamp=order_data["lastExecTime"] * 1e-3,
                             new_state=new_state,
                         )
@@ -832,7 +837,7 @@ class AscendExExchange(ExchangePyBase):
                 cancel_payloads.append({
                     "id": ascend_ex_utils.uuid32(),
                     "orderId": order.exchange_order_id,
-                    "symbol": await OBDS.exchange_symbol_associated_to_pair(order.trading_pair),
+                    "symbol": await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(order.trading_pair),
                     "time": int(time.time() * 1e3),
                 })
                 order_ids_to_cancel.append(order.client_order_id)
@@ -898,7 +903,7 @@ class AscendExExchange(ExchangePyBase):
         :param amount: the order amount
         :param price: the order price
         :param is_maker: is it running as a market maker or as a market taker
-        
+
         :return: the estimated fee for the order
         """
         trading_pair = f"{base_currency}-{quote_currency}"
@@ -912,6 +917,9 @@ class AscendExExchange(ExchangePyBase):
         return AddedToCostTradeFee(percent=fee_percent)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+        """
+        Listens to messages in _user_stream_tracker.user_stream queue.
+        """
         while True:
             try:
                 yield await self._user_stream_tracker.user_stream.get()
@@ -923,11 +931,11 @@ class AscendExExchange(ExchangePyBase):
                     exc_info=True,
                     app_warning_msg="Could not fetch user events from AscendEx. Check API key and network connection.",
                 )
-                await asyncio.sleep(1.0)
+                await self._sleep(1.0)
 
     async def _user_stream_event_listener(self):
         """
-        Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
+        Listens to messages in _user_stream_tracker.user_stream queue. The messages are put in by
         AscendExAPIUserStreamDataSource.
         """
         async for event_message in self._iter_user_event_queue():
@@ -970,9 +978,14 @@ class AscendExExchange(ExchangePyBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     async def get_open_orders(self) -> List[OpenOrder]:
+        """
+        Obtains open orders from the ClientOrderTracker.
+
+        :return: a list of active orders
+        """
         result = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.ORDER_OPEN_PATH_URL,
@@ -998,7 +1011,7 @@ class AscendExExchange(ExchangePyBase):
             ret_val.append(
                 OpenOrder(
                     client_order_id=client_order_id,
-                    trading_pair=await OBDS.trading_pair_associated_to_exchange_symbol(order["symbol"]),
+                    trading_pair=await AscendExAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(order["symbol"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["orderQty"])),
                     executed_amount=Decimal(str(order["cumFilledQty"])),
@@ -1052,7 +1065,7 @@ class AscendExExchange(ExchangePyBase):
 
             order_update = OrderUpdate(
                 exchange_order_id=order_msg.orderId,
-                trading_pair=await OBDS.trading_pair_associated_to_exchange_symbol(order_msg.symbol),
+                trading_pair=await AscendExAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(order_msg.symbol),
                 update_timestamp=order_msg.lastExecTime * 1e-3,
                 new_state=order_status,
             )
@@ -1060,6 +1073,14 @@ class AscendExExchange(ExchangePyBase):
             self._in_flight_order_tracker.process_order_update(order_update=order_update)
 
     def _process_balances(self, balances: List[AscendExBalance], is_complete_list: bool = True):
+        """
+        Updates account balances and available account balances from data obtained from the exchange
+
+        :param balances: A list of balances
+        :param is_complete_list: Indicates whether the provided list is a complete list of assets of the account and
+        therefore if asset elements in the local account balances and available account balances can be mirrored
+        according to it
+        """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
@@ -1078,11 +1099,11 @@ class AscendExExchange(ExchangePyBase):
     def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = s_decimal_0) -> Decimal:
         """
         Applies the trading rules to calculate the correct order amount for the market
-        
+
         :param trading_pair: the token pair for which the order will be created
         :param amount: the intended amount for the order
         :param price: the intended price for the order
-        
+
         :return: the quantized order amount after applying the trading rules
         """
         trading_rule: AscendExTradingRule = self._trading_rules[trading_pair]
@@ -1106,3 +1127,8 @@ class AscendExExchange(ExchangePyBase):
             return s_decimal_0
 
         return quantized_amount
+
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant

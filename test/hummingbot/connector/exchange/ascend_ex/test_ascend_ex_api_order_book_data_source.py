@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import json
 import re
@@ -340,6 +341,24 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task.cancel()
             self.ev_loop.run_until_complete(self.listening_task)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_handle_ping_message(self, ws_connect_mock):
+        # In AscendEx Ping message is sent as a aiohttp.WSMsgType.TEXT message
+        mock_response = {"m": "ping", "hp": 3}
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(mock_response),
+            message_type=aiohttp.WSMsgType.TEXT,
+        )
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        sent_json = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
+
+        self.assertTrue(any(["pong" in str(payload) for payload in sent_json]))
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep")

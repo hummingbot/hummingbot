@@ -6,8 +6,7 @@ from typing import Any, AsyncIterable, List, Optional
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import build_api_factory, get_ws_url_private
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSRequest
@@ -46,7 +45,6 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._last_recv_time: float = 0
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
@@ -55,7 +53,13 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        """
+        Returns the time of the last received message
+        :return: the timestamp of the last received message in seconds
+        """
+        if self._ws_assistant:
+            return self._ws_assistant.last_recv_time
+        return 0
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
         """
@@ -68,8 +72,8 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws = None
         while True:
             try:
-                headers = self._ascend_ex_auth.get_headers(CONSTANTS.INFO_PATH_URL)
-                rest_assistant = await self._get_rest_assistant()
+                headers = self._ascend_ex_auth.get_auth_headers(CONSTANTS.INFO_PATH_URL)
+                rest_assistant = await self._api_factory.get_rest_assistant()
                 url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
                 request = RESTRequest(method=RESTMethod.GET, url=url, headers=headers)
 
@@ -78,7 +82,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 info = await response.json()
                 accountGroup = info.get("data").get("accountGroup")
-                headers = self._ascend_ex_auth.get_headers(CONSTANTS.STREAM_PATH_URL)
+                headers = self._ascend_ex_auth.get_auth_headers(CONSTANTS.STREAM_PATH_URL)
                 payload = {
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": "order:cash"
@@ -105,14 +109,9 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...",
                     exc_info=True
                 )
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 ws and await ws.disconnect()
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
