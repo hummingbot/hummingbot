@@ -1,7 +1,27 @@
 import { StrategyName } from 'src/stores/strategies';
 import { ref } from 'vue';
 
-import { $Form, BtnToggleType, FileMap } from './form.types';
+import { $Form, BtnToggleType, FileMap, OrderType } from './form.types';
+
+export const defaultOrder: OrderType = {
+  value: ref(BtnToggleType.Sell),
+  orderAmount: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
+    },
+  },
+  orderLevelParam: {
+    value: ref(0),
+    properties: {
+      min: 0,
+      max: 1,
+      step: 0.1,
+    },
+  },
+};
 
 export const pureMMFormFileFieldsMap: FileMap = {
   bidSpread: 'bid_spread',
@@ -267,6 +287,12 @@ export const $pureMMForm: $Form = {
       step: 0.1,
     },
   },
+
+  orders: {
+    value: ref(0),
+    list: [],
+  },
+
   order_1_SecondCounter: {
     value: ref(0),
     properties: {

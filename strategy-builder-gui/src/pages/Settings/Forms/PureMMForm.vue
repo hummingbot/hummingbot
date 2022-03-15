@@ -85,6 +85,10 @@
         v-bind="{ ...orderLevels.properties }"
       />
     </Field>
+    <q-btn @click="click">+</q-btn>
+    <div v-for="item in orders.value.value" :key="item">
+      {{ item }}
+    </div>
     <Field title="Order level amount">
       <Counter
         v-model="orderLevelAmount.value.value"
@@ -168,7 +172,7 @@
         v-bind="{ ...priceFloor.properties }"
       />
     </Field>
-    <Field title="Order optimisation">
+    <Field title="Order optimization">
       <q-toggle v-model="orderOptimization.value.value" color="main-green-1" />
     </Field>
     <Field title="Ask order optimization depth">
@@ -225,10 +229,15 @@
       />
     </Field>
     <Field>
-      <Order title="Order 1" hint="Order hint">
+      <Order
+        v-for="(order, index) in computedOrders.value"
+        :key="index"
+        :title="`Order ${index + 1}`"
+        hint="Order hint"
+      >
         <template #toggle>
           <q-btn-toggle
-            v-model="order_1_Toggle.value.value"
+            v-model="order.value"
             class="flex justify-between full-width"
             unelevated
             :ripple="false"
@@ -242,98 +251,14 @@
         </template>
         <template #counters>
           <Counter
-            v-model="order_1_FirstCounter.value.value"
+            v-model="order.orderAmount.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order_1_FirstCounter.properties }"
+            v-bind="{ ...order.orderAmount.properties }"
           />
           <Counter
-            v-model="order_1_SecondCounter.value.value"
+            v-model="order.orderLevelParam.value"
             :type="CounterType.FloatCount"
-            v-bind="{ ...order_1_SecondCounter.properties }"
-          />
-        </template>
-      </Order>
-      <Order title="Order 2" hint="Order hint">
-        <template #toggle>
-          <q-btn-toggle
-            v-model="order_2_Toggle.value.value"
-            class="flex justify-between full-width"
-            unelevated
-            :ripple="false"
-            toggle-color="mono-grey-2"
-            text-color="mono-grey-3"
-            :options="[
-              { label: 'sell', value: BtnToggleType.Sell },
-              { label: 'buy', value: BtnToggleType.Buy },
-            ]"
-          />
-        </template>
-        <template #counters>
-          <Counter
-            v-model="order_2_FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order_2_FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order_2_SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order_2_SecondCounter.properties }"
-          />
-        </template>
-      </Order>
-      <Order title="Order 3" hint="Order hint">
-        <template #toggle>
-          <q-btn-toggle
-            v-model="order_3_Toggle.value.value"
-            class="flex justify-between full-width"
-            unelevated
-            :ripple="false"
-            toggle-color="mono-grey-2"
-            text-color="mono-grey-3"
-            :options="[
-              { label: 'sell', value: BtnToggleType.Sell },
-              { label: 'buy', value: BtnToggleType.Buy },
-            ]"
-          />
-        </template>
-        <template #counters>
-          <Counter
-            v-model="order_3_FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order_3_FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order_3_SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order_3_SecondCounter.properties }"
-          />
-        </template>
-      </Order>
-      <Order title="Order 4" hint="Order hint">
-        <template #toggle>
-          <q-btn-toggle
-            v-model="order_4_Toggle.value.value"
-            class="flex justify-between full-width"
-            unelevated
-            :ripple="false"
-            toggle-color="mono-grey-2"
-            text-color="mono-grey-3"
-            :options="[
-              { label: 'sell', value: BtnToggleType.Sell },
-              { label: 'buy', value: BtnToggleType.Buy },
-            ]"
-          />
-        </template>
-        <template #counters>
-          <Counter
-            v-model="order_4_FirstCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order_4_FirstCounter.properties }"
-          />
-          <Counter
-            v-model="order_4_SecondCounter.value.value"
-            :type="CounterType.FloatCount"
-            v-bind="{ ...order_4_SecondCounter.properties }"
+            v-bind="{ ...order.orderLevelParam.properties }"
           />
         </template>
       </Order>
@@ -349,7 +274,7 @@
 </template>
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { defineComponent, ref } from 'vue';
+import { computed, defineComponent, ref } from 'vue';
 
 import Counter, { CounterType } from '../components/Counter.vue';
 import Field from '../components/Field.vue';
@@ -357,6 +282,7 @@ import Input, { InputType } from '../components/Input.vue';
 import Order from '../components/Order.vue';
 import Select from '../components/Select/Index.vue';
 import { BtnToggleType, useForm } from '../composables/useForm';
+import { Orders, OrderType } from '../stores/form.types';
 
 enum FormType {
   Basic,
@@ -370,16 +296,30 @@ export default defineComponent({
   emits: ['update:formType'],
 
   setup() {
-    const { fields } = useForm(ref(StrategyName.PureMarketMaking));
+    const { fields, defaultOrder } = useForm(ref(StrategyName.PureMarketMaking));
     const formType = ref(FormType.Basic);
+    const computedOrders = computed(() => {
+      const { list } = fields.orders as Orders;
+
+      return list;
+    });
+
+    const click = () => {
+      const { list } = fields.orders as Orders;
+      list.push(defaultOrder);
+
+      console.log(computedOrders.value);
+    };
 
     return {
+      click,
       ...fields,
       CounterType,
       InputType,
       formType,
       FormType,
       BtnToggleType,
+      computedOrders,
     };
   },
 });
