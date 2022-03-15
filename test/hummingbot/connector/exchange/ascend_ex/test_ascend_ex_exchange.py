@@ -28,6 +28,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderFilledEvent,
 )
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -46,10 +47,6 @@ class TestAscendExExchange(unittest.TestCase):
         cls.api_key = "someKey"
         cls.api_secret_key = "someSecretKey"
 
-        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
-            {cls.ex_trading_pair: f"{cls.base_asset}-{cls.quote_asset}"}
-        )
-
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
@@ -57,12 +54,17 @@ class TestAscendExExchange(unittest.TestCase):
 
         self.exchange = AscendExExchange(self.api_key, self.api_secret_key, trading_pairs=[self.trading_pair])
         self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
         self._initialize_event_loggers()
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
         self.exchange._in_flight_order_tracker.logger().setLevel(1)
         self.exchange._in_flight_order_tracker.logger().addHandler(self)
+
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {self.ex_trading_pair: f"{self.base_asset}-{self.quote_asset}"}
+        )
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
@@ -94,7 +96,7 @@ class TestAscendExExchange(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def simulate_trading_rules_initialized(self):
+    def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
             self.trading_pair: AscendExTradingRule(
                 trading_pair=self.trading_pair,
@@ -107,8 +109,12 @@ class TestAscendExExchange(unittest.TestCase):
             ),
         }
 
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
+
     def test_get_fee(self):
-        self.simulate_trading_rules_initialized()
+        self._simulate_trading_rules_initialized()
         trading_rule: AscendExTradingRule = self.exchange._trading_rules[self.trading_pair]
         amount = Decimal("1")
         price = Decimal("2")
@@ -471,3 +477,304 @@ class TestAscendExExchange(unittest.TestCase):
         )
 
         self.assertEqual(result, expected_client_order_id)
+
+    @aioresponses()
+    def test_update_trading_rules(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        products = {
+            "code": 0,
+            "data": [
+                {
+                    "symbol": self.ex_trading_pair,
+                    "displayName": self.ex_trading_pair,
+                    "domain": "USDS",
+                    "tradingStartTime": 1546300800000,
+                    "collapseDecimals": "1,0.1,0.01",
+                    "minQty": "0",
+                    "maxQty": "1000000000",
+                    "minNotional": "0.001",
+                    "maxNotional": "400000",
+                    "statusCode": "Normal",
+                    "statusMessage": "",
+                    "tickSize": "0.0001",
+                    "useTick": False,
+                    "lotSize": "0.000001",
+                    "useLot": False,
+                    "commissionType": "Quote",
+                    "commissionReserveRate": "0.001",
+                    "qtyScale": 5,
+                    "priceScale": 2,
+                    "notionalScale": 4
+                },
+            ]
+        }
+
+        mock_response = products
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+
+        trading_rule = self.exchange._trading_rules[self.trading_pair]
+        self.assertEqual(self.trading_pair, trading_rule.trading_pair)
+        self.assertEqual(Decimal(products["data"][0]["minQty"]),
+                         trading_rule.min_order_size)
+        self.assertEqual(Decimal(products["data"][0]["tickSize"]),
+                         trading_rule.min_price_increment)
+        self.assertEqual(Decimal(products["data"][0]["lotSize"]),
+                         trading_rule.min_base_amount_increment)
+        self.assertEqual(Decimal(products["data"][0]["minNotional"]),
+                         trading_rule.min_notional_size)
+
+    @aioresponses()
+    def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        products = {
+            "code": 0,
+            "data": [
+                {
+                    "symbol": self.ex_trading_pair,
+                    "displayName": self.ex_trading_pair,
+                    "domain": "USDS",
+                    "tradingStartTime": 1546300800000,
+                    "collapseDecimals": "1,0.1,0.01",
+                    "minQty": "0",
+                    "maxQty": "1000000000",
+                    "minNotional": "0.001",
+                    "maxNotional": "400000",
+                    "statusCode": "Normal",
+                    "statusMessage": "",
+                    # "tickSize": "0.0001",
+                    "useTick": False,
+                    "lotSize": "0.000001",
+                    "useLot": False,
+                    "commissionType": "Quote",
+                    "commissionReserveRate": "0.001",
+                    "qtyScale": 5,
+                    "priceScale": 2,
+                    "notionalScale": 4
+                },
+            ]
+        }
+
+        mock_response = products
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+
+        self.assertEqual(0, len(self.exchange._trading_rules))
+        self.assertTrue(
+            self._is_logged("ERROR", f"Error parsing the trading pair rule {products['data'][0]}. Skipping.")
+        )
+
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange.AscendExExchange._sleep")
+    @aioresponses()
+    def test_trading_rules_polling_loop(self, sleep_mock, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        products = {
+            "code": 0,
+            "data": [
+                {
+                    "symbol": self.ex_trading_pair,
+                    "displayName": self.ex_trading_pair,
+                    "domain": "USDS",
+                    "tradingStartTime": 1546300800000,
+                    "collapseDecimals": "1,0.1,0.01",
+                    "minQty": "0",
+                    "maxQty": "1000000000",
+                    "minNotional": "0.001",
+                    "maxNotional": "400000",
+                    "statusCode": "Normal",
+                    "statusMessage": "",
+                    "tickSize": "0.0001",
+                    "useTick": False,
+                    "lotSize": "0.000001",
+                    "useLot": False,
+                    "commissionType": "Quote",
+                    "commissionReserveRate": "0.001",
+                    "qtyScale": 5,
+                    "priceScale": 2,
+                    "notionalScale": 4
+                },
+            ]
+        }
+
+        mock_response = products
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
+
+        try:
+            self.async_run_with_timeout(self.exchange._trading_rules_polling_loop())
+        except asyncio.exceptions.CancelledError:
+            pass
+
+        trading_rule = self.exchange._trading_rules[self.trading_pair]
+        self.assertEqual(self.trading_pair, trading_rule.trading_pair)
+        self.assertEqual(Decimal(products["data"][0]["minQty"]),
+                         trading_rule.min_order_size)
+        self.assertEqual(Decimal(products["data"][0]["tickSize"]),
+                         trading_rule.min_price_increment)
+        self.assertEqual(Decimal(products["data"][0]["lotSize"]),
+                         trading_rule.min_base_amount_increment)
+        self.assertEqual(Decimal(products["data"][0]["minNotional"]),
+                         trading_rule.min_notional_size)
+
+    @aioresponses()
+    def test_api_request_public(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 0, "data": "test"}
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        response = self.async_run_with_timeout(self.exchange._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.PRODUCTS_PATH_URL,
+            data=None,
+            params=None,
+            is_auth_required=False))
+
+        self.assertEqual(response, mock_response)
+
+    @aioresponses()
+    def test_api_request_private(self, mock_api):
+        url = f"{ascend_ex_utils.get_rest_url_private(0)}/{CONSTANTS.ORDER_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 0, "data": "test"}
+        mock_api.post(regex_url, body=json.dumps(mock_response))
+
+        self.exchange._account_group = 0
+
+        response = self.async_run_with_timeout(self.exchange._api_request(
+            method=RESTMethod.POST,
+            path_url=CONSTANTS.ORDER_PATH_URL,
+            data=None,
+            is_auth_required=True,
+            force_auth_path_url="order"))
+
+        self.assertEqual(response, mock_response)
+
+    @aioresponses()
+    def test_api_request_failed(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 1, "data": "test"}
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        error = None
+
+        try:
+            self.async_run_with_timeout(self.exchange._api_request(
+                method=RESTMethod.GET,
+                path_url=CONSTANTS.PRODUCTS_PATH_URL,
+                data=None,
+                params=None,
+                is_auth_required=False))
+        except IOError as e:
+            error = str(e)
+
+        self.assertIsNotNone(error)
+        self.assertEqual(error, f"{url} API call failed, response: {mock_response}")
+
+    @aioresponses()
+    def test_api_request_error_status(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 0, "data": "test"}
+        mock_api.get(regex_url, body=json.dumps(mock_response), status=401)
+
+        error = None
+
+        try:
+            self.async_run_with_timeout(self.exchange._api_request(
+                method=RESTMethod.GET,
+                path_url=CONSTANTS.PRODUCTS_PATH_URL,
+                data=None,
+                params=None,
+                is_auth_required=False))
+        except IOError as e:
+            error = str(e)
+
+        self.assertIsNotNone(error)
+        self.assertEqual(error, f"Error calling {url}. HTTP status is {401}. " f"Message: {json.dumps(mock_response)}")
+
+    @aioresponses()
+    def test_api_request_exception_json(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = "wkjqhqw:{"
+        mock_api.get(regex_url, body=mock_response)
+
+        error = None
+
+        try:
+            self.async_run_with_timeout(self.exchange._api_request(
+                method=RESTMethod.GET,
+                path_url=CONSTANTS.PRODUCTS_PATH_URL,
+                data=None,
+                params=None,
+                is_auth_required=False))
+        except IOError as e:
+            error = str(e)
+
+        self.assertIsNotNone(error)
+        self.assertEqual(error, f"Error calling {url}. Error: Expecting value: line 1 column 1 (char 0)")
+
+    @aioresponses()
+    def test_update_account_data(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 0, "data": {"accountGroup": 0, "userUID": 1}}
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_run_with_timeout(self.exchange._update_account_data())
+
+        self.assertEqual(self.exchange._account_group, 0)
+        self.assertEqual(self.exchange._account_uid, 1)
+
+    @aioresponses()
+    def test_update_account_data_failed(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 1, "data": {"accountGroup": 0, "userUID": 1}}
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        error = None
+
+        try:
+            self.async_run_with_timeout(self.exchange._update_account_data())
+        except IOError as e:
+            error = str(e)
+
+        self.assertIsNotNone(error)
+        self.assertEqual(error, f"{url} API call failed, response: {mock_response}")
+
+    @aioresponses()
+    def test_update_account_data_error_status(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": 0, "data": "test"}
+        mock_api.get(regex_url, body=json.dumps(mock_response), status=401)
+
+        error = None
+
+        try:
+            self.async_run_with_timeout(self.exchange._update_account_data())
+        except IOError as e:
+            error = str(e)
+
+        self.assertIsNotNone(error)
+        self.assertEqual(error, f"Error fetching data from {url}. HTTP status is {401}. " f"Message: {mock_response}")

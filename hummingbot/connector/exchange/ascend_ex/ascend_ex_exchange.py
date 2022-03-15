@@ -193,6 +193,12 @@ class AscendExExchange(ExchangePyBase):
             if not in_flight_order.is_done
         }
 
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         Restore in-flight orders from saved tracking states, this is st the connector can pick up on where it left off
