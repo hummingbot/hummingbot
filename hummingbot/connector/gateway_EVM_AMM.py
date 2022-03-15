@@ -620,25 +620,28 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
-    async def execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
-        await self._general_cancel(client_order_id, None)
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        return []
 
-    async def _general_cancel(self, order_id: str, cancel_age: Optional[int] = None) -> str:
+    async def _execute_cancel(self, order_id: str, cancel_age: int) -> Optional[str]:
+        """
+        Cancel an existing order if the age of the order is greater than its cancel_age,
+        and if the order is not done or already in the cancelling state.
+        """
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 self.logger().error(f"The order {order_id} is not tracked. ")
                 raise ValueError
 
-            # if cancel_age is included, then cancel only if the age of the order
-            # is geq to the cancel_age
-            if cancel_age is not None:
+            if (self.current_timestamp - tracked_order.creation_timestamp).total_seconds() < cancel_age:
+                return None
 
-                if (self.current_timestamp - tracked_order.creation_timestamp).total_seconds() < cancel_age:
-                    return
+            if tracked_order.is_done:
+                return None
 
-            if tracked_order.is_done or tracked_order.is_cancelling:
-                return
+            if tracked_order.is_cancelling:
+                return order_id
 
             tracked_order.last_state = "CANCELING"
 
@@ -650,8 +653,6 @@ class GatewayEVMAMM(ConnectorBase):
                 self.address,
                 tracked_order.nonce)
 
-            tracked_order.last_state = "CANCELED"
-
             return order_id
 
         except Exception as err:
@@ -660,15 +661,13 @@ class GatewayEVMAMM(ConnectorBase):
                 exc_info=True
             )
 
-    async def cancel_outdated_orders(self, cancel_age: int):
-        await self._general_cancel_all(30.0, cancel_age)
-
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        return []
-
-    async def _general_cancel_all(self, timeout_seconds: float, cancel_age: Optional[int]) -> List[CancellationResult]:
+    async def cancel_outdated_orders(self, cancel_age: int) -> List[CancellationResult]:
+        """
+        Iterate through all known orders and cancel them if their age is greater than cancel_age.
+        """
+        timeout_seconds = 30.0
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self._general_cancel(o.client_order_id, cancel_age) for o in incomplete_orders]
+        tasks = [self._execute_cancel(o.client_order_id, cancel_age) for o in incomplete_orders]
         order_id_set = set([key for (key, o) in incomplete_orders])
         successful_cancellations = []
 
@@ -684,7 +683,7 @@ class GatewayEVMAMM(ConnectorBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error cancelling outdated orders.",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel orders on {self.chain}-{self.network}."
             )
