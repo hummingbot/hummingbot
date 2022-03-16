@@ -3,9 +3,11 @@ import hmac
 from typing import Any, Dict
 
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ms_timestamp
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
+from hummingbot.core.web_assistant.auth import AuthBase
 
 
-class AscendExAuth:
+class AscendExAuth(AuthBase):
     """
     Auth class required by AscendEx API
     Learn more at https://ascendex.github.io/ascendex-pro-api/#authenticate-a-restful-request
@@ -13,6 +15,33 @@ class AscendExAuth:
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
+
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
+        the required parameter in the request header.
+        :param request: the request to be configured for authenticated interaction
+        """
+        # Generates auth headers
+        if request.is_auth_required:
+            headers_auth = self.get_auth_headers(request.path_url)
+        else:
+            headers_auth = {}
+
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(headers_auth)
+        request.headers = headers
+
+        return request
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. Binance does not use this
+        functionality
+        """
+        return request  # pass-through
 
     def get_auth_headers(
         self,

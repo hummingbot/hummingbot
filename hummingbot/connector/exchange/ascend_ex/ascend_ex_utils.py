@@ -26,11 +26,11 @@ class AscendExRESTPreProcessor(RESTPreProcessorBase):
         if request.headers is None:
             request.headers = {}
         # Generates generic headers required by AscendEx
-        headers = {}
-        headers["Accept"] = "application/json"
-        headers["Content-Type"] = "application/json"
+        headers_generic = {}
+        headers_generic["Accept"] = "application/json"
+        headers_generic["Content-Type"] = "application/json"
         # Headers signature to identify user as an HB liquidity provider.
-        request.headers = dict(list(headers.items()) +
+        request.headers = dict(list(headers_generic.items()) +
                                list(request.headers.items()) +
                                list(get_hb_id_headers().items()))
         return request
@@ -80,14 +80,6 @@ def get_hb_id_headers() -> Dict[str, Any]:
     return {
         "request-source": "hummingbot-liq-mining",
     }
-
-
-def _time():
-    """
-    Private function created just to have a method that can be safely patched during unit tests and make tests
-    independent from real time
-    """
-    return time.time()
 
 
 # get timestamp in milliseconds
@@ -149,3 +141,11 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
+
+
+def _time():
+    """
+    Private function created just to have a method that can be safely patched during unit tests and make tests
+    independent from real time
+    """
+    return time.time()

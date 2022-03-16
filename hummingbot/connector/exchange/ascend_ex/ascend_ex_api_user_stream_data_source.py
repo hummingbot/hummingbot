@@ -37,19 +37,14 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         trading_pairs: Optional[List[str]] = None
     ):
         super().__init__()
-        self._api_factory = api_factory or build_api_factory()
+        self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
+        self._api_factory = api_factory or build_api_factory(auth=self._ascend_ex_auth)
         self._throttler = throttler or self._get_throttler_instance()
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
-        self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
 
     @property
     def last_recv_time(self) -> float:
@@ -72,10 +67,12 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws = None
         while True:
             try:
-                headers = self._ascend_ex_auth.get_auth_headers(CONSTANTS.INFO_PATH_URL)
                 rest_assistant = await self._api_factory.get_rest_assistant()
                 url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
-                request = RESTRequest(method=RESTMethod.GET, url=url, headers=headers)
+                request = RESTRequest(method=RESTMethod.GET,
+                                      url=url,
+                                      path_url=CONSTANTS.INFO_PATH_URL,
+                                      is_auth_required=True)
 
                 async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
                     response: RESTResponse = await rest_assistant.call(request=request)
@@ -112,6 +109,11 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._sleep(30.0)
             finally:
                 ws and await ws.disconnect()
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:

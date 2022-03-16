@@ -55,11 +55,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
-
-    @classmethod
     async def get_last_traded_prices(
         cls,
         trading_pairs: List[str],
@@ -71,7 +66,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         parameter
 
         :param trading_pairs: list of trading pairs to get the prices for
-        :param domain: which Binance domain we are connecting to (the default value is 'com')
         :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
         If no instance is provided then a new one will be created.
         :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
@@ -112,35 +106,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 result[trading_pair] = float(trade.get("p"))
 
         return result
-
-    @classmethod
-    async def _init_trading_pair_symbols(
-            cls,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None):
-        """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
-        """
-        mapping = bidict()
-
-        api_factory = api_factory or build_api_factory()
-        rest_assistant = await api_factory.get_rest_assistant()
-        throttler = throttler or cls._get_throttler_instance()
-
-        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
-        request = RESTRequest(method=RESTMethod.GET, url=url)
-
-        try:
-            async with throttler.execute_task(limit_id=CONSTANTS.PRODUCTS_PATH_URL):
-                response: RESTResponse = await rest_assistant.call(request=request)
-                if response.status == 200:
-                    data: Dict[str, Dict[str, Any]] = await response.json()
-                    for symbol_data in data["data"]:
-                        mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
-        except Exception as ex:
-            cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
-
-        cls._trading_pair_symbol_map = mapping
 
     @staticmethod
     async def get_order_book_data(trading_pair: str,
@@ -285,53 +250,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
 
-    async def _subscribe_to_order_book_streams(self) -> aiohttp.ClientWebSocketResponse:
-        """
-        Subscribes to the order book diff orders events through the provided websocket connection.
-        """
-        try:
-            trading_pairs = ",".join([
-                await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
-                for trading_pair in self._trading_pairs
-            ])
-            subscription_payloads = [
-                {
-                    "op": CONSTANTS.SUB_ENDPOINT_NAME,
-                    "ch": f"{topic}:{trading_pairs}"
-                }
-                for topic in [self.DIFF_TOPIC_ID, self.TRADE_TOPIC_ID]
-            ]
-
-            ws: WSAssistant = await self._api_factory.get_ws_assistant()
-            url = CONSTANTS.WS_URL
-            headers = get_hb_id_headers()
-            await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
-
-            for payload in subscription_payloads:
-                subscribe_request: WSRequest = WSRequest(payload)
-                async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                    await ws.send(subscribe_request)
-
-            self.logger().info(f"Subscribed to {self._trading_pairs} orderbook trading and delta streams...")
-
-            return ws
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...")
-            raise
-
-    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
-        """
-        Responds with pong to a ping message send by a server to keep a websocket connection alive
-        """
-        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-            payload = {
-                "op": "pong"
-            }
-            pong_request: WSRequest = WSRequest(payload)
-            await ws.send(pong_request)
-
     async def listen_for_subscriptions(self):
         """
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
@@ -463,3 +381,84 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await self._sleep(5.0)
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
+
+    @classmethod
+    async def _init_trading_pair_symbols(
+            cls,
+            api_factory: Optional[WebAssistantsFactory] = None,
+            throttler: Optional[AsyncThrottler] = None):
+        """
+        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
+        """
+        mapping = bidict()
+
+        api_factory = api_factory or build_api_factory()
+        rest_assistant = await api_factory.get_rest_assistant()
+        throttler = throttler or cls._get_throttler_instance()
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
+        request = RESTRequest(method=RESTMethod.GET, url=url)
+
+        try:
+            async with throttler.execute_task(limit_id=CONSTANTS.PRODUCTS_PATH_URL):
+                response: RESTResponse = await rest_assistant.call(request=request)
+                if response.status == 200:
+                    data: Dict[str, Dict[str, Any]] = await response.json()
+                    for symbol_data in data["data"]:
+                        mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
+        except Exception as ex:
+            cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
+
+        cls._trading_pair_symbol_map = mapping
+
+    async def _subscribe_to_order_book_streams(self) -> aiohttp.ClientWebSocketResponse:
+        """
+        Subscribes to the order book diff orders events through the provided websocket connection.
+        """
+        try:
+            trading_pairs = ",".join([
+                await AscendExAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
+                for trading_pair in self._trading_pairs
+            ])
+            subscription_payloads = [
+                {
+                    "op": CONSTANTS.SUB_ENDPOINT_NAME,
+                    "ch": f"{topic}:{trading_pairs}"
+                }
+                for topic in [self.DIFF_TOPIC_ID, self.TRADE_TOPIC_ID]
+            ]
+
+            ws: WSAssistant = await self._api_factory.get_ws_assistant()
+            url = CONSTANTS.WS_URL
+            headers = get_hb_id_headers()
+            await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
+
+            for payload in subscription_payloads:
+                subscribe_request: WSRequest = WSRequest(payload)
+                async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
+                    await ws.send(subscribe_request)
+
+            self.logger().info(f"Subscribed to {self._trading_pairs} orderbook trading and delta streams...")
+
+            return ws
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...")
+            raise
+
+    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
+        """
+        Responds with pong to a ping message send by a server to keep a websocket connection alive
+        """
+        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+            payload = {
+                "op": "pong"
+            }
+            pong_request: WSRequest = WSRequest(payload)
+            await ws.send(pong_request)
