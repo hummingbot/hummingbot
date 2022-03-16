@@ -4,16 +4,16 @@ from typing import (
     Optional
 )
 
-from aiokafka import ConsumerRecord
 import ujson
+from aiokafka import ConsumerRecord
 
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 
 _kob_logger = None

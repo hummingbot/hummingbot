@@ -3,9 +3,10 @@ import logging
 import time
 import warnings
 from collections import defaultdict
-from async_timeout import timeout
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
+
+from async_timeout import timeout
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
@@ -13,9 +14,7 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import (
-    BinancePerpetualAuth
-)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
     BinancePerpetualOrderBookTracker
 )
@@ -28,21 +27,18 @@ from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     FundingInfo,
     FundingPaymentCompletedEvent,
     MarketEvent,
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -139,7 +135,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     @property
     def status_dict(self):
-        return {
+        sd = {
             "symbols_mapping_initialized": BinancePerpetualAPIOrderBookDataSource.trading_pair_symbol_map_ready(
                 domain=self._domain),
             "order_books_initialized": self._order_book_tracker.ready,
@@ -149,6 +145,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
             "funding_info_initialized": self._order_book_tracker.is_funding_info_initialized(),
         }
+        return sd
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -242,8 +239,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        t_pair: str = trading_pair
-        order_id: str = utils.get_client_order_id("buy", t_pair)
+        order_id: str = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
         safe_ensure_future(
             self._create_order(TradeType.BUY,
                                order_id,
@@ -281,8 +282,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         price:
             Price for a limit order
         """
-        t_pair: str = trading_pair
-        order_id: str = utils.get_client_order_id("sell", t_pair)
+        order_id: str = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.BROKER_ID,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
         safe_ensure_future(
             self._create_order(TradeType.SELL,
                                order_id,
@@ -641,9 +646,21 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if trade_id != "0":  # Indicates that there has been a trade
 
-                trade_fee_percent = Decimal("0")
-                if "n" in order_message:
-                    trade_fee_percent = None
+                fee_asset = order_message.get("N", tracked_order.quote_asset)
+                fee_amount = Decimal(order_message.get("n", "0"))
+                position_side = order_message.get("ps", "LONG")
+                position_action = (PositionAction.OPEN
+                                   if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                       or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                   else PositionAction.CLOSE)
+                flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
+
+                fee = TradeFeeBase.new_perpetual_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    position_action=position_action,
+                    percent_token=fee_asset,
+                    flat_fees=flat_fees,
+                )
 
                 trade_update: TradeUpdate = TradeUpdate(
                     trade_id=trade_id,
@@ -654,9 +671,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     fill_price=Decimal(order_message["L"]),
                     fill_base_amount=Decimal(order_message["z"]),
                     fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["z"]),
-                    fee_asset=order_message.get("N", tracked_order.fee_asset),
-                    fee_paid=Decimal(order_message.get("n", "0")),
-                    trade_fee_percent=trade_fee_percent
+                    fee=fee,
                 )
                 self._client_order_tracker.process_trade_update(trade_update)
 
@@ -977,6 +992,17 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     order_id = str(trade.get("orderId"))
                     if order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
+                        position_side = trade["positionSide"]
+                        position_action = (PositionAction.OPEN
+                                           if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                               or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                           else PositionAction.CLOSE)
+                        fee = TradeFeeBase.new_perpetual_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            position_action=position_action,
+                            percent_token=trade["commissionAsset"],
+                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                        )
                         trade_update: TradeUpdate = TradeUpdate(
                             trade_id=str(trade["id"]),
                             client_order_id=tracked_order.client_order_id,
@@ -986,8 +1012,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             fill_price=Decimal(trade["price"]),
                             fill_base_amount=Decimal(trade["qty"]),
                             fill_quote_amount=Decimal(trade["quoteQty"]),
-                            fee_asset=trade["commissionAsset"],
-                            fee_paid=Decimal(trade["commission"])
+                            fee=fee,
                         )
                         self._client_order_tracker.process_trade_update(trade_update)
 
@@ -1043,8 +1068,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
                     exchange_order_id=order_update["orderId"],
-                    executed_amount_base=Decimal(order_update.get("executedQty", "0")),
-                    executed_amount_quote=Decimal(order_update.get("cumQuote", "0")),
                 )
 
                 self._client_order_tracker.process_order_update(new_order_update)
