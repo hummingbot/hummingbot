@@ -95,7 +95,8 @@ class KucoinOrderBookTrackerTests(TestCase):
                         ["4.00000200", "12.00000000"]
                     ]}
             },
-            timestamp=1640001112.223
+            timestamp=1640001112.223,
+            metadata={"trading_pair": self.trading_pair}
         )
         self.tracker._tracking_message_queues[self.trading_pair].put_nowait(snapshot_msg)
 
@@ -125,6 +126,7 @@ class KucoinOrderBookTrackerTests(TestCase):
                         ["4.00000200", "12.00000000"]
                     ]}
             },
+            metadata={"trading_pair": self.trading_pair},
             timestamp=1640001112.223
         )
         past_diff_msg = KucoinOrderBook.diff_message_from_exchange(
@@ -137,7 +139,7 @@ class KucoinOrderBookTrackerTests(TestCase):
                         "bids": [["0.0024", "10", "1"]],
                         "asks": [["0.0026", "100", "2"]]}},
             },
-            metadata={"symbol": self.trading_pair},
+            metadata={"trading_pair": self.trading_pair},
             timestamp=1640001110.223
         )
 
@@ -169,7 +171,7 @@ class KucoinOrderBookTrackerTests(TestCase):
                         "bids": [["0.0024", "10", "1"]],
                         "asks": [["0.0026", "100", "2"]]}},
             },
-            metadata={"symbol": self.trading_pair},
+            metadata={"trading_pair": self.trading_pair},
             timestamp=1640001110.223
         )
 
@@ -185,12 +187,12 @@ class KucoinOrderBookTrackerTests(TestCase):
         bid: OrderBookRow = bids[0]
         self.assertEqual(0.0024, bid.price)
         self.assertEqual(10, bid.amount)
-        self.assertEqual(1640001110223, bid.update_id)
+        self.assertEqual(2, bid.update_id)
         self.assertEqual(1, len(asks))
         ask: OrderBookRow = asks[0]
         self.assertEqual(0.0026, ask.price)
         self.assertEqual(100, ask.amount)
-        self.assertEqual(1640001110223, ask.update_id)
+        self.assertEqual(2, ask.update_id)
 
     def test_track_single_book_raises_cancelled_error(self):
         mock_order_book = MagicMock()
@@ -207,7 +209,7 @@ class KucoinOrderBookTrackerTests(TestCase):
                         "bids": [["0.0024", "10", "1"]],
                         "asks": [["0.0026", "100", "2"]]}},
             },
-            metadata={"symbol": self.trading_pair},
+            metadata={"trading_pair": self.trading_pair},
             timestamp=1640001110.223
         )
 

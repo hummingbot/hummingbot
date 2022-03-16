@@ -1,18 +1,22 @@
 import asyncio
 import json
 import re
-import time
 import unittest
 from collections import Awaitable
 from decimal import Decimal
 from functools import partial
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 from aioresponses import aioresponses
+from bidict import bidict
 
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
-from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange, KUCOIN_ROOT_API
+from hummingbot.connector.exchange.kucoin import (
+    kucoin_constants as CONSTANTS,
+    kucoin_web_utils as web_utils,
+)
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock import Clock, ClockMode
@@ -24,6 +28,9 @@ from hummingbot.core.time_iterator import TimeIterator
 
 
 class TestKucoinExchange(unittest.TestCase):
+    # the level is required to receive logs from the data source logger
+    level = 0
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -37,14 +44,58 @@ class TestKucoinExchange(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+
+        self.log_records = []
+        self.test_task: Optional[asyncio.Task] = None
+
         self.exchange = KucoinExchange(
             self.api_key, self.api_passphrase, self.api_secret_key, trading_pairs=[self.trading_pair]
         )
 
-        self.order_filled_logger = EventLogger()
+        self.exchange.logger().setLevel(1)
+        self.exchange.logger().addHandler(self)
+        self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+        self.exchange._time_synchronizer.logger().setLevel(1)
+        self.exchange._time_synchronizer.logger().addHandler(self)
+
+        self._initialize_event_loggers()
+
+        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {
+            CONSTANTS.DEFAULT_DOMAIN: bidict(
+                {self.trading_pair: self.trading_pair})
+        }
+
+    def tearDown(self) -> None:
+        self.test_task and self.test_task.cancel()
+        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        super().tearDown()
+
+    def _initialize_event_loggers(self):
         self.buy_order_completed_logger = EventLogger()
-        self.exchange.add_listener(MarketEvent.OrderFilled, self.order_filled_logger)
-        self.exchange.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
+        self.buy_order_created_logger = EventLogger()
+        self.order_cancelled_logger = EventLogger()
+        self.order_failure_logger = EventLogger()
+        self.order_filled_logger = EventLogger()
+        self.sell_order_completed_logger = EventLogger()
+        self.sell_order_created_logger = EventLogger()
+
+        events_and_loggers = [
+            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
+            (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
+            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+            (MarketEvent.OrderFailure, self.order_failure_logger),
+            (MarketEvent.OrderFilled, self.order_filled_logger),
+            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+
+        for event, logger in events_and_loggers:
+            self.exchange.add_listener(event, logger)
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -162,17 +213,21 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_check_network_success(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.SERVER_TIME_PATH_URL
-        resp = time.time()
+        url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        resp = {
+            "code": "200000",
+            "msg": "success",
+            "data": 1640001112223
+        }
         mock_api.get(url, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
 
-        self.assertEqual(ret, NetworkStatus.CONNECTED)
+        self.assertEqual(NetworkStatus.CONNECTED, ret)
 
     @aioresponses()
     def test_check_network_failure(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.SERVER_TIME_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         mock_api.get(url, status=500)
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
@@ -181,7 +236,7 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.ACCOUNTS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
         resp = self.get_accounts_data_mock()
         mock_api.get(url, body=json.dumps(resp))
 
@@ -191,7 +246,9 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_update_trading_rules(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.SYMBOLS_PATH_URL
+        self.exchange._set_current_timestamp(1000)
+
+        url = web_utils.rest_url(CONSTANTS.SYMBOLS_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(url, body=json.dumps(resp))
 
@@ -201,7 +258,7 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_get_order_status(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = "someStatus"
         mock_api.get(regex_url, body=json.dumps(resp))
@@ -212,19 +269,15 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_place_order(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ORDERS_PATH_URL)
         resp = {
             "code": "200000",
             "data": {
                 "orderId": "someId",
             }
         }
-        call_inputs = []
 
-        def callback(*args, **kwargs):
-            call_inputs.append((args, kwargs))
-
-        mock_api.post(url, body=json.dumps(resp), callback=callback)
+        mock_api.post(url, body=json.dumps(resp))
         amount = Decimal("1")
         price = Decimal("10.0")
         ret = self.async_run_with_timeout(
@@ -240,23 +293,22 @@ class TestKucoinExchange(unittest.TestCase):
 
         self.assertEqual(ret, resp["data"]["orderId"])
 
-        call_kwargs = call_inputs[0][1]
-        call_data = call_kwargs["data"]
-        expected_data = json.dumps(
-            {
-                "size": str(amount),
-                "clientOid": "internalId",
-                "side": "buy",
-                "symbol": self.trading_pair,
-                "type": "limit",
-                "price": str(price),
-            }
-        )
-        self.assertEqual(call_data, expected_data)
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_data = order_request[1][0].kwargs["data"]
+        expected_data = {
+            "size": str(amount),
+            "clientOid": "internalId",
+            "side": "buy",
+            "symbol": self.trading_pair,
+            "type": "limit",
+            "price": str(price),
+        }
+        self.assertEqual(expected_data, request_data)
 
     @aioresponses()
     def test_execute_cancel(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         called = asyncio.Event()
 
@@ -277,7 +329,7 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_cancel_all(self, mock_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         called1 = asyncio.Event()
         called2 = asyncio.Event()
@@ -303,7 +355,7 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_update_order_status_notifies_on_order_filled(self, mocked_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}")
         resp = self.get_order_response_mock(size=2, filled=2)
         mocked_api.get(regex_url, body=json.dumps(resp))
@@ -335,7 +387,7 @@ class TestKucoinExchange(unittest.TestCase):
         order_id = "someId"
         exchange_id = "someExchangeId"
 
-        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}")
         resp = self.get_order_response_mock(size=2, filled=2)
         mocked_api.get(
@@ -362,7 +414,7 @@ class TestKucoinExchange(unittest.TestCase):
 
     @aioresponses()
     def test_get_fee_defaults_on_not_found(self, mocked_api):
-        url = KUCOIN_ROOT_API + CONSTANTS.FEE_PATH_URL
+        url = web_utils.rest_url(CONSTANTS.FEE_PATH_URL)
         regex_url = re.compile(f"^{url}")
         resp = {"data": [{"makerFeeRate": "0.002", "takerFeeRate": "0.002"}]}
         mocked_api.get(regex_url, body=json.dumps(resp))
