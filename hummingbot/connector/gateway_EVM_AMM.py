@@ -7,7 +7,7 @@ import copy
 import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.gateway import gateway_http_client, check_transaction_exceptions
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -28,7 +28,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.core.utils.ethereum import check_transaction_exceptions
 from hummingbot.client.settings import (AllConnectorSettings)
 
 s_logger = None
