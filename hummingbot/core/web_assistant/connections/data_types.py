@@ -25,7 +25,7 @@ class RESTMethod(Enum):
 class RESTRequest:
     method: RESTMethod
     url: Optional[str] = None
-    path_url: Optional[str] = None
+    endpoint_url: Optional[str] = None
     params: Optional[Mapping[str, str]] = None
     data: Any = None
     headers: Optional[Mapping[str, str]] = None
