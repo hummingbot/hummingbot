@@ -144,6 +144,8 @@ class HummingbotApplication(*commands):
         try:
             if self.placeholder_mode:
                 pass
+            elif len(command_split) == 0:
+                pass
             else:
                 # Check if help is requested, if yes, print & terminate
                 if len(command_split) > 1 and any(arg in ["-h", "--help"] for arg in command_split[1:]):
@@ -248,8 +250,9 @@ class HummingbotApplication(*commands):
             if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
                 connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                for asset, balance in paper_trade_account_balance.items():
-                    connector.set_balance(asset, balance)
+                if paper_trade_account_balance is not None:
+                    for asset, balance in paper_trade_account_balance.items():
+                        connector.set_balance(asset, balance)
             else:
                 Security.update_config_map(global_config_map)
                 keys = {key: config.value for key, config in global_config_map.items()

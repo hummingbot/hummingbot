@@ -6,16 +6,14 @@ from unittest.mock import patch
 from sqlalchemy import create_engine
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
     SellOrderCreatedEvent,
-    TradeType
 )
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
