@@ -312,26 +312,26 @@ class KucoinExchange(ExchangePyBase):
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
                         self.trigger_event(MarketEvent.BuyOrderCompleted,
-                                             BuyOrderCompletedEvent(self.current_timestamp,
-                                                                    tracked_order.client_order_id,
-                                                                    tracked_order.base_asset,
-                                                                    tracked_order.quote_asset,
-                                                                    tracked_order.executed_amount_base,
-                                                                    tracked_order.executed_amount_quote,
-                                                                    tracked_order.order_type,
-                                                                    exchange_order_id=tracked_order.exchange_order_id))
+                                           BuyOrderCompletedEvent(self.current_timestamp,
+                                                                  tracked_order.client_order_id,
+                                                                  tracked_order.base_asset,
+                                                                  tracked_order.quote_asset,
+                                                                  tracked_order.executed_amount_base,
+                                                                  tracked_order.executed_amount_quote,
+                                                                  tracked_order.order_type,
+                                                                  exchange_order_id=tracked_order.exchange_order_id))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
                         self.trigger_event(MarketEvent.SellOrderCompleted,
-                                             SellOrderCompletedEvent(self.current_timestamp,
-                                                                     tracked_order.client_order_id,
-                                                                     tracked_order.base_asset,
-                                                                     tracked_order.quote_asset,
-                                                                     tracked_order.executed_amount_base,
-                                                                     tracked_order.executed_amount_quote,
-                                                                     tracked_order.order_type,
-                                                                     exchange_order_id=tracked_order.exchange_order_id))
+                                           SellOrderCompletedEvent(self.current_timestamp,
+                                                                   tracked_order.client_order_id,
+                                                                   tracked_order.base_asset,
+                                                                   tracked_order.quote_asset,
+                                                                   tracked_order.executed_amount_base,
+                                                                   tracked_order.executed_amount_quote,
+                                                                   tracked_order.order_type,
+                                                                   exchange_order_id=tracked_order.exchange_order_id))
                     self.stop_tracking_order(tracked_order.client_order_id)
                 elif execution_status == "done" and execution_type == "canceled":
                     tracked_order.last_state = "CANCEL"
@@ -522,26 +522,26 @@ class KucoinExchange(ExchangePyBase):
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
                         self.trigger_event(MarketEvent.BuyOrderCompleted,
-                                             BuyOrderCompletedEvent(self.current_timestamp,
-                                                                    tracked_order.client_order_id,
-                                                                    tracked_order.base_asset,
-                                                                    tracked_order.quote_asset,
-                                                                    float(tracked_order.executed_amount_base),
-                                                                    float(tracked_order.executed_amount_quote),
-                                                                    tracked_order.order_type,
-                                                                    exchange_order_id=tracked_order.exchange_order_id))
+                                           BuyOrderCompletedEvent(self.current_timestamp,
+                                                                  tracked_order.client_order_id,
+                                                                  tracked_order.base_asset,
+                                                                  tracked_order.quote_asset,
+                                                                  float(tracked_order.executed_amount_base),
+                                                                  float(tracked_order.executed_amount_quote),
+                                                                  tracked_order.order_type,
+                                                                  exchange_order_id=tracked_order.exchange_order_id))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
                         self.trigger_event(MarketEvent.SellOrderCompleted,
-                                             SellOrderCompletedEvent(self.current_timestamp,
-                                                                     tracked_order.client_order_id,
-                                                                     tracked_order.base_asset,
-                                                                     tracked_order.quote_asset,
-                                                                     float(tracked_order.executed_amount_base),
-                                                                     float(tracked_order.executed_amount_quote),
-                                                                     tracked_order.order_type,
-                                                                     exchange_order_id=tracked_order.exchange_order_id))
+                                           SellOrderCompletedEvent(self.current_timestamp,
+                                                                   tracked_order.client_order_id,
+                                                                   tracked_order.base_asset,
+                                                                   tracked_order.quote_asset,
+                                                                   float(tracked_order.executed_amount_base),
+                                                                   float(tracked_order.executed_amount_quote),
+                                                                   tracked_order.order_type,
+                                                                   exchange_order_id=tracked_order.exchange_order_id))
 
                 if order_state is False and order_update["data"]["cancelExist"] is True:
                     self.stop_tracking_order(tracked_order.client_order_id)
@@ -781,8 +781,8 @@ class KucoinExchange(ExchangePyBase):
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
 
         order_id = get_new_client_order_id(
-                is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
-            )
+            is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+        )
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
