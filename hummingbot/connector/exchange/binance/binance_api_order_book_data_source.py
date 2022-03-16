@@ -3,13 +3,7 @@ import logging
 import time
 from collections import defaultdict
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, List, Mapping, Optional
 
 from bidict import bidict
 
@@ -67,7 +61,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls,
                                      trading_pairs: List[str],
-                                     domain: str = "com",
+                                     domain: str = CONSTANTS.DEFAULT_DOMAIN,
                                      api_factory: Optional[WebAssistantsFactory] = None,
                                      throttler: Optional[AsyncThrottler] = None,
                                      time_synchronizer: Optional[TimeSynchronizer] = None) -> Dict[str, float]:
@@ -98,7 +92,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     @async_ttl_cache(ttl=2, maxsize=1)
-    async def get_all_mid_prices(domain="com") -> Dict[str, Decimal]:
+    async def get_all_mid_prices(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> Dict[str, Decimal]:
         """
         Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
         required by the market price strategy.
@@ -127,7 +121,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return ret_val
 
     @classmethod
-    def trading_pair_symbol_map_ready(cls, domain: str = "com"):
+    def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
         :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
@@ -138,7 +132,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def trading_pair_symbol_map(
             cls,
-            domain: str = "com",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
@@ -171,7 +165,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def exchange_symbol_associated_to_pair(
             trading_pair: str,
-            domain="com",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
@@ -198,7 +192,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def trading_pair_associated_to_exchange_symbol(
             symbol: str,
-            domain="com",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None) -> str:
@@ -223,7 +217,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs(
-            domain: str = "com",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             throttler: Optional[AsyncThrottler] = None,
             api_factory: Optional[WebAssistantsFactory] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None) -> List[str]:
@@ -496,7 +490,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def _init_trading_pair_symbols(
             cls,
-            domain: str = "com",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None):
@@ -516,7 +510,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
 
             for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
-                mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
+                mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                            quote=symbol_data["quoteAsset"])
 
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
