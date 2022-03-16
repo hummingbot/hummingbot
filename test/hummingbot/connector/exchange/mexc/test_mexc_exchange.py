@@ -18,7 +18,8 @@ from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.event.events import OrderCancelledEvent, OrderType, SellOrderCompletedEvent, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import OrderCancelledEvent, SellOrderCompletedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -414,6 +415,7 @@ class MexcExchangeTests(TestCase):
             TradeType.SELL,
             Decimal(str(41720.83)),
             Decimal("1"),
+            1640001112.0,
             "Working",
         )
         self.exchange._in_flight_orders.update({
@@ -454,8 +456,15 @@ class MexcExchangeTests(TestCase):
     def test_update_order_status_error_response(self, mock_api, mock_ts):
 
         # Simulates order being tracked
-        order: MexcInFlightOrder = MexcInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL,
-                                                     Decimal(str(41720.83)), Decimal("1"))
+        order: MexcInFlightOrder = MexcInFlightOrder(
+            "0",
+            "2628",
+            self.trading_pair,
+            OrderType.LIMIT,
+            TradeType.SELL,
+            Decimal(str(41720.83)),
+            Decimal("1"),
+            creation_timestamp=1640001112.0)
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
         })
@@ -835,6 +844,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -867,7 +877,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -902,6 +913,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -932,6 +944,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -958,7 +971,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1023,7 +1037,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1039,7 +1054,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         order_json = order.to_json()
 
@@ -1059,6 +1075,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="FILLED"
         )
 
@@ -1076,7 +1093,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         order_json = order.to_json()
 

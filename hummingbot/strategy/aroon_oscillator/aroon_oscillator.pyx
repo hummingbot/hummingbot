@@ -1,44 +1,32 @@
 # distutils: language=c++
-from decimal import Decimal
 import logging
-
 import os.path
-import pandas as pd
+from decimal import Decimal
+from math import ceil, floor
+from typing import Dict, List, Optional
+
 import numpy as np
-from typing import (
-    List,
-    Dict,
-    Optional
-)
-from math import (
-    floor,
-    ceil
-)
-import time
+import pandas as pd
+
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType, PriceType
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.event.events import OrderType
-
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.client.config.global_config_map import global_config_map
-
-from .data_types import (
-    Proposal,
-    PriceSize
-)
-from .aroon_oscillator_order_tracker import AroonOscillatorOrderTracker
-
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import calculate_total_order_size
+from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.utils import order_age
 from .aroon_oscillator_indicator cimport AroonOscillatorIndicator, OscillatorPeriod
 from .aroon_oscillator_indicator import AroonOscillatorIndicator, OscillatorPeriod
-
+from .aroon_oscillator_order_tracker import AroonOscillatorOrderTracker
+from .data_types import (
+    PriceSize,
+    Proposal,
+)
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -600,11 +588,8 @@ cdef class AroonOscillatorStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
                 "hang" if order.client_order_id in self._hanging_order_ids else level,
@@ -1220,8 +1205,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             list sells = []
 
         for order in active_orders:
-            age = 0 if "//" in order.client_order_id else \
-                int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
+            age = order_age(order, self._current_timestamp)
 
             # To prevent duplicating orders due to delay in receiving cancel response
             refresh_check = [o for o in active_orders if o.price == order.price

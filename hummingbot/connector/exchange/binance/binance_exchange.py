@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.binance.binance_order_book_tracker import Bin
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.connector.utils import TradeFillOrderDetails, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
@@ -37,9 +37,8 @@ from hummingbot.core.data_type.trade_fee import (
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -297,6 +296,7 @@ class BinanceExchange(ExchangeBase):
                 trade_type=trade_type,
                 amount=amount,
                 price=price,
+                creation_timestamp=self.current_timestamp
             )
         )
 
@@ -391,9 +391,14 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        new_order_id = binance_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
-        safe_ensure_future(self._create_order(TradeType.BUY, new_order_id, trading_pair, amount, order_type, price))
-        return new_order_id
+        client_order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
+        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -405,9 +410,14 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = binance_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
-        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
-        return order_id
+        client_order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
+        safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -486,7 +496,7 @@ class BinanceExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=self.current_timestamp,
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -524,7 +534,7 @@ class BinanceExchange(ExchangeBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(order_result["transactTime"]),
+                update_timestamp=order_result["transactTime"] * 1e-3,
                 new_state=OrderState.OPEN,
             )
             self._order_tracker.process_order_update(order_update)
@@ -542,7 +552,7 @@ class BinanceExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=self.current_timestamp,
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -575,7 +585,7 @@ class BinanceExchange(ExchangeBase):
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(self.current_timestamp * 1e3),
+                        update_timestamp=self.current_timestamp,
                         new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
@@ -721,17 +731,22 @@ class BinanceExchange(ExchangeBase):
                     if execution_type == "TRADE":
                         tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
                         if tracked_order is not None:
+                            fee = TradeFeeBase.new_spot_fee(
+                                fee_schema=self.trade_fee_schema(),
+                                trade_type=tracked_order.trade_type,
+                                percent_token=event_message["N"],
+                                flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
+                            )
                             trade_update = TradeUpdate(
                                 trade_id=str(event_message["t"]),
                                 client_order_id=client_order_id,
                                 exchange_order_id=str(event_message["i"]),
                                 trading_pair=tracked_order.trading_pair,
-                                fee_asset=event_message["N"],
-                                fee_paid=Decimal(event_message["n"]),
+                                fee=fee,
                                 fill_base_amount=Decimal(event_message["l"]),
                                 fill_quote_amount=Decimal(event_message["l"]) * Decimal(event_message["L"]),
                                 fill_price=Decimal(event_message["L"]),
-                                fill_timestamp=int(event_message["T"]),
+                                fill_timestamp=event_message["T"] * 1e-3,
                             )
                             self._order_tracker.process_trade_update(trade_update)
 
@@ -739,7 +754,7 @@ class BinanceExchange(ExchangeBase):
                     if tracked_order is not None:
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=int(event_message["E"]),
+                            update_timestamp=event_message["E"] * 1e-3,
                             new_state=CONSTANTS.ORDER_STATE[event_message["X"]],
                             client_order_id=client_order_id,
                             exchange_order_id=str(event_message["i"]),
@@ -817,17 +832,22 @@ class BinanceExchange(ExchangeBase):
                     if exchange_order_id in order_by_exchange_id_map:
                         # This is a fill for a tracked order
                         tracked_order = order_by_exchange_id_map[exchange_order_id]
+                        fee = TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=tracked_order.trade_type,
+                            percent_token=trade["commissionAsset"],
+                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                        )
                         trade_update = TradeUpdate(
                             trade_id=str(trade["id"]),
                             client_order_id=tracked_order.client_order_id,
                             exchange_order_id=exchange_order_id,
                             trading_pair=trading_pair,
-                            fee_asset=trade["commissionAsset"],
-                            fee_paid=Decimal(trade["commission"]),
+                            fee=fee,
                             fill_base_amount=Decimal(trade["qty"]),
                             fill_quote_amount=Decimal(trade["quoteQty"]),
                             fill_price=Decimal(trade["price"]),
-                            fill_timestamp=int(trade["time"]),
+                            fill_timestamp=trade["time"] * 1e-3,
                         )
                         self._order_tracker.process_trade_update(trade_update)
                     elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
@@ -903,7 +923,7 @@ class BinanceExchange(ExchangeBase):
                         order_update: OrderUpdate = OrderUpdate(
                             client_order_id=client_order_id,
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=int(self.current_timestamp * 1e3),
+                            update_timestamp=self.current_timestamp,
                             new_state=OrderState.FAILED,
                         )
                         self._order_tracker.process_order_update(order_update)
@@ -916,7 +936,7 @@ class BinanceExchange(ExchangeBase):
                         client_order_id=client_order_id,
                         exchange_order_id=str(order_update["orderId"]),
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(order_update["updateTime"]),
+                        update_timestamp=order_update["updateTime"] * 1e-3,
                         new_state=new_state,
                     )
                     self._order_tracker.process_order_update(update)

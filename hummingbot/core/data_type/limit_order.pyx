@@ -1,13 +1,12 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/LimitOrder.cpp
+import time
+from decimal import Decimal
+from typing import List
 
+import pandas as pd
 from cpython cimport PyObject
 from libcpp.string cimport string
-
-from decimal import Decimal
-import pandas as pd
-from typing import List
-import time
 
 from hummingbot.core.event.events import LimitOrderStatus
 
@@ -65,7 +64,7 @@ cdef class LimitOrder:
                  price: Decimal,
                  quantity: Decimal,
                  filled_quantity: Decimal = Decimal("NaN"),
-                 creation_timestamp: int = 0.0,
+                 creation_timestamp: int = 0,
                  status: LimitOrderStatus = LimitOrderStatus.UNKNOWN):
         cdef:
             string cpp_client_order_id = client_order_id.encode("utf8")
@@ -128,7 +127,7 @@ cdef class LimitOrder:
         return <object>(self._cpp_limit_order.getFilledQuantity())
 
     @property
-    def creation_timestamp(self) -> float:
+    def creation_timestamp(self) -> int:
         return self._cpp_limit_order.getCreationTimestamp()
 
     @property
@@ -165,7 +164,8 @@ cdef class LimitOrder:
 
     def __repr__(self) -> str:
         return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "
-                f"'{self.quote_currency}', {self.price}, {self.quantity}, {self.filled_quantity})")
+                f"'{self.quote_currency}', {self.price}, {self.quantity}, {self.filled_quantity}, "
+                f"{self.creation_timestamp})")
 
 
 cdef LimitOrder c_create_limit_order_from_cpp_limit_order(const CPPLimitOrder cpp_limit_order):

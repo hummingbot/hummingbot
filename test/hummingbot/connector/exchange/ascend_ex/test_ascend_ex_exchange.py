@@ -2,23 +2,31 @@ import asyncio
 import json
 import re
 import unittest
-
 from decimal import Decimal
 from typing import Awaitable, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExCommissionType,
     AscendExExchange,
-    AscendExTradingRule,
+    AscendExTradingRule
 )
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, MarketOrderFailureEvent, OrderType, TradeType
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+)
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -256,6 +264,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
         ))
         orders.append(InFlightOrder(
             client_order_id="OID2",
@@ -265,6 +274,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
@@ -275,6 +285,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FILLED
         ))
         orders.append(InFlightOrder(
@@ -285,6 +296,7 @@ class TestAscendExExchange(unittest.TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
             initial_state=OrderState.FAILED
         ))
 
@@ -296,3 +308,157 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertNotIn("OID2", self.exchange.in_flight_orders)
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
+
+    def test_partial_fill_and_full_fill_generate_fill_events(self):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("20000"),
+            amount=Decimal("2"),
+            order_type=OrderType.LIMIT,
+            exchange_order_id="EOID1"
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        partial_fill = {
+            "m": "order",
+            "accountId": "cshQtyfq8XLAA9kcf19h8bXHbAwwoqDo",
+            "ac": "CASH",
+            "data": {
+                "s": f"{self.base_asset}/{self.quote_asset}",
+                "sn": 8159711,
+                "sd": "Buy",
+                "ap": "20050",
+                "bab": "2006.5974027",
+                "btb": "2006.5974027",
+                "cf": "5",
+                "cfq": "1",
+                "err": "",
+                "fa": self.quote_asset,
+                "orderId": "EOID1",
+                "ot": "Market",
+                "p": "20000",
+                "q": "2",
+                "qab": "793.23",
+                "qtb": "860.23",
+                "sp": "",
+                "st": "PartiallyFilled",
+                "t": 1576019215402,
+                "ei": "NULL_VAL"
+            }
+        }
+
+        total_fill = {
+            "m": "order",
+            "accountId": "cshQtyfq8XLAA9kcf19h8bXHbAwwoqDo",
+            "ac": "CASH",
+            "data": {
+                "s": f"{self.base_asset}/{self.quote_asset}",
+                "sn": 8159712,
+                "sd": "Buy",
+                "ap": "20050",
+                "bab": "2006.5974027",
+                "btb": "2006.5974027",
+                "cf": "15",
+                "cfq": "2",
+                "err": "",
+                "fa": self.quote_asset,
+                "orderId": "EOID1",
+                "ot": "Market",
+                "p": "20000",
+                "q": "2",
+                "qab": "793.23",
+                "qtb": "860.23",
+                "sp": "",
+                "st": "Filled",
+                "t": 1576019215412,
+                "ei": "NULL_VAL"
+            }
+        }
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = [partial_fill, total_fill, asyncio.CancelledError()]
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+
+        try:
+            self.async_run_with_timeout(self.test_task)
+        except asyncio.CancelledError:
+            # Ignore cancellation errors, it is the expected signal to cut the background loop
+            pass
+
+        self.assertEqual(2, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(order.trade_type, fill_event.trade_type)
+        self.assertEqual(order.order_type, fill_event.order_type)
+        self.assertEqual(Decimal(partial_fill["data"]["ap"]), fill_event.price)
+        self.assertEqual(Decimal(1), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(partial_fill["data"]["fa"], Decimal("5"))],
+                         fill_event.trade_fee.flat_fees)
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(order.trade_type, fill_event.trade_type)
+        self.assertEqual(order.order_type, fill_event.order_type)
+        self.assertEqual(Decimal(total_fill["data"]["ap"]), fill_event.price)
+        self.assertEqual(Decimal(1), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(total_fill["data"]["fa"], Decimal("10"))],
+                         fill_event.trade_fee.flat_fees)
+
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
+        self.assertEqual(order.client_order_id, buy_event.order_id)
+        self.assertEqual(order.base_asset, buy_event.base_asset)
+        self.assertEqual(order.quote_asset, buy_event.quote_asset)
+        self.assertEqual(order.amount, buy_event.base_asset_amount)
+        self.assertEqual(order.amount * Decimal(total_fill["data"]["ap"]), buy_event.quote_asset_amount)
+        self.assertEqual(order.order_type, buy_event.order_type)
+        self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 6
+
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=self.trading_pair, hbot_order_id_prefix=ascend_ex_utils.HBOT_BROKER_ID
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=self.trading_pair, hbot_order_id_prefix=ascend_ex_utils.HBOT_BROKER_ID
+        )
+
+        self.assertEqual(result, expected_client_order_id)
