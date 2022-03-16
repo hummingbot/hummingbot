@@ -11,7 +11,6 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
 )
@@ -291,9 +290,6 @@ class HuobiExchangeTests(TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(complete_fill["feeCurrency"].upper(), buy_event.fee_asset)
-        self.assertEqual(Decimal(complete_fill["transactFee"]), buy_event.fee_amount)
 
     @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_client_order_id_on_order(self, mocked_nonce):

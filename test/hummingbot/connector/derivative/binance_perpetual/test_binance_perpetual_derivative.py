@@ -23,10 +23,8 @@ from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent,
 )
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -632,8 +630,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                          fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(Decimal(50), buy_complete_event.fee_amount)
 
     def test_sell_order_fill_event_takes_fee_from_update_event(self):
         self.exchange.start_tracking_order(
@@ -757,8 +753,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                          fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
-        sell_complete_event: SellOrderCompletedEvent = self.sell_order_completed_logger.event_log[0]
-        self.assertEqual(Decimal(50), sell_complete_event.fee_amount)
 
     def test_order_fill_event_ignored_for_repeated_trade_id(self):
         self.exchange.start_tracking_order(
