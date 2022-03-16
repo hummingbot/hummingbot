@@ -423,10 +423,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          tracked_order.client_order_id,
                                          tracked_order.base_asset,
                                          tracked_order.quote_asset,
-                                         tracked_order.fee_asset or tracked_order.base_asset,
                                          tracked_order.executed_amount_base,
                                          tracked_order.executed_amount_quote,
-                                         tracked_order.fee_paid,
                                          tracked_order.order_type))
             elif tracked_order.trade_type is TradeType.SELL:
                 self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
@@ -435,10 +433,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          tracked_order.client_order_id,
                                          tracked_order.base_asset,
                                          tracked_order.quote_asset,
-                                         tracked_order.fee_asset or tracked_order.base_asset,
                                          tracked_order.executed_amount_base,
                                          tracked_order.executed_amount_quote,
-                                         tracked_order.fee_paid,
                                          tracked_order.order_type))
         else:  # Order PARTIAL-CANCEL or CANCEL
             tracked_order.last_state = "CANCELLED"
@@ -512,22 +508,9 @@ cdef class BittrexExchange(ExchangeBase):
                 try:
                     await asyncio.wait_for(tracked_order.wait_until_completely_filled(), timeout=1)
                 except asyncio.TimeoutError:
-                    fee_asset = tracked_order.quote_asset
-                    fee = self.get_fee(
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        tracked_order.order_type,
-                        tracked_order.trade_type,
-                        tracked_order.amount,
-                        tracked_order.price)
-                    fee_amount = fee.fee_amount_in_token(tracked_order.trading_pair,
-                                                         tracked_order.price,
-                                                         tracked_order.amount,
-                                                         tracked_order.quote_asset,
-                                                         self)
-                else:
-                    fee_asset = tracked_order.fee_asset or tracked_order.quote_asset
-                    fee_amount = tracked_order.fee_paid
+                    self.logger().warning(
+                        f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
+                        f"The complete update will be processed with incorrect information.")
 
                 self.logger().info(f"The {tracked_order.trade_type.name} order {tracked_order.client_order_id} "
                                    f"has completed according to order delta websocket API.")
@@ -537,10 +520,8 @@ cdef class BittrexExchange(ExchangeBase):
                                          tracked_order.client_order_id,
                                          tracked_order.base_asset,
                                          tracked_order.quote_asset,
-                                         fee_asset,
                                          tracked_order.executed_amount_base,
                                          tracked_order.executed_amount_quote,
-                                         fee_amount,
                                          tracked_order.order_type
                                      ))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
