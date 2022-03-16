@@ -19,9 +19,15 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
-from hummingbot.strategy.data_types import PriceSize, Proposal
-from hummingbot.strategy.hanging_orders_tracker import CreatedPairOfOrders, HangingOrdersTracker
+from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
+from hummingbot.strategy.data_types import (
+    PriceSize,
+    Proposal,
+)
+from hummingbot.strategy.hanging_orders_tracker import (
+    CreatedPairOfOrders,
+    HangingOrdersTracker,
+)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -122,7 +128,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._start_time = start_time
         self._end_time = end_time
         self._min_spread = min_spread
-        self._latest_parameter_calculation_vol = s_decimal_zero
         self._reservation_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
@@ -138,14 +143,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
-
-    @property
-    def latest_parameter_calculation_vol(self):
-        return self._latest_parameter_calculation_vol
-
-    @latest_parameter_calculation_vol.setter
-    def latest_parameter_calculation_vol(self, value):
-        self._latest_parameter_calculation_vol = value
 
     @property
     def min_spread(self):
@@ -667,12 +664,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def get_volatility(self):
         vol = Decimal(str(self._avg_vol.current_value))
-        if vol == s_decimal_zero:
-            if self._latest_parameter_calculation_vol != s_decimal_zero:
-                vol = Decimal(str(self._latest_parameter_calculation_vol))
-            else:
-                # Default value at start time if price has no activity
-                vol = Decimal(str(self.c_get_spread() / 2))
         return vol
 
     cdef c_measure_order_book_liquidity(self):

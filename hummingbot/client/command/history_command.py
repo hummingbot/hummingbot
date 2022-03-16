@@ -84,7 +84,7 @@ class HistoryCommand:
                     "\nA network error prevented the balances retrieval to complete. See logs for more details."
                 )
                 raise
-            perf = await PerformanceMetrics.create(market, symbol, cur_trades, cur_balances)
+            perf = await PerformanceMetrics.create(symbol, cur_trades, cur_balances)
             if display_report:
                 self.report_performance_by_market(market, symbol, perf, precision)
             return_pcts.append(perf.return_pct)
