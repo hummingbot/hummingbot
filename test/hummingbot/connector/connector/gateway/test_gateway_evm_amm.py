@@ -1,3 +1,5 @@
+from bin import path_util     # noqa: F401
+
 from aiounittest import async_test
 from aiohttp import ClientSession
 import asyncio
