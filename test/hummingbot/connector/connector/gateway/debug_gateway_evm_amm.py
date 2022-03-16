@@ -83,6 +83,8 @@ class GatewayEVMAMMDataCollector:
     async def collect_testing_data(self):
         with self._http_recorder.patch_aiohttp_client():
             await self.collect_update_balances()
+            await self.collect_get_allowances()
+            await self.collect_get_chain_info()
             await self.collect_approval_status()
             await self.collect_order_status()
             await self.collect_get_price()
@@ -93,6 +95,16 @@ class GatewayEVMAMMDataCollector:
     async def collect_update_balances(self):
         print("Updating balances...\t\t", end="", flush=True)
         await self._connector._update_balances(on_interval=False)
+        print("done")
+
+    async def collect_get_allowances(self):
+        print("Getting token allowances...\t\t", end="", flush=True)
+        await self._connector.get_allowances()
+        print("done")
+
+    async def collect_get_chain_info(self):
+        print("Getting chain info...\t\t", end="", flush=True)
+        await self._connector.get_chain_info()
         print("done")
 
     async def collect_approval_status(self):
