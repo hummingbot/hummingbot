@@ -1,7 +1,5 @@
 import asyncio
-import json
 import logging
-import time
 from decimal import Decimal
 from typing import (
     Any,
@@ -12,10 +10,12 @@ from typing import (
 )
 
 import aiohttp
-from libc.stdint cimport int64_t
 
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.connector.exchange.kucoin import (
+    kucoin_constants as CONSTANTS,
+    kucoin_web_utils as web_utils,
+)
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import (
     KucoinInFlightOrder,
@@ -23,46 +23,38 @@ from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import (
 )
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
-from hummingbot.connector.exchange.kucoin.kucoin_utils import (
-    convert_asset_from_exchange,
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.logger import HummingbotLogger
 
-km_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
-KUCOIN_ROOT_API = "https://api.kucoin.com"
+
 MINUTE = 60
 TWELVE_HOURS = MINUTE * 60 * 12
 
@@ -73,27 +65,9 @@ class KucoinAPIError(IOError):
         self.error_payload = error_payload
 
 
-cdef class KucoinExchangeTransactionTracker(TransactionTracker):
-    cdef:
-        KucoinExchange _owner
+class KucoinExchange(ExchangePyBase):
+    _logger = None
 
-    def __init__(self, owner: KucoinExchange):
-        super().__init__()
-        self._owner = owner
-
-    cdef c_did_timeout_tx(self, str tx_id):
-        TransactionTracker.c_did_timeout_tx(self, tx_id)
-        self._owner.c_did_timeout_tx(tx_id)
-
-cdef class KucoinExchange(ExchangeBase):
-    MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
-    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
-    MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
-    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     SHORT_POLL_INTERVAL = 5.0
@@ -101,31 +75,44 @@ cdef class KucoinExchange(ExchangeBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global km_logger
-        if km_logger is None:
-            km_logger = logging.getLogger(__name__)
-        return km_logger
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     def __init__(self,
                  kucoin_api_key: str,
                  kucoin_passphrase: str,
                  kucoin_secret_key: str,
-                 poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
+                 trading_required: bool = True,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
 
+        self._domain = domain
+        self._time_synchronizer = TimeSynchronizer()
         super().__init__()
-        self._account_id = ""
-        self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._ev_loop = asyncio.get_event_loop()
-        self._kucoin_auth = KucoinAuth(api_key=kucoin_api_key, passphrase=kucoin_passphrase,
-                                       secret_key=kucoin_secret_key)
+        self._auth = KucoinAuth(
+            api_key=kucoin_api_key,
+            passphrase=kucoin_passphrase,
+            secret_key=kucoin_secret_key,
+            time_provider=self._time_synchronizer)
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            auth=self._auth)
+        # TODO: remove _rest_assistant
+        self._rest_assistant = None
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._throttler = self._build_async_throttler()
         self._trading_pairs = trading_pairs
-        self._order_book_tracker = KucoinOrderBookTracker(self._throttler, trading_pairs, self._kucoin_auth)
+        self._order_book_tracker = KucoinOrderBookTracker(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer)
         self._poll_notifier = asyncio.Event()
         self._shared_client = None
         self._status_polling_task = None
@@ -134,8 +121,10 @@ cdef class KucoinExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._trading_fees = {}
         self._trading_fees_polling_task = None
-        self._tx_tracker = KucoinExchangeTransactionTracker(self)
-        self._user_stream_tracker = KucoinUserStreamTracker(self._throttler, self._kucoin_auth)
+        self._user_stream_tracker = KucoinUserStreamTracker(
+            domain=self._domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory)
 
     @property
     def name(self) -> str:
@@ -182,14 +171,6 @@ cdef class KucoinExchange(ExchangeBase):
     def user_stream_tracker(self) -> KucoinUserStreamTracker:
         return self._user_stream_tracker
 
-    cdef c_start(self, Clock clock, double timestamp):
-        self._tx_tracker.c_start(clock, timestamp)
-        ExchangeBase.c_start(self, clock, timestamp)
-
-    cdef c_stop(self, Clock clock):
-        ExchangeBase.c_stop(self, clock)
-        self._async_scheduler.stop()
-
     async def start_network(self):
         self._stop_network()
         self._order_book_tracker.start()
@@ -229,26 +210,24 @@ cdef class KucoinExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="get", path_url=CONSTANTS.SERVER_TIME_PATH_URL)
+            await self._api_request(path_url=CONSTANTS.SERVER_TIME_PATH_URL, method=RESTMethod.GET)
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    cdef c_tick(self, double timestamp):
-        cdef:
-            double now = time.time()
-            double poll_interval = (self.SHORT_POLL_INTERVAL
-                                    if now - self.user_stream_tracker.last_recv_time > 60.0
-                                    else self.LONG_POLL_INTERVAL)
-            int64_t last_tick = <int64_t> (self._last_timestamp / poll_interval)
-            int64_t current_tick = <int64_t> (timestamp / poll_interval)
-        ExchangeBase.c_tick(self, timestamp)
-        self._tx_tracker.c_tick(timestamp)
+    def tick(self, timestamp: float):
+        super().tick()
+
+        poll_interval = (self.SHORT_POLL_INTERVAL
+                         if timestamp - self.user_stream_tracker.last_recv_time > 60.0
+                         else self.LONG_POLL_INTERVAL)
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
+
         if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
+            self._poll_notifier.set()
         self._last_timestamp = timestamp
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
@@ -286,7 +265,7 @@ cdef class KucoinExchange(ExchangeBase):
                         continue
                 elif event_type == "message" and event_topic == "/account/balance":
                     if "trade" in execution_data["relationEvent"]:
-                        currency = convert_asset_from_exchange(execution_data["currency"])
+                        currency = execution_data["currency"]
                         available_balance = Decimal(execution_data["available"])
                         total_balance = Decimal(execution_data["total"])
                         self._account_balances.update({currency: total_balance})
@@ -304,26 +283,27 @@ cdef class KucoinExchange(ExchangeBase):
                             execute_price)
                         self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                            f"order {tracked_order.client_order_id}.")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     execute_amount_diff,
-                                                 ),
-                                                 str(execution_data["ts"])
-                                             ))
-                if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
+                        self.trigger_event(MarketEvent.OrderFilled,
+                                           OrderFilledEvent(
+                                               self.current_timestamp,
+                                               tracked_order.client_order_id,
+                                               tracked_order.trading_pair,
+                                               tracked_order.trade_type,
+                                               tracked_order.order_type,
+                                               execute_price,
+                                               execute_amount_diff,
+                                               self.get_fee(
+                                                   tracked_order.base_asset,
+                                                   tracked_order.quote_asset,
+                                                   tracked_order.order_type,
+                                                   tracked_order.trade_type,
+                                                   execute_price,
+                                                   execute_amount_diff,
+                                               ),
+                                               str(execution_data["ts"])
+                                           ))
+                if (execution_status == "done" or execution_status == "match") and (
+                        execution_type == "match" or execution_type == "filled"):
                     tracked_order.last_state = "DONE"
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
                     tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
@@ -331,42 +311,42 @@ cdef class KucoinExchange(ExchangeBase):
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
-                        self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                             BuyOrderCompletedEvent(self._current_timestamp,
-                                                                    tracked_order.client_order_id,
-                                                                    tracked_order.base_asset,
-                                                                    tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
-                                                                    tracked_order.executed_amount_base,
-                                                                    tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
-                                                                    tracked_order.order_type,
-                                                                    exchange_order_id=tracked_order.exchange_order_id))
+                        self.trigger_event(MarketEvent.BuyOrderCompleted,
+                                           BuyOrderCompletedEvent(self.current_timestamp,
+                                                                  tracked_order.client_order_id,
+                                                                  tracked_order.base_asset,
+                                                                  tracked_order.quote_asset,
+                                                                  (tracked_order.fee_asset
+                                                                   or tracked_order.base_asset),
+                                                                  tracked_order.executed_amount_base,
+                                                                  tracked_order.executed_amount_quote,
+                                                                  tracked_order.fee_paid,
+                                                                  tracked_order.order_type,
+                                                                  exchange_order_id=tracked_order.exchange_order_id))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
-                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                             SellOrderCompletedEvent(self._current_timestamp,
-                                                                     tracked_order.client_order_id,
-                                                                     tracked_order.base_asset,
-                                                                     tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
-                                                                     tracked_order.executed_amount_base,
-                                                                     tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
-                                                                     tracked_order.order_type,
-                                                                     exchange_order_id=tracked_order.exchange_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                        self.trigger_event(MarketEvent.SellOrderCompleted,
+                                           SellOrderCompletedEvent(self.current_timestamp,
+                                                                   tracked_order.client_order_id,
+                                                                   tracked_order.base_asset,
+                                                                   tracked_order.quote_asset,
+                                                                   (tracked_order.fee_asset
+                                                                    or tracked_order.quote_asset),
+                                                                   tracked_order.executed_amount_base,
+                                                                   tracked_order.executed_amount_quote,
+                                                                   tracked_order.fee_paid,
+                                                                   tracked_order.order_type,
+                                                                   exchange_order_id=tracked_order.exchange_order_id))
+                    self.stop_tracking_order(tracked_order.client_order_id)
                 elif execution_status == "done" and execution_type == "canceled":
                     tracked_order.last_state = "CANCEL"
                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                         OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             exchange_order_id=tracked_order.exchange_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp,
+                                                           tracked_order.client_order_id,
+                                                           exchange_order_id=tracked_order.exchange_order_id))
+                    self.stop_tracking_order(tracked_order.client_order_id)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -379,58 +359,38 @@ cdef class KucoinExchange(ExchangeBase):
         return self._shared_client
 
     async def _api_request(self,
-                           method,
                            path_url,
+                           method: RESTMethod = RESTMethod.GET,
                            params: Optional[Dict[str, Any]] = None,
-                           data=None,
+                           data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
-                           is_partner_required: bool = False,
                            limit_id: Optional[str] = None) -> Dict[str, Any]:
-        url = KUCOIN_ROOT_API + path_url
-        client = await self._http_client()
-        if is_auth_required:
-            if is_partner_required:
-                headers = self._kucoin_auth.add_auth_to_params(method, path_url, data, partner_header=True)
-            else:
-                headers = self._kucoin_auth.add_auth_to_params(method, path_url, data)
-        else:
-            headers = {"Content-Type": "application/json"}
-        limit_id = limit_id or path_url
-        if data is not None:
-            data = json.dumps(data)
 
-        if method == "get":
-            async with self._throttler.execute_task(limit_id):
-                response = await client.get(url, params=params, data=data, headers=headers)
-        elif method == "post":
-            async with self._throttler.execute_task(limit_id):
-                response = await client.post(url, params=params, data=data, headers=headers)
-        elif method == "delete":
-            async with self._throttler.execute_task(limit_id):
-                response = await client.delete(url, headers=headers)
-        else:
-            response = False
-
-        if response:
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {response.url}. HTTP status is {response.status}. Error is { await response.text()}")
-            try:
-                parsed_response = json.loads(await response.text())
-            except Exception:
-                raise IOError(f"Error parsing data from {url}.")
-            return parsed_response
+        return await web_utils.api_request(
+            path=path_url,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            params=params,
+            data=data,
+            method=method,
+            is_auth_required=is_auth_required,
+            limit_id=limit_id
+        )
 
     async def _update_balances(self):
-        cdef:
-            str path_url = CONSTANTS.ACCOUNTS_PATH_URL
-            str asset_name
-            set local_asset_names = set(self._account_balances.keys())
-            set remote_asset_names = set()
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
 
-        response = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        response = await self._api_request(
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            method=RESTMethod.GET,
+            is_auth_required=True)
+
         if response:
             for balance_entry in response["data"]:
-                asset_name = convert_asset_from_exchange(balance_entry["currency"])
+                asset_name = balance_entry["currency"]
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
                 self._account_balances[asset_name] = Decimal(balance_entry["balance"])
                 remote_asset_names.add(asset_name)
@@ -440,33 +400,14 @@ cdef class KucoinExchange(ExchangeBase):
                 del self._account_available_balances[asset_name]
                 del self._account_balances[asset_name]
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price,
-                          object is_maker = None):
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        trading_pair = f"{base_currency}-{quote_currency}"
-        if trading_pair in self._trading_fees:
-            fees_data = self._trading_fees[trading_pair]
-            fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
-            fee = AddedToCostTradeFee(percent=fee_value)
-        else:
-            safe_ensure_future(self._update_trading_fee(trading_pair))
-            fee = estimate_fee("kucoin", is_maker)
-        return fee
-
     async def _update_trading_rules(self):
-        cdef:
-            # The poll interval for trade rules is 60 seconds.
-            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
+        # The poll interval for trade rules is 60 seconds.
+        last_tick = int(self._last_timestamp / 60.0)
+        current_tick = int(self.current_timestamp / 60.0)
+
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request("get", path_url=CONSTANTS.SYMBOLS_PATH_URL)
-            trading_rules_list = self._format_trading_rules(exchange_info)
+            exchange_info = await self._api_request(path_url=CONSTANTS.SYMBOLS_PATH_URL, method=RESTMethod.GET)
+            trading_rules_list = await self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
@@ -476,24 +417,27 @@ cdef class KucoinExchange(ExchangeBase):
             await self._update_trading_fee(trading_pair)
 
     async def _update_trading_fee(self, trading_pair: str):
-        params = {"symbols": trading_pair}
         resp = await self._api_request(
-            "get",
-            path_url=f"{CONSTANTS.FEE_PATH_URL}?symbols={trading_pair}",
-            limit_id=CONSTANTS.FEE_LIMIT_ID,
+            path_url=CONSTANTS.FEE_PATH_URL,
+            params={"symbols": trading_pair},
+            method=RESTMethod.GET,
             is_auth_required=True,
         )
         fees_data = resp["data"][0]
         self._trading_fees[trading_pair] = fees_data
 
-    def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
-        cdef:
-            list trading_rules = []
+    async def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
+        trading_rules = []
 
         for info in raw_trading_pair_info["data"]:
             try:
+                trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                    symbol=info.get("symbol"),
+                    domain=self._domain,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler)
                 trading_rules.append(
-                    TradingRule(trading_pair=convert_from_exchange_trading_pair(info["symbol"]),
+                    TradingRule(trading_pair=trading_pair,
                                 min_order_size=Decimal(info["baseMinSize"]),
                                 max_order_size=Decimal(info["baseMaxSize"]),
                                 min_price_increment=Decimal(info['priceIncrement']),
@@ -508,14 +452,16 @@ cdef class KucoinExchange(ExchangeBase):
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
         path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
         return await self._api_request(
-            "get", path_url=path_url, is_auth_required=True, limit_id=CONSTANTS.GET_ORDER_LIMIT_ID
+            path_url=path_url,
+            method=RESTMethod.GET,
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_LIMIT_ID
         )
 
     async def _update_order_status(self):
-        cdef:
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t> (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t> (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+        # The poll interval for order status is 10 seconds.
+        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+        current_tick = int(self.current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -555,14 +501,14 @@ cdef class KucoinExchange(ExchangeBase):
                     tracked_order.fee_paid = Decimal(order_update["data"]["fee"])
                     execute_price = Decimal(order_update["data"]["dealFunds"]) / execute_amount_diff
                     order_filled_event = OrderFilledEvent(
-                        self._current_timestamp,
+                        self.current_timestamp,
                         tracked_order.client_order_id,
                         tracked_order.trading_pair,
                         tracked_order.trade_type,
                         tracked_order.order_type,
                         float(execute_price),
                         float(execute_amount_diff),
-                        self.c_get_fee(
+                        self.get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
                             tracked_order.order_type,
@@ -574,29 +520,29 @@ cdef class KucoinExchange(ExchangeBase):
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+                    self.trigger_event(MarketEvent.OrderFilled, order_filled_event)
 
                 if order_state is False and order_update["data"]["cancelExist"] is False:
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    self.stop_tracking_order(tracked_order.client_order_id)
                     if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
-                        self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                             BuyOrderCompletedEvent(self._current_timestamp,
-                                                                    tracked_order.client_order_id,
-                                                                    tracked_order.base_asset,
-                                                                    tracked_order.quote_asset,
-                                                                    tracked_order.fee_asset or tracked_order.base_asset,
-                                                                    float(tracked_order.executed_amount_base),
-                                                                    float(tracked_order.executed_amount_quote),
-                                                                    float(tracked_order.fee_paid),
-                                                                    tracked_order.order_type,
-                                                                    exchange_order_id=tracked_order.exchange_order_id))
+                        self.trigger_event(MarketEvent.BuyOrderCompleted,
+                                           BuyOrderCompletedEvent(self.current_timestamp,
+                                                                  tracked_order.client_order_id,
+                                                                  tracked_order.base_asset,
+                                                                  tracked_order.quote_asset,
+                                                                  tracked_order.fee_asset or tracked_order.base_asset,
+                                                                  float(tracked_order.executed_amount_base),
+                                                                  float(tracked_order.executed_amount_quote),
+                                                                  float(tracked_order.fee_paid),
+                                                                  tracked_order.order_type,
+                                                                  exchange_order_id=tracked_order.exchange_order_id))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
-                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                             SellOrderCompletedEvent(self._current_timestamp,
+                        self.c_trigger_event(MarketEvent.SellOrderCompleted,
+                                             SellOrderCompletedEvent(self.current_timestamp,
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
@@ -608,13 +554,13 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      exchange_order_id=tracked_order.exchange_order_id))
 
                 if order_state is False and order_update["data"]["cancelExist"] is True:
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    self.stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
                                        f" to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                         OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             exchange_order_id=tracked_order.exchange_order_id))
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp,
+                                                           tracked_order.client_order_id,
+                                                           exchange_order_id=tracked_order.exchange_order_id))
 
     async def _status_polling_loop(self):
         while True:
@@ -625,7 +571,7 @@ cdef class KucoinExchange(ExchangeBase):
                     self._update_balances(),
                     self._update_order_status(),
                 )
-                self._last_poll_timestamp = self._current_timestamp
+                self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -696,7 +642,11 @@ cdef class KucoinExchange(ExchangeBase):
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
-            "symbol": convert_to_exchange_trading_pair(trading_pair),
+            "symbol": await KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                trading_pair=trading_pair,
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler),
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
@@ -705,11 +655,10 @@ cdef class KucoinExchange(ExchangeBase):
             data["price"] = str(price)
             data["postOnly"] = True
         exchange_order_id = await self._api_request(
-            "post",
             path_url=path_url,
+            method=RESTMethod.POST,
             data=data,
             is_auth_required=True,
-            is_partner_required=True,
             limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
         )
         return str(exchange_order_id["data"]["orderId"])
@@ -720,22 +669,16 @@ cdef class KucoinExchange(ExchangeBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Decimal):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-            double quote_amount
-            object decimal_amount
-            object decimal_price
-            str exchange_order_id
-            object tracked_order
+        trading_rule = self._trading_rules[trading_pair]
 
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-            decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-            decimal_price = self.c_quantize_order_price(trading_pair, price)
+            decimal_amount = self.quantize_order_amount(trading_pair, amount)
+            decimal_price = self.quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            self.c_start_tracking_order(
+            self.start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=None,
                 trading_pair=trading_pair,
@@ -751,41 +694,37 @@ cdef class KucoinExchange(ExchangeBase):
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
                 tracked_order.last_state = "DEAL"
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                     BuyOrderCreatedEvent(
-                                         self._current_timestamp,
-                                         order_type,
-                                         trading_pair,
-                                         float(decimal_amount),
-                                         float(decimal_price),
-                                         order_id,
-                                         tracked_order.creation_timestamp,
-                                         exchange_order_id=tracked_order.exchange_order_id
-                                     ))
+                self.trigger_event(MarketEvent.BuyOrderCreated,
+                                   BuyOrderCreatedEvent(
+                                       self.current_timestamp,
+                                       order_type,
+                                       trading_pair,
+                                       float(decimal_amount),
+                                       float(decimal_price),
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       exchange_order_id=tracked_order.exchange_order_id
+                                   ))
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.c_stop_tracking_order(order_id)
+            self.stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to Kucoin. Check API key and network connection."
+                app_warning_msg="Failed to submit buy order to Kucoin. Check API key and network connection."
             )
-            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self,
-                   str trading_pair,
-                   object amount,
-                   object order_type = OrderType.LIMIT,
-                   object price = s_decimal_0,
-                   dict kwargs = {}):
-        cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"buy-{trading_pair}-{tracking_nonce}"
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+
+        tracking_nonce = int(get_tracking_nonce())
+        order_id = f"buy-{trading_pair}-{tracking_nonce}"
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -796,21 +735,16 @@ cdef class KucoinExchange(ExchangeBase):
                            amount: Decimal,
                            order_type: OrderType,
                            price: Decimal):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-            object decimal_amount
-            object decimal_price
-            str exchange_order_id
-            object tracked_order
+        trading_rule = self._trading_rules[trading_pair]
 
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
-        decimal_price = self.c_quantize_order_price(trading_pair, price)
+        decimal_price = self.quantize_order_price(trading_pair, price)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
         try:
-            self.c_start_tracking_order(
+            self.start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=None,
                 trading_pair=trading_pair,
@@ -826,41 +760,37 @@ cdef class KucoinExchange(ExchangeBase):
                 self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
                 tracked_order.last_state = "DEAL"
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                     SellOrderCreatedEvent(
-                                         self._current_timestamp,
-                                         order_type,
-                                         trading_pair,
-                                         float(decimal_amount),
-                                         float(decimal_price),
-                                         order_id,
-                                         tracked_order.creation_timestamp,
-                                         exchange_order_id=exchange_order_id
-                                     ))
+                self.trigger_event(MarketEvent.SellOrderCreated,
+                                   SellOrderCreatedEvent(
+                                       self.current_timestamp,
+                                       order_type,
+                                       trading_pair,
+                                       float(decimal_amount),
+                                       float(decimal_price),
+                                       order_id,
+                                       tracked_order.creation_timestamp,
+                                       exchange_order_id=exchange_order_id
+                                   ))
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.c_stop_tracking_order(order_id)
+            self.stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit sell order to Kucoin. Check API key and network connection."
+                app_warning_msg="Failed to submit sell order to Kucoin. Check API key and network connection."
             )
-            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self,
-                    str trading_pair,
-                    object amount,
-                    object order_type = OrderType.LIMIT,
-                    object price = s_decimal_0,
-                    dict kwargs = {}):
-        cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"sell-{trading_pair}-{tracking_nonce}"
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+
+        tracking_nonce = int(get_tracking_nonce())
+        order_id = f"sell-{trading_pair}-{tracking_nonce}"
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -876,7 +806,10 @@ cdef class KucoinExchange(ExchangeBase):
                 )
             path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{tracked_order.exchange_order_id}"
             await self._api_request(
-                "delete", path_url=path_url, is_auth_required=True, limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
+                path_url=path_url,
+                method=RESTMethod.DELETE,
+                is_auth_required=True,
+                limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
             )
         except KucoinInFlightOrderNotCreated:
             raise
@@ -888,9 +821,9 @@ cdef class KucoinExchange(ExchangeBase):
                                 f"Check API key and network connection."
             )
 
-    cdef c_cancel(self, str trading_pair, str order_id):
-        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
-        return order_id
+    def cancel(self, trading_pair: str, client_order_id: str):
+        safe_ensure_future(self.execute_cancel(trading_pair, client_order_id))
+        return client_order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         cancellation_results = []
@@ -899,8 +832,8 @@ cdef class KucoinExchange(ExchangeBase):
             cancellation_tasks = []
             for oid, order in tracked_orders.items():
                 cancellation_tasks.append(self._api_request(
-                    method="delete",
                     path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{oid}",
+                    method=RESTMethod.DELETE,
                     is_auth_required=True,
                     limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID,
                 ))
@@ -918,43 +851,41 @@ cdef class KucoinExchange(ExchangeBase):
                     if tracked_order.client_order_id in self._in_flight_orders:
                         tracked_order.last_state = "CANCEL"
                         self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id,
-                                                                 exchange_order_id=tracked_order.exchange_order_id))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        self.trigger_event(MarketEvent.OrderCancelled,
+                                           OrderCancelledEvent(self.current_timestamp,
+                                                               tracked_order.client_order_id,
+                                                               exchange_order_id=tracked_order.exchange_order_id))
+                        self.stop_tracking_order(tracked_order.client_order_id)
                     cancellation_results.append(CancellationResult(tracked_order.client_order_id, True))
                 else:
                     continue
 
-        except Exception as e:
+        except Exception:
             self.logger().network(
-                f"Failed to cancel all orders.",
+                "Failed to cancel all orders.",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel all orders on Kucoin. Check API key and network connection."
+                app_warning_msg="Failed to cancel all orders on Kucoin. Check API key and network connection."
             )
         return cancellation_results
 
-    cdef OrderBook c_get_order_book(self, str trading_pair):
-        cdef:
-            dict order_books = self._order_book_tracker.order_books
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        """
+        Returns the current order book for a particular market
 
-        if trading_pair not in order_books:
+        :param trading_pair: the pair of tokens for which the order book should be retrieved
+        """
+        if trading_pair not in self._order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return order_books.get(trading_pair)
+        return self._order_book_tracker.order_books[trading_pair]
 
-    cdef c_did_timeout_tx(self, str tracking_id):
-        self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                             MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef c_start_tracking_order(self,
-                                str client_order_id,
-                                str exchange_order_id,
-                                str trading_pair,
-                                object order_type,
-                                object trade_type,
-                                object price,
-                                object amount):
+    def start_tracking_order(self,
+                             client_order_id: str,
+                             exchange_order_id: Optional[str],
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
         self._in_flight_orders[client_order_id] = KucoinInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
@@ -966,58 +897,58 @@ cdef class KucoinExchange(ExchangeBase):
             creation_timestamp=self.current_timestamp
         )
 
-    cdef c_stop_tracking_order(self, str order_id):
+    def stop_tracking_order(self, order_id: str):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        """
+        Used by quantize_order_price() in _create_order()
+        Returns a price step, a minimum price increment for a given trading pair.
+
+        :param trading_pair: the trading pair to check for market conditions
+        :param price: the starting point price
+        """
+        trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+        """
+        Used by quantize_order_price() in _create_order()
+        Returns an order amount step, a minimum amount increment for a given trading pair.
+
+        :param trading_pair: the trading pair to check for market conditions
+        :param order_size: the starting point order price
+        """
+        trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-            object quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, amount)
-            object current_price = self.c_get_price(trading_pair, False)
-            object notional_size
+    def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = s_decimal_0) -> Decimal:
+        """
+        Applies the trading rules to calculate the correct order amount for the market
+        :param trading_pair: the token pair for which the order will be created
+        :param amount: the intended amount for the order
+        :param price: the intended price for the order
+        :return: the quantized order amount after applying the trading rules
+        """
+        trading_rule = self._trading_rules[trading_pair]
+        quantized_amount: Decimal = super().quantize_order_amount(trading_pair, amount)
 
-        # Check against min_order_size. If not passing check, return 0.
+        # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
-        # Check against max_order_size. If not passing check, return maximum.
-        if quantized_amount > trading_rule.max_order_size:
-            return trading_rule.max_order_size
-
         if price == s_decimal_0:
+            current_price: Decimal = self.get_price(trading_pair, False)
             notional_size = current_price * quantized_amount
         else:
             notional_size = price * quantized_amount
+
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
             return s_decimal_0
 
         return quantized_amount
-
-    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
-        return self.c_get_price(trading_pair, is_buy)
-
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
-            price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
-
-    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
-             price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
-
-    def cancel(self, trading_pair: str, client_order_id: str):
-        return self.c_cancel(trading_pair, client_order_id)
 
     def get_fee(self,
                 base_currency: str,
@@ -1027,23 +958,23 @@ cdef class KucoinExchange(ExchangeBase):
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN,
                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
-    def get_order_book(self, trading_pair: str) -> OrderBook:
-        return self.c_get_order_book(trading_pair)
-
-    def _build_async_throttler(self) -> AsyncThrottler:
-        limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
-        limits_pct = Decimal("1") if limits_pct_conf is None else limits_pct_conf / Decimal("100")
-        effective_ws_connection_limit = CONSTANTS.WS_CONNECTION_LIMIT * limits_pct
-        if effective_ws_connection_limit < 3:
-            self.logger().warning(
-                f"The KuCoin connector requires 3 websocket connections to operate. The current rate limit percentage"
-                f" allows the creation of {int(effective_ws_connection_limit)} websocket connections every"
-                f" {CONSTANTS.WS_CONNECTION_TIME_INTERVAL}s. This will prevent the client from functioning properly."
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = f"{base_currency}-{quote_currency}"
+        if trading_pair in self._trading_fees:
+            fees_data = self._trading_fees[trading_pair]
+            fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
+            fee = AddedToCostTradeFee(percent=fee_value)
+        else:
+            safe_ensure_future(self._update_trading_fee(trading_pair))
+            fee = build_trade_fee(
+                self.name,
+                is_maker,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
             )
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
-
-    def stop_tracking_order(self, order_id: str):
-        self.c_stop_tracking_order(order_id)
+        return fee

@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 33
+template_version: 34
 
 # Exchange configs
 
@@ -61,6 +61,10 @@ loopring_private_key: null
 kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
+
+kucoin_testnet_api_key: null
+kucoin_testnet_secret_key: null
+kucoin_testnet_passphrase: null
 
 altmarkets_api_key: null
 altmarkets_secret_key: null

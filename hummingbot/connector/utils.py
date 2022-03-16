@@ -1,12 +1,13 @@
-#!/usr/bin/env python
-
 import base64
 from collections import namedtuple
-from typing import Dict, Optional, Tuple
-
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from typing import Callable, Dict, Optional, Tuple
 
 from zero_ex.order_utils import Order as ZeroExOrder
+
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 TradeFillOrderDetails = namedtuple("TradeFillOrderDetails", "market exchange_trade_id symbol")
 
@@ -51,3 +52,19 @@ def split_hb_trading_pair(trading_pair: str) -> Tuple[str, str]:
 def combine_to_hb_trading_pair(base: str, quote: str) -> str:
     trading_pair = f"{base}-{quote}"
     return trading_pair
+
+
+class TimeSynchronizerRESTPreProcessor(RESTPreProcessorBase):
+    """
+    This pre processor is intended to be used in those connectors that require synchronization with the server time
+    to accept API requests. It ensures the synchronizer has at least one server time sample before being used.
+    """
+
+    def __init__(self, synchronizer: TimeSynchronizer, time_provider: Callable):
+        super().__init__()
+        self._synchronizer: TimeSynchronizer = synchronizer
+        self._time_provider = time_provider
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        await self._synchronizer.update_server_time_if_not_initialized(time_provider=self._time_provider())
+        return request
