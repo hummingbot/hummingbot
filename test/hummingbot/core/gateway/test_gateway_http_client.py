@@ -29,7 +29,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         cls._patch_stack = ExitStack()
         cls._patch_stack.enter_context(cls._http_player.patch_aiohttp_client())
         cls._patch_stack.enter_context(
-            patch("hummingbot.core.gateway.GatewayHttpClient._http_client", return_value=ClientSession())
+            patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient._http_client", return_value=ClientSession())
         )
         GatewayHttpClient.get_instance().base_url = "https://localhost:5000"
 
@@ -39,12 +39,12 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_ping_gateway(self):
-        result: bool = await GatewayHttpClient.ping_gateway()
+        result: bool = await GatewayHttpClient.get_instance().ping_gateway()
         self.assertTrue(result)
 
     @async_test(loop=ev_loop)
     async def test_get_gateway_status(self):
-        result: List[Dict[str, Any]] = await GatewayHttpClient.get_gateway_status()
+        result: List[Dict[str, Any]] = await GatewayHttpClient.get_instance().get_gateway_status()
         self.assertIsInstance(result, list)
         self.assertEqual(1, len(result))
 
@@ -53,7 +53,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_add_wallet(self):
-        result: Dict[str, Any] = await GatewayHttpClient.add_wallet(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(
             "ethereum",
             "ropsten",
             "0000000000000000000000000000000000000000000000000000000000000001"      # noqa: mock
@@ -63,7 +63,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_wallets(self):
-        result: List[Dict[str, Any]] = await GatewayHttpClient.get_wallets()
+        result: List[Dict[str, Any]] = await GatewayHttpClient.get_instance().get_wallets()
         self.assertIsInstance(result, list)
 
         first_entry: Dict[str, Any] = result[0]
@@ -72,7 +72,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_connectors(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_connectors()
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_connectors()
         self.assertIn("connectors", result)
 
         uniswap: Dict[str, Any] = result["connectors"][0]
@@ -81,18 +81,18 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_configuration(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_configuration()
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
         self.assertIn("avalanche", result)
         self.assertIn("ethereum", result)
 
     @async_test(loop=ev_loop)
     async def test_update_configuration(self):
-        result: Dict[str, Any] = await GatewayHttpClient.update_config("telemetry.enabled", False)
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().update_config("telemetry.enabled", False)
         self.assertIn("message", result)
 
     @async_test(loop=ev_loop)
     async def test_get_tokens(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_tokens("ethereum", "ropsten")
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_tokens("ethereum", "ropsten")
         self.assertIn("tokens", result)
         self.assertIsInstance(result["tokens"], list)
         self.assertEqual("WETH", result["tokens"][0]["symbol"])
@@ -100,13 +100,13 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_network_status(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_network_status("ethereum", "ropsten")
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_network_status("ethereum", "ropsten")
         self.assertEqual(3, result["chainId"])
         self.assertEqual(12067035, result["currentBlockNumber"])
 
     @async_test(loop=ev_loop)
     async def test_get_price(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_price(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
             "ethereum",
             "ropsten",
             "uniswap",
@@ -121,7 +121,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_balances(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_balances(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
             "ethereum",
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
@@ -133,7 +133,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_successful_get_transaction(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_transaction_status(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_transaction_status(
             "ethereum",
             "ropsten",
             "0xa8d428627dc7f453be79a32129dc18ea29d1a715249a4a5762ca6273da5d96e3"        # noqa: mock
@@ -143,7 +143,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_failed_get_transaction(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_transaction_status(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_transaction_status(
             "ethereum",
             "ropsten",
             "0xa8d428627dc7f453be79a32129dc18ea29d1a715249a4a5762ca6273da5d96e1"        # noqa: mock
@@ -153,7 +153,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_evm_nonce(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_evm_nonce(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_evm_nonce(
             "ethereum",
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92"
@@ -162,7 +162,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_approve_token(self):
-        result: Dict[str, Any] = await GatewayHttpClient.approve_token(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
             "ethereum",
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
@@ -176,7 +176,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_get_allowances(self):
-        result: Dict[str, Any] = await GatewayHttpClient.get_allowances(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_allowances(
             "ethereum",
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
@@ -191,7 +191,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_amm_trade(self):
-        result: Dict[str, Any] = await GatewayHttpClient.amm_trade(
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
             "ethereum",
             "ropsten",
             "uniswap",
