@@ -12,6 +12,7 @@ from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance import binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
