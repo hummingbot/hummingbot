@@ -50,7 +50,7 @@ class StatusMonitor:
                     if self._current_status is Status.OFFLINE:
                         gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
-                        GATEWAY_CONNECTORS.extend([connector.name for connector in gateway_connectors.get("connectors", [])])
+                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
                     self._current_status = Status.ONLINE
                 else:
                     self._current_status = Status.OFFLINE
