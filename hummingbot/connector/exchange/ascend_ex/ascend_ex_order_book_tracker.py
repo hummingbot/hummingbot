@@ -35,7 +35,9 @@ class AscendExOrderBookTracker(OrderBookTracker):
     ):
         super().__init__(
             AscendExAPIOrderBookDataSource(
-                api_factory=api_factory, throttler=throttler, trading_pairs=trading_pairs
+                api_factory=api_factory,
+                throttler=throttler,
+                trading_pairs=trading_pairs
             ),
             trading_pairs,
         )
@@ -58,12 +60,6 @@ class AscendExOrderBookTracker(OrderBookTracker):
         """
         return constants.EXCHANGE_NAME
 
-    async def _sleep(self, delay):
-        """
-        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
-        """
-        await asyncio.sleep(delay)
-
     def start(self):
         """
         Starts the background task that connects to the exchange and listens to order book updates and trade events.
@@ -79,6 +75,12 @@ class AscendExOrderBookTracker(OrderBookTracker):
         """
         self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
         super().stop()
+
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
 
     async def _track_single_book(self, trading_pair: str):
         """

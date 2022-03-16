@@ -79,5 +79,3 @@ class AscendExUserStreamTrackerTests(TestCase):
         ret = self.ev_loop.run_until_complete(output_queue.get())
 
         self.assertEqual(resp, ret)
-
-        self.listening_task.cancel()
