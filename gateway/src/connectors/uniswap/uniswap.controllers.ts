@@ -133,6 +133,7 @@ export async function price(
     expectedAmount: expectedAmount.toSignificant(8),
     price: tradePrice.toSignificant(8),
     gasPrice: gasPrice,
+    gasPriceCurrency: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimit,
     gasCost: gasCostInEthString(gasPrice, gasLimit),
   };
@@ -242,6 +243,7 @@ export async function trade(
       expectedIn: tradeInfo.expectedTrade.expectedAmount.toSignificant(8),
       price: price.toSignificant(8),
       gasPrice: gasPrice,
+      gasPriceCurrency: ethereumish.nativeTokenSymbol,
       gasLimit: gasLimit,
       gasCost: gasCostInEthString(gasPrice, gasLimit),
       nonce: tx.nonce,
@@ -282,6 +284,7 @@ export async function trade(
       expectedOut: tradeInfo.expectedTrade.expectedAmount.toSignificant(8),
       price: price.toSignificant(8),
       gasPrice: gasPrice,
+      gasPriceCurrency: ethereumish.nativeTokenSymbol,
       gasLimit,
       gasCost: gasCostInEthString(gasPrice, gasLimit),
       nonce: tx.nonce,

@@ -19,6 +19,7 @@ export interface PriceResponse {
   timestamp: number;
   latency: number;
   gasPrice: number;
+  gasPriceCurrency: string;
   gasLimit: number;
   gasCost: string;
 }
@@ -47,6 +48,7 @@ export interface TradeResponse {
   expectedOut?: string;
   price: string;
   gasPrice: number;
+  gasPriceCurrency: string;
   gasLimit: number;
   gasCost: string;
   nonce: number;
