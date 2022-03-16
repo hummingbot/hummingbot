@@ -62,7 +62,7 @@ amm_arb_config_map = {
         default="amm_arb"),
     "connector_1": ConfigVar(
         key="connector_1",
-        prompt="Enter your first spot connector (Exchange/AMM) >>> ",
+        prompt="Enter your first connector (Exchange/AMM) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
@@ -74,7 +74,7 @@ amm_arb_config_map = {
         on_validated=market_1_on_validated),
     "connector_2": ConfigVar(
         key="connector_2",
-        prompt="Enter your second spot connector (Exchange/AMM) >>> ",
+        prompt="Enter your second connector (Exchange/AMM) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
