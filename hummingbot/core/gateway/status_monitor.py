@@ -5,6 +5,7 @@ from typing import Optional
 
 from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.settings import GATEWAY_CONNECTORS
 
 POLL_INTERVAL = 2.0
 POLL_TIMEOUT = 1.0
@@ -46,6 +47,10 @@ class StatusMonitor:
         while True:
             try:
                 if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
+                    if self._current_status is Status.OFFLINE:
+                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
+                        GATEWAY_CONNECTORS.clear()
+                        GATEWAY_CONNECTORS.extend([connector.name for connector in gateway_connectors.get("connectors", [])])
                     self._current_status = Status.ONLINE
                 else:
                     self._current_status = Status.OFFLINE
