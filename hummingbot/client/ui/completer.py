@@ -37,7 +37,7 @@ class HummingbotCompleter(Completer):
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
-        self._spot_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(AllConnectorSettings.get_gateway_evm_amm_connector_names())), ignore_case=True)
+        self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(AllConnectorSettings.get_gateway_evm_amm_connector_names())), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(AllConnectorSettings.get_derivative_dex_names()), ignore_case=True)
@@ -134,7 +134,7 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("connect ")
 
-    def _complete_spot_amm_connectors(self, document: Document) -> bool:
+    def _complete_exchange_amm_connectors(self, document: Document) -> bool:
         return "(Exchange/AMM)" in self.prompt_text
 
     def _complete_spot_exchanges(self, document: Document) -> bool:
@@ -232,7 +232,7 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_spot_amm_connectors(document):
+        elif self._complete_exchange_amm_connectors(document):
             if self._complete_spot_exchanges(document):
                 for c in self._spot_exchange_completer.get_completions(document, complete_event):
                     yield c
@@ -240,7 +240,7 @@ class HummingbotCompleter(Completer):
                 for c in self._derivative_exchange_completer.get_completions(document, complete_event):
                     yield c
             else:
-                for c in self._spot_amm_completer.get_completions(document, complete_event):
+                for c in self._exchange_amm_completer.get_completions(document, complete_event):
                     yield c
 
         elif self._complete_spot_exchanges(document):
