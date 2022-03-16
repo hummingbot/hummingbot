@@ -266,8 +266,11 @@ class HttpPlayer(HttpPlayerBase):
 
             # Loosen the query conditions if the first, precise query didn't work.
             if playback_entry is None:
+                query = (HttpPlayback.url == url)
+                if self._replay_timestamp_ms is not None:
+                    query = cast(Query, and_(query, HttpPlayback.timestamp >= self._replay_timestamp_ms))
                 playback_entry = (
-                    session.query(HttpPlayback).filter(HttpPlayback.url == url).first()
+                    session.query(HttpPlayback).filter(query).first()
                 )
 
             return HttpPlayerResponse(

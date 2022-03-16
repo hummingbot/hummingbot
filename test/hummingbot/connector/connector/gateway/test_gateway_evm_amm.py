@@ -26,6 +26,8 @@ from hummingbot.core.event.events import (
     TokenApprovalSuccessEvent,
     MarketEvent,
     OrderFilledEvent,
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
 )
 from hummingbot.core.gateway import gateway_http_client
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -264,8 +266,62 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_buy_order(self):
-        pass
+        self._http_player.replay_timestamp_ms = 1647320210070
+        clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
+        event_logger: EventLogger = EventLogger()
+        self._connector.add_listener(MarketEvent.BuyOrderCreated, event_logger)
+        self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
+
+        try:
+            self._connector.buy("DAI-WETH", Decimal(100), OrderType.LIMIT, Decimal("0.002861464039500"))
+            order_created_event: BuyOrderCreatedEvent = await event_logger.wait_for(
+                BuyOrderCreatedEvent,
+                timeout_seconds=5
+            )
+            self.assertEqual(
+                "0xeaf6b51033b8060c527d58f71ec66226da8d98ec77290017ec7787ed7ab60ae6",       # noqa: mock
+                order_created_event.exchange_order_id
+            )
+            self._http_player.replay_timestamp_ms = 1647320316482
+            order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
+            self.assertEqual(
+                "0xeaf6b51033b8060c527d58f71ec66226da8d98ec77290017ec7787ed7ab60ae6",       # noqa: mock
+                order_filled_event.exchange_trade_id
+            )
+        finally:
+            clock_task.cancel()
+            try:
+                await clock_task
+            except asyncio.CancelledError:
+                pass
 
     @async_test(loop=ev_loop)
     async def test_sell_order(self):
-        pass
+        self._http_player.replay_timestamp_ms = 1647320318718
+        clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
+        event_logger: EventLogger = EventLogger()
+        self._connector.add_listener(MarketEvent.SellOrderCreated, event_logger)
+        self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
+
+        try:
+            self._connector.sell("DAI-WETH", Decimal(100), OrderType.LIMIT, Decimal("0.002816023229500"))
+            order_created_event: SellOrderCreatedEvent = await event_logger.wait_for(
+                SellOrderCreatedEvent,
+                timeout_seconds=5
+            )
+            self.assertEqual(
+                "0x6d5b02fc76b8234a4bc8067b6487dfb711307c85cf37daac12a3ce0afe0b4340",       # noqa: mock
+                order_created_event.exchange_order_id
+            )
+            self._http_player.replay_timestamp_ms = 1647320411486
+            order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
+            self.assertEqual(
+                "0x6d5b02fc76b8234a4bc8067b6487dfb711307c85cf37daac12a3ce0afe0b4340",       # noqa: mock
+                order_filled_event.exchange_trade_id
+            )
+        finally:
+            clock_task.cancel()
+            try:
+                await clock_task
+            except asyncio.CancelledError:
+                pass
