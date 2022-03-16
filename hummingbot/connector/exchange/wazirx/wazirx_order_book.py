@@ -1,13 +1,15 @@
 import logging
-
 from typing import (
-    Optional,
+    Any,
     Dict,
-    List, Any)
+    List,
+    Optional,
+)
+
 import hummingbot.connector.exchange.wazirx.wazirx_constants as constants
 from hummingbot.connector.exchange.wazirx.wazirx_order_book_message import WazirxOrderBookMessage
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,

@@ -1,37 +1,24 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
+import asyncio
 import math
 import random
-
-from collections import (
-    deque, defaultdict
-)
-
-import asyncio
-import pandas as pd
+from collections import defaultdict, deque
+from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
 
 from cpython cimport PyObject
-from cython.operator cimport(
-    address,
-    dereference as deref,
-    postincrement as inc
-)
-from decimal import Decimal
+from cython.operator cimport address, dereference as deref, postincrement as inc
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
 
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -45,26 +32,17 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderFilledEvent,
     OrderBookEvent,
     OrderBookTradeEvent,
     OrderCancelledEvent,
-    OrderType,
+    OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.Utils cimport(
-    getIteratorFromReverseIterator,
-    reverse_iterator
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
+from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-
-from ...budget_checker import BudgetChecker
 
 ptm_logger = None
 s_decimal_0 = Decimal(0)
@@ -371,7 +349,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -380,7 +361,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                  trading_pair_str,
                                  quantized_amount,
                                  quantized_price,
-                                 order_id)))
+                                 order_id,
+                                 self._current_timestamp)))
         return order_id
 
     cdef str c_sell(self,
@@ -425,7 +407,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
@@ -434,7 +419,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   trading_pair_str,
                                   quantized_amount,
                                   quantized_price,
-                                  order_id)))
+                                  order_id,
+                                  self._current_timestamp)))
         return order_id
 
     cdef c_execute_buy(self, str order_id, str trading_pair_str, object amount):

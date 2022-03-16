@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional, Union
 
 from hummingbot.connector.derivative.position import Position
-from hummingbot.core.event.events import (
+from hummingbot.core.data_type.common import (
     PositionSide,
     TradeType
 )

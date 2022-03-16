@@ -1,16 +1,14 @@
-import aiohttp
-# import asyncio
-# import logging
 from decimal import Decimal
 from typing import (
     Any,
     Dict,
     List,
     Tuple,
-    # Optional
 )
 
-from hummingbot.core.event.events import TradeType
+import aiohttp
+
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 TOKEN_CONFIGURATIONS_URL = '/api/v3/exchange/tokens'
