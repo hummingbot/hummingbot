@@ -695,7 +695,7 @@ class AscendExExchange(ExchangePyBase):
                     # Handles balance updates from Deposits/Withdrawals, Transfers between Cash and Margin Accounts
                     balance_data = event_message.get("data")
                     balance = AscendExBalance(balance_data["a"], balance_data["ab"], balance_data["tb"])
-                    self._process_balances(list(balance), False)
+                    self._process_balances([balance], False)
 
             except asyncio.CancelledError:
                 raise
