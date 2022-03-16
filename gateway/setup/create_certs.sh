@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if ! command -v openssl &> /dev/null
 then
     echo "openssl could not be found"

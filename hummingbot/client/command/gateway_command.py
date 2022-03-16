@@ -49,29 +49,34 @@ if TYPE_CHECKING:
 
 
 class GatewayCommand:
-    def gateway(self,
-                option: str = None,
-                key: str = None,
-                value: str = None):
-        if option == "create":
-            safe_ensure_future(self.create_gateway())
-        elif option == "status":
-            safe_ensure_future(self.gateway_status())
-        elif option == "config":
-            if value:
-                safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
-            else:
-                safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
-        elif option == "connect":
-            safe_ensure_future(self.connect(key))
-        elif option == "test-connection":
-            safe_ensure_future(self.test_connection())
-        elif option == "start":
-            safe_ensure_future(self._start_gateway())
-        elif option == "stop":
-            safe_ensure_future(self._stop_gateway())
-        elif option == "generate-certs":
-            safe_ensure_future(self.generate_certs())
+    def create_gateway(self):
+        safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
+
+    def gateway_connect(self, connector: str = None):
+        safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
+
+    def gateway_start(self):
+        safe_ensure_future(self._start_gateway(), loop=self.ev_loop)
+
+    def gateway_status(self):
+        safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
+
+    def gateway_stop(self):
+        safe_ensure_future(self._stop_gateway(), loop=self.ev_loop)
+
+    def generate_certs(self):
+        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
+
+    def test_connection(self):
+        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
+
+    def gateway_config(self,
+                       key: List[str],
+                       value: str = None):
+        if value:
+            safe_ensure_future(self._update_gateway_configuration(key[0], value), loop=self.ev_loop)
+        else:
+            safe_ensure_future(self._show_gateway_configuration(key[0]), loop=self.ev_loop)
 
     @staticmethod
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
@@ -309,21 +314,6 @@ class GatewayCommand:
         else:
             self.notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
-    async def create_gateway(self):
-        safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
-
-    async def connect(self, connector: str = None):
-        safe_ensure_future(self._connect(connector), loop=self.ev_loop)
-
-    async def gateway_status(self):
-        safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
-
-    async def generate_certs(self):
-        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
-
-    async def test_connection(self):
-        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
-
     async def _update_gateway_configuration(self, key: str, value: Any):
         try:
             response = await gateway_http_client.update_config(key, value)
@@ -349,7 +339,7 @@ class GatewayCommand:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
-    async def _connect(self, connector: str = None):
+    async def _gateway_connect(self, connector: str = None):
         # it is possible that gateway_connections.json does not exist
         connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
         if path.exists(connections_fp):
