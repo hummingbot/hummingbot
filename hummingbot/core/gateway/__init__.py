@@ -9,6 +9,7 @@ import ssl
 from typing import Optional, Any, Dict, AsyncIterable, List, Union
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 from hummingbot.logger import HummingbotLogger
@@ -230,7 +231,9 @@ class GatewayHttpClient:
         if cls._shared_client is None or re_init:
             cert_path = get_gateway_paths().local_certs_path.as_posix()
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
-            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
+            ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                    keyfile=f"{cert_path}/client_key.pem",
+                                    password=Security.password)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client
@@ -280,15 +283,15 @@ class GatewayHttpClient:
                 response = await client.post(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
+            parsed_response = await response.json()
             if response.status != 200 and not fail_silently:
                 if "error" in parsed_response:
-                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response['error']}"
+                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
                 else:
-                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response}"
-                self.logger().error(err_msg)
-            parsed_response = await response.json()
+                    raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
         except Exception as e:
             if not fail_silently:
+                self.logger().error(e)
                 raise e
 
         return parsed_response
@@ -354,7 +357,7 @@ class GatewayHttpClient:
             self,
             chain: str,
             network: str,
-            fail_silently: bool = False
+            fail_silently: bool = True
     ) -> Dict[str, Any]:
         return await self.api_request("get", "network/tokens", {
             "chain": chain,
