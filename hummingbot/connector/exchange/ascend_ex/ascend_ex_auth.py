@@ -24,7 +24,7 @@ class AscendExAuth(AuthBase):
         """
         # Generates auth headers
         if request.is_auth_required:
-            headers_auth = self.get_auth_headers(request.path_url)
+            headers_auth = self.get_auth_headers(request.endpoint_url)
         else:
             headers_auth = {}
 

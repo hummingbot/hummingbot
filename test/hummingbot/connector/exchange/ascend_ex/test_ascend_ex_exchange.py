@@ -14,7 +14,8 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_sourc
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExCommissionType,
     AscendExExchange,
-    AscendExTradingRule
+    AscendExOrder,
+    AscendExTradingRule,
 )
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -28,6 +29,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderFilledEvent,
 )
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -112,6 +114,10 @@ class TestAscendExExchange(unittest.TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    async def _iter_user_event_queue_task(self):
+        async for event_message in self.exchange._iter_user_event_queue():
+            pass
 
     def test_get_fee(self):
         self._simulate_trading_rules_initialized()
@@ -400,7 +406,7 @@ class TestAscendExExchange(unittest.TestCase):
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
         try:
             self.async_run_with_timeout(self.test_task)
@@ -449,6 +455,87 @@ class TestAscendExExchange(unittest.TestCase):
                 f"BUY order {order.client_order_id} completely filled."
             )
         )
+
+    def test_balance_update_events(self):
+        self.exchange._account_available_balances[self.base_asset] = Decimal(0)
+        self.exchange._account_balances[self.base_asset] = Decimal(99)
+
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {self.ex_trading_pair: f"{self.base_asset}-{self.quote_asset}"}
+        )
+
+        balance_update = {
+            "m": "balance",
+            "data": {
+                "a": self.base_asset,
+                "sn": 8159798,
+                "tb": Decimal(100),
+                "ab": Decimal(10)
+            }
+        }
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = [balance_update, asyncio.CancelledError()]
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        # Check before
+        self.assertEqual(Decimal(0), self.exchange._account_available_balances[self.base_asset])
+        self.assertEqual(Decimal(99), self.exchange._account_balances[self.base_asset])
+
+        self.test_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+
+        try:
+            self.async_run_with_timeout(self.test_task)
+        except asyncio.CancelledError:
+            # Ignore cancellation errors, it is the expected signal to cut the background loop
+            pass
+
+        # Check after
+        self.assertEqual(Decimal(10), self.exchange._account_available_balances[self.base_asset])
+        self.assertEqual(Decimal(100), self.exchange._account_balances[self.base_asset])
+
+    @aioresponses()
+    def test_update_balances(self, mock_api):
+        self.exchange._account_available_balances[self.base_asset] = Decimal(0)
+        self.exchange._account_balances[self.base_asset] = Decimal(99)
+
+        self.exchange._account_group = 0
+
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {self.ex_trading_pair: f"{self.base_asset}-{self.quote_asset}"}
+        )
+
+        url = f"{ascend_ex_utils.get_rest_url_private(0)}/{CONSTANTS.BALANCE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        balance_update = {
+            "code": 0,
+            "data": [{
+                "asset": self.base_asset,
+                "totalBalance": "100",
+                "availableBalance": "10"
+            }]
+        }
+
+        mock_response = balance_update
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        # Check before
+        self.assertEqual(Decimal(0), self.exchange._account_available_balances[self.base_asset])
+        self.assertEqual(Decimal(99), self.exchange._account_balances[self.base_asset])
+
+        self.test_task = self.ev_loop.create_task(self.exchange._update_balances())
+
+        try:
+            self.async_run_with_timeout(self.test_task)
+        except asyncio.CancelledError:
+            # Ignore cancellation errors, it is the expected signal to cut the background loop
+            pass
+
+        # Check after
+        self.assertEqual(Decimal(10), self.exchange._account_available_balances[self.base_asset])
+        self.assertEqual(Decimal(100), self.exchange._account_balances[self.base_asset])
 
     @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
     def test_client_order_id_on_order(self, mocked_nonce):
@@ -778,3 +865,122 @@ class TestAscendExExchange(unittest.TestCase):
 
         self.assertIsNotNone(error)
         self.assertEqual(error, f"Error fetching data from {url}. HTTP status is {401}. " f"Message: {mock_response}")
+
+    @aioresponses()
+    def test_process_order_message(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        # Verify that there's no such order being tracked
+        self.assertNotIn("testOrderId1", self.exchange.in_flight_orders)
+
+        self.exchange.start_tracking_order(
+            order_id="testOrderId1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            exchange_order_id="16e61d5ff43s8bXHbAwwoqDo9d817339"
+        )
+
+        # Verify that the order is being tracked
+        self.assertIn("testOrderId1", self.exchange.in_flight_orders, Decimal("0"))
+        # Update the order
+        self.ev_loop.run_until_complete(
+            self.exchange._process_order_message(AscendExOrder(
+                self.ex_trading_pair,
+                Decimal("10000"),
+                Decimal("1"),
+                OrderType.LIMIT,
+                Decimal("1"),
+                Decimal("0"),
+                Decimal("6000"),
+                0,
+                self.base_asset,
+                1640780001,
+                "16e61d5ff43s8bXHbAwwoqDo9d817339",
+                0,
+                TradeType.BUY,
+                "PartiallyFilled",
+                0,
+                0
+            ))
+        )
+
+        self.assertIn("testOrderId1", self.exchange.in_flight_orders)
+        self.assertTrue(self.exchange.in_flight_orders["testOrderId1"].executed_amount_base, Decimal("6000"))
+
+    @aioresponses()
+    def test_check_network_successful(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, body=json.dumps({"code": 0}))
+
+        status = self.async_run_with_timeout(self.exchange.check_network())
+
+        self.assertEqual(NetworkStatus.CONNECTED, status)
+
+    @aioresponses()
+    def test_check_network_unsuccessful(self, mock_api):
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, status=404)
+
+        status = self.async_run_with_timeout(self.exchange.check_network())
+
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, status)
+
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange.AscendExExchange.get_price")
+    def test_quantize_order_amount(self, mock_price):
+        self._simulate_trading_rules_initialized()
+
+        mock_price.return_value = Decimal(1)
+
+        amount = self.exchange.quantize_order_amount(self.trading_pair, Decimal(10))
+        self.assertEqual(amount, Decimal(10))
+
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange.AscendExExchange.get_price")
+    def test_quantize_order_amount_insufficient(self, mock_price):
+        self._simulate_trading_rules_initialized()
+
+        mock_price.return_value = Decimal(1)
+
+        amount = self.exchange.quantize_order_amount(self.trading_pair, Decimal(0.00001))
+        self.assertEqual(amount, Decimal(0))
+
+    def test_iter_user_event_queue(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        self.test_task = self.ev_loop.create_task(self._iter_user_event_queue_task())
+
+        is_cancelled = False
+
+        try:
+            self.async_run_with_timeout(self.test_task)
+        except asyncio.exceptions.CancelledError:
+            is_cancelled = True
+
+        self.assertTrue(is_cancelled)
+
+    def test_iter_user_event_queue_error(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = Exception()
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        self.test_task = self.ev_loop.create_task(self._iter_user_event_queue_task())
+
+        try:
+            self.async_run_with_timeout(self.test_task)
+        except Exception:
+            pass
+
+        self.assertTrue(
+            self._is_logged(
+                "NETWORK",
+                "Unknown error. Retrying after 1 seconds."
+            )
+        )
