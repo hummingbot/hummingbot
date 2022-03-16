@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 33
+template_version: 34
 
 # Exchange configs
 
@@ -95,9 +95,6 @@ ascend_ex_secret_key: null
 
 celo_address: null
 celo_password: null
-
-terra_wallet_address: null
-terra_wallet_seeds: null
 
 digifinex_api_key: null
 digifinex_secret_key: null
