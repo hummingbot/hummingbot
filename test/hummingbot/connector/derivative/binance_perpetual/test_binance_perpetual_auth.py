@@ -3,7 +3,6 @@ import copy
 import hashlib
 import hmac
 import unittest
-
 from typing import Awaitable
 from urllib.parse import urlencode
 
@@ -19,13 +18,17 @@ class BinancePerpetualAuthUnitTests(unittest.TestCase):
         cls.api_key = "TEST_API_KEY"
         cls.secret_key = "TEST_SECRET_KEY"
 
-        cls.auth = BinancePerpetualAuth(api_key=cls.api_key, api_secret=cls.secret_key)
-
-        cls.test_params = {"test_param": "test_input"}
-
     def setUp(self) -> None:
         super().setUp()
-        self.test_params = {"test_param": "test_input"}
+        self.emulated_time = 1640001112.223
+        self.test_params = {
+            "test_param": "test_input",
+            "timestamp": int(self.emulated_time * 1e3),
+        }
+        self.auth = BinancePerpetualAuth(
+            api_key=self.api_key,
+            api_secret=self.secret_key,
+            time_provider=self)
 
     def _get_test_payload(self):
         return urlencode(dict(copy.deepcopy(self.test_params)))
@@ -39,21 +42,15 @@ class BinancePerpetualAuthUnitTests(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
+    def time(self):
+        # Implemented to emulate a TimeSynchronizer
+        return self.emulated_time
+
     def test_generate_signature_from_payload(self):
         payload = self._get_test_payload()
         signature = self.auth.generate_signature_from_payload(payload)
 
         self.assertEqual(signature, self._get_signature_from_test_payload())
-
-    def test_rest_authenticate_no_parameters_provided(self):
-        request: RESTRequest = RESTRequest(method=RESTMethod.GET, url="/TEST_PATH_URL", is_auth_required=True)
-
-        signed_request: RESTRequest = self.async_run_with_timeout(self.auth.rest_authenticate(request))
-
-        self.assertIn("X-MBX-APIKEY", signed_request.headers)
-        self.assertEqual(signed_request.headers["X-MBX-APIKEY"], self.api_key)
-        self.assertIsNone(signed_request.params)
-        self.assertIsNone(signed_request.data)
 
     def test_rest_authenticate_parameters_provided(self):
         request: RESTRequest = RESTRequest(
