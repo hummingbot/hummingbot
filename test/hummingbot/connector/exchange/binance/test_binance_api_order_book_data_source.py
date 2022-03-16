@@ -2,14 +2,8 @@ import asyncio
 import json
 import re
 import unittest
-
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    List,
-)
-from unittest.mock import AsyncMock, patch, MagicMock
+from typing import Any, Awaitable, Dict, List
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
 from bidict import bidict
@@ -20,7 +14,6 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -621,4 +614,4 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(12345, msg.update_id)
+        self.assertEqual(1027024, msg.update_id)

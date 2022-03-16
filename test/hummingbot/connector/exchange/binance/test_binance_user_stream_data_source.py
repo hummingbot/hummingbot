@@ -4,16 +4,13 @@ import re
 import unittest
 
 from aioresponses import aioresponses
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    Optional,
-)
+from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_utils as utils
+from hummingbot.connector.exchange.binance import (
+    binance_constants as CONSTANTS,
+    binance_utils as utils,
+)
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -225,7 +222,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         )
 
         msg = self.async_run_with_timeout(msg_queue.get())
-        self.assertTrue(msg, self._user_update_event)
+        self.assertEqual(json.loads(self._user_update_event()), msg)
         mock_ws.return_value.ping.assert_called()
 
     @aioresponses()

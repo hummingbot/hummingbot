@@ -4,20 +4,14 @@ import time
 
 from collections import defaultdict
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, List, Mapping, Optional
 
 from bidict import bidict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.utils import build_api_factory, combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -471,7 +465,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status == 200:
                     data = await response.json()
                     for symbol_data in filter(binance_utils.is_exchange_information_valid, data["symbols"]):
-                        mapping[symbol_data["symbol"]] = f"{symbol_data['baseAsset']}-{symbol_data['quoteAsset']}"
+                        mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                                    quote=symbol_data["quoteAsset"])
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
 

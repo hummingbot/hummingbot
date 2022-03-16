@@ -1,22 +1,15 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
-from typing import (
-    Optional
-)
+from typing import Optional
 
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
-from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-# from kucoin.client import Client as KucoinClient
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 
 class KucoinUserStreamTracker(UserStreamTracker):
@@ -29,19 +22,23 @@ class KucoinUserStreamTracker(UserStreamTracker):
         return cls._kust_logger
 
     def __init__(self,
-                 throttler: AsyncThrottler,
-                 kucoin_auth: Optional[KucoinAuth] = None):
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 throttler: Optional[AsyncThrottler] = None,
+                 api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__()
+        self._domain = domain
         self._throttler = throttler
-        self._kucoin_client: KucoinAuth = kucoin_auth
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
+        self._api_factory = api_factory
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = KucoinAPIUserStreamDataSource(self._throttler, kucoin_auth=self._kucoin_client)
+            self._data_source = KucoinAPIUserStreamDataSource(
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler)
         return self._data_source
 
     @property
