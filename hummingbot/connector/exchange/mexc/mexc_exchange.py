@@ -414,10 +414,8 @@ class MexcExchange(ExchangeBase):
                                                                       tracked_order.client_order_id,
                                                                       tracked_order.base_asset,
                                                                       tracked_order.quote_asset,
-                                                                      tracked_order.fee_asset or tracked_order.quote_asset,
                                                                       tracked_order.executed_amount_base,
                                                                       tracked_order.executed_amount_quote,
-                                                                      tracked_order.fee_paid,
                                                                       tracked_order.order_type))
                         elif tracked_order.trade_type is TradeType.SELL:
                             self.logger().info(
@@ -428,10 +426,8 @@ class MexcExchange(ExchangeBase):
                                                                        tracked_order.client_order_id,
                                                                        tracked_order.base_asset,
                                                                        tracked_order.quote_asset,
-                                                                       tracked_order.fee_asset or tracked_order.quote_asset,
                                                                        tracked_order.executed_amount_base,
                                                                        tracked_order.executed_amount_quote,
-                                                                       tracked_order.fee_paid,
                                                                        tracked_order.order_type))
                         continue
                     if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
@@ -560,10 +556,8 @@ class MexcExchange(ExchangeBase):
                                                           tracked_order.client_order_id,
                                                           tracked_order.base_asset,
                                                           tracked_order.quote_asset,
-                                                          tracked_order.fee_asset or tracked_order.quote_asset,
                                                           tracked_order.executed_amount_base,
                                                           tracked_order.executed_amount_quote,
-                                                          tracked_order.fee_paid,
                                                           tracked_order.order_type))
             elif tracked_order.trade_type is TradeType.SELL:
                 self.logger().info(
@@ -574,10 +568,8 @@ class MexcExchange(ExchangeBase):
                                                            tracked_order.client_order_id,
                                                            tracked_order.base_asset,
                                                            tracked_order.quote_asset,
-                                                           tracked_order.fee_asset or tracked_order.quote_asset,
                                                            tracked_order.executed_amount_base,
                                                            tracked_order.executed_amount_quote,
-                                                           tracked_order.fee_paid,
                                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
             return
