@@ -29,6 +29,7 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
+from hummingbot.client.settings import (AllConnectorSettings)
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -91,6 +92,8 @@ class GatewayEVMAMM(ConnectorBase):
         self._poll_notifier = None
         self._nonce = None
         self._native_currency = "ETH"  # make ETH the default asset
+        # name to lookup connector setting from AllConnectorSettings
+        self._setting_name = f"{self.connector_name}_{self.chain}_{self.network}"
 
     @property
     def connector_name(self):
@@ -154,6 +157,12 @@ class GatewayEVMAMM(ConnectorBase):
     def is_pending_approval(self, token: str) -> bool:
         pending_approval_tokens = [tk.split("_")[2] for tk in self._in_flight_orders.keys()]
         return True if token in pending_approval_tokens else False
+
+    async def update_connector_flat_fees(self, token: str, gas_price: Decimal):
+        connector_setting = AllConnectorSettings.get_connector_settings().get(self.setting_name)
+        if connector_setting:
+            connector_setting.trade_fee_schema.flat_fees = [TokenAmount(token, gas_price)]
+            AllConnectorSettings.update_connector_setting(connector_setting)
 
     async def get_chain_info(self):
         """

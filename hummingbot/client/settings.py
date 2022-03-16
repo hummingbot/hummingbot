@@ -278,6 +278,10 @@ class AllConnectorSettings:
     def get_example_assets(cls) -> Dict[str, str]:
         return {name: cs.example_pair.split("-")[0] for name, cs in cls.get_connector_settings().items()}
 
+    @classmethod
+    def update_connector_setting(cls, connector: str, connector_setting: ConnectorSetting):
+        cls.all_connector_settings.update({f"{connector}": connector_setting})
+
     @staticmethod
     def _validate_trade_fee_schema(
         exchange_name: str, trade_fee_schema: Optional[Union[TradeFeeSchema, List[float]]]
