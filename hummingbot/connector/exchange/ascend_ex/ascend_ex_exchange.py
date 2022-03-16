@@ -1065,7 +1065,7 @@ class AscendExExchange(ExchangePyBase):
 
         request = RESTRequest(method=RESTMethod.GET,
                               url=url,
-                              path_url=CONSTANTS.INFO_PATH_URL,
+                              endpoint_url=CONSTANTS.INFO_PATH_URL,
                               is_auth_required=True)
 
         async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
@@ -1118,7 +1118,7 @@ class AscendExExchange(ExchangePyBase):
 
         request = RESTRequest(method=method,
                               url=url,
-                              path_url=path_url_auth if is_auth_required else path_url,
+                              endpoint_url=path_url_auth if is_auth_required else path_url,
                               data=data,
                               params=params,
                               is_auth_required=is_auth_required)

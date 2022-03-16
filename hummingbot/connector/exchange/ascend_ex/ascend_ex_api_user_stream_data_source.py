@@ -71,7 +71,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url = f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}"
                 request = RESTRequest(method=RESTMethod.GET,
                                       url=url,
-                                      path_url=CONSTANTS.INFO_PATH_URL,
+                                      endpoint_url=CONSTANTS.INFO_PATH_URL,
                                       is_auth_required=True)
 
                 async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
