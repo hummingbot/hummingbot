@@ -18,6 +18,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
 from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
 
+
 def start(self):
     def convert_decimal_string_to_list(string: Optional[str], divisor: Decimal = Decimal("1")) -> List[Decimal]:
         '''convert order level spread string into a list of decimal divided by divisor '''

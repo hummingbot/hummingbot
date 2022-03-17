@@ -15,7 +15,7 @@ class MovingPriceBandUnitTest(unittest.TestCase):
             price_band_refresh_time=86400,
         )
         self.price = 100
-    
+
     def test_update(self):
         self.moving_price_band.update(self.price)
         self.assertEqual(self.moving_price_band.price_floor, Decimal("99"))
@@ -33,6 +33,7 @@ class MovingPriceBandUnitTest(unittest.TestCase):
         self.moving_price_band.check_and_update_price_band(Decimal("200"))
         self.assertEqual(self.moving_price_band.price_floor, Decimal("198"))
         self.assertEqual(self.moving_price_band.price_ceiling, Decimal("202"))
+
 
 if __name__ == "__main__":
     unittest.main()
