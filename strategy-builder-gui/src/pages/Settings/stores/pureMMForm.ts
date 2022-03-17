@@ -1,12 +1,12 @@
 import { StrategyName } from 'src/stores/strategies';
 import { ref } from 'vue';
 
-import { $Form, BtnToggleType, FileMap, OrderType } from './form.types';
+import { $Form, BtnToggleType, FileMap } from './form.types';
 
-export const defaultOrder: OrderType = {
-  value: ref(BtnToggleType.Sell),
+export const defaultOrder = {
+  value: BtnToggleType.Sell,
   orderAmount: {
-    value: ref(0),
+    value: 0,
     properties: {
       min: 0,
       max: 1,
@@ -14,7 +14,7 @@ export const defaultOrder: OrderType = {
     },
   },
   orderLevelParam: {
-    value: ref(0),
+    value: 0,
     properties: {
       min: 0,
       max: 1,

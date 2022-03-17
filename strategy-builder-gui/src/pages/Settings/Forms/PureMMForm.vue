@@ -228,9 +228,9 @@
         v-bind="{ ...customApiUpdateInterval.properties }"
       />
     </Field>
-    <Field>
+    <Field class="q-gutter-xs justify-center">
       <Order
-        v-for="(order, index) in computedOrders.value"
+        v-for="(order, index) in displayOrders.value"
         :key="index"
         :title="`Order ${index + 1}`"
         hint="Order hint"
@@ -274,7 +274,7 @@
 </template>
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { computed, defineComponent, ref } from 'vue';
+import { computed, defineComponent, ref, watch } from 'vue';
 
 import Counter, { CounterType } from '../components/Counter.vue';
 import Field from '../components/Field.vue';
@@ -282,7 +282,7 @@ import Input, { InputType } from '../components/Input.vue';
 import Order from '../components/Order.vue';
 import Select from '../components/Select/Index.vue';
 import { BtnToggleType, useForm } from '../composables/useForm';
-import { Orders, OrderType } from '../stores/form.types';
+import { useOrders } from '../composables/useOrders';
 
 enum FormType {
   Basic,
@@ -296,30 +296,29 @@ export default defineComponent({
   emits: ['update:formType'],
 
   setup() {
-    const { fields, defaultOrder } = useForm(ref(StrategyName.PureMarketMaking));
+    const strategyName = ref(StrategyName.PureMarketMaking);
+    const { fields } = useForm(strategyName);
     const formType = ref(FormType.Basic);
-    const computedOrders = computed(() => {
-      const { list } = fields.orders as Orders;
+    const { computedOrders, addOrder, removeLastOrder } = useOrders(strategyName);
 
-      return list;
+    const displayOrders = computed(() => computedOrders);
+
+    watch(fields.orderLevels.value, (value, prev) => {
+      if (value > prev) {
+        addOrder();
+      } else {
+        removeLastOrder();
+      }
     });
 
-    const click = () => {
-      const { list } = fields.orders as Orders;
-      list.push(defaultOrder);
-
-      console.log(computedOrders.value);
-    };
-
     return {
-      click,
       ...fields,
       CounterType,
       InputType,
       formType,
       FormType,
       BtnToggleType,
-      computedOrders,
+      displayOrders,
     };
   },
 });
