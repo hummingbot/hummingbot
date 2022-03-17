@@ -194,7 +194,6 @@ jobs:
           gasStationURL: 'https://ethgasstation.info/api/ethgasAPI.json?api-key='
           APIKey: "$ETH_GAS_STATION_API_KEY"
           gasLevel: fast
-          refreshTime: 60
           EOF
 
       - name: Create yml passphrase file
