@@ -295,7 +295,7 @@ export default defineComponent({
     const strategyName = ref(StrategyName.PureMarketMaking);
     const { fields, init } = useForm(strategyName);
     const formType = ref(FormType.Basic);
-    const { computedOrders, addOrder, removeLastOrder } = useOrders(strategyName);
+    const { computedOrders, add, removeLast } = useOrders(strategyName);
 
     init();
 
@@ -303,9 +303,9 @@ export default defineComponent({
 
     watch(fields.orderLevels.value, (value, prev) => {
       if (value > prev) {
-        addOrder();
+        add();
       } else {
-        removeLastOrder();
+        removeLast();
       }
     });
 

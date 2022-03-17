@@ -11,13 +11,13 @@ export const useOrders = (strategyName: Ref<StrategyName>) => {
   $form[strategyName.value].orders.value.value = [];
   const computedOrders = $form[strategyName.value].orders.value as Ref<OrderType[]>;
 
-  const addOrder = () => {
+  const add = () => {
     computedOrders.value.push(JSON.parse(JSON.stringify(defaultOrder)));
   };
 
-  const removeLastOrder = () => {
+  const removeLast = () => {
     computedOrders.value.pop();
   };
 
-  return { computedOrders, addOrder, removeLastOrder };
+  return { computedOrders, add, removeLast };
 };
