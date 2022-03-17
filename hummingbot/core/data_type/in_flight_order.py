@@ -32,8 +32,8 @@ class OrderState(Enum):
 
 class OrderUpdate(NamedTuple):
     trading_pair: str
-    update_timestamp: float  # seconds
     new_state: OrderState
+    update_timestamp: Optional[float] = None  # seconds
     client_order_id: Optional[str] = None
     exchange_order_id: Optional[str] = None
 
@@ -319,7 +319,7 @@ class InFlightOrder:
 
         updated: bool = prev_data != (self.exchange_order_id, self.current_state)
 
-        if updated:
+        if updated and order_update.update_timestamp is not None:
             self.last_update_timestamp = order_update.update_timestamp
 
         return updated
