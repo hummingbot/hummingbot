@@ -47,6 +47,8 @@ class UserBalances:
     async def add_exchange(self, exchange, **api_details) -> Optional[str]:
         self._markets.pop(exchange, None)
         market = UserBalances.connect_market(exchange, **api_details)
+        if not market:
+            return "API keys have not been added."
         err_msg = await UserBalances._update_balances(market)
         if err_msg is None:
             self._markets[exchange] = market
