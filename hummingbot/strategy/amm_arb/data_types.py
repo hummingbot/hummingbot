@@ -59,10 +59,12 @@ class ArbProposal:
         self.first_side: ArbProposalSide = first_side
         self.second_side: ArbProposalSide = second_side
 
-    def profit_pct(self, account_for_fee: bool = False,
+    def profit_pct(self,
+                   flat_fee_token: str,
+                   account_for_fee: bool = False,
                    rate_source: RateOracle = None,
-                   first_side_quote_eth_rate: Decimal = None,
-                   second_side_quote_eth_rate: Decimal = None) -> Decimal:
+                   first_side_quote_flat_fee_token_rate: Decimal = None,
+                   second_side_quote_flat_fee_token_rate: Decimal = None) -> Decimal:
         """
         Returns a profit in percentage value (e.g. 0.01 for 1% profitability)
         Assumes the base token is the same in both arbitrage sides
@@ -89,22 +91,24 @@ class ArbProposal:
             if account_for_fee:
                 buy_trade_fee = estimate_fee(buy.market_info.market.name, False)
                 sell_trade_fee = estimate_fee(sell.market_info.market.name, False)
-                buy_quote_eth_rate = (first_side_quote_eth_rate
-                                      if self.first_side.is_buy
-                                      else second_side_quote_eth_rate)
-                sell_quote_eth_rate = (first_side_quote_eth_rate
-                                       if not self.first_side.is_buy
-                                       else second_side_quote_eth_rate)
-                if buy_quote_eth_rate is not None and buy_trade_fee.flat_fees[0].token.upper() == "ETH":
-                    buy_fee_amount = buy_trade_fee.flat_fees[0].amount / buy_quote_eth_rate
+                buy_quote_flat_fee_token_rate = (first_side_quote_flat_fee_token_rate
+                                                 if self.first_side.is_buy
+                                                 else second_side_quote_flat_fee_token_rate)
+                sell_quote_flat_fee_token_rate = (first_side_quote_flat_fee_token_rate
+                                                  if not self.first_side.is_buy
+                                                  else second_side_quote_flat_fee_token_rate)
+                if buy_quote_flat_fee_token_rate is not None and \
+                        buy_trade_fee.flat_fees[0].token.upper() == flat_fee_token:
+                    buy_fee_amount = buy_trade_fee.flat_fees[0].amount / buy_quote_flat_fee_token_rate
                 else:
                     buy_fee_amount = buy_trade_fee.fee_amount_in_token(buy.market_info.trading_pair,
                                                                        buy.quote_price,
                                                                        buy.amount,
                                                                        token=buy.market_info.quote_asset,
                                                                        rate_source=rate_source)
-                if sell_quote_eth_rate is not None and sell_trade_fee.flat_fees[0].token.upper() == "ETH":
-                    sell_fee_amount = sell_trade_fee.flat_fees[0].amount / sell_quote_eth_rate
+                if sell_quote_flat_fee_token_rate is not None and \
+                        sell_trade_fee.flat_fees[0].token.upper() == flat_fee_token:
+                    sell_fee_amount = sell_trade_fee.flat_fees[0].amount / sell_quote_flat_fee_token_rate
                 else:
                     sell_fee_amount = sell_trade_fee.fee_amount_in_token(sell.market_info.trading_pair,
                                                                          sell.quote_price,

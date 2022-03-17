@@ -85,8 +85,8 @@ class AmmArbStrategy(StrategyPyBase):
         self.add_markets([market_info_1.market, market_info_2.market])
         self._uniswap = None
         self._quote_eth_rate_fetch_loop_task = None
-        self._market_1_quote_eth_rate = None
-        self._market_2_quote_eth_rate = None
+        self._market_1_quote_flat_fee_token_rate = None
+        self._market_2_quote_flat_fee_token_rate = None
 
         self._rate_source = RateOracle.get_instance()
 
@@ -133,10 +133,11 @@ class AmmArbStrategy(StrategyPyBase):
         arb_proposals = [
             t.copy() for t in self._arb_proposals
             if t.profit_pct(
+                flat_fee_token="ETH",
                 account_for_fee=True,
                 rate_source=self._rate_source,
-                first_side_quote_eth_rate=self._market_1_quote_eth_rate,
-                second_side_quote_eth_rate=self._market_2_quote_eth_rate
+                first_side_quote_flat_fee_token_rate=self._market_1_quote_flat_fee_token_rate,
+                second_side_quote_flat_fee_token_rate=self._market_2_quote_flat_fee_token_rate
             ) >= self._min_profitability
         ]
         if len(arb_proposals) == 0:
@@ -239,10 +240,11 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
-            profit_pct = proposal.profit_pct(True,
+            profit_pct = proposal.profit_pct(flat_fee_token="ETH",
+                                             account_for_fee=True,
                                              rate_source=self._rate_source,
-                                             first_side_quote_eth_rate=self._market_1_quote_eth_rate,
-                                             second_side_quote_eth_rate = self._market_2_quote_eth_rate)
+                                             first_side_quote_flat_fee_token_rate=self._market_1_quote_flat_fee_token_rate,
+                                             second_side_quote_flat_fee_token_rate=self._market_2_quote_flat_fee_token_rate)
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
                          f"{profit_pct:.2%}")
