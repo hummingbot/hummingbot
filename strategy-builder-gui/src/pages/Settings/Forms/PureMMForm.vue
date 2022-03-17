@@ -293,9 +293,11 @@ export default defineComponent({
 
   setup() {
     const strategyName = ref(StrategyName.PureMarketMaking);
-    const { fields } = useForm(strategyName);
+    const { fields, init } = useForm(strategyName);
     const formType = ref(FormType.Basic);
     const { computedOrders, addOrder, removeLastOrder } = useOrders(strategyName);
+
+    init();
 
     const displayOrders = computed(() => computedOrders);
 

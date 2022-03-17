@@ -11,8 +11,6 @@ export const useOrders = (strategyName: Ref<StrategyName>) => {
   $form[strategyName.value].orders.value.value = [];
   const computedOrders = $form[strategyName.value].orders.value as Ref<OrderType[]>;
 
-  const orderLevels = $form[strategyName.value].orderLevels.value.value;
-
   const addOrder = () => {
     computedOrders.value.push(JSON.parse(JSON.stringify(defaultOrder)));
   };
@@ -20,10 +18,6 @@ export const useOrders = (strategyName: Ref<StrategyName>) => {
   const removeLastOrder = () => {
     computedOrders.value.pop();
   };
-
-  for (let i = 0; i < orderLevels; i += 1) {
-    addOrder();
-  }
 
   return { computedOrders, addOrder, removeLastOrder };
 };
