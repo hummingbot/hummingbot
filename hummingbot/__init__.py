@@ -130,7 +130,6 @@ def chdir_to_data_directory():
 
 def init_logging(conf_filename: str,
                  override_log_level: Optional[str] = None,
-                 dev_mode: bool = False,
                  strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
