@@ -224,7 +224,7 @@
         v-bind="{ ...customApiUpdateInterval.properties }"
       />
     </Field>
-    <Field class="q-gutter-xs justify-center">
+    <Field class="q-gutter-y-md" :orders-field="true">
       <Order
         v-for="(order, index) in displayOrders.value"
         :key="index"

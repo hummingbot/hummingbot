@@ -1,5 +1,8 @@
 <template>
-  <div class="row justify-between items-center q-pb-md border">
+  <div
+    class="row items-center q-pb-md border"
+    :class="ordersField ? 'justify-around' : 'justify-between'"
+  >
     <div v-if="title" class="row text-body1 text-white items-center">
       {{ title }}
       <q-icon v-if="hint" :name="`img:${require('../hint.svg')}`" class="q-ml-xs">
@@ -24,6 +27,7 @@ export default defineComponent({
   props: {
     title: { type: String, required: false, default: () => '' },
     hint: { type: String, required: false, default: () => '' },
+    ordersField: { type: Boolean, required: false, default: () => false },
   },
 });
 </script>
