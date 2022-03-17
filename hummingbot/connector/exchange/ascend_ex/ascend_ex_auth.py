@@ -23,10 +23,7 @@ class AscendExAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         """
         # Generates auth headers
-        if request.is_auth_required:
-            headers_auth = self.get_auth_headers(request.endpoint_url)
-        else:
-            headers_auth = {}
+        headers_auth = self.get_auth_headers(request.endpoint_url)
 
         headers = {}
         if request.headers is not None:
