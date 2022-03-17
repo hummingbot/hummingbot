@@ -41,7 +41,7 @@ export default defineComponent({
     const { values, init } = useForm(strategyName);
     init();
 
-    const fileHref = useFileHref(strategyName); // TODO: sort  values and rename fields, based on template
+    const fileHref = useFileHref(strategyName);
     const displaySaveForm = computed(() => steps.current.value === steps.count);
     const fileName = computed(() => values.value.fileName);
 

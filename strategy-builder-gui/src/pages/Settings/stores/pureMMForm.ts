@@ -57,6 +57,7 @@ export const pureMMFormFileFieldsMap: FileMap = {
   priceSourceCustomApi: 'price_source_custom_api',
   customApiUpdateInterval: 'custom_api_update_interval',
   maxOrderAge: 'max_order_age',
+  orders: 'orders',
 };
 
 export const $pureMMForm: $Form = {
