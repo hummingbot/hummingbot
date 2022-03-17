@@ -160,13 +160,13 @@ class TradeVolumeMetricCollector(MetricsCollector):
             for fill_event in events:
                 trade_base, trade_quote = split_hb_trading_pair(fill_event.trading_pair)
                 from_quote_conversion_pair = combine_to_hb_trading_pair(base=trade_quote, quote=self._valuation_token)
-                rate = self._rate_provider.rate(from_quote_conversion_pair)
+                rate = await self._rate_provider.stored_or_live_rate(from_quote_conversion_pair)
 
                 if rate is not None:
                     total_volume += fill_event.amount * fill_event.price * rate
                 else:
                     from_base_conversion_pair = combine_to_hb_trading_pair(base=trade_base, quote=self._valuation_token)
-                    rate = self._rate_provider.rate(from_base_conversion_pair)
+                    rate = await self._rate_provider.stored_or_live_rate(from_base_conversion_pair)
                     if rate is not None:
                         total_volume += fill_event.amount * rate
                     else:

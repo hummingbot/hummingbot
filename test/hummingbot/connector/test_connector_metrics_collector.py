@@ -5,7 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import hummingbot.connector.connector_metrics_collector
 from hummingbot.client.config.config_var import ConfigVar
@@ -215,6 +215,17 @@ class TradeVolumeMetricCollectorTests(TestCase):
         self.assertEqual(expected_dispatch_request, dispatched_metric)
 
     def test_metrics_not_collected_when_convertion_rate_to_volume_token_not_found(self):
+        mock_rate_oracle = MagicMock()
+        mock_rate_oracle.stored_or_live_rate = AsyncMock(return_value=None)
+
+        local_collector = TradeVolumeMetricCollector(
+            connector=self.connector_mock,
+            activation_interval=10,
+            metrics_dispatcher=self.dispatcher_mock,
+            rate_provider=mock_rate_oracle,
+            instance_id=self.instance_id,
+            client_version=self.client_version)
+
         event = OrderFilledEvent(
             timestamp=1000,
             order_id="OID1",
@@ -225,7 +236,7 @@ class TradeVolumeMetricCollectorTests(TestCase):
             amount=Decimal(1),
             trade_fee=AddedToCostTradeFee(),
         )
-        self.async_run_with_timeout(self.metrics_collector.collect_metrics([event]))
+        self.async_run_with_timeout(local_collector.collect_metrics([event]))
 
         self.dispatcher_mock.request.assert_not_called()
 
