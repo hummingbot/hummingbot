@@ -6,7 +6,6 @@ from decimal import Decimal
 from typing import List, Dict, Tuple, Optional
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -14,7 +13,6 @@ from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.amm_arb.data_types import ArbProposalSide
 from hummingbot.strategy.amm_arb.utils import create_arb_proposals, ArbProposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -189,21 +187,6 @@ class AmmArbStrategy(StrategyPyBase):
                                        f"({balance}) is below required order amount ({required}).")
                     continue
 
-    def prioritize_amm_exchanges(self, arb_proposal: ArbProposal) -> ArbProposal:
-        # TODO: Check if both sides are not part of the EVM_AMM exchanges
-
-        proposal_sides: ArbProposalSide = [arb_proposal.first_side, arb_proposal.second_side]
-
-        active_markets: List[str] = [side.market_info.market.name for side in proposal_sides]
-        if not all([market in AllConnectorSettings.get_gateway_evm_amm_connector_names() for market in active_markets]):
-            return arb_proposal
-
-        results = []
-        for idx, side in enumerate(proposal_sides):
-            pass
-
-        return results
-
     async def execute_arb_proposals(self, arb_proposals: List[ArbProposal]):
         """
         Execute both sides of the arbitrage trades. If concurrent_orders_submission is False, it will wait for the
@@ -214,10 +197,6 @@ class AmmArbStrategy(StrategyPyBase):
             if any(p.amount <= s_decimal_zero for p in (arb_proposal.first_side, arb_proposal.second_side)):
                 continue
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
-
-            # TODO: Ensure that a AMM exchange is the first side of the arbritrage proposal
-            if not self._concurrent_orders_submission:
-                arb_proposal = self.prioritize_amm_exchanges(arb_proposal)
 
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
