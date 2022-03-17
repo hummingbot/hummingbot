@@ -188,7 +188,7 @@ class AmmArbStrategy(StrategyPyBase):
                                        f"({balance}) is below required order amount ({required}).")
                     continue
 
-    def prioritize_amm_exchanges(self, arb_proposal: ArbProposal) -> ArbProposal:
+    def prioritize_evm_exchanges(self, arb_proposal: ArbProposal) -> ArbProposal:
         """
         Prioritize the EVM exchanges in the arbitrage proposals
 
@@ -218,7 +218,7 @@ class AmmArbStrategy(StrategyPyBase):
                 continue
 
             if not self._concurrent_orders_submission:
-                arb_proposal = self.prioritize_amm_exchanges(arb_proposal)
+                arb_proposal = self.prioritize_evm_exchanges(arb_proposal)
 
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
 
