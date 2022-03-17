@@ -7,7 +7,8 @@ import copy
 import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.gateway import gateway_http_client, check_transaction_exceptions
+from hummingbot.core.gateway import check_transaction_exceptions
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -121,7 +122,7 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the tokens endpoint on Gateway.
         """
         try:
-            tokens = await gateway_http_client.get_tokens(chain, network)
+            tokens = await GatewayHttpClient.get_instance().get_tokens(chain, network)
             token_symbols = [t["symbol"] for t in tokens["tokens"]]
             trading_pairs = []
             for base, quote in it.permutations(token_symbols, 2):
@@ -167,7 +168,7 @@ class GatewayEVMAMM(ConnectorBase):
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
         """
         try:
-            self._chain_info = await gateway_http_client.get_network_status(chain=self.chain, network=self.network)
+            self._chain_info = await GatewayHttpClient.get_instance().get_network_status(chain=self.chain, network=self.network)
             if type(self._chain_info) != list:
                 self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
         except Exception as e:
@@ -194,7 +195,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         order_id = f"approve_{self.connector_name}_{token_symbol}"
         await self._update_nonce()
-        resp: Dict[str, Any] = await gateway_http_client.approve_token(
+        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
             self.chain,
             self.network,
             self.address,
@@ -220,7 +221,7 @@ class GatewayEVMAMM(ConnectorBase):
         :return: A dictionary of token and its allowance.
         """
         ret_val = {}
-        resp: Dict[str, Any] = await gateway_http_client.get_allowances(
+        resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_allowances(
             self.chain, self.network, self.address, list(self._tokens), self.connector_name
         )
         for token, amount in resp["approvals"].items():
@@ -240,7 +241,7 @@ class GatewayEVMAMM(ConnectorBase):
         try:
             base, quote = trading_pair.split("-")
             side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
-            resp: Dict[str, Any] = await gateway_http_client.get_price(
+            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
             required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
@@ -352,7 +353,7 @@ class GatewayEVMAMM(ConnectorBase):
 
         await self._update_nonce()
         try:
-            order_result: Dict[str, Any] = await gateway_http_client.amm_trade(
+            order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
                 self.chain,
                 self.network,
                 self.connector_name,
@@ -446,7 +447,7 @@ class GatewayEVMAMM(ConnectorBase):
                 if tracked_order.last_state == "PENDING_CREATE":
                     continue
                 tx_hash: str = await tracked_order.get_exchange_order_id()
-                tasks.append(gateway_http_client.get_transaction_status(self.chain, self.network, tx_hash))
+                tasks.append(GatewayHttpClient.get_instance().get_transaction_status(self.chain, self.network, tx_hash))
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for tracked_order, update_result in zip(tracked_orders, update_results):
                 self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
@@ -563,7 +564,7 @@ class GatewayEVMAMM(ConnectorBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            if await gateway_http_client.ping_gateway():
+            if await GatewayHttpClient.get_instance().ping_gateway():
                 return NetworkStatus.CONNECTED
         except asyncio.CancelledError:
             raise
@@ -584,7 +585,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Call the gateway API to get the current nonce for self.address
         """
-        resp_json = await gateway_http_client.get_evm_nonce(self.chain, self.network, self.address)
+        resp_json = await GatewayHttpClient.get_instance().get_evm_nonce(self.chain, self.network, self.address)
         self._nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
@@ -614,7 +615,7 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            resp_json: Dict[str, Any] = await gateway_http_client.get_balances(
+            resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
                 self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
             )
             for token, bal in resp_json["balances"].items():
