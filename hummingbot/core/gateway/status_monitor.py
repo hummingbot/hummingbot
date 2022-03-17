@@ -3,7 +3,7 @@ from enum import Enum
 import logging
 from typing import Optional
 
-from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 POLL_INTERVAL = 2.0
@@ -45,7 +45,7 @@ class StatusMonitor:
     async def _monitor_loop(self):
         while True:
             try:
-                if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
+                if await asyncio.wait_for(GatewayHttpClient.get_instance().ping_gateway(), timeout=POLL_TIMEOUT):
                     self._current_status = Status.ONLINE
                 else:
                     self._current_status = Status.OFFLINE
