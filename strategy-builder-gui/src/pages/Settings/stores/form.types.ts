@@ -37,18 +37,18 @@ export interface BtnToggle {
   value: Ref<BtnToggleType>;
 }
 
-export interface OrderType {
+export interface Order {
   value: Ref<BtnToggleType>;
   orderAmount: Counter;
   orderLevelParam: Counter;
 }
 
 export interface Orders {
-  value: Ref<OrderType[]>;
+  value: Ref<Order[]>;
 }
 
 export interface $Form {
-  [key: string]: Counter | Select | Toggle | Input | BtnToggle | Orders | OrderType;
+  [key: string]: Counter | Select | Toggle | Input | BtnToggle | Orders | Order;
 }
 
 export type $Forms = {

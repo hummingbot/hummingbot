@@ -2,7 +2,7 @@ import { StrategyName } from 'src/stores/strategies';
 import { computed, Ref } from 'vue';
 
 import { $fileMap } from '../stores/form';
-import { OrderType } from '../stores/form.types';
+import { Order } from '../stores/form.types';
 import { useForm } from './useForm';
 
 export const useFileHref = (strategyName: Ref<StrategyName>) => {
@@ -14,7 +14,7 @@ export const useFileHref = (strategyName: Ref<StrategyName>) => {
         values.value[key] === undefined ? '' : values.value[key];
 
       if (fieldName === 'orders') {
-        const ordersArr: OrderType[] = JSON.parse(JSON.stringify(fieldValue));
+        const ordersArr: Order[] = JSON.parse(JSON.stringify(fieldValue));
         const ordersFormatArr: string[] = [];
         ordersArr.forEach((val, index) => {
           ordersFormatArr.push(

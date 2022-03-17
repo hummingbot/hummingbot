@@ -2,12 +2,12 @@ import { StrategyName } from 'src/composables/useStrategies';
 import { computed, Ref } from 'vue';
 
 import { $form } from '../stores/form';
-import { FormValue, OrderType } from '../stores/form.types';
+import { FormValue, Order } from '../stores/form.types';
 import { defaultOrder } from '../stores/pureMMForm';
 
 export { BtnToggleType } from '../stores/form.types';
 
-const fixValue = (value: number | string | boolean | OrderType[]) => {
+const fixValue = (value: number | string | boolean | Order[]) => {
   if (typeof value === 'number') {
     return Number(value.toFixed(2));
   }
