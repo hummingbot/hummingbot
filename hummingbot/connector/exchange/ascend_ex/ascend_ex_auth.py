@@ -3,8 +3,8 @@ import hmac
 from typing import Any, Dict
 
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ms_timestamp
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
 class AscendExAuth(AuthBase):
