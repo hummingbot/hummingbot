@@ -197,6 +197,7 @@ class AmmArbStrategy(StrategyPyBase):
             if any(p.amount <= s_decimal_zero for p in (arb_proposal.first_side, arb_proposal.second_side)):
                 continue
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
+
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
                     await self._first_order_done_event.wait()
@@ -321,7 +322,7 @@ class AmmArbStrategy(StrategyPyBase):
     def did_expire_order(self, expired_event):
         self.first_order_done(expired_event, False)
 
-    def first_order_done(self, event, succeeded):
+    def first_order_done(self, event, succeeded: bool):
         if self._first_order_done_event is not None and event.order_id == self._first_order_id:
             self._first_order_done_event.set()
             self._first_order_succeeded = succeeded

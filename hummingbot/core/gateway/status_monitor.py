@@ -3,7 +3,7 @@ from enum import Enum
 import logging
 from typing import Optional
 
-from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.settings import GATEWAY_CONNECTORS
 
@@ -46,9 +46,9 @@ class StatusMonitor:
     async def _monitor_loop(self):
         while True:
             try:
-                if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
+                if await asyncio.wait_for(GatewayHttpClient.get_instance().ping_gateway(), timeout=POLL_TIMEOUT):
                     if self._current_status is Status.OFFLINE:
-                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
+                        gateway_connectors = await GatewayHttpClient.get_instance().get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
                     self._current_status = Status.ONLINE
