@@ -44,8 +44,7 @@ export interface OrderType {
 }
 
 export interface Orders {
-  value: Ref<number>;
-  list: OrderType[];
+  value: Ref<OrderType[]>;
 }
 
 export interface $Form {

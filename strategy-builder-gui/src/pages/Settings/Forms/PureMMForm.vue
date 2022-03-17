@@ -85,10 +85,6 @@
         v-bind="{ ...orderLevels.properties }"
       />
     </Field>
-    <q-btn @click="click">+</q-btn>
-    <div v-for="item in orders.value.value" :key="item">
-      {{ item }}
-    </div>
     <Field title="Order level amount">
       <Counter
         v-model="orderLevelAmount.value.value"

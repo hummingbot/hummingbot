@@ -1,15 +1,15 @@
 import { StrategyName } from 'src/composables/useStrategies';
-import { Ref, ref } from 'vue';
+import { Ref } from 'vue';
 
 import { $form } from '../stores/form';
-import { Orders } from '../stores/form.types';
+import { OrderType } from '../stores/form.types';
 import { defaultOrder } from '../stores/pureMMForm';
 
 export { BtnToggleType } from '../stores/form.types';
 
 export const useOrders = (strategyName: Ref<StrategyName>) => {
-  const { list } = $form[strategyName.value].orders as Orders;
-  const computedOrders = ref(list);
+  $form[strategyName.value].orders.value.value = [];
+  const computedOrders = $form[strategyName.value].orders.value as Ref<OrderType[]>;
 
   const orderLevels = $form[strategyName.value].orderLevels.value.value;
 

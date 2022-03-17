@@ -289,8 +289,7 @@ export const $pureMMForm: $Form = {
   },
 
   orders: {
-    value: ref(0),
-    list: [],
+    value: ref([]),
   },
 
   order_1_SecondCounter: {
