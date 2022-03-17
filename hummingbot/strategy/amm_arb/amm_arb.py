@@ -188,14 +188,14 @@ class AmmArbStrategy(StrategyPyBase):
                                        f"({balance}) is below required order amount ({required}).")
                     continue
 
-    def prioritize_amm_exchanges(self, arb_proposal: ArbProposal) -> None:
+    def prioritize_amm_exchanges(self, arb_proposal: ArbProposal) -> ArbProposal:
         """
         Prioritize the EVM exchanges in the arbitrage proposals
 
         :param arb_proposal: The arbitrage proposal from which the sides are to be prioritized.
         :type arb_proposal: ArbProposal
-        :return: None
-        :rtype: None
+        :return: A new ArbProposal object with evm exchanges prioritized.
+        :rtype: ArbProposal
         """
 
         results = []
@@ -205,7 +205,7 @@ class AmmArbStrategy(StrategyPyBase):
             else:
                 results.append(side)
 
-        arb_proposal = ArbProposal(first_side=results[0], second_side=results[1])
+        return ArbProposal(first_side=results[0], second_side=results[1])
 
     async def execute_arb_proposals(self, arb_proposals: List[ArbProposal]):
         """
