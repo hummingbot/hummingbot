@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.client.settings import (AllConnectorSettings)
+from hummingbot.client.settings import AllConnectorSettings
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -91,8 +91,6 @@ class GatewayEVMAMM(ConnectorBase):
         self._poll_notifier = None
         self._nonce = None
         self._native_currency = "ETH"  # make ETH the default asset
-        # name to lookup connector setting from AllConnectorSettings
-        self._setting_name = f"{self.connector_name}_{self.chain}_{self.network}"
 
     @property
     def connector_name(self):
@@ -157,11 +155,12 @@ class GatewayEVMAMM(ConnectorBase):
         pending_approval_tokens = [tk.split("_")[2] for tk in self._in_flight_orders.keys()]
         return True if token in pending_approval_tokens else False
 
-    async def update_connector_flat_fees(self, token: str, gas_price: Decimal):
-        connector_setting = AllConnectorSettings.get_connector_settings().get(self.setting_name)
-        if connector_setting:
-            connector_setting.trade_fee_schema.flat_fees = [TokenAmount(token, gas_price)]
-            AllConnectorSettings.update_connector_setting(connector_setting)
+    def _update_connector_fees(self, token: str, gas_price: Decimal, is_maker: bool):
+        connector_setting = AllConnectorSettings[self.name]
+        if is_maker:
+            connector_setting.trade_fee_schema.maker_fixed_fees = [TokenAmount(token, gas_price)]
+        else:
+            connector_setting.trade_fee_schema.taker_fixed_fees = [TokenAmount(token, gas_price)]
 
     async def get_chain_info(self):
         """
@@ -244,7 +243,7 @@ class GatewayEVMAMM(ConnectorBase):
             resp: Dict[str, Any] = await gateway_http_client.get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
-            required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
+            required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
             if any(item not in resp.keys() for item in required_items):
                 if "info" in resp.keys():
                     self.logger().info(f"Unable to get price. {resp['info']}")
@@ -253,6 +252,7 @@ class GatewayEVMAMM(ConnectorBase):
             else:
                 gas_limit = resp["gasLimit"]
                 gas_price = resp["gasPrice"]
+                gas_price_token = resp["gasPriceToken"]
                 gas_cost = resp["gasCost"]
                 price = resp["price"]
                 account_standing = {
@@ -268,6 +268,7 @@ class GatewayEVMAMM(ConnectorBase):
                     "price": price,
                     "swaps": len(resp.get("swaps", []))
                 }
+                self._update_connector_fees(gas_price_token, Decimal(str(gas_price)), is_buy)
                 exceptions = check_transaction_exceptions(account_standing)
                 for index in range(len(exceptions)):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
@@ -368,7 +369,9 @@ class GatewayEVMAMM(ConnectorBase):
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
             gas_cost = order_result.get("gasCost")
+            gas_price_token = order_result.get("gasPriceToken")
             tracked_order = self._in_flight_orders.get(order_id)
+            self._update_connector_fees(gas_price_token, Decimal(str(gas_price)), trade_type == TradeType.BUY)
 
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {transaction_hash} "
