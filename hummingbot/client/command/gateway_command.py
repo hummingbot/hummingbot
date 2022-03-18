@@ -371,6 +371,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
 
             # ask user to select a network. Automatically select if there is only one.
             networks = list(itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain]))
@@ -383,6 +386,9 @@ class GatewayCommand:
                     self.placeholder_mode = True
                     self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> ")
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
                     if network in networks:
                         break
                     self.notify("Error: Invalid network")
@@ -400,6 +406,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
                 response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
                 wallet_address: str = response["address"]
 
@@ -409,6 +418,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
 
                 self.app.clear_input()
                 # they use an existing wallet
@@ -429,6 +441,9 @@ class GatewayCommand:
                         self.placeholder_mode = True
 
                         wallet_address = await self.app.prompt(prompt="Select a gateway wallet >>> ")
+                        if self.app.to_stop_config:
+                            self.app.to_stop_config = False
+                            return
                         if wallet_address in wallets:
                             self.notify(f"You have selected {wallet_address}")
                             break
@@ -438,6 +453,9 @@ class GatewayCommand:
                 else:
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
                     response = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
                     wallet_address = response["address"]
 
