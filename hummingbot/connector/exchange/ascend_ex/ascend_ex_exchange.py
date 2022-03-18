@@ -970,6 +970,7 @@ class AscendExExchange(ExchangePyBase):
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=trading_pair,
+                        update_timestamp=self.current_timestamp,
                         new_state=OrderState.FAILED,
                     )
                 self._in_flight_order_tracker.process_order_update(order_update)
