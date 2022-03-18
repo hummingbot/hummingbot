@@ -1066,7 +1066,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if isinstance(order_update, Exception) or "code" in order_update:
                     if not isinstance(order_update, Exception) and \
                             (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist."):
-                        self._client_order_tracker.process_order_not_found(client_order_id)
+                        await self._client_order_tracker.process_order_not_found(client_order_id)
                     else:
                         self.logger().network(
                             f"Error fetching status update for the order {client_order_id}: " f"{order_update}."
