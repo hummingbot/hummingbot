@@ -15,10 +15,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    OrderCancelledEvent,
-    PriceType,
-    TradeType,
-)
+    OrderCancelledEvent)
+from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType,
@@ -161,6 +159,26 @@ class PMMUnitTest(unittest.TestCase):
             SQLConnectionType.TRADE_FILLS, db_path=""
         )
         self.inventory_cost_price_del = InventoryCostPriceDelegate(trade_fill_sql, self.trading_pair)
+
+        self.split_order_level_strategy = PureMarketMakingStrategy()
+        self.split_order_level_strategy.init_params(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            minimum_spread=-1,
+            split_order_levels_enabled=True,
+            bid_order_level_spreads= [Decimal("1"), Decimal("2")],
+            ask_order_level_spreads= [Decimal("1"), Decimal("2")],
+            order_override={"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                            "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                            "split_level_2": ['sell', Decimal("1"), Decimal("1")]
+                            }
+        )
+        self.split_order_level_strategy.order_tracker._set_current_timestamp(1640001112.223)
 
     def simulate_maker_market_trade(
             self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[MockPaperExchange] = None,
@@ -1123,6 +1141,32 @@ class PMMUnitTest(unittest.TestCase):
 
         self.assertEqual(available_base_balance, base_balance + Decimal(2))
         self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))
+
+    def test_split_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
+        strategy = self.split_order_level_strategy
+        strategy.order_optimization_enabled = False
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(Decimal("99.000"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("101.000"), strategy.active_sells[0].price)
+        self.assertEqual(Decimal("98.000"), strategy.active_buys[1].price)
+
+    def test_order_optimization_with_split_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 98, 102)
+        strategy = self.split_order_level_strategy
+        strategy.order_optimization_enabled = True
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(2, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
+        self.assertEqual(strategy.active_buys[1].price / strategy.active_buys[0].price, Decimal("0.98") / Decimal("0.99"))
 
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):

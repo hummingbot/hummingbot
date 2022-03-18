@@ -18,7 +18,8 @@ from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.event.events import OrderCancelledEvent, OrderType, SellOrderCompletedEvent, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import OrderCancelledEvent, SellOrderCompletedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
