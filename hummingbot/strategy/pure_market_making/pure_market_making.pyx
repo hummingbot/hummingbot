@@ -90,6 +90,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     ):
         if order_override is None:
             order_override = {}
+        if moving_price_band is None:
+            moving_price_band = MovingPriceBand()
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
@@ -381,7 +383,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def moving_price_band_enabled(self):
         return self._moving_price_band.enabled
-    
+
     @moving_price_band_enabled.setter
     def moving_price_band_enabled(self, value: bool):
         self._moving_price_band.enabled = value
@@ -412,6 +414,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def price_band_refresh_time(self, value: Decimal):
         self._moving_price_band.price_band_refresh_time = value
         self._moving_price_band.update(self.get_price())
+
+    @property
+    def moving_price_band(self) -> MovingPriceBand:
+        return self._moving_price_band
 
     def get_price(self) -> Decimal:
         price_provider = self._asset_price_delegate or self._market_info
@@ -1014,8 +1020,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             lower_buy_price = min(proposal.buys[0].price, price_above_bid)
             for i, proposed in enumerate(proposal.buys):
                 if self._split_order_levels_enabled:
-                    proposal.buys[i].price = (market.c_quantize_order_price(self.trading_pair, lower_buy_price) 
-                                              * (1 - self._bid_order_level_spreads[i] / Decimal("100")) 
+                    proposal.buys[i].price = (market.c_quantize_order_price(self.trading_pair, lower_buy_price)
+                                              * (1 - self._bid_order_level_spreads[i] / Decimal("100"))
                                               / (1-self._bid_order_level_spreads[0] / Decimal("100")))
                     continue
                 proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.order_level_spread * i)
@@ -1037,8 +1043,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
             for i, proposed in enumerate(proposal.sells):
                 if self._split_order_levels_enabled:
-                    proposal.sells[i].price = (market.c_quantize_order_price(self.trading_pair, higher_sell_price) 
-                                               * (1 + self._ask_order_level_spreads[i] / Decimal("100")) 
+                    proposal.sells[i].price = (market.c_quantize_order_price(self.trading_pair, higher_sell_price)
+                                               * (1 + self._ask_order_level_spreads[i] / Decimal("100"))
                                                / (1 + self._ask_order_level_spreads[0] / Decimal("100")))
                     continue
                 proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.order_level_spread * i)
