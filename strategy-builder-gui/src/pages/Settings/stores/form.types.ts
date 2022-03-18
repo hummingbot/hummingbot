@@ -6,14 +6,6 @@ export enum BtnToggleType {
   Buy = 'buy',
 }
 
-export interface Counter {
-  value: Ref<number>;
-  properties: {
-    min: number;
-    max: number;
-    step: number;
-  };
-}
 export interface Select {
   value: Ref<string>;
   properties: {
@@ -23,7 +15,7 @@ export interface Select {
 }
 
 export interface Input {
-  value: Ref<string>;
+  value: Ref<string> | Ref<number>;
   properties: {
     placeholder?: string;
     rightText?: string;
@@ -39,8 +31,8 @@ export interface BtnToggle {
 
 export interface Order {
   value: Ref<BtnToggleType>;
-  orderAmount: Counter;
-  orderLevelParam: Counter;
+  orderAmount: Input;
+  orderLevelParam: Input;
 }
 
 export interface Orders {
@@ -48,7 +40,7 @@ export interface Orders {
 }
 
 export interface $Form {
-  [key: string]: Counter | Select | Toggle | Input | BtnToggle | Orders | Order;
+  [key: string]: Select | Toggle | Input | BtnToggle | Orders | Order;
 }
 
 export type $Forms = {

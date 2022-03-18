@@ -6,19 +6,17 @@ import { $Form, BtnToggleType, FileMap } from './form.types';
 export const defaultOrder = {
   value: BtnToggleType.Sell,
   orderAmount: {
-    value: 0,
+    value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   orderLevelParam: {
-    value: 0,
+    value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
 };
@@ -64,25 +62,22 @@ export const $pureMMForm: $Form = {
   bidSpread: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   askSpread: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   orderRefreshTime: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 10,
-      step: 1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   exchange: {
@@ -100,7 +95,7 @@ export const $pureMMForm: $Form = {
     },
   },
   orderAmount: {
-    value: ref(''),
+    value: ref(0),
     properties: {
       placeholder: '0.00',
       rightText: 'BTC',
@@ -112,25 +107,22 @@ export const $pureMMForm: $Form = {
   orderLevels: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 10,
-      step: 1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   orderLevelAmount: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 10,
-      step: 1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   orderLevelSpread: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   inventorySkew: {
@@ -139,17 +131,15 @@ export const $pureMMForm: $Form = {
   inventoryTargetBase: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   inventoryRangeMultiplier: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   inventoryPrice: {
@@ -162,9 +152,8 @@ export const $pureMMForm: $Form = {
   filledOrderDelay: {
     value: ref(0),
     properties: {
-      min: 1,
-      max: 10,
-      step: 1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   hangingOrders: {
@@ -173,25 +162,22 @@ export const $pureMMForm: $Form = {
   hangingOrdersCancel: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   minimumSpread: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   orderRefreshTolerance: {
     value: ref(0),
     properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   priceCelling: {
@@ -266,105 +252,21 @@ export const $pureMMForm: $Form = {
       rightText: '',
     },
   },
-
   customApiUpdateInterval: {
     value: ref(0),
     properties: {
-      min: 1,
-      max: 10,
-      step: 1,
+      placeholder: '0',
+      rightText: '',
     },
   },
-
-  order_1_Toggle: {
-    value: ref(BtnToggleType.Buy),
-  },
-
-  order_1_FirstCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-
   orders: {
     value: ref([]),
-  },
-
-  order_1_SecondCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-
-  order_2_Toggle: {
-    value: ref(BtnToggleType.Buy),
-  },
-  order_2_FirstCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-  order_2_SecondCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-  order_3_Toggle: {
-    value: ref(BtnToggleType.Buy),
-  },
-  order_3_FirstCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-  order_3_SecondCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-  order_4_Toggle: {
-    value: ref(BtnToggleType.Buy),
-  },
-  order_4_FirstCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
-  },
-  order_4_SecondCounter: {
-    value: ref(0),
-    properties: {
-      min: 0,
-      max: 1,
-      step: 0.1,
-    },
   },
   maxOrderAge: {
     value: ref(0),
     properties: {
-      min: 1,
-      max: 10,
-      step: 1,
+      placeholder: '0',
+      rightText: '',
     },
   },
   fileName: {

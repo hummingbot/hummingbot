@@ -1,5 +1,5 @@
 <template>
-  <div class="column items-center">
+  <div class="column items-center order">
     <div class="text-body1 text-white q-mb-sm flex items-center">
       {{ title }}
       <q-icon v-if="hint" :name="`img:${require('../hint.svg')}`" class="q-ml-xs">
@@ -16,7 +16,7 @@
     <div class="q-mb-md full-width">
       <slot name="toggle" />
     </div>
-    <div class="column q-col-gutter-md">
+    <div class="column q-gutter-y-md full-width">
       <slot name="counters" />
     </div>
   </div>
@@ -33,4 +33,9 @@ export default defineComponent({
 });
 </script>
 
-<style></style>
+<style lang="scss" scoped>
+.order {
+  max-width: 140px;
+  width: 100%;
+}
+</style>

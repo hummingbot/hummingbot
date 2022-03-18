@@ -34,30 +34,33 @@
       title="Bid spread"
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
-      <Counter
+      <Input
         v-model="bidSpread.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...bidSpread.properties }"
+        class="col-2"
       />
     </Field>
     <Field
       title="Ask spread"
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
-      <Counter
+      <Input
         v-model="askSpread.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...askSpread.properties }"
+        class="col-2"
       />
     </Field>
     <Field
       title="Order refresh time"
       hint="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
     >
-      <Counter
+      <Input
         v-model="orderRefreshTime.value.value"
-        :type="CounterType.Seconds"
+        :type="InputType.Number"
         v-bind="{ ...orderRefreshTime.properties }"
+        class="col-2"
       />
     </Field>
     <Field
@@ -79,41 +82,46 @@
   </div>
   <div v-if="formType === FormType.Advanced" class="q-gutter-md">
     <Field title="Order levels">
-      <Counter
+      <Input
         v-model="orderLevels.value.value"
-        :type="CounterType.CountInt"
+        :type="InputType.Number"
         v-bind="{ ...orderLevels.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Order level amount">
-      <Counter
+      <Input
         v-model="orderLevelAmount.value.value"
-        :type="CounterType.CountInt"
+        :type="InputType.Number"
         v-bind="{ ...orderLevelAmount.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Order level spread">
-      <Counter
+      <Input
         v-model="orderLevelSpread.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...orderLevelSpread.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Inventory skew">
       <q-toggle v-model="inventorySkew.value.value" color="main-green-1" />
     </Field>
     <Field title="Inventory target base">
-      <Counter
+      <Input
         v-model="inventoryTargetBase.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...inventoryTargetBase.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Inventory range multiplier">
-      <Counter
+      <Input
         v-model="inventoryRangeMultiplier.value.value"
-        :type="CounterType.FloatCount"
+        :type="InputType.Number"
         v-bind="{ ...inventoryRangeMultiplier.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Inventory price">
@@ -124,34 +132,38 @@
       />
     </Field>
     <Field title="Filled order delay">
-      <Counter
+      <Input
         v-model="filledOrderDelay.value.value"
-        :type="CounterType.Seconds"
+        :type="InputType.Number"
         v-bind="{ ...filledOrderDelay.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Hanging orders">
       <q-toggle v-model="hangingOrders.value.value" color="main-green-1" />
     </Field>
     <Field title="Hanging order cancel percentage">
-      <Counter
+      <Input
         v-model="hangingOrdersCancel.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...hangingOrdersCancel.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Minimum spread">
-      <Counter
+      <Input
         v-model="minimumSpread.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...minimumSpread.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Order refresh tollerance">
-      <Counter
+      <Input
         v-model="orderRefreshTolerance.value.value"
-        :type="CounterType.Percentage"
+        :type="InputType.Number"
         v-bind="{ ...orderRefreshTolerance.properties }"
+        class="col-2"
       />
     </Field>
     <Field title="Price ceiling">
@@ -212,16 +224,17 @@
     <Field title="Price source custom API">
       <Input
         v-model="priceSourceCustomApi.value.value"
-        :type="InputType.Number"
+        :type="InputType.Text"
         v-bind="{ ...priceSourceCustomApi.properties }"
         class="col-6"
       />
     </Field>
     <Field title="Custom API update interval">
-      <Counter
+      <Input
         v-model="customApiUpdateInterval.value.value"
-        :type="CounterType.Seconds"
+        :type="InputType.Number"
         v-bind="{ ...customApiUpdateInterval.properties }"
+        class="col-2"
       />
     </Field>
     <Field class="q-gutter-y-md" :orders-field="true">
@@ -246,24 +259,25 @@
           />
         </template>
         <template #counters>
-          <Counter
+          <Input
             v-model="order.orderAmount.value"
-            :type="CounterType.FloatCount"
+            :type="InputType.Number"
             v-bind="{ ...order.orderAmount.properties }"
           />
-          <Counter
+          <Input
             v-model="order.orderLevelParam.value"
-            :type="CounterType.FloatCount"
+            :type="InputType.Number"
             v-bind="{ ...order.orderLevelParam.properties }"
           />
         </template>
       </Order>
     </Field>
     <Field title="Max. order age">
-      <Counter
+      <Input
         v-model="maxOrderAge.value.value"
-        :type="CounterType.Seconds"
+        :type="InputType.Number"
         v-bind="{ ...maxOrderAge.properties }"
+        class="col-2"
       />
     </Field>
   </div>
@@ -272,7 +286,6 @@
 import { StrategyName } from 'src/composables/useStrategies';
 import { defineComponent, ref, watch } from 'vue';
 
-import Counter, { CounterType } from '../components/Counter.vue';
 import Field from '../components/Field.vue';
 import Input, { InputType } from '../components/Input.vue';
 import Order from '../components/Order.vue';
@@ -287,7 +300,7 @@ enum FormType {
 
 export default defineComponent({
   name: 'PureMMForm',
-  components: { Field, Select, Counter, Input, Order },
+  components: { Field, Select, Input, Order },
 
   emits: ['update:formType'],
 
@@ -299,17 +312,12 @@ export default defineComponent({
 
     init();
 
-    watch(fields.orderLevels.value, (value, prev) => {
-      if (value > prev) {
-        orders.add();
-      } else {
-        orders.removeLast();
-      }
+    watch(fields.orderLevels.value, (value) => {
+      orders.update(String(value));
     });
 
     return {
       ...fields,
-      CounterType,
       InputType,
       formType,
       FormType,

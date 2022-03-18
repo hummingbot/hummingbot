@@ -27,7 +27,7 @@ export default defineComponent({
     type: { type: Number as PropType<InputType>, require: true, default: () => InputType.Number },
     placeholder: { type: String, require: false, default: () => '' },
     rightText: { type: String, require: false, default: () => '' },
-    modelValue: { type: String, require: true, default: () => '' },
+    modelValue: { type: [String, Number], require: true, default: () => '' },
   },
   emits: ['update:modelValue'],
 
