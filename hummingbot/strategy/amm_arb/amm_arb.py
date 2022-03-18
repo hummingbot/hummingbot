@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import List, Dict, Tuple, Optional
 
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -187,6 +188,25 @@ class AmmArbStrategy(StrategyPyBase):
                                        f"({balance}) is below required order amount ({required}).")
                     continue
 
+    def prioritize_evm_exchanges(self, arb_proposal: ArbProposal) -> ArbProposal:
+        """
+        Prioritize the EVM exchanges in the arbitrage proposals
+
+        :param arb_proposal: The arbitrage proposal from which the sides are to be prioritized.
+        :type arb_proposal: ArbProposal
+        :return: A new ArbProposal object with evm exchanges prioritized.
+        :rtype: ArbProposal
+        """
+
+        results = []
+        for side in [arb_proposal.first_side, arb_proposal.second_side]:
+            if side.market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names():
+                results.insert(0, side)
+            else:
+                results.append(side)
+
+        return ArbProposal(first_side=results[0], second_side=results[1])
+
     async def execute_arb_proposals(self, arb_proposals: List[ArbProposal]):
         """
         Execute both sides of the arbitrage trades. If concurrent_orders_submission is False, it will wait for the
@@ -196,7 +216,12 @@ class AmmArbStrategy(StrategyPyBase):
         for arb_proposal in arb_proposals:
             if any(p.amount <= s_decimal_zero for p in (arb_proposal.first_side, arb_proposal.second_side)):
                 continue
+
+            if not self._concurrent_orders_submission:
+                arb_proposal = self.prioritize_evm_exchanges(arb_proposal)
+
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
+
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
                     await self._first_order_done_event.wait()
@@ -321,7 +346,7 @@ class AmmArbStrategy(StrategyPyBase):
     def did_expire_order(self, expired_event):
         self.first_order_done(expired_event, False)
 
-    def first_order_done(self, event, succeeded):
+    def first_order_done(self, event, succeeded: bool):
         if self._first_order_done_event is not None and event.order_id == self._first_order_id:
             self._first_order_done_event.set()
             self._first_order_succeeded = succeeded
