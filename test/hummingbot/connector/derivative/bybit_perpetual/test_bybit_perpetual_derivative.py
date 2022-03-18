@@ -206,7 +206,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": get_new_client_order_id(True, self.trading_pair),
+                "order_link_id": get_new_client_order_id(True, self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -230,7 +230,9 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(get_new_client_order_id(True, self.trading_pair), new_order_id)
+        self.assertEqual(get_new_client_order_id(True,
+                                                 self.trading_pair,
+                                                 max_id_len=CONSTANTS.ORDER_ID_LEN), new_order_id)
         self.assertEqual("Buy", result["side"])
         self.assertEqual(self.ex_trading_pair, result["symbol"])
         self.assertEqual("Limit", result["order_type"])
@@ -540,7 +542,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": get_new_client_order_id(False, self.trading_pair),
+                "order_link_id": get_new_client_order_id(False, self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -564,7 +566,9 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(get_new_client_order_id(False, self.trading_pair), new_order_id)
+        self.assertEqual(get_new_client_order_id(False,
+                                                 self.trading_pair,
+                                                 max_id_len=CONSTANTS.ORDER_ID_LEN), new_order_id)
         self.assertEqual("Sell", result["side"])
         self.assertEqual("BTCUSDT", result["symbol"])
         self.assertEqual("Market", result["order_type"])
@@ -2699,7 +2703,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True, trading_pair=self.trading_pair
+            is_buy=True, trading_pair=self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -2712,7 +2716,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             position_action="OPEN",
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False, trading_pair=self.trading_pair
+            is_buy=False, trading_pair=self.trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN
         )
 
         self.assertEqual(result, expected_client_order_id)
