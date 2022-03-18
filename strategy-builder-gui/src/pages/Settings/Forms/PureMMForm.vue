@@ -226,7 +226,7 @@
     </Field>
     <Field class="q-gutter-y-md" :orders-field="true">
       <Order
-        v-for="(order, index) in displayOrders"
+        v-for="(order, index) in orders"
         :key="index"
         :title="`Order ${index + 1}`"
         hint="Order hint"
@@ -270,7 +270,7 @@
 </template>
 <script lang="ts">
 import { StrategyName } from 'src/composables/useStrategies';
-import { computed, defineComponent, ref, watch } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 
 import Counter, { CounterType } from '../components/Counter.vue';
 import Field from '../components/Field.vue';
@@ -295,15 +295,15 @@ export default defineComponent({
     const strategyName = ref(StrategyName.PureMarketMaking);
     const { fields, init } = useForm(strategyName);
     const formType = ref(FormType.Basic);
-    const { displayOrders, add, removeLast } = useOrders(strategyName);
+    const orders = useOrders(strategyName);
 
     init();
 
     watch(fields.orderLevels.value, (value, prev) => {
       if (value > prev) {
-        add();
+        orders.add();
       } else {
-        removeLast();
+        orders.removeLast();
       }
     });
 
@@ -314,7 +314,7 @@ export default defineComponent({
       formType,
       FormType,
       BtnToggleType,
-      displayOrders,
+      orders: orders.value,
     };
   },
 });

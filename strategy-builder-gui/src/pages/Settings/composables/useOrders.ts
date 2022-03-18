@@ -18,5 +18,5 @@ export const useOrders = (strategyName: Ref<StrategyName>) => {
     orders.value.pop();
   };
 
-  return { displayOrders: orders, add, removeLast };
+  return { value: orders, add, removeLast };
 };
