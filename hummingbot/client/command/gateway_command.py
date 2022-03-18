@@ -36,7 +36,7 @@ from hummingbot.core.utils.gateway_config_utils import (
     native_tokens,
     upsert_connection
 )
-from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.config.global_config_map import global_config_map
@@ -131,7 +131,7 @@ class GatewayCommand:
 
     async def _test_connection(self):
         # test that the gateway is running
-        if await gateway_http_client.ping_gateway():
+        if await GatewayHttpClient.get_instance().ping_gateway():
             self.notify("\nSuccesfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
@@ -162,7 +162,7 @@ class GatewayCommand:
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
-        gateway_http_client.reload_certs()
+        GatewayHttpClient.get_instance().reload_certs()
 
     async def _generate_gateway_confs(self, container_id: str, conf_path: str = "/usr/src/app/conf"):
         self.app.clear_input()
@@ -307,7 +307,7 @@ class GatewayCommand:
 
         if self._gateway_monitor.current_status == Status.ONLINE:
             try:
-                status = await gateway_http_client.get_gateway_status()
+                status = await GatewayHttpClient.get_instance().get_gateway_status()
                 self.notify(pd.DataFrame(status))
             except Exception:
                 self.notify("\nError: Unable to fetch status of connected Gateway server.")
@@ -316,7 +316,7 @@ class GatewayCommand:
 
     async def _update_gateway_configuration(self, key: str, value: Any):
         try:
-            response = await gateway_http_client.update_config(key, value)
+            response = await GatewayHttpClient.get_instance().update_config(key, value)
             self.notify(response["message"])
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
@@ -357,7 +357,7 @@ class GatewayCommand:
 
         else:
             # get available networks
-            connector_configs = await gateway_http_client.get_connectors()
+            connector_configs = await GatewayHttpClient.get_instance().get_connectors()
             connector_config = [d for d in connector_configs["connectors"] if d["name"] == connector]
             available_networks = connector_config[0]["available_networks"]
             trading_type = connector_config[0]["trading_type"][0]
@@ -371,6 +371,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
 
             # ask user to select a network. Automatically select if there is only one.
             networks = list(itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain]))
@@ -383,12 +386,15 @@ class GatewayCommand:
                     self.placeholder_mode = True
                     self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> ")
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
                     if network in networks:
                         break
                     self.notify("Error: Invalid network")
 
             # get wallets for the selected chain
-            wallets_response = await gateway_http_client.get_wallets()
+            wallets_response = await GatewayHttpClient.get_instance().get_wallets()
             wallets = [w for w in wallets_response if w["chain"] == chain]
             if len(wallets) < 1:
                 wallets = []
@@ -400,7 +406,10 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                response: Dict[str, Any] = await gateway_http_client.add_wallet(chain, network, wallet_private_key)
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
+                response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
                 wallet_address: str = response["address"]
 
             # the user has a wallet. Ask if they want to use it or create a new one.
@@ -409,6 +418,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
 
                 self.app.clear_input()
                 # they use an existing wallet
@@ -416,7 +428,7 @@ class GatewayCommand:
                     native_token = native_tokens[chain]
                     wallet_table = []
                     for w in wallets:
-                        balances: Dict[str, Any] = await gateway_http_client.get_balances(
+                        balances: Dict[str, Any] = await GatewayHttpClient.get_instance().get_balances(
                             chain, network, w, [native_token]
                         )
                         wallet_table.append({"balance": balances['balances'][native_token], "address": w})
@@ -429,6 +441,9 @@ class GatewayCommand:
                         self.placeholder_mode = True
 
                         wallet_address = await self.app.prompt(prompt="Select a gateway wallet >>> ")
+                        if self.app.to_stop_config:
+                            self.app.to_stop_config = False
+                            return
                         if wallet_address in wallets:
                             self.notify(f"You have selected {wallet_address}")
                             break
@@ -438,7 +453,10 @@ class GatewayCommand:
                 else:
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                    response = await gateway_http_client.add_wallet(chain, network, wallet_private_key)
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+                    response = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
                     wallet_address = response["address"]
 
             # write wallets to json
@@ -458,7 +476,7 @@ class GatewayCommand:
 
     @staticmethod
     async def _fetch_gateway_configs() -> Dict[str, Any]:
-        return await gateway_http_client.get_configuration(fail_silently=True)
+        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=True)
 
     async def fetch_gateway_config_key_list(self):
         config = await self._fetch_gateway_configs()

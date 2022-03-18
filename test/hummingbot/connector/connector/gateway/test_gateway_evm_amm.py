@@ -31,7 +31,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from test.mock.http_recorder import HttpPlayer
@@ -65,10 +65,13 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         cls._patch_stack = ExitStack()
         cls._patch_stack.enter_context(cls._http_player.patch_aiohttp_client())
         cls._patch_stack.enter_context(
-            patch("hummingbot.core.gateway.GatewayHttpClient._http_client", return_value=ClientSession())
+            patch(
+                "hummingbot.core.gateway.gateway_http_client.GatewayHttpClient._http_client",
+                return_value=ClientSession()
+            )
         )
         cls._patch_stack.enter_context(cls._clock)
-        gateway_http_client.base_url = "https://localhost:5000"
+        GatewayHttpClient.get_instance().base_url = "https://localhost:5000"
         ev_loop.run_until_complete(cls.wait_til_ready())
 
     @classmethod
