@@ -13,9 +13,8 @@ import ujson
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
-    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource,
-)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
+    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
@@ -35,13 +34,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
-    TradeType,
-)
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -55,7 +48,7 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
+    SellOrderCreatedEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -186,6 +179,46 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def budget_checker(self) -> PerpetualBudgetChecker:
         return self._budget_checker
 
+    async def _set_position_mode(self, position_mode: PositionMode):
+        """
+        An overwriten method from the base class that sends a request to change the position mode first
+        :param position_mode: ONEWAY or HEDGE position mode
+        """
+        mode = None
+        if position_mode == PositionMode.ONEWAY:
+            mode = CONSTANTS.POSITION_MODE_API_ONEWAY
+        elif position_mode == PositionMode.HEDGE:
+            mode = CONSTANTS.POSITION_MODE_API_HEDGE
+
+        if self._trading_pairs is not None:
+            for trading_pair in self._trading_pairs:
+                symbol = await self._trading_pair_symbol(trading_pair)
+                body_params = {"symbol": symbol, "mode": mode}
+
+                response = await self._api_request(
+                    method="POST",
+                    endpoint=CONSTANTS.SET_POSITION_MODE_URL,
+                    body=body_params,
+                    is_auth_required=True,
+                )
+
+                response_code = response["ret_code"]
+                # 0     - mode changed
+                # 30083 - mode not modified
+                if response_code not in [0, 30083]:
+                    raise IOError(f"Bybit Perpetual encountered a problem switching position mode to "
+                                  f"{position_mode} for {trading_pair}"
+                                  f" ({response['ret_code']} - {response['ret_msg']})")
+
+        super().set_position_mode(position_mode)
+
+    def set_position_mode(self, position_mode: PositionMode):
+        """
+        An overwriten method from the base class that sends a request to change the position mode first
+        :param position_mode: ONEWAY or HEDGE position mode
+        """
+        safe_ensure_future(self._set_position_mode(position_mode))
+
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """
         Restore in-flight orders from the saved tracking states(from local db). This is such that the connector can pick
@@ -315,6 +348,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                             params=params,
                                             )
         elif method == "POST":
+
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
@@ -427,6 +461,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
 
+            position_idx = None
+            if self._position_mode == PositionMode.ONEWAY:
+                position_idx = CONSTANTS.POSITION_IDX_ONEWAY
+            elif self._position_mode == PositionMode.HEDGE and trade_type == TradeType.BUY:
+                position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
+            elif self._position_mode == PositionMode.HEDGE and trade_type == TradeType.SELL:
+                position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
+
             params = {
                 "side": "Buy" if trade_type == TradeType.BUY else "Sell",
                 "symbol": await self._trading_pair_symbol(trading_pair),
@@ -435,6 +477,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "close_on_trigger": False,
                 "order_link_id": order_id,
                 "reduce_only": False,
+                "position_idx": position_idx
             }
 
             if position_action == PositionAction.CLOSE:
@@ -499,7 +542,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 app_warning_msg="Error submitting order to Bybit Perpetual. "
             )
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType = OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
         Buys an amount of base asset as specified in the trading pair. This function returns immediately.
@@ -510,7 +556,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
+        order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN)
         safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
@@ -521,7 +567,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               ))
         return order_id
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
         Sells an amount of base asset as specified in the trading pair. This function returns immediately.
@@ -532,7 +581,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
+        order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.ORDER_ID_LEN)
         safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
                                               trading_pair=trading_pair,
                                               order_id=order_id,

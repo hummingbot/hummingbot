@@ -16,6 +16,14 @@ REST_API_VERSION = "v2"
 
 HBOT_BROKER_ID = "HBOT"
 
+ORDER_ID_LEN = 36
+POSITION_IDX_ONEWAY = 0
+POSITION_IDX_HEDGE_BUY = 1
+POSITION_IDX_HEDGE_SELL = 2
+
+POSITION_MODE_API_ONEWAY = "MergedSingle"
+POSITION_MODE_API_HEDGE = "BothSide"
+
 # REST API Public Endpoints
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
@@ -59,6 +67,9 @@ USER_TRADE_RECORDS_PATH_URL = {
 GET_WALLET_BALANCE_PATH_URL = {
     LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance"}
+SET_POSITION_MODE_URL = {
+    LINEAR_MARKET: "private/linear/position/switch-mode",
+    NON_LINEAR_MARKET: "private/linear/position/switch-mode"}
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot

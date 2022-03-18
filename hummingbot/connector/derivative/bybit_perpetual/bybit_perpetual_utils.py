@@ -151,6 +151,20 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
                            LinkedLimitWeightPair(CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID)],
         ),
+        RateLimit(  # same for linear and non-linear
+            limit_id=CONSTANTS.SET_POSITION_MODE_URL[CONSTANTS.LINEAR_MARKET],
+            limit=120,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
+                           LinkedLimitWeightPair(CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID)],
+        ),
+        RateLimit(  # same for linear and non-linear
+            limit_id=CONSTANTS.SET_POSITION_MODE_URL[CONSTANTS.NON_LINEAR_MARKET],
+            limit=120,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
+                           LinkedLimitWeightPair(CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID)],
+        ),
     ]
     return rate_limits
 
