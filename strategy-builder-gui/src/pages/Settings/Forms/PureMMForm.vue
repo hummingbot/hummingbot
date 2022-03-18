@@ -226,7 +226,7 @@
     </Field>
     <Field class="q-gutter-y-md" :orders-field="true">
       <Order
-        v-for="(order, index) in displayOrders.value"
+        v-for="(order, index) in displayOrders"
         :key="index"
         :title="`Order ${index + 1}`"
         hint="Order hint"
@@ -295,11 +295,9 @@ export default defineComponent({
     const strategyName = ref(StrategyName.PureMarketMaking);
     const { fields, init } = useForm(strategyName);
     const formType = ref(FormType.Basic);
-    const { orders, add, removeLast } = useOrders(strategyName);
+    const { displayOrders, add, removeLast } = useOrders(strategyName);
 
     init();
-
-    const displayOrders = computed(() => orders);
 
     watch(fields.orderLevels.value, (value, prev) => {
       if (value > prev) {
