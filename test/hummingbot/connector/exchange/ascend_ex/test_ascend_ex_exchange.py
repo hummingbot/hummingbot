@@ -415,18 +415,12 @@ class TestAscendExExchange(unittest.TestCase):
 
         mock_api.get(regex_url, body=json.dumps({}), status=401)
 
-        is_exception = False
-
-        try:
+        with self.assertRaises(IOError):
             self.async_run_with_timeout(self.exchange._update_order_status())
-        except IOError:
-            is_exception = True
 
         # Check after
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
         self.assertEqual(self.exchange.in_flight_orders["testOrderId1"].current_state, OrderState.PENDING_CREATE)
-
-        self.assertTrue(is_exception)
 
         self.assertTrue(
             self._is_logged(
@@ -487,19 +481,12 @@ class TestAscendExExchange(unittest.TestCase):
 
         mock_process_order.side_effect = Exception()
 
-        is_exception = False
-
-        try:
-            self.async_run_with_timeout(self.exchange._update_order_status())
-        except Exception:
-            is_exception = True
+        # No exception is passed. If yes -> test failure
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
         # Check after
         self.assertIn("testOrderId1", self.exchange.in_flight_orders)
         self.assertEqual(self.exchange.in_flight_orders["testOrderId1"].current_state, OrderState.PENDING_CREATE)
-
-        # No exception is passed
-        self.assertFalse(is_exception)
 
         self.assertTrue(
             self._is_logged(
