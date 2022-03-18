@@ -8,7 +8,6 @@ import { defaultOrder } from '../stores/pureMMForm';
 export { BtnToggleType } from '../stores/form.types';
 
 export const useOrders = (strategyName: Ref<StrategyName>) => {
-  $form[strategyName.value].orders.value.value = [];
   const orders = $form[strategyName.value].orders.value as Ref<Order[]>;
 
   const add = () => {
