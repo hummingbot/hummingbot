@@ -2,13 +2,7 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -30,15 +24,8 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import (
-    DeductedFromReturnsTradeFee,
-    TokenAmount,
-    TradeFeeBase,
-)
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -54,8 +41,6 @@ class BinanceExchange(ExchangeBase):
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
-
-    MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES = 3
 
     def __init__(self,
                  binance_api_key: str,
@@ -118,10 +103,6 @@ class BinanceExchange(ExchangeBase):
         return self._order_book_tracker.order_books
 
     @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
-
-    @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._order_tracker.active_orders
 
@@ -141,14 +122,6 @@ class BinanceExchange(ExchangeBase):
             key: value.to_json()
             for key, value in self.in_flight_orders.items()
         }
-
-    @property
-    def order_book_tracker(self) -> BinanceOrderBookTracker:
-        return self._order_book_tracker
-
-    @property
-    def user_stream_tracker(self) -> BinanceUserStreamTracker:
-        return self._user_stream_tracker
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -250,7 +223,7 @@ class BinanceExchange(ExchangeBase):
         """
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self.user_stream_tracker.last_recv_time > 60.0
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
@@ -274,7 +247,7 @@ class BinanceExchange(ExchangeBase):
                              exchange_order_id: Optional[str],
                              trading_pair: str,
                              trade_type: TradeType,
-                             price: Decimal,
+                             price: Optional[Decimal],
                              amount: Decimal,
                              order_type: OrderType):
         """
@@ -285,7 +258,7 @@ class BinanceExchange(ExchangeBase):
         :param trade_type: the type of order (buy or sell)
         :param price: the price for the order
         :param amount: the amount for the order
-        :order type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
         """
         self._order_tracker.start_tracking_order(
             InFlightOrder(
@@ -558,7 +531,7 @@ class BinanceExchange(ExchangeBase):
             )
             self._order_tracker.process_order_update(order_update)
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str):
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> Dict[str, Any]:
         """
         Requests the exchange to cancel an active order
         :param trading_pair: the trading pair the order to cancel operates with
@@ -591,7 +564,7 @@ class BinanceExchange(ExchangeBase):
                         new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
-                return cancel_result
+                    return cancel_result
 
             except asyncio.CancelledError:
                 raise
@@ -918,20 +891,9 @@ class BinanceExchange(ExchangeBase):
                         f"Error fetching status update for the order {client_order_id}: {order_update}.",
                         app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                     )
-                    self._order_not_found_records[client_order_id] = (
-                        self._order_not_found_records.get(client_order_id, 0) + 1)
-                    if (self._order_not_found_records[client_order_id] >=
-                            self.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
-                        # Wait until the order not found error have repeated a few times before actually treating
-                        # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-
-                        order_update: OrderUpdate = OrderUpdate(
-                            client_order_id=client_order_id,
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=self.current_timestamp,
-                            new_state=OrderState.FAILED,
-                        )
-                        self._order_tracker.process_order_update(order_update)
+                    # Wait until the order not found error have repeated a few times before actually treating
+                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                    await self._order_tracker.process_order_not_found(client_order_id)
 
                 else:
                     # Update order execution status
