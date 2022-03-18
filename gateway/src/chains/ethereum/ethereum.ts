@@ -15,7 +15,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Ethereum };
   private _ethGasStationUrl: string;
   private _gasPrice: number;
-  private _gasPriceRefreshInterval: number;
+  private _gasPriceRefreshInterval: number | null;
   private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
@@ -42,7 +42,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     this._gasPriceRefreshInterval =
       config.network.gasPriceRefreshInterval !== undefined
         ? config.network.gasPriceRefreshInterval
-        : 60;
+        : null;
     this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
@@ -118,6 +118,10 @@ export class Ethereum extends EthereumBase implements Ethereumish {
    * ETH node.
    */
   async updateGasPrice(): Promise<void> {
+    if (this._gasPriceRefreshInterval === null) {
+      return;
+    }
+
     if (
       EthereumConfig.ethGasStationConfig.enabled &&
       this._chain === 'mainnet'
