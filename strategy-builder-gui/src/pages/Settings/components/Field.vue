@@ -1,7 +1,7 @@
 <template>
   <div
     class="row items-center q-pb-md border"
-    :class="ordersField ? 'justify-around' : 'justify-between'"
+    :class="type === FieldType.Orders ? 'justify-around' : 'justify-between'"
   >
     <div v-if="title" class="row text-body1 text-white items-center">
       {{ title }}
@@ -21,13 +21,20 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, PropType } from 'vue';
+
+import { FieldType } from '../stores/form.types';
 
 export default defineComponent({
   props: {
     title: { type: String, required: false, default: () => '' },
     hint: { type: String, required: false, default: () => '' },
     ordersField: { type: Boolean, required: false, default: () => false },
+    type: { type: Number as PropType<FieldType>, required: true, default: () => FieldType.Input },
+  },
+
+  setup() {
+    return { FieldType };
   },
 });
 </script>

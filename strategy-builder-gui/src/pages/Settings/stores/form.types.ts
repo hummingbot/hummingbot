@@ -1,9 +1,16 @@
 import { StrategyName } from 'src/composables/useStrategies';
 import { Ref } from 'vue';
 
+export enum FieldType {
+  Input,
+  Select,
+  Toggle,
+  Orders,
+}
+
 export enum BtnToggleType {
-  Sell = 'sell',
-  Buy = 'buy',
+  Sell = 'Sell',
+  Buy = 'Buy',
 }
 
 export interface Select {

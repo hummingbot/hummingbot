@@ -19,7 +19,7 @@ export const useFileHref = (strategyName: Ref<StrategyName>) => {
         ordersArr.forEach((val, index) => {
           ordersFormatArr.push(
             `order_${index + 1}: [${[
-              String(val.value),
+              String(val.value).toLowerCase(),
               String(val.orderAmount.value),
               String(val.orderLevelParam.value),
             ]}]`
