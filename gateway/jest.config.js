@@ -5,6 +5,7 @@ module.exports = {
   coveragePathIgnorePatterns: [
     'src/app.ts',
     'src/https.ts',
+    'src/paths.ts',
     'src/services/ethereum-base.ts',
     'src/services/telemetry-transport.ts',
     'src/chains/ethereum/ethereum.ts',
