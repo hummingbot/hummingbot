@@ -28,6 +28,8 @@ describe('unitiated EVMNodeService', () => {
   });
 
   afterAll(async () => {
+    console.log(`Removing ${dbPath}`);
+    await nonceManager.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
@@ -78,14 +80,18 @@ describe('unitiated EVMNodeService', () => {
 
     const nonceManager2 = new EVMNonceManager('ethereum', 43, -5, dbPath);
 
-    await expect(nonceManager2.init(provider)).rejects.toThrow(
-      new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE(
-          'EVMNonceManager.init delay must be greater than or equal to zero.'
-        ),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      )
-    );
+    try {
+      await expect(nonceManager2.init(provider)).rejects.toThrow(
+        new InitializationError(
+          SERVICE_UNITIALIZED_ERROR_MESSAGE(
+            'EVMNonceManager.init delay must be greater than or equal to zero.'
+          ),
+          SERVICE_UNITIALIZED_ERROR_CODE
+        )
+      );
+    } finally {
+      await nonceManager2.close();
+    }
   });
 });
 
@@ -102,6 +108,7 @@ describe('EVMNodeService', () => {
   });
 
   afterAll(async () => {
+    await nonceManager.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
   const patchGetTransactionCount = () => {
@@ -165,6 +172,8 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   });
 
   afterAll(async () => {
+    await nonceManager1.close();
+    await nonceManager2.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {

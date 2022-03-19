@@ -45,4 +45,8 @@ export class LocalStorage {
 
     return result;
   }
+
+  public async close(): Promise<void> {
+    await this.#db.close();
+  }
 }
