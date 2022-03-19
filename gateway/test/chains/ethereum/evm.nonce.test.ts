@@ -28,7 +28,6 @@ describe('unitiated EVMNodeService', () => {
   });
 
   afterAll(async () => {
-    console.log(`Removing ${dbPath}`);
     await nonceManager.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
