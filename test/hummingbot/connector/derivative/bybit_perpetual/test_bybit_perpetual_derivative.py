@@ -1675,7 +1675,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(order.client_order_id, order_completed_events[0].order_id)
         self.assertEqual(order.base_asset, order_completed_events[0].base_asset)
         self.assertEqual(order.quote_asset, order_completed_events[0].quote_asset)
-        self.assertEqual(order.quote_asset, order_completed_events[0].fee_asset)
         self.assertEqual(order.order_type, order_completed_events[0].order_type)
         self.assertEqual(order.exchange_order_id, order_completed_events[0].exchange_order_id)
 
@@ -1884,8 +1883,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(order.client_order_id, order_completed_events[0].order_id)
         self.assertEqual(order.base_asset, order_completed_events[0].base_asset)
         self.assertEqual(order.quote_asset, order_completed_events[0].quote_asset)
-        self.assertEqual(order.quote_asset, order_completed_events[0].fee_asset)
-        self.assertEqual(order.order_type, order_completed_events[0].order_type)
         self.assertEqual(Decimal(44000), order_completed_events[0].quote_asset_amount)
         self.assertEqual(Decimal(1), order_completed_events[0].base_asset_amount)
         self.assertEqual(order.exchange_order_id, order_completed_events[0].exchange_order_id)

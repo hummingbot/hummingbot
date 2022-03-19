@@ -277,10 +277,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                                  order_id=buy_order_1.client_order_id,
                                                  base_asset="BTC",
                                                  quote_asset="USDT",
-                                                 fee_asset="USDT",
                                                  base_asset_amount=buy_order_1.quantity,
                                                  quote_asset_amount=buy_order_1.quantity * buy_order_1.price,
-                                                 fee_amount=Decimal(0),
                                                  order_type=OrderType.LIMIT))
 
         self.assertEqual(1, len(self.tracker.strategy_current_hanging_orders))

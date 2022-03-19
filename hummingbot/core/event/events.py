@@ -62,10 +62,8 @@ class BuyOrderCompletedEvent:
     order_id: str
     base_asset: str
     quote_asset: str
-    fee_asset: str
     base_asset_amount: Decimal
     quote_asset_amount: Decimal
-    fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
 
@@ -76,10 +74,8 @@ class SellOrderCompletedEvent:
     order_id: str
     base_asset: str
     quote_asset: str
-    fee_asset: str
     base_asset_amount: Decimal
     quote_asset_amount: Decimal
-    fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
 
