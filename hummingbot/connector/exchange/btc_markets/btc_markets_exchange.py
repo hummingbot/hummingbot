@@ -710,7 +710,7 @@ class BtcMarketsExchange(ExchangeBase):
                 elif orderId == int(inflightorderId):
                     tracked_order = value
                     tracked_order.last_state = order_msg["status"]
-                    tracked_order.fee_asset = tracked_order.base_asset
+                    tracked_order.fee_asset = tracked_order.quote_asset
                     if tracked_order.is_cancelled:
                         self.logger().info(f"Order {order_msg['orderId']} successfully cancelled.")
                         self.trigger_event(MarketEvent.OrderCancelled,
