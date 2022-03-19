@@ -123,6 +123,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.subscribe_marketIds(['trade'], list(map(lambda pair: f"{pair}", self._trading_pairs)))
 
                 async for response in ws.on_message():
+                    # print(f"WS_SOCKET: {response}")
                     if "trade" in response:
                         continue
 
@@ -165,7 +166,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                         # The initial orderbookUpdate snapshot message covers all bids/asks represented as arrays of
                         # [price, volume, count] tuples as well as snapshot:true attribute
-                        # so we need to convert it into a order book snapshot.
+                        # so we need to convert it into an order book snapshot.
 
                         orderbook_msg: OrderBookMessage = BtcMarketsOrderBook.snapshot_message_from_exchange(
                             order_book_data,

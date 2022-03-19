@@ -672,16 +672,10 @@ class BtcMarketsExchange(ExchangeBase):
                 if "status" not in response:
                     self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
-                result = response["status"]
 
-                matchstatus = {'Partially Matched', 'Fully Matched'}
-
-                # if result in matchstatus:
-                #    for trade_msg in result["trades"]:
-                #        await self._process_trade_message(response)
-                if result in matchstatus:
+                if "trades" in response:
                     await self._process_trade_message(response)
-                # self._process_order_message(result["order_info"])
+
                 self._process_order_message(response)
 
     async def _process_order_message(self, order_msg: Dict[str, Any]):
@@ -768,7 +762,7 @@ class BtcMarketsExchange(ExchangeBase):
                     AddedToCostTradeFee(
                         flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(trade["fee"])))]
                     ),
-                    exchange_trade_id=trade["tradeId"]
+                    exchange_trade_id=str(trade_msg.get("trade_id", int(self._time() * 1e6)))
                 )
             )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
@@ -786,10 +780,8 @@ class BtcMarketsExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -901,20 +893,21 @@ class BtcMarketsExchange(ExchangeBase):
         async for event_message in self._iter_user_event_queue():
             try:
 
+                if event_message["messageType"] in "heartbeat":
+                    continue
                 if "timestamp" not in event_message or "messageType" not in event_message:
                     continue
                 channel = event_message["messageType"]
                 # https://api.btcmarkets.net/doc/v3#section/Tick-event
                 # not implemented yet
                 if "tick" in channel:
-                    for trade_msg in event_message:
-                        await self._process_tick_message(trade_msg)
+                    # for trade_msg in event_message:
+                    await self._process_tick_message(event_message)
                 if "trade" in channel:
-                    for trade_msg in event_message:
-                        await self._process_trade_message(event_message)
+                    # for trade_msg in event_message:
+                    await self._process_trade_message(event_message)
                 if "orderChange" in channel:
                     # for order_msg in event_message:
-                    # await self._process_order_message(order_msg)
                     await self._process_order_message(event_message)
                 # TODO need to refactor as btcmarkets don't provide balance updates via WS
                 elif channel == "user.balance":

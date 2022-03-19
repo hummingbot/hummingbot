@@ -48,7 +48,11 @@ class BtcMarketsInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"Cancelled", "Partially Cancelled", "EXPIRED"}
+        return self.last_state in {"Cancelled", "Partially Cancelled"}
+
+    @property
+    def is_open(self) -> bool:
+        return self.last_state in {"Accepted", "Partially Matched"}
 
     # @property
     # def order_type_description(self) -> str:
@@ -58,29 +62,6 @@ class BtcMarketsInFlightOrder(InFlightOrderBase):
     #     order_type = "market" if self.order_type is OrderType.MARKET else "limit"
     #     side = "buy" if self.trade_type == TradeType.BUY else "sell"
     #     return f"{order_type} {side}"
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        retval = BtcMarketsInFlightOrder(
-            data["client_order_id"],
-            data["exchange_order_id"],
-            data["trading_pair"],
-            getattr(OrderType, data["order_type"]),
-            getattr(TradeType, data["trade_type"]),
-            Decimal(data["price"]),
-            Decimal(data["amount"]),
-            data["last_state"]
-        )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """
@@ -92,14 +73,22 @@ class BtcMarketsInFlightOrder(InFlightOrderBase):
         if str(trade_update["orderId"]) != self.exchange_order_id in self.trade_id_set:
             # trade already recorded
             return False
-        for trade in trade_update["trades"]:
-            self.trade_id_set.add(trade["tradeId"])
-            self.executed_amount_base += Decimal(str(trade["volume"]))
-            # trade_id = trade_update.trades[0].tradeId
-            if "fee" in trade:
-                self.fee_paid += Decimal(str(trade["fee"]))
-            self.executed_amount_quote += (Decimal(str(trade["price"])) *
-                                           Decimal(str(trade["volume"])))
-        # if not self.fee_asset:
-        #    self.fee_asset = trade_update["fee_currency"]
+
+        if trade_update["status"] in ["Fully Matched", "Partially Matched"]:
+            # if trade_update received via WS, may have multiple trades
+            if trade_update["trades"]:
+                for trade in trade_update["trades"]:
+                    self.trade_id_set.add(trade["tradeId"])
+                    self.executed_amount_base += Decimal(str(trade["volume"]))
+                    if "fee" in trade:
+                        self.fee_paid += Decimal(str(trade["fee"]))
+                    self.executed_amount_quote += (Decimal(str(trade["price"])) *
+                                                   Decimal(str(trade["volume"])))
+            # if trade_update received via REST list orders, no trade break down
+            # else:
+
+        if self.is_open:
+            self.last_state = trade_update["status"]
+
+        self.check_filled_condition()
         return True
