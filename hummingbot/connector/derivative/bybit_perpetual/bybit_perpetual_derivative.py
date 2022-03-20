@@ -624,10 +624,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             body_params = {
                 "symbol": await self._trading_pair_symbol(trading_pair),
-                "order_link_id": tracked_order.client_order_id
             }
             if tracked_order.exchange_order_id:
                 body_params["order_id"] = tracked_order.exchange_order_id
+            else:
+                body_params["order_link_id"] = tracked_order.client_order_id
 
             # The API response simply verifies that the API request have been received by the API servers.
             response = await self._api_request(
@@ -639,6 +640,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
 
             response_code = response["ret_code"]
+
             if response_code != 0:
                 if response_code == CONSTANTS.ORDER_NOT_EXISTS_ERROR_CODE:
                     self.logger().warning(
@@ -1011,22 +1013,22 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.trigger_order_created_event(tracked_order)
             elif tracked_order.is_cancelled:
                 self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.stop_tracking_order(client_order_id)
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(
                                        self.current_timestamp,
                                        client_order_id))
-                self.stop_tracking_order(client_order_id)
             elif tracked_order.is_failure:
                 reason = order_msg["reject_reason"] if "reject_reason" in order_msg else "unknown"
                 self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
                                    f"Reason: {reason}")
+                self.stop_tracking_order(client_order_id)
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(
                                        self.current_timestamp,
                                        client_order_id,
                                        tracked_order.order_type
                                    ))
-                self.stop_tracking_order(client_order_id)
             elif tracked_order.is_filled:
                 self.logger().info(f"The {tracked_order.trade_type.name} order "
                                    f"{tracked_order.client_order_id} has been completed "
