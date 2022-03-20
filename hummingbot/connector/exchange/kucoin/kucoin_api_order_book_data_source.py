@@ -449,6 +449,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
                 "topic": f"/market/match:{symbols}",
+                "privateChannel": False,
                 "response": False,
             }
             subscribe_trade_request: WSRequest = WSRequest(payload=trades_payload)
@@ -456,7 +457,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/spotMarket/level2:{symbols}",
+                "topic": f"/market/level2:{symbols}",
+                "privateChannel": False,
                 "response": False,
             }
             subscribe_orderbook_request: WSRequest = WSRequest(payload=order_book_payload)

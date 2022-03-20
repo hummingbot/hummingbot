@@ -1,3 +1,4 @@
+import json
 from typing import Any, Callable, Dict, Optional
 
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
@@ -81,6 +82,7 @@ async def api_request(path: str,
     local_headers.update(headers)
 
     url = rest_url(path, domain=domain)
+    data = json.dumps(data) if data is not None else data
 
     request = RESTRequest(
         method=method,

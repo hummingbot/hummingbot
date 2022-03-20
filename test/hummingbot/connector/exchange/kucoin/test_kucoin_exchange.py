@@ -221,6 +221,7 @@ class TestKucoinExchange(unittest.TestCase):
                 {
                     "symbol": self.trading_pair,
                     "name": self.trading_pair,
+                    "enableTrading": True,
                 },
             ],
         }
@@ -379,7 +380,7 @@ class TestKucoinExchange(unittest.TestCase):
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_data = order_request[1][0].kwargs["data"]
+        request_data = json.loads(order_request[1][0].kwargs["data"])
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(TradeType.BUY.name.lower(), request_data["side"])
         self.assertEqual("limit", request_data["type"])
@@ -433,7 +434,7 @@ class TestKucoinExchange(unittest.TestCase):
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_data = order_request[1][0].kwargs["data"]
+        request_data = json.loads(order_request[1][0].kwargs["data"])
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(TradeType.BUY.name.lower(), request_data["side"])
         self.assertEqual("limit", request_data["type"])
@@ -489,7 +490,7 @@ class TestKucoinExchange(unittest.TestCase):
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_data = order_request[1][0].kwargs["data"]
+        request_data = json.loads(order_request[1][0].kwargs["data"])
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(TradeType.SELL.name.lower(), request_data["side"])
         self.assertEqual("market", request_data["type"])
