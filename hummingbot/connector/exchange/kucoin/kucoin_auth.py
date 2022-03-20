@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import hmac
-import json
 from collections import OrderedDict
 from typing import Any, Dict
 from urllib.parse import urlencode
@@ -77,7 +76,7 @@ class KucoinAuth(AuthBase):
             path_url = f"{path_url}?{query_string_components}"
 
         if request.data is not None:
-            body = json.dumps(request.data)
+            body = request.data
         else:
             body = ""
         payload = str(timestamp) + request.method.value.upper() + path_url + body

@@ -113,6 +113,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
                 "topic": "/spotMarket/tradeOrders",
+                "privateChannel": True,
                 "response": False,
             }
             subscribe_order_change_request: WSRequest = WSRequest(payload=orders_change_payload)
@@ -121,6 +122,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
                 "topic": "/account/balance",
+                "privateChannel": True,
                 "response": False,
             }
             subscribe_balance_request: WSRequest = WSRequest(payload=balance_payload)

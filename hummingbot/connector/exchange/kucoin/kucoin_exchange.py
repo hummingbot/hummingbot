@@ -6,7 +6,11 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
+from hummingbot.connector.exchange.kucoin import (
+    kucoin_constants as CONSTANTS,
+    kucoin_utils as utils,
+    kucoin_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
@@ -85,11 +89,13 @@ class KucoinExchange(ExchangePyBase):
             api_factory=self._api_factory)
         self._poll_notifier = asyncio.Event()
         self._status_polling_task = None
+        self._user_stream_tracker_task = None
+        self._user_stream_event_listener_task = None
+        self._trading_rules_polling_task = None
+        self._trading_fees_polling_task = None
         self._trading_required = trading_required
         self._trading_rules = {}
-        self._trading_rules_polling_task = None
         self._trading_fees = {}
-        self._trading_fees_polling_task = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
     @property
@@ -189,8 +195,10 @@ class KucoinExchange(ExchangePyBase):
         return NetworkStatus.CONNECTED
 
     def tick(self, timestamp: float):
-        super().tick()
-
+        """
+        Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
+        the execution of the status update polling loop using an event.
+        """
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if timestamp - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
@@ -829,27 +837,28 @@ class KucoinExchange(ExchangePyBase):
             )
             self._trading_fees[trading_pair] = fee_json
 
-    async def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
+    async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> List[TradingRule]:
         trading_rules = []
 
         for info in raw_trading_pair_info["data"]:
-            try:
-                trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    symbol=info.get("symbol"),
-                    domain=self._domain,
-                    api_factory=self._api_factory,
-                    throttler=self._throttler)
-                trading_rules.append(
-                    TradingRule(trading_pair=trading_pair,
-                                min_order_size=Decimal(info["baseMinSize"]),
-                                max_order_size=Decimal(info["baseMaxSize"]),
-                                min_price_increment=Decimal(info['priceIncrement']),
-                                min_base_amount_increment=Decimal(info['baseIncrement']),
-                                min_quote_amount_increment=Decimal(info['quoteIncrement']),
-                                min_notional_size=Decimal(info["quoteMinSize"]))
-                )
-            except Exception:
-                self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
+            if utils.is_pair_information_valid(info):
+                try:
+                    trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                        symbol=info.get("symbol"),
+                        domain=self._domain,
+                        api_factory=self._api_factory,
+                        throttler=self._throttler)
+                    trading_rules.append(
+                        TradingRule(trading_pair=trading_pair,
+                                    min_order_size=Decimal(info["baseMinSize"]),
+                                    max_order_size=Decimal(info["baseMaxSize"]),
+                                    min_price_increment=Decimal(info['priceIncrement']),
+                                    min_base_amount_increment=Decimal(info['baseIncrement']),
+                                    min_quote_amount_increment=Decimal(info['quoteIncrement']),
+                                    min_notional_size=Decimal(info["quoteMinSize"]))
+                    )
+                except Exception:
+                    self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
         return trading_rules
 
     async def _update_order_status(self):

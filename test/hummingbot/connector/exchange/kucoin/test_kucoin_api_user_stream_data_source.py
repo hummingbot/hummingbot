@@ -163,6 +163,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             "id": 1,
             "type": "subscribe",
             "topic": "/spotMarket/tradeOrders",
+            "privateChannel": True,
             "response": False
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[0])
@@ -170,6 +171,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             "id": 2,
             "type": "subscribe",
             "topic": "/account/balance",
+            "privateChannel": True,
             "response": False
         }
         self.assertEqual(expected_balances_subscription, sent_subscription_messages[1])

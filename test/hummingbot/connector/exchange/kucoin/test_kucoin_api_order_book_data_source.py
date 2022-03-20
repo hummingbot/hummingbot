@@ -305,13 +305,15 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
             "id": 1,
             "type": "subscribe",
             "topic": f"/market/match:{self.trading_pair}",
+            "privateChannel": False,
             "response": False
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "id": 2,
             "type": "subscribe",
-            "topic": f"/spotMarket/level2:{self.trading_pair}",
+            "topic": f"/market/level2:{self.trading_pair}",
+            "privateChannel": False,
             "response": False
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])

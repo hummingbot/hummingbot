@@ -94,7 +94,7 @@ class KucoinAuthTests(TestCase):
         request = RESTRequest(
             method=RESTMethod.POST,
             url="https://test.url/api/endpoint",
-            data=body,
+            data=json.dumps(body),
             is_auth_required=True,
             throttler_limit_id="/api/endpoint"
         )
