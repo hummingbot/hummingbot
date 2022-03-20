@@ -30,9 +30,11 @@ from hummingbot.connector.exchange.kucoin.kucoin_utils import (
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -45,10 +47,8 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -57,7 +57,6 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
 km_logger = None
@@ -337,11 +336,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     tracked_order.order_type,
                                                                     exchange_order_id=tracked_order.exchange_order_id))
                     else:
@@ -352,11 +348,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      tracked_order.order_type,
                                                                      exchange_order_id=tracked_order.exchange_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -587,10 +580,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    tracked_order.fee_asset or tracked_order.base_asset,
                                                                     float(tracked_order.executed_amount_base),
                                                                     float(tracked_order.executed_amount_quote),
-                                                                    float(tracked_order.fee_paid),
                                                                     tracked_order.order_type,
                                                                     exchange_order_id=tracked_order.exchange_order_id))
                     else:
@@ -601,10 +592,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     tracked_order.fee_asset or tracked_order.quote_asset,
                                                                      float(tracked_order.executed_amount_base),
                                                                      float(tracked_order.executed_amount_quote),
-                                                                     float(tracked_order.fee_paid),
                                                                      tracked_order.order_type,
                                                                      exchange_order_id=tracked_order.exchange_order_id))
 
@@ -785,8 +774,9 @@ cdef class KucoinExchange(ExchangeBase):
                    object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"buy-{trading_pair}-{tracking_nonce}"
+            str order_id = get_new_client_order_id(
+                is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+            )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -860,8 +850,10 @@ cdef class KucoinExchange(ExchangeBase):
                     object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"sell-{trading_pair}-{tracking_nonce}"
+            str order_id = get_new_client_order_id(
+                is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+            )
+
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 

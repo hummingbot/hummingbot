@@ -44,9 +44,10 @@ class BtcMarketsAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             ws = BtcMarketsWebsocket(self._btc_markets_auth)
             await ws.connect()
-            await ws.subscribe_marketIds(["orderChange", "trade"], self._trading_pairs)
+            # subscribe to heartbeat in order to ensure user stream initialises
+            await ws.subscribe_marketIds(["orderChange", "heartbeat"], self._trading_pairs)
             async for msg in ws.on_message():
-                # print(f"WS_SOCKET: {msg}")
+                self.logger().debug(f"WS_SOCKET: {msg}")
                 yield msg
                 self._last_recv_time = time.time()
                 if (msg.get("result") is None):

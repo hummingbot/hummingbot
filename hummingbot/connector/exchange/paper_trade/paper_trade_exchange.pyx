@@ -1,37 +1,24 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
+import asyncio
 import math
 import random
-
-from collections import (
-    deque, defaultdict
-)
-
-import asyncio
-import pandas as pd
+from collections import defaultdict, deque
+from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
 
 from cpython cimport PyObject
-from cython.operator cimport(
-    address,
-    dereference as deref,
-    postincrement as inc
-)
-from decimal import Decimal
+from cython.operator cimport address, dereference as deref, postincrement as inc
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
 
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -49,22 +36,13 @@ from hummingbot.core.event.events import (
     OrderBookTradeEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.Utils cimport(
-    getIteratorFromReverseIterator,
-    reverse_iterator
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
+from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-
-from ...budget_checker import BudgetChecker
 
 ptm_logger = None
 s_decimal_0 = Decimal(0)
@@ -371,7 +349,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -426,7 +407,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                 cpp_base_asset,
                 cpp_quote_asset,
                 <PyObject *> quantized_price,
-                <PyObject *> quantized_amount
+                <PyObject *> quantized_amount,
+                <PyObject *> None,
+                int(self._current_timestamp * 1e6),
+                0
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
@@ -469,16 +453,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
 
-        # Fee collateral asset
-        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
-
         # Base currency acquired, including fees.
         sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
-
-        # Fees for buys are in base asset
-        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
         if acquired_amount < amount:
@@ -523,10 +501,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    order_id,
                                    base_asset,
                                    quote_asset,
-                                   fee_asset,
                                    acquired_amount,
                                    sold_amount,
-                                   fee_amount,
                                    OrderType.MARKET))
 
     cdef c_execute_sell(self, str order_id, str trading_pair_str, object amount):
@@ -559,16 +535,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
 
-        # Fee collateral asset
-        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
-
         # Base currency used, including fees.
         sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency acquired, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
-
-        # Fees for sales are in quote asset
-        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
         if sold_amount < amount:
@@ -613,10 +583,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                                     order_id,
                                     base_asset,
                                     quote_asset,
-                                    fee_asset,
                                     sold_amount,
                                     acquired_amount,
-                                    fee_amount,
                                     OrderType.MARKET))
 
     cdef c_process_market_orders(self):
@@ -679,16 +647,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
 
-        # Fee collateral asset
-        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
-
         # Base currency acquired, including fees.
         sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency used, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
-
-        # Fees for buys are in base asset
-        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible acquired amount is less than requested
         if acquired_amount < amount:
@@ -743,10 +705,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                fee_asset,
                 acquired_amount,
                 sold_amount,
-                fee_amount,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -779,16 +739,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         adjusted_order_candidate = self._budget_checker.adjust_candidate(order_candidate, all_or_none=False)
 
-        # Fee collateral asset
-        fee_asset = list(adjusted_order_candidate.collateral_dict.keys())[0]
-
         # Base currency used, including fees.
         sold_amount = adjusted_order_candidate.order_collateral.amount
         # Quote currency acquired, including fees.
         acquired_amount = adjusted_order_candidate.potential_returns.amount
-
-        # Fees for sales are in quote asset
-        fee_amount = adjusted_order_candidate.collateral_dict[fee_asset]
 
         # It's not possible to fulfill the order, the possible sold amount is less than requested
         if sold_amount < amount:
@@ -842,10 +796,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 order_id,
                 base_asset,
                 quote_asset,
-                fee_asset,
                 sold_amount,
                 acquired_amount,
-                fee_amount,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)

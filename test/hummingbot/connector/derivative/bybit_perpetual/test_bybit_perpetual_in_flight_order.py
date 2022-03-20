@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 
 
 class BybitPerpetualInFlightOrderTests(TestCase):

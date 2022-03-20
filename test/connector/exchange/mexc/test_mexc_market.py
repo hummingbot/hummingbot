@@ -36,6 +36,7 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -47,7 +48,6 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.utils.async_utils import (
@@ -365,7 +365,6 @@ class MexcExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
         self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
-        self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         self.market_logger.clear()

@@ -1,30 +1,29 @@
-#!/usr/bin/env python
-import unittest
 import math
-import pandas as pd
 import time
+import unittest
 from decimal import Decimal
 from typing import List
+
+import pandas as pd
+
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import (
     Clock,
     ClockMode,
 )
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderBookTradeEvent,
     OrderFilledEvent,
-    OrderType,
-    PriceType,
     SellOrderCompletedEvent,
-    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 s_decimal_0 = Decimal(0)
@@ -97,10 +96,8 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal(0.0),
                 OrderType.LIMIT
             ))
         else:
@@ -121,10 +118,8 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal(0.0),
                 OrderType.LIMIT
             ))
 

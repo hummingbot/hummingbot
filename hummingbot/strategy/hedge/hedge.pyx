@@ -1,39 +1,22 @@
-#!/usr/bin/env python
-from collections import (
-    defaultdict,
-    deque
-)
-from decimal import Decimal
 import logging
-from math import (
-    floor,
-    ceil,
-    isclose,
-    isnan,
-)
+from decimal import Decimal
+from math import isnan
+from typing import Dict, List
+
 import numpy as np
 import pandas as pd
-from typing import (
-    List,
-    Tuple,
-    Optional,
-    Dict,
-    Set
-)
-import time
-from hummingbot.core.data_type.limit_order cimport LimitOrder
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
-from hummingbot.core.network_iterator import NetworkStatus
+
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.limit_order cimport LimitOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.strategy.hedge.exchange_pair import ExchangePairTuple
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.core.event.events import (PositionMode, PositionSide)
-from hummingbot.strategy.hedge.exchange_pair import ExchangePairTuple
 from hummingbot.strategy.utils import order_age
 
 NaN = float("nan")
@@ -120,13 +103,13 @@ cdef class HedgeStrategy(StrategyBase):
             object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair, quantized_order_amount)
 
         for o in active_orders:
-    
-            if isnan(order_age(o)):
+            order_age = order_age(o, self._current_timestamp)
+            if isnan(order_age):
                 continue
-            if self._max_order_age>0 and order_age(o) > self._max_order_age:
+            if self._max_order_age > 0 and order_age > self._max_order_age:
                 self.log_with_clock(logging.INFO,
                                     f"{market_pair.trading_pair}: "
-                                    f"order age of limit order ({order_age(o)}) is more than {self._max_order_age}. "
+                                    f"order age of limit order ({order_age}) is more than {self._max_order_age}. "
                                     f"Cancelling Order")
                 self.c_cancel_order(market_pair, o.client_order_id)
 
@@ -140,7 +123,6 @@ cdef class HedgeStrategy(StrategyBase):
                                     f"order quantum: {order_size_quantum} "
                                     f"Cancelling Order")
                 self.c_cancel_order(market_pair, o.client_order_id)
-            
 
     cdef object check_and_hedge_asset(self,
                                       str maker_asset,
@@ -259,7 +241,7 @@ cdef class HedgeStrategy(StrategyBase):
             orders = active_orders[market_info]
             for order in orders:
                 market = order.trading_pair
-                age = order_age(order)
+                age = order_age(order, self._current_timestamp)
                 data.append([
                     market,
                     "buy" if order.is_buy else "sell",

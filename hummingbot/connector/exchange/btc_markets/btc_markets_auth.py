@@ -31,16 +31,7 @@ class BtcMarketsAuth:
         data = data or {}
         data['method'] = method
         data.update({'method': method.upper(), 'nonce': nonce, 'api_key': self.api_key})
-        # commented 02/08
-        # data_params = data.get('params', {})
-        # if not data_params:
-        #   data['params'] = {}
-        # comment to here
 
-        # params = ''.join(
-        #    f'{key}{data_params[key]}'
-        #    for key in sorted(data_params)
-        # )
         if "body" in data:
             if len(data['body']) == 0:
                 payload = f"{data['method']}/{path_url}{data['nonce']}{''}"
@@ -74,7 +65,6 @@ class BtcMarketsAuth:
         """
         Generates HTTP headers
         """
-        # nonce = get_ms_timestamp()
         headers = {
             "Accept": "application/json",
             "Accept-Charset": "UTF-8",
@@ -82,7 +72,6 @@ class BtcMarketsAuth:
             "BM-AUTH-APIKEY": self.api_key,
             "BM-AUTH-TIMESTAMP": str(data['nonce']),
             "BM-AUTH-SIGNATURE": data['sig']
-            # "BM-AUTH-SIGNATURE": self.secret_key
         }
 
         return headers
