@@ -2,28 +2,28 @@ import asyncio
 import copy
 import os
 import shutil
+from typing import TYPE_CHECKING, Dict, Optional
 
 from pydantic import ValidationError
 
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_helpers import (
-    get_strategy_config_map,
-    parse_cvar_value,
     default_strategy_file_path,
-    save_to_yml_legacy,
-    get_strategy_template_path,
     format_config_file_name,
+    get_strategy_config_map,
+    get_strategy_template_path,
     parse_config_default_to_text,
+    parse_cvar_value,
     retrieve_validation_error_msg,
     save_to_yml,
+    save_to_yml_legacy
 )
-from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
+from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
-from typing import TYPE_CHECKING, Dict, Optional, Any
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -104,11 +104,9 @@ class CreateCommand:
                 client_data is not None
                 and (client_data.prompt_on_new and field.required)
             ):
-                new_config_value = await self.prompt_a_config(config_map, key)
+                await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
                     break
-                elif isinstance(new_config_value, BaseClientModel):
-                    await self.prompt_for_model_config(new_config_value)
 
     async def prompt_for_configuration_legacy(
         self,  # type: HummingbotApplication
@@ -163,23 +161,31 @@ class CreateCommand:
         model: BaseClientModel,
         config: str,
         input_value=None,
-    ) -> Any:
+    ):
+        config_path = config.split(".")
+        while len(config_path) != 1:
+            sub_model_attr = config_path.pop(0)
+            model = model.__getattribute__(sub_model_attr)
+        config = config_path[0]
         if input_value is None:
             prompt = await model.get_client_prompt(config)
-            prompt = f"{prompt} >>> "
-            client_data = model.get_client_data(config)
-            input_value = await self.app.prompt(prompt=prompt, is_password=client_data.is_secure)
+            if prompt is not None:
+                prompt = f"{prompt} >>> "
+                client_data = model.get_client_data(config)
+                input_value = await self.app.prompt(prompt=prompt, is_password=client_data.is_secure)
 
-        if self.app.to_stop_config:
-            return
-        try:
-            model.__setattr__(config, input_value)
-            new_config_value = model.__getattribute__(config)
-        except ValidationError as e:
-            err_msg = retrieve_validation_error_msg(e)
-            self._notify(err_msg)
-            new_config_value = await self.prompt_a_config(model, config)
-        return new_config_value
+        new_config_value = None
+        if not self.app.to_stop_config and input_value is not None:
+            try:
+                model.__setattr__(config, input_value)
+                new_config_value = model.__getattribute__(config)
+            except ValidationError as e:
+                err_msg = retrieve_validation_error_msg(e)
+                self._notify(err_msg)
+                new_config_value = await self.prompt_a_config(model, config)
+
+        if not self.app.to_stop_config and isinstance(new_config_value, BaseClientModel):
+            await self.prompt_for_model_config(new_config_value)
 
     async def prompt_a_config_legacy(
         self,  # type: HummingbotApplication
@@ -188,7 +194,7 @@ class CreateCommand:
         assign_default=True,
     ):
         if config.key == "inventory_price":
-            await self.inventory_price_prompt(self.strategy_config_map, input_value)
+            await self.inventory_price_prompt_legacy(self.strategy_config_map, input_value)
             return
         if input_value is None:
             if assign_default:

@@ -1,28 +1,25 @@
 import asyncio
 from decimal import Decimal
 from os.path import join
-from typing import (
-    Any,
-    List,
-    TYPE_CHECKING,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 
 import pandas as pd
+from prompt_toolkit.utils import is_windows
 
-from hummingbot.client.config.config_helpers import (
-    missing_required_configs_legacy,
-    save_to_yml_legacy,
+from hummingbot.client.config.config_data_types import (
+    BaseClientModel,
+    BaseStrategyConfigMap,
+    BaseTradingStrategyConfigMap
 )
+from hummingbot.client.config.config_helpers import missing_required_configs_legacy, save_to_yml, save_to_yml_legacy
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import (
-    CONF_FILE_PATH,
-    GLOBAL_CONFIG_PATH,
-)
+from hummingbot.client.settings import CONF_FILE_PATH, GLOBAL_CONFIG_PATH
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.inventory_cost import InventoryCost
@@ -66,6 +63,7 @@ color_settings_to_display = ["top-pane",
                              "input-pane",
                              "logs-pane",
                              "terminal-primary"]
+columns = ["Key", "Value"]
 
 
 class ConfigCommand:
@@ -77,14 +75,19 @@ class ConfigCommand:
             self.list_configs()
             return
         else:
-            if key not in self.config_able_keys():
+            if key not in self.configurable_keys():
                 self._notify("Invalid key, please choose from the list.")
                 return
             safe_ensure_future(self._config_single_key(key, value), loop=self.ev_loop)
 
     def list_configs(self,  # type: HummingbotApplication
                      ):
-        columns = ["Key", "  Value"]
+        self.list_global_configs()
+        self.list_strategy_configs()
+
+    def list_global_configs(
+        self  # type: HummingbotApplication
+    ):
         data = [[cv.key, cv.value] for cv in global_config_map.values()
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
@@ -99,22 +102,58 @@ class ConfigCommand:
         lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
         self._notify("\n".join(lines))
 
+    def list_strategy_configs(
+        self  # type: HummingbotApplication
+    ):
         if self.strategy_name is not None:
-            data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
+            config_map = self.strategy_config_map
+            data = self.build_df_data_from_config_map(config_map)
             df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
             self._notify("\nStrategy Configurations:")
             lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
             self._notify("\n".join(lines))
 
-    def config_able_keys(self  # type: HummingbotApplication
-                         ) -> List[str]:
+    def build_df_data_from_config_map(
+        self,  # type: HummingbotApplication
+        config_map: Union[BaseClientModel, Dict[str, ConfigVar]]
+    ) -> List[Tuple[str, Any]]:
+        if isinstance(config_map, BaseClientModel):
+            data = self.build_model_df_data(config_map)
+        else:  # legacy
+            data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
+        return data
+
+    @staticmethod
+    def build_model_df_data(config_map: BaseClientModel) -> List[Tuple[str, Any]]:
+        model_data = []
+        for traversal_item in config_map.traverse():
+            attr_printout = (
+                "  " * (traversal_item.depth - 1)
+                + (u"\u221F " if not is_windows() else "  ")
+                + traversal_item.attr
+            ) if traversal_item.depth else traversal_item.attr
+            model_data.append((attr_printout, traversal_item.printable_value))
+        return model_data
+
+    def configurable_keys(self  # type: HummingbotApplication
+                          ) -> List[str]:
         """
         Returns a list of configurable keys - using config command, excluding exchanges api keys
         as they are set from connect command.
         """
         keys = [c.key for c in global_config_map.values() if c.prompt is not None and not c.is_connect_key]
         if self.strategy_config_map is not None:
-            keys += [c.key for c in self.strategy_config_map.values() if c.prompt is not None]
+            if isinstance(self.strategy_config_map, BaseStrategyConfigMap):
+                keys.extend([
+                    traversal_item.config_path
+                    for traversal_item in self.strategy_config_map.traverse()
+                    if (
+                        traversal_item.client_field_data is not None
+                        and traversal_item.client_field_data.prompt is not None
+                    )
+                ])
+            else:  # legacy
+                keys.extend([c.key for c in self.strategy_config_map.values() if c.prompt is not None])
         return keys
 
     async def check_password(self,  # type: HummingbotApplication
@@ -149,42 +188,32 @@ class ConfigCommand:
         self.app.hide_input = True
 
         try:
-            config_var, config_map, file_path = None, None, None
-            if key in global_config_map:
-                config_map = global_config_map
-                file_path = GLOBAL_CONFIG_PATH
-            elif self.strategy_config_map is not None and key in self.strategy_config_map:
+            if (
+                key in global_config_map
+                or (
+                    not isinstance(self.strategy_config_map, (type(None), BaseClientModel))
+                    and key in self.strategy_config_map
+                )
+            ):
+                await self._config_single_key_legacy(key, input_value)
+            else:
                 config_map = self.strategy_config_map
                 file_path = join(CONF_FILE_PATH, self.strategy_file_name)
-            config_var = config_map[key]
-            if input_value is None:
-                self._notify("Please follow the prompt to complete configurations: ")
-            if config_var.key == "inventory_target_base_pct":
-                await self.asset_ratio_maintenance_prompt(config_map, input_value)
-            elif config_var.key == "inventory_price":
-                await self.inventory_price_prompt(config_map, input_value)
-            else:
-                await self.prompt_a_config_legacy(config_var, input_value=input_value, assign_default=False)
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            await self.update_all_secure_configs_legacy()
-            missings = missing_required_configs_legacy(config_map)
-            if missings:
-                self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
-            missings = await self._prompt_missing_configs(config_map)
-            save_to_yml_legacy(file_path, config_map)
-            self._notify("\nNew configuration saved:")
-            self._notify(f"{key}: {str(config_var.value)}")
-            self.app.app.style = load_style()
-            for config in missings:
-                self._notify(f"{config.key}: {str(config.value)}")
-            if isinstance(self.strategy, PureMarketMakingStrategy) or \
-               isinstance(self.strategy, PerpetualMarketMakingStrategy):
-                updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
-                if updated:
-                    self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
-                                 f"to reflect the new configuration.")
+                if input_value is None:
+                    self._notify("Please follow the prompt to complete configurations: ")
+                if key == "inventory_target_base_pct":
+                    await self.asset_ratio_maintenance_prompt(config_map, input_value)
+                elif key == "inventory_price":
+                    await self.inventory_price_prompt(config_map, input_value)
+                else:
+                    await self.prompt_a_config(config_map, key, input_value)
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
+                save_to_yml(file_path, config_map)
+                self._notify("\nNew configuration saved.")
+                self.list_strategy_configs()
+                self.app.app.style = load_style()
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -193,6 +222,50 @@ class ConfigCommand:
             self.app.hide_input = False
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
+
+    async def _config_single_key_legacy(
+        self,  # type: HummingbotApplication
+        key: str,
+        input_value: Any,
+    ):  # pragma: no cover
+        config_var, config_map, file_path = None, None, None
+        if key in global_config_map:
+            config_map = global_config_map
+            file_path = GLOBAL_CONFIG_PATH
+        elif self.strategy_config_map is not None and key in self.strategy_config_map:
+            config_map = self.strategy_config_map
+            file_path = join(CONF_FILE_PATH, self.strategy_file_name)
+        config_var = config_map[key]
+        if input_value is None:
+            self._notify("Please follow the prompt to complete configurations: ")
+        if config_var.key == "inventory_target_base_pct":
+            await self.asset_ratio_maintenance_prompt_legacy(config_map, input_value)
+        elif config_var.key == "inventory_price":
+            await self.inventory_price_prompt_legacy(config_map, input_value)
+        else:
+            await self.prompt_a_config_legacy(config_var, input_value=input_value, assign_default=False)
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return
+        await self.update_all_secure_configs_legacy()
+        missings = missing_required_configs_legacy(config_map)
+        if missings:
+            self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
+        missings = await self._prompt_missing_configs(config_map)
+        save_to_yml_legacy(file_path, config_map)
+        self._notify("\nNew configuration saved:")
+        self._notify(f"{key}: {str(config_var.value)}")
+        self.app.app.style = load_style()
+        for config in missings:
+            self._notify(f"{config.key}: {str(config.value)}")
+        if (
+            isinstance(self.strategy, PureMarketMakingStrategy) or
+            isinstance(self.strategy, PerpetualMarketMakingStrategy)
+        ):
+            updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
+            if updated:
+                self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
+                             f"to reflect the new configuration.")
 
     async def _prompt_missing_configs(self,  # type: HummingbotApplication
                                       config_map):
@@ -206,9 +279,51 @@ class ConfigCommand:
             return missings + (await self._prompt_missing_configs(config_map))
         return missings
 
-    async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
-                                             config_map,
-                                             input_value = None):
+    async def asset_ratio_maintenance_prompt(
+        self,  # type: HummingbotApplication
+        config_map: BaseTradingStrategyConfigMap,
+        input_value: Any = None,
+    ):  # pragma: no cover
+        """
+        Will be removed: https://app.shortcut.com/coinalpha/story/24923/collect-special-case-prompts-via-config-models
+        """
+        if input_value:
+            config_map.inventory_target_base_pct = input_value
+        else:
+            exchange = config_map.exchange
+            market = config_map.market
+            base, quote = split_hb_trading_pair(market)
+            balances = await UserBalances.instance().balances(exchange, base, quote)
+            if balances is None:
+                return
+            base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
+            if base_ratio is None:
+                return
+            base_ratio = round(base_ratio, 3)
+            quote_ratio = 1 - base_ratio
+
+            cvar = ConfigVar(key="temp_config",
+                             prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
+                                    f"{balances.get(quote, 0):.4f} {quote}. By market value, "
+                                    f"your current inventory split is {base_ratio:.1%} {base} "
+                                    f"and {quote_ratio:.1%} {quote}."
+                                    f" Would you like to keep this ratio? (Yes/No) >>> ",
+                             required_if=lambda: True,
+                             type_str="bool",
+                             validator=validate_bool)
+            await self.prompt_a_config_legacy(cvar)
+            if cvar.value:
+                config_map.inventory_target_base_pct = round(base_ratio * Decimal('100'), 1)
+            elif self.app.to_stop_config:
+                self.app.to_stop_config = False
+            else:
+                await self.prompt_a_config(config_map, config="inventory_target_base_pct")
+
+    async def asset_ratio_maintenance_prompt_legacy(
+        self,  # type: HummingbotApplication
+        config_map,
+        input_value=None,
+    ):
         if input_value:
             config_map['inventory_target_base_pct'].value = Decimal(input_value)
         else:
@@ -244,6 +359,17 @@ class ConfigCommand:
                 await self.prompt_a_config_legacy(config_map["inventory_target_base_pct"])
 
     async def inventory_price_prompt(
+        self,  # type: HummingbotApplication
+        model: BaseTradingStrategyConfigMap,
+        input_value=None,
+    ):
+        """
+        Not currently used.
+        Will be removed: https://app.shortcut.com/coinalpha/story/24923/collect-special-case-prompts-via-config-models
+        """
+        raise NotImplementedError
+
+    async def inventory_price_prompt_legacy(
         self,  # type: HummingbotApplication
         config_map,
         input_value=None,

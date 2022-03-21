@@ -1,17 +1,17 @@
 import asyncio
 import datetime
+from typing import (
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import pandas as pd
 import psutil
+import tabulate
 from decimal import Decimal
-from typing import (
-    List,
-    Set,
-    Tuple,
-    Optional,
-)
 
-from tabulate import tabulate
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
@@ -111,5 +111,10 @@ def format_df_for_printout(
         )
         df.columns = [c if len(c) < max_col_width else f"{c[:max_col_width - 3]}..." for c in df.columns]
     table_format = table_format or global_config_map.get("tables_format").value
-    formatted_df = tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
+
+    tabulate.PRESERVE_WHITESPACE = True
+    try:
+        formatted_df = tabulate.tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
+    finally:
+        tabulate.PRESERVE_WHITESPACE = False
     return formatted_df

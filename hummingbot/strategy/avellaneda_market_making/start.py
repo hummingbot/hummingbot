@@ -64,14 +64,14 @@ def start(self):
         risk_factor = c_map.risk_factor
         order_amount_shape_factor = c_map.order_amount_shape_factor
 
-        execution_timeframe = c_map.execution_timeframe_model.Config.title
-        if isinstance(c_map.execution_timeframe_model, FromDateToDateModel):
-            start_time = c_map.execution_timeframe_model.start_datetime
-            end_time = c_map.execution_timeframe_model.end_datetime
+        execution_timeframe = c_map.execution_timeframe_mode.Config.title
+        if isinstance(c_map.execution_timeframe_mode, FromDateToDateModel):
+            start_time = c_map.execution_timeframe_mode.start_datetime
+            end_time = c_map.execution_timeframe_mode.end_datetime
             execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
-        elif isinstance(c_map.execution_timeframe_model, DailyBetweenTimesModel):
-            start_time = c_map.execution_timeframe_model.start_time
-            end_time = c_map.execution_timeframe_model.end_time
+        elif isinstance(c_map.execution_timeframe_mode, DailyBetweenTimesModel):
+            start_time = c_map.execution_timeframe_mode.start_time
+            end_time = c_map.execution_timeframe_mode.end_time
             execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
         else:
             start_time = None
