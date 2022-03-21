@@ -119,7 +119,11 @@ class StartCommand:
                     self.placeholder_mode = False
                     self.app.change_prompt(prompt=">>> ")
 
+                    if use_configuration in ["N", "n", "No", "no"]:
+                        return
+
                     if use_configuration not in ["Y", "y", "Yes", "yes"]:
+                        self.notify("Invalid input. Please execute the `start` command again.")
                         return
 
             # Display custom warning message for specific connectors
