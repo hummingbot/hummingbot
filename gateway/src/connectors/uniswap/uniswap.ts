@@ -173,7 +173,9 @@ export class Uniswap implements Uniswapish {
       );
     }
     logger.info(
-      `Best trade for ${baseToken.address}-${quoteToken.address}: ${trades[0]}`
+      `Best trade for ${baseToken.address}-${quoteToken.address}: ` +
+        `${trades[0].executionPrice.toFixed(6)}` +
+        `${baseToken.name}.`
     );
     const expectedAmount = trades[0].minimumAmountOut(
       this.getSlippagePercentage()
@@ -220,7 +222,9 @@ export class Uniswap implements Uniswapish {
       );
     }
     logger.info(
-      `Best trade for ${quoteToken.address}-${baseToken.address}: ${trades[0]}`
+      `Best trade for ${quoteToken.address}-${baseToken.address}: ` +
+        `${trades[0].executionPrice.invert().toFixed(6)} ` +
+        `${baseToken.name}.`
     );
 
     const expectedAmount = trades[0].maximumAmountIn(

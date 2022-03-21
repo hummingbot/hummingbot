@@ -482,7 +482,7 @@ describe('POST /amm/trade', () => {
         address,
         side: 'SELL',
         nonce: 21,
-        limitPrice: '999999999999999999999',
+        limitPrice: '9',
       })
       .set('Accept', 'application/json')
       .expect(200);
@@ -508,7 +508,7 @@ describe('POST /amm/trade', () => {
       .expect(200);
   });
 
-  it('should return 200 for SELL with price less than limitPrice', async () => {
+  it('should return 200 for SELL with price higher than limitPrice', async () => {
     patchForSell();
     await request(gatewayApp)
       .post(`/amm/trade`)
@@ -522,7 +522,7 @@ describe('POST /amm/trade', () => {
         address,
         side: 'SELL',
         nonce: 21,
-        limitPrice: '9',
+        limitPrice: '99999999999',
       })
       .set('Accept', 'application/json')
       .expect(500);
