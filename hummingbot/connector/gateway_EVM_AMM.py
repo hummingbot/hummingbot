@@ -342,7 +342,6 @@ class GatewayEVMAMM(ConnectorBase):
                                   trade_type=trade_type,
                                   price=price,
                                   amount=amount)
-
         await self._update_nonce()
         try:
             order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
@@ -595,13 +594,13 @@ class GatewayEVMAMM(ConnectorBase):
         self._nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
-        await self._update_balances(on_interval=False)
+        await self.update_balances(on_interval=False)
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
-                    self._update_balances(on_interval=True),
+                    self.update_balances(on_interval=True),
                     self._update_approval_order_status(self.approval_orders),
                     self._update_order_status(self.amm_orders)
                 )
@@ -611,7 +610,7 @@ class GatewayEVMAMM(ConnectorBase):
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
-    async def _update_balances(self, on_interval=False):
+    async def update_balances(self, on_interval=False):
         """
         Calls Eth API to update total and available balances.
         """
