@@ -12,7 +12,6 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
-from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -24,6 +23,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
@@ -64,11 +64,14 @@ class BinanceExchange(ExchangeBase):
             domain=self._domain,
             auth=self._auth)
         self._rest_assistant = None
-        self._order_book_tracker = BinanceOrderBookTracker(
+        self._order_book_tracker = OrderBookTracker(
+            data_source=BinanceAPIOrderBookDataSource(
+                trading_pairs=trading_pairs,
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler),
             trading_pairs=trading_pairs,
-            domain=domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler)
+            domain=self._domain)
         self._user_stream_tracker = BinanceUserStreamTracker(auth=self._auth, domain=domain, throttler=self._throttler)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()

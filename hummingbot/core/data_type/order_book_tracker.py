@@ -1,35 +1,27 @@
 import asyncio
 import logging
 import time
-from abc import ABC
 from collections import defaultdict, deque
 from enum import Enum
-from typing import (
-    Deque,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
+from typing import Deque, Dict, List, Optional, Tuple
 
 import pandas as pd
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.event.events import OrderBookTradeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-from .order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class OrderBookTrackerDataSourceType(Enum):
-    # LOCAL_CLUSTER = 1 deprecated
     REMOTE_API = 2
     EXCHANGE_API = 3
 
 
-class OrderBookTracker(ABC):
+class OrderBookTracker():
     PAST_DIFF_WINDOW_SIZE: int = 32
     _obt_logger: Optional[HummingbotLogger] = None
 
@@ -62,6 +54,7 @@ class OrderBookTracker(ABC):
         self._order_book_diff_router_task: Optional[asyncio.Task] = None
         self._order_book_snapshot_router_task: Optional[asyncio.Task] = None
         self._update_last_trade_prices_task: Optional[asyncio.Task] = None
+        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
@@ -99,6 +92,9 @@ class OrderBookTracker(ABC):
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self._data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
         self._order_book_diff_router_task = safe_ensure_future(
             self._order_book_diff_router()
         )
@@ -135,6 +131,8 @@ class OrderBookTracker(ABC):
         if self._update_last_trade_prices_task is not None:
             self._update_last_trade_prices_task.cancel()
             self._update_last_trade_prices_task = None
+        if self._order_book_stream_listener_task is not None:
+            self._order_book_stream_listener_task.cancel()
         if len(self._tracking_tasks) > 0:
             for _, task in self._tracking_tasks.items():
                 task.cancel()
