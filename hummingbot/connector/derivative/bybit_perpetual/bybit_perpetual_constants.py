@@ -68,8 +68,7 @@ GET_WALLET_BALANCE_PATH_URL = {
     LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance"}
 SET_POSITION_MODE_URL = {
-    LINEAR_MARKET: "private/linear/position/switch-mode",
-    NON_LINEAR_MARKET: "private/linear/position/switch-mode"}
+    LINEAR_MARKET: "private/linear/position/switch-mode"}
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
