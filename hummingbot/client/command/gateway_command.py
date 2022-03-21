@@ -419,10 +419,14 @@ class GatewayCommand:
             # the user has a wallet. Ask if they want to use it or create a new one.
             else:
                 # print table
-                use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
+                while True:
+                    use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+                    if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
+                        break
+                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
 
                 self.app.clear_input()
                 # they use an existing wallet
