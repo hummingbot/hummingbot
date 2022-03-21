@@ -901,7 +901,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertNotIn("O1", self.connector.in_flight_orders)
         self.assertTrue(self._is_logged(
             "WARNING",
-            "Failed to cancel order O1: order not found (130010 - order not exists)"))
+            "Failed to cancel order O1: order not found (20001 - order not exists)"))
 
     def test_cancel_tracked_order_logs_error_when_cancelling_non_tracked_order(self):
         self._simulate_trading_rules_initialized()
