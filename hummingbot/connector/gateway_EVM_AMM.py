@@ -694,11 +694,10 @@ class GatewayEVMAMM(ConnectorBase):
         try:
             async with timeout(timeout_seconds):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cr in cancellation_results:
-                    if isinstance(cr, Exception):
+                for client_order_id in cancellation_results:
+                    if isinstance(client_order_id, Exception):
                         continue
-                    if isinstance(cr, dict) and "origClientOrderId" in cr:
-                        client_order_id = cr.get("origClientOrderId")
+                    if client_order_id is not None:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
