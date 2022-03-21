@@ -13,7 +13,6 @@ from hummingbot.connector.exchange.kucoin import (
 )
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -25,6 +24,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -77,12 +77,15 @@ class KucoinExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._trading_pairs = trading_pairs
-        self._order_book_tracker = KucoinOrderBookTracker(
+        self._order_book_tracker = OrderBookTracker(
+            data_source=KucoinAPIOrderBookDataSource(
+                trading_pairs=trading_pairs,
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer),
             trading_pairs=trading_pairs,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+            domain=self._domain)
         self._user_stream_tracker = KucoinUserStreamTracker(
             domain=self._domain,
             throttler=self._throttler,

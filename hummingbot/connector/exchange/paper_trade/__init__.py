@@ -1,4 +1,6 @@
+import importlib
 from typing import List, Callable
+
 from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange
@@ -9,9 +11,8 @@ def get_order_book_tracker_class(connector_name: str) -> Callable:
     module_name = f"{conn_setting.base_name()}_order_book_tracker"
     class_name = "".join([o.capitalize() for o in module_name.split("_")])
     try:
-        mod = __import__(f'hummingbot.connector.{conn_setting.type.name.lower()}.{conn_setting.base_name()}.'
-                         f'{module_name}',
-                         fromlist=[class_name])
+        mod = importlib.import_module(f'hummingbot.connector.{conn_setting.type.name.lower()}.'
+                                      f'{conn_setting.base_name()}.{module_name}')
         return getattr(mod, class_name)
     except Exception:
         pass
@@ -25,4 +26,5 @@ def create_paper_trade_market(exchange_name: str, trading_pairs: List[str]):
     obt_kwargs = conn_setting.add_domain_parameter(obt_params)
     obt_obj = obt_class(**obt_kwargs)
     return PaperTradeExchange(obt_obj,
-                              get_connector_class(exchange_name))
+                              get_connector_class(exchange_name),
+                              exchange_name=exchange_name)
