@@ -89,7 +89,7 @@ class HummingbotCompleter(Completer):
 
     @property
     def _config_completer(self):
-        config_keys = self.hummingbot_application.config_able_keys()
+        config_keys = self.hummingbot_application.configurable_keys()
         return WordCompleter(config_keys, ignore_case=True)
 
     def _complete_strategies(self, document: Document) -> bool:

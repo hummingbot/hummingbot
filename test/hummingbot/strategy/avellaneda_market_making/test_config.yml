@@ -1,6 +1,6 @@
 exchange: binance
 market: COINALPHA-HBOT
-execution_timeframe_model:
+execution_timeframe_mode:
   start_time: "09:30:00"
   end_time: "16:00:00"
 order_amount: 10
