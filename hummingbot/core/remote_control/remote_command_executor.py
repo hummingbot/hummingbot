@@ -231,8 +231,11 @@ class RemoteCommandExecutor(PubSub):
                     self._finish_processing_event_hook()
             except asyncio.CancelledError:
                 raise
-            except (websockets.exceptions.InvalidStatusCode, socket.gaierror):
-                self.logger().error("Error connecting to websocket, invalid URL or API key, cannot continue.")
+            except (websockets.exceptions.InvalidStatusCode, socket.gaierror) as e:
+                if "401" in str(e):
+                    self.logger().error("Error connecting to websocket, invalid API key, cannot continue.")
+                else:
+                    self.logger().error("Error connecting to websocket, invalid URL, cannot continue.")
                 raise
             except (websockets.exceptions.InvalidMessage, OSError):
                 self.logger().error("Error connecting to websocket, sleeping 10.")
