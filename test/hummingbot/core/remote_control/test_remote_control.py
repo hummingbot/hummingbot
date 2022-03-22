@@ -5,6 +5,9 @@ import multiprocessing as mp
 import time
 from unittest import TestCase
 from unittest.mock import patch, AsyncMock
+
+from aioresponses import aioresponses
+
 from websockets.exceptions import (
     ConnectionClosed,
     InvalidStatusCode,
@@ -277,10 +280,14 @@ class RemoteControlTest(TestCase):
         self.assertEqual("test 1", self.remote_cmds.last_event_received.event_descriptor)
         self.assertTrue(handle_cmd_event.is_set())
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
     @patch('hummingbot.client.hummingbot_application.HummingbotApplication._handle_command')
-    def test_remote_commands_disabled_commands(self, handle_cmd_mock, ws_connect_mock):
+    def test_remote_commands_disabled_commands(self, mock_api, handle_cmd_mock, ws_connect_mock):
         handle_cmd_disabled_event = asyncio.Event()
+
+        for x in range(100):
+            mock_api.get(r".*", body=json.dumps({}))
 
         ws_connect_mock.return_value = self._rce_setup()
         handle_cmd_mock.side_effect = lambda evt: handle_cmd_disabled_event.set()
