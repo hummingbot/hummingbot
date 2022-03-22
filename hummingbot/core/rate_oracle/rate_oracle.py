@@ -270,7 +270,7 @@ class RateOracle(NetworkBase):
                     pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
                         record["symbolName"])
                 except KeyError:
-                    # Ignore results for which their symbols is not tracked by the Binance connector
+                    # Ignore results for which their symbols is not tracked by the connector
                     continue
                 if Decimal(record["buy"]) > 0 and Decimal(record["sell"]) > 0:
                     results[pair] = (Decimal(str(record["buy"])) + Decimal(str(record["sell"]))) / Decimal("2")
