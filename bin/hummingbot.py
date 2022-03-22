@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import asyncio
 import errno
 import socket
