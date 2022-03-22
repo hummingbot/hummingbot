@@ -41,7 +41,7 @@ class KucoinAuth(AuthBase):
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
-        This method is intended to configure a websocket request to be authenticated. Binance does not use this
+        This method is intended to configure a websocket request to be authenticated. KuCoin does not use this
         functionality
         """
         return request  # pass-through

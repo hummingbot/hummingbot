@@ -70,7 +70,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         parameter
 
         :param trading_pairs: list of trading pairs to get the prices for
-        :param domain: which Binance domain we are connecting to (the default value is 'main')
+        :param domain: which domain we are connecting to (the default value is 'main')
         :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
             If no instance is provided then a new one will be created.
         :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
