@@ -493,4 +493,4 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     @classmethod
     def exchange_post_validation(cls, values: Dict):
-        required_exchanges.append(values["exchange"])
+        required_exchanges.add(values["exchange"])

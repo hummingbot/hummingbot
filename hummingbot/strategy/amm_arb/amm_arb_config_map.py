@@ -16,7 +16,7 @@ from decimal import Decimal
 
 
 def exchange_on_validated(value: str) -> None:
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def market_1_validator(value: str) -> None:

@@ -19,7 +19,7 @@ def market_validator(value: str) -> None:
 
 
 def market_on_validated(value: str) -> None:
-    required_exchanges.append(value)
+    required_exchanges.add(value)
     requried_connector_trading_pairs["uniswap_v3"] = [value]
 
 
