@@ -192,7 +192,7 @@ class LiquidityMiningTest(unittest.TestCase):
 
         # initiate strategy and add active orders
         self.clock.add_iterator(self.default_strategy)
-        self.clock.backtest_til(self.start_timestamp + 10)
+        self.clock.backtest_til(self.start_timestamp + 9)
 
         # the order tolerance is 1%
         # set the orders to the same values
