@@ -40,37 +40,30 @@ async def main():
                             trading_pairs = [trading_pair],
                             trading_required = True)
 
+    # start GatewayE
     await gateway.auto_approve()
-
     await gateway.update_balances()
 
+    # prepare trade
     amount = Decimal("0.0001")
 
     price = await gateway.get_quote_price(trading_pair, True, amount)
 
     print(f"Price: {price}")
 
-    order_result = gateway.place_order(True, "WETH-DAI", amount, price + Decimal("1000"))
+    order_result = gateway.place_order(True, "WETH-DAI", amount, price + Decimal("1"))
     print(order_result)
     await asyncio.sleep(3)
-
-    # while True:
-    #     await gateway.update_order_status(gateway.amm_orders)
-    #     print(f"{gateway._in_flight_orders}")
-    #     await asyncio.sleep(2)
 
     # cancel logic
     await gateway.update_order_status(gateway.amm_orders)
 
-    # await asyncio.sleep(10)
     cancel_result = await gateway.cancel_outdated_orders(0)
     print(cancel_result)
 
-    print("waiting")
     await asyncio.sleep(3)
     await gateway.update_order_status(gateway.amm_orders)
     print(f"{gateway._in_flight_orders}")
-    # print("complete")
 
 if __name__ == "__main__":
     asyncio.run(main())
