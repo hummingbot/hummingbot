@@ -767,7 +767,7 @@ class GatewayEVMAMM(ConnectorBase):
                 self.logger().error(f"The order {order_id} is not tracked. ")
                 raise ValueError
 
-            if (self.current_timestamp - tracked_order.creation_timestamp).total_seconds() < cancel_age:
+            if (self.current_timestamp - tracked_order.creation_timestamp) < cancel_age:
                 return None
 
             if tracked_order.is_done:
@@ -782,8 +782,9 @@ class GatewayEVMAMM(ConnectorBase):
                 self.address,
                 tracked_order.nonce)
 
-            if "txHash" in resp.keys.items():
-                tracked_order.cancel_tx_hash = resp["txHash"]
+            txHash = resp.get("txHash")
+            if txHash is not None:
+                tracked_order.cancel_tx_hash = txHash
             else:
                 raise Exception(f"txHash not in resp: {resp}")
 
