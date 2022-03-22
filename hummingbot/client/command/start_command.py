@@ -64,11 +64,15 @@ class StartCommand:
             return
 
         if settings.required_rate_oracle:
+            # If the strategy to run requires using the rate oracle to find FX rates, validate there is a rate for
+            # each configured token pair
             if not (await self.confirm_oracle_conversion_rate()):
                 self._notify("The strategy failed to start.")
                 return
-            else:
-                RateOracle.get_instance().start()
+
+        # We always start the RateOracle. It is required for PNL calculation.
+        RateOracle.get_instance().start()
+
         is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
             self._notify("Status checks failed. Start aborted.")
