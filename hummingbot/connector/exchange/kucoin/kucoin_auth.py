@@ -5,15 +5,13 @@ from collections import OrderedDict
 from typing import Any, Dict
 from urllib.parse import urlencode
 
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
 class KucoinAuth(AuthBase):
-
-    _partner_id = "Hummingbot"
-    _partner_key = "8fb50686-81a8-408a-901c-07c5ac5bd758"
 
     def __init__(self, api_key: str, passphrase: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key
@@ -49,14 +47,14 @@ class KucoinAuth(AuthBase):
         return request  # pass-through
 
     def partner_header(self, timestamp: str):
-        partner_payload = timestamp + self._partner_id + self.api_key
+        partner_payload = timestamp + CONSTANTS.HB_PARTNER_ID + self.api_key
         partner_signature = base64.b64encode(
             hmac.new(
-                self._partner_key.encode("utf-8"),
+                CONSTANTS.HB_PARTNER_KEY.encode("utf-8"),
                 partner_payload.encode("utf-8"),
                 hashlib.sha256).digest())
         third_party = {
-            "KC-API-PARTNER": self._partner_id,
+            "KC-API-PARTNER": CONSTANTS.HB_PARTNER_ID,
             "KC-API-PARTNER-SIGN": str(partner_signature, "utf-8")
         }
         return third_party

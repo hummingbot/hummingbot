@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -16,7 +16,7 @@ def rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     Creates a full URL for provided REST endpoint
 
     :param path_url: a public REST endpoint
-    :param domain: the Binance domain to connect to ("main" or "testnet"). The default value is "main"
+    :param domain: the domain to connect to ("main" or "testnet"). The default value is "main"
 
     :return: the full URL to the endpoint
     """
@@ -63,7 +63,8 @@ async def api_request(path: str,
                       return_err: bool = False,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None,
-                      headers: Dict[str, Any] = {}):
+                      headers: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any]]:
+    headers = headers or {}
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
 
@@ -128,5 +129,5 @@ async def get_current_server_time(
     return server_time
 
 
-def next_message_id():
+def next_message_id() -> str:
     return str(get_tracking_nonce())

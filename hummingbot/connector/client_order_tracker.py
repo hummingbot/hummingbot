@@ -314,17 +314,6 @@ class ClientOrderTracker:
         # Only concerned with active orders.
         tracked_order: Optional[InFlightOrder] = self.fetch_tracked_order(client_order_id=client_order_id)
 
-        # if tracked_order is None:
-        #     self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
-        #
-        # self._order_not_found_records[client_order_id] += 1
-        #
-        # if self._order_not_found_records[client_order_id] > self.ORDER_NOT_FOUND_COUNT_LIMIT:
-        #     if not tracked_order.is_done:
-        #         tracked_order.current_state = OrderState.FAILED
-        #         self.stop_tracking_order(client_order_id=client_order_id)
-        #         self._trigger_failure_event(tracked_order)
-
         if tracked_order is None:
             self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
         else:

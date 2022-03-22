@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Optional
 
 from bidict import bidict
 
@@ -29,7 +29,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 60 * 60
 
     _kaobds_logger: Optional[HummingbotLogger] = None
-    _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
+    _trading_pair_symbol_map: Dict[str, bidict[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
     @classmethod
@@ -90,7 +90,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
-    def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> bool:
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
 
@@ -107,7 +107,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
-    ):
+    ) -> Dict[str, str]:
         """
         Returns the internal map used to translate trading pairs from and to the exchange notation.
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
@@ -402,7 +402,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def _init_trading_pair_symbols(
             cls,
-            domain: str = "com",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None):

@@ -740,16 +740,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         Queries the necessary API endpoint and initialize the TradingRule object for each trading pair being traded.
         """
-        last_tick = int(self._last_timestamp / 60.0)
-        current_tick = int(self.current_timestamp / 60.0)
-        if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
-                                                    method=RESTMethod.GET,
-                                                    )
-            trading_rules_list = self._format_trading_rules(exchange_info)
-            self._trading_rules.clear()
-            for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+        exchange_info = await self._api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
+                                                method=RESTMethod.GET,
+                                                )
+        trading_rules_list = self._format_trading_rules(exchange_info)
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -903,6 +900,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 await self._update_order_fills_from_trades(),
                 await self._update_order_status()
                 self._last_poll_timestamp = self.current_timestamp
+                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -910,8 +908,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                       app_warning_msg="Could not fetch account updates from Binance Perpetuals. "
                                                       "Check API key and network connection.")
                 await self._sleep(0.5)
-            finally:
-                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         """

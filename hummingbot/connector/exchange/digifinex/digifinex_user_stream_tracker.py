@@ -30,9 +30,9 @@ class DigifinexUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  _global: DigifinexGlobal,
-                 trading_pairs: Optional[List[str]] = []):
+                 trading_pairs: Optional[List[str]] = None):
         self._global: DigifinexGlobal = _global
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         super().__init__(data_source=DigifinexAPIUserStreamDataSource(
             self._global,
             trading_pairs=self._trading_pairs

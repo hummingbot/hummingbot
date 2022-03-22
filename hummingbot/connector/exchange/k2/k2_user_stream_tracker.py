@@ -27,7 +27,7 @@ class K2UserStreamTracker(UserStreamTracker):
                  k2_auth: Optional[K2Auth] = None,
                  trading_pairs: Optional[List[str]] = None):
         self._k2_auth: K2Auth = k2_auth
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         super().__init__(data_source=K2APIUserStreamDataSource(
             auth=self._k2_auth,
             trading_pairs=self._trading_pairs

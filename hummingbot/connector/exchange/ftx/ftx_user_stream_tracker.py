@@ -22,13 +22,13 @@ class FtxUserStreamTracker(UserStreamTracker):
     def __init__(
             self,
             ftx_auth: Optional[FtxAuth] = None,
-            trading_pairs: Optional[List[str]] = [],
+            trading_pairs: Optional[List[str]] = None,
     ):
         self._ftx_auth: FtxAuth = ftx_auth
         super().__init__(data_source=FtxAPIUserStreamDataSource(
             ftx_auth=self._ftx_auth
         ))
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:

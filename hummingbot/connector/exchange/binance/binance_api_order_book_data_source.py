@@ -137,7 +137,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None,
-    ):
+    ) -> Dict[str, str]:
         """
         Returns the internal map used to translate trading pairs from and to the exchange notation.
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and

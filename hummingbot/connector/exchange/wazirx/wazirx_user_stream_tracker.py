@@ -22,13 +22,13 @@ class WazirxUserStreamTracker(UserStreamTracker):
     def __init__(
             self,
             wazirx_auth: Optional[WazirxAuth] = None,
-            trading_pairs: Optional[List[str]] = [],
+            trading_pairs: Optional[List[str]] = None,
     ):
         self._wazirx_auth: WazirxAuth = wazirx_auth
         super().__init__(data_source=WazirxAPIUserStreamDataSource(
             wazirx_auth=self._wazirx_auth
         ))
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:

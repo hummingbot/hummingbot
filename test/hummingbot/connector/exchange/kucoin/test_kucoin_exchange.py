@@ -15,7 +15,6 @@ from hummingbot.connector.exchange.kucoin import (
     kucoin_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
-from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -151,7 +150,7 @@ class TestKucoinExchange(unittest.TestCase):
     def _validate_auth_credentials_present(self, request_call_tuple: NamedTuple):
         request_headers = request_call_tuple.kwargs["headers"]
         self.assertIn("KC-API-PARTNER", request_headers)
-        self.assertEqual(KucoinAuth._partner_id, request_headers["KC-API-PARTNER"])
+        self.assertEqual(CONSTANTS.HB_PARTNER_ID, request_headers["KC-API-PARTNER"])
         self.assertIn("KC-API-PARTNER-SIGN", request_headers)
         self.assertIn("KC-API-KEY", request_headers)
         self.assertEqual(self.api_key, request_headers["KC-API-KEY"])
@@ -1607,9 +1606,12 @@ class TestKucoinExchange(unittest.TestCase):
         )
 
     def test_initial_status_dict(self):
+        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
+
         status_dict = self.exchange.status_dict
 
         expected_initial_dict = {
+            "symbols_mapping_initialized": False,
             "order_books_initialized": False,
             "account_balance": False,
             "trading_rule_initialized": False,

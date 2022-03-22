@@ -7,6 +7,7 @@ from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock
 
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -59,9 +60,9 @@ class KucoinAuthTests(TestCase):
         expected_passphrase = self._sign(self.passphrase, key=self.secret_key)
         self.assertEqual(expected_passphrase, request.headers["KC-API-PASSPHRASE"])
 
-        self.assertEqual(self.auth._partner_id, request.headers["KC-API-PARTNER"])
-        expected_partner_signature = self._sign("1000000" + self.auth._partner_id + self.api_key,
-                                                key=self.auth._partner_key)
+        self.assertEqual(CONSTANTS.HB_PARTNER_ID, request.headers["KC-API-PARTNER"])
+        expected_partner_signature = self._sign("1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key,
+                                                key=CONSTANTS.HB_PARTNER_KEY)
         self.assertEqual(expected_partner_signature, request.headers["KC-API-PARTNER-SIGN"])
 
     def test_add_auth_headers_to_get_request_with_params(self):
@@ -84,9 +85,9 @@ class KucoinAuthTests(TestCase):
         expected_passphrase = self._sign(self.passphrase, key=self.secret_key)
         self.assertEqual(expected_passphrase, request.headers["KC-API-PASSPHRASE"])
 
-        self.assertEqual(self.auth._partner_id, request.headers["KC-API-PARTNER"])
-        expected_partner_signature = self._sign("1000000" + self.auth._partner_id + self.api_key,
-                                                key=self.auth._partner_key)
+        self.assertEqual(CONSTANTS.HB_PARTNER_ID, request.headers["KC-API-PARTNER"])
+        expected_partner_signature = self._sign("1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key,
+                                                key=CONSTANTS.HB_PARTNER_KEY)
         self.assertEqual(expected_partner_signature, request.headers["KC-API-PARTNER-SIGN"])
 
     def test_add_auth_headers_to_post_request(self):
@@ -110,9 +111,9 @@ class KucoinAuthTests(TestCase):
         expected_passphrase = self._sign(self.passphrase, key=self.secret_key)
         self.assertEqual(expected_passphrase, request.headers["KC-API-PASSPHRASE"])
 
-        self.assertEqual(self.auth._partner_id, request.headers["KC-API-PARTNER"])
-        expected_partner_signature = self._sign("1000000" + self.auth._partner_id + self.api_key,
-                                                key=self.auth._partner_key)
+        self.assertEqual(CONSTANTS.HB_PARTNER_ID, request.headers["KC-API-PARTNER"])
+        expected_partner_signature = self._sign("1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key,
+                                                key=CONSTANTS.HB_PARTNER_KEY)
         self.assertEqual(expected_partner_signature, request.headers["KC-API-PARTNER-SIGN"])
 
     def test_no_auth_added_to_wsrequest(self):

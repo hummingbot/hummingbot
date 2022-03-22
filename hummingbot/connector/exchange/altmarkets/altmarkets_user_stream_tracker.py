@@ -32,9 +32,9 @@ class AltmarketsUserStreamTracker(UserStreamTracker):
     def __init__(self,
                  throttler: Optional[AsyncThrottler] = None,
                  altmarkets_auth: Optional[AltmarketsAuth] = None,
-                 trading_pairs: Optional[List[str]] = []):
+                 trading_pairs: Optional[List[str]] = None):
         self._altmarkets_auth: AltmarketsAuth = altmarkets_auth
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         self._throttler = throttler or AsyncThrottler(Constants.RATE_LIMITS)
         super().__init__(data_source=AltmarketsAPIUserStreamDataSource(
             throttler=self._throttler,
