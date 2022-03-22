@@ -50,7 +50,7 @@ class AscendExUserStreamTrackerTests(TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_user_stream_authenticates_and_subscribes_to_events(self, api_mock, ws_connect_mock):
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(output_queue))
 
         # Add the account group response
         resp = self._accountgroup_response()
@@ -85,7 +85,7 @@ class AscendExUserStreamTrackerTests(TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_user_stream_authenticates_and_handles_ping_message(self, api_mock, ws_connect_mock):
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(output_queue))
 
         # Add the account group response
         resp = self._accountgroup_response()

@@ -18,9 +18,8 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth im
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
     BinancePerpetualOrderBookTracker
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
-    BinancePerpetualUserStreamTracker
-)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import \
+    BinancePerpetualUserStreamDataSource
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
@@ -35,6 +34,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.event.events import (
     FundingInfo,
     FundingPaymentCompletedEvent,
@@ -94,12 +94,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         ExchangeBase.__init__(self)
         PerpetualTrading.__init__(self)
 
-        self._user_stream_tracker = BinancePerpetualUserStreamTracker(
-            auth=self._auth,
-            domain=self._domain,
-            throttler=self._throttler,
-            api_factory=self._api_factory,
-            time_synchronizer=self._binance_time_synchronizer)
+        self._user_stream_tracker = UserStreamTracker(
+            data_source=BinancePerpetualUserStreamDataSource(
+                auth=self._auth,
+                domain=self._domain,
+                throttler=self._throttler,
+                api_factory=self._api_factory,
+                time_synchronizer=self._binance_time_synchronizer))
         self._order_book_tracker = BinancePerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=self._domain,

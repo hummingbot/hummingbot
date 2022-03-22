@@ -48,13 +48,12 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant.last_recv_time
         return 0
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Connects to the user private channel in the exchange using a websocket connection. With the established
         connection listens to all balance events and order updates provided by the exchange, and stores them in the
         output queue
 
-        :param ev_loop: The asyncio loop to be used for this task
         :param output: The queue where all received events should be stored
         """
         ws = None
