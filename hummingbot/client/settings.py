@@ -340,4 +340,4 @@ MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 STRATEGIES: List[str] = get_strategy_list()
-GATEWAY_CONNECTORS: List[str] = ["pangolin", "uniswap"]
+GATEWAY_CONNECTORS: List[str] = []

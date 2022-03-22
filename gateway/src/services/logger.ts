@@ -29,6 +29,7 @@ export const getLocalDate = () => {
 };
 
 const logFileFormat = winston.format.combine(
+  winston.format.errors({ stack: true }),
   winston.format.align(),
   errorsWithStack(),
   winston.format.printf((info) => {

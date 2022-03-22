@@ -147,8 +147,12 @@ class HttpRecorder(HttpPlayerBase):
             url: str,
             **kwargs) -> HttpRecorderClientResponse:
         try:
-            client._original_response_class = client._response_class
-            client._response_class = HttpRecorderClientResponse
+            if hasattr(client, "_reentrant_ref_count"):
+                client._reentrant_ref_count += 1
+            else:
+                client._reentrant_ref_count = 1
+                client._original_response_class = client._response_class
+                client._response_class = HttpRecorderClientResponse
             request_type: HttpRequestType = HttpRequestType.PLAIN
             request_params: Optional[Dict[str, str]] = None
             request_json: Optional[Any] = None
@@ -177,8 +181,11 @@ class HttpRecorder(HttpPlayerBase):
                 response.database_id = playback_entry.id
             return response
         finally:
-            client._response_class = client._original_response_class
-            del client._original_response_class
+            client._reentrant_ref_count -= 1
+            if client._reentrant_ref_count < 1:
+                client._response_class = client._original_response_class
+                del client._original_response_class
+                del client._reentrant_ref_count
 
 
 class HttpPlayerResponse:
@@ -224,6 +231,20 @@ class HttpPlayer(HttpPlayerBase):
           data = await resp.json()      # the data returned will be the recorded response
           ...
     """
+    _replay_timestamp_ms: Optional[int]
+
+    def __init__(self, db_path: str):
+        super().__init__(db_path)
+        self._replay_timestamp_ms = None
+
+    @property
+    def replay_timestamp_ms(self) -> Optional[int]:
+        return self._replay_timestamp_ms
+
+    @replay_timestamp_ms.setter
+    def replay_timestamp_ms(self, value: Optional[int]):
+        self._replay_timestamp_ms = value
+
     async def aiohttp_request_method(
             self,
             _: ClientSession,
@@ -237,9 +258,21 @@ class HttpPlayer(HttpPlayerBase):
                 query = cast(Query, and_(query, HttpPlayback.request_params == kwargs["params"]))
             if "json" in kwargs:
                 query = cast(Query, and_(query, HttpPlayback.request_json == kwargs["json"]))
-            playback_entry: HttpPlayback = (
+            if self._replay_timestamp_ms is not None:
+                query = cast(Query, and_(query, HttpPlayback.timestamp >= self._replay_timestamp_ms))
+            playback_entry: Optional[HttpPlayback] = (
                 session.query(HttpPlayback).filter(query).first()
             )
+
+            # Loosen the query conditions if the first, precise query didn't work.
+            if playback_entry is None:
+                query = (HttpPlayback.url == url)
+                if self._replay_timestamp_ms is not None:
+                    query = cast(Query, and_(query, HttpPlayback.timestamp >= self._replay_timestamp_ms))
+                playback_entry = (
+                    session.query(HttpPlayback).filter(query).first()
+                )
+
             return HttpPlayerResponse(
                 method,
                 url,
