@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -11,41 +10,32 @@ from typing import (
     Optional,
 )
 
-from async_timeout import timeout
-
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
+from async_timeout import timeout
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.coinflex import coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
-from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
-    api_call_with_retries,
-    build_api_factory,
-    CoinflexAPIError,
-    CoinflexRESTRequest,
-)
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import (
+    InFlightOrder,
+    OrderState,
+    OrderUpdate,
+    TradeUpdate,
+)
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import (
-    DeductedFromReturnsTradeFee,
-    TokenAmount,
-    TradeFeeBase,
-)
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -65,7 +55,7 @@ class CoinflexExchange(ExchangeBase):
                  coinflex_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
-                 domain="live"
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN
                  ):
         self._domain = domain
         super().__init__()
@@ -73,9 +63,8 @@ class CoinflexExchange(ExchangeBase):
         self._auth = CoinflexAuth(
             api_key=coinflex_api_key,
             secret_key=coinflex_api_secret)
-        self._api_factory = build_api_factory(auth=self._auth)
-        self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = web_utils.build_api_factory(auth=self._auth)
         self._order_book_tracker = CoinflexOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=domain,
@@ -105,7 +94,7 @@ class CoinflexExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
-        if self._domain != "live":
+        if self._domain != CONSTANTS.DEFAULT_DOMAIN:
             return f"coinflex_{self._domain}"
         return "coinflex"
 
@@ -395,9 +384,9 @@ class CoinflexExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        new_order_id = coinflex_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
-        safe_ensure_future(self._create_order(TradeType.BUY, new_order_id, trading_pair, amount, order_type, price))
-        return new_order_id
+        client_order_id = coinflex_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
+        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -409,9 +398,9 @@ class CoinflexExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = coinflex_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
-        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
-        return order_id
+        client_order_id = coinflex_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
+        safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -587,7 +576,7 @@ class CoinflexExchange(ExchangeBase):
                         data=api_params,
                         is_auth_required=True)
                     cancel_result = result["data"][0]
-                except CoinflexAPIError as e:
+                except web_utils.CoinflexAPIError as e:
                     # Catch order not found as cancelled.
                     cancel_result = {}
                     if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
@@ -895,7 +884,7 @@ class CoinflexExchange(ExchangeBase):
                     continue
 
                 if isinstance(order_result, Exception) or not order_result.get("data"):
-                    if not isinstance(order_result, CoinflexAPIError) or order_result.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
+                    if not isinstance(order_result, web_utils.CoinflexAPIError) or order_result.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
                         self.logger().network(
                             f"Error fetching status update for the order {client_order_id}, marking as not found: {order_result}.",
                             app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
@@ -994,34 +983,16 @@ class CoinflexExchange(ExchangeBase):
                            endpoint_api_version: str = None,
                            disable_retries: bool = False) -> Dict[str, Any]:
 
-        client = await self._get_rest_assistant()
-
-        request = CoinflexRESTRequest(method=method,
-                                      endpoint=path_url,
-                                      domain=self._domain,
-                                      domain_api_version=domain_api_version,
-                                      endpoint_api_version=endpoint_api_version,
-                                      data=data,
-                                      params=params,
-                                      is_auth_required=is_auth_required,
-                                      disable_retries=disable_retries)
-
-        response = await api_call_with_retries(request=request, rest_assistant=client, throttler=self._throttler, logger=self.logger())
-
-        # if response.status != 200:
-        #     data = await response.text()
-        #     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} ({data}).")
-        # try:
-        #     parsed_response = await response.json()
-        # except Exception:
-        #     raise IOError(f"Error parsing data from {response}.")
-
-        # if "code" in parsed_response and "msg" in parsed_response:
-        #     raise IOError(f"The request to CoinFLEX failed. Error: {parsed_response}. Request: {request}")
-
-        return response
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
+        return await web_utils.api_request(
+            path=path_url,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            domain=self._domain,
+            params=params,
+            data=data,
+            method=method,
+            is_auth_required=is_auth_required,
+            domain_api_version=domain_api_version,
+            endpoint_api_version=endpoint_api_version,
+            disable_retries=disable_retries
+        )

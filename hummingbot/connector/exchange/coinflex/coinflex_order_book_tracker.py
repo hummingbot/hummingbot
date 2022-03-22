@@ -1,14 +1,15 @@
 import asyncio
 import logging
 import time
-from collections import deque, defaultdict
+from collections import defaultdict, deque
 from typing import (
     Deque,
     Dict,
     List,
-    Optional
+    Optional,
 )
 
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -24,7 +25,7 @@ class CoinflexOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None,
-                 domain: str = "live",
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None):
         super().__init__(
@@ -52,7 +53,7 @@ class CoinflexOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
-        if self._domain != "live":
+        if self._domain != CONSTANTS.DEFAULT_DOMAIN:
             return f"coinflex_{self._domain}"
         return "coinflex"
 

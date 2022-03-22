@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import (
     Any,
     Awaitable,
@@ -12,12 +12,11 @@ from typing import (
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-import hummingbot.connector.exchange.coinflex.coinflex_utils as utils
+import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_user_stream_data_source import CoinflexAPIUserStreamDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
@@ -32,7 +31,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
-        cls.domain = "live"
+        cls.domain = CONSTANTS.DEFAULT_DOMAIN
 
         cls.listen_key = "TEST_LISTEN_KEY"
 
@@ -108,7 +107,7 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
                        return_url=False,
                        endpoint_api_version=None,
                        public=False):
-        prv_or_pub = utils.public_rest_url if public else utils.private_rest_url
+        prv_or_pub = web_utils.public_rest_url if public else web_utils.private_rest_url
         url = prv_or_pub(endpoint, domain=self.domain, endpoint_api_version=endpoint_api_version)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         if return_url:
@@ -128,9 +127,6 @@ class CoinflexUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(0, self.data_source.last_recv_time)
         self.data_source._subscribed_channels = list(CONSTANTS.WS_CHANNELS["USER_STREAM"])
         self.assertEqual(1000, self.data_source.last_recv_time)
-
-    def test_get_throttler_instance(self):
-        self.assertIsInstance(self.data_source._get_throttler_instance(), AsyncThrottler)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_successful_with_user_update_event(self, mock_ws):

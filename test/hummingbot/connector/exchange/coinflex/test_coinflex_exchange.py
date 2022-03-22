@@ -1,25 +1,26 @@
 import asyncio
-from async_timeout import timeout
 import contextlib
 import json
 import re
 import time
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, NamedTuple, Optional
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch, PropertyMock
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 from aioresponses import aioresponses
+from async_timeout import timeout
 from bidict import bidict
-
-from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_utils
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS
+from hummingbot.connector.exchange.coinflex import coinflex_web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_exchange import CoinflexExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -32,7 +33,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexExchangeTests(TestCase):
@@ -48,7 +48,7 @@ class CoinflexExchangeTests(TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.exchange_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.symbol = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.domain = "live"
+        cls.domain = CONSTANTS.DEFAULT_DOMAIN
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
 
     def setUp(self) -> None:
@@ -158,7 +158,7 @@ class CoinflexExchangeTests(TestCase):
                        return_url=False,
                        endpoint_api_version=None,
                        public=False):
-        prv_or_pub = coinflex_utils.public_rest_url if public else coinflex_utils.private_rest_url
+        prv_or_pub = coinflex_web_utils.public_rest_url if public else coinflex_web_utils.private_rest_url
         url = prv_or_pub(endpoint, domain=self.domain, endpoint_api_version=endpoint_api_version)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         if return_url:
@@ -394,7 +394,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(NetworkStatus.CONNECTED, status)
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_check_network_unsuccessful(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         regex_url = self._get_regex_url(CONSTANTS.PING_PATH_URL, public=True)
@@ -576,7 +576,7 @@ class CoinflexExchangeTests(TestCase):
         )
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_create_order_fails_and_raises_failure_event(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         self._simulate_trading_rules_initialized()
@@ -733,7 +733,7 @@ class CoinflexExchangeTests(TestCase):
         )
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         request_sent_event = asyncio.Event()
@@ -785,7 +785,7 @@ class CoinflexExchangeTests(TestCase):
         )
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_cancel_order_succeeds_after_max_failures(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         request_sent_event = asyncio.Event()
@@ -845,7 +845,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(self._is_logged("INFO", expected_error))
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         self.exchange._set_current_timestamp(1640780000)
@@ -944,7 +944,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(Decimal("15"), total_balances["BTC"])
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_update_balances_logs_errors(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         regex_url = self._get_regex_url(CONSTANTS.ACCOUNTS_PATH_URL)
@@ -997,7 +997,6 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
-        self.assertEqual("HBOT", buy_event.fee_asset)
         self.assertEqual(Decimal("1"), buy_event.base_asset_amount)
         self.assertEqual(Decimal("10000"), buy_event.quote_asset_amount)
         self.assertEqual(order.order_type, buy_event.order_type)
@@ -1100,7 +1099,7 @@ class CoinflexExchangeTests(TestCase):
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.coinflex.coinflex_constants.API_MAX_RETRIES", new=int(1))
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_update_order_status_when_unauthorised(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         self.exchange._set_current_timestamp(1640780000)
@@ -1142,7 +1141,7 @@ class CoinflexExchangeTests(TestCase):
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.coinflex.coinflex_constants.API_MAX_RETRIES", new=int(2))
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_update_order_status_marks_order_as_failure_after_three_not_found(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         self.exchange._set_current_timestamp(1640780000)
@@ -1353,7 +1352,6 @@ class CoinflexExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, buy_event.order_id)
         self.assertEqual(order.base_asset, buy_event.base_asset)
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
-        self.assertEqual(sent_order_data["feeInstrumentId"], buy_event.fee_asset)
         self.assertEqual(order.amount, buy_event.base_asset_amount)
         exec_amt_quote = Decimal(sent_order_data["matchQuantity"]) * Decimal(sent_order_data["matchPrice"])
         self.assertEqual(exec_amt_quote, buy_event.quote_asset_amount)

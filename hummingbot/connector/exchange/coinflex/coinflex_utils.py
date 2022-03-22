@@ -2,11 +2,9 @@ from decimal import Decimal
 from typing import Any, Dict
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
@@ -31,73 +29,6 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :return: True if the trading pair is enabled, False otherwise
     """
     return exchange_info.get("type", None) == "SPOT"
-
-
-def public_rest_url(path_url: str = "",
-                    domain: str = "live",
-                    only_hostname: bool = False,
-                    domain_api_version: str = None,
-                    endpoint_api_version: str = None) -> str:
-    """
-    Creates a full URL for provided public REST endpoint
-    :param path_url: a public REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
-    :return: the full URL to the endpoint
-    """
-    local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
-    local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
-    endpoint = "" if not len(path_url) else f"/{path_url}"
-    if only_hostname:
-        return CONSTANTS.REST_URL.format(subdomain_prefix)
-    return "https://" + CONSTANTS.REST_URL.format(subdomain_prefix) + f"/{local_endpoint_api_version}{endpoint}"
-
-
-def private_rest_url(path_url: str = "",
-                     domain: str = "live",
-                     only_hostname: bool = False,
-                     domain_api_version: str = None,
-                     endpoint_api_version: str = None) -> str:
-    """
-    Creates a full URL for provided private REST endpoint
-    :param path_url: a private REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
-    :return: the full URL to the endpoint
-    """
-    local_domain_api_version = domain_api_version or CONSTANTS.PRIVATE_API_VERSION
-    local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
-    endpoint = "" if not len(path_url) else f"/{path_url}"
-    if only_hostname:
-        return CONSTANTS.REST_URL.format(subdomain_prefix)
-    return "https://" + CONSTANTS.REST_URL.format(subdomain_prefix) + f"/{local_endpoint_api_version}{endpoint}"
-
-
-def private_rest_auth_path(path_url: str,
-                           domain: str = "live",
-                           endpoint_api_version: str = None) -> str:
-    """
-    Creates an auth URL path for provided private REST endpoint
-    :param path_url: a private REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
-    :return: the auth URL path for the endpoint
-    """
-    local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
-    return f"/{local_endpoint_api_version}/{path_url}"
-
-
-def websocket_url(domain: str = "live",
-                  domain_api_version: str = None,
-                  endpoint_api_version: str = None) -> str:
-    """
-    Creates a full URL for provided public REST endpoint
-    :param host: the CoinFLEX host to connect to (either "live" or "test"). Default value is "live"
-    :return: the full URL to the endpoint
-    """
-    local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
-    local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
-    return CONSTANTS.WSS_URL.format(subdomain_prefix, local_endpoint_api_version)
 
 
 def decimal_val_or_none(string_value: str):

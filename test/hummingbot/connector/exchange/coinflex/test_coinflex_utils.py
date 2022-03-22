@@ -16,19 +16,6 @@ class CoinflexUtilTestCases(unittest.TestCase):
         cls.hb_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
 
-    def test_public_rest_url(self):
-        path_url = "TEST_PATH"
-        domain = "live"
-        expected_url = "https://" + CONSTANTS.REST_URL.format(CONSTANTS.PUBLIC_API_VERSION) + f"/{CONSTANTS.PUBLIC_API_VERSION}/{path_url}"
-        self.assertEqual(expected_url, utils.public_rest_url(path_url, domain))
-        self.assertEqual(CONSTANTS.REST_URL.format(CONSTANTS.PUBLIC_API_VERSION), utils.public_rest_url(path_url, domain, only_hostname=True))
-
-    def test_private_rest_url(self):
-        path_url = "TEST_PATH"
-        domain = "live"
-        expected_url = "https://" + CONSTANTS.REST_URL.format(CONSTANTS.PRIVATE_API_VERSION) + f"/{CONSTANTS.PRIVATE_API_VERSION}/{path_url}"
-        self.assertEqual(expected_url, utils.private_rest_url(path_url, domain))
-
     def test_is_exchange_information_valid(self):
         invalid_info_1 = {
             "type": "MARGIN",
