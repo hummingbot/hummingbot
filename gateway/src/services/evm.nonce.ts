@@ -198,4 +198,8 @@ export class EVMNonceManager {
       );
     }
   }
+
+  async close(): Promise<void> {
+    await this.#db.close();
+  }
 }

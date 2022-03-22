@@ -194,7 +194,25 @@ jobs:
           gasStationURL: 'https://ethgasstation.info/api/ethgasAPI.json?api-key='
           APIKey: "$ETH_GAS_STATION_API_KEY"
           gasLevel: fast
-          refreshTime: 60
+          EOF
+
+          cat << EOF >> ./gateway/conf/avalanche.yml
+          networks:
+            fuji:
+              chainID: 43113
+              nodeURL: 'https://api.avax-test.network/ext/bc/C/rpc'
+              tokenListType: 'FILE'
+              tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json'
+              nativeCurrencySymbol: 'AVAX'
+            avalanche:
+              chainID: 43114
+              nodeURL: 'https://api.avax.network/ext/bc/C/rpc'
+              tokenListType: 'URL'
+              tokenListSource: 'https://raw.githubusercontent.com/pangolindex/tokenlists/main/top15.tokenlist.json'
+              nativeCurrencySymbol: 'AVAX'
+
+          nodeAPIKey: "$INFURA_KEY"
+          manualGasPrice: 100
           EOF
 
       - name: Create yml passphrase file

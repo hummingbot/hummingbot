@@ -52,7 +52,13 @@ class TradingPairFetcher:
             class_name = "".join([o.capitalize() for o in exchange_name.split("_")]) + \
                          "APIOrderBookDataSource" if not conn_setting.uses_gateway_generic_connector() \
                          else conn_setting.class_name()
-            module = getattr(importlib.import_module(module_path), class_name)
+
+            # XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
+            # data source module for them.
+            try:
+                module = getattr(importlib.import_module(module_path), class_name)
+            except ModuleNotFoundError:
+                continue
             args = {}
             args = conn_setting.add_domain_parameter(args)
             if conn_setting.uses_gateway_generic_connector():
