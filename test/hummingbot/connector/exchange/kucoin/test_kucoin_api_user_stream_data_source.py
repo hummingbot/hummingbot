@@ -148,10 +148,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(
-            ev_loop=asyncio.get_event_loop(),
-            output=output_queue,
-        ))
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -217,7 +214,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         msg = self.async_run_with_timeout(msg_queue.get())
@@ -243,7 +240,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
@@ -265,7 +262,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
         except asyncio.CancelledError:
             pass
 
@@ -289,7 +286,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
 
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
         except asyncio.CancelledError:
             pass
 
@@ -351,10 +348,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(
-            ev_loop=asyncio.get_event_loop(),
-            output=output_queue,
-        ))
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 

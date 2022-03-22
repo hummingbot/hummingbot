@@ -137,7 +137,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         ws = None
         while True:
             try:

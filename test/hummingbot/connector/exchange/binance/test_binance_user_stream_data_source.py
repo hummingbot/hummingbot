@@ -213,7 +213,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         msg = self.async_run_with_timeout(msg_queue.get())
@@ -236,7 +236,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
@@ -259,7 +259,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())
@@ -287,7 +287,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.close.return_value = None
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())

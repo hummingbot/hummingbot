@@ -1,19 +1,18 @@
-#!/usr/bin/env python
-import time
 import asyncio
 import logging
+import time
+from typing import AsyncIterable, List, Optional
+
 import aiohttp
 import ujson
 
-from typing import Optional, List, AsyncIterable, Any
-
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
 
 
 class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -30,7 +29,11 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return cls._logger
 
     def __init__(
-        self, ascend_ex_auth: AscendExAuth, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None
+            self,
+            ascend_ex_auth: AscendExAuth,
+            shared_client: Optional[aiohttp.ClientSession] = None,
+            throttler: Optional[AsyncThrottler] = None,
+            trading_pairs: Optional[List[str]] = None
     ):
         super().__init__()
         self._shared_client = shared_client or self._get_session_instance()
@@ -55,11 +58,11 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
 
@@ -85,7 +88,8 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "ch": "order:cash"
                 }
 
-                async with aiohttp.ClientSession().ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
+                async with aiohttp.ClientSession().ws_connect(f"{get_ws_url_private(accountGroup)}/stream",
+                                                              headers=headers) as ws:
                     try:
                         async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                             await ws.send_json(payload)
@@ -115,13 +119,14 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                    "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...",
+                    exc_info=True
                 )
                 await asyncio.sleep(30.0)
 
     async def _iter_messages(
-        self,
-        ws: aiohttp.ClientWebSocketResponse
+            self,
+            ws: aiohttp.ClientWebSocketResponse
     ) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:

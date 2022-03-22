@@ -11,8 +11,8 @@ import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
-from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
@@ -25,6 +25,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -72,7 +73,13 @@ class BinanceExchange(ExchangeBase):
                 throttler=self._throttler),
             trading_pairs=trading_pairs,
             domain=self._domain)
-        self._user_stream_tracker = BinanceUserStreamTracker(auth=self._auth, domain=domain, throttler=self._throttler)
+        self._user_stream_tracker = UserStreamTracker(
+            data_source=BinanceAPIUserStreamDataSource(
+                auth=self._auth,
+                domain=self._domain,
+                throttler=self._throttler,
+                api_factory=self._api_factory,
+                time_synchronizer=self._binance_time_synchronizer))
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0

@@ -115,7 +115,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         return output
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
             try:
                 self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
