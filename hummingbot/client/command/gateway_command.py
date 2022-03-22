@@ -486,9 +486,18 @@ class GatewayCommand:
 
     @staticmethod
     async def _fetch_gateway_configs() -> Dict[str, Any]:
-        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=True)
+        try:
+            return await GatewayHttpClient.get_instance().get_configuration(fail_silently=True)
+        except Exception:
+            raise
 
     async def fetch_gateway_config_key_list(self):
-        config = await self._fetch_gateway_configs()
-        build_config_namespace_keys(self.gateway_config_keys, config)
-        self.app.input_field.completer = load_completer(self)
+        try:
+            config = await self._fetch_gateway_configs()
+            build_config_namespace_keys(self.gateway_config_keys, config)
+            self.app.input_field.completer = load_completer(self)
+        except Exception:
+            self.logger().info("Error loading gateway configs. Gateway connectors are not usable until "
+                               "it has been correctly configured. "
+                               "Use the `gateway generate-certs` or `gateway create` commands might help resolve this.",
+                               exec_info=True)
