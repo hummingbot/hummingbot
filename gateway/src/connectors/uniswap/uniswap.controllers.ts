@@ -23,6 +23,7 @@ import {
   Uniswapish,
   Tokenish,
 } from '../../services/common-interfaces';
+import { logger } from '../../services/logger';
 import {
   PriceRequest,
   PriceResponse,
@@ -147,11 +148,11 @@ export async function trade(
 
   const { limitPrice, maxFeePerGas, maxPriorityFeePerGas } = req;
 
-  let maxFeePerGasBigNumber;
+  let maxFeePerGasBigNumber: BigNumber | undefined;
   if (maxFeePerGas) {
     maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
   }
-  let maxPriorityFeePerGasBigNumber;
+  let maxPriorityFeePerGasBigNumber: BigNumber | undefined;
   if (maxPriorityFeePerGas) {
     maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
   }
@@ -160,6 +161,7 @@ export async function trade(
   try {
     wallet = await ethereumish.getWallet(req.address);
   } catch (err) {
+    logger.error(`Wallet ${req.address} not available.`);
     throw new HttpException(
       500,
       LOAD_WALLET_ERROR_MESSAGE + err,
@@ -179,12 +181,14 @@ export async function trade(
     );
   } catch (e) {
     if (e instanceof Error) {
+      logger.error(`Could not get trade info. ${e.message}`);
       throw new HttpException(
         500,
         TRADE_FAILED_ERROR_MESSAGE + e.message,
         TRADE_FAILED_ERROR_CODE
       );
     } else {
+      logger.error('Unknown error trying to get trade info.');
       throw new HttpException(
         500,
         UNKNOWN_ERROR_MESSAGE,
@@ -200,13 +204,15 @@ export async function trade(
     const price = tradeInfo.expectedTrade.trade.executionPrice.invert();
     if (
       limitPrice &&
-      new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
-    )
+      new Decimal(price.toFixed(8).toString()).gt(new Decimal(limitPrice))
+    ) {
+      logger.error('Swap price exceeded limit price.');
       throw new HttpException(
         500,
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
       );
+    }
 
     const tx = await uniswapish.executeTrade(
       wallet,
@@ -249,15 +255,21 @@ export async function trade(
     };
   } else {
     const price = tradeInfo.expectedTrade.trade.executionPrice;
+    logger.info(
+      `Expected execution price is ${price.toFixed(6)}, ` +
+        `limit price is ${limitPrice}.`
+    );
     if (
       limitPrice &&
-      new Decimal(price.toFixed(8).toString()).gte(new Decimal(limitPrice))
-    )
+      new Decimal(price.toFixed(8).toString()).lt(new Decimal(limitPrice))
+    ) {
+      logger.error('Swap price lower than limit price.');
       throw new HttpException(
         500,
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
       );
+    }
 
     const tx = await uniswapish.executeTrade(
       wallet,
