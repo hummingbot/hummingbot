@@ -399,14 +399,8 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                                                        tracked_order.client_order_id,
                                                        tracked_order.base_asset,
                                                        tracked_order.quote_asset,
-                                                       tracked_order.fee_asset,
                                                        tracked_order.executed_amount_base,
                                                        tracked_order.executed_amount_quote,
-                                                       float(fee.fee_amount_in_token(tracked_order.trading_pair,
-                                                                                     Decimal(str(tracked_order.price)),
-                                                                                     Decimal(str(tracked_order.amount)),
-                                                                                     tracked_order.quote_asset,
-                                                                                     self)),  # this ignores the gas fee, which is fine for now
                                                        tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:

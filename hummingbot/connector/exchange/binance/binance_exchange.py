@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -14,18 +13,20 @@ from typing import (
 from async_timeout import timeout
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.connector.utils import TradeFillOrderDetails, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -38,15 +39,10 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderFilledEvent,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 s_logger = None
@@ -66,7 +62,7 @@ class BinanceExchange(ExchangeBase):
                  binance_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
-                 domain="com"
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
         self._domain = domain
         self._binance_time_synchronizer = TimeSynchronizer()
@@ -76,9 +72,13 @@ class BinanceExchange(ExchangeBase):
             api_key=binance_api_key,
             secret_key=binance_api_secret,
             time_provider=self._binance_time_synchronizer)
-        self._api_factory = WebAssistantsFactory(auth=self._auth)
-        self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._binance_time_synchronizer,
+            domain=self._domain,
+            auth=self._auth)
+        self._rest_assistant = None
         self._order_book_tracker = BinanceOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=domain,
@@ -391,9 +391,14 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        new_order_id = binance_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
-        safe_ensure_future(self._create_order(TradeType.BUY, new_order_id, trading_pair, amount, order_type, price))
-        return new_order_id
+        client_order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
+        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -405,9 +410,14 @@ class BinanceExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = binance_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
-        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
-        return order_id
+        client_order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+        )
+        safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -501,7 +511,8 @@ class BinanceExchange(ExchangeBase):
             trading_pair=trading_pair,
             domain=self._domain,
             api_factory=self._api_factory,
-            throttler=self._throttler)
+            throttler=self._throttler,
+            time_synchronizer=self._binance_time_synchronizer)
         api_params = {"symbol": symbol,
                       "side": side_str,
                       "quantity": amount_str,
@@ -560,7 +571,8 @@ class BinanceExchange(ExchangeBase):
                     trading_pair=trading_pair,
                     domain=self._domain,
                     api_factory=self._api_factory,
-                    throttler=self._throttler)
+                    throttler=self._throttler,
+                    time_synchronizer=self._binance_time_synchronizer)
                 api_params = {
                     "symbol": symbol,
                     "origClientOrderId": order_id,
@@ -678,7 +690,8 @@ class BinanceExchange(ExchangeBase):
                     symbol=rule.get("symbol"),
                     domain=self._domain,
                     api_factory=self._api_factory,
-                    throttler=self._throttler)
+                    throttler=self._throttler,
+                    time_synchronizer=self._binance_time_synchronizer)
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
@@ -796,7 +809,8 @@ class BinanceExchange(ExchangeBase):
                         trading_pair=trading_pair,
                         domain=self._domain,
                         api_factory=self._api_factory,
-                        throttler=self._throttler)
+                        throttler=self._throttler,
+                        time_synchronizer=self._binance_time_synchronizer)
                 }
                 if self._last_poll_timestamp > 0:
                     params["startTime"] = query_time
@@ -879,16 +893,17 @@ class BinanceExchange(ExchangeBase):
         if current_tick > last_tick and len(tracked_orders) > 0:
 
             tasks = [self._api_request(
-                     method=RESTMethod.GET,
-                     path_url=CONSTANTS.ORDER_PATH_URL,
-                     params={
-                         "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                             trading_pair=o.trading_pair,
-                             domain=self._domain,
-                             api_factory=self._api_factory,
-                             throttler=self._throttler),
-                         "origClientOrderId": o.client_order_id},
-                     is_auth_required=True) for o in tracked_orders]
+                method=RESTMethod.GET,
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                params={
+                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                        trading_pair=o.trading_pair,
+                        domain=self._domain,
+                        api_factory=self._api_factory,
+                        throttler=self._throttler,
+                        time_synchronizer=self._binance_time_synchronizer),
+                    "origClientOrderId": o.client_order_id},
+                is_auth_required=True) for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
@@ -974,7 +989,10 @@ class BinanceExchange(ExchangeBase):
     async def _update_time_synchronizer(self):
         try:
             await self._binance_time_synchronizer.update_server_time_offset_with_time_provider(
-                time_provider=self._get_current_server_time()
+                time_provider=web_utils.get_current_server_time(
+                    throttler=self._throttler,
+                    domain=self._domain,
+                )
             )
         except asyncio.CancelledError:
             raise
@@ -989,44 +1007,17 @@ class BinanceExchange(ExchangeBase):
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
 
-        headers = {
-            "Content-Type": "application/json" if method == RESTMethod.POST else "application/x-www-form-urlencoded"}
-        client = await self._get_rest_assistant()
-
-        if is_auth_required:
-            url = binance_utils.private_rest_url(path_url, domain=self._domain)
-        else:
-            url = binance_utils.public_rest_url(path_url, domain=self._domain)
-
-        request = RESTRequest(method=method,
-                              url=url,
-                              data=data,
-                              params=params,
-                              headers=headers,
-                              is_auth_required=is_auth_required)
-
-        async with self._throttler.execute_task(limit_id=path_url):
-            response = await client.call(request)
-
-            if response.status != 200:
-                data = await response.text()
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} ({data}).")
-            try:
-                parsed_response = await response.json()
-            except Exception:
-                raise IOError(f"Error parsing data from {response}.")
-
-            if "code" in parsed_response and "msg" in parsed_response:
-                raise IOError(f"The request to Binance failed. Error: {parsed_response}. Request: {request}")
-
-        return parsed_response
-
-    async def _get_current_server_time(self):
-        response = await self._api_request(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.SERVER_TIME_PATH_URL,
+        return await web_utils.api_request(
+            path=path_url,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._binance_time_synchronizer,
+            domain=self._domain,
+            params=params,
+            data=data,
+            method=method,
+            is_auth_required=is_auth_required,
         )
-        return response["serverTime"]
 
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:
