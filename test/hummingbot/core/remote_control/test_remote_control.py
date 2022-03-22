@@ -167,6 +167,9 @@ class RemoteControlTest(TestCase):
     def _raise_invalid_status_exception(self):
         raise InvalidStatusCode(500)
 
+    def _raise_invalid_apikey_exception(self):
+        raise InvalidStatusCode(401)
+
     # BEGIN Tests
 
     def test_remote_commands_disconnect_handles_none(self):
@@ -385,7 +388,7 @@ class RemoteControlTest(TestCase):
 
     @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_ws_invalid_status(self, mock_api, ws_connect_mock):
+    def test_remote_commands_ws_invalid_status_url(self, mock_api, ws_connect_mock):
         for x in range(100):
             mock_api.get(r".*", body=json.dumps({}))
 
@@ -398,7 +401,24 @@ class RemoteControlTest(TestCase):
 
         self._remote_cmds_start_and_stop_nowait_delivered(ws_connect_mock.return_value)
 
-        self.assertTrue(self._is_logged("ERROR", "Error connecting to websocket, invalid URL or API key, cannot continue."))
+        self.assertTrue(self._is_logged("ERROR", "Error connecting to websocket, invalid URL, cannot continue."))
+
+    @aioresponses()
+    @patch('websockets.connect', new_callable=AsyncMock)
+    def test_remote_commands_ws_invalid_status_apikey(self, mock_api, ws_connect_mock):
+        for x in range(100):
+            mock_api.get(r".*", body=json.dumps({}))
+
+        ws_connect_mock.return_value = self._rce_setup()
+        ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_invalid_apikey_exception()
+
+        self._ws_send_json(ws_connect_mock.return_value, {
+                           "timestamp_event": int(time.time()),
+                           "event_descriptor": "dummy message"})
+
+        self._remote_cmds_start_and_stop_nowait_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(self._is_logged("ERROR", "Error connecting to websocket, invalid API key, cannot continue."))
 
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_remote_commands_ws_invalid_message(self, ws_connect_mock):
