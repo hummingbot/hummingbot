@@ -639,26 +639,6 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(Decimal("15"), total_balances["BTC"])
 
     @aioresponses()
-    def test_update_balances_logs_errors(self, mock_api):
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"serverTime": 1640000003000}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response))
-
-        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, status=401)
-        self.async_run_with_timeout(self.exchange._update_balances())
-
-        self.assertTrue(
-            self._is_logged("ERROR", "Error getting account balances from server")
-        )
-
-    @aioresponses()
     def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -

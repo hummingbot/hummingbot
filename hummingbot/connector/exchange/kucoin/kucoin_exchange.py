@@ -781,26 +781,23 @@ class KucoinExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        try:
-            response = await self._api_request(
-                path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-                params={"type": "trade"},
-                method=RESTMethod.GET,
-                is_auth_required=True)
+        response = await self._api_request(
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            params={"type": "trade"},
+            method=RESTMethod.GET,
+            is_auth_required=True)
 
-            if response:
-                for balance_entry in response["data"]:
-                    asset_name = balance_entry["currency"]
-                    self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
-                    self._account_balances[asset_name] = Decimal(balance_entry["balance"])
-                    remote_asset_names.add(asset_name)
+        if response:
+            for balance_entry in response["data"]:
+                asset_name = balance_entry["currency"]
+                self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
+                self._account_balances[asset_name] = Decimal(balance_entry["balance"])
+                remote_asset_names.add(asset_name)
 
-                asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-                for asset_name in asset_names_to_remove:
-                    del self._account_available_balances[asset_name]
-                    del self._account_balances[asset_name]
-        except IOError:
-            self.logger().exception("Error getting account balances from server")
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     async def _update_trading_rules(self):
         # The poll interval for trade rules is 60 seconds.
