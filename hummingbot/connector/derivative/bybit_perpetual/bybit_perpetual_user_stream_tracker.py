@@ -22,7 +22,9 @@ class BybitPerpetualUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(self, auth_assistant: BybitPerpetualAuth, domain: Optional[str] = None,
+    def __init__(self,
+                 auth_assistant: BybitPerpetualAuth,
+                 domain: Optional[str] = None,
                  session: Optional[aiohttp.ClientSession] = None):
         self._auth_assistant = auth_assistant
         self._domain = domain
@@ -42,8 +44,10 @@ class BybitPerpetualUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if self._data_source is None:
-            self._data_source = BybitPerpetualUserStreamDataSource(auth_assistant=self._auth_assistant,
-                                                                   session=self._session, domain=self._domain)
+            self._data_source = BybitPerpetualUserStreamDataSource(
+                auth_assistant=self._auth_assistant,
+                session=self._session,
+                domain=self._domain)
         return self._data_source
 
     async def start(self):

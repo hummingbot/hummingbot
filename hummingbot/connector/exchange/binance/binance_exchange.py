@@ -602,6 +602,8 @@ class BinanceExchange(ExchangeBase):
                 )
                 await self._update_order_status()
                 self._last_poll_timestamp = self.current_timestamp
+
+                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -609,8 +611,6 @@ class BinanceExchange(ExchangeBase):
                                       app_warning_msg="Could not fetch account updates from Binance. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
-            finally:
-                self._poll_notifier = asyncio.Event()
 
     async def _trading_rules_polling_loop(self):
         """
@@ -926,11 +926,7 @@ class BinanceExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
-                )
+                self.logger().exception("Error while reading user events queue. Retrying after 1 second.")
                 await asyncio.sleep(1.0)
 
     async def _update_balances(self):

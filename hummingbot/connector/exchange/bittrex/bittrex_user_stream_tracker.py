@@ -22,10 +22,10 @@ class BittrexUserStreamTracker(UserStreamTracker):
     def __init__(
             self,
             bittrex_auth: Optional[BittrexAuth] = None,
-            trading_pairs: Optional[List[str]] = [],
+            trading_pairs: Optional[List[str]] = None,
     ):
         self._bittrex_auth: BittrexAuth = bittrex_auth
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         super().__init__(data_source=BittrexAPIUserStreamDataSource(
             bittrex_auth=self._bittrex_auth,
             trading_pairs=self._trading_pairs

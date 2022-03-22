@@ -133,6 +133,8 @@ class KucoinExchange(ExchangePyBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
+            "symbols_mapping_initialized": KucoinAPIOrderBookDataSource.trading_pair_symbol_map_ready(
+                domain=self._domain),
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": not self._trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
@@ -633,12 +635,8 @@ class KucoinExchange(ExchangePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
-                )
-                await self._sleep(1.0)
+                self.logger().exception("Error while reading user events queue. Retrying after 1 second.")
+                await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
         """
@@ -738,6 +736,8 @@ class KucoinExchange(ExchangePyBase):
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
+
+                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -746,14 +746,12 @@ class KucoinExchange(ExchangePyBase):
                                       app_warning_msg="Could not fetch account updates from Kucoin. "
                                                       "Check API key and network connection.")
                 await self._sleep(0.5)
-            finally:
-                self._poll_notifier = asyncio.Event()
 
     async def _trading_rules_polling_loop(self):
         while True:
             try:
                 await self._update_trading_rules()
-                await self._sleep(MINUTE)
+                await self._sleep(30 * MINUTE)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -800,16 +798,11 @@ class KucoinExchange(ExchangePyBase):
                 del self._account_balances[asset_name]
 
     async def _update_trading_rules(self):
-        # The poll interval for trade rules is 60 seconds.
-        last_tick = int(self._last_timestamp / 60.0)
-        current_tick = int(self.current_timestamp / 60.0)
-
-        if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request(path_url=CONSTANTS.SYMBOLS_PATH_URL, method=RESTMethod.GET)
-            trading_rules_list = await self._format_trading_rules(exchange_info)
-            self._trading_rules.clear()
-            for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+        exchange_info = await self._api_request(path_url=CONSTANTS.SYMBOLS_PATH_URL, method=RESTMethod.GET)
+        trading_rules_list = await self._format_trading_rules(exchange_info)
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     async def _update_trading_fees(self):
         trading_symbols = [await KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair(

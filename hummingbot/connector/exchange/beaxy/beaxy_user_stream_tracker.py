@@ -20,10 +20,10 @@ class BeaxyUserStreamTracker(UserStreamTracker):
     def __init__(
         self,
         beaxy_auth: BeaxyAuth,
-        trading_pairs: Optional[List[str]] = [],
+        trading_pairs: Optional[List[str]] = None,
     ):
         self._beaxy_auth = beaxy_auth
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         super().__init__(data_source=BeaxyAPIUserStreamDataSource(
             beaxy_auth=self._beaxy_auth,
             trading_pairs=self._trading_pairs))

@@ -56,7 +56,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         :param output: The queue where all received events should be stored
         """
-        ws = None
+        ws: Optional[WSAssistant] = None
         while True:
             try:
                 connection_info = await web_utils.api_request(
@@ -72,7 +72,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ping_interval = int(int(connection_info["data"]["instanceServers"][0]["pingInterval"]) * 0.8 * 1e-3)
                 token = connection_info["data"]["token"]
 
-                ws: WSAssistant = await self._get_ws_assistant()
+                ws = await self._get_ws_assistant()
                 await ws.connect(ws_url=f"{ws_url}?token={token}", message_timeout=ping_interval)
                 await ws.ping()  # to update last_recv_timestamp
                 await self._subscribe_channels(ws)
