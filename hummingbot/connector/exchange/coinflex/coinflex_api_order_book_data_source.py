@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-
 from collections import defaultdict
 from decimal import Decimal
 from typing import (
@@ -12,15 +11,10 @@ from typing import (
     Optional,
 )
 
-from bidict import bidict
-
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+from bidict import bidict
 from hummingbot.connector.exchange.coinflex import coinflex_utils
-from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
-    api_call_with_retries,
-    build_api_factory,
-    CoinflexRESTRequest,
-)
+from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_order_book import CoinflexOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -28,11 +22,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    WSRequest,
-)
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -51,16 +41,14 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 domain="live",
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None):
         super().__init__(trading_pairs)
-        self._order_book_create_function = lambda: OrderBook()
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory()
-        self._rest_assistant: Optional[RESTAssistant] = None
-        self._ws_assistant: Optional[WSAssistant] = None
+        self._throttler = throttler
+        self._api_factory = api_factory or web_utils.build_api_factory()
+        self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
@@ -72,7 +60,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls,
                                      trading_pairs: List[str],
-                                     domain: str = "live",
+                                     domain: str = CONSTANTS.DEFAULT_DOMAIN,
                                      api_factory: Optional[WebAssistantsFactory] = None,
                                      throttler: Optional[AsyncThrottler] = None) -> Dict[str, float]:
         """
@@ -86,28 +74,30 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         the function will create a new one.
         :return: Dictionary of associations between token pair and its latest price
         """
-        local_api_factory = api_factory or build_api_factory()
-        rest_assistant = await local_api_factory.get_rest_assistant()
-        local_throttler = throttler or cls._get_throttler_instance()
-        tasks = [cls._get_last_traded_price(t_pair, domain, rest_assistant, local_throttler) for t_pair in trading_pairs]
+        tasks = [cls._get_last_traded_price(
+            trading_pair=t_pair,
+            domain=domain,
+            api_factory=api_factory,
+            throttler=throttler) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
     @async_ttl_cache(ttl=2, maxsize=1)
-    async def get_all_mid_prices(cls, domain="live") -> Dict[str, Decimal]:
+    async def get_all_mid_prices(cls, domain=CONSTANTS.DEFAULT_DOMAIN) -> Dict[str, Decimal]:
         """
         Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
         required by the market price strategy.
         :param domain: Domain to use for the connection with the exchange (either "live" or "test"). Default value is "live"
         :return: Dictionary with the trading pair as key, and the mid price as value
         """
-        local_api_factory = build_api_factory()
-        rest_assistant = await local_api_factory.get_rest_assistant()
-        throttler = CoinflexAPIOrderBookDataSource._get_throttler_instance()
 
-        request = CoinflexRESTRequest(method=RESTMethod.GET, endpoint=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
-        response = await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=throttler, logger=cls.logger())
+        response = await web_utils.api_request(
+            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            domain=domain,
+            method=RESTMethod.GET,
+            logger=cls.logger(),
+        )
 
         ret_val = {}
         for record in response:
@@ -122,7 +112,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return ret_val
 
     @classmethod
-    def trading_pair_symbol_map_ready(cls, domain: str = "live"):
+    def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
         :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
@@ -133,7 +123,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def trading_pair_symbol_map(
             cls,
-            domain: str = "live",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None
     ):
@@ -150,14 +140,17 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with cls._mapping_initialization_lock:
                 # Check condition again (could have been initialized while waiting for the lock to be released)
                 if not cls.trading_pair_symbol_map_ready(domain=domain):
-                    await cls._init_trading_pair_symbols(domain, api_factory, throttler)
+                    await cls._init_trading_pair_symbols(
+                        domain=domain,
+                        api_factory=api_factory,
+                        throttler=throttler)
 
         return cls._trading_pair_symbol_map[domain]
 
     @staticmethod
     async def exchange_symbol_associated_to_pair(
             trading_pair: str,
-            domain="live",
+            domain=CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None,
     ) -> str:
@@ -178,7 +171,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def trading_pair_associated_to_exchange_symbol(
             symbol: str,
-            domain="live",
+            domain=CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None) -> str:
         """
@@ -196,13 +189,20 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return symbol_map[symbol]
 
     @staticmethod
-    async def fetch_trading_pairs(domain="live") -> List[str]:
+    async def fetch_trading_pairs(
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            throttler: Optional[AsyncThrottler] = None,
+            api_factory: Optional[WebAssistantsFactory] = None) -> List[str]:
         """
         Returns a list of all known trading pairs enabled to operate with
         :param domain: the domain of the exchange being used (either "live" or "test"). Default value is "live"
         :return: list of trading pairs in client notation
         """
-        mapping = await CoinflexAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain)
+        mapping = await CoinflexAPIOrderBookDataSource.trading_pair_symbol_map(
+            domain=domain,
+            throttler=throttler,
+            api_factory=api_factory,
+        )
         return list(mapping.values())
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
@@ -321,8 +321,8 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws = None
         while True:
             try:
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=coinflex_utils.websocket_url(domain=self._domain),
+                ws: WSAssistant = await self._api_factory.get_ws_assistant()
+                await ws.connect(ws_url=web_utils.websocket_url(domain=self._domain),
                                  ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
                 await self._subscribe_channels(ws)
 
@@ -348,27 +348,31 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_snapshot(
             self,
             trading_pair: str,
-            limit: int = 1000) -> Dict[str, Any]:
+            limit: int = 1000,
+    ) -> Dict[str, Any]:
         """
         Retrieves a copy of the full order book from the exchange, for a particular trading pair.
+
         :param trading_pair: the trading pair for which the order book will be retrieved
         :param limit: the depth of the order book to retrieve
+
         :return: the response from the exchange (JSON dictionary)
         """
-        rest_assistant = await self._get_rest_assistant()
         exchange_trading_pair = await self.exchange_symbol_associated_to_pair(
             trading_pair=trading_pair,
             domain=self._domain,
             api_factory=self._api_factory,
             throttler=self._throttler)
 
-        snapshot_endpoint = CONSTANTS.SNAPSHOT_PATH_URL.format(exchange_trading_pair, limit)
+        response = await web_utils.api_request(
+            path=CONSTANTS.SNAPSHOT_PATH_URL.format(exchange_trading_pair, limit),
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            domain=self._domain,
+            method=RESTMethod.GET,
+            limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
+        )
 
-        request = CoinflexRESTRequest(method=RESTMethod.GET,
-                                      endpoint=snapshot_endpoint,
-                                      throttler_limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
-                                      domain=self._domain)
-        response = await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=self._throttler, logger=self.logger())
         if not ("data" in response and
                 "event" in response and
                 len(response.get("data", [{}])[0].get("asks", []))):
@@ -412,24 +416,24 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
-
-    @classmethod
     async def _get_last_traded_price(cls,
                                      trading_pair: str,
                                      domain: str,
-                                     rest_assistant: RESTAssistant,
+                                     api_factory: WebAssistantsFactory,
                                      throttler: AsyncThrottler) -> float:
         symbol = await cls.exchange_symbol_associated_to_pair(
             trading_pair=trading_pair,
             domain=domain,
             throttler=throttler)
 
-        request = CoinflexRESTRequest(method=RESTMethod.GET, endpoint=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
+        resp = await web_utils.api_request(
+            path=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            api_factory=api_factory,
+            throttler=throttler,
+            domain=domain,
+            method=RESTMethod.GET,
+        )
 
-        resp = await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=throttler, logger=cls.logger())
         matched_ticker = [t for t in resp if t.get("marketCode") == symbol]
         if not (len(matched_ticker) and "last" in matched_ticker[0]):
             raise IOError(f"Error fetching last traded prices for {trading_pair}. "
@@ -439,7 +443,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def _init_trading_pair_symbols(
             cls,
-            domain: str = "live",
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
             api_factory: Optional[WebAssistantsFactory] = None,
             throttler: Optional[AsyncThrottler] = None):
         """
@@ -447,26 +451,18 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         mapping = bidict()
 
-        local_api_factory = api_factory or build_api_factory()
-        rest_assistant = await local_api_factory.get_rest_assistant()
-        local_throttler = throttler or cls._get_throttler_instance()
-        request = CoinflexRESTRequest(method=RESTMethod.GET, endpoint=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=domain)
-
         try:
-            data = await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=local_throttler, logger=cls.logger())
+            data = await web_utils.api_request(
+                path=CONSTANTS.EXCHANGE_INFO_PATH_URL,
+                api_factory=api_factory,
+                throttler=throttler,
+                domain=domain,
+                method=RESTMethod.GET,
+            )
+
             for symbol_data in filter(coinflex_utils.is_exchange_information_valid, data["data"]):
                 mapping[symbol_data["marketCode"]] = f"{symbol_data['contractValCurrency']}-{symbol_data['marginCurrency']}"
         except Exception as ex:
             cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
 
         cls._trading_pair_symbol_map[domain] = mapping
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
-
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant

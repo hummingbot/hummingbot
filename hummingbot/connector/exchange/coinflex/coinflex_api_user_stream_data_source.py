@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 from typing import (
     Dict,
     List,
@@ -8,15 +7,11 @@ from typing import (
 )
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_utils
+from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
-from hummingbot.connector.exchange.coinflex.coinflex_http_utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import (
-    WSRequest,
-)
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.connections.data_types import WSRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -30,16 +25,15 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: CoinflexAuth,
-                 domain: str = "live",
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None):
         super().__init__()
         self._auth: CoinflexAuth = auth
         self._last_recv_time: float = 0
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory(auth=self._auth)
-        self._rest_assistant: Optional[RESTAssistant] = None
+        self._throttler = throttler
+        self._api_factory = api_factory or web_utils.build_api_factory(auth=self._auth)
         self._ws_assistant: Optional[WSAssistant] = None
         self._subscribed_channels: List[str] = []
 
@@ -95,7 +89,9 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=coinflex_utils.websocket_url(domain=self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                await ws.connect(
+                    ws_url=web_utils.websocket_url(domain=self._domain),
+                    ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
                 await ws.send(WSRequest({}, is_auth_required=True))
                 await self._subscribe_channels(ws)
                 await ws.ping()  # to update last_recv_timestamp
@@ -117,10 +113,6 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws and await ws.disconnect()
                 self._subscribed_channels = []
                 await self._sleep(5)
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:

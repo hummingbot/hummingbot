@@ -1,16 +1,11 @@
-from base64 import b64encode
-from datetime import datetime
 import hashlib
 import hmac
 import time
+from base64 import b64encode
+from datetime import datetime
+from typing import Dict
 
-from typing import (
-    Dict
-)
-
-from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
-    CoinflexRESTRequest,
-)
+from hummingbot.connector.exchange.coinflex.coinflex_web_utils import CoinflexRESTRequest
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 

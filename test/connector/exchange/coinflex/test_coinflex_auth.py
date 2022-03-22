@@ -9,7 +9,7 @@ from async_timeout import timeout
 from os.path import join, realpath
 from typing import Dict, Any
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
-from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
+from hummingbot.connector.exchange.coinflex.coinflex_web_utils import (
     api_call_with_retries,
     build_api_factory,
     CoinflexRESTRequest,

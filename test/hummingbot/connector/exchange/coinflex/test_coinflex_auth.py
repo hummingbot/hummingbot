@@ -1,19 +1,16 @@
 import asyncio
-from base64 import b64encode
-from datetime import datetime
 import hashlib
 import hmac
+from base64 import b64encode
 from copy import copy
+from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch
 
-from typing_extensions import Awaitable
-
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
-from hummingbot.connector.exchange.coinflex.coinflex_http_utils import (
-    CoinflexRESTRequest,
-)
+from hummingbot.connector.exchange.coinflex.coinflex_web_utils import CoinflexRESTRequest
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from typing_extensions import Awaitable
 
 
 class CoinflexAuthTests(TestCase):

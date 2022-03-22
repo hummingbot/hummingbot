@@ -1,13 +1,8 @@
 import asyncio
 import time
 import unittest
-
 from collections import deque
-from typing import (
-    Deque,
-    Optional,
-    Union,
-)
+from typing import Deque, Optional, Union
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.connector.exchange.coinflex.coinflex_order_book import CoinflexOrderBook

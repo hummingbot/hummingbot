@@ -2,26 +2,23 @@ import asyncio
 import json
 import re
 import unittest
-
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import (
     Any,
     Awaitable,
     Dict,
     List,
 )
-from unittest.mock import AsyncMock, patch, MagicMock
-
-from aioresponses.core import aioresponses
-from bidict import bidict
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-import hummingbot.connector.exchange.coinflex.coinflex_utils as utils
+import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
+from aioresponses.core import aioresponses
+from bidict import bidict
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
@@ -36,7 +33,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.domain = "live"
+        cls.domain = CONSTANTS.DEFAULT_DOMAIN
 
     def setUp(self) -> None:
         super().setUp()
@@ -150,7 +147,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                        return_url=False,
                        endpoint_api_version=None,
                        public=True):
-        prv_or_pub = utils.public_rest_url if public else utils.private_rest_url
+        prv_or_pub = web_utils.public_rest_url if public else web_utils.private_rest_url
         url = prv_or_pub(endpoint, domain=self.domain, endpoint_api_version=endpoint_api_version)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         if return_url:
@@ -200,7 +197,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_all_mid_prices(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
 
         mock_response: List[Dict[str, Any]] = [
             {
@@ -227,7 +224,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
         CoinflexAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
 
         mock_response: Dict[str, Any] = {
             "event": "markets",
@@ -311,7 +308,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertNotIn("BTC-USD", result)
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_fetch_trading_pairs_exception_raised(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         CoinflexAPIOrderBookDataSource._trading_pair_symbol_map = {}
@@ -326,9 +323,6 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(0, len(result))
 
-    def test_get_throttler_instance(self):
-        self.assertIsInstance(CoinflexAPIOrderBookDataSource._get_throttler_instance(), AsyncThrottler)
-
     @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
         url, regex_url = self._get_regex_url(CONSTANTS.SNAPSHOT_PATH_URL.format(self.trading_pair, 1000), return_url=True)
@@ -342,7 +336,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(self._snapshot_response()["data"][0], result)
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_get_snapshot_catch_exception(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         url, regex_url = self._get_regex_url(CONSTANTS.SNAPSHOT_PATH_URL.format(self.trading_pair, 1000), return_url=True)
@@ -588,7 +582,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     @patch("hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source"
            ".CoinflexAPIOrderBookDataSource._sleep")
-    @patch("hummingbot.connector.exchange.coinflex.coinflex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.coinflex.coinflex_web_utils.retry_sleep_time")
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, retry_sleep_time_mock, sleep_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         msg_queue: asyncio.Queue = asyncio.Queue()
