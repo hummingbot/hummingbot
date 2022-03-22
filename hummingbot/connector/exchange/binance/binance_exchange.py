@@ -937,27 +937,24 @@ class BinanceExchange(ExchangeBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        try:
-            account_info = await self._api_request(
-                method=RESTMethod.GET,
-                path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-                is_auth_required=True)
+        account_info = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            is_auth_required=True)
 
-            balances = account_info["balances"]
-            for balance_entry in balances:
-                asset_name = balance_entry["asset"]
-                free_balance = Decimal(balance_entry["free"])
-                total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
-                self._account_available_balances[asset_name] = free_balance
-                self._account_balances[asset_name] = total_balance
-                remote_asset_names.add(asset_name)
+        balances = account_info["balances"]
+        for balance_entry in balances:
+            asset_name = balance_entry["asset"]
+            free_balance = Decimal(balance_entry["free"])
+            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
+            remote_asset_names.add(asset_name)
 
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
-        except IOError:
-            self.logger().exception("Error getting account balances from server")
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
     async def _update_time_synchronizer(self):
         try:
