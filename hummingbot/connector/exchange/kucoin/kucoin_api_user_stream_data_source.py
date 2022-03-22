@@ -51,7 +51,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Connects to the user private channel in the exchange using a websocket connection. With the established
-        connection listens to all balance events and order updates provided by the exchange, and stores them in the
+        connection, listens to all balance events and order updates provided by the exchange and stores them in the
         output queue
 
         :param output: The queue where all received events should be stored

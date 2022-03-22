@@ -317,7 +317,7 @@ class KucoinExchange(ExchangePyBase):
             self.logger().network(
                 "Unexpected error cancelling orders.",
                 exc_info=True,
-                app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
+                app_warning_msg="Failed to cancel order. Check API key and network connection."
             )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
