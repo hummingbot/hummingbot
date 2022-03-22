@@ -37,11 +37,23 @@ async def main():
 
     print(f"Price: {price}")
 
-    result = gateway.place_order(True, "WETH-DAI", Decimal("0.0001"), price)
-    print(result)
-    print("waiting")
-    await asyncio.sleep(100)
-    print("complete")
+    order_result = gateway.place_order(True, "WETH-DAI", amount, price + Decimal("1000"))
+    print(order_result)
+
+    while True:
+        await gateway.update_order_status(gateway.amm_orders)
+        print(f"{gateway._in_flight_orders}")
+        await asyncio.sleep(2)
+
+    # cancel logic
+
+    # await asyncio.sleep(10)
+    # cancel_result = await gateway.cancel_outdated_orders(0)
+    # print(cancel_result)
+
+    # print("waiting")
+    # await asyncio.sleep(100)
+    # print("complete")
 
 if __name__ == "__main__":
     asyncio.run(main())

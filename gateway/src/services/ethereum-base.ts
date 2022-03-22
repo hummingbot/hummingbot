@@ -1,7 +1,6 @@
 import {
   BigNumber,
   Contract,
-  logger,
   providers,
   Transaction,
   utils,
@@ -16,6 +15,7 @@ import NodeCache from 'node-cache';
 import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
+import { logger } from './logger';
 
 // information about an Ethereum token
 export interface TokenInfo {
@@ -203,8 +203,11 @@ export class EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     logger.info('Requesting balance for owner ' + wallet.address + '.');
-    const balance = await contract.balanceOf(wallet.address);
-    logger.info(balance);
+    const balance: BigNumber = await contract.balanceOf(wallet.address);
+    logger.info(
+      `Raw balance of ${contract.address} for ` +
+        `${wallet.address}: ${balance.toString()}`
+    );
     return { value: balance, decimals: decimals };
   }
 
