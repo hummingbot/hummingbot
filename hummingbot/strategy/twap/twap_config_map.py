@@ -75,7 +75,7 @@ twap_config_map = {
         ConfigVar(key="connector",
                   prompt="Enter the name of spot connector >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value),
+                  on_validated=lambda value: required_exchanges.add(value),
                   prompt_on_new=True),
     "trading_pair":
         ConfigVar(key="trading_pair",

@@ -105,7 +105,7 @@ def on_validated_price_type(value: str):
 
 
 def exchange_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 pure_market_making_config_map = {

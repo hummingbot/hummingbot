@@ -251,6 +251,11 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
+        cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+            value="Exchanges",  # noqa: F821
+            names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
+            type=str,
+        )
         return v
 
     @validator("market", pre=True)

@@ -64,7 +64,7 @@ def on_validated_price_type(value: str):
 
 
 def exchange_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 aroon_oscillator_config_map = {

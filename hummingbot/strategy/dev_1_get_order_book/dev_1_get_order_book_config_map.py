@@ -37,7 +37,7 @@ dev_1_get_order_book_config_map = {
         ConfigVar(key="exchange",
                   prompt="Enter the name of the exchange >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value),
+                  on_validated=lambda value: required_exchanges.add(value),
                   prompt_on_new=True,
                   ),
     "trading_pair":
