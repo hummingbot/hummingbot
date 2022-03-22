@@ -383,8 +383,12 @@ class RemoteControlTest(TestCase):
         self.assertTrue(self._is_logged("INFO", "Starting Remote Command Executor."))
         self.assertTrue(self._is_logged("INFO", "Remote Command Executor is listening."))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_ws_invalid_status(self, ws_connect_mock):
+    def test_remote_commands_ws_invalid_status(self, mock_api, ws_connect_mock):
+        for x in range(100):
+            mock_api.get(r".*", body=json.dumps({}))
+
         ws_connect_mock.return_value = self._rce_setup()
         ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_invalid_status_exception()
 
