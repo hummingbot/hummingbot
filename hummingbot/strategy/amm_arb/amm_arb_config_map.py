@@ -120,5 +120,12 @@ amm_arb_config_map = {
         prompt_on_new=True,
         default=False,
         validator=validate_bool,
-        type_str="bool")
+        type_str="bool"),
+    "debug_price_shim": ConfigVar(
+        key="debug_price_shim",
+        prompt="Do you want to enable the debug price shim for integration tests? If you don't know what this does "
+               "you should keep it disabled. >>> ",
+        default=False,
+        validator=validate_bool,
+        type_str="bool"),
 }

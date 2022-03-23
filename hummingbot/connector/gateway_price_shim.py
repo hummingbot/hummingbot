@@ -57,7 +57,7 @@ class GatewayPriceShim:
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._gps_logger is not None:
+        if cls._gps_logger is None:
             cls._gps_logger = cast(HummingbotLogger, logging.getLogger(__name__))
         return cls._gps_logger
 
