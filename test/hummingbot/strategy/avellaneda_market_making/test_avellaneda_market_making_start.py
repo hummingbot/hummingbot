@@ -6,8 +6,10 @@ import hummingbot.strategy.avellaneda_market_making.start as strategy_start
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
-    AvellanedaMarketMakingConfigMap, FromDateToDateModel,
-    TrackHangingOrdersModel, MultiOrderLevelModel
+    AvellanedaMarketMakingConfigMap, 
+    FromDateToDateModel,
+    MultiOrderLevelModel,
+    TrackHangingOrdersModel,
 )
 
 
