@@ -237,6 +237,10 @@ export async function trade(
       );
     }
 
+    logger.info(
+      `Trade has been executed, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+    );
+
     return {
       network: ethereumish.chain,
       timestamp: startTimestamp,
@@ -283,6 +287,11 @@ export async function trade(
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
     );
+
+    logger.info(
+      `Trade has been executed, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+    );
+
     return {
       network: ethereumish.chain,
       timestamp: startTimestamp,
