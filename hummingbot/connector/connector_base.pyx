@@ -1,21 +1,16 @@
 import time
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Tuple,
-    Set,
-)
+from typing import Dict, List, Set, Tuple
 
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.network_iterator import NetworkIterator
-from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
@@ -449,6 +444,12 @@ cdef class ConnectorBase(NetworkIterator):
         if self._trade_fee_schema is None:
             self._trade_fee_schema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=self.name)
         return self._trade_fee_schema
+
+    async def _update_balances(self):
+        """
+        Update local balances requesting the latest information from the exchange.
+        """
+        raise NotImplementedError
 
     def _time(self) -> float:
         """

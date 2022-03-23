@@ -19,7 +19,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
+from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
     PriceSize,
     Proposal,
@@ -128,7 +128,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._start_time = start_time
         self._end_time = end_time
         self._min_spread = min_spread
-        self._latest_parameter_calculation_vol = s_decimal_zero
         self._reservation_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
@@ -144,14 +143,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
-
-    @property
-    def latest_parameter_calculation_vol(self):
-        return self._latest_parameter_calculation_vol
-
-    @latest_parameter_calculation_vol.setter
-    def latest_parameter_calculation_vol(self, value):
-        self._latest_parameter_calculation_vol = value
 
     @property
     def min_spread(self):
@@ -461,11 +452,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price) / price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.creation_timestamp / 1e6)),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = self._order_amount
             if is_hanging_order:
                 amount_orig = float(order.quantity)
@@ -676,12 +664,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def get_volatility(self):
         vol = Decimal(str(self._avg_vol.current_value))
-        if vol == s_decimal_zero:
-            if self._latest_parameter_calculation_vol != s_decimal_zero:
-                vol = Decimal(str(self._latest_parameter_calculation_vol))
-            else:
-                # Default value at start time if price has no activity
-                vol = Decimal(str(self.c_get_spread() / 2))
         return vol
 
     cdef c_measure_order_book_liquidity(self):
@@ -1207,7 +1189,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         cdef:
             list active_orders = self.active_non_hanging_orders
         for order in active_orders:
-            if order_age(order) > self._max_order_age:
+            if order_age(order, self._current_timestamp) > self._max_order_age:
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef c_cancel_active_orders(self, object proposal):
