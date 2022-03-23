@@ -41,6 +41,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.logger import HummingbotLogger
+from .gateway_price_shim import GatewayPriceShim, MAINNET_NETWORKS
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -258,12 +259,27 @@ class GatewayEVMAMM(ConnectorBase):
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
         """
         Retrieves a quote price.
+
         :param trading_pair: The market trading pair
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
         :return: The quote price.
         """
 
+        # Get the price from gateway price shim for integration tests.
+        if self.network not in MAINNET_NETWORKS:
+            test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
+                self.connector_name,
+                self.chain,
+                self.network,
+                trading_pair,
+                is_buy,
+                amount
+            )
+            if test_price is not None:
+                return test_price
+
+        # Pull the price from gateway.
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         try:
