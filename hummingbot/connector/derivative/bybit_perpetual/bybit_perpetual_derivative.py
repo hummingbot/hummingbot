@@ -40,11 +40,13 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
+    AccountEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
+    PositionModeChangeEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -206,9 +208,22 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 # 0     - mode changed
                 # 30083 - mode not modified
                 if response_code not in [0, 30083]:
+                    self.trigger_event(AccountEvent.PositionModeChangeFailure,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           False,
+                                           position_mode,
+                                           response['ret_msg']
+                                       ))
                     raise IOError(f"Bybit Perpetual encountered a problem switching position mode to "
                                   f"{position_mode} for {trading_pair}"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
+                self.trigger_event(AccountEvent.PositionModeChangeSuccess,
+                                   PositionModeChangeEvent(
+                                       self.current_timestamp,
+                                       True,
+                                       position_mode
+                                   ))
 
         super().set_position_mode(position_mode)
 
