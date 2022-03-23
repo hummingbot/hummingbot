@@ -532,8 +532,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
 
             if send_order_results["ret_code"] != 0:
-                raise ValueError(f"Order is rejected by the API. "
-                                 f"Error Msg: {send_order_results['ret_msg']}. Parameters: {params}")
+                if send_order_results["ret_code"] == 130125:
+                    # "current position is zero, cannot fix reduce-only order qty"
+                    self.stop_tracking_order(order_id)
+                    return
+                else:
+                    raise ValueError(f"Order is rejected by the API. "
+                                     f"Error Msg: {send_order_results['ret_msg']}. Parameters: {params}")
 
             result = send_order_results["result"]
             exchange_order_id = str(result["order_id"])
