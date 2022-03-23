@@ -675,8 +675,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     trading_pair=tracked_order.trading_pair,
                     fill_timestamp=order_message["T"] * 1e-3,
                     fill_price=Decimal(order_message["L"]),
-                    fill_base_amount=Decimal(order_message["z"]),
-                    fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["z"]),
+                    fill_base_amount=Decimal(order_message["l"]),
+                    fill_quote_amount=Decimal(order_message["L"]) * Decimal(order_message["l"]),
                     fee=fee,
                 )
                 self._client_order_tracker.process_trade_update(trade_update)
