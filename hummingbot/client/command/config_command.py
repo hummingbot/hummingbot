@@ -284,9 +284,6 @@ class ConfigCommand:
         config_map: BaseTradingStrategyConfigMap,
         input_value: Any = None,
     ):  # pragma: no cover
-        """
-        Will be removed: https://app.shortcut.com/coinalpha/story/24923/collect-special-case-prompts-via-config-models
-        """
         if input_value:
             config_map.inventory_target_base_pct = input_value
         else:
@@ -365,7 +362,6 @@ class ConfigCommand:
     ):
         """
         Not currently used.
-        Will be removed: https://app.shortcut.com/coinalpha/story/24923/collect-special-case-prompts-via-config-models
         """
         raise NotImplementedError
 

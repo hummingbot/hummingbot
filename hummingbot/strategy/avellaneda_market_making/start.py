@@ -87,7 +87,6 @@ def start(self):
                                       f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
         self.strategy = AvellanedaMarketMakingStrategy()
-        self.logger().debug("Starting !!!!!!!!!!!!")
         self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
