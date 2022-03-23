@@ -7,7 +7,7 @@ from collections import (
     OrderedDict
 )
 import inspect
-from typing import List, Dict
+from typing import Dict, List
 
 from pydantic import ValidationError, validate_model
 
