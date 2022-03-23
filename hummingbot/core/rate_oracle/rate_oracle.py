@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 from decimal import Decimal
 from enum import Enum
 from typing import (
@@ -11,7 +10,7 @@ from typing import (
 
 import aiohttp
 
-import hummingbot.client.settings # noqa
+import hummingbot.client.settings  # noqa
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import convert_from_exchange_trading_pair as \
     ascend_ex_convert_from_exchange_pair
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
@@ -116,10 +115,28 @@ class RateOracle(NetworkBase):
         """
         Finds a conversion rate for a given symbol, this can be direct or indirect prices as long as it can find a route
         to achieve this.
+
         :param pair: A trading pair, e.g. BTC-USDT
+
         :return A conversion rate
         """
         return find_rate(self._prices, pair)
+
+    async def stored_or_live_rate(self, pair: str) -> Decimal:
+        """
+        Finds a conversion rate for a given symbol trying to use the local prices. If local prices are not initialized
+            uses the async rate finder (directly from the exchange)
+
+        :param pair: A trading pair, e.g. BTC-USDT
+
+        :return A conversion rate
+        """
+        if self._prices:
+            rate = self.rate(pair)
+        else:
+            rate = await self.rate_async(pair)
+
+        return rate
 
     @classmethod
     async def rate_async(cls, pair: str) -> Decimal:
@@ -186,7 +203,7 @@ class RateOracle(NetworkBase):
             raise NotImplementedError
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_binance_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Binance prices from binance.com and binance.us where only USD pairs from binance.us prices are added
@@ -243,7 +260,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_kucoin_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Kucoin mid prices from their allTickers endpoint.
@@ -260,7 +277,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_ascend_ex_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Ascend Ex mid prices from their ticker endpoint.
@@ -343,9 +360,3 @@ class RateOracle(NetworkBase):
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    def start(self):
-        NetworkBase.start(self)
-
-    def stop(self):
-        NetworkBase.stop(self)

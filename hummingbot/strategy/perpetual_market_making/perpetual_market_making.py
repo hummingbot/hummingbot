@@ -1,5 +1,4 @@
 import logging
-import time
 from decimal import Decimal
 from itertools import chain
 from math import ceil, floor
@@ -35,6 +34,7 @@ from hummingbot.strategy.perpetual_market_making.perpetual_market_making_order_t
     PerpetualMarketMakingOrderTracker
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
+from hummingbot.strategy.utils import order_age
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -354,11 +354,8 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 level = no_sells - lvl_sell
                 lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price) / price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time() - (order.creation_timestamp / 1e6)),
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self.current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
                 level,
