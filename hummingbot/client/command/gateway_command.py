@@ -497,7 +497,7 @@ class GatewayCommand:
             build_config_namespace_keys(self.gateway_config_keys, config)
             self.app.input_field.completer = load_completer(self)
         except Exception:
-            self.logger().info("Error loading gateway configs. Gateway connectors are not usable until "
-                               "it has been correctly configured. "
-                               "Use the `gateway generate-certs` or `gateway create` commands might help resolve this.",
-                               exec_info=True)
+            self.logger().error("Error loading gateway configs. Gateway connectors are not usable until "
+                                "it has been correctly configured. "
+                                "Use the `gateway generate-certs` or `gateway create` commands might help resolve this.",
+                                exc_info=True)
