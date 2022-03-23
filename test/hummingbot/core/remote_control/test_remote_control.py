@@ -158,6 +158,10 @@ class RemoteControlTest(TestCase):
             websocket_mock,
             json.dumps(data_dict))
 
+    def _dummy_rest_responses(self, mock_api):
+        for x in range(20):
+            mock_api.get(r".*", body=json.dumps({}))
+
     def _raise_exception(self, exception_class):
         raise exception_class
 
@@ -177,8 +181,10 @@ class RemoteControlTest(TestCase):
         self.assertTrue(self.remote_cmds._client is None)
         self.async_run_with_timeout(self.remote_cmds.disconnect(), timeout=2)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_starts(self, ws_connect_mock):
+    def test_remote_commands_starts(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self._ws_send_json(ws_connect_mock.return_value,
@@ -192,8 +198,10 @@ class RemoteControlTest(TestCase):
         self.assertEqual(1234567891, self.remote_cmds.last_event_received.timestamp_event)
         self.assertTrue(self.remote_cmds.started is False)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_converts_string_to_json(self, ws_connect_mock):
+    def test_remote_commands_converts_string_to_json(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self.mocking_assistant.add_websocket_text_message(
@@ -204,8 +212,10 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual("dummy message", self.remote_cmds.last_event_received.command)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_does_not_convert_bad_string_to_json(self, ws_connect_mock):
+    def test_remote_commands_does_not_convert_bad_string_to_json(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self.mocking_assistant.add_websocket_text_message(
@@ -216,8 +226,10 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual(None, self.remote_cmds.last_event_received)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_does_not_process_duplicate_timestamps(self, ws_connect_mock):
+    def test_remote_commands_does_not_process_duplicate_timestamps(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self._ws_send_json(ws_connect_mock.return_value, {
@@ -232,8 +244,10 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual("test 1", self.remote_cmds.last_event_received.event_descriptor)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_skips_unmatched(self, ws_connect_mock):
+    def test_remote_commands_skips_unmatched(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         self.remote_cmds._routing_name = "donotmatch"
         ws_connect_mock.return_value = self._rce_setup()
 
@@ -245,8 +259,10 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual(None, self.remote_cmds.last_event_received)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_translates_commands(self, ws_connect_mock):
+    def test_remote_commands_translates_commands(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         self.remote_cmds._cmd_translate_dict = {
             "oldname": "newname"
         }
@@ -261,10 +277,12 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual("newname", self.remote_cmds.last_event_received.command)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
     @patch('hummingbot.client.hummingbot_application.HummingbotApplication._handle_command')
     @patch('hummingbot.core.remote_control.remote_command_executor.RemoteCommandExecutor._finish_processing_event_hook')
-    def test_remote_commands_enabled_commands(self, handle_event_done_mock, handle_cmd_mock, ws_connect_mock):
+    def test_remote_commands_enabled_commands(self, mock_api, handle_event_done_mock, handle_cmd_mock, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
         handle_cmd_event = asyncio.Event()
         done_callback_event = asyncio.Event()
@@ -287,10 +305,8 @@ class RemoteControlTest(TestCase):
     @patch('websockets.connect', new_callable=AsyncMock)
     @patch('hummingbot.client.hummingbot_application.HummingbotApplication._handle_command')
     def test_remote_commands_disabled_commands(self, mock_api, handle_cmd_mock, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         handle_cmd_disabled_event = asyncio.Event()
-
-        for x in range(100):
-            mock_api.get(r".*", body=json.dumps({}))
 
         ws_connect_mock.return_value = self._rce_setup()
         handle_cmd_mock.side_effect = lambda evt: handle_cmd_disabled_event.set()
@@ -307,8 +323,10 @@ class RemoteControlTest(TestCase):
         self.assertEqual("test 1", self.remote_cmds.last_event_received.event_descriptor)
         self.assertFalse(handle_cmd_disabled_event.is_set())
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_no_messages(self, ws_connect_mock):
+    def test_remote_commands_no_messages(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         task = asyncio.get_event_loop().create_task(
@@ -322,8 +340,10 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual(self.remote_cmds.last_event_received, None)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_inner_recv_timeout(self, ws_connect_mock):
+    def test_remote_commands_inner_recv_timeout(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         self.remote_cmds._ws_timeout = 0.1
         done_callback_event = asyncio.Event()
         ws_connect_mock.return_value = self._rce_setup()
@@ -335,8 +355,10 @@ class RemoteControlTest(TestCase):
         self.assertEqual(self.remote_cmds.last_event_received, None)
         self.async_run_with_timeout(done_callback_event.wait(), timeout=0.5)
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_ping_timeout(self, ws_connect_mock):
+    def test_remote_commands_ping_timeout(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         self.remote_cmds._ws_timeout = 0.1
         done_callback_event = asyncio.Event()
         ws_connect_mock.return_value = self._rce_setup()
@@ -352,9 +374,11 @@ class RemoteControlTest(TestCase):
         self.async_run_with_timeout(done_callback_event.wait(), timeout=0.5)
         self.assertTrue(self._is_logged("WARNING", "WebSocket ping timed out. Going to reconnect..."))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
     @patch('hummingbot.core.remote_control.remote_command_executor.RemoteCommandExecutor._finish_processing_event_hook')
-    def test_remote_commands_processing_error(self, handle_event_done_mock, ws_connect_mock):
+    def test_remote_commands_processing_error(self, mock_api, handle_event_done_mock, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         self.remote_cmds._hb._script_iterator = True
         done_callback_event = asyncio.Event()
         ws_connect_mock.return_value = self._rce_setup()
@@ -372,8 +396,10 @@ class RemoteControlTest(TestCase):
                                         ("Remote Command Executor error: "
                                          "'bool' object has no attribute 'process_remote_command_event'")))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_ws_close_exception(self, ws_connect_mock):
+    def test_remote_commands_ws_close_exception(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
         ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_close_exception()
 
@@ -389,8 +415,7 @@ class RemoteControlTest(TestCase):
     @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_remote_commands_ws_invalid_status_url(self, mock_api, ws_connect_mock):
-        for x in range(100):
-            mock_api.get(r".*", body=json.dumps({}))
+        self._dummy_rest_responses(mock_api)
 
         ws_connect_mock.return_value = self._rce_setup()
         ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_invalid_status_exception()
@@ -406,8 +431,7 @@ class RemoteControlTest(TestCase):
     @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_remote_commands_ws_invalid_status_apikey(self, mock_api, ws_connect_mock):
-        for x in range(100):
-            mock_api.get(r".*", body=json.dumps({}))
+        self._dummy_rest_responses(mock_api)
 
         ws_connect_mock.return_value = self._rce_setup()
         ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_invalid_apikey_exception()
@@ -420,8 +444,10 @@ class RemoteControlTest(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Error connecting to websocket, invalid API key, cannot continue."))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_ws_invalid_message(self, ws_connect_mock):
+    def test_remote_commands_ws_invalid_message(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
         ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_exception(InvalidMessage)
 
@@ -433,8 +459,10 @@ class RemoteControlTest(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Error connecting to websocket, sleeping 10."))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_ws_general_error(self, ws_connect_mock):
+    def test_remote_commands_ws_general_error(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
         ws_connect_mock.return_value.recv.side_effect = lambda: self._raise_exception(Exception)
 
@@ -446,8 +474,10 @@ class RemoteControlTest(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error in websocket, sleeping 20."))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_broadcast_success(self, ws_connect_mock):
+    def test_remote_commands_broadcast_success(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self._remote_cmds_start_wait_ready()
@@ -480,8 +510,10 @@ class RemoteControlTest(TestCase):
 
     #     self.assertEqual(0, len(sent_msgs))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_broadcast_failure(self, ws_connect_mock):
+    def test_remote_commands_broadcast_failure(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self._remote_cmds_start_wait_ready()
@@ -493,8 +525,10 @@ class RemoteControlTest(TestCase):
         self.assertEqual(0, len(sent_msgs))
         self.assertTrue(self._is_logged("WARNING", "Remote Command Executor can only broadcast RemoteCmdEvent objects."))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_emit_failure(self, ws_connect_mock):
+    def test_remote_commands_emit_failure(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
 
         self._remote_cmds_start_wait_ready()
@@ -505,9 +539,11 @@ class RemoteControlTest(TestCase):
 
         self.assertEqual(0, len(sent_msgs))
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
     @patch('hummingbot.script.script_base.ScriptBase.on_remote_command_event')
-    def test_remote_commands_scripting(self, script_remote_evt_mock, ws_connect_mock):
+    def test_remote_commands_scripting(self, mock_api, script_remote_evt_mock, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         done_callback_event = asyncio.Event()
         script_remote_evt_mock.side_effect = lambda evt: done_callback_event.set()
         ws_connect_mock.return_value = self._rce_setup()
@@ -532,8 +568,10 @@ class RemoteControlTest(TestCase):
         self.assertTrue(self.remote_cmds._hb._script_iterator is not None)
         self.assertTrue(done_callback_event.is_set())
 
+    @aioresponses()
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_remote_commands_scripting_broadcasts(self, ws_connect_mock):
+    def test_remote_commands_scripting_broadcasts(self, mock_api, ws_connect_mock):
+        self._dummy_rest_responses(mock_api)
         ws_connect_mock.return_value = self._rce_setup()
         script_base = self._setup_script()
 
