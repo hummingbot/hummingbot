@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import (
     kucoin_constants as CONSTANTS,
     kucoin_web_utils as web_utils,
@@ -734,7 +735,7 @@ class TestKucoinExchange(unittest.TestCase):
         )
 
         # After the fourth time not finding the exchange order id the order should be marked as failed
-        for i in range(4):
+        for i in range(ClientOrderTracker.ORDER_NOT_FOUND_COUNT_LIMIT + 1):
             self.async_run_with_timeout(self.exchange._execute_cancel(
                 trading_pair=order.trading_pair,
                 order_id=order.client_order_id,
