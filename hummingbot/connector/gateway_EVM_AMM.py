@@ -256,18 +256,25 @@ class GatewayEVMAMM(ConnectorBase):
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
-    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
+    async def get_quote_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Optional[Decimal]:
         """
         Retrieves a quote price.
 
         :param trading_pair: The market trading pair
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
+        :param ignore_shim: Ignore the price shim, and return the real price on the network
         :return: The quote price.
         """
 
         # Get the price from gateway price shim for integration tests.
-        if self.network not in MAINNET_NETWORKS:
+        if self.network not in MAINNET_NETWORKS and not ignore_shim:
             test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
                 self.connector_name,
                 self.chain,
@@ -328,11 +335,18 @@ class GatewayEVMAMM(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
-    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_order_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Decimal:
+
         """
         This is simply the quote price
         """
-        return await self.get_quote_price(trading_pair, is_buy, amount)
+        return await self.get_quote_price(trading_pair, is_buy, amount, ignore_shim=ignore_shim)
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
         """
@@ -553,7 +567,6 @@ class GatewayEVMAMM(ConnectorBase):
         tx_hash_list: List[str] = await safe_gather(*[
             tracked_order.get_exchange_order_id() for tracked_order in tracked_orders
         ])
-        self.logger().info(f"Polling for order status updates of {len(tracked_orders)} orders.")
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
@@ -609,10 +622,8 @@ class GatewayEVMAMM(ConnectorBase):
                             order_id=tracked_order.client_order_id,
                             base_asset=tracked_order.base_asset,
                             quote_asset=tracked_order.quote_asset,
-                            fee_asset=tracked_order.fee_asset,
                             base_asset_amount=tracked_order.executed_amount_base,
                             quote_asset_amount=tracked_order.executed_amount_quote,
-                            fee_amount=fee,
                             order_type=tracked_order.order_type,
                             exchange_order_id=tracked_order.exchange_order_id
                         )

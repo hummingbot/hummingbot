@@ -46,8 +46,8 @@ class GatewayPriceDeltaEntry:
 
 
 class GatewayPriceShim:
-    _gps_logger: Optional[HummingbotLogger]
-    _shared_instance: Optional["GatewayPriceShim"]
+    _gps_logger: Optional[HummingbotLogger] = None
+    _shared_instance: Optional["GatewayPriceShim"] = None
     _shim_entries: Dict[GatewayPriceShimKey, GatewayPriceShimEntry]
     _delta_entries: Dict[GatewayPriceShimKey, GatewayPriceDeltaEntry]
 
@@ -163,3 +163,12 @@ class GatewayPriceShim:
             else:
                 del self._delta_entries[key]
         return exchange_price
+
+    def has_price_shim(self, connector_name: str, chain: str, network: str, trading_pair: str) -> bool:
+        key: GatewayPriceShimKey = GatewayPriceShimKey(
+            connector_name=connector_name,
+            chain=chain,
+            network=network,
+            trading_pair=trading_pair
+        )
+        return key in self._shim_entries
