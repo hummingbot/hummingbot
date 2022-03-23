@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from os.path import join
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, TYPE_CHECKING, Union
 
 import pandas as pd
 from prompt_toolkit.utils import is_windows
