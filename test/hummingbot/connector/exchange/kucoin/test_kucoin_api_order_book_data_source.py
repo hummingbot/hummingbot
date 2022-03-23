@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from typing import AsyncIterable, Awaitable, Dict
+from typing import Awaitable, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -19,34 +19,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
-class KucoinTestProviders:  # does not inherit from TestCase so as to not be discovered
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ws_endpoint = "ws://someEndpoint"
-        cls.api_key = "someKey"
-        cls.api_passphrase = "somePassPhrase"
-        cls.api_secret_key = "someSecretKey"
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self.mocking_assistant = NetworkMockingAssistant()
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    @staticmethod
-    def anext(ai: AsyncIterable) -> Awaitable:
-        return ai.__anext__()
-
-
-class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
+class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -67,6 +40,8 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
         self.log_records = []
         self.async_task = None
 
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.time_synchronnizer = TimeSynchronizer()
         self.time_synchronnizer.add_time_offset_ms_sample(1000)
         self.ob_data_source = KucoinAPIOrderBookDataSource(
@@ -93,6 +68,10 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     @staticmethod
     def get_snapshot_mock() -> Dict:
