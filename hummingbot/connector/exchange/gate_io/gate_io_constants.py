@@ -8,6 +8,7 @@ WS_URL = "wss://api.gateio.ws/ws/v4/"
 
 HBOT_BROKER_ID = "hummingbot"
 HBOT_ORDER_ID = "t-HBOT"
+MAX_ID_LEN = 30
 
 NETWORK_CHECK_PATH_URL = "spot/currencies/BTC"
 SYMBOL_PATH_URL = "spot/currency_pairs"
