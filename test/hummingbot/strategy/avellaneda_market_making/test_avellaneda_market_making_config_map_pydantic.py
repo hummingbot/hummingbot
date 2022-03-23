@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from datetime import datetime, time
 from pathlib import Path
-from typing import Dict, Awaitable
+from typing import Awaitable, Dict
 from unittest.mock import patch
 
 import yaml
