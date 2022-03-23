@@ -3,14 +3,17 @@ import asyncio
 import pandas as pd
 
 from decimal import Decimal
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Callable, cast
 
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
+from hummingbot.connector.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.event.events import OrderType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -107,6 +110,10 @@ class AmmArbStrategy(StrategyPyBase):
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
+    @staticmethod
+    def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
+        return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
+
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
@@ -200,7 +207,7 @@ class AmmArbStrategy(StrategyPyBase):
 
         results = []
         for side in [arb_proposal.first_side, arb_proposal.second_side]:
-            if side.market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names():
+            if self.is_gateway_market(side.market_info):
                 results.insert(0, side)
             else:
                 results.append(side)
@@ -233,15 +240,42 @@ class AmmArbStrategy(StrategyPyBase):
                 self.log_with_clock(logging.INFO,
                                     f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
                                     f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
-                place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-                order_id = place_order_fn(arb_side.market_info,
-                                          arb_side.amount,
-                                          arb_side.market_info.market.get_taker_order_type(),
-                                          arb_side.order_price,
-                                          )
+                order_id = await self.place_arb_order(
+                    arb_side.market_info,
+                    arb_side.is_buy,
+                    arb_side.amount,
+                    arb_side.order_price
+                )
                 if not self._concurrent_orders_submission and arb_side == arb_proposal.first_side:
                     self._first_order_id = order_id
                     self._first_order_done_event = asyncio.Event()
+
+    async def place_arb_order(
+            self,
+            market_info: MarketTradingPairTuple,
+            is_buy: bool,
+            amount: Decimal,
+            order_price: Decimal) -> str:
+        place_order_fn: Callable[[MarketTradingPairTuple, Decimal, OrderType, Decimal], str] = \
+            cast(Callable, self.buy_with_specific_market if is_buy else self.sell_with_specific_market)
+
+        # If I'm placing order under a gateway price shim, then the prices in the proposal are fake - I should fetch
+        # the real prices before I make the order on the gateway side. Otherwise, the orders are gonna fail because
+        # the limit price set for them will not match market prices.
+        if self.is_gateway_market(market_info):
+            slippage_buffer: Decimal = self._market_1_slippage_buffer
+            if market_info == self._market_info_2:
+                slippage_buffer = self._market_2_slippage_buffer
+            slippage_buffer_factor: Decimal = Decimal(1) + slippage_buffer
+            if not is_buy:
+                slippage_buffer_factor = Decimal(1) - slippage_buffer
+            market: GatewayEVMAMM = cast(GatewayEVMAMM, market_info.market)
+            if GatewayPriceShim.get_instance().has_price_shim(
+                    market.connector_name, market.chain, market.network, market_info.trading_pair):
+                order_price = await market.get_order_price(market_info.trading_pair, is_buy, amount, ignore_shim=True)
+                order_price *= slippage_buffer_factor
+
+        return place_order_fn(market_info, amount, market_info.market.get_taker_order_type(), order_price)
 
     def ready_for_new_arb_trades(self) -> bool:
         """
