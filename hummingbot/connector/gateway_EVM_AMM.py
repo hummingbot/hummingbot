@@ -536,20 +536,16 @@ class GatewayEVMAMM(ConnectorBase):
         if len(tracked_orders) < 1:
             return
 
-        # there is probably a way to reduce this code into a few lines, but I am not
-        # sure since tx_hash can have an async and a non-async source
-        tx_hash_list: List[str] = []
+        cancel_tx_hash_list: List[str] = []
+        tasks = []
         for tracked_order in tracked_orders:
-            tx_hash: str = ""
             if tracked_order.is_cancelling and tracked_order.cancel_tx_hash is not None:
-                tx_hash = tracked_order.cancel_tx_hash
+                cancel_tx_hash_list.append(tracked_order.cancel_tx_hash)
             else:
-                tx_hash = await tracked_order.get_exchange_order_id()
-            tx_hash_list.append(tx_hash)
+                tasks.append(tracked_order.get_exchange_order_id())
 
-        # tx_hash_list: List[str] = await safe_gather(*[
-        #     tracked_order.get_exchange_order_id() for tracked_order in tracked_orders
-        # ])
+        tx_hash_list: List[str] = await safe_gather(*tasks)
+        tx_hash_list = tx_hash_list + cancel_tx_hash_list
 
         self.logger().info(f"Polling for order status updates of {len(tracked_orders)} orders.")
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
