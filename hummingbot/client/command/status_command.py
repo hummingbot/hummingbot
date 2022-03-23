@@ -18,8 +18,8 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
+    get_strategy_config_map,
     missing_required_configs_legacy,
-    get_strategy_config_map
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
