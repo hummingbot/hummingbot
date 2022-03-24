@@ -199,11 +199,6 @@ class AllConnectorSettings:
 
         for connection in connections:
             gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['network']}"
-            wallet_config = ConfigVar(key="wallet_address",
-                                      prompt="",
-                                      is_secure=False,
-                                      is_connect_key=True)
-            wallet_config.value = connection["wallet_address"]
             cls.all_connector_settings[gateway_connector_name] = ConnectorSetting(
                 name=gateway_connector_name,
                 type=ConnectorType[connection["trading_type"]],
@@ -211,7 +206,7 @@ class AllConnectorSettings:
                 example_pair="WETH-USDC",
                 use_ethereum_wallet=False,
                 trade_fee_schema=trade_fee_schema,
-                config_keys={"wallet_address": wallet_config},
+                config_keys={},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,

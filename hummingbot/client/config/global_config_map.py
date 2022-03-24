@@ -1,6 +1,6 @@
 import random
 import re
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 from decimal import Decimal
 import os.path
 
@@ -34,9 +34,16 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
         return f"{file_path} file does not exist."
 
 
-def connector_keys():
+def connector_keys() -> Dict[str, ConfigVar]:
     from hummingbot.client.settings import AllConnectorSettings
-    all_keys = {}
+    all_keys = {
+        "wallet_address": ConfigVar(
+            key="wallet_address",
+            prompt="",
+            is_secure=False,
+            is_connect_key=True,
+        )
+    }
     for connector_setting in AllConnectorSettings.get_connector_settings().values():
         all_keys.update(connector_setting.config_keys)
     return all_keys
