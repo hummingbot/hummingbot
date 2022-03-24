@@ -19,6 +19,7 @@ def start(self):
     market_2_slippage_buffer = amm_arb_config_map.get("market_2_slippage_buffer").value / Decimal("100")
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
     debug_price_shim = amm_arb_config_map.get("debug_price_shim").value
+    gateway_transaction_cancel_interval = amm_arb_config_map.get("gateway_transaction_cancel_interval").value
 
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
@@ -56,4 +57,5 @@ def start(self):
                               market_1_slippage_buffer=market_1_slippage_buffer,
                               market_2_slippage_buffer=market_2_slippage_buffer,
                               concurrent_orders_submission=concurrent_orders_submission,
+                              gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
                               )
