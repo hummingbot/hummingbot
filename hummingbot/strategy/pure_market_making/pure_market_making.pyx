@@ -2,7 +2,6 @@ import logging
 from decimal import Decimal
 from math import ceil, floor
 from typing import Dict, List, Optional
-from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
 
 import numpy as np
 import pandas as pd
@@ -27,7 +26,7 @@ from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
-from .moving_price_band import MovingPriceBand
+from .moving_price_band import MovingPriceBand, DisableMovingPriceBand
 
 
 NaN = float("nan")
@@ -85,13 +84,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     split_order_levels_enabled: bool = False,
                     bid_order_level_spreads: List[Decimal] = None,
                     ask_order_level_spreads: List[Decimal] = None,
-                    should_wait_order_cancel_confirmation = True,
+                    should_wait_order_cancel_confirmation: bool = True,
                     moving_price_band: MovingPriceBand = None
                     ):
         if order_override is None:
             order_override = {}
         if moving_price_band is None:
-            moving_price_band = MovingPriceBand()
+            moving_price_band = DisableMovingPriceBand()
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
@@ -386,7 +385,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @moving_price_band_enabled.setter
     def moving_price_band_enabled(self, value: bool):
-        self._moving_price_band.enabled = value
+        self._moving_price_band = self._moving_price_band.switch(value)
 
     @property
     def price_ceiling_pct(self):
@@ -395,7 +394,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @price_ceiling_pct.setter
     def price_ceiling_pct(self, value: Decimal):
         self._moving_price_band.price_ceiling_pct = value
-        self._moving_price_band.update(self.get_price())
+        self._moving_price_band.update(self._current_timestamp, self.get_price())
 
     @property
     def price_floor_pct(self):
@@ -404,7 +403,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @price_floor_pct.setter
     def price_floor_pct(self, value: Decimal):
         self._moving_price_band.price_floor_pct = value
-        self._moving_price_band.update(self.get_price())
+        self._moving_price_band.update(self._current_timestamp, self.get_price())
 
     @property
     def price_band_refresh_time(self):
@@ -862,12 +861,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.sells = []
 
     cdef c_apply_moving_price_band(self, proposal):
-        if not self._moving_price_band.enabled:
-            return
-        self._moving_price_band.check_and_update_price_band(self.get_price())
-        if self.get_price() >= self._moving_price_band.price_ceiling:
+        price = self.get_price()
+        self._moving_price_band.check_and_update_price_band(
+            self.current_timestamp, price)
+        if self._moving_price_band.check_price_ceiling_exceeded(price):
             proposal.buys = []
-        if self.get_price() <= self._moving_price_band.price_floor:
+        if self._moving_price_band.check_price_floor_exceeded(price):
             proposal.sells = []
 
     cdef c_apply_ping_pong(self, object proposal):

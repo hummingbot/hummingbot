@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from decimal import Decimal
-import time
 
 
 @dataclass
@@ -8,8 +7,11 @@ class MovingPriceBand:
     '''
     move price floor and ceiling to percentage of current price
     at every price_band_refresh_time
+
+    :param price_floor_pct: set the price floor pct
+    :param price_ceiling_pct: reference price to set price band
+    :param price_band_refresh_time: reference price to set price band
     '''
-    enabled: bool = False
     price_floor_pct: Decimal = -1
     price_ceiling_pct: Decimal = 1
     price_band_refresh_time: float = 86400
@@ -18,31 +20,101 @@ class MovingPriceBand:
     _set_time: float = 0
 
     @property
-    def current_timestamp(self) -> float:
-        '''get current timestamp'''
-        return time.time()
-
-    @property
     def price_floor(self) -> Decimal:
         '''get price floor'''
         return self._price_floor
 
     @property
     def price_ceiling(self) -> Decimal:
-        '''get price floor'''
+        '''get price ceiling'''
         return self._price_ceiling
 
-    def update(self, price: Decimal) -> None:
-        '''updates price_floor and price_ceiling based on price'''
+    @property
+    def enabled(self) -> bool:
+        '''return state of moving price band'''
+        return True
+
+    def update(self, timestamp: float, price: Decimal) -> None:
+        """
+        Updates the price band.
+
+        :param timestamp: current timestamp of the strategy/connector
+        :param price: reference price to set price band
+        """
         self._price_floor = (Decimal("100") + self.price_floor_pct) / Decimal("100") * price
         self._price_ceiling = (Decimal("100") + self.price_ceiling_pct) / Decimal("100") * price
-        self._set_time = self.current_timestamp
+        self._set_time = timestamp
 
-    def check_and_update_price_band(self, price: Decimal) -> None:
+    def check_and_update_price_band(self, timestamp: float, price: Decimal) -> None:
         '''
-        if price_band_refresh_time has passed,
-        update the price_floor and price_ceiling
+        check if the timestamp has passed the defined refresh time before updating
+
+        :param timestamp: current timestamp of the strategy/connector
+        :param price: reference price to set price band
         '''
-        if self.current_timestamp < self._set_time + self.price_band_refresh_time:
+        if timestamp < self._set_time + self.price_band_refresh_time:
             return
-        self.update(price)
+        self.update(timestamp, price)
+
+    def check_price_floor_exceeded(self, price: Decimal) -> bool:
+        '''
+        check if the price has exceeded the price floor
+
+        :param price: price to check
+        '''
+        if price <= self.price_floor:
+            print('price floor exceeded')
+            return True
+        return False
+
+    def check_price_ceiling_exceeded(self, price: Decimal) -> bool:
+        '''
+        check if the price has exceeded the price ceiling
+
+        :param price: price to check
+        '''
+        if price >= self.price_ceiling:
+            print('price ceiling exceeded')
+            return True
+        return False
+
+    def switch(self, value: bool) -> "MovingPriceBand":
+        '''
+        switch between enabled and disabled state
+
+        :param value: set whether to enable or disable MovingPriceBand
+        '''
+        if value:
+            return MovingPriceBand(
+                price_floor_pct=self.price_floor_pct,
+                price_ceiling_pct=self.price_ceiling_pct,
+                price_band_refresh_time=self.price_band_refresh_time
+            )
+        return DisableMovingPriceBand(
+            price_floor_pct=self.price_floor_pct,
+            price_ceiling_pct=self.price_ceiling_pct,
+            price_band_refresh_time=self.price_band_refresh_time
+        )
+
+
+class DisableMovingPriceBand(MovingPriceBand):
+    '''disable moving price band'''
+    @property
+    def enabled(self) -> bool:
+        '''return state of moving price band'''
+        return False
+
+    def check_and_update_price_band(self, timestamp: float, price: Decimal) -> None:
+        '''return due to disabled state'''
+        print('disable check_and_update_price_band')
+        return
+
+    def check_price_floor_exceeded(self, price: Decimal) -> bool:
+        '''return false due to disabled check'''
+        print('disable check_price_floor_exceeded')
+        return False
+
+    def check_price_ceiling_exceeded(self, price: Decimal) -> bool:
+        '''return false due to disabled check'''
+        print('disable check_price_ceiling_exceeded')
+        return False
