@@ -131,8 +131,8 @@ class AmmArbStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info("Markets are ready. Trading started.")
-        await self.apply_gateway_transaction_cancel_interval(self._market_info_1)
-        await self.apply_gateway_transaction_cancel_interval(self._market_info_2)
+        safe_ensure_future(self.apply_gateway_transaction_cancel_interval(self._market_info_1))
+        safe_ensure_future(self.apply_gateway_transaction_cancel_interval(self._market_info_2))
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
