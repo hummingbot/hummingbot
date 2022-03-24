@@ -34,7 +34,6 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot import get_strategy_list
-from eth_account import Account
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -150,15 +149,6 @@ def get_strategy_template_path(strategy: str) -> str:
     Given the strategy name, return its template config `yml` file name.
     """
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
-
-
-def get_eth_wallet_private_key() -> Optional[str]:
-    ethereum_wallet = global_config_map.get("ethereum_wallet").value
-    if ethereum_wallet is None or ethereum_wallet == "":
-        return None
-    private_key = Security._private_keys[ethereum_wallet]
-    account = Account.privateKeyToAccount(private_key)
-    return account.privateKey.hex()
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:

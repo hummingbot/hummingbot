@@ -16,8 +16,8 @@ import { UniswapV3Helper } from './uniswap.v3.helper';
 const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
 
 export type Overrides = {
-  gasLimit: number;
-  gasPrice?: number;
+  gasLimit: string;
+  gasPrice?: string;
   value?: string;
   nonce?: number;
   maxFeePerGas?: BigNumber;
@@ -385,12 +385,12 @@ export class UniswapV3 extends UniswapV3Helper implements Uniswapish {
     maxPriorityFeePerGas?: BigNumber,
     value?: string
   ): Overrides {
-    const overrides: Overrides = { gasLimit: gasLimit };
+    const overrides: Overrides = { gasLimit: gasLimit.toFixed(0) };
     if (maxFeePerGas && maxPriorityFeePerGas) {
       overrides.maxFeePerGas = maxFeePerGas;
       overrides.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else {
-      overrides.gasPrice = gasPrice * 1e9;
+      overrides.gasPrice = (gasPrice * 1e9).toFixed(0);
     }
     if (nonce) overrides.nonce = nonce;
     if (value) overrides.value = value;

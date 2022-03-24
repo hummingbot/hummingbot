@@ -34,13 +34,13 @@ const USDC = new Token(
 const TICK_PROVIDER = [
   {
     index: -887270,
-    liquidityNet: 118445039955967015140,
-    liquidityGross: 118445039955967015140,
+    liquidityNet: '118445039955967015140',
+    liquidityGross: '118445039955967015140',
   },
   {
     index: 887270,
-    liquidityNet: -118445039955967015140,
-    liquidityGross: 118445039955967015140,
+    liquidityNet: '-118445039955967015140',
+    liquidityGross: '118445039955967015140',
   },
 ];
 const TX = {
@@ -100,8 +100,8 @@ const patchFetchPairData = (noPath?: boolean) => {
           WETH,
           USDC,
           500,
-          1390012087572052304381352642,
-          6025055903594410671025,
+          '1390012087572052304381352642',
+          '6025055903594410671025',
           -80865,
           TICK_PROVIDER
         ),
@@ -112,8 +112,8 @@ const patchFetchPairData = (noPath?: boolean) => {
         WETH,
         DAI,
         500,
-        1390012087572052304381352642,
-        6025055903594410671025,
+        '1390012087572052304381352642',
+        '6025055903594410671025',
         -80865,
         TICK_PROVIDER
       ),
@@ -139,7 +139,7 @@ const patchPoolState = () => {
         ];
       },
       ticks() {
-        return [118445039955967015140, 118445039955967015140];
+        return ['118445039955967015140', '118445039955967015140'];
       },
     };
   });
@@ -163,7 +163,7 @@ const patchHelperPoolState = () => {
         ];
       },
       ticks() {
-        return [118445039955967015140, 118445039955967015140];
+        return ['118445039955967015140', '118445039955967015140'];
       },
     };
   });
@@ -313,7 +313,7 @@ describe('verify UniswapV3 Nft functions', () => {
       BigNumber.from(5),
       '6'
     );
-    expect(overrides.gasLimit).toEqual(1);
+    expect(overrides.gasLimit).toEqual('1');
     expect(overrides.gasPrice).toBeUndefined();
     expect(overrides.nonce).toEqual(3);
     expect(overrides.maxFeePerGas as BigNumber).toEqual(BigNumber.from(4));
