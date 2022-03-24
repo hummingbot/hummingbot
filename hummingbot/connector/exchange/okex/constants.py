@@ -1,5 +1,7 @@
 from urllib.parse import urljoin
 
+CLIENT_ID_PREFIX = "93027a12dac34fBC"
+MAX_ID_LEN = 32
 
 # URLs
 

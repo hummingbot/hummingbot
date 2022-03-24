@@ -3,7 +3,8 @@ from hummingbot.client.config.config_validators import (
     validate_market_trading_pair,
     validate_connector,
     validate_decimal,
-    validate_bool
+    validate_bool,
+    validate_int
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -120,5 +121,13 @@ amm_arb_config_map = {
         prompt_on_new=True,
         default=False,
         validator=validate_bool,
-        type_str="bool")
+        type_str="bool"),
+    "gateway_transaction_cancel_interval": ConfigVar(
+        key="gateway_transaction_cancel_interval",
+        prompt="After what time should blockchain transactions be cancelled if they are not included in a block? (this only affects decentralized exchanges)"
+               "(Enter time in seconds) >>> ",
+        prompt_on_new=True,
+        default=600,
+        validator=lambda v: validate_int(v, min_value=1, inclusive=True),
+        type_str="int")
 }
