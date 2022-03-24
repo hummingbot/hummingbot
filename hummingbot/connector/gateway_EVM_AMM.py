@@ -565,7 +565,10 @@ class GatewayEVMAMM(ConnectorBase):
         Update tracked orders that have a cancel_tx_hash.
         :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
         """
-        self.logger().info(f"Polling for order status updates of {len(canceled_tracked_orders)} canceled orders.")
+        self.logger().debug(
+            "Polling for order status updates of %d canceled orders.",
+            len(canceled_tracked_orders)
+        )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
@@ -617,7 +620,10 @@ class GatewayEVMAMM(ConnectorBase):
 
         await self._update_canceled_orders(canceled_tracked_orders)
 
-        self.logger().info(f"Polling for order status updates of {len(tracked_orders)} orders.")
+        self.logger().debug(
+            "Polling for order status updates of %d orders.",
+            len(tracked_orders)
+        )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
