@@ -2,6 +2,8 @@ import sys
 
 from hummingbot.core.api_throttler.data_types import RateLimit
 
+MAX_ORDER_ID_LEN = 40
+
 # REST endpoints
 BASE_PATH_URL = "https://api.kucoin.com"
 PUBLIC_WS_DATA_PATH_URL = "/api/v1/bullet-public"

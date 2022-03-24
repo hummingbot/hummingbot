@@ -33,6 +33,11 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class TokenApprovalEvent(Enum):
+    ApprovalSuccessful = 1101
+    ApprovalFailed = 1102
+
+
 class HummingbotUIEvent(Enum):
     Start = 1
 
@@ -62,10 +67,8 @@ class BuyOrderCompletedEvent:
     order_id: str
     base_asset: str
     quote_asset: str
-    fee_asset: str
     base_asset_amount: Decimal
     quote_asset_amount: Decimal
-    fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
 
@@ -76,10 +79,8 @@ class SellOrderCompletedEvent:
     order_id: str
     base_asset: str
     quote_asset: str
-    fee_asset: str
     base_asset_amount: Decimal
     quote_asset_amount: Decimal
-    fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
 
@@ -94,6 +95,20 @@ class OrderCancelledEvent:
 class OrderExpiredEvent(NamedTuple):
     timestamp: float
     order_id: str
+
+
+@dataclass
+class TokenApprovalSuccessEvent:
+    timestamp: float
+    connector: str
+    token_symbol: str
+
+
+@dataclass
+class TokenApprovalFailureEvent:
+    timestamp: float
+    connector: str
+    token_symbol: str
 
 
 @dataclass

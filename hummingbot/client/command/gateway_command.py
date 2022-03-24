@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import aiohttp
 import asyncio
 import docker
 import itertools
@@ -14,7 +15,7 @@ from typing import (
     List,
 )
 
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+from hummingbot.client.settings import GATEWAY_CONNECTORS, GLOBAL_CONFIG_PATH
 from hummingbot.core.gateway import (
     docker_ipc,
     docker_ipc_with_generator,
@@ -169,24 +170,48 @@ class GatewayCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
 
-        node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
-                                                         "if you do not have one, make an account at infura.io):  >>> ")
+        while True:
+            node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
+                                                      "if you do not have one, make an account at infura.io):  >>> ")
+            self.app.clear_input()
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
 
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
+            try:
+                # Verifies that the Infura API Key/Project ID is valid by sending a request
+                async with aiohttp.ClientSession() as tmp_client:
+                    headers = {"Content-Type": "application/json"}
+                    data = {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "eth_blockNumber",
+                        "params": []
+                    }
+                    try:
+                        resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{node_api_key}",
+                                                     data=json.dumps(data),
+                                                     headers=headers)
+                        if resp.status != 200:
+                            self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
+                            continue
+                    except Exception:
+                        raise
 
-        try:
-            exec_info = await docker_ipc(method_name="exec_create",
-                                         container=container_id,
-                                         cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
-                                         user="hummingbot")
+                exec_info = await docker_ipc(method_name="exec_create",
+                                             container=container_id,
+                                             cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
+                                             user="hummingbot")
 
-            await docker_ipc(method_name="exec_start",
-                             exec_id=exec_info["Id"],
-                             detach=True)
-        except Exception:
-            raise
+                await docker_ipc(method_name="exec_start",
+                                 exec_id=exec_info["Id"],
+                                 detach=True)
+                self.placeholder_mode = False
+                self.app.hide_input = False
+                self.app.change_prompt(prompt=">>> ")
+                return
+            except Exception:
+                raise
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()
@@ -340,6 +365,9 @@ class GatewayCommand:
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
     async def _gateway_connect(self, connector: str = None):
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
         # it is possible that gateway_connections.json does not exist
         connections_fp = path.realpath(path.join(CONF_FILE_PATH, "gateway_connections.json"))
         if path.exists(connections_fp):
@@ -368,12 +396,15 @@ class GatewayCommand:
                 chain = chains[0]
             else:
                 # chains as options
-                self.app.clear_input()
-                self.placeholder_mode = True
-                chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
+                while True:
+                    chain = await self.app.prompt(prompt=f"Which chain do you want {connector} to connect to?({', '.join(chains)}) >>> ")
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+
+                    if chain in GATEWAY_CONNECTORS:
+                        break
+                    self.notify(f"{chain} chain not supported.\n")
 
             # ask user to select a network. Automatically select if there is only one.
             networks = list(itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain]))
@@ -382,8 +413,6 @@ class GatewayCommand:
                 network = networks[0]
             else:
                 while True:
-                    self.app.clear_input()
-                    self.placeholder_mode = True
                     self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> ")
                     if self.app.to_stop_config:
@@ -415,12 +444,14 @@ class GatewayCommand:
             # the user has a wallet. Ask if they want to use it or create a new one.
             else:
                 # print table
-                self.app.clear_input()
-                self.placeholder_mode = True
-                use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return
+                while True:
+                    use_existing_wallet = await self.app.prompt(prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on Gateway? (Yes/No) >>> ")
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+                    if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
+                        break
+                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
 
                 self.app.clear_input()
                 # they use an existing wallet
@@ -438,8 +469,6 @@ class GatewayCommand:
                     self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
 
                     while True:
-                        self.placeholder_mode = True
-
                         wallet_address = await self.app.prompt(prompt="Select a gateway wallet >>> ")
                         if self.app.to_stop_config:
                             self.app.to_stop_config = False
@@ -451,28 +480,34 @@ class GatewayCommand:
 
                 # they want to create a new wallet even though they have other ones
                 else:
-                    self.placeholder_mode = True
-                    wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
-                    if self.app.to_stop_config:
-                        self.app.to_stop_config = False
-                        return
-                    response = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
-                    wallet_address = response["address"]
+                    while True:
+                        try:
+                            wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                            if self.app.to_stop_config:
+                                self.app.to_stop_config = False
+                                return
+                            response = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
+                            wallet_address = response["address"]
+                            break
+                        except Exception:
+                            self.notify("Error adding wallet. Check private key.\n")
 
+            self.app.clear_input()
             # write wallets to json
             with open(connections_fp, "w+") as outfile:
                 upsert_connection(connections, connector, chain, network, trading_type, wallet_address)
                 json.dump(connections, outfile)
                 self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
-            self.placeholder_mode = False
-            self.app.change_prompt(prompt=">>> ")
-
             # update AllConnectorSettings
             AllConnectorSettings.create_connector_settings()
 
             # Reload completer here to include newly added gateway connectors
             self.app.input_field.completer = load_completer(self)
+
+        self.placeholder_mode = False
+        self.app.hide_input = False
+        self.app.change_prompt(prompt=">>> ")
 
     @staticmethod
     async def _fetch_gateway_configs() -> Dict[str, Any]:
