@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import aiohttp
 import asyncio
 import docker
 import itertools
@@ -169,24 +170,48 @@ class GatewayCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
 
-        node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
-                                                         "if you do not have one, make an account at infura.io):  >>> ")
+        while True:
+            node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
+                                                      "if you do not have one, make an account at infura.io):  >>> ")
+            self.app.clear_input()
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
 
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
+            try:
+                # Verifies that the Infura API Key/Project ID is valid by sending a request
+                async with aiohttp.ClientSession() as tmp_client:
+                    headers = {"Content-Type": "application/json"}
+                    data = {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "eth_blockNumber",
+                        "params": []
+                    }
+                    try:
+                        resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{node_api_key}",
+                                                     data=json.dumps(data),
+                                                     headers=headers)
+                        if resp.status != 200:
+                            self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
+                            continue
+                    except Exception:
+                        raise
 
-        try:
-            exec_info = await docker_ipc(method_name="exec_create",
-                                         container=container_id,
-                                         cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
-                                         user="hummingbot")
+                exec_info = await docker_ipc(method_name="exec_create",
+                                             container=container_id,
+                                             cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
+                                             user="hummingbot")
 
-            await docker_ipc(method_name="exec_start",
-                             exec_id=exec_info["Id"],
-                             detach=True)
-        except Exception:
-            raise
+                await docker_ipc(method_name="exec_start",
+                                 exec_id=exec_info["Id"],
+                                 detach=True)
+                self.placeholder_mode = False
+                self.app.hide_input = False
+                self.app.change_prompt(prompt=">>> ")
+                return
+            except Exception:
+                raise
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()

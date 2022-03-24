@@ -40,6 +40,7 @@ import {
   BalanceRequest,
   BalanceResponse,
 } from '../../network/network.requests';
+import { logger } from '../../services/logger';
 
 export async function nonce(
   ethereum: Ethereumish,
@@ -373,6 +374,10 @@ export async function poll(
       }
     }
   }
+
+  logger.info(
+    `Poll ${ethereumish.chain}, txHash ${req.txHash}, status ${txStatus}.`
+  );
   return {
     network: ethereumish.chain,
     currentBlock,
@@ -403,6 +408,10 @@ export async function cancel(
 
   // call cancelTx function
   const cancelTx = await ethereumish.cancelTx(wallet, req.nonce);
+
+  logger.info(
+    `Cancelled transaction at nonce ${req.nonce}, cancel txHash ${cancelTx.hash}.`
+  );
 
   return {
     network: ethereumish.chain,
