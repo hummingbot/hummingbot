@@ -43,6 +43,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.logger import HummingbotLogger
+from .gateway_price_shim import GatewayPriceShim, MAINNET_NETWORKS
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -257,15 +258,37 @@ class GatewayEVMAMM(ConnectorBase):
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
-    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
+    async def get_quote_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Optional[Decimal]:
         """
         Retrieves a quote price.
+
         :param trading_pair: The market trading pair
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
+        :param ignore_shim: Ignore the price shim, and return the real price on the network
         :return: The quote price.
         """
 
+        # Get the price from gateway price shim for integration tests.
+        if self.network not in MAINNET_NETWORKS and not ignore_shim:
+            test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
+                self.connector_name,
+                self.chain,
+                self.network,
+                trading_pair,
+                is_buy,
+                amount
+            )
+            if test_price is not None:
+                return test_price
+
+        # Pull the price from gateway.
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         try:
@@ -314,11 +337,18 @@ class GatewayEVMAMM(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
-    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_order_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Decimal:
+
         """
         This is simply the quote price
         """
-        return await self.get_quote_price(trading_pair, is_buy, amount)
+        return await self.get_quote_price(trading_pair, is_buy, amount, ignore_shim=ignore_shim)
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
         """
@@ -535,7 +565,10 @@ class GatewayEVMAMM(ConnectorBase):
         Update tracked orders that have a cancel_tx_hash.
         :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
         """
-        self.logger().info(f"Polling for order status updates of {len(canceled_tracked_orders)} canceled orders.")
+        self.logger().debug(
+            "Polling for order status updates of %d canceled orders.",
+            len(canceled_tracked_orders)
+        )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
@@ -587,7 +620,10 @@ class GatewayEVMAMM(ConnectorBase):
 
         await self._update_canceled_orders(canceled_tracked_orders)
 
-        self.logger().info(f"Polling for order status updates of {len(tracked_orders)} orders.")
+        self.logger().debug(
+            "Polling for order status updates of %d orders.",
+            len(tracked_orders)
+        )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
@@ -643,10 +679,8 @@ class GatewayEVMAMM(ConnectorBase):
                             order_id=tracked_order.client_order_id,
                             base_asset=tracked_order.base_asset,
                             quote_asset=tracked_order.quote_asset,
-                            fee_asset=tracked_order.fee_asset,
                             base_asset_amount=tracked_order.executed_amount_base,
                             quote_asset_amount=tracked_order.executed_amount_quote,
-                            fee_amount=fee,
                             order_type=tracked_order.order_type,
                             exchange_order_id=tracked_order.exchange_order_id
                         )
@@ -774,6 +808,12 @@ class GatewayEVMAMM(ConnectorBase):
 
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+
+    async def _update_balances(self):
+        """
+        This is called by UserBalances.
+        """
+        await self.update_balances()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []

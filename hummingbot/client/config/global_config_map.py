@@ -123,33 +123,6 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
-    "ethereum_wallet":
-        ConfigVar(key="ethereum_wallet",
-                  prompt="Enter your ETH wallet private key >>> ",
-                  type_str="str",
-                  required_if=lambda: False,
-                  is_connect_key=True),
-    "ethereum_rpc_url":
-        ConfigVar(key="ethereum_rpc_url",
-                  prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
-    "ethereum_rpc_ws_url":
-        ConfigVar(key="ethereum_rpc_ws_url",
-                  prompt="Enter the Websocket Address of your Ethereum Node >>> ",
-                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
-    "ethereum_chain_name":
-        ConfigVar(key="ethereum_chain_name",
-                  prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
-                  type_str="str",
-                  required_if=lambda: False,
-                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN", "mainnet", "testnet"} else "Invalid chain name.",
-                  default="MAIN_NET"),
-    "ethereum_token_list_url":
-        ConfigVar(key="ethereum_token_list_url",
-                  prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
-                  type_str="str",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  default="https://defi.cmc.eth.link/"),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
                   prompt="Would you like to enable the kill switch? (Yes/No) >>> ",

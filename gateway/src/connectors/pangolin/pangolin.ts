@@ -264,8 +264,8 @@ export class Pangolin implements Uniswapish {
       });
     } else {
       tx = await contract[result.methodName](...result.args, {
-        gasPrice: gasPrice * 1e9,
-        gasLimit: gasLimit,
+        gasPrice: (gasPrice * 1e9).toFixed(0),
+        gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
       });

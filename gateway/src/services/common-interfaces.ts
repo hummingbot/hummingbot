@@ -15,11 +15,13 @@ import {
   Currency,
   CurrencyAmount as UniswapCoreCurrencyAmount,
   Token as UniswapCoreToken,
+  Fraction as UniswapFraction,
 } from '@uniswap/sdk-core';
 import {
   Token as TokenPangolin,
   CurrencyAmount as CurrencyAmountPangolin,
   Trade as TradePangolin,
+  Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
 
 export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
@@ -31,6 +33,7 @@ export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
   | UniswapCoreCurrencyAmount<Currency>;
+export type Fractionish = UniswapFraction | PangolinFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
