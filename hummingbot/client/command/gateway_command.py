@@ -294,6 +294,8 @@ class GatewayCommand:
             global_config_map["gateway_api_host"].value = "localhost"
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
+        GatewayHttpClient.get_instance().base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                                                    f"{gateway_port}"
         await self._start_gateway()
 
         # create Gateway configs
