@@ -803,6 +803,12 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
+    async def _update_balances(self):
+        """
+        This is called by UserBalances.
+        """
+        await self.update_balances()
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
 
