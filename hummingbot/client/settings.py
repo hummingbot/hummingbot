@@ -102,7 +102,7 @@ class ConnectorSetting(NamedTuple):
         if self.uses_gateway_generic_connector():  # init parameters for gateway connectors
             params = {k: v.value for k, v in self.config_keys.items()}
             name, chain, network = self.name.split("_")
-            params.update(connector_name = name, chain = chain, network = network)
+            params.update(connector_name=name, chain=chain, network=network)
             return params
 
         if not self.is_sub_domain:
@@ -199,19 +199,14 @@ class AllConnectorSettings:
 
         for connection in connections:
             gateway_connector_name = f"{connection['connector']}_{connection['chain']}_{connection['network']}"
-            wallet_config = ConfigVar(key="wallet_address",
-                                      prompt="",
-                                      is_secure=False,
-                                      is_connect_key=True)
-            wallet_config.value = connection["wallet_address"]
             cls.all_connector_settings[gateway_connector_name] = ConnectorSetting(
                 name=gateway_connector_name,
                 type=ConnectorType[connection["trading_type"]],
-                centralised = False,
-                example_pair = "WETH-USDC",
-                use_ethereum_wallet = False,
+                centralised=False,
+                example_pair="WETH-USDC",
+                use_ethereum_wallet=False,
                 trade_fee_schema=trade_fee_schema,
-                config_keys={"wallet_address": wallet_config},
+                config_keys={},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,

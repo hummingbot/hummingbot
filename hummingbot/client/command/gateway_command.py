@@ -441,7 +441,9 @@ class GatewayCommand:
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
-                response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
+                response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(
+                    chain, network, wallet_private_key
+                )
                 wallet_address: str = response["address"]
 
             # the user has a wallet. Ask if they want to use it or create a new one.
@@ -485,14 +487,18 @@ class GatewayCommand:
                 else:
                     while True:
                         try:
-                            wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ",
-                                                                       is_password=True)
+                            wallet_private_key = await self.app.prompt(
+                                prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                                is_password=True
+                            )
                             self.app.clear_input()
                             if self.app.to_stop_config:
                                 self.app.to_stop_config = False
                                 return
 
-                            response = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
+                            response = await GatewayHttpClient.get_instance().add_wallet(
+                                chain, network, wallet_private_key
+                            )
                             wallet_address = response["address"]
                             break
                         except Exception:
