@@ -435,6 +435,7 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                self.app.clear_input()
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
@@ -482,10 +483,13 @@ class GatewayCommand:
                 else:
                     while True:
                         try:
-                            wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                            wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                                                                       is_password=True)
+                            self.app.clear_input()
                             if self.app.to_stop_config:
                                 self.app.to_stop_config = False
                                 return
+
                             response = await GatewayHttpClient.get_instance().add_wallet(chain, network, wallet_private_key)
                             wallet_address = response["address"]
                             break
@@ -501,6 +505,7 @@ class GatewayCommand:
 
             # update AllConnectorSettings
             AllConnectorSettings.create_connector_settings()
+            AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
             # Reload completer here to include newly added gateway connectors
             self.app.input_field.completer = load_completer(self)
