@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 34
+template_version: 35
 
 # Exchange configs
 
@@ -283,3 +283,6 @@ error-label: "#FF0000"
 
 # tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
 tables_format: 'psql'
+
+# Gateway wallet address
+wallet_address: null
