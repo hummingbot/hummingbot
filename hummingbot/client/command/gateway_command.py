@@ -294,6 +294,8 @@ class GatewayCommand:
             global_config_map["gateway_api_host"].value = "localhost"
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
+        GatewayHttpClient.get_instance().base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                                                    f"{global_config_map['gateway_api_port'].value}"
         await self._start_gateway()
 
         # create Gateway configs
@@ -435,6 +437,7 @@ class GatewayCommand:
                 self.app.clear_input()
                 self.placeholder_mode = True
                 wallet_private_key = await self.app.prompt(prompt=f"Enter your {chain}-{network} wallet private key >>> ")
+                self.app.clear_input()
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
@@ -485,11 +488,14 @@ class GatewayCommand:
                     while True:
                         try:
                             wallet_private_key = await self.app.prompt(
-                                prompt=f"Enter your {chain}-{network} wallet private key >>> "
+                                prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                                is_password=True
                             )
+                            self.app.clear_input()
                             if self.app.to_stop_config:
                                 self.app.to_stop_config = False
                                 return
+
                             response = await GatewayHttpClient.get_instance().add_wallet(
                                 chain, network, wallet_private_key
                             )
@@ -507,6 +513,7 @@ class GatewayCommand:
 
             # update AllConnectorSettings
             AllConnectorSettings.create_connector_settings()
+            AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
             # Reload completer here to include newly added gateway connectors
             self.app.input_field.completer = load_completer(self)
@@ -517,9 +524,15 @@ class GatewayCommand:
 
     @staticmethod
     async def _fetch_gateway_configs() -> Dict[str, Any]:
-        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=True)
+        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=False)
 
     async def fetch_gateway_config_key_list(self):
-        config = await self._fetch_gateway_configs()
-        build_config_namespace_keys(self.gateway_config_keys, config)
-        self.app.input_field.completer = load_completer(self)
+        try:
+            config = await self._fetch_gateway_configs()
+            build_config_namespace_keys(self.gateway_config_keys, config)
+            self.app.input_field.completer = load_completer(self)
+        except Exception:
+            self.logger().error("Error loading gateway configs. Gateway connectors are not usable until "
+                                "it has been correctly configured. "
+                                "Use the `gateway generate-certs` or `gateway create` commands might help resolve this.",
+                                exc_info=True)

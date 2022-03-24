@@ -287,14 +287,14 @@ export class EthereumBase {
       nonce = await this.nonceManager.getNonce(wallet.address);
     }
     const params: any = {
-      gasLimit: 100000,
+      gasLimit: '100000',
       nonce: nonce,
     };
     if (maxFeePerGas || maxPriorityFeePerGas) {
       params.maxFeePerGas = maxFeePerGas;
       params.maxPriorityFeePerGas = maxPriorityFeePerGas;
     } else if (gasPrice) {
-      params.gasPrice = (gasPrice * 1e9).toString();
+      params.gasPrice = (gasPrice * 1e9).toFixed(0);
     }
     const response = await contract.approve(spender, amount, params);
     logger.info(response);
