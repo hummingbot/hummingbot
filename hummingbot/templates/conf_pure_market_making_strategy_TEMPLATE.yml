@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 23
+template_version: 24
 strategy: null
 
 # Exchange and token parameters.
