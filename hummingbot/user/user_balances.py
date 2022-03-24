@@ -18,7 +18,7 @@ class UserBalances:
         if api_details or conn_setting.uses_gateway_generic_connector():
             connector_class = get_connector_class(exchange)
             init_params = conn_setting.conn_init_parameters(api_details)
-            init_params.update(trading_pairs = gateway_connector_trading_pairs(conn_setting.name))
+            init_params.update(trading_pairs=gateway_connector_trading_pairs(conn_setting.name))
             connector = connector_class(**init_params)
         return connector
 
@@ -73,10 +73,19 @@ class UserBalances:
         # Update user balances
         if len(exchanges) == 0:
             exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
-        exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values() if not cs.use_ethereum_wallet
-                     and cs.name in exchanges and not cs.name.endswith("paper_trade")]
+        exchanges: List[str] = [
+            cs.name
+            for cs in AllConnectorSettings.get_connector_settings().values()
+            if not cs.use_ethereum_wallet
+            and cs.name in exchanges
+            and not cs.name.endswith("paper_trade")
+        ]
 
-        gateway_connectors = [cs.name for cs in AllConnectorSettings.get_connector_settings().values() if cs.uses_gateway_generic_connector()]
+        gateway_connectors: List[str] = [
+            cs.name
+            for cs in AllConnectorSettings.get_connector_settings().values()
+            if cs.uses_gateway_generic_connector()
+        ]
 
         if reconnect:
             self._markets.clear()

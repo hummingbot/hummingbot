@@ -37,6 +37,13 @@ export namespace UniswapConfig {
       ),
     tradingTypes: (network: string) =>
       network === 'v2' ? ['EVM_AMM'] : ['EVM_Range_AMM'],
-    availableNetworks: [{ chain: 'ethereum', networks: ['mainnet', 'kovan'] }],
+    availableNetworks: [
+      {
+        chain: 'ethereum',
+        networks: Object.keys(
+          ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
+        ),
+      },
+    ],
   };
 }
