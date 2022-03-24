@@ -46,6 +46,35 @@ class GatewayPriceDeltaEntry:
 
 
 class GatewayPriceShim:
+    """
+    Developer / QA tool for modifying the apparent prices on DEX connectors (e.g. uniswap) during integration tests.
+
+    When the gateway price shim is enabled for a particular DEX trading pair (e.g. "WETH-DAI" on uniswap), the apparent
+    price on the DEX will follow the prices on a different trading pair on another exchange (e.g. "ETH-USDT" on
+    Binance). The price shim then exposes a function (`apply_price_delta()`) which allows the developer to modify the
+    apparent prices on the DEX trading pair during live trading. This means the developer can manually control and
+    inject arbitrage opportunities in an amm_arb trading session, for carrying out integration tests.
+
+    How to use:
+
+    1. Set up an amm_arb strategy config that trades between a testnet trading pair (e.g. "WETH-DAI" on Uniswap Kovan),
+       and a corresponding trading pair on a paper trading exchange (e.g. "ETH-USDT" on Binance paper trade).
+    2. Set the `debug_price_shim` parameter of the strategy config to true.
+    3. Start the strategy.
+    4. Observe that the apparent AMM prices will follow the paper trading exchange prices.
+    5. Inject price deltas to the AMM prices by going to the debug console, and issuing the following:
+
+    ```
+    from hummingbot.connector.gateway_price_shim import GatewayPriceShim
+    from decimal import Decimal
+    GatewayPriceShim.get_instance().apply_price_delta("uniswap", "ethereum", "kovan", "WETH-DAI", Decimal(40))
+    ```
+
+    6. Observe that the apparent AMM prices is increased by the delta amount, and the amm_arb strategy will start
+       issuing arbitrage trades.
+    7. Price delta values can be negative if you want to generate buy orders on the AMM side.
+
+    """
     _gps_logger: Optional[HummingbotLogger] = None
     _shared_instance: Optional["GatewayPriceShim"] = None
     _shim_entries: Dict[GatewayPriceShimKey, GatewayPriceShimEntry]
