@@ -486,10 +486,7 @@ class GatewayCommand:
 
     @staticmethod
     async def _fetch_gateway_configs() -> Dict[str, Any]:
-        try:
-            return await GatewayHttpClient.get_instance().get_configuration(fail_silently=True)
-        except Exception:
-            raise
+        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=False)
 
     async def fetch_gateway_config_key_list(self):
         try:
