@@ -76,7 +76,7 @@ class GatewayInFlightOrder(InFlightOrderBase):
         return self._gas_price
 
     @gas_price.setter
-    def gas_price(self, gas_price):
+    def gas_price(self, gas_price: Decimal):
         self._gas_price = gas_price
 
     @property
