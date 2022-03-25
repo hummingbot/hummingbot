@@ -8,7 +8,7 @@ from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
-    save_to_yml
+    save_to_yml_legacy
 )
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
@@ -64,7 +64,7 @@ class BalanceCommand:
                 elif amount >= 0:
                     config_var.value[exchange][asset] = amount
                     self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
-                save_to_yml(file_path, config_map)
+                save_to_yml_legacy(file_path, config_map)
 
             elif option == "paper":
                 config_var = config_map["paper_trade_account_balance"]
@@ -81,7 +81,7 @@ class BalanceCommand:
                 paper_balances[asset] = amount
                 config_var.value = paper_balances
                 self._notify(f"Paper balance for {asset} token set to {amount}")
-                save_to_yml(file_path, config_map)
+                save_to_yml_legacy(file_path, config_map)
 
     async def show_balances(self):
         total_col_name = f'Total ({RateOracle.global_token_symbol})'

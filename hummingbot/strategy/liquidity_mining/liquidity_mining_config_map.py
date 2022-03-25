@@ -18,7 +18,7 @@ from hummingbot.client.settings import (
 
 
 def exchange_on_validated(value: str) -> None:
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def market_validate(value: str) -> Optional[str]:
