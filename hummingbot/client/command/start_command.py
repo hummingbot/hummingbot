@@ -136,7 +136,7 @@ class StartCommand:
                             f"{warning_msg}")
 
             # Display warning message if the exchange connector has outstanding issues or not working
-            elif "GREEN" not in status:
+            elif not status.endswith("GREEN"):
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
