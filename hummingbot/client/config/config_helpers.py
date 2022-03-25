@@ -5,14 +5,15 @@ from collections import OrderedDict
 from decimal import Decimal
 from os import listdir, unlink
 from os.path import isfile, join
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Union
 
 import ruamel.yaml
 from eth_account import Account
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
+from pydantic.main import ModelMetaclass
 
-from hummingbot import get_strategy_list
+from hummingbot import get_strategy_list, root_path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
@@ -26,6 +27,9 @@ from hummingbot.client.settings import (
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
 )
+
+if TYPE_CHECKING:  # avoid circular import problems
+    from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -169,17 +173,25 @@ def get_connector_class(connector_name: str) -> Callable:
     return getattr(mod, conn_setting.class_name())
 
 
-def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
+def get_strategy_config_map(
+    strategy: str
+) -> Optional[Union["BaseStrategyConfigMap", Dict[str, ConfigVar]]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
+    config_map = None
     try:
-        cm_key = f"{strategy}_config_map"
-        strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
-                                     fromlist=[f"hummingbot.strategy.{strategy}"])
-        return getattr(strategy_module, cm_key)
+        config_map = get_strategy_pydantic_config(strategy)
+        if config_map is None:  # legacy
+            cm_key = f"{strategy}_config_map"
+            strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
+                                         fromlist=[f"hummingbot.strategy.{strategy}"])
+            config_map = getattr(strategy_module, cm_key)
+        else:
+            config_map = config_map.construct()
     except Exception as e:
         logging.getLogger().error(e, exc_info=True)
+    return config_map
 
 
 def get_strategy_starter_file(strategy: str) -> Callable:
@@ -220,6 +232,20 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
     if strategy not in get_strategy_list():
         return "Invalid strategy specified in the file."
     return None
+
+
+def get_strategy_pydantic_config(strategy_name: str) -> Optional[ModelMetaclass]:
+    pydantic_cm_class = None
+    try:
+        pydantic_cm_pkg = f"{strategy_name}_config_map_pydantic"
+        if isfile(f"{root_path()}/hummingbot/strategy/{strategy_name}/{pydantic_cm_pkg}.py"):
+            pydantic_cm_class_name = f"{''.join([s.capitalize() for s in strategy_name.split('_')])}ConfigMap"
+            pydantic_cm_mod = __import__(f"hummingbot.strategy.{strategy_name}.{pydantic_cm_pkg}",
+                                         fromlist=[f"{pydantic_cm_class_name}"])
+            pydantic_cm_class = getattr(pydantic_cm_mod, pydantic_cm_class_name)
+    except ImportError:
+        logging.getLogger().exception(f"Could not import Pydantic configs for {strategy_name}.")
+    return pydantic_cm_class
 
 
 async def update_strategy_config_map_from_file(yml_path: str) -> str:
@@ -280,7 +306,7 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
             # copy the new file template
             shutil.copy(template_file_path, yml_path)
             # save the old variables into the new config file
-            save_to_yml(yml_path, cm)
+            save_to_yml_legacy(yml_path, cm)
     except Exception as e:
         logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                   exc_info=True)
@@ -299,11 +325,11 @@ async def read_system_configs_from_yml():
 
 
 def save_system_configs_to_yml():
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
-    save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml_legacy(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
 
 
-def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
     """
     Write current config saved a single config map into each a single yml file
     """
@@ -326,11 +352,20 @@ def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
+def save_to_yml(yml_path: str, cm: "BaseStrategyConfigMap"):
+    try:
+        cm_yml_str = cm.generate_yml_output_str_with_comments()
+        with open(yml_path, "w+") as outfile:
+            outfile.write(cm_yml_str)
+    except Exception as e:
+        logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
+
+
 async def write_config_to_yml(strategy_name, strategy_file_name):
     strategy_config_map = get_strategy_config_map(strategy_name)
     strategy_file_path = join(CONF_FILE_PATH, strategy_file_name)
-    save_to_yml(strategy_file_path, strategy_config_map)
-    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml_legacy(strategy_file_path, strategy_config_map)
+    save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
 
 
 async def create_yml_files():
@@ -396,7 +431,7 @@ def config_map_complete(config_map):
     return not any(c.required and c.value is None for c in config_map.values())
 
 
-def missing_required_configs(config_map):
+def missing_required_configs_legacy(config_map):
     return [c for c in config_map.values() if c.required and c.value is None and not c.is_connect_key]
 
 
