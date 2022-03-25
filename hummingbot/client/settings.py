@@ -99,10 +99,12 @@ class ConnectorSetting(NamedTuple):
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
     def conn_init_parameters(self, api_keys: Dict[str, Any] = {}) -> Dict[str, Any]:
+        from hummingbot.client.config.global_config_map import global_config_map  # avoids circular import
         if self.uses_gateway_generic_connector():  # init parameters for gateway connectors
             params = {k: v.value for k, v in self.config_keys.items()}
             name, chain, network = self.name.split("_")
-            params.update(connector_name=name, chain=chain, network=network)
+            wallet_address = global_config_map['wallet_address'].value
+            params.update(connector_name=name, chain=chain, network=network, wallet_address=wallet_address)
             return params
 
         if not self.is_sub_domain:
