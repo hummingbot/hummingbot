@@ -28,11 +28,12 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     OrderFilledEvent,
 )
-from hummingbot.core.gateway import gateway_http_client
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.mock.http_recorder import HttpRecorder
 
 s_decimal_0 = Decimal(0)
+gateway_http_client: GatewayHttpClient = GatewayHttpClient.get_instance()
 
 
 class GatewayEVMAMMDataCollector:

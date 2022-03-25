@@ -64,7 +64,7 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
+    this._nonceManager = new EVMNonceManager(chainName, chainId);
     this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._txStorage = new EvmTxStorage('transactions.level');
@@ -328,6 +328,7 @@ export class EthereumBase {
       gasPrice: gasPrice * 1e9 * 2,
     };
     const response = await wallet.sendTransaction(tx);
+    await this.nonceManager.commitNonce(wallet.address, nonce);
     logger.info(response);
 
     return response;
