@@ -131,7 +131,7 @@ class GatewayEVMAMMDataCollector:
                 "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de405"        # noqa: mock
             ),
         ]
-        await self._connector._update_token_approval_status(successful_records)
+        await self._connector.update_token_approval_status(successful_records)
         fake_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
@@ -142,7 +142,7 @@ class GatewayEVMAMMDataCollector:
                 "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de404"        # noqa: mock
             ),
         ]
-        await self._connector._update_token_approval_status(fake_records)
+        await self._connector.update_token_approval_status(fake_records)
         print("done")
 
     async def collect_order_status(self):
@@ -203,7 +203,7 @@ class GatewayEVMAMMDataCollector:
         print(f"\tSent DAI approval with txHash: {dai_in_flight_order.exchange_order_id}")
         while len(self._connector.approval_orders) > 0:
             await asyncio.sleep(5)
-            await self._connector._update_token_approval_status(self._connector.approval_orders)
+            await self._connector.update_token_approval_status(self._connector.approval_orders)
         print("\tdone")
 
     async def collect_buy_order(self):

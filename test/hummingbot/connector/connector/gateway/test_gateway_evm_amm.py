@@ -161,7 +161,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
         try:
-            await self._connector._update_token_approval_status(successful_records + fake_records)
+            await self._connector.update_token_approval_status(successful_records + fake_records)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"WETH", "DAI"},
