@@ -665,6 +665,7 @@ class GatewayEVMAMM(ConnectorBase):
                             self.logger().info(f"Token approval for {tracked_order.client_order_id} on "
                                                f"{self.connector_name} has been canceled.")
                         tracked_order.last_state = "CANCELED"
+                    self.stop_tracking_order(tracked_order.client_order_id)
 
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
