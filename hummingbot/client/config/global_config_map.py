@@ -35,7 +35,6 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
 
 
 def connector_keys() -> Dict[str, ConfigVar]:
-    from hummingbot.client.settings import AllConnectorSettings
     all_keys = {
         "wallet_address": ConfigVar(
             key="wallet_address",
