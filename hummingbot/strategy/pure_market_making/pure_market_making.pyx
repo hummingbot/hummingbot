@@ -85,7 +85,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     bid_order_level_spreads: List[Decimal] = None,
                     ask_order_level_spreads: List[Decimal] = None,
                     should_wait_order_cancel_confirmation: bool = True,
-                    moving_price_band: MovingPriceBand = None
+                    moving_price_band: Optional[MovingPriceBand] = None
                     ):
         if order_override is None:
             order_override = {}
