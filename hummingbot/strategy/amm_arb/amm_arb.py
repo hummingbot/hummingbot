@@ -160,8 +160,8 @@ class AmmArbStrategy(StrategyPyBase):
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
-            if self._cancel_outdated_orders_task is None or self._cancel_outdated_orders_task.done():
-                self._cancel_outdated_orders_task = safe_ensure_future(self.apply_gateway_transaction_cancel_interval())
+        if self._cancel_outdated_orders_task is None or self._cancel_outdated_orders_task.done():
+            self._cancel_outdated_orders_task = safe_ensure_future(self.apply_gateway_transaction_cancel_interval())
 
     async def main(self):
         """
