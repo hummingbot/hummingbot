@@ -63,7 +63,6 @@ class MovingPriceBand:
         :param price: price to check
         '''
         if price <= self.price_floor:
-            print('price floor exceeded')
             return True
         return False
 
@@ -74,7 +73,6 @@ class MovingPriceBand:
         :param price: price to check
         '''
         if price >= self.price_ceiling:
-            print('price ceiling exceeded')
             return True
         return False
 
@@ -106,15 +104,12 @@ class DisableMovingPriceBand(MovingPriceBand):
 
     def check_and_update_price_band(self, timestamp: float, price: Decimal) -> None:
         '''return due to disabled state'''
-        print('disable check_and_update_price_band')
         return
 
     def check_price_floor_exceeded(self, price: Decimal) -> bool:
         '''return false due to disabled check'''
-        print('disable check_price_floor_exceeded')
         return False
 
     def check_price_ceiling_exceeded(self, price: Decimal) -> bool:
         '''return false due to disabled check'''
-        print('disable check_price_ceiling_exceeded')
         return False
