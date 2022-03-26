@@ -157,7 +157,7 @@ class ConnectorSetting(NamedTuple):
             params: Dict[str, Any] = {k: v.value for k, v in self.config_keys.items()}
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
             params.update(
-                connector_name=connector_spec["name"],
+                connector_name=connector_spec["connector"],
                 chain=connector_spec["chain"],
                 network=connector_spec["network"],
                 wallet_address=connector_spec["wallet_address"]
