@@ -276,6 +276,3 @@ error-label: "#FF0000"
 
 # tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
 tables_format: 'psql'
-
-# Gateway wallet address
-wallet_address: null
