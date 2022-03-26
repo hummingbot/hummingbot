@@ -386,6 +386,9 @@ class GatewayCommand:
             connector_config: List[Dict[str, Any]] = [
                 d for d in connector_configs["connectors"] if d["name"] == connector
             ]
+            if len(connector_config) < 1:
+                self.notify(f"No available blockchain networks available for the connector '{connector}'.")
+                return
             available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
             trading_type: str = connector_config[0]["trading_type"][0]
 
