@@ -53,8 +53,9 @@ class GatewayCancelDataCollector:
     async def main(self):
         await self.load_configs()
         with self._clock:
-            await self.wait_til_ready()
-            await self.collect_testing_data()
+            with self._http_recorder.patch_aiohttp_client():
+                await self.wait_til_ready()
+                await self.collect_testing_data()
 
     @staticmethod
     async def load_configs():
@@ -87,9 +88,8 @@ class GatewayCancelDataCollector:
         print("done")
 
     async def collect_testing_data(self):
-        with self._http_recorder.patch_aiohttp_client():
-            await self.collect_cancel_order()
-            await self.collect_cancel_approval()
+        await self.collect_cancel_order()
+        await self.collect_cancel_approval()
 
     async def collect_cancel_order(self):
         print("Creating and then canceling Uniswap order...\t\t", end="", flush=True)
