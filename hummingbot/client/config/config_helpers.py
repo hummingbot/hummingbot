@@ -22,7 +22,7 @@ import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -320,6 +320,15 @@ async def read_system_configs_from_yml():
 
 def save_system_configs_to_yml():
     save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+
+
+async def refresh_trade_fees_config():
+    """
+    Refresh the trade fees config, after new connectors have been added (e.g. gateway connectors).
+    """
+    init_fee_overrides_config()
+    await load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
     save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
 
 
