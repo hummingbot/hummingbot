@@ -41,7 +41,10 @@ from hummingbot.core.utils.gateway_config_utils import (
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot.client.config.config_helpers import save_to_yml
+from hummingbot.client.config.config_helpers import (
+    save_to_yml,
+    refresh_trade_fees_config,
+)
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
@@ -524,9 +527,10 @@ class GatewayCommand:
             GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address)
             self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
-            # update AllConnectorSettings
+            # update AllConnectorSettings and fee overrides.
             AllConnectorSettings.create_connector_settings()
             AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
+            await refresh_trade_fees_config()
 
             # Reload completer here to include newly added gateway connectors
             self.app.input_field.completer = load_completer(self)
