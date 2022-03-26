@@ -1,9 +1,10 @@
 import asyncio
 import contextlib
+from decimal import Decimal
 import logging
+from typing import List
 import unittest
 import unittest.mock
-from decimal import Decimal
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import (
@@ -44,6 +45,10 @@ class MockAMM(ConnectorBase):
     @property
     def name(self):
         return self._name
+
+    @property
+    def connector_name(self):
+        return "uniswap"
 
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:
@@ -104,6 +109,9 @@ class MockAMM(ConnectorBase):
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
 
+    async def cancel_outdated_orders(self, _: int) -> List:
+        return []
+
 
 class AmmArbUnitTest(unittest.TestCase):
 
@@ -148,6 +156,13 @@ class AmmArbUnitTest(unittest.TestCase):
         self.market_order_fill_logger: EventLogger = EventLogger()
         self.amm_1.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
         self.amm_2.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
+
+        # Set some default prices.
+        self.amm_1.set_prices(trading_pair, True, 101)
+        self.amm_1.set_prices(trading_pair, False, 100)
+        self.amm_2.set_prices(trading_pair, True, 105)
+        self.amm_2.set_prices(trading_pair, False, 104)
+
         self.clock_task: asyncio.Task = safe_ensure_future(self.clock.run())
 
     def tearDown(self) -> None:
@@ -164,10 +179,6 @@ class AmmArbUnitTest(unittest.TestCase):
         self.assertTrue(len(taker_orders) == 0)
 
     def test_arb_buy_amm_1_sell_amm_2(self):
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 105)
-        self.amm_2.set_prices(trading_pair, False, 104)
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
         amm_1_order = [order for market, order in placed_orders if market == self.amm_1][0]
@@ -260,10 +271,6 @@ class AmmArbUnitTest(unittest.TestCase):
             concurrent_orders_submission=False
         )
         self.clock.add_iterator(self.strategy)
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 105)
-        self.amm_2.set_prices(trading_pair, False, 104)
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
         self.assertEqual(1, len(placed_orders))
@@ -290,11 +297,6 @@ class AmmArbUnitTest(unittest.TestCase):
         self.assertNotEqual(amm_1_order.client_order_id, new_amm_1_order.client_order_id)
 
     def test_format_status(self):
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 105)
-        self.amm_2.set_prices(trading_pair, False, 104)
-
         first_side = ArbProposalSide(
             self.market_info_1,
             True,
@@ -334,3 +336,9 @@ class AmmArbUnitTest(unittest.TestCase):
     def test_apply_cancel_interval(self, patched_func: unittest.mock.AsyncMock):
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         patched_func.assert_awaited()
+
+    @unittest.mock.patch("hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.is_gateway_market", return_value=True)
+    @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
+    def test_cancel_outdated_orders(self, cancel_outdated_orders_func: unittest.mock.AsyncMock, _: unittest.mock.Mock):
+        self.ev_loop.run_until_complete(asyncio.sleep(2))
+        cancel_outdated_orders_func.assert_awaited()
