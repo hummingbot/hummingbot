@@ -380,7 +380,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_override = value
 
     @property
-    def moving_price_band_enabled(self):
+    def moving_price_band_enabled(self) -> bool:
         return self._moving_price_band.enabled
 
     @moving_price_band_enabled.setter
@@ -388,7 +388,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._moving_price_band = self._moving_price_band.switch(value)
 
     @property
-    def price_ceiling_pct(self):
+    def price_ceiling_pct(self) -> Decimal:
         return self._moving_price_band.price_ceiling_pct
 
     @price_ceiling_pct.setter
@@ -397,7 +397,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._moving_price_band.update(self._current_timestamp, self.get_price())
 
     @property
-    def price_floor_pct(self):
+    def price_floor_pct(self) -> Decimal:
         return self._moving_price_band.price_floor_pct
 
     @price_floor_pct.setter
@@ -406,7 +406,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._moving_price_band.update(self._current_timestamp, self.get_price())
 
     @property
-    def price_band_refresh_time(self):
+    def price_band_refresh_time(self) -> float:
         return self._moving_price_band.price_band_refresh_time
 
     @price_band_refresh_time.setter
