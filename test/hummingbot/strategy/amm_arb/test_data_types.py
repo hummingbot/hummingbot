@@ -34,14 +34,16 @@ class ArbProposalTests(TestCase):
             True,
             Decimal(30000),
             Decimal(30000),
-            Decimal(10)
+            Decimal(10),
+            []
         )
         sell_side = ArbProposalSide(
             sell_market_info,
             False,
             Decimal(32000),
             Decimal(32000),
-            Decimal(10)
+            Decimal(10),
+            []
         )
 
         proposal = ArbProposal(buy_side, sell_side)
@@ -64,14 +66,16 @@ class ArbProposalTests(TestCase):
             True,
             Decimal(30000),
             Decimal(30000),
-            Decimal(10)
+            Decimal(10),
+            []
         )
         sell_side = ArbProposalSide(
             sell_market_info,
             False,
             Decimal(32000),
             Decimal(32000),
-            Decimal(10)
+            Decimal(10),
+            []
         )
 
         proposal = ArbProposal(buy_side, sell_side)
@@ -89,14 +93,16 @@ class ArbProposalTests(TestCase):
             True,
             Decimal(30000),
             Decimal(30000),
-            Decimal(10)
+            Decimal(10),
+            []
         )
         sell_side = ArbProposalSide(
             sell_market_info,
             False,
             Decimal(10),
             Decimal(10),
-            Decimal(10)
+            Decimal(10),
+            []
         )
 
         proposal = ArbProposal(buy_side, sell_side)
@@ -136,14 +142,16 @@ class ArbProposalTests(TestCase):
             True,
             Decimal(30000),
             Decimal(30000),
-            Decimal(10)
+            Decimal(10),
+            []
         )
         sell_side = ArbProposalSide(
             sell_market_info,
             False,
             Decimal(1.1),
             Decimal(1.1),
-            Decimal(27000)
+            Decimal(27000),
+            []
         )
 
         proposal = ArbProposal(buy_side, sell_side)
