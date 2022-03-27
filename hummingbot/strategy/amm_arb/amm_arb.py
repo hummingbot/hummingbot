@@ -78,7 +78,7 @@ class AmmArbStrategy(StrategyPyBase):
         self._market_2_slippage_buffer = market_2_slippage_buffer
         self._concurrent_orders_submission = concurrent_orders_submission
         self._last_no_arb_reported = 0
-        self._arb_proposals = None
+        self._all_arb_proposals = None
         self._all_markets_ready = False
 
         self._ev_loop = asyncio.get_event_loop()
@@ -92,8 +92,6 @@ class AmmArbStrategy(StrategyPyBase):
         self.add_markets([market_info_1.market, market_info_2.market])
         self._uniswap = None
         self._quote_eth_rate_fetch_loop_task = None
-        self._market_1_quote_flat_fee_token_rate = None
-        self._market_2_quote_flat_fee_token_rate = None
 
         self._rate_source = RateOracle.get_instance()
         self._gateway_transaction_cancel_interval = gateway_transaction_cancel_interval
@@ -143,26 +141,37 @@ class AmmArbStrategy(StrategyPyBase):
         min profitability required, applies the slippage buffer, applies budget constraint, then finally execute the
         arbitrage.
         """
-        self._arb_proposals = await create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
-        arb_proposals = [
-            t.copy() for t in self._arb_proposals
+        self._all_arb_proposals = await create_arb_proposals(
+            market_info_1=self._market_info_1,
+            market_info_2=self._market_info_2,
+            market_1_extra_flat_fees=(
+                [getattr(self._market_info_1.market, "network_transaction_fee")]
+                if hasattr(self._market_info_1.market, "network_transaction_fee")
+                else []
+            ),
+            market_2_extra_flat_fees=(
+                [getattr(self._market_info_2.market, "network_transaction_fee")]
+                if hasattr(self._market_info_2.market, "network_transaction_fee")
+                else []
+            ),
+            order_amount=self._order_amount,
+        )
+        profitable_arb_proposals: List[ArbProposal] = [
+            t.copy() for t in self._all_arb_proposals
             if t.profit_pct(
-                flat_fee_token="ETH",
-                account_for_fee=True,
                 rate_source=self._rate_source,
-                first_side_quote_flat_fee_token_rate=self._market_1_quote_flat_fee_token_rate,
-                second_side_quote_flat_fee_token_rate=self._market_2_quote_flat_fee_token_rate
+                account_for_fee=True,
             ) >= self._min_profitability
         ]
-        if len(arb_proposals) == 0:
+        if len(profitable_arb_proposals) == 0:
             if self._last_no_arb_reported < self.current_timestamp - 20.:
                 self.logger().info("No arbitrage opportunity.\n" +
-                                   "\n".join(self.short_proposal_msg(self._arb_proposals, False)))
+                                   "\n".join(self.short_proposal_msg(self._all_arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
-        self.apply_slippage_buffers(arb_proposals)
-        self.apply_budget_constraint(arb_proposals)
-        await self.execute_arb_proposals(arb_proposals)
+        self.apply_slippage_buffers(profitable_arb_proposals)
+        self.apply_budget_constraint(profitable_arb_proposals)
+        await self.execute_arb_proposals(profitable_arb_proposals)
 
     async def apply_gateway_transaction_cancel_interval(self, market: MarketTradingPairTuple):
         if isinstance(market, GatewayEVMAMM):
@@ -309,11 +318,10 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
-            profit_pct = proposal.profit_pct(flat_fee_token="ETH",
-                                             account_for_fee=True,
-                                             rate_source=self._rate_source,
-                                             first_side_quote_flat_fee_token_rate=self._market_1_quote_flat_fee_token_rate,
-                                             second_side_quote_flat_fee_token_rate=self._market_2_quote_flat_fee_token_rate)
+            profit_pct = proposal.profit_pct(
+                rate_source=self._rate_source,
+                account_for_fee=True,
+            )
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
                          f"{profit_pct:.2%}")
@@ -332,7 +340,7 @@ class AmmArbStrategy(StrategyPyBase):
         assets, profitability and warnings(if any).
         """
 
-        if self._arb_proposals is None:
+        if self._all_arb_proposals is None:
             return "  The strategy is not ready, please try again later."
         # active_orders = self.market_info_to_active_orders.get(self._market_info, [])
         columns = ["Exchange", "Market", "Sell Price", "Buy Price", "Mid Price"]
@@ -362,7 +370,7 @@ class AmmArbStrategy(StrategyPyBase):
         lines.extend(["", "  Assets:"] +
                      ["    " + line for line in str(assets_df).split("\n")])
 
-        lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
+        lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._all_arb_proposals))
 
         quotes_rates_df = self.quotes_rate_df()
         lines.extend(["", f"  Quotes Rates ({str(self._rate_source)})"] +

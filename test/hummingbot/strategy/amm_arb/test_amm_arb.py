@@ -308,7 +308,7 @@ class AmmArbUnitTest(unittest.TestCase):
             Decimal(104),
             Decimal(50)
         )
-        self.strategy._arb_proposals = [ArbProposal(first_side, second_side)]
+        self.strategy._all_arb_proposals = [ArbProposal(first_side, second_side)]
 
         expected_status = ("  Markets:\n"
                            "    Exchange    Market   Sell Price    Buy Price    Mid Price\n"
