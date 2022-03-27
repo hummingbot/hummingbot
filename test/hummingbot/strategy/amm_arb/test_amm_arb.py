@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import logging
 import unittest
 import unittest.mock
 from decimal import Decimal
@@ -21,16 +20,15 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
 from hummingbot.strategy.amm_arb.data_types import ArbProposalSide, ArbProposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-logging.basicConfig(level=METRICS_LOG_LEVEL)
+TRADING_PAIR: str = "HBOT-USDT"
+BASE_ASSET: str = TRADING_PAIR.split("-")[0]
+QUOTE_ASSET: str = TRADING_PAIR.split("-")[1]
 
-trading_pair = "HBOT-USDT"
-base_asset = trading_pair.split("-")[0]
-quote_asset = trading_pair.split("-")[1]
+s_decimal_0 = Decimal(0)
 
 
 class MockAMM(ConnectorBase):
@@ -50,14 +48,14 @@ class MockAMM(ConnectorBase):
         else:
             return self._sell_prices[trading_pair]
 
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        return await self.get_quote_price(trading_pair, is_buy, amount)
+
     def set_prices(self, trading_pair, is_buy, price):
         if is_buy:
             self._buy_prices[trading_pair] = Decimal(str(price))
         else:
             self._sell_prices[trading_pair] = Decimal(str(price))
-
-    def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
-        return self.get_quote_price(trading_pair, is_buy, amount)
 
     def set_balance(self, token, balance):
         self._account_balances[token] = Decimal(str(balance))
@@ -105,16 +103,15 @@ class MockAMM(ConnectorBase):
 
 
 class AmmArbUnitTest(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
-        cls._patcher = unittest.mock.patch("hummingbot.strategy.amm_arb.data_types.estimate_fee")
+        cls._patcher = unittest.mock.patch("hummingbot.strategy.amm_arb.data_types.build_trade_fee")
         cls._url_mock = cls._patcher.start()
-        cls._url_mock.return_value = AddedToCostTradeFee(percent=0, flat_fees=[])
+        cls._url_mock.return_value = AddedToCostTradeFee(percent=s_decimal_0, flat_fees=[])
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -123,15 +120,14 @@ class AmmArbUnitTest(unittest.TestCase):
 
     def setUp(self):
         self.amm_1: MockAMM = MockAMM("onion")
-
-        self.amm_1.set_balance(base_asset, 500)
-        self.amm_1.set_balance(quote_asset, 500)
-        self.market_info_1 = MarketTradingPairTuple(self.amm_1, trading_pair, base_asset, quote_asset)
+        self.amm_1.set_balance(BASE_ASSET, 500)
+        self.amm_1.set_balance(QUOTE_ASSET, 500)
+        self.market_info_1 = MarketTradingPairTuple(self.amm_1, TRADING_PAIR, BASE_ASSET, QUOTE_ASSET)
 
         self.amm_2: MockAMM = MockAMM("garlic")
-        self.amm_2.set_balance(base_asset, 500)
-        self.amm_2.set_balance(quote_asset, 500)
-        self.market_info_2 = MarketTradingPairTuple(self.amm_2, trading_pair, base_asset, quote_asset)
+        self.amm_2.set_balance(BASE_ASSET, 500)
+        self.amm_2.set_balance(QUOTE_ASSET, 500)
+        self.market_info_2 = MarketTradingPairTuple(self.amm_2, TRADING_PAIR, BASE_ASSET, QUOTE_ASSET)
         self.strategy = AmmArbStrategy()
         self.strategy.init_params(
             self.market_info_1,
@@ -149,20 +145,20 @@ class AmmArbUnitTest(unittest.TestCase):
         self.amm_2.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
 
     def test_arbitrage_not_profitable(self):
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 101)
-        self.amm_2.set_prices(trading_pair, False, 100)
+        self.amm_1.set_prices(TRADING_PAIR, True, 101)
+        self.amm_1.set_prices(TRADING_PAIR, False, 100)
+        self.amm_2.set_prices(TRADING_PAIR, True, 101)
+        self.amm_2.set_prices(TRADING_PAIR, False, 100)
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         taker_orders = self.strategy.tracked_limit_orders + self.strategy.tracked_market_orders
         self.assertTrue(len(taker_orders) == 0)
 
     def test_arb_buy_amm_1_sell_amm_2(self):
         asyncio.ensure_future(self.clock.run())
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 105)
-        self.amm_2.set_prices(trading_pair, False, 104)
+        self.amm_1.set_prices(TRADING_PAIR, True, 101)
+        self.amm_1.set_prices(TRADING_PAIR, False, 100)
+        self.amm_2.set_prices(TRADING_PAIR, True, 105)
+        self.amm_2.set_prices(TRADING_PAIR, False, 104)
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
         amm_1_order = [order for market, order in placed_orders if market == self.amm_1][0]
@@ -173,15 +169,15 @@ class AmmArbUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1"), amm_1_order.quantity)
         self.assertEqual(True, amm_1_order.is_buy)
         # The order price has to account for slippage_buffer
-        exp_price = self.amm_1.quantize_order_price(trading_pair, Decimal("101") * Decimal("1.001"))
+        exp_price = self.amm_1.quantize_order_price(TRADING_PAIR, Decimal("101") * Decimal("1.001"))
         self.assertEqual(exp_price, amm_1_order.price)
-        self.assertEqual(trading_pair, amm_1_order.trading_pair)
+        self.assertEqual(TRADING_PAIR, amm_1_order.trading_pair)
 
         self.assertEqual(Decimal("1"), amm_2_order.quantity)
         self.assertEqual(False, amm_2_order.is_buy)
-        exp_price = self.amm_1.quantize_order_price(trading_pair, Decimal("104") * (Decimal("1") - Decimal("0.002")))
+        exp_price = self.amm_1.quantize_order_price(TRADING_PAIR, Decimal("104") * (Decimal("1") - Decimal("0.002")))
         self.assertEqual(exp_price, amm_2_order.price)
-        self.assertEqual(trading_pair, amm_2_order.trading_pair)
+        self.assertEqual(TRADING_PAIR, amm_2_order.trading_pair)
 
         # There are outstanding orders, the strategy is not ready to take on new arb
         self.assertFalse(self.strategy.ready_for_new_arb_trades())
@@ -195,10 +191,10 @@ class AmmArbUnitTest(unittest.TestCase):
 
     def test_arb_buy_amm_2_sell_amm_1(self):
         asyncio.ensure_future(self.clock.run())
-        self.amm_1.set_prices(trading_pair, True, 105)
-        self.amm_1.set_prices(trading_pair, False, 104)
-        self.amm_2.set_prices(trading_pair, True, 101)
-        self.amm_2.set_prices(trading_pair, False, 100)
+        self.amm_1.set_prices(TRADING_PAIR, True, 105)
+        self.amm_1.set_prices(TRADING_PAIR, False, 104)
+        self.amm_2.set_prices(TRADING_PAIR, True, 101)
+        self.amm_2.set_prices(TRADING_PAIR, False, 100)
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
         amm_1_order = [order for market, order in placed_orders if market == self.amm_1][0]
@@ -207,29 +203,29 @@ class AmmArbUnitTest(unittest.TestCase):
         self.assertTrue(len(placed_orders) == 2)
         self.assertEqual(Decimal("1"), amm_1_order.quantity)
         self.assertEqual(False, amm_1_order.is_buy)
-        exp_price = self.amm_1.quantize_order_price(trading_pair, Decimal("104") * (Decimal("1") - Decimal("0.001")))
+        exp_price = self.amm_1.quantize_order_price(TRADING_PAIR, Decimal("104") * (Decimal("1") - Decimal("0.001")))
         self.assertEqual(exp_price, amm_1_order.price)
-        self.assertEqual(trading_pair, amm_1_order.trading_pair)
+        self.assertEqual(TRADING_PAIR, amm_1_order.trading_pair)
         self.assertEqual(Decimal("1"), amm_2_order.quantity)
         self.assertEqual(True, amm_2_order.is_buy)
-        exp_price = self.amm_1.quantize_order_price(trading_pair, Decimal("101") * (Decimal("1") + Decimal("0.002")))
+        exp_price = self.amm_1.quantize_order_price(TRADING_PAIR, Decimal("101") * (Decimal("1") + Decimal("0.002")))
         self.assertEqual(exp_price, amm_2_order.price)
-        self.assertEqual(trading_pair, amm_2_order.trading_pair)
+        self.assertEqual(TRADING_PAIR, amm_2_order.trading_pair)
 
     def test_insufficient_balance(self):
-        self.amm_1.set_prices(trading_pair, True, 105)
-        self.amm_1.set_prices(trading_pair, False, 104)
-        self.amm_2.set_prices(trading_pair, True, 101)
-        self.amm_2.set_prices(trading_pair, False, 100)
+        self.amm_1.set_prices(TRADING_PAIR, True, 105)
+        self.amm_1.set_prices(TRADING_PAIR, False, 104)
+        self.amm_2.set_prices(TRADING_PAIR, True, 101)
+        self.amm_2.set_prices(TRADING_PAIR, False, 100)
         # set base_asset to below order_amount, so not enough to sell on amm_1
-        self.amm_1.set_balance(base_asset, 0.5)
+        self.amm_1.set_balance(BASE_ASSET, 0.5)
         asyncio.ensure_future(self.clock.run())
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
         self.assertTrue(len(placed_orders) == 0)
-        self.amm_1.set_balance(base_asset, 10)
+        self.amm_1.set_balance(BASE_ASSET, 10)
         # set quote balance to 0 on amm_2, so not enough to buy
-        self.amm_2.set_balance(quote_asset, 0)
+        self.amm_2.set_balance(QUOTE_ASSET, 0)
         asyncio.ensure_future(self.clock.run())
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
@@ -243,7 +239,7 @@ class AmmArbUnitTest(unittest.TestCase):
         event_tag = MarketEvent.BuyOrderCompleted if is_buy else MarketEvent.SellOrderCompleted
         event_class = BuyOrderCompletedEvent if is_buy else SellOrderCompletedEvent
         connector.trigger_event(event_tag,
-                                event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
+                                event_class(connector.current_timestamp, order_id, BASE_ASSET, QUOTE_ASSET,
                                             amount, amount * price, OrderType.LIMIT))
 
     def test_non_concurrent_orders_submission(self):
@@ -259,10 +255,10 @@ class AmmArbUnitTest(unittest.TestCase):
         )
         self.clock.add_iterator(self.strategy)
         asyncio.ensure_future(self.clock.run())
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 105)
-        self.amm_2.set_prices(trading_pair, False, 104)
+        self.amm_1.set_prices(TRADING_PAIR, True, 101)
+        self.amm_1.set_prices(TRADING_PAIR, False, 100)
+        self.amm_2.set_prices(TRADING_PAIR, True, 105)
+        self.amm_2.set_prices(TRADING_PAIR, False, 104)
         self.ev_loop.run_until_complete(asyncio.sleep(1.5))
         placed_orders = self.strategy.tracked_limit_orders
         self.assertEqual(1, len(placed_orders))
@@ -289,24 +285,26 @@ class AmmArbUnitTest(unittest.TestCase):
         self.assertNotEqual(amm_1_order.client_order_id, new_amm_1_order.client_order_id)
 
     def test_format_status(self):
-        self.amm_1.set_prices(trading_pair, True, 101)
-        self.amm_1.set_prices(trading_pair, False, 100)
-        self.amm_2.set_prices(trading_pair, True, 105)
-        self.amm_2.set_prices(trading_pair, False, 104)
+        self.amm_1.set_prices(TRADING_PAIR, True, 101)
+        self.amm_1.set_prices(TRADING_PAIR, False, 100)
+        self.amm_2.set_prices(TRADING_PAIR, True, 105)
+        self.amm_2.set_prices(TRADING_PAIR, False, 104)
 
         first_side = ArbProposalSide(
             self.market_info_1,
             True,
             Decimal(101),
             Decimal(100),
-            Decimal(50)
+            Decimal(50),
+            []
         )
         second_side = ArbProposalSide(
             self.market_info_2,
             False,
             Decimal(105),
             Decimal(104),
-            Decimal(50)
+            Decimal(50),
+            []
         )
         self.strategy._all_arb_proposals = [ArbProposal(first_side, second_side)]
 

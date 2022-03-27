@@ -12,7 +12,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
-arbprop_logger: HummingbotLogger
+arbprop_logger: Optional[HummingbotLogger] = None
 
 
 @dataclass
