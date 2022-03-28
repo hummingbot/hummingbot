@@ -56,7 +56,7 @@ class UserBalances:
 
     def all_balances(self, exchange) -> Dict[str, Decimal]:
         if exchange not in self._markets:
-            return None
+            return {}
         return self._markets[exchange].get_all_balances()
 
     async def update_exchange_balance(self, exchange) -> Optional[str]:

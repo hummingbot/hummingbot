@@ -35,15 +35,7 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
 
 
 def connector_keys() -> Dict[str, ConfigVar]:
-    from hummingbot.client.settings import AllConnectorSettings
-    all_keys = {
-        "wallet_address": ConfigVar(
-            key="wallet_address",
-            prompt="",
-            is_secure=False,
-            is_connect_key=True,
-        )
-    }
+    all_keys = {}
     for connector_setting in AllConnectorSettings.get_connector_settings().values():
         all_keys.update(connector_setting.config_keys)
     return all_keys
@@ -427,7 +419,7 @@ paper_trade_config_map = {
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
                   prompt="Enter paper trade balance settings (Input must be valid json: "
-                         "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
+                         "e.g. {\"ETH\": 10, \"USDC\": 50000}) >>> ",
                   required_if=lambda: False,
                   type_str="json",
                   ),
