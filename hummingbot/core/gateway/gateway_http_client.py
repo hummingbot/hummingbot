@@ -338,3 +338,15 @@ class GatewayHttpClient:
         if max_priority_fee_per_gas is not None:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request("post", "amm/trade", request_payload)
+
+    async def amm_estimate_gas(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/estimateGas", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        })

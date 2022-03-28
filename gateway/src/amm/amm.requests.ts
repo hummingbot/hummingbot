@@ -19,6 +19,7 @@ export interface PriceResponse {
   timestamp: number;
   latency: number;
   gasPrice: number;
+  gasPriceToken: string;
   gasLimit: number;
   gasCost: string;
 }
@@ -47,8 +48,18 @@ export interface TradeResponse {
   expectedOut?: string;
   price: string;
   gasPrice: number;
+  gasPriceToken: string;
   gasLimit: number;
   gasCost: string;
   nonce: number;
   txHash: string | undefined;
+}
+
+export interface EstimateGasResponse {
+  network: string;
+  timestamp: number;
+  gasPrice: number;
+  gasPriceToken: string;
+  gasLimit: number;
+  gasCost: string;
 }

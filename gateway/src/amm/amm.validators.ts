@@ -92,3 +92,9 @@ export const validateTradeRequest: RequestValidator = mkRequestValidator([
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
 ]);
+
+export const validateEstimateGasRequest: RequestValidator = mkRequestValidator([
+  validateConnector,
+  validateChain,
+  validateNetwork,
+]);
