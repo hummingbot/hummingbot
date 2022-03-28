@@ -99,7 +99,7 @@ describe('EVMNodeService', () => {
   let dbPath = '';
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce2.test.level'));
-    nonceManager = new EVMNonceManager('ethereum', 43, 0, dbPath);
+    nonceManager = new EVMNonceManager('ethereum', 43, 60, dbPath);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
