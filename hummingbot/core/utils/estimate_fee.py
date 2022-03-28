@@ -37,9 +37,9 @@ def build_trade_fee(
         trade_fee_schema.maker_fixed_fees
         if is_maker
         else trade_fee_schema.taker_fixed_fees
-    )
+    ).copy()
     if extra_flat_fees is not None and len(extra_flat_fees) > 0:
-        fixed_fees += extra_flat_fees
+        fixed_fees = fixed_fees + extra_flat_fees
     trade_fee: TradeFeeBase = TradeFeeBase.new_spot_fee(
         fee_schema=trade_fee_schema,
         trade_type=order_side,
