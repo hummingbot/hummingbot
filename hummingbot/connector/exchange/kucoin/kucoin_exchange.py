@@ -1,33 +1,24 @@
 import asyncio
-import logging
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
-
-from async_timeout import timeout
+from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.kucoin import (
     kucoin_constants as CONSTANTS,
     kucoin_utils as utils,
-    kucoin_web_utils as web_utils,
 )
+from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_trading_pair
-from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN, s_decimal_0, MINUTE, TWELVE_HOURS
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.core.data_type.in_flight_order import OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-
 
 
 class KucoinExchange(ExchangeBaseV2):
@@ -38,26 +29,41 @@ class KucoinExchange(ExchangeBaseV2):
     SYMBOLS_PATH_URL = CONSTANTS.SYMBOLS_PATH_URL
     FEE_PATH_URL = CONSTANTS.FEE_PATH_URL
 
+    def __init__(self,
+                 kucoin_api_key: str,
+                 kucoin_passphrase: str,
+                 kucoin_secret_key: str,
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True,
+                 domain: str = DEFAULT_DOMAIN):
+        self.kucoin_api_key = kucoin_api_key
+        self.kucoin_passphrase = kucoin_passphrase
+        self.kucoin_secret_key = kucoin_secret_key
+        self._domain = domain
+        self._trading_required = trading_required
+        self._trading_pairs = trading_pairs
+        super().__init__()
+
     def init_auth(self):
         return KucoinAuth(
-            api_key=kucoin_api_key,
-            passphrase=kucoin_passphrase,
-            secret_key=kucoin_secret_key,
+            api_key=self.kucoin_api_key,
+            passphrase=self.kucoin_passphrase,
+            secret_key=self.kucoin_secret_key,
             time_provider=self._time_synchronizer)
 
     def init_ob_datasource(self):
         return KucoinAPIOrderBookDataSource(
-                trading_pairs=trading_pairs,
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer)
+            trading_pairs=self._trading_pairs,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer)
 
     def init_us_datasource(self):
         return KucoinAPIUserStreamDataSource(
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler)
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler)
 
     @property
     def name(self) -> str:
@@ -489,4 +495,3 @@ class KucoinExchange(ExchangeBaseV2):
                             new_state=new_state,
                         )
                         self._order_tracker.process_order_update(update)
-

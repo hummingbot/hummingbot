@@ -1,15 +1,33 @@
+from typing import Any, AsyncIterable, Dict, List, Optional
 import asyncio
-from decimal import Decimal
+import logging
 
-from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN, s_decimal_0, NaN, MINUTE, TWELVE_HOURS
+from decimal import Decimal
+from async_timeout import timeout
+
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.constants import s_decimal_NaN, s_decimal_0, MINUTE, TWELVE_HOURS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+
+
+# TODO
+from hummingbot.connector.exchange.kucoin import (
+    kucoin_web_utils as web_utils,
+)
 
 
 class ExchangeBaseV2(ExchangeBase):
@@ -28,18 +46,9 @@ class ExchangeBaseV2(ExchangeBase):
     SYMBOLS_PATH_URL = ""
     FEE_PATH_URL = ""
 
-    def __init__(self,
-                 kucoin_api_key: str,
-                 kucoin_passphrase: str,
-                 kucoin_secret_key: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = self.DEFAULT_DOMAIN):
+    def __init__(self):
         super().__init__()
 
-        self._domain = domain
-        self._trading_required = trading_required
-        self._trading_pairs = trading_pairs
         self._status_polling_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
@@ -49,9 +58,9 @@ class ExchangeBaseV2(ExchangeBase):
         self._trading_fees = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
- 
+
         self._time_synchronizer = TimeSynchronizer()
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(self.RATE_LIMITS)
 
         self._auth = self.init_auth()
         self._api_factory = web_utils.build_api_factory(
@@ -62,7 +71,7 @@ class ExchangeBaseV2(ExchangeBase):
         self._ob_datasource = self.init_ob_datasource()
         self._order_book_tracker = OrderBookTracker(
             data_source=self._ob_datasource,
-            trading_pairs=trading_pairs,
+            trading_pairs=self._trading_pairs,
             domain=self._domain)
         self._user_stream_tracker = UserStreamTracker(
             data_source=self.init_us_datasource())
@@ -76,7 +85,7 @@ class ExchangeBaseV2(ExchangeBase):
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         if price.is_nan():
             return price
-        price_quantum = self.c_get_order_price_quantum(trading_pair, price)
+        price_quantum = self.get_order_price_quantum(trading_pair, price)
         return ExchangeBaseV2.quantize_value(price, price_quantum)
 
     @classmethod
@@ -155,7 +164,8 @@ class ExchangeBaseV2(ExchangeBase):
         self._stop_network()  # TODO not in binance
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop()) # TODO not in binance
+        # TODO not in binance
+        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -258,7 +268,7 @@ class ExchangeBaseV2(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        client_order_id = get_new_client_order_id(
+        order_id = get_new_client_order_id(
             is_buy=False,
             trading_pair=trading_pair,
             hbot_order_id_prefix=self.HBOT_ORDER_ID_PREFIX,
@@ -437,7 +447,7 @@ class ExchangeBaseV2(ExchangeBase):
         Updates the trading rules by requesting the latest definitions from the exchange.
         Executes regularly every 30 minutes
         """
-        ex_name = self.name().capitalize()
+        ex_name = self.name.capitalize()
         while True:
             try:
                 # TODO binance  await safe_gather(self._update_trading_rules())
@@ -452,7 +462,7 @@ class ExchangeBaseV2(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _trading_fees_polling_loop(self):
-        ex_name = self.name().capitalize()
+        ex_name = self.name.capitalize()
         while True:
             try:
                 await self._update_trading_fees()
@@ -500,7 +510,7 @@ class ExchangeBaseV2(ExchangeBase):
             self._trading_fees[trading_pair] = fee_json
 
     async def _update_time_synchronizer(self):
-        ex_name = self.name().capitalize()
+        ex_name = self.name.capitalize()
         try:
             await self._time_synchronizer.update_server_time_offset_with_time_provider(
                 time_provider=web_utils.get_current_server_time(
