@@ -101,7 +101,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
     async def test_update_balances(self):
         self._connector._account_balances.clear()
         self.assertEqual(0, len(self._connector.get_all_balances()))
-        await self._connector._update_balances(on_interval=False)
+        await self._connector.update_balances(on_interval=False)
         self.assertEqual(3, len(self._connector.get_all_balances()))
         self.assertAlmostEqual(Decimal("58.919555905095740084"), self._connector.get_balance("ETH"))
         self.assertAlmostEqual(Decimal("1000"), self._connector.get_balance("DAI"))
@@ -161,7 +161,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
         try:
-            await self._connector._update_token_approval_status(successful_records + fake_records)
+            await self._connector.update_token_approval_status(successful_records + fake_records)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"WETH", "DAI"},
@@ -216,7 +216,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
 
         try:
-            await self._connector._update_order_status(successful_records + fake_records)
+            await self._connector.update_order_status(successful_records + fake_records)
             self.assertEqual(1, len(event_logger.event_log))
             filled_event: OrderFilledEvent = event_logger.event_log[0]
             self.assertEqual(
