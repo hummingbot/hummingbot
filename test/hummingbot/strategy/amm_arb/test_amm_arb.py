@@ -328,21 +328,29 @@ class AmmArbUnitTest(unittest.TestCase):
         )
         self.strategy._all_arb_proposals = [ArbProposal(first_side, second_side)]
 
-        expected_status = ("  Markets:\n"
-                           "    Exchange    Market   Sell Price    Buy Price    Mid Price\n"
-                           "       onion HBOT-USDT 100.00000000 101.00000000 100.50000000\n"
-                           "      garlic HBOT-USDT 104.00000000 105.00000000 104.50000000\n\n"
-                           "  Assets:\n"
-                           "      Exchange Asset  Total Balance  Available Balance\n"
-                           "    0    onion  HBOT            500                500\n"
-                           "    1    onion  USDT            500                500\n"
-                           "    2   garlic  HBOT            500                500\n"
-                           "    3   garlic  USDT            500                500\n\n"
-                           "  Profitability:\n"
-                           "    buy at onion, sell at garlic: 3.96%\n\n"
-                           "  Quotes Rates (fixed rates)\n"
-                           "      Quotes pair Rate\n"
-                           "    0   USDT-USDT    1")
+        expected_status = """  Markets:
+    Exchange    Market   Sell Price    Buy Price    Mid Price
+       onion HBOT-USDT 100.00000000 101.00000000 100.50000000
+      garlic HBOT-USDT 104.00000000 105.00000000 104.50000000
+
+  Network Fees:
+    Exchange Gas Fees
+       onion    0 ETH
+      garlic    0 ETH
+
+  Assets:
+      Exchange Asset  Total Balance  Available Balance
+    0    onion  HBOT            500                500
+    1    onion  USDT            500                500
+    2   garlic  HBOT            500                500
+    3   garlic  USDT            500                500
+
+  Profitability:
+    buy at onion, sell at garlic: 3.96%
+
+  Quotes Rates (fixed rates)
+      Quotes pair Rate
+    0   USDT-USDT    1"""
         current_status = await self.strategy.format_status()
         self.assertTrue(expected_status in current_status)
 

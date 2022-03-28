@@ -13,6 +13,7 @@ from hummingbot.connector.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import OrderType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -375,6 +376,19 @@ class AmmArbStrategy(StrategyPyBase):
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
+
+        columns = ["Exchange", "Gas Fees"]
+        data = []
+        for market_info in [self._market_info_1, self._market_info_2]:
+            if hasattr(market_info.market, "network_transaction_fee"):
+                transaction_fee: TokenAmount = getattr(market_info.market, "network_transaction_fee")
+                data.append([market_info.market.display_name, f"{transaction_fee.amount} {transaction_fee.token}"])
+        network_fees_df = pd.DataFrame(data=data, columns=columns)
+        if len(data) > 0:
+            lines.extend(
+                ["", "  Network Fees:"] +
+                ["    " + line for line in network_fees_df.to_string(index=False).split("\n")]
+            )
 
         assets_df = self.wallet_balance_data_frame([self._market_info_1, self._market_info_2])
         lines.extend(["", "  Assets:"] +

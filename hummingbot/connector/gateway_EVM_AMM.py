@@ -293,6 +293,9 @@ class GatewayEVMAMM(ConnectorBase):
         :return: The quote price.
         """
 
+        base, quote = trading_pair.split("-")
+        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
+
         # Get the price from gateway price shim for integration tests.
         if self.network not in MAINNET_NETWORKS and not ignore_shim:
             test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
@@ -303,12 +306,23 @@ class GatewayEVMAMM(ConnectorBase):
                 is_buy,
                 amount
             )
+            # Grab the gas price for test net.
+            try:
+                resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
+                    self.chain, self.network, self.connector_name, base, quote, amount, side
+                )
+                gas_price_token: str = resp["gasPriceToken"]
+                gas_cost: Decimal = Decimal(resp["gasCost"])
+                self.update_transaction_fees(gas_price_token, gas_cost)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
             if test_price is not None:
                 return test_price
 
         # Pull the price from gateway.
-        base, quote = trading_pair.split("-")
-        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         try:
             resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
