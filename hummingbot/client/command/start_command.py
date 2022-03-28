@@ -7,6 +7,9 @@ import time
 from typing import (
     Optional,
     Callable,
+    Dict,
+    List,
+    Any
 )
 from os.path import dirname, join
 from hummingbot.core.clock import (
@@ -95,26 +98,29 @@ class StartCommand:
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
             self.notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
         for exchange in settings.required_exchanges:
-            connector = str(exchange)
-            status = get_connector_status(connector)
-            warning_msg = warning_messages.get(connector, None)
+            connector: str = str(exchange)
+            status: str = get_connector_status(connector)
+            warning_msg: Optional[str] = warning_messages.get(connector, None)
 
             # confirm gateway connection
-            conn_setting = settings.AllConnectorSettings.get_connector_settings()[connector]
+            conn_setting: settings.ConnectorSetting = settings.AllConnectorSettings.get_connector_settings()[connector]
             if conn_setting.uses_gateway_generic_connector():
-                connector_details = conn_setting.conn_init_parameters()
+                connector_details: Dict[str, Any] = conn_setting.conn_init_parameters()
                 if connector_details:
-                    data = []
-                    data.append(["chain", connector_details['chain']])
-                    data.append(["network", connector_details['network']])
-                    data.append(["wallet_address", connector_details['wallet_address']])
+                    data: List[List[str]] = [
+                        ["chain", connector_details['chain']],
+                        ["network", connector_details['network']],
+                        ["wallet_address", connector_details['wallet_address']]
+                    ]
                     await UserBalances.instance().update_exchange_balance(connector)
-                    balances = [f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
-                                for k, v in UserBalances.instance().all_balances(connector).items()]
+                    balances: List[str] = [
+                        f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
+                        for k, v in UserBalances.instance().all_balances(connector).items()
+                    ]
                     data.append(["balances", ""])
                     for bal in balances:
                         data.append(["", bal])
-                    wallet_df = pd.DataFrame(data=data, columns=["", f"{connector} configuration"])
+                    wallet_df: pd.DataFrame = pd.DataFrame(data=data, columns=["", f"{connector} configuration"])
                     self.notify(wallet_df.to_string(index=False))
 
                     self.app.clear_input()
@@ -136,7 +142,7 @@ class StartCommand:
                             f"{warning_msg}")
 
             # Display warning message if the exchange connector has outstanding issues or not working
-            elif status != "GREEN":
+            elif not status.endswith("GREEN"):
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
