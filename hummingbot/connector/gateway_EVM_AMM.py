@@ -113,16 +113,17 @@ class GatewayEVMAMM(ConnectorBase):
         self._ev_loop = asyncio.get_event_loop()
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
-        self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
         self._auto_approve_task = None
+        self._get_gas_estimate_task = None
         self._poll_notifier = None
         self._nonce = None
-        self._native_currency = "ETH"  # make ETH the default asset
+        self._native_currency = None
+        self._network_transaction_fee: Optional[TokenAmount] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -210,6 +211,17 @@ class GatewayEVMAMM(ConnectorBase):
             for in_flight_order in self.amm_orders
         ]
 
+    @property
+    def network_transaction_fee(self) -> TokenAmount:
+        """
+        The most recently known transaction fee (i.e. gas fees) required for making trades.
+        """
+        return self._network_transaction_fee
+
+    @network_transaction_fee.setter
+    def network_transaction_fee(self, new_fee: TokenAmount):
+        self._network_transaction_fee = new_fee
+
     def create_approval_order_id(self, token_symbol: str) -> str:
         return f"approve-{self.connector_name}-{token_symbol}"
 
@@ -240,9 +252,31 @@ class GatewayEVMAMM(ConnectorBase):
             )
             if type(self._chain_info) != list:
                 self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+
+    async def get_gas_estimate(self):
+        """
+        Gets the gas estimates for the connector.
+        """
+        try:
+            response: Dict[Any] = await GatewayHttpClient.get_instance().amm_estimate_gas(
+                chain=self.chain, network=self.network, connector=self.connector_name
+            )
+            self.network_transaction_fee = TokenAmount(
+                response.get("gasPriceToken"), Decimal(response.get("gasCost"))
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error getting gas price estimates for {self.connector_name} on {self.network}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
@@ -320,6 +354,9 @@ class GatewayEVMAMM(ConnectorBase):
         :return: The quote price.
         """
 
+        base, quote = trading_pair.split("-")
+        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
+
         # Get the price from gateway price shim for integration tests.
         if self.network not in MAINNET_NETWORKS and not ignore_shim:
             test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
@@ -330,43 +367,55 @@ class GatewayEVMAMM(ConnectorBase):
                 is_buy,
                 amount
             )
+            # Grab the gas price for test net.
+            try:
+                resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
+                    self.chain, self.network, self.connector_name, base, quote, amount, side
+                )
+                gas_price_token: str = resp["gasPriceToken"]
+                gas_cost: Decimal = Decimal(resp["gasCost"])
+                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
             if test_price is not None:
                 return test_price
 
         # Pull the price from gateway.
-        base, quote = trading_pair.split("-")
-        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         try:
             resp: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
-            required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
+            required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
             if any(item not in resp.keys() for item in required_items):
                 if "info" in resp.keys():
                     self.logger().info(f"Unable to get price. {resp['info']}")
                 else:
                     self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
             else:
-                gas_limit = resp["gasLimit"]
-                gas_price = resp["gasPrice"]
-                gas_cost = resp["gasCost"]
-                price = resp["price"]
-                account_standing = {
-                    "allowances": self._allowances,
-                    "balances": self._account_balances,
-                    "base": base,
-                    "quote": quote,
-                    "amount": amount,
-                    "side": side,
-                    "gas_limit": gas_limit,
-                    "gas_price": gas_price,
-                    "gas_cost": gas_cost,
-                    "price": price,
-                    "swaps": len(resp.get("swaps", []))
-                }
-                exceptions = check_transaction_exceptions(account_standing)
+                gas_limit: int = int(resp["gasLimit"])
+                gas_price_token: str = resp["gasPriceToken"]
+                gas_cost: Decimal = Decimal(resp["gasCost"])
+                price: Decimal = Decimal(resp["price"])
+                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+                exceptions: List[str] = check_transaction_exceptions(
+                    allowances=self._allowances,
+                    balances=self._account_balances,
+                    base_asset=base,
+                    quote_asset=quote,
+                    amount=amount,
+                    side=side,
+                    gas_limit=gas_limit,
+                    gas_cost=gas_cost,
+                    gas_asset=gas_price_token,
+                    swaps_count=len(resp.get("swaps", []))
+                )
                 for index in range(len(exceptions)):
-                    self.logger().info(f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}")
+                    self.logger().warning(
+                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+                    )
 
                 if price is not None and len(exceptions) == 0:
                     return Decimal(str(price))
@@ -475,9 +524,11 @@ class GatewayEVMAMM(ConnectorBase):
             transaction_hash: str = order_result.get("txHash")
             nonce: int = order_result.get("nonce")
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
-            gas_limit: int = order_result.get("gasLimit")
-            gas_cost: int = order_result.get("gasCost")
-            tracked_order = self._in_flight_orders.get(order_id)
+            gas_limit: int = int(order_result.get("gasLimit"))
+            gas_cost: Decimal = Decimal(order_result.get("gasCost"))
+            gas_price_token: str = order_result.get("gasPriceToken")
+            tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {transaction_hash} "
@@ -778,13 +829,16 @@ class GatewayEVMAMM(ConnectorBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True
+            "allowances": self.has_allowances() if self._trading_required else True,
+            "native_currency": self._native_currency is not None,
+            "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
 
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
+            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -796,6 +850,9 @@ class GatewayEVMAMM(ConnectorBase):
             self._auto_approve_task = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
+        if self._get_gas_estimate_task is not None:
+            self._get_gas_estimate_task.cancel()
             self._get_chain_info_task = None
 
     async def check_network(self) -> NetworkStatus:
@@ -846,6 +903,8 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
+        if self._native_currency is None:
+            await self.get_chain_info()
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
@@ -918,7 +977,8 @@ class GatewayEVMAMM(ConnectorBase):
 
             tracked_order.last_state = "CANCELING"
             return order_id
-
+        except asyncio.CancelledError:
+            raise
         except Exception as err:
             self.logger().error(
                 f"Failed to cancel order {order_id}: {str(err)}.",
@@ -955,6 +1015,8 @@ class GatewayEVMAMM(ConnectorBase):
                     if canceling_order_id is not None:
                         canceling_id_set.remove(canceling_order_id)
                         sent_cancellations.append(CancellationResult(canceling_order_id, True))
+        except asyncio.CancelledError:
+            raise
         except Exception:
             self.logger().network(
                 "Unexpected error cancelling outdated orders.",

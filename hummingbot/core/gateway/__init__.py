@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Any, Dict, AsyncIterable, List
 
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 
 
@@ -13,7 +14,8 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220325"
+GATEWAY_DOCKER_TAG: str = "20220327"
+S_DECIMAL_0: Decimal = Decimal(0)
 
 
 def is_inside_docker() -> bool:
@@ -198,39 +200,40 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
         raise e
 
 
-def check_transaction_exceptions(trade_data: dict) -> list:
+def check_transaction_exceptions(
+        allowances: Dict[str, Decimal],
+        balances: Dict[str, Decimal],
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        gas_limit: int,
+        gas_cost: Decimal,
+        gas_asset: str,
+        swaps_count: int
+) -> List[str]:
     """
     Check trade data for Ethereum decentralized exchanges
     """
     exception_list = []
-
-    gas_limit = trade_data["gas_limit"]
-    gas_cost = Decimal(str(trade_data["gas_cost"]))
-    amount = Decimal(str(trade_data["amount"]))
-    side = trade_data["side"]
-    base = trade_data["base"]
-    quote = trade_data["quote"]
-    balances = trade_data["balances"]
-    allowances = trade_data["allowances"]
-    swaps_message = f"Total swaps: {trade_data.get('swaps', 'UNKNOWN')}"
-
-    eth_balance = balances["ETH"]
+    swaps_message: str = f"Total swaps: {swaps_count}"
+    gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
 
     # check for sufficient gas
-    if eth_balance < gas_cost:
-        exception_list.append(f"Insufficient ETH balance to cover gas:"
-                              f" Balance: {eth_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
+    if gas_asset_balance < gas_cost:
+        exception_list.append(f"Insufficient {gas_asset} balance to cover gas:"
+                              f" Balance: {gas_asset_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
 
-    trade_token = base if side == "side" else quote
-    trade_allowance = allowances[trade_token]
+    asset_out: str = quote_asset if side is TradeType.BUY else base_asset
+    asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
 
     # check for gas limit set to low
-    gas_limit_threshold = 21000
+    gas_limit_threshold: int = 21000
     if gas_limit < gas_limit_threshold:
         exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
 
     # check for insufficient token allowance
-    if allowances[trade_token] < amount:
-        exception_list.append(f"Insufficient {trade_token} allowance {trade_allowance}. Amount to trade: {amount}")
+    if allowances[asset_out] < amount:
+        exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
 
     return exception_list
