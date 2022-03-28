@@ -96,19 +96,17 @@ class GatewayEVMAMM(ConnectorBase):
         self._ev_loop = asyncio.get_event_loop()
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
-        self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
         self._auto_approve_task = None
+        self._get_gas_estimate_task = None
         self._poll_notifier = None
         self._nonce = None
-        self._native_currency = "ETH"  # default value only, will be updated in get_chain_info()
-        self._last_known_network_transaction_fee: TokenAmount = TokenAmount(
-            token=self._native_currency, amount=s_decimal_0
-        )
+        self._native_currency = None
+        self._network_transaction_fee: Optional[TokenAmount] = None
 
     @property
     def connector_name(self):
@@ -176,7 +174,11 @@ class GatewayEVMAMM(ConnectorBase):
         """
         The most recently known transaction fee (i.e. gas fees) required for making trades.
         """
-        return self._last_known_network_transaction_fee
+        return self._network_transaction_fee
+
+    @network_transaction_fee.setter
+    def network_transaction_fee(self, new_fee: TokenAmount):
+        self._network_transaction_fee = new_fee
 
     def create_approval_order_id(self, token_symbol: str) -> str:
         return f"approve-{self.connector_name}-{token_symbol}"
@@ -198,12 +200,6 @@ class GatewayEVMAMM(ConnectorBase):
         ]
         return True if token in pending_approval_tokens else False
 
-    def update_transaction_fees(self, transaction_fee_token: str, amount: Decimal):
-        """
-        Records the last known transaction fees for a trade on the DEX.
-        """
-        self._last_known_network_transaction_fee = TokenAmount(transaction_fee_token, amount)
-
     async def get_chain_info(self):
         """
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
@@ -214,9 +210,31 @@ class GatewayEVMAMM(ConnectorBase):
             )
             if type(self._chain_info) != list:
                 self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             self.logger().network(
                 "Error fetching chain info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+
+    async def get_gas_estimate(self):
+        """
+        Gets the gas estimates for the connector.
+        """
+        try:
+            response: Dict[Any] = await GatewayHttpClient.get_instance().amm_estimate_gas(
+                chain=self.chain, network=self.network, connector=self.connector_name
+            )
+            self.network_transaction_fee = TokenAmount(
+                response.get("gasPriceToken"), Decimal(response.get("gasCost"))
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error getting gas price estimates for {self.connector_name} on {self.network}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
@@ -313,7 +331,7 @@ class GatewayEVMAMM(ConnectorBase):
                 )
                 gas_price_token: str = resp["gasPriceToken"]
                 gas_cost: Decimal = Decimal(resp["gasCost"])
-                self.update_transaction_fees(gas_price_token, gas_cost)
+                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -338,7 +356,7 @@ class GatewayEVMAMM(ConnectorBase):
                 gas_price_token: str = resp["gasPriceToken"]
                 gas_cost: Decimal = Decimal(resp["gasCost"])
                 price: Decimal = Decimal(resp["price"])
-                self.update_transaction_fees(gas_price_token, gas_cost)
+                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
                 exceptions: List[str] = check_transaction_exceptions(
                     allowances=self._allowances,
                     balances=self._account_balances,
@@ -463,7 +481,7 @@ class GatewayEVMAMM(ConnectorBase):
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
             gas_price_token: str = order_result.get("gasPriceToken")
             tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
-            self.update_transaction_fees(gas_price_token, gas_cost)
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {transaction_hash} "
@@ -755,13 +773,16 @@ class GatewayEVMAMM(ConnectorBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True
+            "allowances": self.has_allowances() if self._trading_required else True,
+            "native_currency": self._native_currency is not None,
+            "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
 
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
+            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -773,6 +794,9 @@ class GatewayEVMAMM(ConnectorBase):
             self._auto_approve_task = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
+        if self._get_gas_estimate_task is not None:
+            self._get_gas_estimate_task.cancel()
             self._get_chain_info_task = None
 
     async def check_network(self) -> NetworkStatus:
@@ -822,6 +846,8 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
+        if self._native_currency is None:
+            await self.get_chain_info()
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
@@ -888,7 +914,8 @@ class GatewayEVMAMM(ConnectorBase):
             tracked_order.last_state = "CANCELING"
             self.logger().info(f"Requesting cancel of order {order_id}")
             return order_id
-
+        except asyncio.CancelledError:
+            raise
         except Exception as err:
             self.logger().error(
                 f"Failed to cancel order {order_id}: {str(err)}.",
@@ -914,6 +941,8 @@ class GatewayEVMAMM(ConnectorBase):
                     if client_order_id is not None:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
+        except asyncio.CancelledError:
+            raise
         except Exception:
             self.logger().network(
                 "Unexpected error cancelling outdated orders.",

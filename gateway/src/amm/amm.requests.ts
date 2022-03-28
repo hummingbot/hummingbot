@@ -54,3 +54,12 @@ export interface TradeResponse {
   nonce: number;
   txHash: string | undefined;
 }
+
+export interface EstimateGasResponse {
+  network: string;
+  timestamp: number;
+  gasPrice: number;
+  gasPriceToken: string;
+  gasLimit: number;
+  gasCost: string;
+}

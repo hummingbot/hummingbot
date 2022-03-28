@@ -2,14 +2,20 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../services/error-handler';
-import { price, trade } from './amm.controllers';
+import { price, trade, estimateGas } from './amm.controllers';
 import {
+  EstimateGasResponse,
   PriceRequest,
   PriceResponse,
   TradeRequest,
   TradeResponse,
 } from './amm.requests';
-import { validatePriceRequest, validateTradeRequest } from './amm.validators';
+import {
+  validateEstimateGasRequest,
+  validatePriceRequest,
+  validateTradeRequest,
+} from './amm.validators';
+import { NetworkSelectionRequest } from '../services/common-interfaces';
 
 export namespace AmmRoutes {
   export const router = Router();
@@ -36,6 +42,19 @@ export namespace AmmRoutes {
       ) => {
         validateTradeRequest(req.body);
         res.status(200).json(await trade(req.body));
+      }
+    )
+  );
+
+  router.post(
+    '/estimateGas',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, NetworkSelectionRequest>,
+        res: Response<EstimateGasResponse | string, {}>
+      ) => {
+        validateEstimateGasRequest(req.body);
+        res.status(200).json(await estimateGas(req.body));
       }
     )
   );

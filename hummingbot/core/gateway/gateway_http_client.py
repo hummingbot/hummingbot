@@ -324,3 +324,15 @@ class GatewayHttpClient:
             "limitPrice": str(price),
             "nonce": nonce
         })
+
+    async def amm_estimate_gas(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/estimateGas", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        })

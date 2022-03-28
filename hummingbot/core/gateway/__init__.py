@@ -15,7 +15,7 @@ _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
 GATEWAY_DOCKER_TAG: str = "20220327"
-s_decimal_0: Decimal = Decimal(0)
+S_DECIMAL_0: Decimal = Decimal(0)
 
 
 def is_inside_docker() -> bool:
@@ -217,7 +217,7 @@ def check_transaction_exceptions(
     """
     exception_list = []
     swaps_message: str = f"Total swaps: {swaps_count}"
-    gas_asset_balance: Decimal = balances.get(gas_asset, s_decimal_0)
+    gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
 
     # check for sufficient gas
     if gas_asset_balance < gas_cost:
@@ -225,7 +225,7 @@ def check_transaction_exceptions(
                               f" Balance: {gas_asset_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
 
     asset_out: str = quote_asset if side is TradeType.BUY else base_asset
-    asset_out_allowance: Decimal = allowances.get(asset_out, s_decimal_0)
+    asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
 
     # check for gas limit set to low
     gas_limit_threshold: int = 21000
