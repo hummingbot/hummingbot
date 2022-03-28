@@ -28,7 +28,6 @@ from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarket
 from hummingbot.core.gateway.status_monitor import StatusMonitor as GatewayStatusMonitor
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -93,15 +92,10 @@ class HummingbotApplication(*commands):
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
         self._binance_connector = None
+        self._shared_client = None
 
         # gateway variables and monitor
-        self._shared_client = None
-        self._gateway_monitor: Optional[GatewayStatusMonitor] = None
-        self._init_gateway_monitor()
-
-        # A list of gateway configuration key for auto-complete on gateway config command
-        self.gateway_config_keys: List[str] = []
-        safe_ensure_future(self.fetch_gateway_config_key_list(), loop=self.ev_loop)
+        self._gateway_monitor = GatewayStatusMonitor(self)
 
         command_tabs = self.init_command_tabs()
         self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
@@ -111,6 +105,12 @@ class HummingbotApplication(*commands):
             completer=load_completer(self),
             command_tabs=command_tabs
         )
+
+        self._init_gateway_monitor()
+
+    @property
+    def gateway_config_keys(self) -> List[str]:
+        return self._gateway_monitor.gateway_config_keys
 
     @property
     def strategy_file_name(self) -> str:
@@ -135,7 +135,7 @@ class HummingbotApplication(*commands):
         try:
             # Do not start the gateway monitor during unit tests.
             if asyncio.get_running_loop() is not None:
-                self._gateway_monitor = GatewayStatusMonitor()
+                self._gateway_monitor = GatewayStatusMonitor(self)
                 self._gateway_monitor.start()
         except RuntimeError:
             pass
