@@ -423,4 +423,4 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         event_class = BuyOrderCompletedEvent if is_buy else SellOrderCompletedEvent
         connector.trigger_event(event_tag,
                                 event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
-                                            quote_asset, amount, amount * price, Decimal("0"), OrderType.LIMIT))
+                                            amount, amount * price, OrderType.LIMIT))

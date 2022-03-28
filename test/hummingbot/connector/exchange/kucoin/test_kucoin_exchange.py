@@ -7,12 +7,14 @@ from collections import Awaitable
 from decimal import Decimal
 from functools import partial
 from typing import Any, Dict
+from unittest.mock import patch
 
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange, KUCOIN_ROOT_API
 from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
@@ -388,3 +390,31 @@ class TestKucoinExchange(unittest.TestCase):
         )
 
         self.assertEqual(Decimal("0.001"), fee.percent)  # default fee
+
+    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    def test_client_order_id_on_order(self, mocked_nonce):
+        mocked_nonce.return_value = 9
+
+        result = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=self.trading_pair
+        )
+
+        self.assertEqual(result, expected_client_order_id)
+
+        result = self.exchange.sell(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        )
+        expected_client_order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=self.trading_pair
+        )
+
+        self.assertEqual(result, expected_client_order_id)

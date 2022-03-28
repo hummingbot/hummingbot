@@ -1,20 +1,18 @@
 import asyncio
 import logging
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
-
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-
 from typing import Optional
 
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import \
+    BinancePerpetualUserStreamDataSource
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
-
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import \
-    BinancePerpetualUserStreamDataSource
 
 
 class BinancePerpetualUserStreamTracker(UserStreamTracker):
@@ -35,7 +33,8 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
                  auth: BinancePerpetualAuth,
                  domain: str = CONSTANTS.DOMAIN,
                  throttler: Optional[AsyncThrottler] = None,
-                 api_factory: Optional[WebAssistantsFactory] = None):
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
         self._auth: BinancePerpetualAuth = auth
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -44,6 +43,7 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory
+        self._time_synchronizer = time_synchronizer
 
     @property
     def exchange_name(self) -> str:
@@ -56,7 +56,8 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
                 auth=self._auth,
                 domain=self._domain,
                 throttler=self._throttler,
-                api_factory=self._api_factory)
+                api_factory=self._api_factory,
+                time_synchronizer=self._time_synchronizer)
         return self._data_source
 
     async def start(self):
