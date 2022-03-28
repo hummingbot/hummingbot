@@ -105,8 +105,16 @@ class AmmArbStrategy(StrategyPyBase):
         return self._order_amount
 
     @order_amount.setter
-    def order_amount(self, value):
+    def order_amount(self, value: Decimal):
         self._order_amount = value
+
+    @property
+    def rate_source(self) -> RateOracle:
+        return self._rate_source
+
+    @rate_source.setter
+    def rate_source(self, src: RateOracle):
+        self._rate_source = src
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -316,14 +324,16 @@ class AmmArbStrategy(StrategyPyBase):
         """
         lines = []
         for proposal in arb_proposal:
-            side1 = "buy" if proposal.first_side.is_buy else "sell"
-            side2 = "buy" if proposal.second_side.is_buy else "sell"
+            side1: str = "buy" if proposal.first_side.is_buy else "sell"
+            side2: str = "buy" if proposal.second_side.is_buy else "sell"
+            market_1_name: str = proposal.first_side.market_info.market.display_name
+            market_2_name: str = proposal.second_side.market_info.market.display_name
             profit_pct = proposal.profit_pct(
                 rate_source=self._rate_source,
                 account_for_fee=True,
             )
-            lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
-                         f", {side2} at {proposal.second_side.market_info.market.display_name}: "
+            lines.append(f"{'    ' if indented else ''}{side1} at {market_1_name}"
+                         f", {side2} at {market_2_name}: "
                          f"{profit_pct:.2%}")
         return lines
 
