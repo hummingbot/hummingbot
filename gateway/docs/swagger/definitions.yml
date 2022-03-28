@@ -338,6 +338,7 @@ definitions:
       - 'expectedAmount'
       - 'price'
       - 'gasPrice'
+      - 'gasPriceToken'
       - 'gasLimit'
       - 'gasCost'
     properties:
@@ -367,6 +368,9 @@ definitions:
       gasPrice:
         type: 'number'
         example: 96
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
       gasLimit:
         type: 'number'
         example: 150688
@@ -426,6 +430,7 @@ definitions:
       - 'amount'
       - 'price'
       - 'gasPrice'
+      - 'gasPriceToken'
       - 'gasLimit'
       - 'gasCost'
       - 'nonce'
@@ -456,6 +461,9 @@ definitions:
         type: 'string'
       gasPrice:
         type: 'string'
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
       gasLimit:
         type: 'string'
       gasCost:
@@ -782,22 +790,70 @@ definitions:
       tokens:
         type: 'object'
         example: '
-        { tokens: [
-          {
-            "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
-            "chainId": "1",
-            "name": "Stox",
-            "symbol": "STX",
-            "decimals": "18",
-            "logoURI": "https://tokens.1inch.io/0x006bea43baa3f7a6f765f14f10a1a1b08334ef45.png"
-          },
-          {
-            "address": "0x0327112423F3A68efdF1fcF402F6c5CB9f7C33fd",
-            "chainId": "1",
-            "name": "PieDAOBTC",
-            "symbol": "BTC",
-            "decimals": "18",
-            "logoURI": "https://tokens.1inch.io/0x0327112423f3a68efdf1fcf402f6c5cb9f7c33fd.png"
-          }
-        ]
-          }'
+        {
+          tokens: [
+            {
+              "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
+              "chainId": "1",
+              "name": "Stox",
+              "symbol": "STX",
+              "decimals": "18",
+              "logoURI": "https://tokens.1inch.io/0x006bea43baa3f7a6f765f14f10a1a1b08334ef45.png"
+            },
+            {
+              "address": "0x0327112423F3A68efdF1fcF402F6c5CB9f7C33fd",
+              "chainId": "1",
+              "name": "PieDAOBTC",
+              "symbol": "BTC",
+              "decimals": "18",
+              "logoURI": "https://tokens.1inch.io/0x0327112423f3a68efdf1fcf402f6c5cb9f7c33fd.png"
+            }
+          ]
+        }'
+
+  NetworkSelectionRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'kovan'
+      connector:
+        type: 'string'
+        example: 'uniswap'
+
+  EstimateGasResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'gasPrice'
+      - 'gasPriceToken'
+      - 'gasLimit'
+      - 'gasCost'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      gasPrice:
+        type: 'number'
+        example: 96
+      gasPriceToken:
+        type: 'string'
+        example: 'ETH'
+      gasLimit:
+        type: 'number'
+        example: 150688
+      gasCost:
+        type: 'string'
+        example: '0.014466048000000000'
+
