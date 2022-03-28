@@ -43,13 +43,47 @@ export class NonceLocalStorage extends LocalStorage {
   }
 }
 
+/**
+ * Manages EVM nonce for addresses to ensure logical consistency of nonces when
+ * there is a burst of transactions being sent out.
+ *
+ * This class aims to solve the following problems:
+ *
+ * 1. Sending multiple EVM transactions concurrently.
+ *    Naively, developers would use the transaction count from the EVM node as
+ *    the nonce for new transactions. When multiple transactions are being sent
+ *    out this way - these transactions would often end up using the same nonce
+ *    and thus only one of them would succeed.
+ *    The EVM nonce manager ensures the correct serialization of nonces used in
+ *    this case, s.t. the nonces for new concurrent transactions will go out as
+ *    [n, n+1, n+2, ...] rathan than [n, n, n, ...]
+ *
+ * 2. Stuck or dropped transactions.
+ *    If you've sent out a transaction with nonce n before, but it got stuck or
+ *    was dropped from the mem-pool - it's better to just forget about its nonce
+ *    and send the next transaction with its nonce rather than to wait for it to
+ *    be confirmed.
+ *    This is where the `localNonceTTL` parameter comes in. The locally cached
+ *    nonces are only remembered for a period of time (default is 5 minutes).
+ *    After that, nonce values from the EVM node will be used again to prevent
+ *    potentially dropped nonces from blocking new transactions.
+ *
+ * 3. Canceling, or re-sending past transactions.
+ *    Canceling or re-sending past transactions would typically re-use past
+ *    nonces. This means the user is intending to reset his transaction chain
+ *    back to a certain nonce. The manager should allow the cached nonce to go
+ *    back to the specified past nonce when it happens.
+ *    This means whenever a transaction is sent with a past nonce or an EVM
+ *    cancel happens, the API logic **must** call commitNonce() to reset the
+ *    cached nonce back to the specified position.
+ */
 export class EVMNonceManager {
   #addressToNonce: Record<string, [number, Date]> = {};
 
   #initialized: boolean = false;
   #chainId: number;
   #chainName: string;
-  #delay: number;
+  #localNonceTTL: number;
   #db: NonceLocalStorage;
 
   // this should be private but then we cannot mock it
@@ -58,19 +92,19 @@ export class EVMNonceManager {
   constructor(
     chainName: string,
     chainId: number,
-    delay: number,
+    localNonceTTL: number = 300,
     dbPath: string = 'gateway.level'
   ) {
     this.#chainName = chainName;
     this.#chainId = chainId;
-    this.#delay = delay;
+    this.#localNonceTTL = localNonceTTL;
     this.#db = new NonceLocalStorage(dbPath);
   }
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
   public async init(provider: ethers.providers.Provider): Promise<void> {
-    if (this.#delay < 0) {
+    if (this.#localNonceTTL < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
           'EVMNonceManager.init delay must be greater than or equal to zero.'
@@ -106,24 +140,16 @@ export class EVMNonceManager {
 
   async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
     if (this._provider !== null) {
-      let internalNonce: number;
-      if (this.#addressToNonce[ethAddress]) {
-        internalNonce = this.#addressToNonce[ethAddress][0];
-      } else {
-        internalNonce = -1;
-      }
-
       const externalNonce: number = await this._provider.getTransactionCount(
         ethAddress
       );
 
-      const newNonce = Math.max(internalNonce, externalNonce);
-      this.#addressToNonce[ethAddress] = [newNonce, new Date()];
+      this.#addressToNonce[ethAddress] = [externalNonce, new Date()];
       await this.#db.saveNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        newNonce
+        externalNonce
       );
     } else {
       logger.error(
@@ -144,7 +170,7 @@ export class EVMNonceManager {
         const timestamp = this.#addressToNonce[ethAddress][1];
         const now = new Date();
         const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
-        if (diffInSeconds > this.#delay) {
+        if (diffInSeconds > this.#localNonceTTL) {
           await this.mergeNonceFromEVMNode(ethAddress);
         }
 
