@@ -33,6 +33,30 @@ class AmmArbStrategy(StrategyPyBase):
     If presents, the strategy submits taker orders to both market.
     """
 
+    _market_info_1: MarketTradingPairTuple
+    _market_info_2: MarketTradingPairTuple
+    _min_profitability: Decimal
+    _order_amount: Decimal
+    _market_1_slippage_buffer: Decimal
+    _market_2_slippage_buffer: Decimal
+    _concurrent_orders_submission: bool
+    _last_no_arb_reported: float
+    _arb_proposals: Optional[List[ArbProposal]]
+    _all_markets_ready: bool
+    _ev_loop: asyncio.AbstractEventLoop
+    _main_task: Optional[asyncio.Task]
+    _first_order_done_event: Optional[asyncio.Event]
+    _first_order_succeeded: Optional[bool]
+    _first_order_id: Optional[str]
+    _last_timestamp: float
+    _status_report_interval: float
+    _quote_eth_rate_fetch_loop_task: Optional[asyncio.Task]
+    _market_1_quote_eth_rate: None          # XXX (martin_kou): Why are these here?
+    _market_2_quote_eth_rate: None          # XXX (martin_kou): Why are these here?
+    _rate_source: RateOracle
+    _cancel_outdated_orders_task: Optional[asyncio.Task]
+    _gateway_transaction_cancel_interval: int
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global amm_logger
@@ -83,19 +107,20 @@ class AmmArbStrategy(StrategyPyBase):
 
         self._ev_loop = asyncio.get_event_loop()
         self._main_task = None
-        self._first_order_done_event: Optional[asyncio.Event] = None
-        self._first_order_succeeded: Optional[bool] = None
+        self._first_order_done_event = None
+        self._first_order_succeeded = None
         self._first_order_id = None
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self.add_markets([market_info_1.market, market_info_2.market])
-        self._uniswap = None
         self._quote_eth_rate_fetch_loop_task = None
         self._market_1_quote_eth_rate = None
         self._market_2_quote_eth_rate = None
 
         self._rate_source = RateOracle.get_instance()
+
+        self._cancel_outdated_orders_task = None
         self._gateway_transaction_cancel_interval = gateway_transaction_cancel_interval
 
     @property
@@ -131,11 +156,12 @@ class AmmArbStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info("Markets are ready. Trading started.")
-        safe_ensure_future(self.apply_gateway_transaction_cancel_interval(self._market_info_1))
-        safe_ensure_future(self.apply_gateway_transaction_cancel_interval(self._market_info_2))
+
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
+        if self._cancel_outdated_orders_task is None or self._cancel_outdated_orders_task.done():
+            self._cancel_outdated_orders_task = safe_ensure_future(self.apply_gateway_transaction_cancel_interval())
 
     async def main(self):
         """
@@ -163,9 +189,17 @@ class AmmArbStrategy(StrategyPyBase):
         self.apply_budget_constraint(arb_proposals)
         await self.execute_arb_proposals(arb_proposals)
 
-    async def apply_gateway_transaction_cancel_interval(self, market: MarketTradingPairTuple):
-        if isinstance(market, GatewayEVMAMM):
-            await market.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
+    async def apply_gateway_transaction_cancel_interval(self):
+        # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
+        # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
+        gateway_connectors: List[GatewayEVMAMM] = []
+        if self.is_gateway_market(self._market_info_1):
+            gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_1.market))
+        if self.is_gateway_market(self._market_info_2):
+            gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_2.market))
+
+        for gateway in gateway_connectors:
+            await gateway.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
 
     def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
         """
@@ -311,7 +345,7 @@ class AmmArbStrategy(StrategyPyBase):
             profit_pct = proposal.profit_pct(True,
                                              rate_source=self._rate_source,
                                              first_side_quote_eth_rate=self._market_1_quote_eth_rate,
-                                             second_side_quote_eth_rate = self._market_2_quote_eth_rate)
+                                             second_side_quote_eth_rate=self._market_2_quote_eth_rate)
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
                          f"{profit_pct:.2%}")
@@ -332,7 +366,6 @@ class AmmArbStrategy(StrategyPyBase):
 
         if self._arb_proposals is None:
             return "  The strategy is not ready, please try again later."
-        # active_orders = self.market_info_to_active_orders.get(self._market_info, [])
         columns = ["Exchange", "Market", "Sell Price", "Buy Price", "Mid Price"]
         data = []
         for market_info in [self._market_info_1, self._market_info_2]:

@@ -156,6 +156,6 @@ export class Harmony extends EthereumBase implements Ethereumish {
     logger.info(
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
-    return super.cancelTx(wallet, nonce, this._gasPrice);
+    return this.cancelTxWithGasPrice(wallet, nonce, this._gasPrice * 2);
   }
 }

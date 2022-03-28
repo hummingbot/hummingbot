@@ -36,6 +36,7 @@ class OrderBookEvent(Enum):
 class TokenApprovalEvent(Enum):
     ApprovalSuccessful = 1101
     ApprovalFailed = 1102
+    ApprovalCancelled = 1103
 
 
 class HummingbotUIEvent(Enum):
@@ -106,6 +107,13 @@ class TokenApprovalSuccessEvent:
 
 @dataclass
 class TokenApprovalFailureEvent:
+    timestamp: float
+    connector: str
+    token_symbol: str
+
+
+@dataclass
+class TokenApprovalCancelledEvent:
     timestamp: float
     connector: str
     token_symbol: str
