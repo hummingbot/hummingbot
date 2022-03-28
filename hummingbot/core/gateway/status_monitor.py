@@ -79,7 +79,7 @@ class StatusMonitor:
                 self._current_status = Status.OFFLINE
             await asyncio.sleep(POLL_INTERVAL)
 
-    async def _fetch_gateway_configs() -> Dict[str, Any]:
+    async def _fetch_gateway_configs(self) -> Dict[str, Any]:
         return await GatewayHttpClient.get_instance().get_configuration(fail_silently=False)
 
     async def update_gateway_config_key_list(self):
