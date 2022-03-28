@@ -32,7 +32,6 @@ from hummingbot.core.gateway import (
 from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
-    build_config_namespace_keys,
     search_configs,
     build_config_dict_display,
     build_connector_display,
@@ -357,7 +356,7 @@ class GatewayCommand:
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
-            config_dict = await self._fetch_gateway_configs()
+            config_dict = await self._gateway_monitor._fetch_gateway_configs()
             if key is not None:
                 config_dict = search_configs(config_dict, key)
             self.notify(f"\nGateway Configurations ({host}:{port}):")
@@ -538,18 +537,3 @@ class GatewayCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
-
-    @staticmethod
-    async def _fetch_gateway_configs() -> Dict[str, Any]:
-        return await GatewayHttpClient.get_instance().get_configuration(fail_silently=False)
-
-    async def fetch_gateway_config_key_list(self):
-        try:
-            config = await self._fetch_gateway_configs()
-            build_config_namespace_keys(self.gateway_config_keys, config)
-            self.app.input_field.completer = load_completer(self)
-        except Exception:
-            self.logger().error("Error loading gateway configs. Gateway connectors are not usable until "
-                                "it has been correctly configured. "
-                                "Use the `gateway generate-certs` or `gateway create` commands might help resolve this.",
-                                exc_info=True)
