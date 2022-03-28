@@ -26,6 +26,7 @@ import {
 } from '../../services/common-interfaces';
 import { logger } from '../../services/logger';
 import {
+  EstimateGasResponse,
   PriceRequest,
   PriceResponse,
   TradeRequest,
@@ -340,4 +341,20 @@ export function getFullTokenFromSymbol(
       TOKEN_NOT_SUPPORTED_ERROR_CODE
     );
   return fullToken;
+}
+
+export async function estimateGas(
+  ethereumish: Ethereumish,
+  uniswapish: Uniswapish
+): Promise<EstimateGasResponse> {
+  const gasPrice: number = ethereumish.gasPrice;
+  const gasLimit: number = uniswapish.gasLimit;
+  return {
+    network: ethereumish.chain,
+    timestamp: Date.now(),
+    gasPrice,
+    gasPriceToken: ethereumish.nativeTokenSymbol,
+    gasLimit,
+    gasCost: gasCostInEthString(gasPrice, gasLimit),
+  };
 }

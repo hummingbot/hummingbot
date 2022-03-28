@@ -17,7 +17,7 @@ if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
     from hummingbot.core.data_type.order_candidate import OrderCandidate
 
-s_decimal_0 = Decimal(0)
+S_DECIMAL_0 = Decimal(0)
 
 
 @dataclass
@@ -52,8 +52,8 @@ class TradeFeeSchema:
     costs, and `buy_percent_fee_deducted_from_returns` cannot be set to `True`.
     """
     percent_fee_token: Optional[str] = None
-    maker_percent_fee_decimal: Decimal = s_decimal_0
-    taker_percent_fee_decimal: Decimal = s_decimal_0
+    maker_percent_fee_decimal: Decimal = S_DECIMAL_0
+    taker_percent_fee_decimal: Decimal = S_DECIMAL_0
     buy_percent_fee_deducted_from_returns: bool = False
     maker_fixed_fees: List[TokenAmount] = field(default_factory=list)
     taker_fixed_fees: List[TokenAmount] = field(default_factory=list)
@@ -81,7 +81,7 @@ class TradeFeeBase(ABC):
     """
     Contains the necessary information to apply the trade fee to a particular order.
     """
-    percent: Decimal = s_decimal_0
+    percent: Decimal = S_DECIMAL_0
     percent_token: Optional[str] = None  # only set when fee charged in third token (the Binance BNB case)
     flat_fees: List[TokenAmount] = field(default_factory=list)  # list of (asset, amount) tuples
 
@@ -101,7 +101,7 @@ class TradeFeeBase(ABC):
     def new_spot_fee(cls,
                      fee_schema: TradeFeeSchema,
                      trade_type: TradeType,
-                     percent: Decimal = s_decimal_0,
+                     percent: Decimal = S_DECIMAL_0,
                      percent_token: Optional[str] = None,
                      flat_fees: Optional[List[TokenAmount]] = None) -> "TradeFeeBase":
         fee_cls: Type[TradeFeeBase] = (
@@ -120,7 +120,7 @@ class TradeFeeBase(ABC):
     def new_perpetual_fee(cls,
                           fee_schema: TradeFeeSchema,
                           position_action: PositionAction,
-                          percent: Decimal = s_decimal_0,
+                          percent: Decimal = S_DECIMAL_0,
                           percent_token: Optional[str] = None,
                           flat_fees: Optional[List[TokenAmount]] = None) -> "TradeFeeBase":
         fee_cls: Type[TradeFeeBase] = (
@@ -209,8 +209,8 @@ class TradeFeeBase(ABC):
             rate_source: Optional["hummingbot.core.rate_oracle.rate_oracle.RateOracle"] = None      # noqa: F821
     ) -> Decimal:
         base, quote = split_hb_trading_pair(trading_pair)
-        fee_amount: Decimal = s_decimal_0
-        if self.percent != s_decimal_0:
+        fee_amount: Decimal = S_DECIMAL_0
+        if self.percent != S_DECIMAL_0:
             amount_from_percentage: Decimal = (price * order_amount) * self.percent
             if self._are_tokens_interchangeable(quote, token):
                 fee_amount += amount_from_percentage
@@ -257,7 +257,7 @@ class AddedToCostTradeFee(TradeFeeBase):
         Returns the impact of the fee on the cost requirements for the candidate order.
         """
         ret = None
-        if self.percent != s_decimal_0:
+        if self.percent != S_DECIMAL_0:
             fee_token = self.percent_token or order_candidate.order_collateral.token
             if order_candidate.order_collateral is None or fee_token != order_candidate.order_collateral.token:
                 token, size = order_candidate.get_size_token_and_order_size()
