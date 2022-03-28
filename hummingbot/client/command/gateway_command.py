@@ -349,6 +349,7 @@ class GatewayCommand:
         try:
             response = await GatewayHttpClient.get_instance().update_config(key, value)
             self.notify(response["message"])
+            await self._gateway_monitor.update_gateway_config_key_list()
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
 
@@ -356,7 +357,7 @@ class GatewayCommand:
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
-            config_dict = await self._gateway_monitor._fetch_gateway_configs()
+            config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
             if key is not None:
                 config_dict = search_configs(config_dict, key)
             self.notify(f"\nGateway Configurations ({host}:{port}):")
