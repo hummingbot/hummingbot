@@ -22,6 +22,7 @@ import {
   ExpectedTrade,
   Uniswapish,
   Tokenish,
+  Fractionish,
 } from '../../services/common-interfaces';
 import { logger } from '../../services/logger';
 import {
@@ -201,15 +202,19 @@ export async function trade(
   const gasLimit: number = uniswapish.gasLimit;
 
   if (req.side === 'BUY') {
-    const price = tradeInfo.expectedTrade.trade.executionPrice.invert();
+    const price: Fractionish =
+      tradeInfo.expectedTrade.trade.executionPrice.invert();
     if (
       limitPrice &&
-      new Decimal(price.toFixed(8).toString()).gt(new Decimal(limitPrice))
+      new Decimal(price.toFixed(8)).gt(new Decimal(limitPrice))
     ) {
       logger.error('Swap price exceeded limit price.');
       throw new HttpException(
         500,
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
+          price.toFixed(8),
+          limitPrice
+        ),
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
       );
     }
@@ -237,6 +242,10 @@ export async function trade(
       );
     }
 
+    logger.info(
+      `Trade has been executed, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+    );
+
     return {
       network: ethereumish.chain,
       timestamp: startTimestamp,
@@ -254,19 +263,22 @@ export async function trade(
       txHash: tx.hash,
     };
   } else {
-    const price = tradeInfo.expectedTrade.trade.executionPrice;
+    const price: Fractionish = tradeInfo.expectedTrade.trade.executionPrice;
     logger.info(
       `Expected execution price is ${price.toFixed(6)}, ` +
         `limit price is ${limitPrice}.`
     );
     if (
       limitPrice &&
-      new Decimal(price.toFixed(8).toString()).lt(new Decimal(limitPrice))
+      new Decimal(price.toFixed(8)).lt(new Decimal(limitPrice))
     ) {
       logger.error('Swap price lower than limit price.');
       throw new HttpException(
         500,
-        SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
+        SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(
+          price.toFixed(8),
+          limitPrice
+        ),
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
       );
     }
@@ -283,6 +295,11 @@ export async function trade(
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
     );
+
+    logger.info(
+      `Trade has been executed, txHash is ${tx.hash}, nonce is ${tx.nonce}, gasPrice is ${gasPrice}.`
+    );
+
     return {
       network: ethereumish.chain,
       timestamp: startTimestamp,

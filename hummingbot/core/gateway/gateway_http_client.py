@@ -284,6 +284,20 @@ class GatewayHttpClient:
             "address": address
         }, fail_silently=fail_silently)
 
+    async def cancel_evm_transaction(
+            self,
+            chain: str,
+            network: str,
+            address: str,
+            nonce: int
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "evm/cancel", {
+            "chain": chain,
+            "network": network,
+            "address": address,
+            "nonce": nonce
+        })
+
     async def amm_trade(
             self,
             chain: str,

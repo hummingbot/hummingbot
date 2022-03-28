@@ -22,7 +22,7 @@ import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -34,7 +34,6 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot import get_strategy_list
-from eth_account import Account
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -150,15 +149,6 @@ def get_strategy_template_path(strategy: str) -> str:
     Given the strategy name, return its template config `yml` file name.
     """
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
-
-
-def get_eth_wallet_private_key() -> Optional[str]:
-    ethereum_wallet = global_config_map.get("ethereum_wallet").value
-    if ethereum_wallet is None or ethereum_wallet == "":
-        return None
-    private_key = Security._private_keys[ethereum_wallet]
-    account = Account.privateKeyToAccount(private_key)
-    return account.privateKey.hex()
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
@@ -330,6 +320,15 @@ async def read_system_configs_from_yml():
 
 def save_system_configs_to_yml():
     save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+
+
+async def refresh_trade_fees_config():
+    """
+    Refresh the trade fees config, after new connectors have been added (e.g. gateway connectors).
+    """
+    init_fee_overrides_config()
+    await load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
     save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
 
 
