@@ -1,7 +1,10 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+DEFAULT_DOMAIN = "com"
+
 HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
+MAX_ORDER_ID_LEN = 36
 
 # Base URL
 REST_URL = "https://api.binance.{}/api/"

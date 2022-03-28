@@ -272,7 +272,7 @@ export class Uniswap implements Uniswapish {
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
       tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit,
+        gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
         maxFeePerGas,
@@ -280,8 +280,8 @@ export class Uniswap implements Uniswapish {
       });
     } else {
       tx = await contract[result.methodName](...result.args, {
-        gasPrice: gasPrice * 1e9,
-        gasLimit: gasLimit,
+        gasPrice: (gasPrice * 1e9).toFixed(0),
+        gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
       });

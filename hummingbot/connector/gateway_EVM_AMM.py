@@ -2,6 +2,7 @@ import asyncio
 import copy
 from decimal import Decimal
 import itertools as it
+from async_timeout import timeout
 import logging
 import re
 import time
@@ -34,6 +35,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     MarketOrderFailureEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     TokenApprovalSuccessEvent,
     TokenApprovalFailureEvent,
@@ -41,6 +43,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.logger import HummingbotLogger
+from .gateway_price_shim import GatewayPriceShim, MAINNET_NETWORKS
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -255,15 +258,37 @@ class GatewayEVMAMM(ConnectorBase):
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
-    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
+    async def get_quote_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Optional[Decimal]:
         """
         Retrieves a quote price.
+
         :param trading_pair: The market trading pair
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
+        :param ignore_shim: Ignore the price shim, and return the real price on the network
         :return: The quote price.
         """
 
+        # Get the price from gateway price shim for integration tests.
+        if self.network not in MAINNET_NETWORKS and not ignore_shim:
+            test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
+                self.connector_name,
+                self.chain,
+                self.network,
+                trading_pair,
+                is_buy,
+                amount
+            )
+            if test_price is not None:
+                return test_price
+
+        # Pull the price from gateway.
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         try:
@@ -312,11 +337,18 @@ class GatewayEVMAMM(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
-    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_order_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Decimal:
+
         """
         This is simply the quote price
         """
-        return await self.get_quote_price(trading_pair, is_buy, amount)
+        return await self.get_quote_price(trading_pair, is_buy, amount, ignore_shim=ignore_shim)
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
         """
@@ -377,7 +409,6 @@ class GatewayEVMAMM(ConnectorBase):
                                   trade_type=trade_type,
                                   price=price,
                                   amount=amount)
-
         await self._update_nonce()
         try:
             order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
@@ -528,16 +559,71 @@ class GatewayEVMAMM(ConnectorBase):
                     )
                 self.stop_tracking_order(tracked_approval.client_order_id)
 
-    async def _update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+    async def _update_canceled_orders(self,
+                                      canceled_tracked_orders: List[GatewayInFlightOrder]):
+        """
+        Update tracked orders that have a cancel_tx_hash.
+        :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
+        """
+        self.logger().debug(
+            "Polling for order status updates of %d canceled orders.",
+            len(canceled_tracked_orders)
+        )
+        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            GatewayHttpClient.get_instance().get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in [t.cancel_tx_hash for t in canceled_tracked_orders]
+        ], return_exceptions=True)
+        for tracked_order, update_result in zip(canceled_tracked_orders, update_results):
+            if isinstance(update_result, Exception):
+                raise update_result
+            if "txHash" not in update_result:
+                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+                                    f"{update_result}.")
+                continue
+            if update_result["txStatus"] == 1:
+                if update_result["txReceipt"]["status"] == 1:
+                    if tracked_order.last_state == "CANCELING":
+                        self.trigger_event(
+                            MarketEvent.OrderCancelled,
+                            OrderCancelledEvent(
+                                self.current_timestamp,
+                                tracked_order.client_order_id,
+                                tracked_order.exchange_order_id,
+                            )
+                        )
+                        tracked_order.last_state = "CANCELED"
+                        self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                           f"{tracked_order.client_order_id} has been canceled "
+                                           f"according to the order status API.")
+
+    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
         """
         if len(tracked_orders) < 1:
             return
-        tx_hash_list: List[str] = await safe_gather(*[
-            tracked_order.get_exchange_order_id() for tracked_order in tracked_orders
-        ])
-        self.logger().info(f"Polling for order status updates of {len(tracked_orders)} orders.")
+
+        # split canceled and non-canceled orders
+        canceled_tracked_orders: List[GatewayInFlightOrder] = []
+        tasks = []
+        for tracked_order in tracked_orders:
+            if tracked_order.is_cancelling and tracked_order.cancel_tx_hash is not None:
+                canceled_tracked_orders.append(tracked_order)
+            else:
+                tasks.append(tracked_order.get_exchange_order_id())
+
+        tx_hash_list: List[str] = await safe_gather(*tasks)
+
+        await self._update_canceled_orders(canceled_tracked_orders)
+
+        self.logger().debug(
+            "Polling for order status updates of %d orders.",
+            len(tracked_orders)
+        )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             GatewayHttpClient.get_instance().get_transaction_status(
                 self.chain,
@@ -593,10 +679,8 @@ class GatewayEVMAMM(ConnectorBase):
                             order_id=tracked_order.client_order_id,
                             base_asset=tracked_order.base_asset,
                             quote_asset=tracked_order.quote_asset,
-                            fee_asset=tracked_order.fee_asset,
                             base_asset_amount=tracked_order.executed_amount_base,
                             quote_asset_amount=tracked_order.executed_amount_quote,
-                            fee_amount=fee,
                             order_type=tracked_order.order_type,
                             exchange_order_id=tracked_order.exchange_order_id
                         )
@@ -683,15 +767,15 @@ class GatewayEVMAMM(ConnectorBase):
         self._nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
-        await self._update_balances(on_interval=False)
+        await self.update_balances(on_interval=False)
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
-                    self._update_balances(on_interval=True),
+                    self.update_balances(on_interval=True),
                     self._update_token_approval_status(self.approval_orders),
-                    self._update_order_status(self.amm_orders)
+                    self.update_order_status(self.amm_orders)
                 )
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
@@ -699,7 +783,7 @@ class GatewayEVMAMM(ConnectorBase):
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
-    async def _update_balances(self, on_interval=False):
+    async def update_balances(self, on_interval=False):
         """
         Calls Eth API to update total and available balances.
         """
@@ -725,8 +809,85 @@ class GatewayEVMAMM(ConnectorBase):
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
+    async def _update_balances(self):
+        """
+        This is called by UserBalances.
+        """
+        await self.update_balances()
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
+
+    async def _execute_cancel(self, order_id: str, cancel_age: int) -> Optional[str]:
+        """
+        Cancel an existing order if the age of the order is greater than its cancel_age,
+        and if the order is not done or already in the cancelling state.
+        """
+        try:
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                self.logger().error(f"The order {order_id} is not tracked. ")
+                raise ValueError
+
+            if (self.current_timestamp - tracked_order.creation_timestamp) < cancel_age:
+                return None
+
+            if tracked_order.is_done:
+                return None
+
+            if tracked_order.is_cancelling:
+                return order_id
+
+            resp: Dict[str, Any] = await GatewayHttpClient.get_instance().cancel_evm_transaction(
+                self.chain,
+                self.network,
+                self.address,
+                tracked_order.nonce)
+
+            txHash = resp.get("txHash")
+            if txHash is not None:
+                tracked_order.cancel_tx_hash = txHash
+            else:
+                raise Exception(f"txHash not in resp: {resp}")
+
+            tracked_order.last_state = "CANCELING"
+            self.logger().info(f"Requesting cancel of order {order_id}")
+            return order_id
+
+        except Exception as err:
+            self.logger().error(
+                f"Failed to cancel order {order_id}: {str(err)}.",
+                exc_info=True
+            )
+
+    async def cancel_outdated_orders(self, cancel_age: int) -> List[CancellationResult]:
+        """
+        Iterate through all known orders and cancel them if their age is greater than cancel_age.
+        """
+        timeout_seconds = 30.0
+        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+        tasks = [self._execute_cancel(o.client_order_id, cancel_age) for o in incomplete_orders]
+        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        successful_cancellations = []
+
+        try:
+            async with timeout(timeout_seconds):
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for client_order_id in cancellation_results:
+                    if isinstance(client_order_id, Exception):
+                        continue
+                    if client_order_id is not None:
+                        order_id_set.remove(client_order_id)
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
+        except Exception:
+            self.logger().network(
+                "Unexpected error cancelling outdated orders.",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel orders on {self.chain}-{self.network}."
+            )
+
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     @property
     def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:

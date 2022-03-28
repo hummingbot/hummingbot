@@ -44,14 +44,10 @@ class CmdlineParser(argparse.ArgumentParser):
                           type=str,
                           required=False,
                           help="Specify a file in `conf/` to load as the strategy config file.")
-        self.add_argument("--wallet", "-w",
+        self.add_argument("--config-password", "-p",
                           type=str,
                           required=False,
-                          help="Specify the wallet address you would like to use.")
-        self.add_argument("--config-password", "--wallet-password", "-p",
-                          type=str,
-                          required=False,
-                          help="Specify the password to unlock your encrypted files and wallets.")
+                          help="Specify the password to unlock your encrypted files.")
         self.add_argument("--auto-set-permissions",
                           type=str,
                           required=False,
@@ -77,7 +73,6 @@ def autofix_permissions(user_group_spec: str):
 
 async def quick_start(args: argparse.Namespace):
     config_file_name = args.config_file_name
-    wallet = args.wallet
     password = args.config_password
 
     if args.auto_set_permissions is not None:
@@ -105,9 +100,6 @@ async def quick_start(args: argparse.Namespace):
     if not global_config_map.get("kill_switch_enabled"):
         global_config_map.get("kill_switch_enabled").value = False
 
-    if wallet and password:
-        global_config_map.get("ethereum_wallet").value = wallet
-
     if hb.strategy_name and hb.strategy_file_name:
         if not all_configs_complete(hb.strategy_name):
             hb.status()
@@ -133,8 +125,6 @@ def main():
     # variable.
     if args.config_file_name is None and len(os.environ.get("CONFIG_FILE_NAME", "")) > 0:
         args.config_file_name = os.environ["CONFIG_FILE_NAME"]
-    if args.wallet is None and len(os.environ.get("WALLET", "")) > 0:
-        args.wallet = os.environ["WALLET"]
     if args.config_password is None and len(os.environ.get("CONFIG_PASSWORD", "")) > 0:
         args.config_password = os.environ["CONFIG_PASSWORD"]
 
