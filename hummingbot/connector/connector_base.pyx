@@ -6,16 +6,13 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
+from hummingbot.connector.constants import NaN, s_decimal_NaN, s_decimal_0
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.utils.estimate_fee import estimate_fee
-
-NaN = float("nan")
-s_decimal_NaN = Decimal("nan")
-s_decimal_0 = Decimal(0)
 
 
 cdef class ConnectorBase(NetworkIterator):
