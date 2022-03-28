@@ -910,7 +910,7 @@ class GatewayEVMAMM(ConnectorBase):
                 tracked_order.nonce
             )
 
-            tx_hash: str = resp.get("txHash")
+            tx_hash: Optional[str] = resp.get("txHash")
             if tx_hash is not None:
                 tracked_order.cancel_tx_hash = tx_hash
             else:
@@ -929,7 +929,10 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Iterate through all known orders and cancel them if their age is greater than cancel_age.
         """
-        incomplete_orders: List[GatewayInFlightOrder] = [o for o in self._in_flight_orders.values() if not o.is_done]
+        incomplete_orders: List[GatewayInFlightOrder] = [
+            o for o in self._in_flight_orders.values()
+            if not (o.is_done or o.is_cancelling)
+        ]
         if len(incomplete_orders) < 1:
             return []
 
