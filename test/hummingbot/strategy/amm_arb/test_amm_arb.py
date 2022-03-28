@@ -244,7 +244,7 @@ class AmmArbUnitTest(unittest.TestCase):
         event_class = BuyOrderCompletedEvent if is_buy else SellOrderCompletedEvent
         connector.trigger_event(event_tag,
                                 event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
-                                            quote_asset, amount, amount * price, Decimal("0"), OrderType.LIMIT))
+                                            amount, amount * price, OrderType.LIMIT))
 
     def test_non_concurrent_orders_submission(self):
         # On non concurrent orders submission, the second leg of the arb trade has to wait for the first leg order gets

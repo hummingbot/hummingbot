@@ -23,22 +23,7 @@ def list_gateway_wallets(wallets: List[Any], chain: str) -> List[str]:
     return list(flatten([w["walletAddresses"] for w in wallets if w["chain"] == chain]))
 
 
-def upsert_connection(connectors: List[Dict[str, Any]], connector, chain, network, trading_type, wallet):
-    new_connector = {"connector": connector, "chain": chain, "network": network, "trading_type": trading_type, "wallet_address": wallet}
-
-    updated = False
-
-    for i, c in enumerate(connectors):
-        if c["connector"] == connector and c["chain"] == chain and c["network"] == network:
-            connectors[i] = new_connector
-            updated = True
-            break
-
-    if updated is False:
-        connectors.append(new_connector)
-
-
-def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]):
+def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     Display user wallets for a particular chain as a table
     """
@@ -50,14 +35,20 @@ def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]):
     return pd.DataFrame(data=data, columns=columns)
 
 
-def build_connector_display(connectors: List[Dict[str, Any]]):
+def build_connector_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     Display connector information as a table
     """
     columns = ["Exchange", "Network", "Wallet"]
     data = []
-    for dict in connectors:
-        data.extend([[dict['connector'], f"{dict['chain']} - {dict['network']}", dict['wallet_address']]])
+    for connector_spec in connectors:
+        data.extend([
+            [
+                connector_spec["connector"],
+                f"{connector_spec['chain']} - {connector_spec['network']}",
+                connector_spec["wallet_address"],
+            ]
+        ])
 
     return pd.DataFrame(data=data, columns=columns)
 
