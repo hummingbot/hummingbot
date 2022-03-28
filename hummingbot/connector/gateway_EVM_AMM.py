@@ -9,6 +9,7 @@ import time
 from typing import (
     Dict,
     List,
+    Set,
     Optional,
     Any,
     Type,
@@ -39,6 +40,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     TokenApprovalSuccessEvent,
     TokenApprovalFailureEvent,
+    TokenApprovalCancelledEvent,
     OrderType,
     TradeType,
 )
@@ -60,12 +62,27 @@ class GatewayEVMAMM(ConnectorBase):
     UPDATE_BALANCE_INTERVAL = 30.0
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(cls.__name__)
-        return cast(HummingbotLogger, s_logger)
+    _connector_name: str
+    _name: str
+    _chain: str
+    _network: str
+    _trading_pairs: List[str]
+    _tokens: Set[str]
+    _wallet_address: str
+    _trading_required: bool
+    _ev_loop: asyncio.AbstractEventLoop
+    _last_poll_timestamp: float
+    _last_balance_poll_timestamp: float
+    _last_est_gas_cost_reported: float
+    _in_flight_orders: Dict[str, GatewayInFlightOrder]
+    _allowances: Dict[str, Decimal]
+    _chain_info: Dict[str, Any]
+    _status_polling_task: Optional[asyncio.Task]
+    _get_chain_info_task: Optional[asyncio.Task]
+    _auto_approve_task: Optional[asyncio.Task]
+    _poll_notifier: Optional[asyncio.Event]
+    _nonce: Optional[int]
+    _native_currency: str
 
     def __init__(self,
                  connector_name: str,
@@ -108,6 +125,13 @@ class GatewayEVMAMM(ConnectorBase):
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(cls.__name__)
+        return cast(HummingbotLogger, s_logger)
+
     @property
     def connector_name(self):
         """
@@ -146,12 +170,21 @@ class GatewayEVMAMM(ConnectorBase):
         except Exception:
             return []
 
+    @staticmethod
+    def is_amm_order(in_flight_order: GatewayInFlightOrder) -> bool:
+        return in_flight_order.client_order_id.split("-")[0] in {"buy", "sell"}
+
+    @staticmethod
+    def is_approval_order(in_flight_order: GatewayInFlightOrder) -> bool:
+        return in_flight_order.client_order_id.split("-")[0] == "approve"
+
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:
         return [
             approval_order
             for approval_order in self._in_flight_orders.values()
-            if approval_order.client_order_id.split("-")[0] == "approve"
+            if self.is_approval_order(approval_order)
+            and not approval_order.is_cancelling
         ]
 
     @property
@@ -159,7 +192,16 @@ class GatewayEVMAMM(ConnectorBase):
         return [
             in_flight_order
             for in_flight_order in self._in_flight_orders.values()
-            if in_flight_order.client_order_id.split("-")[0] in {"buy", "sell"}
+            if self.is_amm_order(in_flight_order)
+            and not in_flight_order.is_cancelling
+        ]
+
+    @property
+    def canceling_orders(self) -> List[GatewayInFlightOrder]:
+        return [
+            cancel_order
+            for cancel_order in self._in_flight_orders.values()
+            if cancel_order.is_cancelling
         ]
 
     @property
@@ -249,7 +291,7 @@ class GatewayEVMAMM(ConnectorBase):
             if amount <= s_decimal_0 and not self.is_pending_approval(token):
                 await self.approve_token(token)
 
-    async def approve_token(self, token_symbol: str) -> Optional[GatewayInFlightOrder]:
+    async def approve_token(self, token_symbol: str, **request_args) -> Optional[GatewayInFlightOrder]:
         """
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
@@ -262,7 +304,8 @@ class GatewayEVMAMM(ConnectorBase):
             self.address,
             token_symbol,
             self.connector_name,
-            self._nonce
+            self._nonce,
+            **request_args
         )
         self.start_tracking_order(order_id, None, token_symbol)
 
@@ -423,7 +466,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         return self.place_order(False, trading_pair, amount, price)
 
-    def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal) -> str:
+    def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal, **request_args) -> str:
         """
         Places an order.
         :param is_buy: True for buy order
@@ -434,15 +477,18 @@ class GatewayEVMAMM(ConnectorBase):
         """
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
         order_id: str = self.create_market_order_id(side, trading_pair)
-        safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price))
+        safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price, **request_args))
         return order_id
 
-    async def _create_order(self,
-                            trade_type: TradeType,
-                            order_id: str,
-                            trading_pair: str,
-                            amount: Decimal,
-                            price: Decimal):
+    async def _create_order(
+            self,
+            trade_type: TradeType,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            price: Decimal,
+            **request_args
+    ):
         """
         Calls buy or sell API end point to place an order, starts tracking the order and triggers relevant order events.
         :param trade_type: BUY or SELL
@@ -472,7 +518,8 @@ class GatewayEVMAMM(ConnectorBase):
                 trade_type,
                 amount,
                 price,
-                self._nonce
+                self._nonce,
+                **request_args
             )
             transaction_hash: str = order_result.get("txHash")
             nonce: int = order_result.get("nonce")
@@ -512,10 +559,10 @@ class GatewayEVMAMM(ConnectorBase):
                     creation_timestamp=tracked_order.creation_timestamp,
                     exchange_order_id=transaction_hash
                 ))
-
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
+                self.stop_tracking_order(order_id)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -559,7 +606,7 @@ class GatewayEVMAMM(ConnectorBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
+    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight token approval transaction.
         """
@@ -612,12 +659,14 @@ class GatewayEVMAMM(ConnectorBase):
                     )
                 self.stop_tracking_order(tracked_approval.client_order_id)
 
-    async def _update_canceled_orders(self,
-                                      canceled_tracked_orders: List[GatewayInFlightOrder]):
+    async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightOrder]):
         """
         Update tracked orders that have a cancel_tx_hash.
         :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
         """
+        if len(canceled_tracked_orders) < 1:
+            return
+
         self.logger().debug(
             "Polling for order status updates of %d canceled orders.",
             len(canceled_tracked_orders)
@@ -640,18 +689,34 @@ class GatewayEVMAMM(ConnectorBase):
             if update_result["txStatus"] == 1:
                 if update_result["txReceipt"]["status"] == 1:
                     if tracked_order.last_state == "CANCELING":
-                        self.trigger_event(
-                            MarketEvent.OrderCancelled,
-                            OrderCancelledEvent(
-                                self.current_timestamp,
-                                tracked_order.client_order_id,
-                                tracked_order.exchange_order_id,
+                        if self.is_amm_order(tracked_order):
+                            self.trigger_event(
+                                MarketEvent.OrderCancelled,
+                                OrderCancelledEvent(
+                                    self.current_timestamp,
+                                    tracked_order.client_order_id,
+                                    tracked_order.exchange_order_id,
+                                )
                             )
-                        )
+                            self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                               f"{tracked_order.client_order_id} has been canceled "
+                                               f"according to the order status API.")
+                        elif self.is_approval_order(tracked_order):
+                            token_symbol: str = self.get_token_symbol_from_approval_order_id(
+                                tracked_order.client_order_id
+                            )
+                            self.trigger_event(
+                                TokenApprovalEvent.ApprovalCancelled,
+                                TokenApprovalCancelledEvent(
+                                    self.current_timestamp,
+                                    self.connector_name,
+                                    token_symbol
+                                )
+                            )
+                            self.logger().info(f"Token approval for {tracked_order.client_order_id} on "
+                                               f"{self.connector_name} has been canceled.")
                         tracked_order.last_state = "CANCELED"
-                        self.logger().info(f"The {tracked_order.trade_type.name} order "
-                                           f"{tracked_order.client_order_id} has been canceled "
-                                           f"according to the order status API.")
+                    self.stop_tracking_order(tracked_order.client_order_id)
 
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
@@ -661,18 +726,9 @@ class GatewayEVMAMM(ConnectorBase):
             return
 
         # split canceled and non-canceled orders
-        canceled_tracked_orders: List[GatewayInFlightOrder] = []
-        tasks = []
-        for tracked_order in tracked_orders:
-            if tracked_order.is_cancelling and tracked_order.cancel_tx_hash is not None:
-                canceled_tracked_orders.append(tracked_order)
-            else:
-                tasks.append(tracked_order.get_exchange_order_id())
-
-        tx_hash_list: List[str] = await safe_gather(*tasks)
-
-        await self._update_canceled_orders(canceled_tracked_orders)
-
+        tx_hash_list: List[str] = await safe_gather(
+            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
+        )
         self.logger().debug(
             "Polling for order status updates of %d orders.",
             len(tracked_orders)
@@ -833,7 +889,8 @@ class GatewayEVMAMM(ConnectorBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self.update_balances(on_interval=True),
-                    self._update_token_approval_status(self.approval_orders),
+                    self.update_canceling_transactions(self.canceling_orders),
+                    self.update_token_approval_status(self.approval_orders),
                     self.update_order_status(self.amm_orders)
                 )
                 self._last_poll_timestamp = self.current_timestamp
@@ -877,6 +934,10 @@ class GatewayEVMAMM(ConnectorBase):
         await self.update_balances()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        This is intentionally left blank, because cancellation is expensive on blockchains. It's not worth it for
+        Hummingbot to force cancel all orders whenever Hummingbot quits.
+        """
         return []
 
     async def _execute_cancel(self, order_id: str, cancel_age: int) -> Optional[str]:
@@ -885,10 +946,10 @@ class GatewayEVMAMM(ConnectorBase):
         and if the order is not done or already in the cancelling state.
         """
         try:
-            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order: GatewayInFlightOrder = self._in_flight_orders.get(order_id)
             if tracked_order is None:
-                self.logger().error(f"The order {order_id} is not tracked. ")
-                raise ValueError
+                self.logger().error(f"The order {order_id} is not being tracked.")
+                raise ValueError(f"The order {order_id} is not being tracked.")
 
             if (self.current_timestamp - tracked_order.creation_timestamp) < cancel_age:
                 return None
@@ -899,20 +960,22 @@ class GatewayEVMAMM(ConnectorBase):
             if tracked_order.is_cancelling:
                 return order_id
 
+            self.logger().info(f"The blockchain transaction for {order_id} with nonce {tracked_order.nonce} has "
+                               f"expired. Canceling the order...")
             resp: Dict[str, Any] = await GatewayHttpClient.get_instance().cancel_evm_transaction(
                 self.chain,
                 self.network,
                 self.address,
-                tracked_order.nonce)
+                tracked_order.nonce
+            )
 
-            txHash = resp.get("txHash")
-            if txHash is not None:
-                tracked_order.cancel_tx_hash = txHash
+            tx_hash: Optional[str] = resp.get("txHash")
+            if tx_hash is not None:
+                tracked_order.cancel_tx_hash = tx_hash
             else:
-                raise Exception(f"txHash not in resp: {resp}")
+                raise EnvironmentError(f"Missing txHash from cancel_evm_transaction() response: {resp}.")
 
             tracked_order.last_state = "CANCELING"
-            self.logger().info(f"Requesting cancel of order {order_id}")
             return order_id
         except asyncio.CancelledError:
             raise
@@ -926,21 +989,32 @@ class GatewayEVMAMM(ConnectorBase):
         """
         Iterate through all known orders and cancel them if their age is greater than cancel_age.
         """
-        timeout_seconds = 30.0
-        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self._execute_cancel(o.client_order_id, cancel_age) for o in incomplete_orders]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
+        incomplete_orders: List[GatewayInFlightOrder] = [
+            o for o in self._in_flight_orders.values()
+            if not (o.is_done or o.is_cancelling)
+        ]
+        if len(incomplete_orders) < 1:
+            return []
+
+        timeout_seconds: float = 30.0
+        canceling_id_set: Set[str] = set([o.client_order_id for o in incomplete_orders])
+        sent_cancellations: List[CancellationResult] = []
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
-                for client_order_id in cancellation_results:
-                    if isinstance(client_order_id, Exception):
+                # XXX (martin_kou): We CANNOT perform parallel transactions before the nonce architecture is fixed.
+                # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
+                for incomplete_order in incomplete_orders:
+                    try:
+                        canceling_order_id: Optional[str] = await self._execute_cancel(
+                            incomplete_order.client_order_id,
+                            cancel_age
+                        )
+                    except Exception:
                         continue
-                    if client_order_id is not None:
-                        order_id_set.remove(client_order_id)
-                        successful_cancellations.append(CancellationResult(client_order_id, True))
+                    if canceling_order_id is not None:
+                        canceling_id_set.remove(canceling_order_id)
+                        sent_cancellations.append(CancellationResult(canceling_order_id, True))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -950,8 +1024,8 @@ class GatewayEVMAMM(ConnectorBase):
                 app_warning_msg=f"Failed to cancel orders on {self.chain}-{self.network}."
             )
 
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
+        skipped_cancellations: List[CancellationResult] = [CancellationResult(oid, False) for oid in canceling_id_set]
+        return sent_cancellations + skipped_cancellations
 
     @property
     def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
