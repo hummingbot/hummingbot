@@ -11,7 +11,7 @@ from hummingbot.core.clock import (
 )
 from hummingbot.strategy.dev_1_get_order_book import GetOrderBookStrategy
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 
 class Dev1GetOrderBookUnitTest(unittest.TestCase):
