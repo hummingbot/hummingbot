@@ -1,17 +1,16 @@
 from dataclasses import dataclass
 from decimal import Decimal
 import logging
-import re
 from typing import Optional, List
 
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount
 from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.gateway.utils import unwrap_token_symbol
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-UNWRAP_PATTERN = re.compile(r"^[Ww]")
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
 arbprop_logger: Optional[HummingbotLogger] = None
@@ -54,7 +53,7 @@ class ArbProposal:
 
     @staticmethod
     def unwrap_asset_name(asset_name: str) -> str:
-        return UNWRAP_PATTERN.sub("", asset_name)
+        return unwrap_token_symbol(asset_name)
 
     def profit_pct(
             self,
