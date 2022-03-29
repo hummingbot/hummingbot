@@ -420,6 +420,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         ----------
         order_id:
             Client order ID
+        exchange_order_id:
+            Order ID on the exhange
         trading_pair:
             The pair that is being traded
         trading_type:
@@ -434,8 +436,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             Leverage of the position
         position:
             OPEN or CLOSE
-        exchange_order_id:
-            Order ID on the exhange
         """
         self._client_order_tracker.start_tracking_order(
             InFlightOrder(
