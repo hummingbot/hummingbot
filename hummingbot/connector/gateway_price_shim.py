@@ -13,10 +13,6 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.logger.logger import HummingbotLogger
 from .exchange_base import ExchangeBase
 
-MAINNET_NETWORKS = {
-    "mainnet", "avalanche"
-}
-
 
 class GatewayPriceShimKey(NamedTuple):
     connector_name: str
@@ -105,9 +101,6 @@ class GatewayPriceShim:
             to_network: str,
             to_trading_pair: str
     ):
-        if to_network in MAINNET_NETWORKS:
-            raise ValueError("Cannot install price shim to non-testnets.")
-
         key: GatewayPriceShimKey = GatewayPriceShimKey(
             connector_name=to_connector_name,
             chain=to_chain,
@@ -131,9 +124,6 @@ class GatewayPriceShim:
             trading_pair: str,
             delta: Decimal,
             duration_seconds: float = 60):
-        if network in MAINNET_NETWORKS:
-            raise ValueError("Cannot install price shim to non-testnets.")
-
         key: GatewayPriceShimKey = GatewayPriceShimKey(
             connector_name=connector_name,
             chain=chain,

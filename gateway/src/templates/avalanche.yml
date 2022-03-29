@@ -10,7 +10,7 @@ networks:
     chainID: 43114
     nodeURL: 'https://api.avax.network/ext/bc/C/rpc'
     tokenListType: 'URL'
-    tokenListSource: 'https://raw.githubusercontent.com/pangolindex/tokenlists/main/top15.tokenlist.json'
+    tokenListSource: 'https://raw.githubusercontent.com/pangolindex/tokenlists/main/pangolin.tokenlist.json'
     nativeCurrencySymbol: 'AVAX'
 
 nodeAPIKey: '3712b320394b413fb4c42fdadcebdf54'
