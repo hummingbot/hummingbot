@@ -1,12 +1,15 @@
-from dataclasses import dataclass
-from decimal import Decimal
+import asyncio
 import logging
 import re
+
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Optional, List
 
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -28,11 +31,19 @@ class ArbProposalSide:
     order_price: Decimal
     amount: Decimal
     extra_flat_fees: List[TokenAmount]
+    completed_event: asyncio.Event = asyncio.Event()
 
     def __repr__(self):
         side = "buy" if self.is_buy else "sell"
         return f"Connector: {self.market_info.market.display_name}  Side: {side}  Quote Price: {self.quote_price}  " \
                f"Order Price: {self.order_price}  Amount: {self.amount}  Extra Fees: {self.extra_flat_fees}"
+
+    @property
+    def is_completed(self) -> bool:
+        return self.completed_event.is_set()
+
+    def set_completed(self):
+        self.completed_event.set()
 
 
 class ArbProposal:
@@ -152,3 +163,6 @@ class ArbProposal:
                             self.second_side.quote_price, self.second_side.order_price,
                             self.second_side.amount, self.second_side.extra_flat_fees)
         )
+
+    async def wait(self):
+        return await safe_gather(*[self.first_side.completed_event.wait(), self.second_side.completed_event.wait()])
