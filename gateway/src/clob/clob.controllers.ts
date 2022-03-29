@@ -1,3 +1,7 @@
+import {ClobMarketsRequest} from "./clob.requests";
+import {getChain, getConnector} from "../services/connection-manager";
+import {markets} from "../connectors/serum/serum.controllers";
+
 /** import {
   PriceRequest,
   PriceResponse,
@@ -23,9 +27,11 @@ export async function trade(req: TradeRequest): Promise<TradeResponse> {
 }
 **/
 
-export async function markets(body: any) {
-  console.log(body);
-  return body;
+export async function markets(req: ClobMarketsRequest) {
+  const chain = await getChain(req.chain, req.network);
+  const connector = await getConnector(req.chain, req.network, req.connector);
+
+  return markets(chain, connector, req);
 }
 
 export async function orderbook(body: any) {
