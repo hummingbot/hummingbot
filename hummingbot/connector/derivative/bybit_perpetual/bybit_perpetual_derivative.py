@@ -553,7 +553,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if send_order_results["ret_code"] != 0:
                 if send_order_results["ret_code"] == 130125:
-                    # "current position is zero, cannot fix reduce-only order qty"
                     self.stop_tracking_order(order_id)
                     return
                 else:
@@ -573,8 +572,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     client_order_id=order_id,
                     exchange_order_id=exchange_order_id,
                 )
-                # Since POST /order endpoint is synchrounous, we can update exchange_order_id and
-                # last_state of tracked order.
                 self._client_order_tracker.process_order_update(order_update)
 
         except asyncio.CancelledError:
@@ -586,7 +583,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 new_state=OrderState.FAILED,
                 client_order_id=order_id,
             )
-            # This should call stop_tracking_order
             self._client_order_tracker.process_order_update(order_update)
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to Bybit Perpetual for "
