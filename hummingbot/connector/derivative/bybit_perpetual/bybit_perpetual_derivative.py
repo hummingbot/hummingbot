@@ -838,10 +838,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             is_auth_required=True,
         )
 
-        for asset_name, balance_json in wallet_balance["result"].items():
-            self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
-            self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
-            remote_asset_names.add(asset_name)
+        if wallet_balance["result"] is not None:
+            for asset_name, balance_json in wallet_balance["result"].items():
+                self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
+                self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
+                remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
