@@ -104,8 +104,6 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if os.path.exists('test'):
-        cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {

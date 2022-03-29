@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import TwapTradeStrategy
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 logging.basicConfig(level=logging.ERROR)
 
