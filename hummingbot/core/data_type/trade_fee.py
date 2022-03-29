@@ -208,6 +208,7 @@ class TradeFeeBase(ABC):
             exchange: Optional['ExchangeBase'] = None,
             rate_source: Optional["hummingbot.core.rate_oracle.rate_oracle.RateOracle"] = None      # noqa: F821
     ) -> Decimal:
+        from hummingbot.core.gateway.utils import unwrap_token_symbol       # avoid circular import
         base, quote = split_hb_trading_pair(trading_pair)
         fee_amount: Decimal = S_DECIMAL_0
         if self.percent != S_DECIMAL_0:
@@ -215,7 +216,10 @@ class TradeFeeBase(ABC):
             if self._are_tokens_interchangeable(quote, token):
                 fee_amount += amount_from_percentage
             else:
-                conversion_pair: str = combine_to_hb_trading_pair(base=quote, quote=token)
+                conversion_pair: str = combine_to_hb_trading_pair(
+                    base=unwrap_token_symbol(quote),
+                    quote=unwrap_token_symbol(token)
+                )
                 conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
                 fee_amount += amount_from_percentage * conversion_rate
         for flat_fee in self.flat_fees:
@@ -227,7 +231,10 @@ class TradeFeeBase(ABC):
                 # In this case instead of looking for the rate we use directly the price in the parameters
                 fee_amount += flat_fee.amount * price
             else:
-                conversion_pair: str = combine_to_hb_trading_pair(base=flat_fee.token, quote=token)
+                conversion_pair: str = combine_to_hb_trading_pair(
+                    base=unwrap_token_symbol(flat_fee.token),
+                    quote=unwrap_token_symbol(token)
+                )
                 conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
                 fee_amount += (flat_fee.amount * conversion_rate)
         return fee_amount

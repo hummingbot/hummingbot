@@ -75,9 +75,9 @@ class ArbProposal:
                                          f"{self.unwrap_asset_name(buy_side.market_info.quote_asset)}"
 
         sell_base_to_buy_base_rate: Decimal = Decimal(1)
-        sell_quote_to_buy_quote_rate: Decimal = rate_source.rate(quote_conversion_pair)
-        sell_quote_to_buy_quote_rate: Decimal = sell_quote_to_buy_quote_rate if sell_quote_to_buy_quote_rate else \
-            rate_source.rate(unwrapped_conversion_pair)
+        sell_quote_to_buy_quote_rate: Decimal = (
+            rate_source.rate(quote_conversion_pair) or rate_source.rate(unwrapped_conversion_pair)
+        )
 
         buy_fee_amount: Decimal = s_decimal_0
         sell_fee_amount: Decimal = s_decimal_0

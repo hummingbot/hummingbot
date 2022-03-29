@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from typing import Optional, Any, Dict, AsyncIterable, List
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
 
@@ -40,6 +39,7 @@ def get_gateway_container_name() -> str:
 
     :return: Gateway container name
     """
+    from hummingbot.client.config.global_config_map import global_config_map
     instance_id_suffix: str = global_config_map["instance_id"].value[:8]
     return f"hummingbot-gateway-{instance_id_suffix}"
 
@@ -123,6 +123,7 @@ def get_gateway_paths() -> GatewayPaths:
 
 
 def get_default_gateway_port() -> int:
+    from hummingbot.client.config.global_config_map import global_config_map
     return detect_available_port(16000 + int(global_config_map.get("instance_id").value[:4], 16) % 16000)
 
 
