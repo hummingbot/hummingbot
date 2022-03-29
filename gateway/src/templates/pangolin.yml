@@ -3,7 +3,7 @@
 allowedSlippage: '1/100'
 
 # the maximum gas allowed for a pangolin trade.
-gasLimit: 23012
+gasLimit: 150688
 
 # how long a trade is valid in seconds. After time passes pangolin will not
 # perform the trade, but the gas will still be spent.

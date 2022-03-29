@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import re
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -14,7 +13,6 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-UNWRAP_PATTERN = re.compile(r"^[Ww]")
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
 arbprop_logger: Optional[HummingbotLogger] = None
@@ -63,10 +61,6 @@ class ArbProposal:
         self.first_side: ArbProposalSide = first_side
         self.second_side: ArbProposalSide = second_side
 
-    @staticmethod
-    def unwrap_asset_name(asset_name: str) -> str:
-        return UNWRAP_PATTERN.sub("", asset_name)
-
     def profit_pct(
             self,
             rate_source: Optional[RateOracle] = None,
@@ -83,13 +77,9 @@ class ArbProposal:
         sell_side: ArbProposalSide = self.first_side if not self.first_side.is_buy else self.second_side
         base_conversion_pair: str = f"{sell_side.market_info.base_asset}-{buy_side.market_info.base_asset}"
         quote_conversion_pair: str = f"{sell_side.market_info.quote_asset}-{buy_side.market_info.quote_asset}"
-        unwrapped_conversion_pair: str = f"{self.unwrap_asset_name(sell_side.market_info.quote_asset)}-" \
-                                         f"{self.unwrap_asset_name(buy_side.market_info.quote_asset)}"
 
         sell_base_to_buy_base_rate: Decimal = Decimal(1)
         sell_quote_to_buy_quote_rate: Decimal = rate_source.rate(quote_conversion_pair)
-        sell_quote_to_buy_quote_rate: Decimal = sell_quote_to_buy_quote_rate if sell_quote_to_buy_quote_rate else \
-            rate_source.rate(unwrapped_conversion_pair)
 
         buy_fee_amount: Decimal = s_decimal_0
         sell_fee_amount: Decimal = s_decimal_0
