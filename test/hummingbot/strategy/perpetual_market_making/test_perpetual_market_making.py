@@ -22,7 +22,7 @@ from hummingbot.strategy.data_types import Proposal, PriceSize
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
 from hummingbot.strategy.strategy_base import StrategyBase
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from test.mock.mock_perp_connector import MockPerpConnector
 
 
