@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 
+import path_util        # noqa: F401
 import argparse
 import asyncio
 import logging
-import os
-import subprocess
 from typing import (
     Coroutine,
     List,
 )
+import os
+import subprocess
 
-import path_util  # noqa: F401
-from bin.hummingbot import (
-    detect_available_port,
-)
 from hummingbot import (
+    check_dev_mode,
     init_logging,
 )
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
     write_config_to_yml,
@@ -24,14 +24,15 @@ from hummingbot.client.config.config_helpers import (
     update_strategy_config_map_from_file,
     all_configs_complete,
 )
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.management.console import start_management_console
+from bin.hummingbot import (
+    detect_available_port,
+)
+from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.config.security import Security
 
 
 class CmdlineParser(argparse.ArgumentParser):
@@ -100,9 +101,14 @@ async def quick_start(args):
             hb.status()
 
     with patch_stdout(log_field=hb.app.log_field):
+        dev_mode = check_dev_mode()
+        if dev_mode:
+            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
+
         log_level = global_config_map.get("log_level").value
         init_logging("hummingbot_logs.yml",
-                     override_log_level=log_level)
+                     override_log_level=log_level,
+                     dev_mode=dev_mode)
 
         if hb.strategy_file_name is not None and hb.strategy_name is not None:
             await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)

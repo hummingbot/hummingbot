@@ -1,35 +1,35 @@
+#!/usr/bin/env python
+
 import asyncio
 import logging
 import threading
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
-
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.document import Document
-from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
-
-from hummingbot.client.ui.layout import (
-    create_input_field,
-    create_live_field,
-    create_log_field,
-    create_log_toggle,
-    create_output_field,
-    create_process_monitor,
-    create_search_field,
-    create_tab_button,
-    create_timer,
-    create_trade_monitor,
-    generate_layout,
-)
-from hummingbot.client.tab.data_types import CommandTab
-from hummingbot.client.ui.interface_utils import start_process_monitor, start_timer, start_trade_monitor
-from hummingbot.client.ui.style import load_style
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from prompt_toolkit.key_binding import KeyBindings
+from typing import Callable, Optional, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.ui.layout import (
+    create_input_field,
+    create_log_field,
+    create_log_toggle,
+    create_output_field,
+    create_search_field,
+    generate_layout,
+    create_timer,
+    create_process_monitor,
+    create_trade_monitor,
+    create_live_field,
+    create_tab_button,
+)
+from hummingbot.client.tab.data_types import CommandTab
+from hummingbot.client.ui.interface_utils import start_timer, start_process_monitor, start_trade_monitor
+from hummingbot.client.ui.style import load_style
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 # Monkey patching here as _handle_exception gets the UI hanged into Press ENTER screen mode
