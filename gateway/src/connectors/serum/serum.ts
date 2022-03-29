@@ -2,6 +2,8 @@ import {} from '@solana/web3.js';
 import {} from '@solana/spl-token';
 import {} from '@project-serum/serum';
 
+export type Serumish = Serum;
+
 export class Serum {
   private static _instance: Serum;
   private _ready: boolean = false;
