@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import cast
 
 from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
-from hummingbot.connector.gateway_price_shim import GatewayPriceShim, MAINNET_NETWORKS
+from hummingbot.connector.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
 from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
@@ -38,8 +38,6 @@ def start(self):
             other_market_info = market_info_1
             other_market_name = connector_1
         amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, amm_market_info.market)
-        if amm_connector.network in MAINNET_NETWORKS:
-            raise ValueError("Cannot enable debug price shim on mainnet - this is a testnet feature only.")
         GatewayPriceShim.get_instance().patch_prices(
             other_market_name,
             other_market_info.trading_pair,
