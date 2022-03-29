@@ -15,7 +15,7 @@ from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.data_type.order_book import OrderBookRow
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.network_iterator import NetworkStatus
-from .mock_order_tracker import MockOrderTracker
+from test.mock.mock_order_tracker import MockOrderTracker
 
 s_decimal_0 = Decimal("0")
 

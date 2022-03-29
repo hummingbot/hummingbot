@@ -22,7 +22,7 @@ from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage impor
     SpotPerpetualArbitrageStrategy,
     StrategyState,
 )
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from test.mock.mock_perp_connector import MockPerpConnector
 
 logging.basicConfig(level=logging.ERROR)

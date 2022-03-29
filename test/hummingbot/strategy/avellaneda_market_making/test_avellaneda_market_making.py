@@ -29,7 +29,7 @@ from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
