@@ -15,7 +15,6 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import OrderType
-from hummingbot.core.gateway.utils import unwrap_token_symbol
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -375,10 +374,8 @@ class AmmArbStrategy(StrategyPyBase):
 
     def quotes_rate_df(self):
         columns = ["Quotes pair", "Rate"]
-        display_quotes_pair: str = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
-        real_quotes_pair: str = f"{unwrap_token_symbol(self._market_info_2.quote_asset)}-" \
-                                f"{unwrap_token_symbol(self._market_info_1.quote_asset)}"
-        data = [[display_quotes_pair, PerformanceMetrics.smart_round(self._rate_source.rate(real_quotes_pair))]]
+        quotes_pair: str = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
+        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.rate(quotes_pair))]]
 
         return pd.DataFrame(data=data, columns=columns)
 

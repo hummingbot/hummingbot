@@ -5,7 +5,6 @@ from typing import Optional, List
 
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount
 from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.core.gateway.utils import unwrap_token_symbol
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.logger import HummingbotLogger
@@ -51,10 +50,6 @@ class ArbProposal:
         self.first_side: ArbProposalSide = first_side
         self.second_side: ArbProposalSide = second_side
 
-    @staticmethod
-    def unwrap_asset_name(asset_name: str) -> str:
-        return unwrap_token_symbol(asset_name)
-
     def profit_pct(
             self,
             rate_source: Optional[RateOracle] = None,
@@ -71,13 +66,9 @@ class ArbProposal:
         sell_side: ArbProposalSide = self.first_side if not self.first_side.is_buy else self.second_side
         base_conversion_pair: str = f"{sell_side.market_info.base_asset}-{buy_side.market_info.base_asset}"
         quote_conversion_pair: str = f"{sell_side.market_info.quote_asset}-{buy_side.market_info.quote_asset}"
-        unwrapped_conversion_pair: str = f"{self.unwrap_asset_name(sell_side.market_info.quote_asset)}-" \
-                                         f"{self.unwrap_asset_name(buy_side.market_info.quote_asset)}"
 
         sell_base_to_buy_base_rate: Decimal = Decimal(1)
-        sell_quote_to_buy_quote_rate: Decimal = (
-            rate_source.rate(quote_conversion_pair) or rate_source.rate(unwrapped_conversion_pair)
-        )
+        sell_quote_to_buy_quote_rate: Decimal = rate_source.rate(quote_conversion_pair)
 
         buy_fee_amount: Decimal = s_decimal_0
         sell_fee_amount: Decimal = s_decimal_0
