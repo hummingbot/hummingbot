@@ -1,4 +1,5 @@
 # A single source of truth for constant variables related to the exchange
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "bybit_perpetual"
 
@@ -82,6 +83,17 @@ WS_AUTHENTICATE_USER_ENDPOINT_NAME = "auth"
 WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
 WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
 WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
+
+# Order Statuses
+ORDER_STATE = {
+    "Created": OrderState.OPEN,
+    "New": OrderState.OPEN,
+    "Filled": OrderState.FILLED,
+    "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "Cancelled": OrderState.CANCELLED,
+    "PendingCancel": OrderState.PENDING_CANCEL,
+    "Rejected": OrderState.FAILED,
+}
 
 GET_LIMIT_ID = "GETLimit"
 POST_LIMIT_ID = "POSTLimit"
