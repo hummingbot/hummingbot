@@ -56,6 +56,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             auth=self.auth)
 
         self.data_source = KucoinAPIUserStreamDataSource(
+            auth=self.auth,
             throttler=self.throttler,
             api_factory=self.api_factory)
 
