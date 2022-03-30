@@ -1,35 +1,30 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
 import argparse
 import asyncio
 import logging
-from typing import (
-    Coroutine,
-    List,
-)
 import os
 import subprocess
+from typing import Coroutine, List
 
-from bin.hummingbot import (
-    detect_available_port,
-    UIStartListener,
-)
+import path_util  # noqa: F401
+
+from bin.hummingbot import detect_available_port, UIStartListener
 from hummingbot import init_logging
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
+    all_configs_complete,
     create_yml_files,
     read_system_configs_from_yml,
     update_strategy_config_map_from_file,
-    all_configs_complete,
 )
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
 from hummingbot.client.ui import login_prompt
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
-from hummingbot.client.config.security import Security
 
 
 class CmdlineParser(argparse.ArgumentParser):
