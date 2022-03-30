@@ -1,64 +1,88 @@
+/* eslint-disable @typescript-eslint/no-empty-interface */
 import { NetworkSelectionRequest } from '../services/common-interfaces';
 
 export type Side = 'BUY' | 'SELL';
+
 import {
   FilledOrder,
   OpenClientOrder,
   SimpleOrderBook,
-  MarketInfo,
+  Market,
 } from './clob.types';
 
 //
-// GET /markets
+// GET /clob/markets
 //
 
-export interface ClobMarketsRequest extends NetworkSelectionRequest {
+export interface ClobGetMarketsRequest extends NetworkSelectionRequest {
   // TODO: It could be that address is needed for fee rebates
   marketNames?: string[]; // returns all markets, if none
 }
 
-export interface ClobMarketsResponse {
-  markets: MarketInfo[];
+export interface ClobGetMarketsResponse {
+  markets: Market[];
 }
 
 //
-// GET /ticker
+// GET /clob/tickers
 //
+
+// TODO remove?!!!
 export interface TickerItem {
   marketName: string;
   price: string;
   timestamp: string;
 }
 
-export interface ClobTickerResponse {
+export interface ClobGetTickersRequest extends NetworkSelectionRequest {
+  // TODO implement!!!
+}
+
+export interface ClobGetTickersResponse {
   lastTradedPrices: TickerItem[];
 }
 
 //
-// GET /orderbook
+// GET /clob/orderbooks
 //
-export interface ClobOrderbookRequest extends NetworkSelectionRequest {
-  marketNames: string[];
+
+export interface ClobGetOrderbooksRequest extends NetworkSelectionRequest {
+  marketNames: string[]; // TODO marketName instead of seperated quote & base (in line with self._trading_pairs)!!!
   depth?: number;
 }
 
-export interface ClobOrderbookResponse {
+export interface ClobGetOrderbooksResponse {
   orderBooks: SimpleOrderBook[];
 }
 
 //
-// GET /order
+// Orders
 //
-export interface ClobGetOrderRequest extends NetworkSelectionRequest {
+
+export interface ClobOrdersResponse {
+  status: 'OPEN' | 'FILLED' | 'CANCELED' | 'UNKNOWN' | 'FAILED' | 'DONE';
+  exchangeOrderId?: string;
+  clientOrderId?: string;
+}
+
+//
+// GET /clob/orders
+//
+
+export interface ClobGetOrdersRequest extends NetworkSelectionRequest {
   marketName?: string;
   clientOrderId?: string;
   exchangeOrderId?: string;
 }
 
+export interface ClobGetOrdersResponse extends ClobOrdersResponse {
+}
+
 //
-// POST /order
+// POST /clob/orders
 //
-export interface ClobPostOrderRequest extends NetworkSelectionRequest {
+
+export interface ClobPostOrdersRequest extends NetworkSelectionRequest {
   address: string;
   marketName: string;
   side: Side;
@@ -69,24 +93,26 @@ export interface ClobPostOrderRequest extends NetworkSelectionRequest {
   clientOrderId?: string; // set a client's own orderId for tracking
 }
 
-export interface ClobOrderResponse {
-  status: 'OPEN' | 'FILLED' | 'CANCELED' | 'UNKNOWN' | 'FAILED' | 'DONE';
-  exchangeOrderId?: string;
-  clientOrderId?: string;
+export interface ClobPostOrdersResponse extends ClobOrdersResponse {
 }
 
 //
-// Delete /order
+// DELETE /clob/orders
 //
-export interface ClobDeleteOrderRequest extends NetworkSelectionRequest {
+
+export interface ClobDeleteOrdersRequest extends NetworkSelectionRequest {
   address: string; // solana account, which orders belong to
   exchangeOrderId?: string; // is simply 'orderId' in mango.ts
   clientOrderId?: string;
 }
 
+export interface ClobDeleteOrdersResponse extends ClobOrdersResponse {
+}
+
 //
-// GET /openOrders
+// GET /clob/openOrders
 //
+
 export interface ClobGetOpenOrdersRequest extends NetworkSelectionRequest {
   address?: string; // filter by owner
   marketName?: string; // filter by market (can speed up request dramatically)
@@ -100,26 +126,28 @@ export interface ClobGetOpenOrdersResponse {
 }
 
 //
-// DELETE /openOrders
+// DELETE /clob/openOrders
 //
+
 export interface ClobDeleteOpenOrdersRequest extends NetworkSelectionRequest {
   address: string; // solana account, for which to cancel
   marketNames?: string[]; // on which markets to cancel
 }
 
 export interface ClobDeleteOpenOrdersResponse {
-  orders: ClobOrderResponse;
+  orders: ClobOrdersResponse;
 }
 
 //
-// GET /fills
+// GET /clob/filledOrders
 //
-export interface ClobGetFillsRequest extends NetworkSelectionRequest {
+
+export interface ClobGetFilledOrdersRequest extends NetworkSelectionRequest {
   marketNames?: string[];
   account?: string;
 }
 
-export interface ClobGetFillsResponse {
+export interface ClobGetFilledOrdersResponse {
   // sorted from newest to oldest
   spot: FilledOrder[];
   perp: FilledOrder[];

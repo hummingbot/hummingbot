@@ -1,13 +1,14 @@
-export interface FeeInfo {
+export interface Fee {
   maker: string;
   taker: string;
 }
 
-export interface MarketInfo {
-  name: string;
-  fees: FeeInfo;
+export interface Market {
+  marketName: string;
   minimumOrderSize: string; // smallest allowed order size
   tickSize: string; // smallest possible price increment
+  minimumBaseIncrement?: string;
+  fee: Fee; // TODO is this needed?!!!
   deprecated: boolean;
 }
 
