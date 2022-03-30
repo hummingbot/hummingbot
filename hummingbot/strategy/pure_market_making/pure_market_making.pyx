@@ -26,7 +26,7 @@ from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
-from .moving_price_band import MovingPriceBand, DisableMovingPriceBand
+from .moving_price_band import MovingPriceBand, DisabledMovingPriceBand
 
 
 NaN = float("nan")
@@ -90,7 +90,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if order_override is None:
             order_override = {}
         if moving_price_band is None:
-            moving_price_band = DisableMovingPriceBand()
+            moving_price_band = DisabledMovingPriceBand()
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
