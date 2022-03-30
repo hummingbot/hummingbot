@@ -270,64 +270,71 @@ class KucoinExchange(ExchangeBaseV2):
 
     async def _update_order_status(self):
         # The poll interval for order status is 10 seconds.
-        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-        current_tick = int(self.current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+        interval_expired = False
+        if (self.current_timestamp - self._last_poll_timestamp) > self.UPDATE_ORDERS_INTERVAL:
+            interval_expired = True
+
+        if not interval_expired:
+            return
 
         tracked_orders = list(self.in_flight_orders.values())
-        if current_tick > last_tick and len(tracked_orders) > 0:
-            reviewed_orders = []
-            request_tasks = []
+        if len(tracked_orders) <= 0:
+            return
 
-            for tracked_order in tracked_orders:
-                try:
-                    exchange_order_id = await tracked_order.get_exchange_order_id()
-                except asyncio.TimeoutError:
-                    self.logger().debug(
-                        f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
-                        f"Attempting fetch in next polling interval."
+        reviewed_orders = []
+        request_tasks = []
+
+        for tracked_order in tracked_orders:
+            try:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                self.logger().debug(
+                    f"Tracked order {tracked_order.client_order_id} does not have an exchange id. "
+                    f"Attempting fetch in next polling interval."
+                )
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+                continue
+
+            reviewed_orders.append(tracked_order)
+            request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
+                path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
+                is_auth_required=True,
+                limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)))
+
+        self.logger().debug(f"Polling for order status updates of {len(reviewed_orders)} orders.")
+        responses = await safe_gather(*request_tasks, return_exceptions=True)
+
+        for update_result, tracked_order in zip(responses, reviewed_orders):
+            client_order_id = tracked_order.client_order_id
+
+            # If the order has already been cancelled or has failed do nothing
+            if client_order_id in self.in_flight_orders:
+                if isinstance(update_result, Exception):
+                    self.logger().network(
+                        f"Error fetching status update for the order {client_order_id}: {update_result}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                     )
-                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                    continue
-                reviewed_orders.append(tracked_order)
-                request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
-                    path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
-                    is_auth_required=True,
-                    limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)))
+                    # Wait until the order not found error have repeated a few times before actually treating
+                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                    await self._order_tracker.process_order_not_found(client_order_id)
 
-            self.logger().debug(f"Polling for order status updates of {len(reviewed_orders)} orders.")
-            results = await safe_gather(*request_tasks, return_exceptions=True)
+                else:
+                    # Update order execution status
+                    ordered_canceled = update_result["data"]["cancelExist"]
+                    is_active = update_result["data"]["isActive"]
+                    op_type = update_result["data"]["opType"]
 
-            for update_result, tracked_order in zip(results, reviewed_orders):
-                client_order_id = tracked_order.client_order_id
+                    new_state = tracked_order.current_state
+                    if ordered_canceled or op_type == "CANCEL":
+                        new_state = OrderState.CANCELLED
+                    elif not is_active:
+                        new_state = OrderState.FILLED
 
-                # If the order has already been cancelled or has failed do nothing
-                if client_order_id in self.in_flight_orders:
-                    if isinstance(update_result, Exception):
-                        self.logger().network(
-                            f"Error fetching status update for the order {client_order_id}: {update_result}.",
-                            app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
-                        )
-                        # Wait until the order not found error have repeated a few times before actually treating
-                        # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                        await self._order_tracker.process_order_not_found(client_order_id)
-
-                    else:
-                        # Update order execution status
-                        ordered_canceled = update_result["data"]["cancelExist"]
-                        is_active = update_result["data"]["isActive"]
-                        op_type = update_result["data"]["opType"]
-
-                        new_state = tracked_order.current_state
-                        if ordered_canceled or op_type == "CANCEL":
-                            new_state = OrderState.CANCELLED
-                        elif not is_active:
-                            new_state = OrderState.FILLED
-
-                        update = OrderUpdate(
-                            client_order_id=client_order_id,
-                            exchange_order_id=update_result["data"]["id"],
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=self.current_timestamp,
-                            new_state=new_state,
-                        )
-                        self._order_tracker.process_order_update(update)
+                    update = OrderUpdate(
+                        client_order_id=client_order_id,
+                        exchange_order_id=update_result["data"]["id"],
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=new_state,
+                    )
+                    self._order_tracker.process_order_update(update)
