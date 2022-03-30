@@ -103,7 +103,7 @@ amm_arb_config_map = {
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the first market "
                "(Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
-        default=Decimal("1"),
+        default=lambda: Decimal(1) if amm_arb_config_map["connector_1"].value in AllConnectorSettings.get_gateway_evm_amm_connector_names() else Decimal(0),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "market_2_slippage_buffer": ConfigVar(
@@ -111,7 +111,7 @@ amm_arb_config_map = {
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the second market"
                " (Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
-        default=Decimal("1"),
+        default=lambda: Decimal(1) if amm_arb_config_map["connector_2"].value in AllConnectorSettings.get_gateway_evm_amm_connector_names() else Decimal(0),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "concurrent_orders_submission": ConfigVar(
