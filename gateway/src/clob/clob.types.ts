@@ -1,19 +1,29 @@
+export type OrderSide = 'BUY' | 'SELL';
+
+export type OrderStatus =
+  | 'OPEN'
+  | 'FILLED'
+  | 'CANCELED'
+  | 'UNKNOWN'
+  | 'FAILED'
+  | 'DONE';
+
 export interface Fee {
   maker: string;
   taker: string;
 }
 
 export interface Market {
-  marketName: string;
+  name: string;
   minimumOrderSize: string; // smallest allowed order size
   tickSize: string; // smallest possible price increment
   minimumBaseIncrement?: string;
   fee: Fee; // TODO is this needed?!!!
-  deprecated: boolean;
+  deprecated: boolean; // TODO is this needed?!!!
 }
 
 export type SimpleOrderBook = {
-  marketName: string;
+  marketName: string; // TODO should it be marketAddress or marketName?!!! Ask Mike
   bids: SimpleOrder[];
   asks: SimpleOrder[];
   timestamp: string;
@@ -33,7 +43,7 @@ export interface SimpleOrder {
 export interface OpenClientOrder extends SimpleOrder {
   exchangeOrderId: string;
   clientOrderId?: string;
-  side: 'BUY' | 'SELL';
+  side: OrderSide;
 }
 
 /**

@@ -10,7 +10,7 @@ import {
   getFilledOrders,
   getOrders,
   getMarkets,
-  getOrderbooks,
+  getOrderBooks,
   postOrders,
 } from './serum.controllers';
 import {
@@ -66,7 +66,7 @@ export namespace MangoRoutes {
    * Returns the last traded prices.
    */
   router.get(
-    '/ticker',
+    '/tickers',
     asyncHandler(
       async (
         req: Request<unknown, unknown, SerumMarketsRequest>,
@@ -78,20 +78,20 @@ export namespace MangoRoutes {
   );
 
   router.get(
-    '/orderbooks',
+    '/orderBooks',
     asyncHandler(
       async (
         req: Request<unknown, unknown, SerumOrderbookRequest>,
         res: Response<SerumOrderbookResponse, any>
       ) => {
         // TODO: 404 if requested market does not exist
-        res.status(200).json(await getOrderbooks(req.body));
+        res.status(200).json(await getOrderBooks(req.body));
       }
     )
   );
 
   router.get(
-    '/order',
+    '/orders',
     asyncHandler(
       async (
         req: Request<unknown, unknown, SerumGetOrderRequest>,
@@ -104,7 +104,7 @@ export namespace MangoRoutes {
   );
 
   router.post(
-    '/order',
+    '/orders',
     asyncHandler(
       async (
         req: Request<unknown, unknown, SerumPostOrderRequest>,
@@ -117,7 +117,7 @@ export namespace MangoRoutes {
   );
 
   router.delete(
-    '/order',
+    '/orders',
     asyncHandler(
       async (
         req: Request<unknown, unknown, SerumDeleteOrderRequest>,
@@ -156,7 +156,7 @@ export namespace MangoRoutes {
   );
 
   router.get(
-    '/fills',
+    '/filledOrders',
     asyncHandler(
       async (
         req: Request<unknown, unknown, SerumGetFillsRequest>,

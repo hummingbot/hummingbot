@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 import { NetworkSelectionRequest } from '../services/common-interfaces';
 
-export type Side = 'BUY' | 'SELL';
-
 import {
   FilledOrder,
   OpenClientOrder,
   SimpleOrderBook,
   Market,
+  OrderSide,
+  OrderStatus,
 } from './clob.types';
 
 //
@@ -15,8 +15,8 @@ import {
 //
 
 export interface ClobGetMarketsRequest extends NetworkSelectionRequest {
-  // TODO: It could be that address is needed for fee rebates
-  marketNames?: string[]; // returns all markets, if none
+  // TODO: It could be that address is needed for fee rebates!!!
+  marketNames?: string[];
 }
 
 export interface ClobGetMarketsResponse {
@@ -24,35 +24,36 @@ export interface ClobGetMarketsResponse {
 }
 
 //
+// GET /clob/orderBooks
+//
+
+export interface ClobGetOrderBooksRequest extends NetworkSelectionRequest {
+  marketNames: string[]; // TODO marketName instead of seperated quote & base (in line with self._trading_pairs)!!!
+  depth?: number; // TODO is this needed?!!!
+}
+
+export interface ClobGetOrderBooksResponse {
+  orderBooks: SimpleOrderBook[];
+}
+
+//
 // GET /clob/tickers
 //
 
-// TODO remove?!!!
-export interface TickerItem {
-  marketName: string;
+export interface Ticker {
+  market: string;
   price: string;
+  amount: string;
+  side: OrderSide;
   timestamp: string;
 }
 
 export interface ClobGetTickersRequest extends NetworkSelectionRequest {
-  // TODO implement!!!
+  marketNames?: [];
 }
 
 export interface ClobGetTickersResponse {
-  lastTradedPrices: TickerItem[];
-}
-
-//
-// GET /clob/orderbooks
-//
-
-export interface ClobGetOrderbooksRequest extends NetworkSelectionRequest {
-  marketNames: string[]; // TODO marketName instead of seperated quote & base (in line with self._trading_pairs)!!!
-  depth?: number;
-}
-
-export interface ClobGetOrderbooksResponse {
-  orderBooks: SimpleOrderBook[];
+  lastTradedPrices: Ticker[];
 }
 
 //
@@ -60,7 +61,7 @@ export interface ClobGetOrderbooksResponse {
 //
 
 export interface ClobOrdersResponse {
-  status: 'OPEN' | 'FILLED' | 'CANCELED' | 'UNKNOWN' | 'FAILED' | 'DONE';
+  status: OrderStatus;
   exchangeOrderId?: string;
   clientOrderId?: string;
 }
@@ -69,13 +70,23 @@ export interface ClobOrdersResponse {
 // GET /clob/orders
 //
 
-export interface ClobGetOrdersRequest extends NetworkSelectionRequest {
+export interface ClobGetOrdersRequestItem {
   marketName?: string;
   clientOrderId?: string;
   exchangeOrderId?: string;
 }
 
+export interface ClobGetOrdersRequest extends NetworkSelectionRequest {
+  orders: ClobGetOrdersRequestItem[];
+}
+
+export interface ClobGetOrdersResponseItem {
+  // TODO fill interface with the correct fields!!!
+}
+
 export interface ClobGetOrdersResponse extends ClobOrdersResponse {
+  // TODO check what orderWithFills means!!! Ask Mike
+  orders: ClobGetOrdersResponseItem[];
 }
 
 //
@@ -85,7 +96,7 @@ export interface ClobGetOrdersResponse extends ClobOrdersResponse {
 export interface ClobPostOrdersRequest extends NetworkSelectionRequest {
   address: string;
   marketName: string;
-  side: Side;
+  side: OrderSide;
   amount: string;
   price: string;
   order_type: 'LIMIT' | 'MARKET'; // market == ioc (immediate-or-cancel)
