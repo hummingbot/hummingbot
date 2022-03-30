@@ -8,6 +8,7 @@ import { Serum } from '../connectors/serum/serum';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: any;
+
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
@@ -28,6 +29,7 @@ export async function getConnector(
   connector: string | undefined
 ) {
   let connectorInstance: any;
+
   if (chain === 'ethereum' && connector === 'uniswap')
     connectorInstance = Uniswap.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'pangolin')

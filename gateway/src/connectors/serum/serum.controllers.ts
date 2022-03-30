@@ -1,3 +1,5 @@
+import { Account, Connection, PublicKey } from '@solana/web3.js';
+import { Market } from '@project-serum/serum';
 import { Solanaish } from '../../chains/solana/solana';
 import { Serumish } from './serum';
 import {
@@ -9,8 +11,8 @@ import {
   ClobGetOpenOrdersRequest,
   ClobGetMarketsRequest,
   ClobGetMarketsResponse,
-  ClobGetOrderbooksRequest,
-  ClobGetOrderbooksResponse,
+  ClobGetOrderBooksRequest,
+  ClobGetOrderBooksResponse,
   ClobPostOrdersRequest,
   ClobGetTickersRequest,
   ClobGetTickersResponse,
@@ -20,7 +22,6 @@ import {
   ClobGetOpenOrdersResponse,
 } from '../../clob/clob.requests';
 
-// TODO // return all, if undefined!!!
 /**
  * Get the all or the informed markets and their configurations.
  *
@@ -33,6 +34,9 @@ export async function getMarkets(
   serum: Serumish,
   request: ClobGetMarketsRequest
 ): Promise<ClobGetMarketsResponse> {
+  // TODO return all, if undefined!!!
+
+  return {} as ClobGetMarketsResponse;
 }
 
 /**
@@ -42,11 +46,12 @@ export async function getMarkets(
  * @param serum
  * @param request
  */
-export async function getOrderbooks(
+export async function getOrderBooks(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetOrderbooksRequest
-): Promise<ClobGetOrderbooksResponse> {
+  request: ClobGetOrderBooksRequest
+): Promise<ClobGetOrderBooksResponse> {
+  // TODO return all, if undefined!!!
 }
 
 /**
@@ -61,6 +66,7 @@ export async function getTickers(
   serum: Serumish,
   request: ClobGetTickersRequest
 ): Promise<ClobGetTickersResponse> {
+ // TODO return all, if undefined!!!
 }
 
 /**

@@ -7,17 +7,19 @@ import {
   ClobGetOrdersRequest,
   ClobGetMarketsRequest,
   ClobGetMarketsResponse,
-  ClobGetOrderbooksRequest,
-  ClobGetOrderbooksResponse,
+  ClobGetOrderBooksRequest,
+  ClobGetOrderBooksResponse,
   ClobOrdersResponse,
   ClobPostOrdersRequest,
   ClobGetTickersRequest,
-  ClobGetTickersResponse, ClobGetOpenOrdersResponse, ClobDeleteOpenOrdersResponse,
+  ClobGetTickersResponse,
+  ClobGetOpenOrdersResponse,
+  ClobDeleteOpenOrdersResponse,
 } from './clob.requests';
 import { getChain, getConnector } from '../services/connection-manager';
 import * as serumControllers from '../connectors/serum/serum.controllers';
 import { Solanaish } from '../chains/solana/solana';
-import { Serum } from '../connectors/serum/serum';
+import { Serumish } from '../connectors/serum/serum';
 
 /**
  * GET /clob/markets
@@ -28,7 +30,7 @@ export async function getMarkets(
   request: ClobGetMarketsRequest
 ): Promise<ClobGetMarketsResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -38,21 +40,21 @@ export async function getMarkets(
 }
 
 /**
- * GET /clob/orderbooks
+ * GET /clob/orderBooks
  *
  * @param request
  */
-export async function getOrderbooks(
-  request: ClobGetOrderbooksRequest
-): Promise<ClobGetOrderbooksResponse> {
+export async function getOrderBooks(
+  request: ClobGetOrderBooksRequest
+): Promise<ClobGetOrderBooksResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
   );
 
-  return serumControllers.getOrderbooks(chain, connector, request);
+  return serumControllers.getOrderBooks(chain, connector, request);
 }
 
 /**
@@ -64,7 +66,7 @@ export async function getTickers(
   request: ClobGetTickersRequest
 ): Promise<ClobGetTickersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -82,7 +84,7 @@ export async function getOrders(
   request: ClobGetOrdersRequest
 ): Promise<ClobOrdersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -100,7 +102,7 @@ export async function postOrders(
   request: ClobPostOrdersRequest
 ): Promise<ClobOrdersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -118,7 +120,7 @@ export async function deleteOrders(
   request: ClobDeleteOrdersRequest
 ): Promise<ClobOrdersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -136,7 +138,7 @@ export async function getOpenOrders(
   request: ClobGetOpenOrdersRequest
 ): Promise<ClobGetOpenOrdersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -154,7 +156,7 @@ export async function deleteOpenOrders(
   request: ClobDeleteOpenOrdersRequest
 ): Promise<ClobDeleteOpenOrdersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector
@@ -172,7 +174,7 @@ export async function getFilledOrders(
   request: ClobGetFilledOrdersRequest
 ): Promise<ClobGetFilledOrdersResponse> {
   const chain: Solanaish = await getChain(request.chain, request.network);
-  const connector: Serum = await getConnector(
+  const connector: Serumish = await getConnector(
     request.chain,
     request.network,
     request.connector

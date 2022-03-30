@@ -1,6 +1,7 @@
-import {} from '@solana/web3.js';
+import { Account, Connection, PublicKey } from '@solana/web3.js';
+import { Market } from '@project-serum/serum';
 import {} from '@solana/spl-token';
-import {} from '@project-serum/serum';
+import {getMarkets} from "./serum.controllers";
 
 export type Serumish = Serum;
 
@@ -11,8 +12,13 @@ export class Serum {
   private _initPromise: Promise<void> = Promise.resolve();
 
   private _tokens: string[] = ['ABC', 'SOL'];
+  private connection: Connection;
 
-  public static getInstance(chain: string, network: string): Serum {
+  private async loadTokens() {
+    return this._tokens;
+  }
+
+  static getInstance(chain: string, network: string): Serum {
     if (!Serum._instance) {
       Serum._instance = new Serum();
     }
@@ -20,13 +26,9 @@ export class Serum {
     return Serum._instance;
   }
 
-  public static reload(): Serum {
+  static reload(): Serum {
     Serum._instance = new Serum();
     return Serum._instance;
-  }
-
-  ready(): boolean {
-    return this._ready;
   }
 
   async init(): Promise<void> {
@@ -40,7 +42,98 @@ export class Serum {
     return this._initPromise;
   }
 
-  private async loadTokens() {
-    return this._tokens;
+  ready(): boolean {
+    return this._ready;
+  }
+
+  async getMarket(): Promise<Market> {
+    await Market.load(this.connection, )
+  }
+
+  async getMarkets(): Promise<any> {
+
+  }
+
+  async getAllMarkets(): Promise<any> {
+  }
+
+  async getOrderBook(): Promise<any> {
+
+  }
+
+  async getOrderBooks(): Promise<any> {
+
+  }
+
+  async getAllOrderBooks(): Promise<any> {
+  }
+
+  async getTicker(): Promise<any> {
+
+  }
+
+  async getTickers(): Promise<any> {
+
+  }
+
+  async getAllTickers(): Promise<any> {
+  }
+
+  async getOrder(): Promise<any> {
+
+  }
+
+  async getOrders(): Promise<any> {
+
+  }
+
+  async getAllOrders(): Promise<any> {
+  }
+
+  async createOrder(): Promise<any> {
+
+  }
+
+  async createOrders(): Promise<any> {
+
+  }
+
+  async updateOrder(): Promise<any> {
+  }
+
+  async updateOrders(): Promise<any> {
+  }
+
+  async deleteOrder(): Promise<any> {
+  }
+
+  async deleteOrders(): Promise<any> {
+  }
+
+  async getOpenOrder(): Promise<any> {
+  }
+
+  async getOpenOrders(): Promise<any> {
+  }
+
+  async getAllOpenOrders(): Promise<any> {
+  }
+
+  async deleteOpenOrder(): Promise<any> {
+  }
+
+  async deleteOpenOrders(): Promise<any> {
+  }
+
+  async deleteAllOpenOrders(): Promise<any> {
+  }
+
+  async getFilledOrder(): Promise<any> {
+  }
+
+  async getFilledOrders(): Promise<any> {
+  }
+
+  async getAllFilledOrders(): Promise<any> {
   }
 }
