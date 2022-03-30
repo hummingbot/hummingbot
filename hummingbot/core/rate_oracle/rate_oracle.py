@@ -1,17 +1,12 @@
 import asyncio
 import logging
-
 from decimal import Decimal
 from enum import Enum
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import aiohttp
 
-import hummingbot.client.settings # noqa
+import hummingbot.client.settings  # noqa
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import convert_from_exchange_trading_pair as \
     ascend_ex_convert_from_exchange_pair
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
@@ -53,8 +48,8 @@ class RateOracle(NetworkBase):
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
     binance_us_price_url = "https://api.binance.us/api/v3/ticker/bookTicker"
-    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
-                              "&per_page=250&page={}&sparkline=false"
+    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?order=market_cap_desc&page={}" \
+                              "&per_page=250&sparkline=false&vs_currency={}"
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
     kucoin_price_url = "https://api.kucoin.com/api/v1/market/allTickers"
     ascend_ex_price_url = "https://ascendex.com/api/pro/v1/ticker"
@@ -116,10 +111,28 @@ class RateOracle(NetworkBase):
         """
         Finds a conversion rate for a given symbol, this can be direct or indirect prices as long as it can find a route
         to achieve this.
+
         :param pair: A trading pair, e.g. BTC-USDT
+
         :return A conversion rate
         """
         return find_rate(self._prices, pair)
+
+    async def stored_or_live_rate(self, pair: str) -> Decimal:
+        """
+        Finds a conversion rate for a given symbol trying to use the local prices. If local prices are not initialized
+            uses the async rate finder (directly from the exchange)
+
+        :param pair: A trading pair, e.g. BTC-USDT
+
+        :return A conversion rate
+        """
+        if self._prices:
+            rate = self.rate(pair)
+        else:
+            rate = await self.rate_async(pair)
+
+        return rate
 
     @classmethod
     async def rate_async(cls, pair: str) -> Decimal:
@@ -186,7 +199,7 @@ class RateOracle(NetworkBase):
             raise NotImplementedError
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_binance_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Binance prices from binance.com and binance.us where only USD pairs from binance.us prices are added
@@ -243,7 +256,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_kucoin_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Kucoin mid prices from their allTickers endpoint.
@@ -260,7 +273,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=1, maxsize=1)
+    @async_ttl_cache(ttl=30, maxsize=1)
     async def get_ascend_ex_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Ascend Ex mid prices from their ticker endpoint.
@@ -316,7 +329,7 @@ class RateOracle(NetworkBase):
         """
         results = {}
         client = await cls._http_client()
-        async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
+        async with client.request("GET", cls.coingecko_usd_price_url.format(page_no, vs_currency)) as resp:
             records = await resp.json(content_type=None)
             for record in records:
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
@@ -332,6 +345,8 @@ class RateOracle(NetworkBase):
         if self._fetch_price_task is not None:
             self._fetch_price_task.cancel()
             self._fetch_price_task = None
+        # Reset stored prices so that they are not used if they are not being updated
+        self._prices = {}
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -343,9 +358,3 @@ class RateOracle(NetworkBase):
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    def start(self):
-        NetworkBase.start(self)
-
-    def stop(self):
-        NetworkBase.stop(self)
