@@ -28,6 +28,8 @@ from hummingbot.core.gateway import (
     GATEWAY_DOCKER_TAG,
     GatewayPaths,
     get_default_gateway_port,
+    start_gateway,
+    stop_gateway
 )
 from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -61,13 +63,13 @@ class GatewayCommand:
         safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
 
     def gateway_start(self):
-        safe_ensure_future(self._start_gateway(), loop=self.ev_loop)
+        safe_ensure_future(start_gateway(), loop=self.ev_loop)
 
     def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
     def gateway_stop(self):
-        safe_ensure_future(self._stop_gateway(), loop=self.ev_loop)
+        safe_ensure_future(stop_gateway(), loop=self.ev_loop)
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -87,52 +89,6 @@ class GatewayCommand:
     async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
         image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
         return len(image_list) > 0
-
-    async def _start_gateway(self):
-        try:
-            response = await docker_ipc(
-                "containers",
-                all=True,
-                filters={"name": get_gateway_container_name()}
-            )
-            if len(response) == 0:
-                raise ValueError(f"Gateway container {get_gateway_container_name()} not found. ")
-
-            container_info = response[0]
-            if container_info["State"] == "running":
-                self.notify(f"Gateway container {container_info['Id']} already running.")
-                return
-
-            await docker_ipc(
-                "start",
-                container=container_info["Id"]
-            )
-            self.notify(f"Gateway container {container_info['Id']} has started.")
-        except Exception as e:
-            self.notify(f"Error occurred starting Gateway container. {e}")
-
-    async def _stop_gateway(self):
-        try:
-            response = await docker_ipc(
-                "containers",
-                all=True,
-                filters={"name": get_gateway_container_name()}
-            )
-            if len(response) == 0:
-                raise ValueError(f"Gateway container {get_gateway_container_name()} not found.")
-
-            container_info = response[0]
-            if container_info["State"] != "running":
-                self.notify(f"Gateway container {container_info['Id']} not running.")
-                return
-
-            await docker_ipc(
-                "stop",
-                container=container_info["Id"],
-            )
-            self.notify(f"Gateway container {container_info['Id']} successfully stopped.")
-        except Exception as e:
-            self.notify(f"Error occurred stopping Gateway container. {e}")
 
     async def _test_connection(self):
         # test that the gateway is running
@@ -300,7 +256,7 @@ class GatewayCommand:
 
         GatewayHttpClient.get_instance().base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                                                     f"{global_config_map['gateway_api_port'].value}"
-        await self._start_gateway()
+        await start_gateway()
 
         # create Gateway configs
         await self._generate_gateway_confs(container_id=container_info["Id"])

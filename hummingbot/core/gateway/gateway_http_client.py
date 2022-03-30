@@ -8,7 +8,11 @@ from typing import Optional, Any, Dict, List, Union
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import get_gateway_paths
+from hummingbot.core.gateway import (
+    detect_existing_gateway_container,
+    get_gateway_paths,
+    restart_gateway
+)
 from hummingbot.logger import HummingbotLogger
 
 
@@ -135,10 +139,19 @@ class GatewayHttpClient:
             )
 
     async def update_config(self, config_path: str, config_value: Any) -> Dict[str, Any]:
-        return await self.api_request("post", "config/update", {
+        response = await self.api_request("post", "config/update", {
             "configPath": config_path,
             "configValue": config_value,
         })
+
+        # temporary code until #25625 is implemented (delete afterwards)
+        # if the user had a gateway in a container, restart it
+        # otherwise if they manually run a gateway, they need to restart it themselves
+        container_info: Optional[Dict[str, Any]] = await detect_existing_gateway_container()
+        if container_info is not None:
+            await restart_gateway()
+
+        return response
 
     async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
         return await self.api_request("get", "connectors", fail_silently=fail_silently)
