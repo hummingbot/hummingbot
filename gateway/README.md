@@ -8,20 +8,12 @@ Gateway may be used alongside the main Hummingbot client to enable trading on DE
 
 ## Connectors
 
-This is a list of DEX connections currently in progress or supported by Gateway.
+This is a list of DEX connections currently supported by Gateway.
 
-| Connector   | Chain Architecture | Trading Interface | Developer | Status |
-|-------------|--------------------|-------------------|-----------|--------|
-| UniswapV2   | EVM | AMM | CoinAlpha | Done |
-| Pangolin    | EVM | AMM | CoinAlpha | Done |
-| Mango       | Solana | CLOB | Mike (dipfit1) | In progress |
-| UniswapV3   | EVM | RangeAMM | CoinAlpha | In progress |
-| PancakeSwap | BSC | AMM | CoinAlpha | In progress |
-| PerpetualV2 | EVM | PerpAMM | CoinAlpha | Not started |
-| Terra Swap  | Cosmos | AMM | CoinAlpha | Not started |
-| TBD         | Harmony | AMM | wojak | In progress |
-| Curve       | Ethereum | AMM | james-hummingbot | In progress |
-| Sushi       | Ethereum | AMM | james-hummingbot | In progress |
+| Connector   | Blockchain | Trading Interface |
+|-------------|------------|-------------------|
+| UniswapV2   | Ethereum   | AMM               |
+| Pangolin    | Avalanche  | AMM               |
 
 ## Contributing
 
