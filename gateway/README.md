@@ -70,9 +70,9 @@ yarn dev --passphrase=<ssl-files-passphrase>
 
 The API is documented using swagger: [gateway swagger docs](./docs/swagger). You can run the gateway swagger UI by starting gateway and visiting [localhost:8080](localhost:8080).
 
-https://hummingbot.notion.site/Gateway-v2-Trading-Interfaces-482e2684d48c450ebcfff5401ba806aa
+You can follow details about [trading interfaces](https://hummingbot.notion.site/Gateway-v2-Trading-Interfaces-482e2684d48c450ebcfff5401ba806aa)
 
-https://hummingbot.org/protocols/gateway/
+Also, we maintain docs on the official website about gateway [here](https://hummingbot.org/protocols/gateway/).
 
 ### Files to read
 
