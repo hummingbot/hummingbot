@@ -29,7 +29,7 @@ const crypto = require('crypto').webcrypto;
 
 export type Solanaish = Solana;
 
-export class Solana {
+export class Solana implements Solanaish {
   public rpcUrl;
   public transactionLamports;
   public cache: NodeCache;
@@ -53,7 +53,7 @@ export class Solana {
   private _initializing: boolean = false;
   private _initPromise: Promise<void> = Promise.resolve();
 
-  constructor() {
+  constructor(network: string) {
     this._cluster = SolanaConfig.config.network.slug;
 
     if (SolanaConfig.config.customRpcUrl == undefined) {
@@ -95,7 +95,7 @@ export class Solana {
     return this._lamportPrice;
   }
 
-  public static getInstance(): Solana {
+  public static getInstance(network: string): Solana {
     if (!Solana._instance) {
       Solana._instance = new Solana();
     }

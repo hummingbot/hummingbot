@@ -142,9 +142,9 @@ export interface Ethereumish extends EthereumBase {
 }
 
 export interface NetworkSelectionRequest {
-  connector?: string; //the target connector (e.g. uniswap or pangolin)
   chain: string; //the target chain (e.g. ethereum, avalanche, or harmony)
   network: string; // the target network of the chain (e.g. mainnet)
+  connector?: string; //the target connector (e.g. uniswap or pangolin)
 }
 
 export interface CustomTransactionReceipt

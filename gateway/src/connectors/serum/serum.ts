@@ -12,7 +12,7 @@ export class Serum {
 
   private _tokens: string[] = ['ABC', 'SOL'];
 
-  public static getInstance(): Serum {
+  public static getInstance(chain: string, network: string): Serum {
     if (!Serum._instance) {
       Serum._instance = new Serum();
     }

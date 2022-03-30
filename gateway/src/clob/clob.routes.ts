@@ -5,27 +5,27 @@ import { asyncHandler } from '../services/error-handler';
 import {
   ClobDeleteOpenOrdersRequest,
   ClobDeleteOpenOrdersResponse,
-  ClobDeleteOrderRequest,
-  ClobGetFillsRequest,
-  ClobGetFillsResponse,
+  ClobDeleteOrdersRequest,
+  ClobGetFilledOrdersRequest,
+  ClobGetFilledOrdersResponse,
   ClobGetOpenOrdersRequest,
   ClobGetOpenOrdersResponse,
-  ClobGetOrderRequest,
-  ClobMarketsRequest,
-  ClobMarketsResponse,
-  ClobOrderbookRequest,
-  ClobOrderbookResponse,
-  ClobOrderResponse,
-  ClobPostOrderRequest,
-  ClobTickerResponse,
+  ClobGetOrdersRequest,
+  ClobGetMarketsRequest,
+  ClobGetMarketsResponse,
+  ClobGetOrderbooksRequest,
+  ClobGetOrderbooksResponse,
+  ClobOrdersResponse,
+  ClobPostOrdersRequest,
+  ClobGetTickersResponse,
 } from './clob.requests';
 import {
   deleteOrders,
   fills,
   getOrders,
-  markets,
+  getMarkets,
   orderbook,
-  postOrder,
+  postOrders,
 } from './clob.controllers';
 
 export namespace ClobRoutes {
@@ -35,10 +35,10 @@ export namespace ClobRoutes {
     '/markets',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobMarketsRequest>,
-        res: Response<ClobMarketsResponse, any>
+        req: Request<unknown, unknown, ClobGetMarketsRequest>,
+        res: Response<ClobGetMarketsResponse, any>
       ) => {
-        res.status(200).json(await markets(req.body));
+        res.status(200).json(await getMarkets(req.body));
       }
     )
   );
@@ -50,10 +50,10 @@ export namespace ClobRoutes {
     '/ticker',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobMarketsRequest>,
-        res: Response<ClobTickerResponse, any>
+        req: Request<unknown, unknown, ClobGetMarketsRequest>,
+        res: Response<ClobGetTickersResponse, any>
       ) => {
-        res.status(200).json(await markets(req.body));
+        res.status(200).json(await getMarkets(req.body));
       }
     )
   );
@@ -62,8 +62,8 @@ export namespace ClobRoutes {
     '/orderbooks',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobOrderbookRequest>,
-        res: Response<ClobOrderbookResponse, any>
+        req: Request<unknown, unknown, ClobGetOrderbooksRequest>,
+        res: Response<ClobGetOrderbooksResponse, any>
       ) => {
         // TODO: 404 if requested market does not exist
         res.status(200).json(await orderbook(req.body));
@@ -75,8 +75,8 @@ export namespace ClobRoutes {
     '/order',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobGetOrderRequest>,
-        res: Response<ClobOrderResponse, any>
+        req: Request<unknown, unknown, ClobGetOrdersRequest>,
+        res: Response<ClobOrdersResponse, any>
       ) => {
         res.status(200).json(await getOrders(req.body));
       }
@@ -87,10 +87,10 @@ export namespace ClobRoutes {
     '/order',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobPostOrderRequest>,
-        res: Response<ClobOrderResponse, any>
+        req: Request<unknown, unknown, ClobPostOrdersRequest>,
+        res: Response<ClobOrdersResponse, any>
       ) => {
-        res.status(200).json(await postOrder(req.body));
+        res.status(200).json(await postOrders(req.body));
       }
     )
   );
@@ -99,8 +99,8 @@ export namespace ClobRoutes {
     '/order',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobDeleteOrderRequest>,
-        res: Response<ClobOrderResponse, any>
+        req: Request<unknown, unknown, ClobDeleteOrdersRequest>,
+        res: Response<ClobOrdersResponse, any>
       ) => {
         res.status(200).json(await deleteOrders(req.body));
       }
@@ -135,8 +135,8 @@ export namespace ClobRoutes {
     '/fills',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, ClobGetFillsRequest>,
-        res: Response<ClobGetFillsResponse, any>
+        req: Request<unknown, unknown, ClobGetFilledOrdersRequest>,
+        res: Response<ClobGetFilledOrdersResponse, any>
       ) => {
         res.status(200).json(await fills(req.body));
       }

@@ -1,60 +1,182 @@
-import {ClobMarketsRequest} from "./clob.requests";
-import {getChain, getConnector} from "../services/connection-manager";
-import {markets} from "../connectors/serum/serum.controllers";
-
-/** import {
-  PriceRequest,
-  PriceResponse,
-  TradeRequest,
-  TradeResponse,
-} from './clob.requests';
 import {
-  price as uniswapPrice,
-  trade as uniswapTrade,
-} from '../connectors/uniswap/uniswap.controllers';
+  ClobDeleteOpenOrdersRequest,
+  ClobDeleteOrdersRequest,
+  ClobGetFilledOrdersRequest,
+  ClobGetFilledOrdersResponse,
+  ClobGetOpenOrdersRequest,
+  ClobGetOrdersRequest,
+  ClobGetMarketsRequest,
+  ClobGetMarketsResponse,
+  ClobGetOrderbooksRequest,
+  ClobGetOrderbooksResponse,
+  ClobOrdersResponse,
+  ClobPostOrdersRequest,
+  ClobGetTickersRequest,
+  ClobGetTickersResponse, ClobGetOpenOrdersResponse, ClobDeleteOpenOrdersResponse,
+} from './clob.requests';
 import { getChain, getConnector } from '../services/connection-manager';
+import * as serumControllers from '../connectors/serum/serum.controllers';
+import { Solanaish } from '../chains/solana/solana';
+import { Serum } from '../connectors/serum/serum';
 
-export async function price(req: PriceRequest): Promise<PriceResponse> {
-  const chain = await getChain(req.chain, req.network);
-  const connector = await getConnector(req.chain, req.network, req.connector);
-  return uniswapPrice(chain, connector, req);
+/**
+ * GET /clob/markets
+ *
+ * @param request
+ */
+export async function getMarkets(
+  request: ClobGetMarketsRequest
+): Promise<ClobGetMarketsResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.getMarkets(chain, connector, request);
 }
 
-export async function trade(req: TradeRequest): Promise<TradeResponse> {
-  const chain = await getChain(req.chain, req.network);
-  const connector = await getConnector(req.chain, req.network, req.connector);
-  return uniswapTrade(chain, connector, req);
-}
-**/
+/**
+ * GET /clob/orderbooks
+ *
+ * @param request
+ */
+export async function getOrderbooks(
+  request: ClobGetOrderbooksRequest
+): Promise<ClobGetOrderbooksResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
 
-export async function markets(req: ClobMarketsRequest) {
-  const chain = await getChain(req.chain, req.network);
-  const connector = await getConnector(req.chain, req.network, req.connector);
-
-  return markets(chain, connector, req);
-}
-
-export async function orderbook(body: any) {
-  console.log(body);
-  return body;
-}
-
-export async function getOrders(body: any) {
-  console.log(body);
-  return body;
+  return serumControllers.getOrderbooks(chain, connector, request);
 }
 
-export async function postOrder(body: any) {
-  console.log(body);
-  return body;
+/**
+ * GET /clob/tickers
+ *
+ * @param request
+ */
+export async function getTickers(
+  request: ClobGetTickersRequest
+): Promise<ClobGetTickersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.getTickers(chain, connector, request);
 }
 
-export async function deleteOrders(body: any) {
-  console.log(body);
-  return body;
+/**
+ * GET /clob/orders
+ *
+ * @param request
+ */
+export async function getOrders(
+  request: ClobGetOrdersRequest
+): Promise<ClobOrdersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.getOrders(chain, connector, request);
 }
 
-export async function fills(body: any) {
-  console.log(body);
-  return body;
+/**
+ * POST /clob/orders
+ *
+ * @param request
+ */
+export async function postOrders(
+  request: ClobPostOrdersRequest
+): Promise<ClobOrdersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.postOrders(chain, connector, request);
+}
+
+/**
+ * DELETE /clob/orders
+ *
+ * @param request
+ */
+export async function deleteOrders(
+  request: ClobDeleteOrdersRequest
+): Promise<ClobOrdersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.deleteOrders(chain, connector, request);
+}
+
+/**
+ * GET /clob/openOrders
+ *
+ * @param request
+ */
+export async function getOpenOrders(
+  request: ClobGetOpenOrdersRequest
+): Promise<ClobGetOpenOrdersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.getOpenOrders(chain, connector, request);
+}
+
+/**
+ * DELETE /clob/openOrders
+ *
+ * @param request
+ */
+export async function deleteOpenOrders(
+  request: ClobDeleteOpenOrdersRequest
+): Promise<ClobDeleteOpenOrdersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.deleteOpenOrders(chain, connector, request);
+}
+
+/**
+ * GET /clob/filledOrders
+ *
+ * @param request
+ */
+export async function getFilledOrders(
+  request: ClobGetFilledOrdersRequest
+): Promise<ClobGetFilledOrdersResponse> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serum = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.getFilledOrders(chain, connector, request);
 }

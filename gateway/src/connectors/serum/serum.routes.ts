@@ -7,11 +7,11 @@ import { Solana } from '../../chains/solana/solana';
 import { validatePublicKey } from '../../chains/solana/solana.validators';
 import {
   deleteOrders,
-  fills,
+  getFilledOrders,
   getOrders,
-  markets,
-  orderbook,
-  postOrder,
+  getMarkets,
+  getOrderbooks,
+  postOrders,
 } from './serum.controllers';
 import {
   SerumMarketsRequest,
@@ -57,7 +57,7 @@ export namespace MangoRoutes {
         req: Request<unknown, unknown, SerumMarketsRequest>,
         res: Response<SerumMarketsResponse, any>
       ) => {
-        res.status(200).json(await markets(req.body));
+        res.status(200).json(await getMarkets(req.body));
       }
     )
   );
@@ -72,7 +72,7 @@ export namespace MangoRoutes {
         req: Request<unknown, unknown, SerumMarketsRequest>,
         res: Response<SerumTickerResponse, any>
       ) => {
-        res.status(200).json(await markets(req.body));
+        res.status(200).json(await getMarkets(req.body));
       }
     )
   );
@@ -85,7 +85,7 @@ export namespace MangoRoutes {
         res: Response<SerumOrderbookResponse, any>
       ) => {
         // TODO: 404 if requested market does not exist
-        res.status(200).json(await orderbook(req.body));
+        res.status(200).json(await getOrderbooks(req.body));
       }
     )
   );
@@ -111,7 +111,7 @@ export namespace MangoRoutes {
         res: Response<SerumOrderResponse, any>
       ) => {
         validatePublicKey(req.body);
-        res.status(200).json(await postOrder(req.body));
+        res.status(200).json(await postOrders(req.body));
       }
     )
   );
@@ -163,7 +163,7 @@ export namespace MangoRoutes {
         res: Response<SerumGetFillsResponse, any>
       ) => {
         validatePublicKey(req.body);
-        res.status(200).json(await fills(req.body));
+        res.status(200).json(await getFilledOrders(req.body));
       }
     )
   );

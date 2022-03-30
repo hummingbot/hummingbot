@@ -1,41 +1,148 @@
-import {SerumMarketsRequest, SerumMarketsResponse, SerumOrderbookRequest} from './serum.requests';
-import {Solanaish} from "../../chains/solana/solana";
-import {Serumish} from "./serum";
+import { Solanaish } from '../../chains/solana/solana';
+import { Serumish } from './serum';
+import {
+  ClobDeleteOpenOrdersRequest,
+  ClobDeleteOpenOrdersResponse,
+  ClobDeleteOrdersRequest,
+  ClobGetFilledOrdersRequest,
+  ClobGetFilledOrdersResponse,
+  ClobGetOpenOrdersRequest,
+  ClobGetMarketsRequest,
+  ClobGetMarketsResponse,
+  ClobGetOrderbooksRequest,
+  ClobGetOrderbooksResponse,
+  ClobPostOrdersRequest,
+  ClobGetTickersRequest,
+  ClobGetTickersResponse,
+  ClobGetOrdersResponse,
+  ClobPostOrdersResponse,
+  ClobDeleteOrdersResponse,
+  ClobGetOpenOrdersResponse,
+} from '../../clob/clob.requests';
 
-export async function markets(
+// TODO // return all, if undefined!!!
+/**
+ * Get the all or the informed markets and their configurations.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function getMarkets(
   solana: Solanaish,
   serum: Serumish,
-  req: SerumMarketsRequest
-): Promise<SerumMarketsResponse> {
-  // TODO implement!!!
-  console.log(solana, serum, req);
+  request: ClobGetMarketsRequest
+): Promise<ClobGetMarketsResponse> {
 }
 
-export async function orderbook(
+/**
+ * Get the current orderbook for each informed market.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function getOrderbooks(
   solana: Solanaish,
   serum: Serumish,
-  req: SerumOrderbookRequest
-) {
-  console.log(body);
-  return body;
+  request: ClobGetOrderbooksRequest
+): Promise<ClobGetOrderbooksResponse> {
 }
 
-export async function getOrders(req: any) {
-  console.log(body);
-  return body;
+/**
+ * Get the last traded prices for each informed market.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function getTickers(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobGetTickersRequest
+): Promise<ClobGetTickersResponse> {
 }
 
-export async function postOrder(req: any) {
-  console.log(body);
-  return body;
+/**
+ * Get one or more orders.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function getOrders(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobGetOrdersRequest
+): Promise<ClobGetOrdersResponse> {
 }
 
-export async function deleteOrders(req: any) {
-  console.log(body);
-  return body;
+/**
+ * Create one or more orders.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function postOrders(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobPostOrdersRequest
+): Promise<ClobPostOrdersResponse> {
 }
 
-export async function fills(req: any) {
-  console.log(body);
-  return body;
+/**
+ * Cancel one or more orders.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function deleteOrders(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobDeleteOrdersRequest
+): Promise<ClobDeleteOrdersResponse> {
+}
+
+/**
+ * Get all open orders for each informed market.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function getOpenOrders(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobGetOpenOrdersRequest
+): Promise<ClobGetOpenOrdersResponse> {
+}
+
+/**
+ * Cancel all open orders for each informed market.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function deleteOpenOrders(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobDeleteOpenOrdersRequest
+): Promise<ClobDeleteOpenOrdersResponse> {
+}
+
+/**
+ * Get filled orders.
+ *
+ * @param solana
+ * @param serum
+ * @param request
+ */
+export async function getFilledOrders(
+  solana: Solanaish,
+  serum: Serumish,
+  request: ClobGetFilledOrdersRequest
+): Promise<ClobGetFilledOrdersResponse> {
 }
