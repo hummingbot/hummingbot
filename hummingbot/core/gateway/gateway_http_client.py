@@ -201,19 +201,26 @@ class GatewayHttpClient:
             address: str,
             token: str,
             spender: str,
-            nonce: int
+            nonce: int,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "address": address,
+            "token": token,
+            "spender": spender,
+            "nonce": nonce
+        }
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request(
             "post",
             "evm/approve",
-            {
-                "chain": chain,
-                "network": network,
-                "address": address,
-                "token": token,
-                "spender": spender,
-                "nonce": nonce
-            }
+            request_payload
         )
 
     async def get_allowances(
@@ -309,10 +316,12 @@ class GatewayHttpClient:
             side: TradeType,
             amount: Decimal,
             price: Decimal,
-            nonce: int
+            nonce: int,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
         # XXX(martin_kou): The amount is always output with 18 decimal places.
-        return await self.api_request("post", "amm/trade", {
+        request_payload: Dict[str, Any] = {
             "chain": chain,
             "network": network,
             "connector": connector,
@@ -323,4 +332,21 @@ class GatewayHttpClient:
             "amount": f"{amount:.18f}",
             "limitPrice": str(price),
             "nonce": nonce
+        }
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/trade", request_payload)
+
+    async def amm_estimate_gas(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/estimateGas", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
         })

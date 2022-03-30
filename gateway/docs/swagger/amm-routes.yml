@@ -39,3 +39,23 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/TradeResponse'
+  /amm/estimateGas:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Estimate the total gas costs for sending an AMM order'
+      operationId: 'estimateGas'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/NetworkSelectionRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EstimateGasResponse'

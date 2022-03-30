@@ -101,10 +101,10 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
     async def test_update_balances(self):
         self._connector._account_balances.clear()
         self.assertEqual(0, len(self._connector.get_all_balances()))
-        await self._connector._update_balances(on_interval=False)
+        await self._connector.update_balances(on_interval=False)
         self.assertEqual(3, len(self._connector.get_all_balances()))
-        self.assertAlmostEqual(Decimal("58.919555905095740084"), self._connector.get_balance("ETH"))
-        self.assertAlmostEqual(Decimal("1000"), self._connector.get_balance("DAI"))
+        self.assertAlmostEqual(Decimal("58.903990239981237338"), self._connector.get_balance("ETH"))
+        self.assertAlmostEqual(Decimal("1015.242427495432379422"), self._connector.get_balance("DAI"))
 
     @async_test(loop=ev_loop)
     async def test_get_allowances(self):
@@ -161,7 +161,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
         try:
-            await self._connector._update_token_approval_status(successful_records + fake_records)
+            await self._connector.update_token_approval_status(successful_records + fake_records)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
                 {"WETH", "DAI"},
@@ -216,7 +216,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self._connector.add_listener(MarketEvent.OrderFilled, event_logger)
 
         try:
-            await self._connector._update_order_status(successful_records + fake_records)
+            await self._connector.update_order_status(successful_records + fake_records)
             self.assertEqual(1, len(event_logger.event_log))
             filled_event: OrderFilledEvent = event_logger.event_log[0]
             self.assertEqual(
@@ -229,22 +229,22 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
     async def test_get_quote_price(self):
         buy_price: Decimal = await self._connector.get_quote_price("DAI-WETH", True, Decimal(1000))
         sell_price: Decimal = await self._connector.get_quote_price("DAI-WETH", False, Decimal(1000))
-        self.assertEqual(Decimal("0.0028530896"), buy_price)
-        self.assertEqual(Decimal("0.0028231006"), sell_price)
+        self.assertEqual(Decimal("0.002684496"), buy_price)
+        self.assertEqual(Decimal("0.0026566516"), sell_price)
 
     @async_test(loop=ev_loop)
     async def test_approve_token(self):
-        self._http_player.replay_timestamp_ms = 1647320090844
+        self._http_player.replay_timestamp_ms = 1648499867736
         weth_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("WETH")
-        self._http_player.replay_timestamp_ms = 1647320094877
+        self._http_player.replay_timestamp_ms = 1648499871595
         dai_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("DAI")
 
         self.assertEqual(
-            "0x3dda596305131598b33e6c08ad765553af8364f4421e2cc35a0a4fac5c30a190",       # noqa: mock
+            "0x6c975ba8c1d35e8542ffd05956d9ec227c1ac234ae4d5f69819aa24bae784321",       # noqa: mock
             weth_in_flight_order.exchange_order_id
         )
         self.assertEqual(
-            "0x13bd403d422a28f5df1f9591b768f00234d3bac93b616868d0c0e552ff9ca3ec",       # noqa: mock
+            "0x919438daa20dc2f5381fdf25b6b89a189d055b3a1d6d848c44e53dc10f49168c",       # noqa: mock
             dai_in_flight_order.exchange_order_id
         )
 
@@ -252,7 +252,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         event_logger: EventLogger = EventLogger()
         self._connector.add_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
 
-        self._http_player.replay_timestamp_ms = 1647320203735
+        self._http_player.replay_timestamp_ms = 1648500060232
         try:
             async with timeout(10):
                 while len(event_logger.event_log) < 2:
@@ -271,7 +271,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_buy_order(self):
-        self._http_player.replay_timestamp_ms = 1647320210070
+        self._http_player.replay_timestamp_ms = 1648500060561
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
         event_logger: EventLogger = EventLogger()
         self._connector.add_listener(MarketEvent.BuyOrderCreated, event_logger)
@@ -284,13 +284,13 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 timeout_seconds=5
             )
             self.assertEqual(
-                "0xeaf6b51033b8060c527d58f71ec66226da8d98ec77290017ec7787ed7ab60ae6",       # noqa: mock
+                "0xc3d3166e6142c479b26c21e007b68e2b7fb1d28c1954ab344b45d7390139654f",       # noqa: mock
                 order_created_event.exchange_order_id
             )
-            self._http_player.replay_timestamp_ms = 1647320316482
+            self._http_player.replay_timestamp_ms = 1648500097569
             order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
             self.assertEqual(
-                "0xeaf6b51033b8060c527d58f71ec66226da8d98ec77290017ec7787ed7ab60ae6",       # noqa: mock
+                "0xc3d3166e6142c479b26c21e007b68e2b7fb1d28c1954ab344b45d7390139654f",       # noqa: mock
                 order_filled_event.exchange_trade_id
             )
         finally:
@@ -302,7 +302,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_sell_order(self):
-        self._http_player.replay_timestamp_ms = 1647320318718
+        self._http_player.replay_timestamp_ms = 1648500097825
         clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
         event_logger: EventLogger = EventLogger()
         self._connector.add_listener(MarketEvent.SellOrderCreated, event_logger)
@@ -315,13 +315,13 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 timeout_seconds=5
             )
             self.assertEqual(
-                "0x6d5b02fc76b8234a4bc8067b6487dfb711307c85cf37daac12a3ce0afe0b4340",       # noqa: mock
+                "0x63c7ffaf8dcede44c51cc2ea7ab3a5c0ea4915c9dab57dfcb432ea92ad174391",       # noqa: mock
                 order_created_event.exchange_order_id
             )
-            self._http_player.replay_timestamp_ms = 1647320411486
+            self._http_player.replay_timestamp_ms = 1648500133889
             order_filled_event: OrderFilledEvent = await event_logger.wait_for(OrderFilledEvent, timeout_seconds=5)
             self.assertEqual(
-                "0x6d5b02fc76b8234a4bc8067b6487dfb711307c85cf37daac12a3ce0afe0b4340",       # noqa: mock
+                "0x63c7ffaf8dcede44c51cc2ea7ab3a5c0ea4915c9dab57dfcb432ea92ad174391",       # noqa: mock
                 order_filled_event.exchange_trade_id
             )
         finally:

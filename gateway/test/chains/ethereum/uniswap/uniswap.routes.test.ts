@@ -5,6 +5,7 @@ import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
+import { gasCostInEthString } from '../../../../src/services/base';
 
 let app: Express;
 let ethereum: Ethereum;
@@ -619,6 +620,45 @@ describe('POST /amm/trade', () => {
         nonce: 21,
         maxFeePerGas: '5000000000',
         maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+});
+
+describe('POST /amm/estimateGas', () => {
+  it('should return 200 for valid connector', async () => {
+    patchInit();
+    patchGasPrice();
+
+    await request(app)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.network).toEqual('kovan');
+        expect(res.body.gasPrice).toEqual(100);
+        expect(res.body.gasCost).toEqual(
+          gasCostInEthString(100, uniswap.gasLimit)
+        );
+      });
+  });
+
+  it('should return 500 for invalid connector', async () => {
+    patchInit();
+    patchGasPrice();
+
+    await request(app)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'pangolin',
       })
       .set('Accept', 'application/json')
       .expect(500);
