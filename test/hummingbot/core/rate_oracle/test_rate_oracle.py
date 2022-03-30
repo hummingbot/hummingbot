@@ -10,7 +10,6 @@ from bidict import bidict
 
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
-from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from .fixture import Fixture
