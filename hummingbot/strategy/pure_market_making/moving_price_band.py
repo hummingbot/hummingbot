@@ -52,9 +52,8 @@ class MovingPriceBand:
         :param timestamp: current timestamp of the strategy/connector
         :param price: reference price to set price band
         '''
-        if timestamp < self._set_time + self.price_band_refresh_time:
-            return
-        self.update(timestamp, price)
+        if timestamp >= self._set_time + self.price_band_refresh_time:
+            self.update(timestamp, price)
 
     def check_price_floor_exceeded(self, price: Decimal) -> bool:
         '''
@@ -62,19 +61,15 @@ class MovingPriceBand:
 
         :param price: price to check
         '''
-        if price <= self.price_floor:
-            return True
-        return False
-
+        return price <= self.price_floor
+        
     def check_price_ceiling_exceeded(self, price: Decimal) -> bool:
         '''
         check if the price has exceeded the price ceiling
 
         :param price: price to check
         '''
-        if price >= self.price_ceiling:
-            return True
-        return False
+        return price >= self.price_ceiling
 
     def switch(self, value: bool) -> "MovingPriceBand":
         '''
@@ -88,14 +83,14 @@ class MovingPriceBand:
                 price_ceiling_pct=self.price_ceiling_pct,
                 price_band_refresh_time=self.price_band_refresh_time
             )
-        return DisableMovingPriceBand(
+        return DisabledMovingPriceBand(
             price_floor_pct=self.price_floor_pct,
             price_ceiling_pct=self.price_ceiling_pct,
             price_band_refresh_time=self.price_band_refresh_time
         )
 
 
-class DisableMovingPriceBand(MovingPriceBand):
+class DisabledMovingPriceBand(MovingPriceBand):
     '''disable moving price band'''
     @property
     def enabled(self) -> bool:
