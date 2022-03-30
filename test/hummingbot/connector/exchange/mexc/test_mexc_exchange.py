@@ -1,27 +1,25 @@
 import asyncio
 import functools
+import json
+import re
 import time
 from collections import Awaitable
-
-import pandas as pd
-
-import ujson
 from decimal import Decimal
-from typing import Any, Dict, List, Callable
+from typing import Any, Callable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
+import pandas as pd
+import ujson
+from aioresponses import aioresponses
+
+import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
-from hummingbot.connector.exchange.mexc.mexc_in_flight_order import (
-    MexcInFlightOrder
-)
+from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.event.events import (
-    OrderCancelledEvent,
-    OrderType,
-    TradeType, SellOrderCompletedEvent,
-)
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import OrderCancelledEvent, SellOrderCompletedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -214,10 +212,15 @@ class MexcExchangeTests(TestCase):
                 'clientOrderId': 'sell-MX-USDT-1638156451005305'},
             'channel': 'push.personal.order', 'symbol_display': 'MX_USDT'}
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_order_event_with_cancel_status_cancels_in_flight_order(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, self.balances_mock_data, self.balances_mock_data)
+        mock_response = self.balances_mock_data
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_BALANCE_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps(mock_response),
+        )
 
         self.exchange.start_tracking_order(order_id="sell-MX-USDT-1638156451005305",
                                            exchange_order_id="40728558ead64032a676e6f0a4afc4ca",
@@ -230,14 +233,14 @@ class MexcExchangeTests(TestCase):
         inflight_order = self.exchange.in_flight_orders["sell-MX-USDT-1638156451005305"]
 
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: self.user_stream_data)
+        mock_user_stream.get.side_effect = [self.user_stream_data, asyncio.CancelledError]
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener(), 1000000)
+        except asyncio.CancelledError:
+            pass
 
         self.assertEqual("CANCELED", inflight_order.last_state)
         self.assertTrue(inflight_order.is_cancelled)
@@ -249,10 +252,15 @@ class MexcExchangeTests(TestCase):
         self.assertEqual(OrderCancelledEvent, type(cancel_event))
         self.assertEqual(inflight_order.client_order_id, cancel_event.order_id)
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_order_event_with_rejected_status_makes_in_flight_order_fail(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, self.balances_mock_data)
+        mock_response = self.balances_mock_data
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_BALANCE_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps(mock_response),
+        )
         self.exchange.start_tracking_order(order_id="sell-MX-USDT-1638156451005305",
                                            exchange_order_id="40728558ead64032a676e6f0a4afc4ca",
                                            trading_pair="MX-USDT",
@@ -265,12 +273,12 @@ class MexcExchangeTests(TestCase):
         stream_data = self.user_stream_data
         stream_data.get("data")["status"] = 5
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: stream_data)
+        mock_user_stream.get.side_effect = [stream_data, asyncio.CancelledError]
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener(), 1000000)
+        except asyncio.CancelledError:
+            pass
 
         self.assertEqual("PARTIALLY_CANCELED", inflight_order.last_state)
         self.assertTrue(inflight_order.is_failure)
@@ -282,7 +290,7 @@ class MexcExchangeTests(TestCase):
         self.assertEqual(OrderCancelledEvent, type(failure_event))
         self.assertEqual(inflight_order.client_order_id, failure_event.order_id)
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_trade_event_fills_and_completes_buy_in_flight_order(self, mock_api):
         fee_mock_data = {'code': 200, 'data': [{'id': 'c85b7062f69c4bf1b6c153dca5c0318a',
                                                 'symbol': 'MX_USDT', 'quantity': '2',
@@ -291,9 +299,19 @@ class MexcExchangeTests(TestCase):
                                                 'order_id': '95c4ce45fdd34cf99bfd1e1378eb38ae',
                                                 'is_taker': False, 'fee_currency': 'USDT',
                                                 'create_time': 1638177115000}]}
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, self.balances_mock_data)
-        self.mocking_assistant.add_http_response(mock_api, 200, fee_mock_data)
+        mock_response = self.balances_mock_data
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_BALANCE_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps(mock_response),
+        )
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_DEAL_DETAIL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps(fee_mock_data),
+        )
         self.exchange.start_tracking_order(order_id="sell-MX-USDT-1638156451005305",
                                            exchange_order_id="40728558ead64032a676e6f0a4afc4ca",
                                            trading_pair="MX-USDT",
@@ -305,13 +323,13 @@ class MexcExchangeTests(TestCase):
         _user_stream = self.user_stream_data
         _user_stream.get("data")["status"] = 2
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: _user_stream)
+        mock_user_stream.get.side_effect = [_user_stream, asyncio.CancelledError]
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener(), 1000000)
+        except asyncio.CancelledError:
+            pass
 
         self.assertEqual("FILLED", inflight_order.last_state)
         self.assertEqual(Decimal(0), inflight_order.executed_amount_base)
@@ -365,13 +383,18 @@ class MexcExchangeTests(TestCase):
         self.assertEqual(next_tick, self.exchange._last_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_balances(self, mock_api):
         self.assertEqual(0, len(self.exchange._account_balances))
         self.assertEqual(0, len(self.exchange._account_available_balances))
 
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, self.balances_mock_data, "")
+        mock_response = self.balances_mock_data
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_BALANCE_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps(mock_response),
+        )
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._update_balances()
@@ -380,10 +403,9 @@ class MexcExchangeTests(TestCase):
 
         self.assertEqual(Decimal(str(481.0)), self.exchange.get_balance(self.base_asset))
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_update_order_status(self, mock_order_status, mock_trade_history, mock_ts):
+    def test_update_order_status(self, mock_api, mock_ts):
         # Simulates order being tracked
         order: MexcInFlightOrder = MexcInFlightOrder(
             "0",
@@ -393,6 +415,7 @@ class MexcExchangeTests(TestCase):
             TradeType.SELL,
             Decimal(str(41720.83)),
             Decimal("1"),
+            1640001112.0,
             "Working",
         )
         self.exchange._in_flight_orders.update({
@@ -404,93 +427,44 @@ class MexcExchangeTests(TestCase):
         self.exchange._current_timestamp = ts
         self.assertTrue(1, len(self.exchange.in_flight_orders))
 
-        # Add FullyExecuted GetOrderStatus API Response
-        self.mocking_assistant.configure_http_request_mock(mock_order_status)
-        self.mocking_assistant.add_http_response(
-            mock_order_status,
-            200,
-            {
-                "Side": "Sell",
-                "OrderId": 2628,
-                "Price": 41720.830000000000000000000000,
-                "Quantity": 0.0000000000000000000000000000,
-                "DisplayQuantity": 0.0000000000000000000000000000,
-                "Instrument": 5,
-                "Account": 528,
-                "AccountName": "hbot",
-                "OrderType": "Limit",
-                "ClientOrderId": 0,
-                "OrderState": "FullyExecuted",
-                "ReceiveTime": 1627380780887,
-                "ReceiveTimeTicks": 637629775808866338,
-                "LastUpdatedTime": 1627380783860,
-                "LastUpdatedTimeTicks": 637629775838598558,
-                "OrigQuantity": 1.0000000000000000000000000000,
-                "QuantityExecuted": 1.0000000000000000000000000000,
-                "GrossValueExecuted": 41720.830000000000000000000000,
-                "ExecutableValue": 0.0000000000000000000000000000,
-                "AvgPrice": 41720.830000000000000000000000,
-                "CounterPartyId": 0,
-                "ChangeReason": "Trade",
-                "OrigOrderId": 2628,
-                "OrigClOrdId": 0,
-                "EnteredBy": 492,
-                "UserName": "hbot",
-                "IsQuote": False,
-                "InsideAsk": 41720.830000000000000000000000,
-                "InsideAskSize": 0.9329960000000000000000000000,
-                "InsideBid": 41718.340000000000000000000000,
-                "InsideBidSize": 0.0632560000000000000000000000,
-                "LastTradePrice": 41720.830000000000000000000000,
-                "RejectReason": "",
-                "IsLockedIn": False,
-                "CancelReason": "",
-                "OrderFlag": "AddedToBook, RemovedFromBook",
-                "UseMargin": False,
-                "StopPrice": 0.0000000000000000000000000000,
-                "PegPriceType": "Last",
-                "PegOffset": 0.0000000000000000000000000000,
-                "PegLimitOffset": 0.0000000000000000000000000000,
-                "IpAddress": "103.6.151.12",
-                "ClientOrderIdUuid": None,
-                "OMSId": 1
-            },
-            "")
-
         # Add TradeHistory API Response
-        self.mocking_assistant.configure_http_request_mock(mock_trade_history)
-        self.mocking_assistant.add_http_response(
-            mock_trade_history,
-            200,
-            {
-                "code": 200,
-                "data": [
-                    {
-                        "id": "504feca6ba6349e39c82262caf0be3f4",
-                        "symbol": "MX_USDT",
-                        "price": "3.001",
-                        "quantity": "30",
-                        "state": "CANCELED",
-                        "type": "BID",
-                        "deal_quantity": "0",
-                        "deal_amount": "0",
-                        "create_time": 1573117266000
-                    }
-                ]
-            },
-            "")
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_ORDER_DETAILS_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "code": 200,
+            "data": [
+                {
+                    "id": "504feca6ba6349e39c82262caf0be3f4",
+                    "symbol": "MX_USDT",
+                    "price": "3.001",
+                    "quantity": "30",
+                    "state": "CANCELED",
+                    "type": "BID",
+                    "deal_quantity": "0",
+                    "deal_amount": "0",
+                    "create_time": 1573117266000
+                }
+            ]
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
-        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
-        self.async_run_with_timeout(self.exchange_task)
+        self.async_run_with_timeout(self.exchange._update_order_status())
         self.assertEqual(0, len(self.exchange.in_flight_orders))
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_order_status_error_response(self, mock_api, mock_ts):
 
         # Simulates order being tracked
-        order: MexcInFlightOrder = MexcInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL,
-                                                     Decimal(str(41720.83)), Decimal("1"))
+        order: MexcInFlightOrder = MexcInFlightOrder(
+            "0",
+            "2628",
+            self.trading_pair,
+            OrderType.LIMIT,
+            TradeType.SELL,
+            Decimal(str(41720.83)),
+            Decimal("1"),
+            creation_timestamp=1640001112.0)
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
         })
@@ -499,71 +473,18 @@ class MexcExchangeTests(TestCase):
         ts: float = time.time()
         mock_ts.return_value = ts
         self.exchange._current_timestamp = ts
-        # Add FullyExecuted GetOrderStatus API Response
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(
-            mock_api,
-            200,
-            {
-                "Side": "Sell",
-                "OrderId": 2628,
-                "Price": 41720.830000000000000000000000,
-                "Quantity": 0.0000000000000000000000000000,
-                "DisplayQuantity": 0.0000000000000000000000000000,
-                "Instrument": 5,
-                "Account": 528,
-                "AccountName": "hbot",
-                "OrderType": "Limit",
-                "ClientOrderId": 0,
-                "OrderState": "Working",
-                "ReceiveTime": 1627380780887,
-                "ReceiveTimeTicks": 637629775808866338,
-                "LastUpdatedTime": 1627380783860,
-                "LastUpdatedTimeTicks": 637629775838598558,
-                "OrigQuantity": 1.0000000000000000000000000000,
-                "QuantityExecuted": 1.0000000000000000000000000000,
-                "GrossValueExecuted": 41720.830000000000000000000000,
-                "ExecutableValue": 0.0000000000000000000000000000,
-                "AvgPrice": 41720.830000000000000000000000,
-                "CounterPartyId": 0,
-                "ChangeReason": "Trade",
-                "OrigOrderId": 2628,
-                "OrigClOrdId": 0,
-                "EnteredBy": 492,
-                "UserName": "hbot",
-                "IsQuote": False,
-                "InsideAsk": 41720.830000000000000000000000,
-                "InsideAskSize": 0.9329960000000000000000000000,
-                "InsideBid": 41718.340000000000000000000000,
-                "InsideBidSize": 0.0632560000000000000000000000,
-                "LastTradePrice": 41720.830000000000000000000000,
-                "RejectReason": "",
-                "IsLockedIn": False,
-                "CancelReason": "",
-                "OrderFlag": "AddedToBook, RemovedFromBook",
-                "UseMargin": False,
-                "StopPrice": 0.0000000000000000000000000000,
-                "PegPriceType": "Last",
-                "PegOffset": 0.0000000000000000000000000000,
-                "PegLimitOffset": 0.0000000000000000000000000000,
-                "IpAddress": "103.6.151.12",
-                "ClientOrderIdUuid": None,
-                "OMSId": 1
-            },
-            "")
 
         # Add TradeHistory API Response
-        self.mocking_assistant.add_http_response(
-            mock_api,
-            200,
-            {
-                "result": False,
-                "errormsg": "Invalid Request",
-                "errorcode": 100,
-                "detail": None
-            }, "")
-        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
-        self.async_run_with_timeout(self.exchange_task)
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_ORDER_DETAILS_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "result": False,
+            "errormsg": "Invalid Request",
+            "errorcode": 100,
+            "detail": None
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+        self.async_run_with_timeout(self.exchange._update_order_status())
         self.assertEqual(1, len(self.exchange.in_flight_orders))
 
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._update_balances", new_callable=AsyncMock)
@@ -588,11 +509,13 @@ class MexcExchangeTests(TestCase):
 
         self.assertEqual(ts, self.exchange._last_poll_timestamp)
 
-    @patch("aiohttp.ClientSession.request")
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange._reset_poll_notifier")
+    @aioresponses()
     def test_status_polling_loop_cancels(self, _, mock_ts, mock_api):
-        mock_api.side_effect = asyncio.CancelledError
+        url = CONSTANTS.MEXC_BASE_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, exception=asyncio.CancelledError)
 
         ts: float = time.time()
         mock_ts.return_value = ts
@@ -652,9 +575,11 @@ class MexcExchangeTests(TestCase):
         self.assertTrue(self.trading_pair not in result)
         self.assertTrue(self._is_logged("ERROR", 'Error parsing the trading pair rule {}. Skipping.'))
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.current_timestamp", new_callable=PropertyMock)
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_update_trading_rules(self, mock_api, mock_ts):
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_SYMBOL_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "code": 200,
             "data": [
@@ -673,13 +598,11 @@ class MexcExchangeTests(TestCase):
                 }
             ]
         }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
         self.exchange._last_poll_timestamp = 10
         ts: float = time.time()
         mock_ts.return_value = ts
         self.exchange._current_timestamp = ts
-
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         task = asyncio.get_event_loop().create_task(
             self.exchange._update_trading_rules()
@@ -730,36 +653,41 @@ class MexcExchangeTests(TestCase):
 
         self._is_logged("ERROR", "Unexpected error while fetching trading rules. Error: ")
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_check_network_succeeds_when_ping_replies_pong(self, mock_api):
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_PING_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {"code": 200}
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         result = self.async_run_with_timeout(self.exchange.check_network())
 
         self.assertEqual(NetworkStatus.CONNECTED, result)
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_check_network_fails_when_ping_does_not_reply_pong(self, mock_api):
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_PING_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {"code": 100}
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         result = self.async_run_with_timeout(self.exchange.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_PING_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {}
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         result = self.async_run_with_timeout(self.exchange.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_check_network_fails_when_ping_returns_error_code(self, mock_api):
-        mock_response = {"code": 200}
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 404, mock_response, "")
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_PING_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {"code": 100}
+        mock_api.get(regex_url, body=json.dumps(mock_response), status=404)
 
         result = self.async_run_with_timeout(self.exchange.check_network())
 
@@ -806,13 +734,14 @@ class MexcExchangeTests(TestCase):
         # Order ID is simply a timestamp. The assertion below checks if it is created within 1 sec
         self.assertTrue(len(order_id) > 0)
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.quantize_order_amount")
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_create_limit_order(self, mock_post, amount_mock):
         amount_mock.return_value = Decimal("1")
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_PLACE_ORDER
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         expected_response = {"code": 200, "data": "123"}
-        self.mocking_assistant.configure_http_request_mock(mock_post)
-        self.mocking_assistant.add_http_response(mock_post, 200, expected_response, "")
+        mock_post.post(regex_url, body=json.dumps(expected_response))
 
         self._simulate_trading_rules_initialized()
 
@@ -842,13 +771,14 @@ class MexcExchangeTests(TestCase):
         self.assertEqual(tracked_order.amount, Decimal(1.0))
         self.assertEqual(tracked_order.trade_type, TradeType.BUY)
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.quantize_order_amount")
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_create_market_order(self, mock_post, amount_mock):
         amount_mock.return_value = Decimal("1")
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_PLACE_ORDER
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         expected_response = {"code": 200, "data": "123"}
-        self.mocking_assistant.configure_http_request_mock(mock_post)
-        self.mocking_assistant.add_http_response(mock_post, 200, expected_response, "")
+        mock_post.post(regex_url, body=json.dumps(expected_response))
 
         self._simulate_trading_rules_initialized()
 
@@ -877,10 +807,11 @@ class MexcExchangeTests(TestCase):
         self.assertEqual(tracked_order.amount, Decimal(1.0))
         self.assertEqual(tracked_order.trade_type, TradeType.BUY)
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_detect_created_order_server_acknowledgement(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 200, self.balances_mock_data, self.balances_mock_data)
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_BALANCE_URL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(self.balances_mock_data))
 
         self.exchange.start_tracking_order(order_id="sell-MX-USDT-1638156451005305",
                                            exchange_order_id="40728558ead64032a676e6f0a4afc4ca",
@@ -903,35 +834,7 @@ class MexcExchangeTests(TestCase):
         tracked_order: MexcInFlightOrder = self.exchange.in_flight_orders["sell-MX-USDT-1638156451005305"]
         self.assertEqual(tracked_order.last_state, "NEW")
 
-    @patch("hummingbot.connector.exchange.mexc.mexc_exchange.MexcExchange.quantize_order_amount")
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    def test_create_order_below_min_order_size_exception_raised(self, mock_main_app, amount_mock):
-        amount_mock.return_value = Decimal("1")
-        self._simulate_trading_rules_initialized()
-
-        order_details = [
-            str(1),
-            self.trading_pair,
-            Decimal(1.0),
-            OrderType.LIMIT_MAKER,
-            Decimal(10.0),
-        ]
-
-        self.assertEqual(0, len(self.exchange.in_flight_orders))
-
-        self.exchange_task = asyncio.get_event_loop().create_task(
-            self.exchange.execute_buy(*order_details)
-        )
-
-        self.async_run_with_timeout(self.exchange_task)
-
-        self.assertEqual(0, len(self.exchange.in_flight_orders))
-        self._is_logged("NETWORK", "Error submitting buy limit_maker order to Mexc for 1 MX-USDT "
-                                   ".10.0000.OSError(\"Error request from https://www.mexc.com/open/api/v2/order/place?"
-                                   "api_key=testAPIKey&req_time=1638244964&sign=7c9b991595d647c326685680fef3f26b5b273527"
-                                   "bd9180fe92d080d74b917231. Response: {'msg': 'invalid api_key', 'code': 400}.\")")
-
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_execute_cancel_success(self, mock_cancel):
         order: MexcInFlightOrder = MexcInFlightOrder(
             client_order_id="0",
@@ -941,6 +844,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -952,6 +856,9 @@ class MexcExchangeTests(TestCase):
             "code": 200,
             "data": {"123": "success"}
         }
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_ORDER_CANCEL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_cancel.delete(regex_url, body=json.dumps(mock_response))
 
         self.mocking_assistant.configure_http_request_mock(mock_cancel)
         self.mocking_assistant.add_http_response(mock_cancel, 200, mock_response, "")
@@ -961,7 +868,7 @@ class MexcExchangeTests(TestCase):
         )
         self.assertIsNone(result)
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_execute_cancel_all_success(self, mock_post_request):
         order: MexcInFlightOrder = MexcInFlightOrder(
             client_order_id="0",
@@ -970,7 +877,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -982,8 +890,9 @@ class MexcExchangeTests(TestCase):
                 "0": "success"
             }
         }
-        self.mocking_assistant.configure_http_request_mock(mock_post_request)
-        self.mocking_assistant.add_http_response(mock_post_request, 200, mock_response, "")
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_ORDER_CANCEL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_post_request.delete(regex_url, body=json.dumps(mock_response))
 
         cancellation_results = self.async_run_with_timeout(
             self.exchange.cancel_all(10)
@@ -993,8 +902,8 @@ class MexcExchangeTests(TestCase):
         self.assertEqual("0", cancellation_results[0].order_id)
         self.assertTrue(cancellation_results[0].success)
 
+    @aioresponses()
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_execute_cancel_fail(self, mock_cancel, mock_main_app):
         order: MexcInFlightOrder = MexcInFlightOrder(
             client_order_id="0",
@@ -1004,6 +913,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -1014,9 +924,9 @@ class MexcExchangeTests(TestCase):
             "code": 100,
             "data": {"123": "success"}
         }
-
-        self.mocking_assistant.configure_http_request_mock(mock_cancel)
-        self.mocking_assistant.add_http_response(mock_cancel, 200, mock_response, "")
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_ORDER_CANCEL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_cancel.delete(regex_url, body=json.dumps(mock_response))
 
         self.async_run_with_timeout(
             self.exchange.execute_cancel(self.trading_pair, order.client_order_id)
@@ -1024,7 +934,7 @@ class MexcExchangeTests(TestCase):
 
         self._is_logged("NETWORK", "Failed to cancel order 0 : MexcAPIError('Order could not be canceled')")
 
-    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    @aioresponses()
     def test_execute_cancel_cancels(self, mock_cancel):
         order: MexcInFlightOrder = MexcInFlightOrder(
             client_order_id="0",
@@ -1034,14 +944,16 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
         })
-
-        mock_cancel.side_effect = asyncio.CancelledError
+        url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_ORDER_CANCEL
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_cancel.delete(regex_url, exception=asyncio.CancelledError)
 
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(
@@ -1059,7 +971,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1124,7 +1037,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1140,7 +1054,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         order_json = order.to_json()
 
@@ -1160,6 +1075,7 @@ class MexcExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="FILLED"
         )
 
@@ -1177,7 +1093,8 @@ class MexcExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         order_json = order.to_json()
 

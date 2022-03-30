@@ -2,7 +2,6 @@ import aiohttp
 import asyncio
 import logging
 import time
-
 from decimal import Decimal
 from typing import (
     Any,
@@ -13,23 +12,26 @@ from typing import (
 )
 
 import ujson
-
 from libc.stdint cimport int64_t
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
+from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.connector.exchange.huobi.huobi_utils import (
     build_api_factory,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
 )
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -39,15 +41,9 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
-from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import (
@@ -471,7 +467,7 @@ cdef class HuobiExchange(ExchangeBase):
                         # Unique exchange trade ID not available in client order status
                         # But can use validate an order using exchange order ID:
                         # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
-                        exchange_trade_id=exchange_order_id
+                        exchange_trade_id=str(int(self._time() * 1e6))
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"order {tracked_order.client_order_id}.")
@@ -629,11 +625,12 @@ cdef class HuobiExchange(ExchangeBase):
                     tracked_order.trade_type,
                     tracked_order.amount,
                     tracked_order.price)
-                fee_amount = fee.fee_amount_in_quote(
+                fee_amount = fee.fee_amount_in_token(
                     tracked_order.trading_pair,
                     tracked_order.price,
                     tracked_order.amount,
-                    self)
+                    token=tracked_order.quote_asset,
+                    exchange=self)
             else:
                 fee_asset = tracked_order.fee_asset
                 fee_amount = tracked_order.fee_paid
@@ -690,7 +687,7 @@ cdef class HuobiExchange(ExchangeBase):
                                              TokenAmount(tracked_order.fee_asset, Decimal(trade_event["transactFee"]))
                                          ]
                                      ),
-                                     exchange_trade_id=order_id
+                                     exchange_trade_id=str(trade_event["tradeId"])
                                  ))
 
     @property
@@ -779,7 +776,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp,
                                  ))
         except asyncio.CancelledError:
             raise
@@ -849,7 +847,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      trading_pair,
                                      decimal_amount,
                                      decimal_price,
-                                     order_id
+                                     order_id,
+                                     tracked_order.creation_timestamp
                                  ))
         except asyncio.CancelledError:
             raise
@@ -985,7 +984,8 @@ cdef class HuobiExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

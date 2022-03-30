@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee, build_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
@@ -39,6 +39,7 @@ class OrderCandidate:
     fixed_fee_collaterals: List[TokenAmount] = field(default=list, init=False)
     potential_returns: Optional[TokenAmount] = field(default=None, init=False)
     resized: bool = field(default=False, init=False)
+    from_total_balances: bool = False
 
     @property
     def collateral_dict(self) -> Dict:

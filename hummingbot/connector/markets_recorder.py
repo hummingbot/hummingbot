@@ -189,7 +189,7 @@ class MarketsRecorder:
             return
 
         base_asset, quote_asset = evt.trading_pair.split("-")
-        timestamp: int = self.db_timestamp
+        timestamp = int(evt.creation_timestamp * 1e3)
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
 
         with self._sql_manager.get_new_session() as session:
@@ -227,7 +227,7 @@ class MarketsRecorder:
             return
 
         base_asset, quote_asset = evt.trading_pair.split("-")
-        timestamp: int = self.db_timestamp
+        timestamp: int = int(evt.timestamp * 1e3) if evt.timestamp is not None else self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
 
@@ -299,14 +299,6 @@ class MarketsRecorder:
                     session.add(funding_payment_record)
 
     @staticmethod
-    def _is_primitive_type(obj: object) -> bool:
-        return not hasattr(obj, '__dict__')
-
-    @staticmethod
-    def _is_protected_method(method_name: str) -> bool:
-        return method_name.startswith('_')
-
-    @staticmethod
     def _csv_matches_header(file_path: str, header: tuple) -> bool:
         df = pd.read_csv(file_path, header=None)
         return tuple(df.iloc[0].values) == header
@@ -315,16 +307,13 @@ class MarketsRecorder:
         csv_filename = "trades_" + trade.config_file_path[:-4] + ".csv"
         csv_path = os.path.join(data_path(), csv_filename)
 
-        field_names = ("exchange_trade_id",)  # id field should be first
-        field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
-                                                             self._is_primitive_type(getattr(trade, attr)) and
-                                                             (attr not in field_names)))
+        field_names = tuple(trade.attribute_names_for_file_export())
         field_data = tuple(getattr(trade, attr) for attr in field_names)
 
         # adding extra field "age"
         # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-        age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime(
-            '%H:%M:%S') if "//" not in trade.order_id else "n/a"
+        age = pd.Timestamp(int((trade.timestamp * 1e-3) - (trade.order.creation_timestamp * 1e-3)), unit='s').strftime(
+            '%H:%M:%S') if (trade.order is not None and "//" not in trade.order_id) else "n/a"
         field_names += ("age",)
         field_data += (age,)
 
