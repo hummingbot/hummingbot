@@ -430,6 +430,9 @@ class GatewayCommand:
                     )
                     if self.app.to_stop_config:
                         self.app.to_stop_config = False
+                        self.placeholder_mode = False
+                        self.app.hide_input = False
+                        self.app.change_prompt(prompt=">>> ")
                         return
                     if network in networks:
                         break
@@ -454,6 +457,9 @@ class GatewayCommand:
                 self.app.clear_input()
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
+                    self.placeholder_mode = False
+                    self.app.hide_input = False
+                    self.app.change_prompt(prompt=">>> ")
                     return
                 response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(
                     chain, network, wallet_private_key
@@ -470,6 +476,9 @@ class GatewayCommand:
                     )
                     if self.app.to_stop_config:
                         self.app.to_stop_config = False
+                        self.placeholder_mode = False
+                        self.app.hide_input = False
+                        self.app.change_prompt(prompt=">>> ")
                         return
                     if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
                         break
@@ -494,6 +503,9 @@ class GatewayCommand:
                         wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet >>> ")
                         if self.app.to_stop_config:
                             self.app.to_stop_config = False
+                            self.placeholder_mode = False
+                            self.app.hide_input = False
+                            self.app.change_prompt(prompt=">>> ")
                             return
                         if wallet_address in wallets:
                             self.notify(f"You have selected {wallet_address}")
@@ -511,6 +523,9 @@ class GatewayCommand:
                             self.app.clear_input()
                             if self.app.to_stop_config:
                                 self.app.to_stop_config = False
+                                self.placeholder_mode = False
+                                self.app.hide_input = False
+                                self.app.change_prompt(prompt=">>> ")
                                 return
 
                             response: Dict[str, Any] = await GatewayHttpClient.get_instance().add_wallet(
