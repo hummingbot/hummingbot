@@ -6,6 +6,7 @@ from typing import Optional
 from hummingbot.connector.exchange.kucoin import (
     kucoin_constants as CONSTANTS,
     kucoin_web_utils as web_utils,
+    kucoin_auth
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -21,6 +22,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _kausds_logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
+                 auth: kucoin_auth.KucoinAuth,  # unused
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None):

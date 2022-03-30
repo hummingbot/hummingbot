@@ -144,7 +144,7 @@ class ExchangeApiMixin(object):
         Performs all required operation to keep the connector updated and synchronized with the exchange.
         It contains the backup logic to update status using API requests in case the main update source (the user stream
         data source websocket) fails.
-        It also updates the time synchronizer. This is necessary because Kucoin requires the time of the client to be
+        It also updates the time synchronizer. This is necessary because the exchange requires the time of the client to be
         the same as the time in the exchange.
         Executes when the _poll_notifier event is enabled by the `tick` function.
         """
@@ -280,7 +280,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
     SUPPORTED_ORDER_TYPES = []
 
     MAX_ORDER_ID_LEN = None
-    HBOT_ORDER_ID_PREFIX = ""
+    HBOT_ORDER_ID_PREFIX = None
     SYMBOLS_PATH_URL = ""
     FEE_PATH_URL = ""
     CHECK_NETWORK_URL = ""
@@ -331,6 +331,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
 
         # init UserStream Data Source and Tracker
         self._userstream_ds = self.USERSTREAM_DS_CLASS(
+            auth=self._auth,
             domain=self._domain,
             api_factory=self._api_factory,
             throttler=self._throttler)
@@ -475,7 +476,8 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
-            self._poll_notifier.set()
+            if not self._poll_notifier.is_set():
+                self._poll_notifier.set()
         self._last_timestamp = timestamp
 
     # Orders placing
@@ -636,7 +638,12 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
             price = self.quantize_order_price(trading_pair, price)
             amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=price)
         else:
-            amount = self.quantize_order_amount(trading_pair, amount)
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+        # TODO binance
+        if "binance" in self.name:
+            price = self.quantize_order_price(trading_pair, price)
+            quantize_amount_price = Decimal("0") if price.is_nan() else price
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
 
         # TODO in gate io start tracking was after the below if
         self.start_tracking_order(
@@ -662,7 +669,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
             return
 
         try:
-            exchange_order_id = await self._place_order(
+            exchange_order_id, update_timestamp = await self._place_order(
                 order_id=order_id,
                 trading_pair=trading_pair,
                 amount=amount,
@@ -674,7 +681,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=update_timestamp,
                 new_state=OrderState.OPEN,
             )
             self._order_tracker.process_order_update(order_update)
@@ -683,11 +690,11 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
             raise
         except Exception:
             self.logger().network(
-                f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to Kucoin for "
+                f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
-                app_warning_msg="Failed to submit buy order to Kucoin. Check API key and network connection."
+                app_warning_msg="Failed to submit buy order to {self.name_cap}. Check API key and network connection."
             )
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
@@ -717,22 +724,23 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
                     )
                     self._order_tracker.process_order_update(order_update)
                     return order_id
-                # TODO else raise error?
             except asyncio.CancelledError:
                 raise
+            # TODO is this logic applicable to binance?
             except asyncio.TimeoutError:
-                # TODO is this logic applicable to binance?
                 self.logger().warning(f"Failed to cancel the order {order_id} because it does not have an exchange"
                                       f" order id yet")
                 await self._order_tracker.process_order_not_found(order_id)
-            except Exception as e:
-                self.logger().network(
-                    f"Failed to cancel order {order_id}: {str(e)}",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel the order {order_id} on Kucoin. "
-                                    f"Check API key and network connection."
-                )
-        # TODO is this correct?
+            # TODO kucoin
+            # except Exception as e:
+            #    self.logger().network(
+            #        f"Failed to cancel order {order_id}: {str(e)}", exc_info=True,
+            #        app_warning_msg=f"Failed to cancel the order {order_id} on {self.name_cap}. "
+            #                        f"Check API key and network connection."
+            #    )
+            except Exception:
+                self.logger().exception(f"There was an error when requesting cancellation of order {order_id}")
+                raise
         return None
 
     # Order Tracking

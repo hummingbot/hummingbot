@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from collections import Awaitable
+from collections.abc import Awaitable
 from decimal import Decimal
 from typing import Dict, NamedTuple, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -541,7 +541,7 @@ class TestKucoinExchange(unittest.TestCase):
         self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -588,7 +588,7 @@ class TestKucoinExchange(unittest.TestCase):
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -690,13 +690,19 @@ class TestKucoinExchange(unittest.TestCase):
                                if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(cancel_request[1][0])
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
+        # self.assertTrue(
+        #    self._is_logged(
+        #        "NETWORK",
+        #        f"Failed to cancel order {order.client_order_id}: Error executing request DELETE "
+        #        f"/api/v1/orders/{order.exchange_order_id}. HTTP status is 400. Error: "
+        #    )
+        # )
         self.assertTrue(
             self._is_logged(
-                "NETWORK",
-                f"Failed to cancel order {order.client_order_id}: Error executing request DELETE "
-                f"/api/v1/orders/{order.exchange_order_id}. HTTP status is 400. Error: "
+                "ERROR",
+                f"There was an error when requesting cancellation of order {order.client_order_id}"
             )
         )
 

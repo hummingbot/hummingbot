@@ -21,19 +21,23 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 
 
 class KucoinExchange(ExchangeBaseV2):
-    RATE_LIMITS = CONSTANTS.RATE_LIMITS
-    CHECK_NETWORK_URL = CONSTANTS.SERVER_TIME_PATH_URL
-    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ORDER_ID_LEN
     DEFAULT_DOMAIN = CONSTANTS.DEFAULT_DOMAIN
-    SYMBOLS_PATH_URL = CONSTANTS.SYMBOLS_PATH_URL
-    FEE_PATH_URL = CONSTANTS.FEE_PATH_URL
+    RATE_LIMITS = CONSTANTS.RATE_LIMITS
     SUPPORTED_ORDER_TYPES = [
         OrderType.MARKET,
         OrderType.LIMIT,
         OrderType.LIMIT_MAKER
     ]
+
+    HBOT_ORDER_ID_PREFIX = ""
+    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ORDER_ID_LEN
+
     ORDERBOOK_DS_CLASS = KucoinAPIOrderBookDataSource
     USERSTREAM_DS_CLASS = KucoinAPIUserStreamDataSource
+
+    SYMBOLS_PATH_URL = CONSTANTS.SYMBOLS_PATH_URL
+    CHECK_NETWORK_URL = CONSTANTS.SERVER_TIME_PATH_URL
+    FEE_PATH_URL = CONSTANTS.FEE_PATH_URL
 
     def __init__(self,
                  kucoin_api_key: str,
@@ -95,7 +99,7 @@ class KucoinExchange(ExchangeBaseV2):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> str:
+                           price: Decimal) -> (str, int):
         path_url = CONSTANTS.ORDERS_PATH_URL
         side = trade_type.name.lower()
         order_type_str = "market" if order_type == OrderType.MARKET else "limit"
@@ -121,7 +125,7 @@ class KucoinExchange(ExchangeBaseV2):
             is_auth_required=True,
             limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
         )
-        return str(exchange_order_id["data"]["orderId"])
+        return str(exchange_order_id["data"]["orderId"]), self.current_timestamp
 
     async def _place_cancel(self, order_id, tracked_order):
         """ This implementation specific function is called by _cancel, and returns True if successful
