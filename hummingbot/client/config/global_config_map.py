@@ -10,7 +10,7 @@ from hummingbot.client.config.config_methods import using_exchange as using_exch
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import AllConnectorSettings, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
-from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 
 
 def generate_client_id() -> str:
