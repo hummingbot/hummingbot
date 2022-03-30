@@ -3,11 +3,11 @@
   "logoURI": "https://i.imgur.com/tt0vG2N.png",
   "version": {
     "major": 0,
-    "minor": 1,
-    "patch": 1
+    "minor": 2,
+    "patch": 0
   },
   "keywords": [],
-  "timestamp": "2021-05-21T00:00:00+00:00",
+  "timestamp": "2022-02-21T00:00:00+00:00",
   "tokens": [
     {
       "address": "0x2058ec2791dD28b6f67DB836ddf87534F4Bbdf22",
@@ -24,6 +24,14 @@
       "symbol": "FUJIMOON",
       "decimals": 9,
       "logoURI": "https://i.imgur.com/jNTqyQA.png"
+    },
+    {
+      "address": "0xF561800EdedF4CE146ED427Cacf1Fb8aB3B2D452",
+      "chainId": 43113,
+      "name": "Wrapped WAGMI",
+      "symbol": "WWAGMI",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/antiyro/WagmiTokenList/master/wagmi.png"
     }
   ]
 }
