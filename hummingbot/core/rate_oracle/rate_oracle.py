@@ -53,8 +53,8 @@ class RateOracle(NetworkBase):
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
     binance_us_price_url = "https://api.binance.us/api/v3/ticker/bookTicker"
-    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?order=market_cap_desc&page={}" \
-                              "&per_page=250&sparkline=false&vs_currency={}"
+    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
+                              "&per_page=250&page={}&sparkline=false"
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
     kucoin_price_url = "https://api.kucoin.com/api/v1/market/allTickers"
     ascend_ex_price_url = "https://ascendex.com/api/pro/v1/ticker"
@@ -121,22 +121,6 @@ class RateOracle(NetworkBase):
         """
         return find_rate(self._prices, pair)
 
-    async def stored_or_live_rate(self, pair: str) -> Decimal:
-        """
-        Finds a conversion rate for a given symbol trying to use the local prices. If local prices are not initialized
-            uses the async rate finder (directly from the exchange)
-
-        :param pair: A trading pair, e.g. BTC-USDT
-
-        :return A conversion rate
-        """
-        if self._prices:
-            rate = self.rate(pair)
-        else:
-            rate = await self.rate_async(pair)
-
-        return rate
-
     @classmethod
     async def rate_async(cls, pair: str) -> Decimal:
         """
@@ -202,7 +186,7 @@ class RateOracle(NetworkBase):
             raise NotImplementedError
 
     @classmethod
-    @async_ttl_cache(ttl=30, maxsize=1)
+    @async_ttl_cache(ttl=1, maxsize=1)
     async def get_binance_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Binance prices from binance.com and binance.us where only USD pairs from binance.us prices are added
@@ -259,7 +243,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=30, maxsize=1)
+    @async_ttl_cache(ttl=1, maxsize=1)
     async def get_kucoin_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Kucoin mid prices from their allTickers endpoint.
@@ -276,7 +260,7 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    @async_ttl_cache(ttl=30, maxsize=1)
+    @async_ttl_cache(ttl=1, maxsize=1)
     async def get_ascend_ex_prices(cls) -> Dict[str, Decimal]:
         """
         Fetches Ascend Ex mid prices from their ticker endpoint.
@@ -332,7 +316,7 @@ class RateOracle(NetworkBase):
         """
         results = {}
         client = await cls._http_client()
-        async with client.request("GET", cls.coingecko_usd_price_url.format(page_no, vs_currency)) as resp:
+        async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
             records = await resp.json(content_type=None)
             for record in records:
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'

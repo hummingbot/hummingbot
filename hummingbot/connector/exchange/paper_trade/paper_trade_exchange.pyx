@@ -1,56 +1,69 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
 import asyncio
-import math
-import random
 from collections import (
     deque, defaultdict
 )
+from cpython cimport PyObject
 from decimal import Decimal
+from libcpp cimport bool as cppbool
+from libcpp.vector cimport vector
+import math
+import pandas as pd
+import random
 from typing import (
     Dict,
     List,
     Optional,
     Tuple,
 )
-
-from cpython cimport PyObject
-from cython.operator cimport address, dereference as deref, postincrement as inc
-from hummingbot.core.Utils cimport getIteratorFromReverseIterator, reverse_iterator
-from libcpp cimport bool as cppbool
-from libcpp.vector cimport vector
-
-from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector
-from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.connector.exchange_base import ExchangeBase
+from cython.operator cimport(
+    postincrement as inc,
+    dereference as deref,
+    address
+)
+from hummingbot.core.Utils cimport(
+    getIteratorFromReverseIterator,
+    reverse_iterator
+)
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+)
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.clock import Clock
+from hummingbot.core.clock import (
+    Clock
+)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.limit_order cimport c_create_limit_order_from_cpp_limit_order
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
     MarketEvent,
+    OrderType,
+    TradeType,
+    BuyOrderCompletedEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
     MarketOrderFailureEvent,
     OrderBookEvent,
-    OrderBookTradeEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-    OrderType,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    TradeType,
+    OrderBookTradeEvent,
+    OrderCancelledEvent
 )
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.utils.estimate_fee import estimate_fee, build_trade_fee
-from .market_config import AssetType, MarketConfig
+
+from .market_config import (
+    MarketConfig,
+    AssetType
+)
 from ...budget_checker import BudgetChecker
 
 ptm_logger = None
@@ -172,9 +185,6 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
-
-        # Trade volume metrics should never be gather for paper trade connector
-        self._trade_volume_metric_collector = DummyMetricsCollector()
 
     @property
     def order_book_tracker(self) -> OrderBookTracker:
