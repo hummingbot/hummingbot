@@ -286,7 +286,7 @@ class GatewayEVMAMM(ConnectorBase):
         Automatically approves trading pair tokens for contract(s).
         It first checks if there are any already approved amount (allowance)
         """
-        self._allowances = await self.get_allowances()
+        await self.update_allowances()
         for token, amount in self._allowances.items():
             if amount <= s_decimal_0 and not self.is_pending_approval(token):
                 await self.approve_token(token)
@@ -322,6 +322,9 @@ class GatewayEVMAMM(ConnectorBase):
             self.stop_tracking_order(order_id)
             self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
             return None
+
+    async def update_allowances(self):
+        self._allowances = await self.get_allowances()
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -644,6 +647,7 @@ class GatewayEVMAMM(ConnectorBase):
                             token_symbol
                         )
                     )
+                    safe_ensure_future(self.update_allowances())
                 else:
                     self.logger().warning(
                         f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
