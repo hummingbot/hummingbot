@@ -238,3 +238,60 @@ def check_transaction_exceptions(
         exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
 
     return exception_list
+
+
+async def start_gateway():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    try:
+        response = await docker_ipc(
+            "containers",
+            all=True,
+            filters={"name": get_gateway_container_name()}
+        )
+        if len(response) == 0:
+            raise ValueError(f"Gateway container {get_gateway_container_name()} not found. ")
+
+        container_info = response[0]
+        if container_info["State"] == "running":
+            HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} already running.")
+            return
+
+        await docker_ipc(
+            "start",
+            container=container_info["Id"]
+        )
+        HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} has started.")
+    except Exception as e:
+        HummingbotApplication.main_application().notify(f"Error occurred starting Gateway container. {e}")
+
+
+async def stop_gateway():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    try:
+        response = await docker_ipc(
+            "containers",
+            all=True,
+            filters={"name": get_gateway_container_name()}
+        )
+        if len(response) == 0:
+            raise ValueError(f"Gateway container {get_gateway_container_name()} not found.")
+
+        container_info = response[0]
+        if container_info["State"] != "running":
+            HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} not running.")
+            return
+
+        await docker_ipc(
+            "stop",
+            container=container_info["Id"],
+        )
+        HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} successfully stopped.")
+    except Exception as e:
+        HummingbotApplication.main_application().notify(f"Error occurred stopping Gateway container. {e}")
+
+
+async def restart_gateway():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    await stop_gateway()
+    await start_gateway()
+    HummingbotApplication.main_application().notify("Gateway will be ready momentarily.")
