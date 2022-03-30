@@ -14,10 +14,11 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, OrderCancelledEvent, OrderExpiredEvent, OrderType, SellOrderCompletedEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.amm_arb.data_types import ArbProposalSide
 from hummingbot.strategy.amm_arb.utils import create_arb_proposals, ArbProposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -46,9 +47,6 @@ class AmmArbStrategy(StrategyPyBase):
     _all_markets_ready: bool
     _ev_loop: asyncio.AbstractEventLoop
     _main_task: Optional[asyncio.Task]
-    _first_order_done_event: Optional[asyncio.Event]
-    _first_order_succeeded: Optional[bool]
-    _first_order_id: Optional[str]
     _last_timestamp: float
     _status_report_interval: float
     _quote_eth_rate_fetch_loop_task: Optional[asyncio.Task]
@@ -108,9 +106,6 @@ class AmmArbStrategy(StrategyPyBase):
 
         self._ev_loop = asyncio.get_event_loop()
         self._main_task = None
-        self._first_order_done_event = None
-        self._first_order_succeeded = None
-        self._first_order_id = None
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
@@ -121,6 +116,8 @@ class AmmArbStrategy(StrategyPyBase):
 
         self._cancel_outdated_orders_task = None
         self._gateway_transaction_cancel_interval = gateway_transaction_cancel_interval
+
+        self._order_id_side_map: Dict[str, ArbProposalSide] = {}
 
     @property
     def min_profitability(self) -> Decimal:
@@ -293,25 +290,26 @@ class AmmArbStrategy(StrategyPyBase):
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
 
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
-                if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
-                    await self._first_order_done_event.wait()
-                    if not self._first_order_succeeded:
-                        self._first_order_succeeded = None
-                        continue
-                    self._first_order_succeeded = None
-                side = "BUY" if arb_side.is_buy else "SELL"
+                side: str = "BUY" if arb_side.is_buy else "SELL"
                 self.log_with_clock(logging.INFO,
                                     f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
                                     f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
-                order_id = await self.place_arb_order(
+
+                order_id: str = await self.place_arb_order(
                     arb_side.market_info,
                     arb_side.is_buy,
                     arb_side.amount,
                     arb_side.order_price
                 )
-                if not self._concurrent_orders_submission and arb_side == arb_proposal.first_side:
-                    self._first_order_id = order_id
-                    self._first_order_done_event = asyncio.Event()
+
+                self._order_id_side_map.update({
+                    order_id: arb_side
+                })
+
+                if not self._concurrent_orders_submission:
+                    await arb_side.completed_event.wait()
+
+            await arb_proposal.wait()
 
     async def place_arb_order(
             self,
@@ -442,25 +440,25 @@ class AmmArbStrategy(StrategyPyBase):
 
         return "\n".join(lines)
 
-    def did_complete_buy_order(self, order_completed_event):
-        self.first_order_done(order_completed_event, True)
+    def set_order_completed(self, order_id: str):
+        arb_side: Optional[ArbProposalSide] = self._order_id_side_map.get(order_id)
+        if arb_side:
+            arb_side.completed_event.set()
 
-    def did_complete_sell_order(self, order_completed_event):
-        self.first_order_done(order_completed_event, True)
+    def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
+        self.set_order_completed(order_id=order_completed_event.order_id)
 
-    def did_fail_order(self, order_failed_event):
-        self.first_order_done(order_failed_event, False)
+    def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
+        self.set_order_completed(order_id=order_completed_event.order_id)
 
-    def did_cancel_order(self, cancelled_event):
-        self.first_order_done(cancelled_event, False)
+    def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
+        self.set_order_completed(order_id=order_failed_event.order_id)
 
-    def did_expire_order(self, expired_event):
-        self.first_order_done(expired_event, False)
+    def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
+        self.set_order_completed(order_id=cancelled_event.order_id)
 
-    def first_order_done(self, event, succeeded: bool):
-        if self._first_order_done_event is not None and event.order_id == self._first_order_id:
-            self._first_order_done_event.set()
-            self._first_order_succeeded = succeeded
+    def did_expire_order(self, expired_event: OrderExpiredEvent):
+        self.set_order_completed(order_id=expired_event.order_id)
 
     @property
     def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
