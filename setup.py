@@ -72,6 +72,8 @@ def main():
         "hexbytes",
         "importlib-metadata",
         "mypy-extensions",
+        "nose",
+        "nose-exclude",
         "numpy",
         "pandas",
         "pip",
