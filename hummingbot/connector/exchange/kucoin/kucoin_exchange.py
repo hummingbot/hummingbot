@@ -18,7 +18,6 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 
 class KucoinExchange(ExchangeBaseV2):
@@ -28,6 +27,13 @@ class KucoinExchange(ExchangeBaseV2):
     DEFAULT_DOMAIN = CONSTANTS.DEFAULT_DOMAIN
     SYMBOLS_PATH_URL = CONSTANTS.SYMBOLS_PATH_URL
     FEE_PATH_URL = CONSTANTS.FEE_PATH_URL
+    SUPPORTED_ORDER_TYPES = [
+        OrderType.MARKET,
+        OrderType.LIMIT,
+        OrderType.LIMIT_MAKER
+    ]
+    ORDERBOOK_DS_CLASS = KucoinAPIOrderBookDataSource
+    USERSTREAM_DS_CLASS = KucoinAPIUserStreamDataSource
 
     def __init__(self,
                  kucoin_api_key: str,
@@ -51,50 +57,18 @@ class KucoinExchange(ExchangeBaseV2):
             secret_key=self.kucoin_secret_key,
             time_provider=self._time_synchronizer)
 
-    def init_ob_datasource(self):
-        return KucoinAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
-
-    def init_us_datasource(self):
-        return KucoinAPIUserStreamDataSource(
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler)
-
     @property
     def name(self) -> str:
         return "kucoin"
 
-    def supported_order_types(self):
-        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
-
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
-                price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        """
-        Calculates the fee to pay based on the fee information provided by the exchange for the account and the token pair.
-        If exchange info is not available it calculates the estimated fee an order would pay based on the connector
-            configuration
-
-        :param base_currency: the order base currency
-        :param quote_currency: the order quote currency
-        :param order_type: the type of order (MARKET, LIMIT, LIMIT_MAKER)
-        :param order_side: if the order is for buying or selling
-        :param amount: the order amount
-        :param price: the order price
-        :param is_maker: True if the order is a maker order, False if it is a taker order
-
-        :return: the calculated or estimated fee
-        """
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
 
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
@@ -114,90 +88,6 @@ class KucoinExchange(ExchangeBaseV2):
                 price=price,
             )
         return fee
-
-    async def _create_order(self,
-                            trade_type: TradeType,
-                            order_id: str,
-                            trading_pair: str,
-                            amount: Decimal,
-                            order_type: OrderType,
-                            price: Optional[Decimal] = None):
-        """
-        Creates a an order in the exchange using the parameters to configure it
-
-        :param trade_type: the side of the order (BUY of SELL)
-        :param order_id: the id that should be assigned to the order (the client id)
-        :param trading_pair: the token pair to operate with
-        :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
-        :param price: the order price
-        """
-        trading_rule = self._trading_rules[trading_pair]
-
-        if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
-            price = self.quantize_order_price(trading_pair, price)
-            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=price)
-        else:
-            amount = self.quantize_order_amount(trading_pair, amount)
-
-        self.start_tracking_order(
-            order_id=order_id,
-            exchange_order_id=None,
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trade_type,
-            price=price,
-            amount=amount
-        )
-
-        if amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
-                                  f" size {trading_rule.min_order_size}. The order will not be created.")
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
-            )
-            self._order_tracker.process_order_update(order_update)
-            return
-
-        try:
-
-            exchange_order_id = await self._place_order(
-                order_id=order_id,
-                trading_pair=trading_pair,
-                amount=amount,
-                trade_type=trade_type,
-                order_type=order_type,
-                price=price)
-
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.OPEN,
-            )
-            self._order_tracker.process_order_update(order_update)
-
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(
-                f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to Kucoin for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
-                exc_info=True,
-                app_warning_msg="Failed to submit buy order to Kucoin. Check API key and network connection."
-            )
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
-            )
-            self._order_tracker.process_order_update(order_update)
 
     async def _place_order(self,
                            order_id: str,
@@ -225,56 +115,26 @@ class KucoinExchange(ExchangeBaseV2):
         elif order_type is OrderType.LIMIT_MAKER:
             data["price"] = str(price)
             data["postOnly"] = True
-        exchange_order_id = await self._api_request(
+        exchange_order_id = await self._api_post(
             path_url=path_url,
-            method=RESTMethod.POST,
             data=data,
             is_auth_required=True,
             limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
         )
         return str(exchange_order_id["data"]["orderId"])
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _place_cancel(self, order_id, tracked_order):
+        """ This implementation specific function is called by _cancel, and returns True if successful
         """
-        Requests the exchange to cancel an active order
-
-        :param trading_pair: the trading pair the order to cancel operates with
-        :param order_id: the client id of the order to cancel
-        """
-        tracked_order = self._order_tracker.fetch_tracked_order(order_id)
-        if tracked_order is not None:
-            try:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-                path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
-                cancel_result = await self._api_request(
-                    path_url=path_url,
-                    method=RESTMethod.DELETE,
-                    is_auth_required=True,
-                    limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
-                )
-
-                if tracked_order.exchange_order_id in cancel_result["data"].get("cancelledOrderIds", []):
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
-                    )
-                    self._order_tracker.process_order_update(order_update)
-                    return order_id
-            except asyncio.CancelledError:
-                raise
-            except asyncio.TimeoutError:
-                self.logger().warning(f"Failed to cancel the order {order_id} because it does not have an exchange"
-                                      f" order id yet")
-                await self._order_tracker.process_order_not_found(order_id)
-            except Exception as e:
-                self.logger().network(
-                    f"Failed to cancel order {order_id}: {str(e)}",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel the order {order_id} on Kucoin. "
-                                    f"Check API key and network connection."
-                )
+        exchange_order_id = await tracked_order.get_exchange_order_id()
+        cancel_result = await self._api_delete(
+            f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
+            is_auth_required=True,
+            limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
+        )
+        if tracked_order.exchange_order_id in cancel_result["data"].get("cancelledOrderIds", []):
+            return True
+        return False
 
     async def _user_stream_event_listener(self):
         """
@@ -356,43 +216,20 @@ class KucoinExchange(ExchangeBaseV2):
                 self.logger().exception("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
-    async def _status_polling_loop(self):
-        """
-        Performs all required operation to keep the connector updated and synchronized with the exchange.
-        It contains the backup logic to update status using API requests in case the main update source (the user stream
-        data source websocket) fails.
-        It also updates the time synchronizer. This is necessary because Kucoin requires the time of the client to be
-        the same as the time in the exchange.
-        Executes when the _poll_notifier event is enabled by the `tick` function.
-        """
-        while True:
-            try:
-                await self._poll_notifier.wait()
-                await self._update_time_synchronizer()
-                await safe_gather(
-                    self._update_balances(),
-                    self._update_order_status(),
-                )
-                self._last_poll_timestamp = self.current_timestamp
-
-                self._poll_notifier = asyncio.Event()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Kucoin. "
-                                                      "Check API key and network connection.")
-                await self._sleep(0.5)
+    async def _status_polling_loop_updates(self):
+        "Called by _status_polling_loop to sync with exchange"
+        return await safe_gather(
+            self._update_balances(),
+            self._update_order_status(),
+        )
 
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        response = await self._api_request(
+        response = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             params={"type": "trade"},
-            method=RESTMethod.GET,
             is_auth_required=True)
 
         if response:
@@ -452,9 +289,8 @@ class KucoinExchange(ExchangeBaseV2):
                     await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
                     continue
                 reviewed_orders.append(tracked_order)
-                request_tasks.append(asyncio.get_event_loop().create_task(self._api_request(
+                request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
                     path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
-                    method=RESTMethod.GET,
                     is_auth_required=True,
                     limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)))
 
