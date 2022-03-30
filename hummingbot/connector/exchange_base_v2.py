@@ -638,6 +638,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
         else:
             amount = self.quantize_order_amount(trading_pair, amount)
 
+        # TODO in gate io start tracking was after the below if
         self.start_tracking_order(
             order_id=order_id,
             exchange_order_id=None,
@@ -716,6 +717,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
                     )
                     self._order_tracker.process_order_update(order_update)
                     return order_id
+                # TODO else raise error?
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
