@@ -36,8 +36,10 @@ class MovingPriceBandUnitTest(unittest.TestCase):
     def test_switch_moving_price_band(self):
         price_band = self.moving_price_band.switch(True)
         self.assertIsInstance(price_band, MovingPriceBand)
+        self.assertEqual(price_band.enabled, True)
         price_band = self.moving_price_band.switch(False)
         self.assertIsInstance(price_band, DisabledMovingPriceBand)
+        self.assertEqual(price_band.enabled, False)
 
 
 if __name__ == "__main__":
