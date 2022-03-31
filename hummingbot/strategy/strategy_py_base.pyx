@@ -11,6 +11,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     FundingPaymentCompletedEvent,
+    PositionModeChangeEvent,
 )
 
 
@@ -91,6 +92,12 @@ cdef class StrategyPyBase(StrategyBase):
         self.did_complete_funding_payment(funding_payment_completed_event)
 
     def did_complete_funding_payment(self, funding_payment_completed_event: FundingPaymentCompletedEvent):
+        pass
+
+    cdef c_did_change_position_mode(self, object position_mode_changed_event):
+        self.did_change_position_mode(position_mode_changed_event)
+
+    def did_change_position_mode(self, position_mode_changed_event: PositionModeChangeEvent):
         pass
 
     cdef c_did_create_range_position_order(self, object order_created_event):
