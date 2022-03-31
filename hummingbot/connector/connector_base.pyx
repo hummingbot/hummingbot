@@ -4,13 +4,16 @@ from typing import Dict, List, Set, Tuple
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
+from hummingbot.connector.connector_metrics_collector import TradeVolumeMetricCollector
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkIterator
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
@@ -60,6 +63,9 @@ cdef class ConnectorBase(NetworkIterator):
         self._current_trade_fills = set()
         self._exchange_order_ids = dict()
         self._trade_fee_schema = None
+        self._trade_volume_metric_collector = TradeVolumeMetricCollector.from_configuration(
+            connector=self,
+            rate_provider=RateOracle.get_instance())
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -211,6 +217,15 @@ cdef class ConnectorBase(NetworkIterator):
     cdef c_tick(self, double timestamp):
         NetworkIterator.c_tick(self, timestamp)
         self.tick(timestamp)
+        self._trade_volume_metric_collector.process_tick(timestamp)
+
+    cdef c_start(self, Clock clock, double timestamp):
+        NetworkIterator.c_start(self, clock, timestamp)
+        self._trade_volume_metric_collector.start()
+
+    cdef c_stop(self, Clock clock):
+        NetworkIterator.c_stop(self, clock)
+        self._trade_volume_metric_collector.stop()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """

@@ -1,21 +1,11 @@
-#!/usr/bin/env python
-from typing import (
-    List,
-    Optional
-)
 import logging
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
-from os import (
-    listdir,
-    path,
-)
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from os import listdir, path
+from typing import List, Optional
 
-from hummingbot.logger.struct_logger import (
-    StructLogRecord,
-    StructLogger
-)
+from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
 
 STRUCT_LOGGER_SET = False
 DEV_STRATEGY_PREFIX = "dev"
@@ -118,26 +108,8 @@ def chdir_to_data_directory():
     set_prefix_path(app_data_dir)
 
 
-def add_remote_logger_handler(loggers):
-    from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
-    root_logger = logging.getLogger()
-    try:
-        from hummingbot.client.config.global_config_map import global_config_map
-        log_server_url = global_config_map.get("log_server_url", "https://api.coinalpha.com/reporting-proxy")
-        remote_logger = ReportingProxyHandler(level="ERROR",
-                                              proxy_url=log_server_url,
-                                              capacity=5)
-        root_logger.addHandler(remote_logger)
-        for logger_name in loggers:
-            logger = logging.getLogger(logger_name)
-            logger.addHandler(remote_logger)
-    except Exception:
-        root_logger.error("Error adding remote log handler.", exc_info=True)
-
-
 def init_logging(conf_filename: str,
                  override_log_level: Optional[str] = None,
-                 dev_mode: bool = False,
                  strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
@@ -175,9 +147,6 @@ def init_logging(conf_filename: str,
                         logger in global_config_map["logger_override_whitelist"].value:
                     config_dict["loggers"][logger]["level"] = override_log_level
         logging.config.dictConfig(config_dict)
-        # add remote logging to logger if in dev mode
-        if dev_mode:
-            add_remote_logger_handler(config_dict.get("loggers", []))
 
 
 def get_strategy_list() -> List[str]:
