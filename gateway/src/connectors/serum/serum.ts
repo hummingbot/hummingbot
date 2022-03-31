@@ -1,60 +1,97 @@
 import { Account, Connection, PublicKey } from '@solana/web3.js';
-import { Market } from '@project-serum/serum';
+import { Market as SerumMarket, MARKETS } from '@project-serum/serum';
 import {} from '@solana/spl-token';
-import {getMarkets} from "./serum.controllers";
+import { Solana } from '../../chains/solana/solana';
+import { SerumConfig } from './serum.config';
+import {Market} from "./serum.types";
 
 export type Serumish = Serum;
 
 export class Serum {
-  private static _instance: Serum;
-  private _ready: boolean = false;
-  private _initializing: boolean = false;
-  private _initPromise: Promise<void> = Promise.resolve();
+  private static instances: { [name: string]: Serum };
 
-  private _tokens: string[] = ['ABC', 'SOL'];
+  private ready: boolean = false;
+  private initializing: boolean = false;
+
+  private tokens: string[] = ['ABC', 'SOL'];
+  private markets: Map<string, Market>;
+
+  private chain: string;
+  private solana: Solana;
   private connection: Connection;
 
   private async loadTokens() {
-    return this._tokens;
+    return this.tokens;
+  }
+
+  private constructor(chain: string, network: string) {
+    this.chain = chain;
+    this.solana = Solana.getInstance(network);
+
+    const config = SerumConfig.config;
+
+    this.connection = new Connection(config.network.rpcUrl);
   }
 
   static getInstance(chain: string, network: string): Serum {
-    if (!Serum._instance) {
-      Serum._instance = new Serum();
+    if (Serum.instances === undefined) {
+      Serum.instances = {};
+    }
+    if (!(chain + network in Serum.instances)) {
+      Serum.instances[chain + network] = new Serum(chain, network);
     }
 
-    return Serum._instance;
+    return Serum.instances[chain + network];
   }
 
-  static reload(): Serum {
-    Serum._instance = new Serum();
-    return Serum._instance;
+  static reload(chain: string, network: string): Serum {
+    Serum.instances[chain + network] = new Serum(chain, network);
+
+    return Serum.instances[chain + network];
   }
 
-  async init(): Promise<void> {
-    if (!this.ready() && !this._initializing) {
-      this._initializing = true;
-      this._initPromise = this.loadTokens().then(() => {
-        this._ready = true;
-        this._initializing = false;
+  async init() {
+    if (!this.ready && !this.initializing) {
+      this.initializing = true;
+
+      await this.loadTokens();
+      this.markets = await this.getAllMarkets();
+
+      this.ready = true;
+      this.initializing = false;
+    }
+  }
+
+  async getMarket(name: string): Promise<Market | undefined> {
+    const markets = await this.getAllMarkets();
+
+    return markets.get(name);
+  }
+
+  async getMarkets(names: string[]): Promise<Market[]> {
+
+  }
+
+  async getAllMarkets(): Promise<Map<string, Market>> {
+    if (this.markets && this.markets.size) return this.markets;
+
+    const markets = new Map<string, Market>();
+
+    for (const market of MARKETS) {
+      markets.set(market.name, {
+        ...market,
+        market: await SerumMarket.load(
+          this.connection,
+          market.address,
+          {},
+          market.programId
+        ),
       });
     }
-    return this._initPromise;
-  }
 
-  ready(): boolean {
-    return this._ready;
-  }
+    this.markets = markets;
 
-  async getMarket(): Promise<Market> {
-    await Market.load(this.connection, )
-  }
-
-  async getMarkets(): Promise<any> {
-
-  }
-
-  async getAllMarkets(): Promise<any> {
+    return this.markets;
   }
 
   async getOrderBook(): Promise<any> {
