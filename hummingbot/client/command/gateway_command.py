@@ -414,7 +414,8 @@ class GatewayCommand:
                     self.app.clear_input()
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(
-                        prompt=f"Enter your {chain}-{network} wallet private key >>> "
+                        prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                        is_password=True
                     )
                     self.app.clear_input()
                     if self.app.to_stop_config:
@@ -430,8 +431,7 @@ class GatewayCommand:
                     while True:
                         use_existing_wallet: str = await self.app.prompt(
                             prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on "
-                                   f"Gateway? (Yes/No) >>> ",
-                            is_password=True
+                                   f"Gateway? (Yes/No) >>> "
                         )
                         if self.app.to_stop_config:
                             return
