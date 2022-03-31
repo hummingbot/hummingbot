@@ -62,7 +62,7 @@ class MovingPriceBand:
         :param price: price to check
         '''
         return price <= self.price_floor
-        
+
     def check_price_ceiling_exceeded(self, price: Decimal) -> bool:
         '''
         check if the price has exceeded the price ceiling
