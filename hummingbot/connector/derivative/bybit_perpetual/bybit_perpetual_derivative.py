@@ -197,8 +197,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
                 response_code = response["ret_code"]
                 # 0     - mode changed
-                # 30083 - mode not modified
-                if response_code not in [0, 30083]:
+                if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
                     self.trigger_event(AccountEvent.PositionModeChangeFailure,
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
@@ -293,7 +292,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             resp = await self._api_request(
                 method="GET",
                 endpoint=CONSTANTS.SERVER_TIME_PATH_URL)
-            if "ret_code" not in resp or resp["ret_code"] != 0:
+            if "ret_code" not in resp or resp["ret_code"] != CONSTANTS.RET_CODE_OK:
                 raise Exception()
         except asyncio.CancelledError:
             raise
@@ -366,7 +365,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         parsed_response: Dict[str, Any] = await response.json()
 
         # Checks HTTP Status and checks if "result" field is in the response.
-        if response_status != 200 or "result" not in parsed_response:
+        # 0     - all OK
+        if response_status != 200 or "ret_code" not in parsed_response or parsed_response["ret_code"] not in \
+                [CONSTANTS.RET_CODE_OK,
+                 CONSTANTS.RET_CODE_MODE_NOT_MODIFIED,
+                 CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED]:
             self.logger().error(f"Error fetching data from {url}. HTTP status is {response_status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
@@ -551,8 +554,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 referer_header_required=True,
             )
 
-            if send_order_results["ret_code"] != 0:
-                if send_order_results["ret_code"] == 130125:
+            if send_order_results["ret_code"] != CONSTANTS.RET_CODE_OK:
+                if send_order_results["ret_code"] == CONSTANTS.RET_CODE_POSITION_ZERO:
                     self.stop_tracking_order(order_id)
                     return
                 else:
@@ -673,8 +676,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             response_code = response["ret_code"]
 
-            if response_code != 0:
-                if response_code == CONSTANTS.ORDER_NOT_EXISTS_ERROR_CODE:
+            if response_code != CONSTANTS.RET_CODE_OK:
+                if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
                     self.logger().warning(
                         f"Failed to cancel order {client_order_id}:"
                         f" order not found ({response_code} - {response['ret_msg']})")
@@ -963,7 +966,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
-                    app_warning_msg="Could not fetch user events from NDAX. Check API key and network connection."
+                    app_warning_msg="Could not fetch user events from Bybit Perpetual. Check API key and network connection."
                 )
                 await asyncio.sleep(1.0)
 
@@ -1251,7 +1254,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             body=body_params,
             is_auth_required=True)
 
-        if resp["ret_code"] == 0 or (resp["ret_code"] == 34036 and resp["ret_msg"] == "leverage not modified"):
+        if resp["ret_code"] == CONSTANTS.RET_CODE_OK or (resp["ret_code"] == CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED and resp["ret_msg"] == "leverage not modified"):
             self._leverage[trading_pair] = leverage
             self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
         else:
