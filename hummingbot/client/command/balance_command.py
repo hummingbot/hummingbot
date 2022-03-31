@@ -89,7 +89,7 @@ class BalanceCommand:
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the balances to update. See logs for more details.")
             raise
-        all_ex_avai_bals = UserBalances.instance().all_avai_balances_all_exchanges()
+        all_ex_avai_bals = UserBalances.instance().all_available_balances_all_exchanges()
         all_ex_limits: Optional[Dict[str, Dict[str, str]]] = global_config_map["balance_asset_limit"].value
 
         if all_ex_limits is None:
