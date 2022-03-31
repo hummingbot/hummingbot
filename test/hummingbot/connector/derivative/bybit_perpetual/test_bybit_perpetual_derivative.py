@@ -866,7 +866,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
 
         mock_response = {
-            "ret_code": CONSTANTS.ORDER_NOT_EXISTS_ERROR_CODE,
+            "ret_code": CONSTANTS.RET_CODE_ORDER_NOT_EXISTS,
             "ret_msg": "order not exists",
             "ext_code": "",
             "ext_info": "",

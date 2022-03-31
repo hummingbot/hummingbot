@@ -366,10 +366,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         # Checks HTTP Status and checks if "result" field is in the response.
         # 0     - all OK
-        if response_status != 200 or "ret_code" not in parsed_response or parsed_response["ret_code"] not in \
-                [CONSTANTS.RET_CODE_OK,
-                 CONSTANTS.RET_CODE_MODE_NOT_MODIFIED,
-                 CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED]:
+        if response_status != 200 or "ret_code" not in parsed_response:
             self.logger().error(f"Error fetching data from {url}. HTTP status is {response_status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
@@ -837,16 +834,26 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             is_auth_required=True,
         )
 
-        if wallet_balance["result"] is not None:
-            for asset_name, balance_json in wallet_balance["result"].items():
-                self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
-                self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
-                remote_asset_names.add(asset_name)
+        if wallet_balance["ret_code"] is CONSTANTS.RET_CODE_OK:
+            if wallet_balance["result"] is not None:
+                for asset_name, balance_json in wallet_balance["result"].items():
+                    self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
+                    self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
+                    remote_asset_names.add(asset_name)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+        else:
+            self.logger().error(
+                f"Error fetching balances. Response: {wallet_balance['ret_code']} - {wallet_balance['ret_msg']}")
+            if wallet_balance['ret_code'] is CONSTANTS.RET_CODE_API_KEY_INVALID:
+                raise Exception("Cannot connect to Bybit Perpetual. Reason: API key invalid")
+            if wallet_balance['ret_code'] is CONSTANTS.RET_CODE_API_KEY_EXPIRED:
+                raise Exception("Cannot connect to Bybit Perpetual. Reason: API key expired")
+            else:
+                raise Exception(f"Cannot connect to Bybit Perpetual. Reason: {wallet_balance['ret_msg']}")
 
     async def _update_order_status(self):
         """
