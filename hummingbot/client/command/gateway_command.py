@@ -430,7 +430,8 @@ class GatewayCommand:
                     while True:
                         use_existing_wallet: str = await self.app.prompt(
                             prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on "
-                                   f"Gateway? (Yes/No) >>> "
+                                   f"Gateway? (Yes/No) >>> ",
+                            is_password=True
                         )
                         if self.app.to_stop_config:
                             return
