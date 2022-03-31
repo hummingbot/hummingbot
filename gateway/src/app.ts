@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import express from 'express';
 import { Request, Response, NextFunction } from 'express';
-import { Server } from 'http';
 import { SolanaRoutes } from './chains/solana/solana.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
-import { logger, updateLoggerToStdout } from './services/logger';
+import { logger } from './services/logger';
 import { addHttps } from './https';
 import {
   asyncHandler,
@@ -26,8 +25,6 @@ import morgan from 'morgan';
 const swaggerUi = require('swagger-ui-express');
 
 export const gatewayApp = express();
-let gatewayServer: Server;
-let swaggerServer: Server;
 
 // parse body for application/json
 gatewayApp.use(express.json());
@@ -95,19 +92,6 @@ gatewayApp.post(
         req.body.configValue
       );
 
-      logger.info('Reload logger to stdout.');
-      updateLoggerToStdout();
-
-      logger.info('Reloading Ethereum routes.');
-      // EthereumRoutes.reload();
-
-      logger.info('Reloading Solana routes.');
-      SolanaRoutes.reload();
-
-      logger.info('Restarting gateway.');
-      await stopGateway();
-      await startGateway();
-
       res.status(200).json({ message: 'The config has been updated' });
     }
   )
@@ -151,7 +135,7 @@ export const startSwagger = async () => {
 
   swaggerApp.use('/', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-  swaggerServer = await swaggerApp.listen(swaggerPort);
+  await swaggerApp.listen(swaggerPort);
 };
 
 export const startGateway = async () => {
@@ -165,10 +149,10 @@ export const startGateway = async () => {
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-    gatewayServer = await gatewayApp.listen(port);
+    await gatewayApp.listen(port);
   } else {
     try {
-      gatewayServer = await addHttps(gatewayApp).listen(port);
+      await addHttps(gatewayApp).listen(port);
     } catch (e) {
       logger.error(
         `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
@@ -179,9 +163,4 @@ export const startGateway = async () => {
   }
 
   await startSwagger();
-};
-
-const stopGateway = async () => {
-  await swaggerServer.close();
-  return gatewayServer.close();
 };
