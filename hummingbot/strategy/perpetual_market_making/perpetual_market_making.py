@@ -23,6 +23,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
+    PositionModeChangeEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
@@ -856,6 +857,17 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
+
+    def did_change_position_mode(self, position_mode_changed_event: PositionModeChangeEvent):
+        if not position_mode_changed_event.is_success:
+            self.logger().error(
+                f"Changing position mode to {self._position_mode.name} failed. "
+                f"Reason: {position_mode_changed_event.reason}"
+                f"Cancelling all open orders and retrying ...")
+            self.cancel_all()
+        else:
+            self.logger().info(
+                f"Changing position mode to {self._position_mode.name} succeeded.")
 
     def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
         if len(current_prices) != len(proposal_prices):

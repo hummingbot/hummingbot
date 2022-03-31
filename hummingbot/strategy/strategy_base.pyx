@@ -5,7 +5,7 @@ from typing import (
     List)
 
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.event.events import MarketEvent, AccountEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -46,6 +46,11 @@ cdef class SellOrderCompletedListener(BaseStrategyEventListener):
 cdef class FundingPaymentCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_complete_funding_payment(arg)
+
+
+cdef class PositionModeChangeListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_change_position_mode(arg)
 
 
 cdef class OrderFilledListener(BaseStrategyEventListener):
@@ -94,6 +99,7 @@ cdef class StrategyBase(TimeIterator):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted.value
+    POSITION_MODE_CHANGE_EVENT_TAG = AccountEvent.PositionModeChange.value
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
@@ -119,6 +125,7 @@ cdef class StrategyBase(TimeIterator):
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
         self._sb_complete_funding_payment_listener = FundingPaymentCompletedListener(self)
+        self._sb_position_mode_change_listener = PositionModeChangeListener(self)
         self._sb_create_range_position_order_listener = RangePositionCreatedListener(self)
         self._sb_remove_range_position_order_listener = RangePositionRemovedListener(self)
 
@@ -288,6 +295,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             typed_market.c_add_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_add_listener(self.POSITION_MODE_CHANGE_EVENT_TAG, self._sb_position_mode_change_listener)
             typed_market.c_add_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
             typed_market.c_add_listener(self.RANGE_POSITION_REMOVED_EVENT_TAG, self._sb_remove_range_position_order_listener)
             self._sb_markets.add(typed_market)
@@ -312,6 +320,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             typed_market.c_remove_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_remove_listener(self.POSITION_MODE_CHANGE_EVENT_TAG, self._sb_position_mode_change_listener)
             typed_market.c_remove_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
             typed_market.c_remove_listener(self.RANGE_POSITION_REMOVED_EVENT_TAG, self._sb_remove_range_position_order_listener)
             self._sb_markets.remove(typed_market)
@@ -376,6 +385,9 @@ cdef class StrategyBase(TimeIterator):
         pass
 
     cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
+        pass
+
+    cdef c_did_change_position_mode(self, object position_mode_changed_event):
         pass
 
     cdef c_did_create_range_position_order(self, object order_created_event):
