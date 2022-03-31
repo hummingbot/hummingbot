@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
+
 import { NetworkSelectionRequest } from '../services/common-interfaces';
 
 import {
@@ -14,14 +15,15 @@ import {
 // GET /clob/markets
 //
 
-export interface ClobGetMarketsRequest extends NetworkSelectionRequest {
-  // TODO: It could be that address is needed for fee rebates!!!
-  marketNames?: string[];
-}
+export type ClobGetMarketsRequest = NetworkSelectionRequest &
+  (
+    | { marketName: string }
+    | {
+        marketNames: string[];
+      }
+  );
 
-export interface ClobGetMarketsResponse {
-  markets: Market[];
-}
+export type ClobGetMarketsResponse = Market | Market[];
 
 //
 // GET /clob/orderBooks

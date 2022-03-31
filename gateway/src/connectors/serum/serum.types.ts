@@ -1,3 +1,14 @@
+import { PublicKey } from '@solana/web3.js';
+import { Market as SerumMarket } from '@project-serum/serum';
+
+export interface Market {
+  name: string;
+  address: PublicKey;
+  programId: PublicKey;
+  deprecated: boolean;
+  market: SerumMarket;
+}
+
 export interface FeeInfo {
   maker: string;
   taker: string;

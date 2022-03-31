@@ -20,6 +20,8 @@ import {
   ClobPostOrdersResponse,
   ClobDeleteOrdersResponse,
   ClobGetOpenOrdersResponse,
+  ClobGetMarketsRequestItem,
+  ClobGetMarketsRequestList,
 } from '../../clob/clob.requests';
 
 /**
@@ -34,7 +36,9 @@ export async function getMarkets(
   serum: Serumish,
   request: ClobGetMarketsRequest
 ): Promise<ClobGetMarketsResponse> {
-  // TODO return all, if undefined!!!
+  if ('marketName' in request) serum.getMarket(request.marketName);
+  else if ('marketNames' in request) serum.getMarkets(request.marketNames);
+  else serum.getAllMarkets();
 
   return {} as ClobGetMarketsResponse;
 }

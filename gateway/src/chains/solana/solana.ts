@@ -38,7 +38,7 @@ export class Solana implements Solanaish {
   private _tokenMap: Record<string, TokenInfo> = {};
   private _tokenAddressMap: Record<string, TokenInfo> = {};
 
-  private static _instance: Solana;
+  private static _instances: { [name: string]: Solana };
 
   private _requestCount: number;
   private readonly _connection: Connection;
@@ -54,7 +54,7 @@ export class Solana implements Solanaish {
   private _initPromise: Promise<void> = Promise.resolve();
 
   constructor(network: string) {
-    this._cluster = SolanaConfig.config.network.slug;
+    this._cluster = network || SolanaConfig.config.network.slug;
 
     if (SolanaConfig.config.customRpcUrl == undefined) {
       switch (this._cluster) {
@@ -96,20 +96,24 @@ export class Solana implements Solanaish {
   }
 
   public static getInstance(network: string): Solana {
-    if (!Solana._instance) {
-      Solana._instance = new Solana();
+    if (Solana._instances === undefined) {
+      Solana._instances = {};
+    }
+    if (!(network in Solana._instances)) {
+      Solana._instances[network] = new Solana(network);
     }
 
-    return Solana._instance;
+    return Solana._instances[network];
   }
 
   public static getConnectedInstances(): { [name: string]: Solana } {
-    return { solana: Solana._instance };
+    return Solana._instances;
   }
 
-  public static reload(): Solana {
-    Solana._instance = new Solana();
-    return Solana._instance;
+  public static reload(network: string): Solana {
+    Solana._instances[network] = new Solana(network);
+
+    return Solana._instances[network];
   }
 
   ready(): boolean {
