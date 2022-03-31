@@ -773,9 +773,6 @@ class GatewayEVMAMM(ConnectorBase):
                         )
                     )
                     tracked_order.last_state = "FILLED"
-                    self.logger().info(f"The {tracked_order.trade_type.name} order "
-                                       f"{tracked_order.client_order_id} has completed "
-                                       f"according to order status API.")
                     event_tag: MarketEvent = (
                         MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
                         else MarketEvent.SellOrderCompleted

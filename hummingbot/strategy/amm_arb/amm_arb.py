@@ -449,8 +449,30 @@ class AmmArbStrategy(StrategyPyBase):
     def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
         self.set_order_completed(order_id=order_completed_event.order_id)
 
+        market_info: MarketTradingPairTuple = self.order_tracker.get_market_pair_from_order_id(
+            order_completed_event.order_id
+        )
+        log_msg: str = f"Buy order completed on {market_info.market.name}: {order_completed_event.order_id}."
+        if self.is_gateway_market(market_info):
+            log_msg += f" txHash: {order_completed_event.exchange_order_id}"
+        self.log_with_clock(logging.INFO, log_msg)
+        self.notify_hb_app_with_timestamp(f"Bought {order_completed_event.base_asset_amount:.8f} "
+                                          f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
+                                          f"on {market_info.market.name}.")
+
     def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
         self.set_order_completed(order_id=order_completed_event.order_id)
+
+        market_info: MarketTradingPairTuple = self.order_tracker.get_market_pair_from_order_id(
+            order_completed_event.order_id
+        )
+        log_msg: str = f"Sell order completed on {market_info.market.name}: {order_completed_event.order_id}."
+        if self.is_gateway_market(market_info):
+            log_msg += f" txHash: {order_completed_event.exchange_order_id}"
+        self.log_with_clock(logging.INFO, log_msg)
+        self.notify_hb_app_with_timestamp(f"Sold {order_completed_event.base_asset_amount:.8f} "
+                                          f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
+                                          f"on {market_info.market.name}.")
 
     def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
         self.set_order_completed(order_id=order_failed_event.order_id)
