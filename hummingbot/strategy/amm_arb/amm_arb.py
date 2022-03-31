@@ -1,8 +1,8 @@
 import logging
 import asyncio
-import pandas as pd
-
 from decimal import Decimal
+from functools import lru_cache
+import pandas as pd
 from typing import List, Dict, Tuple, Optional, Callable, cast
 
 from hummingbot.client.performance import PerformanceMetrics
@@ -144,6 +144,7 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.market_pair_to_active_orders
 
     @staticmethod
+    @lru_cache(maxsize=10)
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
         return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
 
