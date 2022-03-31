@@ -1,8 +1,8 @@
-import json
+import asyncio
 import unittest
 from datetime import datetime, time
 from pathlib import Path
-from typing import Dict
+from typing import Awaitable, Dict
 from unittest.mock import patch
 
 import yaml
@@ -23,6 +23,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
         cls.exchange = "binance"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
@@ -33,11 +34,15 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         config_settings = self.get_default_map()
         self.config_map = AvellanedaMarketMakingConfigMap(**config_settings)
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
     def get_default_map(self) -> Dict[str, str]:
         config_settings = {
             "exchange": self.exchange,
             "market": self.trading_pair,
-            "execution_timeframe_model": {
+            "execution_timeframe_mode": {
                 "start_time": "09:30:00",
                 "end_time": "16:00:00",
             },
@@ -48,15 +53,6 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             "inventory_target_base_pct": "50",
         }
         return config_settings
-
-    def test_schema_encoding_removes_client_data_functions(self):
-        s = AvellanedaMarketMakingConfigMap.schema_json()
-        j = json.loads(s)
-        expected = {
-            "prompt": None,
-            "prompt_on_new": True,
-        }
-        self.assertEqual(expected, j["properties"]["market"]["client_data"])
 
     def test_initial_sequential_build(self):
         config_map: AvellanedaMarketMakingConfigMap = AvellanedaMarketMakingConfigMap.construct()
@@ -80,7 +76,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         validate_model(config_map.__class__, config_map.__dict__)
 
     def test_order_amount_prompt(self):
-        prompt = self.config_map.get_client_prompt("order_amount")
+        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("order_amount"))
         expected = f"What is the amount of {self.base_asset} per order?"
 
         self.assertEqual(expected, prompt)
@@ -89,69 +85,45 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         exchange = self.config_map.exchange
         example = AllConnectorSettings.get_example_pairs().get(exchange)
 
-        prompt = self.config_map.get_client_prompt("market")
+        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("market"))
         expected = f"Enter the token trading pair you would like to trade on {exchange} (e.g. {example})"
 
         self.assertEqual(expected, prompt)
 
     def test_execution_time_prompts(self):
-        self.config_map.execution_timeframe_model = FromDateToDateModel.Config.title
-        model = self.config_map.execution_timeframe_model
-        prompt = model.get_client_prompt("start_datetime")
+        self.config_map.execution_timeframe_mode = FromDateToDateModel.Config.title
+        model = self.config_map.execution_timeframe_mode
+        prompt = self.async_run_with_timeout(model.get_client_prompt("start_datetime"))
         expected = "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
-        prompt = model.get_client_prompt("end_datetime")
+        prompt = self.async_run_with_timeout(model.get_client_prompt("end_datetime"))
         expected = "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
-        self.config_map.execution_timeframe_model = DailyBetweenTimesModel.Config.title
-        model = self.config_map.execution_timeframe_model
-        prompt = model.get_client_prompt("start_time")
+        self.config_map.execution_timeframe_mode = DailyBetweenTimesModel.Config.title
+        model = self.config_map.execution_timeframe_mode
+        prompt = self.async_run_with_timeout(model.get_client_prompt("start_time"))
         expected = "Please enter the start time (HH:MM:SS)"
         self.assertEqual(expected, prompt)
-        prompt = model.get_client_prompt("end_time")
+        prompt = self.async_run_with_timeout(model.get_client_prompt("end_time"))
         expected = "Please enter the end time (HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
     @patch(
-        "hummingbot.strategy.avellaneda_market_making"
-        ".avellaneda_market_making_config_map_pydantic.validate_market_trading_pair"
+        "hummingbot.client.config.config_data_types.validate_market_trading_pair"
     )
     def test_validators(self, validate_market_trading_pair_mock):
+        self.config_map.execution_timeframe_mode = "infinite"
+        self.assertIsInstance(self.config_map.execution_timeframe_mode, InfiniteModel)
+
+        self.config_map.execution_timeframe_mode = "from_date_to_date"
+        self.assertIsInstance(self.config_map.execution_timeframe_mode, FromDateToDateModel)
+
+        self.config_map.execution_timeframe_mode = "daily_between_times"
+        self.assertIsInstance(self.config_map.execution_timeframe_mode, DailyBetweenTimesModel)
 
         with self.assertRaises(ValidationError) as e:
-            self.config_map.exchange = "test-exchange"
-
-        error_msg = "Invalid exchange, please choose value from "
-        actual_msg = retrieve_validation_error_msg(e.exception)
-        self.assertTrue(actual_msg.startswith(error_msg))
-
-        alt_pair = "ETH-USDT"
-        error_msg = "Failed"
-        validate_market_trading_pair_mock.side_effect = (
-            lambda m, v: None if v in [self.trading_pair, alt_pair] else error_msg
-        )
-
-        self.config_map.market = alt_pair
-        self.assertEqual(alt_pair, self.config_map.market)
-
-        with self.assertRaises(ValidationError) as e:
-            self.config_map.market = "XXX-USDT"
-
-        actual_msg = retrieve_validation_error_msg(e.exception)
-        self.assertTrue(actual_msg.startswith(error_msg))
-
-        self.config_map.execution_timeframe_model = "infinite"
-        self.assertIsInstance(self.config_map.execution_timeframe_model, InfiniteModel)
-
-        self.config_map.execution_timeframe_model = "from_date_to_date"
-        self.assertIsInstance(self.config_map.execution_timeframe_model, FromDateToDateModel)
-
-        self.config_map.execution_timeframe_model = "daily_between_times"
-        self.assertIsInstance(self.config_map.execution_timeframe_model, DailyBetweenTimesModel)
-
-        with self.assertRaises(ValidationError) as e:
-            self.config_map.execution_timeframe_model = "XXX"
+            self.config_map.execution_timeframe_mode = "XXX"
 
         error_msg = (
             "Invalid timeframe, please choose value from ['infinite', 'from_date_to_date', 'daily_between_times']"
@@ -159,8 +131,8 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         actual_msg = retrieve_validation_error_msg(e.exception)
         self.assertEqual(error_msg, actual_msg)
 
-        self.config_map.execution_timeframe_model = "from_date_to_date"
-        model = self.config_map.execution_timeframe_model
+        self.config_map.execution_timeframe_mode = "from_date_to_date"
+        model = self.config_map.execution_timeframe_mode
         model.start_datetime = "2021-01-01 12:00:00"
         model.end_datetime = "2021-01-01 15:00:00"
 
@@ -181,8 +153,8 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         actual_msg = retrieve_validation_error_msg(e.exception)
         self.assertEqual(error_msg, actual_msg)
 
-        self.config_map.execution_timeframe_model = "daily_between_times"
-        model = self.config_map.execution_timeframe_model
+        self.config_map.execution_timeframe_mode = "daily_between_times"
+        model = self.config_map.execution_timeframe_mode
         model.start_time = "12:00:00"
 
         self.assertEqual(time(12, 0, 0), model.start_time)

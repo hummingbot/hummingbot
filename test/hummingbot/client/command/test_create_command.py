@@ -62,7 +62,7 @@ class CreateCommandTest(unittest.TestCase):
             raise RuntimeError
 
     @patch("shutil.copy")
-    @patch("hummingbot.client.command.create_command.save_to_yml")
+    @patch("hummingbot.client.command.create_command.save_to_yml_legacy")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
     @patch("hummingbot.core.utils.market_price.get_last_price")
@@ -101,7 +101,7 @@ class CreateCommandTest(unittest.TestCase):
         self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="Value must be more than 0."))
 
     @patch("shutil.copy")
-    @patch("hummingbot.client.command.create_command.save_to_yml")
+    @patch("hummingbot.client.command.create_command.save_to_yml_legacy")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
     @patch("hummingbot.core.utils.market_price.get_last_price")
@@ -174,7 +174,7 @@ class CreateCommandTest(unittest.TestCase):
         self.assertEqual(original_exchange, strategy_config["exchange"].value)
 
     @patch("shutil.copy")
-    @patch("hummingbot.client.command.create_command.save_to_yml")
+    @patch("hummingbot.client.command.create_command.save_to_yml_legacy")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
     @patch("hummingbot.core.utils.market_price.get_last_price")

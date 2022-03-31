@@ -4,17 +4,19 @@ from typing import Dict, Optional, Union
 
 from pydantic import Field, validator, root_validator
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_data_types import (
+    BaseClientModel,
+    BaseTradingStrategyConfigMap,
+    ClientFieldData,
+)
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_datetime_iso_string,
     validate_decimal,
-    validate_exchange,
     validate_int,
-    validate_market_trading_pair,
     validate_time_iso_string,
 )
-from hummingbot.client.settings import AllConnectorSettings, required_exchanges
+from hummingbot.client.settings import required_exchanges
 from hummingbot.connector.utils import split_hb_trading_pair
 
 
@@ -178,29 +180,9 @@ HANGING_ORDER_MODELS = {
 }
 
 
-class AvellanedaMarketMakingConfigMap(BaseClientModel):
+class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
     strategy: str = Field(default="avellaneda_market_making", client_data=None)
-    exchange: ClientConfigEnum(
-        value="Exchanges",  # noqa: F821
-        names={e: e for e in AllConnectorSettings.get_connector_settings().keys()},
-        type=str,
-    ) = Field(
-        default=...,
-        description="The name of the exchange connector.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Input your maker spot connector",
-            prompt_on_new=True,
-        ),
-    )
-    market: str = Field(
-        default=...,
-        description="The trading pair.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: AvellanedaMarketMakingConfigMap.maker_trading_pair_prompt(mi),
-            prompt_on_new=True,
-        ),
-    )
-    execution_timeframe_model: Union[FromDateToDateModel, DailyBetweenTimesModel, InfiniteModel] = Field(
+    execution_timeframe_mode: Union[FromDateToDateModel, DailyBetweenTimesModel, InfiniteModel] = Field(
         default=...,
         description="The execution timeframe.",
         client_data=ClientFieldData(
@@ -212,7 +194,10 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         default=...,
         description="The strategy order amount.",
         gt=0,
-        client_data=ClientFieldData(prompt=lambda mi: AvellanedaMarketMakingConfigMap.order_amount_prompt(mi))
+        client_data=ClientFieldData(
+            prompt=lambda mi: AvellanedaMarketMakingConfigMap.order_amount_prompt(mi),
+            prompt_on_new=True,
+        )
     )
     order_optimization_enabled: bool = Field(
         default=True,
@@ -367,16 +352,9 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
     )
 
     class Config:
-        validate_assignment = True
+        title = "avellaneda_market_making"
 
-    @classmethod
-    def maker_trading_pair_prompt(cls, model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
-        exchange = model_instance.exchange
-        example = AllConnectorSettings.get_example_pairs().get(exchange)
-        return (
-            f"Enter the token trading pair you would like to trade on"
-            f" {exchange}{f' (e.g. {example})' if example else ''}"
-        )
+    # === prompts ===
 
     @classmethod
     def order_amount_prompt(cls, model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
@@ -384,23 +362,9 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
         base_asset, quote_asset = split_hb_trading_pair(trading_pair)
         return f"What is the amount of {base_asset} per order?"
 
-    @validator("exchange", pre=True)
-    def validate_exchange(cls, v: str):
-        """Used for client-friendly error output."""
-        ret = validate_exchange(v)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
+    # === specific validations ===
 
-    @validator("market", pre=True)
-    def validate_exchange_trading_pair(cls, v: str, values: Dict):
-        exchange = values.get("exchange")
-        ret = validate_market_trading_pair(exchange, v)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
-
-    @validator("execution_timeframe_model", pre=True)
+    @validator("execution_timeframe_mode", pre=True)
     def validate_execution_timeframe(
         cls, v: Union[str, InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel]
     ):
@@ -529,4 +493,4 @@ class AvellanedaMarketMakingConfigMap(BaseClientModel):
 
     @classmethod
     def exchange_post_validation(cls, values: Dict):
-        required_exchanges.append(values["exchange"])
+        required_exchanges.add(values["exchange"])

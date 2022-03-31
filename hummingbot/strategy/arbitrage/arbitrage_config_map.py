@@ -38,7 +38,7 @@ def secondary_trading_pair_prompt():
 
 
 def secondary_market_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 def update_oracle_settings(value: str):
@@ -73,7 +73,7 @@ arbitrage_config_map = {
         prompt="Enter your primary spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
-        on_validated=lambda value: required_exchanges.append(value),
+        on_validated=lambda value: required_exchanges.add(value),
     ),
     "secondary_market": ConfigVar(
         key="secondary_market",

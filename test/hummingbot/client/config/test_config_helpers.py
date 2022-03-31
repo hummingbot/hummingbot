@@ -1,6 +1,14 @@
 import asyncio
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Awaitable
+
+from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
+from hummingbot.client.config.config_helpers import get_strategy_config_map, save_to_yml
+from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
+    AvellanedaMarketMakingConfigMap
+)
 
 
 class ConfigHelpersTest(unittest.TestCase):
@@ -17,3 +25,25 @@ class ConfigHelpersTest(unittest.TestCase):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
         return async_sleep
+
+    def test_get_strategy_config_map(self):
+        cm = get_strategy_config_map(strategy="avellaneda_market_making")
+        self.assertIsInstance(cm, AvellanedaMarketMakingConfigMap)
+        self.assertFalse(hasattr(cm, "market"))  # uninitialized instance
+
+    def test_save_to_yml(self):
+        cm = BaseStrategyConfigMap(strategy="pure_market_making")
+        expected_str = """\
+##############################################
+###   Pure Market Making Strategy config   ###
+##############################################
+
+strategy: pure_market_making
+"""
+        with TemporaryDirectory() as d:
+            d = Path(d)
+            temp_file_name = d / "cm.yml"
+            save_to_yml(str(temp_file_name), cm)
+            with open(temp_file_name) as f:
+                actual_str = f.read()
+        self.assertEqual(expected_str, actual_str)
