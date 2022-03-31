@@ -103,7 +103,7 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
 
 
 def derivative_on_validated(value: str):
-    required_exchanges.append(value)
+    required_exchanges.add(value)
 
 
 perpetual_market_making_config_map = {

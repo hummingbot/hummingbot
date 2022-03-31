@@ -36,7 +36,7 @@ dev_simple_trade_config_map = {
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value)),
+                  on_validated=lambda value: required_exchanges.add(value)),
     "market_trading_pair_tuple":
         ConfigVar(key="market_trading_pair_tuple",
                   prompt=trading_pair_prompt,

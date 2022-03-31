@@ -7,6 +7,7 @@ from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
 
 from hummingbot.client.command import __all__ as commands
+from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.core.clock import Clock
 from hummingbot.exceptions import ArgumentParserError
@@ -77,8 +78,9 @@ class HummingbotApplication(*commands):
 
         self.markets: Dict[str, ExchangeBase] = {}
         # strategy file name and name get assigned value after import or create command
-        self._strategy_file_name: str = None
-        self.strategy_name: str = None
+        self._strategy_file_name: Optional[str] = None
+        self.strategy_name: Optional[str] = None
+        self._strategy_config_map: Optional[BaseStrategyConfigMap] = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
@@ -121,9 +123,15 @@ class HummingbotApplication(*commands):
 
     @property
     def strategy_config_map(self):
+        if self._strategy_config_map is not None:
+            return self._strategy_config_map
         if self.strategy_name is not None:
             return get_strategy_config_map(self.strategy_name)
         return None
+
+    @strategy_config_map.setter
+    def strategy_config_map(self, config_map: BaseStrategyConfigMap):
+        self._strategy_config_map = config_map
 
     def _notify(self, msg: str):
         self.app.log(msg)

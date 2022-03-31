@@ -16,7 +16,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Global variables
-required_exchanges: List[str] = []
+required_exchanges: Set[str] = set()
 requried_connector_trading_pairs: Dict[str, List[str]] = {}
 # Set these two variables if a strategy uses oracle for rate conversion
 required_rate_oracle: bool = False

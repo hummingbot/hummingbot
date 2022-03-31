@@ -53,7 +53,7 @@ def order_amount_prompt() -> str:
 
 
 def taker_market_on_validated(value: str):
-    settings.required_exchanges.append(value)
+    settings.required_exchanges.add(value)
 
 
 def update_oracle_settings(value: str):
@@ -87,7 +87,7 @@ cross_exchange_market_making_config_map = {
         prompt="Enter your maker spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
-        on_validated=lambda value: settings.required_exchanges.append(value),
+        on_validated=lambda value: settings.required_exchanges.add(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
