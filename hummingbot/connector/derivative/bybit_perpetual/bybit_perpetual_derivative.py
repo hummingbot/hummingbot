@@ -196,9 +196,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 )
 
                 response_code = response["ret_code"]
-                # 0     - mode changed
+
                 if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
-                    self.trigger_event(AccountEvent.PositionModeChangeFailure,
+                    self.trigger_event(AccountEvent.PositionModeChange,
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
                                            False,
@@ -208,7 +208,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     raise IOError(f"Bybit Perpetual encountered a problem switching position mode to "
                                   f"{position_mode} for {trading_pair}"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
-                self.trigger_event(AccountEvent.PositionModeChangeSuccess,
+                self.trigger_event(AccountEvent.PositionModeChange,
                                    PositionModeChangeEvent(
                                        self.current_timestamp,
                                        True,

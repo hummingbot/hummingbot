@@ -38,8 +38,7 @@ class HummingbotUIEvent(Enum):
 
 
 class AccountEvent(Enum):
-    PositionModeChangeSuccess = 401
-    PositionModeChangeFailure = 402
+    PositionModeChange = 400
 
 
 class FundingInfo(NamedTuple):
