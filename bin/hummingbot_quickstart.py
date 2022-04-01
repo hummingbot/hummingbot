@@ -5,31 +5,24 @@ import asyncio
 import logging
 import os
 import subprocess
-from typing import (
-    Coroutine,
-    List,
-)
+from typing import Coroutine, List
 
 import path_util  # noqa: F401
-from bin.hummingbot import (
-    detect_available_port,
-)
-from hummingbot import (
-    init_logging,
-)
+
+from bin.hummingbot import detect_available_port, UIStartListener
+from hummingbot import init_logging
 from hummingbot.client.config.config_helpers import (
+    all_configs_complete,
     create_yml_files,
-    write_config_to_yml,
     read_system_configs_from_yml,
     update_strategy_config_map_from_file,
-    all_configs_complete,
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
 from hummingbot.client.ui import login_prompt
-from hummingbot.client.ui.stdout_redirection import patch_stdout
+from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 
@@ -99,20 +92,17 @@ async def quick_start(args):
         if not all_configs_complete(hb.strategy_name):
             hb.status()
 
-    with patch_stdout(log_field=hb.app.log_field):
-        log_level = global_config_map.get("log_level").value
-        init_logging("hummingbot_logs.yml",
-                     override_log_level=log_level)
+    # The listener needs to have a named variable for keeping reference, since the event listener system
+    # uses weak references to remove unneeded listeners.
+    start_listener: UIStartListener = UIStartListener(hb)
+    hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-        if hb.strategy_file_name is not None and hb.strategy_name is not None:
-            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-            hb.start(log_level)
+    tasks: List[Coroutine] = [hb.run()]
+    if global_config_map.get("debug_console").value:
+        management_port: int = detect_available_port(8211)
+        tasks.append(start_management_console(locals(), host="localhost", port=management_port))
 
-        tasks: List[Coroutine] = [hb.run()]
-        if global_config_map.get("debug_console").value:
-            management_port: int = detect_available_port(8211)
-            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-        await safe_gather(*tasks)
+    await safe_gather(*tasks)
 
 
 def main():

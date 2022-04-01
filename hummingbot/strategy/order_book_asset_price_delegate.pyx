@@ -1,4 +1,4 @@
-from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
 from .asset_price_delegate cimport AssetPriceDelegate

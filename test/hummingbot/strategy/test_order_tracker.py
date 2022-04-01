@@ -1,21 +1,19 @@
-#!/usr/bin/env python
-import unittest
 import asyncio
-import pandas as pd
 import time
-
+import unittest
 from decimal import Decimal
 from typing import (
     List,
     Union,
 )
 
+import pandas as pd
+
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
-from hummingbot.strategy.order_tracker import OrderTracker
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-
+from hummingbot.strategy.order_tracker import OrderTracker
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 
@@ -32,13 +30,14 @@ class OrderTrackerUnitTests(unittest.TestCase):
         cls.trading_pair = "COINALPHA-HBOT"
 
         cls.limit_orders: List[LimitOrder] = [
-            LimitOrder(client_order_id=f"LIMIT//-{i}-{int(time.time()*1e3)}",
+            LimitOrder(client_order_id=f"LIMIT//-{i}-{int(time.time()*1e6)}",
                        trading_pair=cls.trading_pair,
                        is_buy=True if i % 2 == 0 else False,
                        base_currency=cls.trading_pair.split("-")[0],
                        quote_currency=cls.trading_pair.split("-")[1],
                        price=Decimal(f"{100 - i}") if i % 2 == 0 else Decimal(f"{100 + i}"),
-                       quantity=Decimal(f"{10 * (i + 1)}")
+                       quantity=Decimal(f"{10 * (i + 1)}"),
+                       creation_timestamp=int(time.time() * 1e6)
                        )
             for i in range(20)
         ]

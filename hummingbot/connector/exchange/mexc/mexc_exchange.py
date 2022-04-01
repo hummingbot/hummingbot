@@ -23,6 +23,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
@@ -34,10 +35,8 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -395,7 +394,7 @@ class MexcExchange(ExchangeBase):
                                 execute_amount_diff,
                                 execute_price,
                             ),
-                            exchange_trade_id=exchange_order_id
+                            exchange_trade_id=str(int(self._time() * 1e6))
                         )
                         self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                            f"order {tracked_order.client_order_id}.")
@@ -546,7 +545,7 @@ class MexcExchange(ExchangeBase):
                                                     execute_price,
                                                     execute_amount_diff,
                                                     current_fee,
-                                                    exchange_trade_id=tracked_order.exchange_order_id))
+                                                    exchange_trade_id=str(int(self._time() * 1e6))))
         if order_status == "FILLED":
             fee_paid, fee_currency = await self.get_deal_detail_fee(tracked_order.exchange_order_id)
             tracked_order.fee_paid = fee_paid
@@ -682,7 +681,8 @@ class MexcExchange(ExchangeBase):
                                    trading_pair,
                                    decimal_amount,
                                    decimal_price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp
                                ))
         except asyncio.CancelledError:
             raise
@@ -753,7 +753,8 @@ class MexcExchange(ExchangeBase):
                                    trading_pair,
                                    decimal_amount,
                                    decimal_price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp
                                ))
         except asyncio.CancelledError:
             raise
@@ -885,7 +886,8 @@ class MexcExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):

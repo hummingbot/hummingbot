@@ -118,14 +118,13 @@ class CreateCommand:
 
         if self.app.to_stop_config:
             return
-        config.value = parse_cvar_value(config, input_value)
+        value = parse_cvar_value(config, input_value)
         err_msg = await config.validate(input_value)
         if err_msg is not None:
             self._notify(err_msg)
-            config.value = None
             await self.prompt_a_config(config)
         else:
-            config.value = parse_cvar_value(config, input_value)
+            config.value = value
 
     async def prompt_new_file_name(self,  # type: HummingbotApplication
                                    strategy):

@@ -121,21 +121,26 @@ class BudgetChecker:
 
     def _get_available_balances(self, order_candidate: OrderCandidate) -> Dict[str, Decimal]:
         available_balances = {}
+        balance_fn = (
+            self._exchange.get_available_balance
+            if not order_candidate.from_total_balances
+            else self._exchange.get_balance
+        )
 
         if order_candidate.order_collateral is not None:
             token, _ = order_candidate.order_collateral
             available_balances[token] = (
-                self._exchange.get_available_balance(token) - self._locked_collateral[token]
+                balance_fn(token) - self._locked_collateral[token]
             )
         if order_candidate.percent_fee_collateral is not None:
             token, _ = order_candidate.percent_fee_collateral
             available_balances[token] = (
-                self._exchange.get_available_balance(token) - self._locked_collateral[token]
+                balance_fn(token) - self._locked_collateral[token]
             )
         for entry in order_candidate.fixed_fee_collaterals:
             token, _ = entry
             available_balances[token] = (
-                self._exchange.get_available_balance(token) - self._locked_collateral[token]
+                balance_fn(token) - self._locked_collateral[token]
             )
 
         return available_balances

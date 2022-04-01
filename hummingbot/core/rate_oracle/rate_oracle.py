@@ -1,17 +1,12 @@
 import asyncio
 import logging
-
 from decimal import Decimal
 from enum import Enum
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import aiohttp
 
-import hummingbot.client.settings # noqa
+import hummingbot.client.settings  # noqa
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import convert_from_exchange_trading_pair as \
     ascend_ex_convert_from_exchange_pair
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
@@ -116,7 +111,9 @@ class RateOracle(NetworkBase):
         """
         Finds a conversion rate for a given symbol, this can be direct or indirect prices as long as it can find a route
         to achieve this.
+
         :param pair: A trading pair, e.g. BTC-USDT
+
         :return A conversion rate
         """
         return find_rate(self._prices, pair)
@@ -348,6 +345,8 @@ class RateOracle(NetworkBase):
         if self._fetch_price_task is not None:
             self._fetch_price_task.cancel()
             self._fetch_price_task = None
+        # Reset stored prices so that they are not used if they are not being updated
+        self._prices = {}
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -359,9 +358,3 @@ class RateOracle(NetworkBase):
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    def start(self):
-        NetworkBase.start(self)
-
-    def stop(self):
-        NetworkBase.stop(self)
