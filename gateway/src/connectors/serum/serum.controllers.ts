@@ -3,26 +3,24 @@ import { Market } from '@project-serum/serum';
 import { Solanaish } from '../../chains/solana/solana';
 import { Serumish } from './serum';
 import {
-  ClobDeleteOpenOrdersRequest,
-  ClobDeleteOpenOrdersResponse,
-  ClobDeleteOrdersRequest,
-  ClobGetFilledOrdersRequest,
-  ClobGetFilledOrdersResponse,
-  ClobGetOpenOrdersRequest,
-  ClobGetMarketsRequest,
-  ClobGetMarketsResponse,
-  ClobGetOrderBooksRequest,
-  ClobGetOrderBooksResponse,
-  ClobPostOrdersRequest,
-  ClobGetTickersRequest,
-  ClobGetTickersResponse,
-  ClobGetOrdersResponse,
-  ClobPostOrdersResponse,
-  ClobDeleteOrdersResponse,
-  ClobGetOpenOrdersResponse,
-  ClobGetMarketsRequestItem,
-  ClobGetMarketsRequestList,
-} from '../../clob/clob.requests';
+  SerumDeleteOpenOrdersRequest,
+  SerumDeleteOpenOrdersResponse,
+  SerumDeleteOrdersRequest,
+  SerumGetFilledOrdersRequest,
+  SerumGetFilledOrdersResponse,
+  SerumGetOpenOrdersRequest,
+  SerumGetMarketsRequest,
+  SerumGetMarketsResponse,
+  SerumGetOrderBooksRequest,
+  SerumGetOrderBooksResponse,
+  SerumPostOrdersRequest,
+  SerumGetTickersRequest,
+  SerumGetTickersResponse,
+  SerumGetOrdersResponse,
+  SerumPostOrdersResponse,
+  SerumDeleteOrdersResponse,
+  SerumGetOpenOrdersResponse,
+} from './serum.requests';
 
 /**
  * Get the all or the informed markets and their configurations.
@@ -34,13 +32,13 @@ import {
 export async function getMarkets(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetMarketsRequest
-): Promise<ClobGetMarketsResponse> {
-  if ('marketName' in request) serum.getMarket(request.marketName);
-  else if ('marketNames' in request) serum.getMarkets(request.marketNames);
-  else serum.getAllMarkets();
+  request: SerumGetMarketsRequest
+): Promise<SerumGetMarketsResponse> {
+  if ('name' in request) await serum.getMarket(request.name);
+  else if ('names' in request) await serum.getMarkets(request.names);
+  else await serum.getAllMarkets();
 
-  return {} as ClobGetMarketsResponse;
+  return {} as SerumGetMarketsResponse;
 }
 
 /**
@@ -53,8 +51,8 @@ export async function getMarkets(
 export async function getOrderBooks(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetOrderBooksRequest
-): Promise<ClobGetOrderBooksResponse> {
+  request: SerumGetOrderBooksRequest
+): Promise<SerumGetOrderBooksResponse> {
   // TODO return all, if undefined!!!
 }
 
@@ -68,8 +66,8 @@ export async function getOrderBooks(
 export async function getTickers(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetTickersRequest
-): Promise<ClobGetTickersResponse> {
+  request: SerumGetTickersRequest
+): Promise<SerumGetTickersResponse> {
  // TODO return all, if undefined!!!
 }
 
@@ -83,8 +81,8 @@ export async function getTickers(
 export async function getOrders(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetOrdersRequest
-): Promise<ClobGetOrdersResponse> {
+  request: SerumGetOrdersRequest
+): Promise<SerumGetOrdersResponse> {
 }
 
 /**
@@ -97,8 +95,8 @@ export async function getOrders(
 export async function postOrders(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobPostOrdersRequest
-): Promise<ClobPostOrdersResponse> {
+  request: SerumPostOrdersRequest
+): Promise<SerumPostOrdersResponse> {
 }
 
 /**
@@ -111,8 +109,8 @@ export async function postOrders(
 export async function deleteOrders(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobDeleteOrdersRequest
-): Promise<ClobDeleteOrdersResponse> {
+  request: SerumDeleteOrdersRequest
+): Promise<SerumDeleteOrdersResponse> {
 }
 
 /**
@@ -125,8 +123,8 @@ export async function deleteOrders(
 export async function getOpenOrders(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetOpenOrdersRequest
-): Promise<ClobGetOpenOrdersResponse> {
+  request: SerumGetOpenOrdersRequest
+): Promise<SerumGetOpenOrdersResponse> {
 }
 
 /**
@@ -139,8 +137,8 @@ export async function getOpenOrders(
 export async function deleteOpenOrders(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobDeleteOpenOrdersRequest
-): Promise<ClobDeleteOpenOrdersResponse> {
+  request: SerumDeleteOpenOrdersRequest
+): Promise<SerumDeleteOpenOrdersResponse> {
 }
 
 /**
@@ -153,6 +151,6 @@ export async function deleteOpenOrders(
 export async function getFilledOrders(
   solana: Solanaish,
   serum: Serumish,
-  request: ClobGetFilledOrdersRequest
-): Promise<ClobGetFilledOrdersResponse> {
+  request: SerumGetFilledOrdersRequest
+): Promise<SerumGetFilledOrdersResponse> {
 }

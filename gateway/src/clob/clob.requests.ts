@@ -17,9 +17,9 @@ import {
 
 export type ClobGetMarketsRequest = NetworkSelectionRequest &
   (
-    | { marketName: string }
+    | { name: string }
     | {
-        marketNames: string[];
+        names: string[];
       }
   );
 
