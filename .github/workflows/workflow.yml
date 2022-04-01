@@ -62,6 +62,21 @@ jobs:
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda install -c anaconda nose
 
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v2
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Gateway Dependencies
+        run: yarn --cwd ./gateway install
+
       # Install pre_commit if code has changed
       - name: Install pre_commit
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
@@ -162,7 +177,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Install Dependencies
-        run: yarn --cwd ./gateway install 
+        run: yarn --cwd ./gateway install
 
       - name: Create yml config file
         env:
