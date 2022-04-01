@@ -177,11 +177,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         An overwriten method from the base class that sends a request to change the position mode first
         :param position_mode: ONEWAY or HEDGE position mode
         """
-        mode = None
-        if position_mode == PositionMode.ONEWAY:
-            mode = CONSTANTS.POSITION_MODE_API_ONEWAY
-        elif position_mode == PositionMode.HEDGE:
-            mode = CONSTANTS.POSITION_MODE_API_HEDGE
+        mode = CONSTANTS.POSITION_MODE_API_HEDGE if position_mode == PositionMode.HEDGE else CONSTANTS.POSITION_MODE_API_ONEWAY
 
         if self._trading_pairs is not None:
             for trading_pair in self._trading_pairs:
