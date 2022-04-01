@@ -175,7 +175,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _set_position_mode(self, position_mode: PositionMode):
         """
         An overwriten method from the base class that sends a request to change the position mode first
-        :param position_mode: ONEWAY or HEDGE position mode
+        :param position_mode: PositionMode.ONEWAY or PositionMode.HEDGE
         """
         mode = CONSTANTS.POSITION_MODE_API_HEDGE if position_mode == PositionMode.HEDGE else CONSTANTS.POSITION_MODE_API_ONEWAY
 
