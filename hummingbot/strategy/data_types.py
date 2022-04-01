@@ -1,11 +1,8 @@
-#!/usr/bin/env python
-from typing import (
-    NamedTuple,
-    List
-)
-from decimal import Decimal
-from hummingbot.core.event.events import OrderType
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import List, NamedTuple
+
+from hummingbot.core.data_type.common import OrderType
 
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
 ORDER_PROPOSAL_ACTION_CANCEL_ORDERS = 1 << 1
@@ -60,6 +57,7 @@ class HangingOrder:
     is_buy: bool
     price: Decimal
     amount: Decimal
+    creation_timestamp: float
 
     @property
     def base_asset(self):
@@ -68,12 +66,6 @@ class HangingOrder:
     @property
     def quote_asset(self):
         return self.trading_pair.split('-')[1]
-
-    @property
-    def creation_timestamp(self):
-        if self.order_id:
-            if "//" not in self.order_id:
-                return int(self.order_id[-16:]) / 1e6
 
     def distance_to_price(self, price: Decimal):
         return abs(self.price - price)

@@ -5,13 +5,13 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import MagicMock, PropertyMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import hummingbot.connector.connector_metrics_collector
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, TradeVolumeMetricCollector
-from hummingbot.core.event.events import TradeType, OrderType
+from hummingbot.core.data_type.common import TradeType, OrderType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import OrderFilledEvent, MarketEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle

@@ -1,8 +1,11 @@
-import pandas as pd
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.event.events import PriceType
-from typing import TYPE_CHECKING
 import threading
+from typing import TYPE_CHECKING
+
+import pandas as pd
+
+from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.core.data_type.common import PriceType
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -19,7 +22,7 @@ class TickerCommand:
         safe_ensure_future(self.show_ticker(live, exchange, market))
 
     async def show_ticker(self,  # type: HummingbotApplication
-                          live: int = 10,
+                          live: bool = False,
                           exchange: str = None,
                           market: str = None):
         if len(self.markets.keys()) == 0:
@@ -49,8 +52,9 @@ class TickerCommand:
                 float(market_connector.get_price_by_type(trading_pair, PriceType.MidPrice)),
                 float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
             ]]
-            ticker_df = pd.DataFrame(data=data, columns=columns).to_string(index=False)
-            return f"   Market: {market_connector.name}\n  {ticker_df}"
+            ticker_df = pd.DataFrame(data=data, columns=columns)
+            ticker_df_str = format_df_for_printout(ticker_df)
+            return f"   Market: {market_connector.name}\n{ticker_df_str}"
 
         if live:
             await self.stop_live_update()

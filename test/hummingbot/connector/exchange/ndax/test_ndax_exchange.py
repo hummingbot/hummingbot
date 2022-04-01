@@ -1,16 +1,15 @@
 import asyncio
 import functools
 import json
-import time
 import re
+import time
+from decimal import Decimal
+from typing import Any, Awaitable, Callable, Dict, List
+from unittest import TestCase
+from unittest.mock import AsyncMock, patch, PropertyMock
 
 import pandas as pd
-
 from aioresponses import aioresponses
-from decimal import Decimal
-from typing import Any, Dict, List, Awaitable, Callable
-from unittest import TestCase
-from unittest.mock import AsyncMock, PropertyMock, patch
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
@@ -27,9 +26,8 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -707,6 +705,7 @@ class NdaxExchangeTests(TestCase):
             TradeType.SELL,
             Decimal(str(41720.83)),
             Decimal("1"),
+            1640001112.0,
             "Working",
         )
         self.exchange._in_flight_orders.update({
@@ -826,8 +825,15 @@ class NdaxExchangeTests(TestCase):
     def test_update_order_status_error_response(self, mock_api):
 
         # Simulates order being tracked
-        order: NdaxInFlightOrder = NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL,
-                                                     Decimal(str(41720.83)), Decimal("1"))
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            "0",
+            "2628",
+            self.trading_pair,
+            OrderType.LIMIT,
+            TradeType.SELL,
+            Decimal(str(41720.83)),
+            Decimal("1"),
+            creation_timestamp=1640001112.0)
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
         })
@@ -921,6 +927,7 @@ class NdaxExchangeTests(TestCase):
             TradeType.SELL,
             Decimal(str(41720.83)),
             Decimal("1"),
+            1640001112.0,
             "Working"
         )
         self.exchange._in_flight_orders.update({
@@ -1427,6 +1434,7 @@ class NdaxExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -1460,7 +1468,8 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1536,6 +1545,7 @@ class NdaxExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -1571,6 +1581,7 @@ class NdaxExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -1596,6 +1607,7 @@ class NdaxExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -1635,6 +1647,7 @@ class NdaxExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="Working",
         )
 
@@ -1659,7 +1672,8 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1740,7 +1754,8 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1756,7 +1771,8 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         order_json = order.to_json()
 
@@ -1776,6 +1792,7 @@ class NdaxExchangeTests(TestCase):
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
             amount=Decimal(1.0),
+            creation_timestamp=1640001112.0,
             initial_state="FullyExecuted"
         )
 
@@ -1793,7 +1810,8 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            creation_timestamp=1640001112.0)
 
         order_json = order.to_json()
 

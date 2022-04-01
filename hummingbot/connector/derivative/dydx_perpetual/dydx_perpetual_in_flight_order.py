@@ -1,10 +1,11 @@
-import json
-from typing import (Any, Dict, List)
 from decimal import Decimal
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_status import DydxPerpetualOrderStatus
+from typing import Any, Dict, List
+
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_status import DydxPerpetualOrderStatus
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import (TradeType, OrderType, MarketEvent)
+from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class DydxPerpetualInFlightOrder(InFlightOrderBase):
@@ -20,7 +21,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
                  filled_size: Decimal,
                  filled_volume: Decimal,
                  filled_fee: Decimal,
-                 created_at: int,
+                 created_at: float,
                  leverage: int,
                  position: str):
 
@@ -31,9 +32,9 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
                          trade_type=trade_type,
                          price=price,
                          amount=amount,
-                         initial_state = str(initial_state))
+                         initial_state=initial_state.name,
+                         creation_timestamp=created_at)
         self.status = initial_state
-        self.created_at = created_at
         self._last_executed_amount_from_order_status = Decimal(0)
         self.executed_amount_base = filled_size
         self.executed_amount_quote = filled_volume
@@ -77,28 +78,19 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
             return self.amount_remaining * self.price
 
     def to_json(self):
-        return json.dumps({
-            "client_order_id": self.client_order_id,
-            "exchange_order_id": self.exchange_order_id,
-            "trading_pair": self.trading_pair,
-            "order_type": self.order_type.name,
-            "trade_type": self.trade_type.name,
-            "price": str(self.price),
-            "amount": str(self.amount),
+        json_dict = super().to_json()
+        json_dict.update({
             "status": self.status.name,
-            "executed_amount_base": str(self.executed_amount_base),
-            "executed_amount_quote": str(self.executed_amount_quote),
-            "fee_paid": str(self.fee_paid),
-            "created_at": self.created_at,
             "leverage": self.leverage,
             "position": self.position,
             "fills": [f.as_dict() for f in self.fills],
             "_last_executed_amount_from_order_status": str(self._last_executed_amount_from_order_status),
         })
+        return json_dict
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]):
-        order = DydxPerpetualInFlightOrder(
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        return [
             data["client_order_id"],
             data["exchange_order_id"],
             data["trading_pair"],
@@ -110,12 +102,20 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
             Decimal(data["executed_amount_base"]),
             Decimal(data["executed_amount_quote"]),
             Decimal(data["fee_paid"]),
-            data["created_at"],
+            data["creation_timestamp"],
             data["leverage"],
-            data["position"]
-        )
+            data["position"]]
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]):
+        order = super().from_json(data)
+
         for fill in data["fills"]:
-            order.fills.add(DydxPerpetualFillReport(fill['id'], Decimal(fill['amount']), Decimal(fill['price']), Decimal(fill['fee'])))
+            order.fills.add(DydxPerpetualFillReport(
+                fill['id'],
+                Decimal(fill['amount']),
+                Decimal(fill['price']),
+                Decimal(fill['fee'])))
         order._last_executed_amount_from_order_status = Decimal(data['_last_executed_amount_from_order_status'])
 
         return order
@@ -125,7 +125,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
                         side: TradeType,
                         client_order_id: str,
                         order_type: OrderType,
-                        created_at: int,
+                        created_at: float,
                         hash: str,
                         trading_pair: str,
                         price: Decimal,

@@ -1,11 +1,8 @@
 from unittest import TestCase
 from unittest.mock import patch
 
-from hummingbot.core.event.events import (
-    TradeType
-)
-
 from hummingbot.connector.exchange.huobi import huobi_utils as utils
+from hummingbot.core.data_type.common import TradeType
 
 
 class HuobiUtilsTests(TestCase):

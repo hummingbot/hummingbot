@@ -1,44 +1,41 @@
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import asyncio
-import conf
 import contextlib
 import logging
 import os
 import time
-from typing import (
-    List,
-)
 import unittest
+from decimal import Decimal
+from os.path import join, realpath
+from typing import List
+from unittest import mock
 
+import conf
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.connector.connector.uniswap_v3.uniswap_v3_connector import UniswapV3Connector
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    OrderType,
     BuyOrderCreatedEvent,
     MarketEvent,
     RangePositionCreatedEvent,
     RangePositionRemovedEvent,
 )
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
-from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.connector.uniswap_v3.uniswap_v3_connector import UniswapV3Connector
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType
+)
 from test.connector.connector.uniswap_v3.fixture import Fixture
-from test.integration.humming_web_app import HummingWebApp
-from unittest import mock
-from decimal import Decimal
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 global_config_map['gateway_api_host'].value = "localhost"
@@ -63,7 +60,7 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
         if API_MOCK_ENABLED:
-            cls.web_app = HummingWebApp.get_instance()
+            cls.web_app = MockWebServer.get_instance()
             cls.web_app.add_host_to_mock(base_api_url)
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())

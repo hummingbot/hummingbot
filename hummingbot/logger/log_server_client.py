@@ -1,10 +1,7 @@
 import asyncio
 import logging
-from typing import (
-    Optional,
-    Dict,
-    Any
-)
+from typing import Any, Dict, Optional
+
 import aiohttp
 
 from hummingbot.core.network_base import NetworkBase
