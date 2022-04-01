@@ -1,6 +1,9 @@
 import asyncio
 import time
-from typing import Optional
+from typing import (
+    Dict,
+    Optional,
+)
 
 import aiohttp
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
@@ -27,10 +30,12 @@ class WSConnection:
         ws_url: str,
         ping_timeout: float = 10,
         message_timeout: Optional[float] = None,
+        ws_headers: Optional[Dict] = {},
     ):
         self._ensure_not_connected()
         self._connection = await self._client_session.ws_connect(
             ws_url,
+            headers=ws_headers,
             autoping=False,
             heartbeat=ping_timeout,
         )
