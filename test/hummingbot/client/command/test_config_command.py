@@ -9,7 +9,8 @@ from pydantic import Field
 
 from hummingbot.client.command.config_command import color_settings_to_display, global_configs_to_display
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap, ClientFieldData
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
+from hummingbot.client.config.config_helpers import \
+    read_system_configs_from_yml, ClientConfigAdapter
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -141,11 +142,12 @@ class ConfigCommandTest(unittest.TestCase):
             some_attr: int = Field(default=1)
             nested_model: NestedModel = Field(default=NestedModel())
             another_attr: Decimal = Field(default=Decimal("1.0"))
+            missing_no_default: int = Field(default=...)
 
             class Config:
                 title = "dummy_model"
 
-        get_strategy_config_map_mock.return_value = DummyModel()
+        get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.construct())
 
         self.app.list_configs()
 
@@ -154,16 +156,17 @@ class ConfigCommandTest(unittest.TestCase):
         self.assertEqual("\nStrategy Configurations:", captures[4])
 
         df_str_expected = (
-            "    +------------------------+---------------------+"
-            "\n    | Key                    | Value               |"
-            "\n    |------------------------+---------------------|"
-            "\n    | some_attr              | 1                   |"
-            "\n    | nested_model           | nested_model        |"
-            "\n    | ∟ nested_attr          | some value          |"
-            "\n    | ∟ double_nested_model  | double_nested_model |"
-            "\n    |   ∟ double_nested_attr | 3.0                 |"
-            "\n    | another_attr           | 1.0                 |"
-            "\n    +------------------------+---------------------+"
+            "    +------------------------+------------------------+"
+            "\n    | Key                    | Value                  |"
+            "\n    |------------------------+------------------------|"
+            "\n    | some_attr              | 1                      |"
+            "\n    | nested_model           | nested_model           |"
+            "\n    | ∟ nested_attr          | some value             |"
+            "\n    | ∟ double_nested_model  | double_nested_model    |"
+            "\n    |   ∟ double_nested_attr | 3.0                    |"
+            "\n    | another_attr           | 1.0                    |"
+            "\n    | missing_no_default     | &cMISSING_AND_REQUIRED |"
+            "\n    +------------------------+------------------------+"
         )
 
         self.assertEqual(df_str_expected, captures[5])
@@ -181,7 +184,7 @@ class ConfigCommandTest(unittest.TestCase):
 
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
-        get_strategy_config_map_mock.return_value = DummyModel.construct()
+        get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.construct())
         self.app.config(key="some_attr")
 
         notify_mock.assert_not_called()
@@ -218,7 +221,7 @@ class ConfigCommandTest(unittest.TestCase):
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
         self.app.strategy_file_name = f"{strategy_name}.yml"
-        config_map = DummyModel.construct()
+        config_map = ClientConfigAdapter(DummyModel.construct())
         get_strategy_config_map_mock.return_value = config_map
 
         self.async_run_with_timeout(self.app._config_single_key(key="some_attr", input_value=2))

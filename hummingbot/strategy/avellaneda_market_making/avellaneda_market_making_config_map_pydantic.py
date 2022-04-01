@@ -319,7 +319,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         default=SingleOrderLevelModel.construct(),
         description="Allows activating multi-order levels.",
         client_data=ClientFieldData(
-            prompt=lambda mi: f"Select the order levels mode ({'/'.join(list(ORDER_LEVEL_MODELS.keys()))}",
+            prompt=lambda mi: f"Select the order levels mode ({'/'.join(list(ORDER_LEVEL_MODELS.keys()))})",
         ),
     )
     order_override: Optional[Dict] = Field(
@@ -400,8 +400,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             sub_model = v
         elif v not in ORDER_LEVEL_MODELS:
             raise ValueError(
-                f"Invalid order levels mode, please choose value from"
-                f" {[e.value for e in list(ORDER_LEVEL_MODELS.keys())]}."
+                f"Invalid order levels mode, please choose value from {list(ORDER_LEVEL_MODELS.keys())}."
             )
         else:
             sub_model = ORDER_LEVEL_MODELS[v].construct()
@@ -413,8 +412,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             sub_model = v
         elif v not in HANGING_ORDER_MODELS:
             raise ValueError(
-                f"Invalid hanging order mode, please choose value from"
-                f" {[e.value for e in list(HANGING_ORDER_MODELS.keys())]}."
+                f"Invalid hanging order mode, please choose value from {list(HANGING_ORDER_MODELS.keys())}."
             )
         else:
             sub_model = HANGING_ORDER_MODELS[v].construct()
