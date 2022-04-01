@@ -156,6 +156,7 @@ text_ui_style = {
     "&cGREEN": "success-label",
     "&cYELLOW": "warning-label",
     "&cRED": "error-label",
+    "&cMISSING_AND_REQUIRED": "error-label",
 }
 
 default_ui_style = {

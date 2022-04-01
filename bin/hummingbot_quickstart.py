@@ -19,9 +19,9 @@ from hummingbot import init_logging
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
-    create_yml_files,
+    create_yml_files_legacy,
     read_system_configs_from_yml,
-    update_strategy_config_map_from_file,
+    load_strategy_config_map_from_file,
     all_configs_complete,
 )
 from hummingbot.client.ui import login_prompt
@@ -73,7 +73,7 @@ async def quick_start(args):
         return
 
     await Security.wait_til_decryption_done()
-    await create_yml_files()
+    await create_yml_files_legacy()
     init_logging("hummingbot_logs.yml")
     await read_system_configs_from_yml()
 
@@ -84,7 +84,7 @@ async def quick_start(args):
 
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        hb.strategy_name = await update_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
+        hb.strategy_name = await load_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
 
     # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
     if not global_config_map.get("kill_switch_enabled"):

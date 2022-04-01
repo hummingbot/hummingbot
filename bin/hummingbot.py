@@ -16,7 +16,7 @@ from weakref import (
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
-    create_yml_files,
+    create_yml_files_legacy,
     read_system_configs_from_yml,
     write_config_to_yml,
 )
@@ -71,7 +71,7 @@ class UIStartListener(EventListener):
 
 
 async def main():
-    await create_yml_files()
+    await create_yml_files_legacy()
 
     # This init_logging() call is important, to skip over the missing config warnings.
     init_logging("hummingbot_logs.yml")
