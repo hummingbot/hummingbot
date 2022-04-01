@@ -26,13 +26,10 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 
-# TODO
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_web_utils as web_utils,
-)
-
-
 class ExchangeApiMixin(object):
+    # overridden in implementation of exchanges
+    web_utils = None
+
     async def start_network(self):
         """
         Start all required tasks to update the status of the connector. Those tasks include:
@@ -167,7 +164,7 @@ class ExchangeApiMixin(object):
     async def _update_time_synchronizer(self):
         try:
             await self._time_synchronizer.update_server_time_offset_with_time_provider(
-                time_provider=web_utils.get_current_server_time(
+                time_provider=self.web_utils.get_current_server_time(
                     throttler=self._throttler,
                     domain=self._domain,
                 )
@@ -236,7 +233,7 @@ class ExchangeApiMixin(object):
                            is_auth_required: bool = False,
                            limit_id: Optional[str] = None) -> Dict[str, Any]:
 
-        return await web_utils.api_request(
+        return await self.web_utils.api_request(
             path=path_url,
             api_factory=self._api_factory,
             throttler=self._throttler,
@@ -311,7 +308,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
 
         # init Auth and Api factory
         self._auth = self.init_auth()
-        self._api_factory = web_utils.build_api_factory(
+        self._api_factory = self.web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
             domain=self._domain,

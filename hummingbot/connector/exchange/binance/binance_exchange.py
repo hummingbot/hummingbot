@@ -7,6 +7,7 @@ from hummingbot.connector.exchange.binance import (
     binance_constants as CONSTANTS,
     binance_web_utils as web_utils
 )
+from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
@@ -20,30 +21,27 @@ from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, Tok
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 
-# TODO temporary hack
-from hummingbot.connector import exchange_base_v2
-exchange_base_v2.web_utils = web_utils
 
-
-class BinanceExchange(exchange_base_v2.ExchangeBaseV2):
-    RATE_LIMITS = CONSTANTS.RATE_LIMITS
-
+class BinanceExchange(ExchangeBaseV2):
     DEFAULT_DOMAIN = CONSTANTS.DEFAULT_DOMAIN
-    HBOT_ORDER_ID_PREFIX = CONSTANTS.HBOT_ORDER_ID_PREFIX
-    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ORDER_ID_LEN
-
+    RATE_LIMITS = CONSTANTS.RATE_LIMITS
     SUPPORTED_ORDER_TYPES = [
         OrderType.LIMIT,
         OrderType.LIMIT_MAKER
     ]
+
+    HBOT_ORDER_ID_PREFIX = CONSTANTS.HBOT_ORDER_ID_PREFIX
+    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ORDER_ID_LEN
+
     ORDERBOOK_DS_CLASS = BinanceAPIOrderBookDataSource
     USERSTREAM_DS_CLASS = BinanceAPIUserStreamDataSource
-
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     CHECK_NETWORK_URL = CONSTANTS.PING_PATH_URL
     SYMBOLS_PATH_URL = CONSTANTS.EXCHANGE_INFO_PATH_URL
     FEE_PATH_URL = ""
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+
+    web_utils = web_utils
 
     def __init__(self,
                  binance_api_key: str,
@@ -122,7 +120,7 @@ class BinanceExchange(exchange_base_v2.ExchangeBaseV2):
         price_str = f"{price:f}"
         type_str = BinanceExchange.binance_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+        symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
             trading_pair=trading_pair,
             domain=self._domain,
             api_factory=self._api_factory,
@@ -146,7 +144,7 @@ class BinanceExchange(exchange_base_v2.ExchangeBaseV2):
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id, tracked_order):
-        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+        symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
             trading_pair=tracked_order.trading_pair,
             domain=self._domain,
             api_factory=self._api_factory,
@@ -203,7 +201,7 @@ class BinanceExchange(exchange_base_v2.ExchangeBaseV2):
         retval = []
         for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
                     symbol=rule.get("symbol"),
                     domain=self._domain,
                     api_factory=self._api_factory,
@@ -322,7 +320,7 @@ class BinanceExchange(exchange_base_v2.ExchangeBaseV2):
             trading_pairs = self._order_book_tracker._trading_pairs
             for trading_pair in trading_pairs:
                 params = {
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                    "symbol": await self._orderbook_ds.exchange_symbol_associated_to_pair(
                         trading_pair=trading_pair,
                         domain=self._domain,
                         api_factory=self._api_factory,
@@ -411,7 +409,7 @@ class BinanceExchange(exchange_base_v2.ExchangeBaseV2):
             tasks = [self._api_get(
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params={
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
+                    "symbol": await self._orderbook_ds.exchange_symbol_associated_to_pair(
                         trading_pair=o.trading_pair,
                         domain=self._domain,
                         api_factory=self._api_factory,

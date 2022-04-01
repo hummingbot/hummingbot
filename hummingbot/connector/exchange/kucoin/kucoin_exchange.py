@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 from hummingbot.connector.exchange.kucoin import (
     kucoin_constants as CONSTANTS,
     kucoin_utils as utils,
+    kucoin_web_utils as web_utils
 )
-from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
@@ -18,6 +18,8 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+
+from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 
 
 class KucoinExchange(ExchangeBaseV2):
@@ -38,6 +40,8 @@ class KucoinExchange(ExchangeBaseV2):
     SYMBOLS_PATH_URL = CONSTANTS.SYMBOLS_PATH_URL
     CHECK_NETWORK_URL = CONSTANTS.SERVER_TIME_PATH_URL
     FEE_PATH_URL = CONSTANTS.FEE_PATH_URL
+
+    web_utils = web_utils
 
     def __init__(self,
                  kucoin_api_key: str,
