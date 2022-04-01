@@ -7,8 +7,9 @@ RUN apt-get update && \
         build-essential pkg-config libusb-1.0 curl git sudo libudev-dev libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Add hummingbot user
-RUN useradd -m -s /bin/bash hummingbot
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
 
 # Switch to hummingbot user
 USER hummingbot:hummingbot
