@@ -1,5 +1,5 @@
 # Set the base image
-FROM arm64v8/python:3.7-slim AS builder
+FROM arm64v8/python:3.8-slim AS builder
 
 # Install linux dependencies
 RUN apt-get update && \
@@ -16,7 +16,7 @@ USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
 # Install miniconda
-RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-aarch64.sh -o ~/miniconda.sh && \
+RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-aarch64.sh -o ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b && \
     rm ~/miniconda.sh && \
     ~/miniconda3/bin/conda init && \
@@ -62,7 +62,7 @@ RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux-aarch64.y
     find . -type f -name "*.cpp" -delete
 
 # Build final image using artifacts from builder
-FROM arm64v8/python:3.7-slim AS release
+FROM arm64v8/python:3.8-slim AS release
 # Dockerfile author / maintainer 
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
 
