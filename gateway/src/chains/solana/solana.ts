@@ -53,7 +53,7 @@ export class Solana implements Solanaish {
   private _initializing: boolean = false;
   private _initPromise: Promise<void> = Promise.resolve();
 
-  constructor(network: string) {
+  constructor(network?: string) {
     this._cluster = network || SolanaConfig.config.network.slug;
 
     if (SolanaConfig.config.customRpcUrl == undefined) {
@@ -95,7 +95,7 @@ export class Solana implements Solanaish {
     return this._lamportPrice;
   }
 
-  public static getInstance(network: string): Solana {
+  public static getInstance(network?: string): Solana {
     if (Solana._instances === undefined) {
       Solana._instances = {};
     }
