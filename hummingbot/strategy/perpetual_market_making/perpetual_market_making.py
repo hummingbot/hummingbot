@@ -864,7 +864,8 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 f"Changing position mode to {self._position_mode.name} failed. "
                 f"Reason: {position_mode_changed_event.reason}"
                 f"Cancelling all open orders and retrying ...")
-            self.cancel_all()
+            for order in self.active_orders:
+                self.cancel_order(self._market_info, order.client_order_id)
         else:
             self.logger().info(
                 f"Changing position mode to {self._position_mode.name} succeeded.")
