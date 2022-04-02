@@ -414,7 +414,8 @@ class GatewayCommand:
                     self.app.clear_input()
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(
-                        prompt=f"Enter your {chain}-{network} wallet private key >>> "
+                        prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+                        is_password=True
                     )
                     self.app.clear_input()
                     if self.app.to_stop_config:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
 import argparse
 import asyncio
 import grp
@@ -8,13 +7,13 @@ import logging
 import os
 import pwd
 import subprocess
-
 from pathlib import Path
 from typing import (
     Coroutine,
     List,
 )
 
+import path_util        # noqa: F401
 from bin.hummingbot import (
     detect_available_port,
     UIStartListener,
@@ -33,7 +32,7 @@ from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
 from hummingbot.client.config.security import Security
 
 from bin.docker_connection import fork_and_start
