@@ -201,15 +201,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                            position_mode,
                                            response['ret_msg']
                                        ))
-                    raise IOError(f"Bybit Perpetual encountered a problem switching position mode to "
-                                  f"{position_mode} for {trading_pair}"
-                                  f" ({response['ret_code']} - {response['ret_msg']})")
-                self.trigger_event(AccountEvent.PositionModeChange,
-                                   PositionModeChangeEvent(
-                                       self.current_timestamp,
-                                       True,
-                                       position_mode
-                                   ))
+                    self.logger().debug(f"Bybit Perpetual encountered a problem switching position mode to "
+                                        f"{position_mode} for {trading_pair}"
+                                        f" ({response['ret_code']} - {response['ret_msg']})")
+                else:
+                    self.trigger_event(AccountEvent.PositionModeChange,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           True,
+                                           position_mode
+                                       ))
+                    self.logger().debug(f"Bybit Perpetual switching position mode to "
+                                        f"{position_mode} for {trading_pair} succeeded.")
 
         super().set_position_mode(position_mode)
 
@@ -728,6 +731,43 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 app_warning_msg="Failed to cancel order with ByBit Perpetual. Check API key and network connection."
             )
         return successful_cancellations + failed_cancellations
+
+    async def _cancel_all_account_orders(self, trading_pair: str):
+        """
+        Async cancel all account's orders, not just orders tracked by the ClientOrderTracker
+        :param trading_pair: The market (e.g. BTC-CAD) of the order.
+        """
+        try:
+            body_params = {
+                "symbol": await self._trading_pair_symbol(trading_pair),
+            }
+            response = await self._api_request(
+                method="POST",
+                endpoint=CONSTANTS.CANCEL_ALL_ACTIVE_ORDERS_PATH_URL,
+                trading_pair=trading_pair,
+                body=body_params,
+                is_auth_required=True,
+            )
+
+            response_code = response["ret_code"]
+
+            if response_code != CONSTANTS.RET_CODE_OK:
+                for order_id in list(self._client_order_tracker.active_orders.keys()):
+                    self.stop_tracking_order(order_id)
+            else:
+                raise IOError(f"Bybit Perpetual encountered a problem cancelling all account's orders "
+                              f"for {trading_pair}"
+                              f" ({response['ret_code']} - {response['ret_msg']})")
+        except Exception as e:
+            self.logger().error("Could not cancel all account orders.")
+            raise e
+
+    def cancel_all_account_orders(self, trading_pair: str):
+        """
+        Cancel all account's orders, not just orders tracked by the ClientOrderTracker
+        :param trading_pair: The market (e.g. BTC-CAD) of the order.
+        """
+        safe_ensure_future(self._cancel_all_account_orders(trading_pair))
 
     def tick(self, timestamp: float):
         """
