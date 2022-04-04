@@ -417,27 +417,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     ):
         """
         Starts tracking an order by calling the appropriate method in the Client Order Tracker
-
-        Parameters
-        ----------
-        order_id:
-            Client order ID
-        exchange_order_id:
-            Order ID on the exhange
-        trading_pair:
-            The pair that is being traded
-        trading_type:
-            BUY or SELL
-        price:
-            Price for a limit order
-        amount:
-            The amount to trade
-        order_type:
-            LIMIT or MARKET
-        leverage:
-            Leverage of the position
-        position:
-            OPEN or CLOSE
+        :param order_id: Client order ID
+        :param exchange_order_id: Order ID on the exhange
+        :param trading_pair: The pair that is being traded
+        :param trading_type: BUY or SELL
+        :param price: Price for a limit order
+        :param amount: The amount to trade
+        :param order_type: LIMIT or MARKET
+        :param leverage: Leverage of the position
+        :param position: OPEN or CLOSE
         """
         self._client_order_tracker.start_tracking_order(
             InFlightOrder(
