@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import time
 import warnings
@@ -881,6 +882,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 raise Exception("Cannot connect to Bybit Perpetual. Reason: API key expired")
             else:
                 raise Exception(f"Cannot connect to Bybit Perpetual. Reason: {wallet_balance['ret_msg']}")
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self.active_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_order_status(self):
         """
