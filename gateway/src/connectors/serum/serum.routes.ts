@@ -1,10 +1,10 @@
-import {Request, Response, Router} from 'express';
-import {asyncHandler} from '../../services/error-handler';
-import {verifySolanaIsAvailable} from '../../chains/solana/solana-middlewares';
-import {verifySerumIsAvailable} from './serum-middlewares';
-import {SolanaConfig} from '../../chains/solana/solana.config';
-import {Solana} from '../../chains/solana/solana';
-import {validatePublicKey} from '../../chains/solana/solana.validators';
+import { Request, Response, Router } from 'express';
+import { asyncHandler } from '../../services/error-handler';
+import { verifySolanaIsAvailable } from '../../chains/solana/solana-middlewares';
+import { verifySerumIsAvailable } from './serum-middlewares';
+import { SolanaConfig } from '../../chains/solana/solana.config';
+import { Solana } from '../../chains/solana/solana';
+import { validatePublicKey } from '../../chains/solana/solana.validators';
 import {
   deleteOpenOrders,
   deleteOrders,
@@ -48,8 +48,8 @@ export namespace MangoRoutes {
     asyncHandler(verifySerumIsAvailable)
   );
 
-  router.get('/', async (_req: Request, res: Response) => {
-    res.status(200).json({
+  router.get('/', async (_request: Request, response: Response) => {
+    response.status(200).json({
       network: SolanaConfig.config.network.slug,
       connection: serum.ready,
       timestamp: Date.now(),
@@ -60,10 +60,12 @@ export namespace MangoRoutes {
     '/markets',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumGetMarketsRequest>,
-        res: Response<SerumGetMarketsResponse, any>
+        request: Request<unknown, unknown, SerumGetMarketsRequest>,
+        response: Response<SerumGetMarketsResponse, any>
       ) => {
-        res.status(200).json(await getMarkets(solana, serum, req.body));
+        const result = await getMarkets(solana, serum, request.body);
+
+        response.status(result.status).json(result);
       }
     )
   );
@@ -75,10 +77,12 @@ export namespace MangoRoutes {
     '/tickers',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumGetTickersRequest>,
-        res: Response<SerumGetTickersResponse, any>
+        request: Request<unknown, unknown, SerumGetTickersRequest>,
+        response: Response<SerumGetTickersResponse, any>
       ) => {
-        res.status(200).json(await getTickers(solana, serum, req.body));
+        response
+          .status(200)
+          .json(await getTickers(solana, serum, request.body));
       }
     )
   );
@@ -87,11 +91,13 @@ export namespace MangoRoutes {
     '/orderBooks',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumGetOrderBooksRequest>,
-        res: Response<SerumGetOrderBooksResponse, any>
+        request: Request<unknown, unknown, SerumGetOrderBooksRequest>,
+        response: Response<SerumGetOrderBooksResponse, any>
       ) => {
         // TODO: 404 if requested market does not exist
-        res.status(200).json(await getOrderBooks(solana, serum, req.body));
+        response
+          .status(200)
+          .json(await getOrderBooks(solana, serum, request.body));
       }
     )
   );
@@ -100,11 +106,11 @@ export namespace MangoRoutes {
     '/orders',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumGetOrdersRequest>,
-        res: Response<SerumGetOrdersResponse, any>
+        request: Request<unknown, unknown, SerumGetOrdersRequest>,
+        response: Response<SerumGetOrdersResponse, any>
       ) => {
-        validatePublicKey(req.body);
-        res.status(200).json(await getOrders(solana, serum, req.body));
+        validatePublicKey(request.body);
+        response.status(200).json(await getOrders(solana, serum, request.body));
       }
     )
   );
@@ -113,11 +119,13 @@ export namespace MangoRoutes {
     '/orders',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumPostOrdersRequest>,
-        res: Response<SerumPostOrdersResponse, any>
+        request: Request<unknown, unknown, SerumPostOrdersRequest>,
+        response: Response<SerumPostOrdersResponse, any>
       ) => {
-        validatePublicKey(req.body);
-        res.status(200).json(await postOrders(solana, serum, req.body));
+        validatePublicKey(request.body);
+        response
+          .status(200)
+          .json(await postOrders(solana, serum, request.body));
       }
     )
   );
@@ -126,11 +134,13 @@ export namespace MangoRoutes {
     '/orders',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumDeleteOrdersRequest>,
-        res: Response<SerumDeleteOrdersResponse, any>
+        request: Request<unknown, unknown, SerumDeleteOrdersRequest>,
+        response: Response<SerumDeleteOrdersResponse, any>
       ) => {
-        validatePublicKey(req.body);
-        res.status(200).json(await deleteOrders(solana, serum, req.body));
+        validatePublicKey(request.body);
+        response
+          .status(200)
+          .json(await deleteOrders(solana, serum, request.body));
       }
     )
   );
@@ -139,11 +149,13 @@ export namespace MangoRoutes {
     '/openOrders',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumGetOpenOrdersRequest>,
-        res: Response<SerumGetOpenOrdersResponse, any>
+        request: Request<unknown, unknown, SerumGetOpenOrdersRequest>,
+        response: Response<SerumGetOpenOrdersResponse, any>
       ) => {
-        validatePublicKey(req.body);
-        res.status(200).json(await getOpenOrders(solana, serum, req.body));
+        validatePublicKey(request.body);
+        response
+          .status(200)
+          .json(await getOpenOrders(solana, serum, request.body));
       }
     )
   );
@@ -152,11 +164,13 @@ export namespace MangoRoutes {
     '/openOrders',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumDeleteOpenOrdersRequest>,
-        res: Response<SerumDeleteOpenOrdersResponse, any>
+        request: Request<unknown, unknown, SerumDeleteOpenOrdersRequest>,
+        response: Response<SerumDeleteOpenOrdersResponse, any>
       ) => {
-        validatePublicKey(req.body);
-        res.status(200).json(await deleteOpenOrders(solana, serum, req.body));
+        validatePublicKey(request.body);
+        response
+          .status(200)
+          .json(await deleteOpenOrders(solana, serum, request.body));
       }
     )
   );
@@ -165,11 +179,13 @@ export namespace MangoRoutes {
     '/filledOrders',
     asyncHandler(
       async (
-        req: Request<unknown, unknown, SerumGetFilledOrdersRequest>,
-        res: Response<SerumGetFilledOrdersResponse, any>
+        request: Request<unknown, unknown, SerumGetFilledOrdersRequest>,
+        response: Response<SerumGetFilledOrdersResponse, any>
       ) => {
-        validatePublicKey(req.body);
-        res.status(200).json(await getFilledOrders(solana, serum, req.body));
+        validatePublicKey(request.body);
+        response
+          .status(200)
+          .json(await getFilledOrders(solana, serum, request.body));
       }
     )
   );

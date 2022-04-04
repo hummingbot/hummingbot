@@ -147,6 +147,13 @@ export interface NetworkSelectionRequest {
   connector?: string; //the target connector (e.g. uniswap or pangolin)
 }
 
+export class BaseResponse<T> {
+  status?: number;
+  title?: string;
+  message?: string;
+  body?: T | any;
+}
+
 export interface CustomTransactionReceipt
   extends Omit<
     ethers.providers.TransactionReceipt,
