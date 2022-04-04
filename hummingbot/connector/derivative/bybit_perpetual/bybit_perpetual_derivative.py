@@ -553,7 +553,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             result = send_order_results["result"]
             exchange_order_id = str(result["order_id"])
 
-            tracked_order = self._client_order_tracker.active_orders.get(order_id)
+            tracked_order = self._client_order_tracker.fetch_order(order_id)
 
             if tracked_order is not None:
                 order_update: OrderUpdate = OrderUpdate(
@@ -1071,7 +1071,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         client_order_id = str(order_msg["order_link_id"])
 
         if client_order_id in self._client_order_tracker.active_orders.keys():
-            tracked_order = self._client_order_tracker.active_orders[client_order_id]
+            tracked_order = self._client_order_tracker.fetch_order(client_order_id)
 
             # Update order execution status
             new_order_update: OrderUpdate = OrderUpdate(
@@ -1093,7 +1093,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         client_order_id = str(trade_msg["order_link_id"])
         if client_order_id in self._client_order_tracker.active_orders.keys():
-            tracked_order = self._client_order_tracker.active_orders[client_order_id]
+            tracked_order = self._client_order_tracker.fetch_order(client_order_id)
 
             trade_id: str = str(trade_msg["exec_id"])
 
