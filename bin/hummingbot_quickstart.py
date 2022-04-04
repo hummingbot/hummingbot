@@ -2,11 +2,12 @@
 
 import argparse
 import asyncio
+import grp
 import logging
 import os
-from pathlib import Path
 import pwd
 import subprocess
+from pathlib import Path
 from typing import (
     Coroutine,
     List,
@@ -56,7 +57,11 @@ class CmdlineParser(argparse.ArgumentParser):
 
 
 def autofix_permissions(user_group_spec: str):
-    uid, gid = [int(i) for i in user_group_spec.split(':')]
+    uid, gid = [sub_str for sub_str in user_group_spec.split(':')]
+
+    uid = int(uid) if uid.isnumeric() else pwd.getpwnam(uid).pw_uid
+    gid = int(gid) if gid.isnumeric() else grp.getgrnam(gid).gr_gid
+
     os.environ["HOME"] = pwd.getpwuid(uid).pw_dir
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
 
