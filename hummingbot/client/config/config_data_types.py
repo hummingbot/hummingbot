@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, Extra
 from pydantic.schema import default_ref_template
 
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
@@ -31,6 +32,10 @@ class BaseClientModel(BaseModel):
         validate_assignment = True
         title = None
         smart_union = True
+        extra = Extra.forbid
+        json_encoders = {
+            datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
+        }
 
     @classmethod
     def schema_json(

@@ -16,7 +16,7 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
 )
 from hummingbot.strategy.conditional_execution_state import (
     RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState
+    RunInTimeConditionalExecutionState,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.avellaneda_market_making import (
