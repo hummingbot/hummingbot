@@ -862,13 +862,15 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if not position_mode_changed_event.is_success:
             self.logger().error(
                 f"Changing position mode to {self._position_mode.name} failed. "
-                f"Reason: {position_mode_changed_event.reason}"
+                f"Reason: {position_mode_changed_event.reason}. "
                 f"Cancelling all open orders and retrying ...")
-            for order in self.active_orders:
-                self.cancel_order(self._market_info, order.client_order_id)
+            market: ExchangeBase = self._market_info.market
+            market.cancel_all_account_orders(self.trading_pair)
+            market.set_position_mode(self._position_mode)
         else:
-            self.logger().info(
-                f"Changing position mode to {self._position_mode.name} succeeded.")
+            if self._position_mode is position_mode_changed_event.position_mode:
+                self.logger().info(
+                    f"Changing position mode to {self._position_mode.name} succeeded.")
 
     def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
         if len(current_prices) != len(proposal_prices):
