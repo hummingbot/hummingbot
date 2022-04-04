@@ -3,6 +3,7 @@ import logging
 import ssl
 
 from decimal import Decimal
+from enum import Enum
 from typing import Optional, Any, Dict, List, Union
 
 from hummingbot.client.config.global_config_map import global_config_map
@@ -14,6 +15,11 @@ from hummingbot.core.gateway import (
     restart_gateway
 )
 from hummingbot.logger import HummingbotLogger
+
+
+class GatewayError(Enum):
+    swap_price_exceeds_limit_price = 1008
+    swap_price_lower_than_limit_price = 1009
 
 
 class GatewayHttpClient:
