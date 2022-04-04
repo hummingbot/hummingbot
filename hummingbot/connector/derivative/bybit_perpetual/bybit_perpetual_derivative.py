@@ -1084,11 +1084,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             self._client_order_tracker.process_order_update(new_order_update)
 
-            if new_order_update.new_state == OrderState.FAILED:
-                reason = order_msg["reject_reason"] if "reject_reason" in order_msg else "unknown"
-                self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
-                                   f"Reason: {reason}")
-
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
