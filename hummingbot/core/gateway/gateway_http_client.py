@@ -82,6 +82,18 @@ class GatewayHttpClient:
     def base_url(self, url: str):
         self._base_url = url
 
+    def log_error_codes(self, resp: Dict[str, Any]):
+        """
+        If the API returns an error code, interpret the code, log a useful
+        message to the user, then raise an exception.
+        """
+        error_code: Optional[int] = resp.get("errorCode")
+        if error_code is not None:
+            if error_code == GatewayError.swap_price_exceeds_limit_price.value:
+                self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
+            elif error_code == GatewayError.swap_price_lower_than_limit_price.value:
+                self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
+
     async def api_request(
             self,
             method: str,
@@ -113,6 +125,8 @@ class GatewayHttpClient:
                 raise ValueError(f"Unsupported request method {method}")
             parsed_response = await response.json()
             if response.status != 200 and not fail_silently:
+                self.log_error_codes(parsed_response)
+
                 if "error" in parsed_response:
                     raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
                 else:

@@ -21,7 +21,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.gateway import check_transaction_exceptions
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient, GatewayError
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -482,20 +482,6 @@ class GatewayEVMAMM(ConnectorBase):
         safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price, **request_args))
         return order_id
 
-    def handle_gateway_api_error(self, resp: Dict[str, Any]):
-        """
-        If the API returns an error code, interpret the code, log a useful
-        message to the user, then raise an exception.
-        """
-        error_code: Optional[int] = resp.get("errorCode")
-        if error_code is not None:
-            if error_code == GatewayError.swap_price_exceeds_limit_price.value:
-                self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
-            elif error_code == GatewayError.swap_price_lower_than_limit_price.value:
-                self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
-            self.logger().error(f"{resp}")
-            raise Exception
-
     async def _create_order(
             self,
             trade_type: TradeType,
@@ -537,7 +523,6 @@ class GatewayEVMAMM(ConnectorBase):
                 self._nonce,
                 **request_args
             )
-            self.handle_gateway_api_error(order_result)
             transaction_hash: str = order_result.get("txHash")
             nonce: int = order_result.get("nonce")
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
