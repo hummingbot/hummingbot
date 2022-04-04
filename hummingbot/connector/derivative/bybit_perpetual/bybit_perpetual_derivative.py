@@ -550,7 +550,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if send_order_results["ret_code"] != CONSTANTS.RET_CODE_OK:
                 if send_order_results["ret_code"] == CONSTANTS.RET_CODE_POSITION_ZERO:
-                    self.stop_tracking_order(order_id)
+                    order_update: OrderUpdate = OrderUpdate(
+                        trading_pair=trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FAILED,
+                        client_order_id=order_id,
+                    )
+                    self._client_order_tracker.process_order_update(order_update)
                     return
                 else:
                     raise ValueError(f"Order is rejected by the API. "
