@@ -36,7 +36,7 @@ class AvellanedaStartTest(unittest.TestCase):
                 ),
                 order_amount=60,
                 order_refresh_time=60,
-                hanging_orders_model=TrackHangingOrdersModel(
+                hanging_orders_mode=TrackHangingOrdersModel(
                     hanging_orders_cancel_pct=1,
                 ),
                 order_levels_mode=MultiOrderLevelModel(
@@ -45,8 +45,6 @@ class AvellanedaStartTest(unittest.TestCase):
                 ),
                 min_spread=2,
                 risk_factor=1.11,
-                order_levels=4,
-                level_distances=1,
                 order_amount_shape_factor=0.33,
             )
         )

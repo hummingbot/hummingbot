@@ -1,6 +1,7 @@
 import asyncio
 import unittest
 from datetime import datetime, time
+from decimal import Decimal
 from pathlib import Path
 from typing import Awaitable, Dict
 from unittest.mock import patch
@@ -14,7 +15,8 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
     AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
     FromDateToDateModel,
-    InfiniteModel,
+    InfiniteModel, SingleOrderLevelModel, MultiOrderLevelModel,
+    IgnoreHangingOrdersModel, TrackHangingOrdersModel,
 )
 
 
@@ -203,3 +205,63 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         loaded_config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**data))
 
         self.assertEqual(self.config_map, loaded_config_map)
+
+    def test_configuring_execution_timeframe_mode(self):
+        self.config_map.execution_timeframe_mode = InfiniteModel()
+
+        self.config_map.execution_timeframe_mode = {
+            "start_datetime": "2022-01-01 10:00:00",
+            "end_datetime": "2022-01-02 10:00:00",
+        }
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, FromDateToDateModel)
+        self.assertEqual(self.config_map.execution_timeframe_mode.start_datetime, datetime(2022, 1, 1, 10))
+        self.assertEqual(self.config_map.execution_timeframe_mode.end_datetime, datetime(2022, 1, 2, 10))
+
+        self.config_map.execution_timeframe_mode = {
+            "start_time": "10:00:00",
+            "end_time": "11:00:00",
+        }
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, DailyBetweenTimesModel)
+        self.assertEqual(self.config_map.execution_timeframe_mode.start_time, time(10))
+        self.assertEqual(self.config_map.execution_timeframe_mode.end_time, time(11))
+
+        self.config_map.execution_timeframe_mode = {}
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, InfiniteModel)
+
+    def test_configuring_order_levels_mode(self):
+        self.config_map.order_levels_mode = SingleOrderLevelModel()
+
+        self.config_map.order_levels_mode = {
+            "order_levels": 2,
+            "level_distances": 1,
+        }
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.order_levels_mode.hb_config, MultiOrderLevelModel)
+        self.assertEqual(self.config_map.order_levels_mode.order_levels, 2)
+        self.assertEqual(self.config_map.order_levels_mode.level_distances, 1)
+
+        self.config_map.order_levels_mode = {}
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.order_levels_mode.hb_config, SingleOrderLevelModel)
+
+    def test_configuring_hanging_orders_mode(self):
+        self.config_map.hanging_orders_mode = IgnoreHangingOrdersModel()
+
+        self.config_map.hanging_orders_mode = {"hanging_orders_cancel_pct": 1}
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, TrackHangingOrdersModel)
+        self.assertEqual(self.config_map.hanging_orders_mode.hanging_orders_cancel_pct, Decimal("1"))
+
+        self.config_map.hanging_orders_mode = {}
+        self.config_map.validate_model()
+
+        self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, IgnoreHangingOrdersModel)

@@ -124,7 +124,7 @@ class ClientConfigAdapter:
                 raise ConfigValidationError(retrieve_validation_error_msg(e))
 
     def __repr__(self):
-        return self._hb_config.__repr__()
+        return f"{self.__class__.__name__}.{self._hb_config.__repr__()}"
 
     def __eq__(self, other):
         if isinstance(other, ClientConfigAdapter):
@@ -212,7 +212,7 @@ class ClientConfigAdapter:
         return yml_str
 
     def validate_model(self) -> List[str]:
-        results = validate_model(type(self._hb_config), self._hb_config.dict())
+        results = validate_model(type(self._hb_config), json.loads(self._hb_config.json()))
         self._hb_config = self._hb_config.__class__.construct()
         for key, value in results[0].items():
             self.setattr_no_validation(key, value)

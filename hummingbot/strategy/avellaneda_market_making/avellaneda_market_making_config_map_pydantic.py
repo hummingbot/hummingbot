@@ -23,7 +23,6 @@ from hummingbot.connector.utils import split_hb_trading_pair
 class InfiniteModel(BaseClientModel):
     class Config:
         title = "infinite"
-        validate_assignment = True
 
 
 class FromDateToDateModel(BaseClientModel):
@@ -46,7 +45,6 @@ class FromDateToDateModel(BaseClientModel):
 
     class Config:
         title = "from_date_to_date"
-        validate_assignment = True
 
     @validator("start_datetime", "end_datetime", pre=True)
     def validate_execution_time(cls, v: str) -> Optional[str]:
@@ -76,7 +74,6 @@ class DailyBetweenTimesModel(BaseClientModel):
 
     class Config:
         title = "daily_between_times"
-        validate_assignment = True
 
     @validator("start_time", "end_time", pre=True)
     def validate_execution_time(cls, v: str) -> Optional[str]:
@@ -96,7 +93,6 @@ EXECUTION_TIMEFRAME_MODELS = {
 class SingleOrderLevelModel(BaseClientModel):
     class Config:
         title = "single_order_level"
-        validate_assignment = True
 
 
 class MultiOrderLevelModel(BaseClientModel):
@@ -119,7 +115,6 @@ class MultiOrderLevelModel(BaseClientModel):
 
     class Config:
         title = "multi_order_level"
-        validate_assignment = True
 
     @validator("order_levels", pre=True)
     def validate_int_zero_or_above(cls, v: str):
@@ -158,7 +153,6 @@ class TrackHangingOrdersModel(BaseClientModel):
 
     class Config:
         title = "track_hanging_orders"
-        validate_assignment = True
 
     @validator("hanging_orders_cancel_pct", pre=True)
     def validate_pct_exclusive(cls, v: str):
@@ -182,7 +176,7 @@ HANGING_ORDER_MODELS = {
 
 class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
     strategy: str = Field(default="avellaneda_market_making", client_data=None)
-    execution_timeframe_mode: Union[FromDateToDateModel, DailyBetweenTimesModel, InfiniteModel] = Field(
+    execution_timeframe_mode: Union[InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel] = Field(
         default=...,
         description="The execution timeframe.",
         client_data=ClientFieldData(
@@ -315,7 +309,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             prompt=lambda mi: "Enter amount of ticks that will be stored to estimate order book liquidity",
         ),
     )
-    order_levels_mode: Union[MultiOrderLevelModel, SingleOrderLevelModel] = Field(
+    order_levels_mode: Union[SingleOrderLevelModel, MultiOrderLevelModel] = Field(
         default=SingleOrderLevelModel.construct(),
         description="Allows activating multi-order levels.",
         client_data=ClientFieldData(
@@ -327,7 +321,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         description="Allows custom specification of the order levels and their spreads and amounts.",
         client_data=None,
     )
-    hanging_orders_mode: Union[TrackHangingOrdersModel, IgnoreHangingOrdersModel] = Field(
+    hanging_orders_mode: Union[IgnoreHangingOrdersModel, TrackHangingOrdersModel] = Field(
         default=IgnoreHangingOrdersModel.construct(),
         description="When tracking hanging orders, the orders on the side opposite to the filled orders remain active.",
         client_data=ClientFieldData(
@@ -407,7 +401,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         return sub_model
 
     @validator("hanging_orders_mode", pre=True)
-    def validate_hanging_orders_mode(cls, v: Union[str, TrackHangingOrdersModel, IgnoreHangingOrdersModel]):
+    def validate_hanging_orders_mode(cls, v: Union[str, IgnoreHangingOrdersModel, TrackHangingOrdersModel]):
         if isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel, Dict)):
             sub_model = v
         elif v not in HANGING_ORDER_MODELS:
@@ -477,16 +471,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     @root_validator()
     def post_validations(cls, values: Dict):
-        cls.execution_timeframe_post_validation(values)
         cls.exchange_post_validation(values)
-        return values
-
-    @classmethod
-    def execution_timeframe_post_validation(cls, values: Dict):
-        execution_timeframe = values.get("execution_timeframe")
-        if execution_timeframe is not None and execution_timeframe == InfiniteModel.Config.title:
-            values["start_time"] = None
-            values["end_time"] = None
         return values
 
     @classmethod
