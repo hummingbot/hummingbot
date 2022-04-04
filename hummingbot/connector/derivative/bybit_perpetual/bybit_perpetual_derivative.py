@@ -198,6 +198,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
                                            False,
+                                           trading_pair,
                                            position_mode,
                                            response['ret_msg']
                                        ))
@@ -209,6 +210,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
                                            True,
+                                           trading_pair,
                                            position_mode
                                        ))
                     self.logger().debug(f"Bybit Perpetual switching position mode to "
