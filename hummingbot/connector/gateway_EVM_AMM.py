@@ -490,9 +490,9 @@ class GatewayEVMAMM(ConnectorBase):
         error_code: Optional[int] = resp.get("errorCode")
         if error_code is not None:
             if error_code == GatewayError.swap_price_exceeds_limit_price.value:
-                self.logger().error("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
+                self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
             elif error_code == GatewayError.swap_price_lower_than_limit_price.value:
-                self.logger().error("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
+                self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's slippage rate.")
             self.logger().error(f"{resp}")
             raise Exception
 
