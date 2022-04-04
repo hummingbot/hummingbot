@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 
-import { NetworkSelectionRequest } from '../services/common-interfaces';
+import { NetworkSelectionRequest, BaseResponse } from '../services/common-interfaces';
 
 import {
   FilledOrder,
@@ -23,7 +23,9 @@ export type ClobGetMarketsRequest = NetworkSelectionRequest &
       }
   );
 
-export type ClobGetMarketsResponse = Market | Market[];
+export class ClobGetMarketsResponse extends BaseResponse<
+  Market[] | Market | null
+> {}
 
 //
 // GET /clob/orderBooks
@@ -101,7 +103,7 @@ export interface ClobPostOrdersRequest extends NetworkSelectionRequest {
   side: OrderSide;
   amount: string;
   price: string;
-  order_type: 'LIMIT' | 'MARKET'; // market == ioc (immediate-or-cancel)
+  orderType: 'LIMIT' | 'MARKET'; // market == ioc (immediate-or-cancel)
   postOnly: boolean; // place only an order, if no liquidity has been taken
   clientOrderId?: string; // set a client's own orderId for tracking
 }

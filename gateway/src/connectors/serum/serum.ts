@@ -1,13 +1,14 @@
-import {Connection} from '@solana/web3.js';
+import { Account, Keypair, Connection } from '@solana/web3.js';
 import {
   Market as SerumMarket,
   Orderbook as SerumOrderBook,
   MARKETS,
 } from '@project-serum/serum';
-import { Order as SerumOrder } from '@project-serum/serum/lib/market';
 import { Solana } from '../../chains/solana/solana';
 import { SerumConfig } from './serum.config';
-import { Market, Order, OrderBook } from './serum.types';
+import {Market, Order, OrderBook, CandidateOrder} from './serum.types';
+import BN from 'bn.js';
+import { OrderParams as SerumOrderParams } from "@project-serum/serum/lib/market";
 
 export type Serumish = Serum;
 
@@ -17,19 +18,17 @@ export class Serum {
   private initializing: boolean = false;
 
   private tokens: string[] = ['ABC', 'SOL'];
-  private markets: Map<string, Market | undefined> = new Map();
+  private markets: Map<string, Market | null> = new Map();
 
   private config;
   private solana: Solana;
   private connection: Connection;
+  private owner: Keypair;
+  private ownerAccount: Account;
 
   ready: boolean = false;
   chain: string;
   network: string;
-
-  private async loadTokens() {
-    return this.tokens;
-  }
 
   /**
    *
@@ -74,11 +73,11 @@ export class Serum {
     return Serum.instances[`${chain}:${network}`];
   }
 
-  private convertMarket(
+  private parseToMarket(
     info: Record<string, unknown>,
-    market: SerumMarket | undefined
-  ): Market | undefined {
-    if (!market) return;
+    market: SerumMarket | undefined | null
+  ): Market | null {
+    if (!market) return null;
 
     return {
       ...info,
@@ -86,13 +85,13 @@ export class Serum {
     } as Market;
   }
 
-  private convertOrderBook(
+  private parseToOrderBook(
     asks: SerumOrderBook,
     bids: SerumOrderBook
   ): OrderBook {
     return {
-      asks: this.convertOrders(asks),
-      bids: this.convertOrders(bids),
+      asks: this.parseToOrders(asks),
+      bids: this.parseToOrders(bids),
       orderBook: {
         asks: asks,
         bids: bids,
@@ -100,21 +99,21 @@ export class Serum {
     } as OrderBook;
   }
 
-  private convertOrder(order: SerumOrder | Record<string, unknown>): Order {
-    // TODO convert the loadFills return too!!!
+  private parseToOrder(order: SerumOrder | Record<string, unknown>): Order {
+    // TODO convert the loadFills and placeOrder returns too!!!
     return {
       ...order,
       order: order,
     } as Order;
   }
 
-  private convertOrders(
+  private parseToOrders(
     orders: SerumOrder[] | SerumOrderBook | any[]
   ): Order[] {
     const result = [];
 
     for (const order of orders) {
-      result.push(this.convertOrder(order));
+      result.push(this.parseToOrder(order));
     }
 
     return result;
@@ -130,7 +129,9 @@ export class Serum {
       this.solana = Solana.getInstance(this.network);
       this.connection = new Connection(this.config.network.rpcUrl);
 
-      await this.loadTokens();
+      this.owner = new Keypair(this.config.accounts.owner.privateKey);
+      this.ownerAccount = new Account(this.owner.publicKey.toBuffer());
+
       this.markets = await this.getAllMarkets();
 
       this.ready = true;
@@ -142,23 +143,23 @@ export class Serum {
    *
    * @param name
    */
-  async getMarket(name: string): Promise<Market | undefined> {
+  async getMarket(name: string): Promise<Market | null> {
     const markets = await this.getAllMarkets();
 
-    return markets.get(name);
+    return markets.get(name) || null;
   }
 
   /**
    *
    * @param names
    */
-  async getMarkets(names: string[]): Promise<Map<string, Market | undefined>> {
+  async getMarkets(names: string[]): Promise<Map<string, Market | null>> {
     const allMarkets = await this.getAllMarkets();
 
-    const markets = new Map<string, Market | undefined>();
+    const markets = new Map<string, Market | null>();
 
     for (const name of names) {
-      const market = allMarkets.get(name);
+      const market = allMarkets.get(name) || null;
 
       markets.set(name, market);
     }
@@ -169,15 +170,15 @@ export class Serum {
   /**
    *
    */
-  async getAllMarkets(): Promise<Map<string, Market | undefined>> {
+  async getAllMarkets(): Promise<Map<string, Market | null>> {
     if (this.markets && this.markets.size) return this.markets;
 
-    const allMarkets = new Map<string, Market | undefined>();
+    const allMarkets = new Map<string, Market | null>();
 
     for (const market of MARKETS) {
       allMarkets.set(
         market.name,
-        this.convertMarket(
+        this.parseToMarket(
           market,
           await SerumMarket.load(
             this.connection,
@@ -194,12 +195,12 @@ export class Serum {
     return this.markets;
   }
 
-  async getOrderBook(marketName: string): Promise<OrderBook | undefined> {
+  async getOrderBook(marketName: string): Promise<OrderBook | null> {
     const market = await this.getMarket(marketName);
 
-    if (!market) return;
+    if (!market) return null;
 
-    return this.convertOrderBook(
+    return this.parseToOrderBook(
       await market.market.loadAsks(this.connection),
       await market.market.loadBids(this.connection)
     );
@@ -207,8 +208,8 @@ export class Serum {
 
   async getOrderBooks(
     marketNames: string[]
-  ): Promise<Map<string, OrderBook | undefined>> {
-    const orderBooks = new Map<string, OrderBook | undefined>();
+  ): Promise<Map<string, OrderBook | null>> {
+    const orderBooks = new Map<string, OrderBook | null>();
 
     for (const marketName of marketNames) {
       const orderBook = await this.getOrderBook(marketName);
@@ -219,7 +220,7 @@ export class Serum {
     return orderBooks;
   }
 
-  async getAllOrderBooks(): Promise<Map<string, OrderBook | undefined>> {
+  async getAllOrderBooks(): Promise<Map<string, OrderBook | null>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return this.getOrderBooks(marketNames);
@@ -236,7 +237,7 @@ export class Serum {
   async getAllTickers(): Promise<any> {
   }
 
-  async getOrder(): Promise<Order | undefined> {
+  async getOrder(): Promise<Order | null> {
 
   }
 
@@ -247,22 +248,38 @@ export class Serum {
   async getAllOrders(): Promise<Map<BN, Order>> {
   }
 
-  async createOrder(): Promise<any> {
-    // Placing orders
-    let owner = new Account('...');
-    let payer = new PublicKey('...'); // spl-token account
-    await market.placeOrder(connection, {
-      owner,
-      payer,
-      side: 'buy', // 'buy' or 'sell'
-      price: 123.45,
-      size: 17.0,
-      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+  async createOrder(candidateOrder: CandidateOrder): Promise<Order> {
+    const market = await this.getMarket(candidateOrder.marketName);
+
+    if (!market)
+      throw new Error(`Market ${candidateOrder.marketName} not found.`);
+
+    const serumOrderParams: SerumOrderParams<Account> = {
+      ...candidateOrder,
+      owner: this.ownerAccount,
+      payer: this.owner.publicKey,
+    };
+
+    const signature = await market.market.placeOrder(
+      this.connection,
+      serumOrderParams
+    );
+
+    return this.parseToOrder({
+      ...candidateOrder,
+      signature: signature,
     });
   }
 
-  async createOrders(): Promise<any> {
+  async createOrders(candidateOrders: CandidateOrder[]): Promise<Order[]> {
+    const orders = [];
+    for (const candidateOrder of candidateOrders) {
+      const order = await this.createOrder(candidateOrder);
 
+      orders.push(order);
+    }
+
+    return orders;
   }
 
   async deleteOrder(): Promise<any> {
@@ -270,6 +287,14 @@ export class Serum {
   }
 
   async deleteOrders(): Promise<any> {
+    const canceledOrders = [];
+    for (const candidateOrder of candidateOrders) {
+      const order = await this.createOrder(candidateOrder);
+
+      canceledOrders.push(order);
+    }
+
+    return canceledOrders;
   }
 
   async getOpenOrder(): Promise<any> {
@@ -291,7 +316,7 @@ export class Serum {
   async deleteAllOpenOrders(): Promise<any> {
   }
 
-  async getFilledOrder(): Promise<any> {
+  async getFilledOrder(): Promise<Order | undefined> {
   }
 
   async getFilledOrders(
@@ -307,16 +332,15 @@ export class Serum {
       markets = await this.getMarkets(marketNames);
     }
 
-    if (!markets) return;
+    if (!markets || !markets.size) return;
 
     const result = new Map<string, Order[] | undefined>();
 
     for (const [marketName, market] of markets) {
-      const orders = (await market?.market.loadFills(
-        this.connection
-      ));
+      const orders = await market?.market.loadFills(this.connection);
 
-      result.set(marketName, this.convertOrders(orders));
+      if (orders) result.set(marketName, this.parseToOrders(orders));
+      else result.set(marketName, undefined);
     }
 
     return result;

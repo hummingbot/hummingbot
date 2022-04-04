@@ -3,8 +3,11 @@ import {
   Market as SerumMarket,
   Orderbook as SerumOrderBook,
 } from '@project-serum/serum';
-import { Order as SerumOrder } from '@project-serum/serum/lib/market';
-import BN from "bn.js";
+import {
+  Order as SerumOrder,
+  OrderParams as SerumOrderParams,
+} from '@project-serum/serum/lib/market';
+import BN from 'bn.js';
 
 export interface Market {
   name: string;
@@ -28,6 +31,10 @@ export interface Order {
   price: number;
   amount: number;
   order: SerumOrder;
+}
+
+export interface CandidateOrder extends SerumOrderParams {
+  marketName: string;
 }
 
 // export interface FeeInfo {

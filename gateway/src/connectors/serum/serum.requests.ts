@@ -29,6 +29,7 @@ export type SerumGetOpenOrdersRequest = ClobGetOpenOrdersRequest;
 export type SerumGetOpenOrdersResponse = ClobGetOpenOrdersResponse;
 export type SerumGetMarketsRequest = ClobGetMarketsRequest;
 export type SerumGetMarketsResponse = ClobGetMarketsResponse;
+export const SerumGetMarketsResponse = ClobGetMarketsResponse;
 export type SerumGetOrderBooksRequest = ClobGetOrderBooksRequest;
 export type SerumGetOrderBooksResponse = ClobGetOrderBooksResponse;
 export type SerumPostOrdersRequest = ClobPostOrdersRequest;
