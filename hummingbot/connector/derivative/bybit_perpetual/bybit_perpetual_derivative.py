@@ -182,6 +182,12 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         if self._trading_pairs is not None:
             for trading_pair in self._trading_pairs:
+                is_linear = bybit_utils.is_linear_perpetual(trading_pair)
+
+                if not is_linear:
+                    #  Inverse Perpetuals don't have set_position_mode()
+                    raise Exception("Inverse Perpetuals don't allow for a position mode change.")
+
                 symbol = await self._trading_pair_symbol(trading_pair)
                 body_params = {"symbol": symbol, "mode": mode}
 
