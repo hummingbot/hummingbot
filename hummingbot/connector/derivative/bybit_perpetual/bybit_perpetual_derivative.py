@@ -653,7 +653,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param client_order_id: The client_order_id of the order to be cancelled.
         """
         try:
-            tracked_order: Optional[InFlightOrder] = self._client_order_tracker.fetch_order(client_order_id)
+            tracked_order: Optional[InFlightOrder] = self.in_flight_orders.get(client_order_id, None)
             if tracked_order is None:
                 raise ValueError(f"Order {client_order_id} is not being tracked")
 
