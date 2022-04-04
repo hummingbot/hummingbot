@@ -18,8 +18,22 @@ from hummingbot.logger import HummingbotLogger
 
 
 class GatewayError(Enum):
-    swap_price_exceeds_limit_price = 1008
-    swap_price_lower_than_limit_price = 1009
+    """
+    The gateway route error codes defined in /gateway/src/services/error-handler.ts
+    """
+
+    Network = 1001
+    RateLimit = 1002
+    OutOfGas = 1003
+    TransactionGasPriceTooLow = 1004
+    LoadWallet = 1005
+    TokenNotSupported = 1006
+    TradeFailed = 1007
+    SwapPriceExceedsLimitPrice = 1008
+    SwapPriceLowerThanLimitPrice = 1009
+    ServiceUnitialized = 1010
+    UnknownChainError = 1011
+    UnknownError = 1099
 
 
 class GatewayHttpClient:
@@ -89,9 +103,9 @@ class GatewayHttpClient:
         """
         error_code: Optional[int] = resp.get("errorCode")
         if error_code is not None:
-            if error_code == GatewayError.swap_price_exceeds_limit_price.value:
+            if error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
                 self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
-            elif error_code == GatewayError.swap_price_lower_than_limit_price.value:
+            elif error_code == GatewayError.SwapPriceLowerThanLimitPrice.value:
                 self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
 
     async def api_request(
