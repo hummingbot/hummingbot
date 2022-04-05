@@ -1,18 +1,19 @@
+import logging
+import time
 from decimal import Decimal
 from statistics import mean
 from typing import List
+
 import aiohttp
-import logging
-import time
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import OrderType, TradeType, OrderFilledEvent
+from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.strategy.lite_strategy_base import LiteStrategyBase
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class BuyDipExample(LiteStrategyBase):
+class BuyDipExample(ScriptStrategyBase):
     """
     THis strategy buys ETH (with BTC) when the ETH-BTC drops 5% below 50 days moving average (of a previous candle)
     This example demonstrates:
@@ -84,7 +85,7 @@ class BuyDipExample(LiteStrategyBase):
         """
         return self.connectors[self.connector_name]
 
-    async def on_tick(self):
+    def on_tick(self):
         """
         Runs every tick_size seconds, this is the main operation of the strategy.
         - Create proposal (a list of order candidates)

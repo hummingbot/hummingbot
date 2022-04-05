@@ -1,26 +1,16 @@
 import asyncio
 from decimal import Decimal
 from os.path import join
-from typing import (
-    Any,
-    List,
-    TYPE_CHECKING,
-)
+from typing import Any, List, TYPE_CHECKING
 
 import pandas as pd
 
-from hummingbot.client.config.config_helpers import (
-    missing_required_configs,
-    save_to_yml,
-)
+import hummingbot.client.config.global_config_map as global_config
+from hummingbot.client.config.config_helpers import missing_required_configs, save_to_yml
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import (
-    CONF_FILE_PATH,
-    GLOBAL_CONFIG_PATH,
-)
+from hummingbot.client.settings import CONF_FILE_PATH, GLOBAL_CONFIG_PATH
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.utils import map_df_to_str
@@ -46,8 +36,8 @@ global_configs_to_display = ["autofill_import",
                              "telegram_token",
                              "telegram_chat_id",
                              "send_error_logs",
-                             "script_enabled",
-                             "script_file_path",
+                             global_config.PMM_SCRIPT_ENABLED_KEY,
+                             global_config.PMM_SCRIPT_FILE_PATH_KEY,
                              "ethereum_chain_name",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
@@ -85,14 +75,14 @@ class ConfigCommand:
     def list_configs(self,  # type: HummingbotApplication
                      ):
         columns = ["Key", "  Value"]
-        data = [[cv.key, cv.value] for cv in global_config_map.values()
+        data = [[cv.key, cv.value] for cv in global_config.global_config_map.values()
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self._notify("\nGlobal Configurations:")
         lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
         self._notify("\n".join(lines))
 
-        data = [[cv.key, cv.value] for cv in global_config_map.values()
+        data = [[cv.key, cv.value] for cv in global_config.global_config_map.values()
                 if cv.key in color_settings_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self._notify("\nColor Settings:")
@@ -112,7 +102,7 @@ class ConfigCommand:
         Returns a list of configurable keys - using config command, excluding exchanges api keys
         as they are set from connect command.
         """
-        keys = [c.key for c in global_config_map.values() if c.prompt is not None and not c.is_connect_key]
+        keys = [c.key for c in global_config.global_config_map.values() if c.prompt is not None and not c.is_connect_key]
         if self.strategy_config_map is not None:
             keys += [c.key for c in self.strategy_config_map.values() if c.prompt is not None]
         return keys
@@ -150,8 +140,8 @@ class ConfigCommand:
 
         try:
             config_var, config_map, file_path = None, None, None
-            if key in global_config_map:
-                config_map = global_config_map
+            if key in global_config.global_config_map:
+                config_map = global_config.global_config_map
                 file_path = GLOBAL_CONFIG_PATH
             elif self.strategy_config_map is not None and key in self.strategy_config_map:
                 config_map = self.strategy_config_map
@@ -257,7 +247,7 @@ class ConfigCommand:
             base_asset, quote_asset = market.split("-")
 
             if exchange.endswith("paper_trade"):
-                balances = global_config_map["paper_trade_account_balance"].value
+                balances = global_config.global_config_map["paper_trade_account_balance"].value
             else:
                 balances = await UserBalances.instance().balances(
                     exchange, base_asset, quote_asset

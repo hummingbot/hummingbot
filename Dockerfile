@@ -92,17 +92,17 @@ RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
   ln -s /certs /home/hummingbot/certs && \
-  ln -s /scripts /home/hummingbot/scripts && \
-  ln -s /lite_strategies /home/hummingbot/lite_strategies
+  ln -s /pmm_scripts /home/hummingbot/pmm_scripts && \
+  ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir /conf /logs /data /certs /scripts /lite_strategies && chown -R hummingbot:hummingbot /conf /logs /data /certs /scripts /lite_strategies
-VOLUME /conf /logs /data /certs /scripts /lite_strategies
+RUN mkdir /conf /logs /data /certs /pmm_scripts /scripts && chown -R hummingbot:hummingbot /conf /logs /data /certs /pmm_scripts /scripts
+VOLUME /conf /logs /data /certs /pmm_scripts /scripts
 
+# Pre-populate pmm_scripts/ volume with default pmm_scripts
+COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
-# Pre-populate lite_strategies/ volume with default lite_strategies
-COPY --chown=hummingbot:hummingbot lite_strategies/ lite_strategies/
 
 # Install packages required in runtime
 RUN apt-get update && \

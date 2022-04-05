@@ -1,35 +1,26 @@
-#!/usr/bin/env python
-
 import asyncio
 import platform
 import threading
 import time
-from typing import (
-    Optional,
-    Callable,
-)
-from os.path import dirname, join, exists
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot import init_logging
-from hummingbot.client.config.config_helpers import (
-    get_strategy_starter_file,
-)
+from os.path import dirname, exists, join
+from typing import Callable, Optional
+from typing import TYPE_CHECKING
+
+import hummingbot.client.config.global_config_map as global_config
 import hummingbot.client.settings as settings
+from hummingbot import init_logging
+from hummingbot.client.command.rate_command import RateCommand
+from hummingbot.client.config.config_helpers import get_strategy_starter_file
+from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.connector.connector_status import get_connector_status, warning_messages
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
-from typing import TYPE_CHECKING
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.script.script_iterator import ScriptIterator
-from hummingbot.connector.connector_status import get_connector_status, warning_messages
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.command.rate_command import RateCommand
-from hummingbot.client.config.config_validators import validate_bool
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.exceptions import OracleRateUnavailable
-from hummingbot.core.utils.dynamic_import import import_lite_strategy_sub_class
+from hummingbot.pmm_script.pmm_script_iterator import PMMScriptIterator
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -52,16 +43,16 @@ class StartCommand:
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               restore: Optional[bool] = False,
-              lite: Optional[str] = None):
+              script: Optional[str] = None):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
-        safe_ensure_future(self.start_check(log_level, restore, lite), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, restore, script), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False,
-                          lite_file_name: Optional[str] = None):
+                          strategy_file_name: Optional[str] = None):
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
@@ -76,8 +67,8 @@ class StartCommand:
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
 
-        if lite_file_name:
-            file_name = lite_file_name.split(".")[0]
+        if strategy_file_name:
+            file_name = strategy_file_name.split(".")[0]
             self.strategy_file_name = file_name
             self.strategy_name = file_name
         elif not await self.status_check_all(notify_success=False):
@@ -98,7 +89,7 @@ class StartCommand:
 
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
-            self._notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
+            self._notify("\nPaper Trading Active: All orders are simulated and no real orders are placed.")
 
         for exchange in settings.required_exchanges:
             connector = str(exchange)
@@ -117,24 +108,23 @@ class StartCommand:
 
         await self.start_market_making(self.strategy_name, restore)
 
-    def start_lite(self):
-        lite_file_name = join(settings.LITE_STRATEGIES_PATH, f"{self.strategy_file_name}.py")
-        lite_strategy = import_lite_strategy_sub_class(join(settings.LITE_STRATEGIES_PATH, lite_file_name))
+    def start_script_strategy(self):
+        script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
         markets_list = []
-        for conn, pairs in lite_strategy.markets.items():
+        for conn, pairs in script_strategy.markets.items():
             markets_list.append((conn, list(pairs)))
         self._initialize_markets(markets_list)
-        self.strategy = lite_strategy(self.markets)
+        self.strategy = script_strategy(self.markets)
 
-    def is_current_strategy_lite_strategy(self) -> bool:
-        lite_file_name = join(settings.LITE_STRATEGIES_PATH, f"{self.strategy_file_name}.py")
-        return exists(lite_file_name)
+    def is_current_strategy_script_strategy(self) -> bool:
+        script_file_name = join(settings.SCRIPT_STRATEGIES_PATH, f"{self.strategy_file_name}.py")
+        return exists(script_file_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str,
                                   restore: Optional[bool] = False):
-        if self.is_current_strategy_lite_strategy():
-            self.start_lite()
+        if self.is_current_strategy_script_strategy():
+            self.start_script_strategy()
         else:
             start_strategy: Callable = get_strategy_starter_file(strategy_name)
             if strategy_name in settings.STRATEGIES:
@@ -156,18 +146,18 @@ class StartCommand:
                             self._notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
-            if global_config_map["script_enabled"].value:
-                script_file = global_config_map["script_file_path"].value
-                folder = dirname(script_file)
+            if global_config.global_config_map[global_config.PMM_SCRIPT_ENABLED_KEY].value:
+                pmm_script_file = global_config.global_config_map[global_config.PMM_SCRIPT_FILE_PATH_KEY].value
+                folder = dirname(pmm_script_file)
                 if folder == "":
-                    script_file = join(settings.SCRIPTS_PATH, script_file)
+                    pmm_script_file = join(settings.PMM_SCRIPTS_PATH, pmm_script_file)
                 if self.strategy_name != "pure_market_making":
-                    self._notify("Error: script feature is only available for pure_market_making strategy (for now).")
+                    self._notify("Error: PMM script feature is only available for pure_market_making strategy.")
                 else:
-                    self._script_iterator = ScriptIterator(script_file, list(self.markets.values()),
-                                                           self.strategy, 0.1)
-                    self.clock.add_iterator(self._script_iterator)
-                    self._notify(f"Script ({script_file}) started.")
+                    self._pmm_script_iterator = PMMScriptIterator(pmm_script_file, list(self.markets.values()),
+                                                                  self.strategy, 0.1)
+                    self.clock.add_iterator(self._pmm_script_iterator)
+                    self._notify(f"PMM script ({pmm_script_file}) started.")
 
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n'{strategy_name}' strategy started.\n"

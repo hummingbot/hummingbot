@@ -1,38 +1,38 @@
 # distutils: language=c++
 
-from typing import List
 import asyncio
 import logging
-import traceback
 from multiprocessing import Process, Queue
+from typing import List
+
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
-from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
     MarketEvent,
+    SellOrderCompletedEvent,
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import (
-    StrategyParameter,
-    PMMParameters,
-    OnTick,
-    OnStatus,
-    OnCommand,
-    CallNotify,
+from hummingbot.pmm_script.pmm_script_interface import (
     CallLog,
-    PmmMarketInfo,
+    CallNotify,
+    OnTick,
+    OnCommand,
+    OnStatus,
+    PMMParameters,
+    PMMMarketInfo,
     ScriptError,
+    StrategyParameter,
 )
+from hummingbot.pmm_script.pmm_script_process import run_pmm_script
+from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 
 sir_logger = None
 
 
-cdef class ScriptIterator(TimeIterator):
+cdef class PMMScriptIterator(TimeIterator):
     @classmethod
     def logger(cls):
         global sir_logger
@@ -64,10 +64,10 @@ cdef class ScriptIterator(TimeIterator):
         self._listen_to_child_task = safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
         self._script_process = Process(
-            target=run_script,
+            target=run_pmm_script,
             args=(script_file_path, self._parent_queue, self._child_queue, queue_check_interval,)
         )
-        self.logger().info(f"starting script in {script_file_path}")
+        self.logger().info(f"starting PMM script in {script_file_path}")
         self._script_process.start()
 
     @property
@@ -79,7 +79,7 @@ cdef class ScriptIterator(TimeIterator):
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
-        self._parent_queue.put(PmmMarketInfo(self._strategy.market_info.market.name,
+        self._parent_queue.put(PMMMarketInfo(self._strategy.market_info.market.name,
                                              self._strategy.trading_pair))
 
     cdef c_stop(self, Clock clock):
