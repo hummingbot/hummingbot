@@ -3,6 +3,7 @@ import copy
 import math
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+import json
 
 from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 from hummingbot.connector.exchange.gate_io import (
@@ -168,7 +169,7 @@ class GateIoExchange(ExchangeBaseV2):
         #    throttler=self._throttler,
         #    time_synchronizer=self._time_synchronizer)
         symbol = convert_to_exchange_trading_pair(trading_pair)
-        api_params = {
+        data = {
             "text": order_id,
             "currency_pair": symbol,
             "side": trade_type.name.lower(),
@@ -176,10 +177,13 @@ class GateIoExchange(ExchangeBaseV2):
             "price": f"{price:f}",
             "amount": f"{amount:f}",
         }
+        # RESTRequest does not support json, and if we pass a dict
+        # the underlying aiohttp will encode it to params
+        data = json.dumps(data)
         endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
         order_result = await self._api_post(
             path_url=endpoint,
-            data=api_params,
+            data=data,
             is_auth_required=True,
             limit_id=endpoint,
         )
@@ -271,7 +275,6 @@ class GateIoExchange(ExchangeBaseV2):
         interval_expired = False
         if (self.current_timestamp - self._last_poll_timestamp) > self.UPDATE_ORDERS_INTERVAL:
             interval_expired = True
-
         if not interval_expired:
             return
 
