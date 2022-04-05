@@ -38,6 +38,7 @@ export class Solana implements Solanaish {
   protected tokenList: TokenInfo[] = [];
   private _tokenMap: Record<string, TokenInfo> = {};
   private _tokenAddressMap: Record<string, TokenInfo> = {};
+  private _keypairs: Record<string, Keypair> = {};
 
   private static _instances: { [name: string]: Solana };
 
@@ -194,27 +195,34 @@ export class Solana implements Solanaish {
   }
 
   async getKeypair(address: string): Promise<Keypair> {
-    const path = `${walletPath}/solana`;
+    if (!this._keypairs[address]) {
+      const path = `${walletPath}/solana`;
 
-    const encryptedPrivateKey: any = JSON.parse(
-      await fse.readFile(`${path}/${address}.json`, 'utf8'),
-      (key, value) => {
-        switch (key) {
-          case 'ciphertext':
-          case 'salt':
-          case 'iv':
-            return bs58.decode(value);
-          default:
-            return value;
+      const encryptedPrivateKey: any = JSON.parse(
+        await fse.readFile(`${path}/${address}.json`, 'utf8'),
+        (key, value) => {
+          switch (key) {
+            case 'ciphertext':
+            case 'salt':
+            case 'iv':
+              return bs58.decode(value);
+            default:
+              return value;
+          }
         }
-      }
-    );
+      );
 
-    const passphrase = ConfigManagerCertPassphrase.readPassphrase();
-    if (!passphrase) {
-      throw new Error('missing passphrase');
+      const passphrase = ConfigManagerCertPassphrase.readPassphrase();
+      if (!passphrase) {
+        throw new Error('missing passphrase');
+      }
+      this._keypairs[address] = await this.decrypt(
+        encryptedPrivateKey,
+        passphrase
+      );
     }
-    return await this.decrypt(encryptedPrivateKey, passphrase);
+
+    return this._keypairs[address];
   }
 
   private static async getKeyMaterial(password: string) {
