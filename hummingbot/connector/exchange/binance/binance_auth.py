@@ -14,7 +14,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RE
 
 
 class BinanceAuth(AuthBase):
-
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key

@@ -99,7 +99,6 @@ async def api_request(path: str,
         is_auth_required=is_auth_required,
         throttler_limit_id=limit_id if limit_id else path
     )
-
     async with throttler.execute_task(limit_id=limit_id if limit_id else path):
         response = await rest_assistant.call(request=request, timeout=timeout)
 
@@ -131,5 +130,4 @@ async def get_current_server_time(
         domain=domain,
         method=RESTMethod.GET)
     server_time = response["serverTime"]
-
     return server_time
