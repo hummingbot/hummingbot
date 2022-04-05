@@ -9,8 +9,7 @@ import aiohttp
 import pandas as pd
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_utils
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
     BybitPerpetualWebSocketAdaptor
