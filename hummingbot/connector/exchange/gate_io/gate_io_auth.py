@@ -69,13 +69,14 @@ class GateIoAuth(AuthBase):
         return self._sign(f"channel={channel}&event={event}&time={time}")
 
     def _sign_payload(self, r: RESTRequest) -> (str, int):
-        body = ""
         query_string = ""
+        body = r.data
+
         ts = time.time()
         m = hashlib.sha512()
         path = urlparse(r.url).path
 
-        if r.data is not None:
+        if body is not None:
             if not isinstance(r.data, six.string_types):
                 body = json.dumps(r.data)
             m.update(body.encode('utf-8'))

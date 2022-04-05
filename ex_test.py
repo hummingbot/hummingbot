@@ -19,17 +19,10 @@ from hummingbot.core.event.events import (
     #    OrderCancelledEvent,
     #    OrderFilledEvent,
 )
-import hummingbot.core.utils
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 import hummingbot.logger.logger
 from hummingbot.logger.logger import HummingbotLogger
 
-import creds
-
-
-class DisableTPF(TradingPairFetcher):
-    async def fetch_all(self):
-        return None
+from certs import creds
 
 
 class TestingHL(HummingbotLogger):
@@ -38,7 +31,7 @@ class TestingHL(HummingbotLogger):
         return True
 
 
-hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher = DisableTPF
+# disable triggering of Application instantiation
 hummingbot.logger.logger.HummingbotLogger = TestingHL
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -133,27 +126,31 @@ class ExchangeClient(object):
         self._simulate_trading_rules_initialized()
         asyncio.run(self.tests())
 
+    async def task_and_gather(self, f):
+        return await asyncio.gather(*[
+            asyncio.create_task(f)
+        ])
+
     async def tests(self):
-        # await self.update_balances()
+        await self.update_balances()
         await self.test_order()
 
     async def update_balances(self):
-        awt = asyncio.create_task(self.exchange._update_balances())
-        r = await asyncio.gather(*[awt])
+        r = await self.task_and_gather(self.exchange._update_balances())
         print(r)
 
     async def test_order(self):
         ts = int(time.time())
         print(ts)  # ts = 123
         self.exchange._set_current_timestamp(ts)
-        self.task = asyncio.create_task(
+        r = await self.task_and_gather(
             self.exchange._create_order(trade_type=TradeType.BUY,
                                         order_id="OID1",
                                         trading_pair=self.trading_pair,
                                         amount=Decimal("0.00001"),
                                         order_type=OrderType.LIMIT,
-                                        price=Decimal("10000")))
-        r = await asyncio.gather(*[self.task])
+                                        price=Decimal("10000"))
+        )
         print(r)
 
 
