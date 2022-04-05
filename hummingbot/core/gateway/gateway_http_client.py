@@ -103,10 +103,30 @@ class GatewayHttpClient:
         """
         error_code: Optional[int] = resp.get("errorCode")
         if error_code is not None:
-            if error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
+            if error_code == GatewayError.Network.value:
+                self.logger().info("Gateway had a network error. Make sure it is still able to communicate with the node.")
+            elif error_code == GatewayError.RateLimit.value:
+                self.logger().info("Gateway was unable to communicate with the node because of rate limiting.")
+            elif error_code == GatewayError.OutOfGas.value:
+                self.logger().info("There was an out of gas error. Adjust the gas limit in the gateway config.")
+            elif error_code == GatewayError.TransactionGasPriceTooLow.value:
+                self.logger().info("The gas price provided by gateway was too low to create a blockchain operation. Consider increasing the gas price.")
+            elif error_code == GatewayError.LoadWallet.value:
+                self.logger().info("Gateway failed to load your wallet. Try running 'gateway connect' with the correct wallet settings.")
+            elif error_code == GatewayError.TokenNotSupported.value:
+                self.logger().info("Gateway tried to use an unsupported token.")
+            elif error_code == GatewayError.TradeFailed.value:
+                self.logger().info("The trade on gateway has failed.")
+            elif error_code == GatewayError.ServiceUnitialized.value:
+                self.logger().info("Some values was uninitialized. Please contact dev@hummingbot.io ")
+            elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
                 self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
             elif error_code == GatewayError.SwapPriceLowerThanLimitPrice.value:
                 self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
+            elif error_code == GatewayError.UnknownChainError.value:
+                self.logger().info("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
+            elif error_code == GatewayError.UnknownError.value:
+                self.logger().info("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
 
     async def api_request(
             self,
