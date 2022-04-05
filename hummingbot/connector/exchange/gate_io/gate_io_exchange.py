@@ -5,11 +5,16 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io import (
+    gate_io_constants as CONSTANTS,
+    gate_io_web_utils as web_utils
+)
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
+from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
+
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
-from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
-from hummingbot.connector.exchange.gate_io.gate_io_user_stream_tracker import GateIoUserStreamTracker
+
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
@@ -31,19 +36,27 @@ from hummingbot.core.utils.async_utils import safe_gather
 
 
 class GateIoExchange(ExchangeBaseV2):
-    """
-    GateIoExchange connects with Gate.io exchange and provides order book pricing, user account tracking and
-    trading functionality.
-    """
     DEFAULT_DOMAIN = ""
-    SUPPORTED_ORDER_TYPES = [OrderType.LIMIT]
+    RATE_LIMITS = CONSTANTS.RATE_LIMITS
+    SUPPORTED_ORDER_TYPES = [
+        OrderType.LIMIT
+    ]
+
+    HBOT_ORDER_ID_PREFIX = CONSTANTS.HBOT_ORDER_ID
+    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ID_LEN
+
+    ORDERBOOK_DS_CLASS = GateIoAPIOrderBookDataSource
+    USERSTREAM_DS_CLASS = GateIoAPIUserStreamDataSource
+
+    CHECK_NETWORK_URL = CONSTANTS.NETWORK_CHECK_PATH_URL
+    INTERVAL_TRADING_RULES = CONSTANTS.INTERVAL_TRADING_RULES
+    TICK_INTERVAL_LIMIT = 120.0
 
     # TODO this should go away since there's order tracker
     # ORDER_NOT_EXIST_CANCEL_COUNT = 2
     # ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
-    CHECK_NETWORK_URL = CONSTANTS.NETWORK_CHECK_PATH_URL
-    INTERVAL_TRADING_RULES = CONSTANTS.INTERVAL_TRADING_RULES
-    TICK_INTERVAL_LIMIT = 120.0
+
+    web_utils = web_utils
 
     def __init__(self,
                  gate_io_api_key: str,
@@ -57,7 +70,6 @@ class GateIoExchange(ExchangeBaseV2):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
         self._gate_io_api_key = gate_io_api_key
         self._gate_io_secret_key = gate_io_secret_key
         self._domain = domain
@@ -69,20 +81,21 @@ class GateIoExchange(ExchangeBaseV2):
         self._update_balances_fetching = False
         self._update_balances_queued = False
         self._update_balances_finished = asyncio.Event()
+        super().__init__()
 
         # TODO
-        self._auth = self.init_auth()
-        self._order_book_tracker = GateIoOrderBookTracker(
-            self._throttler,
-            trading_pairs,
-            self._api_factory
-        )
-        self._user_stream_tracker = GateIoUserStreamTracker(
-            self._gate_io_auth, trading_pairs, self._api_factory
-        )
+        # self._order_book_tracker = GateIoOrderBookTracker(
+        #    self._throttler,
+        #    trading_pairs,
+        #    self._api_factory
+        # )
+        # self._user_stream_tracker = GateIoUserStreamTracker(
+        #    self._gate_io_auth, trading_pairs, self._api_factory
+        # )
 
     def init_auth(self):
-        return GateIoAuth(self._gate_io_api_key, self._gate_io_secret_key)
+        # TODO time provider
+        return GateIoAuth(api_key=self._gate_io_api_key, secret_key=self._gate_io_secret_key, time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
@@ -148,10 +161,16 @@ class GateIoExchange(ExchangeBaseV2):
                            price: Decimal) -> str:
 
         order_type_str = order_type.name.lower().split("_")[0]
+        # TODO symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
+        #    trading_pair=trading_pair,
+        #    domain=self._domain,
+        #    api_factory=self._api_factory,
+        #    throttler=self._throttler,
+        #    time_synchronizer=self._time_synchronizer)
+        symbol = convert_to_exchange_trading_pair(trading_pair)
         api_params = {
             "text": order_id,
-            # TODO KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair
-            "currency_pair": convert_to_exchange_trading_pair(trading_pair),
+            "currency_pair": symbol,
             "side": trade_type.name.lower(),
             "type": order_type_str,
             "price": f"{price:f}",
@@ -159,10 +178,10 @@ class GateIoExchange(ExchangeBaseV2):
         }
         endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
         order_result = await self._api_post(
-            endpoint=endpoint,
+            path_url=endpoint,
             data=api_params,
             is_auth_required=True,
-            throttler_limit_id=endpoint,
+            limit_id=endpoint,
         )
         if order_result.get('status') in {"cancelled", "expired", "failed"}:
             # TODO
@@ -225,7 +244,7 @@ class GateIoExchange(ExchangeBaseV2):
             account_info = await self._api_get(
                 path_url=CONSTANTS.USER_BALANCES_PATH_URL,
                 is_auth_required=True,
-                # TODO limit_id=endpoint
+                limit_id=CONSTANTS.USER_BALANCES_PATH_URL
             )
             self._process_balance_message(account_info)
             self._update_balances_fetching = False
@@ -513,8 +532,9 @@ class GateIoExchange(ExchangeBaseV2):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+        # TODO
+        # self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        # self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     def _process_balance_message_ws(self, balance_update):
         for account in balance_update:

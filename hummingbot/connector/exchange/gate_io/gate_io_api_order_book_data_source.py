@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
@@ -18,7 +19,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
-from .gate_io_active_order_tracker import GateIoActiveOrderTracker
+# from .gate_io_active_order_tracker import GateIoActiveOrderTracker
 from .gate_io_order_book import GateIoOrderBook
 from .gate_io_utils import (
     GateIoAPIError,
@@ -40,12 +41,12 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(
-        self,
-        throttler: Optional[AsyncThrottler] = None,
-        trading_pairs: List[str] = None,
-        api_factory: Optional[WebAssistantsFactory] = None,
-    ):
+    def __init__(self,
+                 trading_pairs: List[str],
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
         self._api_factory = api_factory or build_gate_io_api_factory()
         self._rest_assistant: Optional[RESTAssistant] = None
@@ -152,9 +153,10 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair})
         order_book = self.order_book_create_function()
-        active_order_tracker: GateIoActiveOrderTracker = GateIoActiveOrderTracker()
-        bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        # TODO active_order_tracker: GateIoActiveOrderTracker = GateIoActiveOrderTracker()
+        # bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+        # order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        del snapshot_msg
         return order_book
 
     async def listen_for_subscriptions(self):

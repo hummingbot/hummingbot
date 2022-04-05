@@ -256,7 +256,7 @@ class BinanceExchangeTests(TestCase):
         self._validate_auth_credentials_for_post_request(order_request[1][0])
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -303,7 +303,7 @@ class BinanceExchangeTests(TestCase):
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -418,7 +418,7 @@ class BinanceExchangeTests(TestCase):
                                if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_for_request(cancel_request[1][0])
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
         self.assertTrue(
             self._is_logged(

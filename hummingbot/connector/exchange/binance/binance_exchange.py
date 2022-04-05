@@ -80,7 +80,8 @@ class BinanceExchange(ExchangeBaseV2):
         return OrderType[binance_type]
 
     # TODO uses now, why?
-    def __tick(self, timestamp: float):
+    # kucoin uses passed timestamp
+    def tick(self, timestamp: float):
         """
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.

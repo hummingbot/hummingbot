@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import asyncio
 import logging
-from typing import Any, AsyncIterable, List, Optional
+from typing import Any, AsyncIterable, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -23,16 +25,16 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(
-        self,
-        gate_io_auth: GateIoAuth,
-        trading_pairs: Optional[List[str]] = None,
-        api_factory: Optional[WebAssistantsFactory] = None,
-    ):
+    def __init__(self,
+                 auth,
+                 domain: str,
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         self._api_factory = api_factory
-        self._gate_io_auth: GateIoAuth = gate_io_auth
+        self._auth: GateIoAuth = auth
         self._ws: Optional[GateIoWebsocket] = None
-        self._trading_pairs = trading_pairs or []
+        # self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         super().__init__()

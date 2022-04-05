@@ -1,6 +1,8 @@
 # A single source of truth for constant variables related to the exchange
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
+DEFAULT_DOMAIN = ""
+
 EXCHANGE_NAME = "gate_io"
 REST_URL = "https://api.gateio.ws/api/v4"
 REST_URL_AUTH = "/api/v4"

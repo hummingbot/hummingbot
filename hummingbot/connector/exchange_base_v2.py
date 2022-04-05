@@ -465,7 +465,6 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        # TODO in binance timestamp is not used
         last_recv_diff = timestamp - self._user_stream_tracker.last_recv_time
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if last_recv_diff > self.TICK_INTERVAL_LIMIT
@@ -642,7 +641,6 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
             quantize_amount_price = Decimal("0") if price.is_nan() else price
             amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
 
-        # TODO in gate io start tracking was after the below if
         self.start_tracking_order(
             order_id=order_id,
             exchange_order_id=None,
@@ -691,7 +689,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
-                app_warning_msg="Failed to submit buy order to {self.name_cap}. Check API key and network connection."
+                app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
             )
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
