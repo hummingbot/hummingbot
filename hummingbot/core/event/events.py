@@ -269,4 +269,6 @@ class PositionModeChangeEvent:
     is_success: bool
     trading_pair: str
     position_mode: PositionMode
+    has_order: Optional[bool] = False
+    has_position: Optional[bool] = False
     reason: Optional[str] = None

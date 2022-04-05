@@ -862,10 +862,13 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if not position_mode_changed_event.is_success:
             self.logger().error(
                 f"Changing position mode to {self._position_mode.name} failed. "
-                f"Reason: {position_mode_changed_event.reason}. "
-                f"Cancelling all open orders and retrying ...")
+                f"Reason: {position_mode_changed_event.reason}.")
             market: ExchangeBase = self._market_info.market
-            market.cancel_all_account_orders(self.trading_pair)
+            if position_mode_changed_event.has_order:
+                self.logger().error("Cancelling all open orders and retrying ...")
+                market.cancel_all_account_orders(self.trading_pair)
+            if position_mode_changed_event.has_position:
+                self.logger().warning("Position exists, please close it manually first.")
             market.set_position_mode(self._position_mode)
         else:
             if self._position_mode is position_mode_changed_event.position_mode:

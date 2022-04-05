@@ -201,26 +201,29 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 response_code = response["ret_code"]
 
                 if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
+                    has_order = response_code in [CONSTANTS.RET_CODE_MODE_ORDER_NOT_EMPTY]
+                    has_position = response_code in [CONSTANTS.RET_CODE_MODE_POSITION_NOT_EMPTY]
                     self.trigger_event(AccountEvent.PositionModeChange,
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
                                            False,
                                            trading_pair,
                                            position_mode,
+                                           has_order,
+                                           has_position,
                                            response['ret_msg']
                                        ))
                     self.logger().debug(f"Bybit Perpetual encountered a problem switching position mode to "
                                         f"{position_mode} for {trading_pair}"
                                         f" ({response['ret_code']} - {response['ret_msg']})")
                 else:
-                    if response_code not in [CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
-                        self.trigger_event(AccountEvent.PositionModeChange,
-                                           PositionModeChangeEvent(
-                                               self.current_timestamp,
-                                               True,
-                                               trading_pair,
-                                               position_mode
-                                           ))
+                    self.trigger_event(AccountEvent.PositionModeChange,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           True,
+                                           trading_pair,
+                                           position_mode
+                                       ))
                     self.logger().debug(f"Bybit Perpetual switching position mode to "
                                         f"{position_mode} for {trading_pair} succeeded.")
 
