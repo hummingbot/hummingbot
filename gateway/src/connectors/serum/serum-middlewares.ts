@@ -7,7 +7,7 @@ export const verifySerumIsAvailable = async (
   next: NextFunction
 ) => {
   const serum = Serum.getInstance();
-  if (!serum.ready()) {
+  if (!serum.ready) {
     await serum.init();
   }
   return next();

@@ -1,4 +1,4 @@
-import { Account, Keypair, Connection } from '@solana/web3.js';
+import { Account, Connection, PublicKey } from '@solana/web3.js';
 import {
   Market as SerumMarket,
   Orderbook as SerumOrderBook,
@@ -6,25 +6,49 @@ import {
 } from '@project-serum/serum';
 import { Solana } from '../../chains/solana/solana';
 import { SerumConfig } from './serum.config';
-import {Market, Order, OrderBook, CandidateOrder} from './serum.types';
+import { Market, Order, OrderBook, CreateOrder, Ticker, GetOrder, CancelOrder } from './serum.types';
 import BN from 'bn.js';
-import { OrderParams as SerumOrderParams } from "@project-serum/serum/lib/market";
+import {
+  OrderParams as SerumOrderParams,
+  Order as SerumOrder, OpenOrders,
+} from '@project-serum/serum/lib/market';
+import { OrderSide } from '../../clob/clob.types';
+
+import { Cache, CacheContainer } from 'node-ts-cache'
+import { MemoryStorage } from 'node-ts-cache-storage-memory'
+
+const caches = {
+  instances: new CacheContainer(new MemoryStorage()),
+
+  market: new CacheContainer(new MemoryStorage()),
+  markets: new CacheContainer(new MemoryStorage()),
+  allMarkets: new CacheContainer(new MemoryStorage()),
+
+  orderBook: new CacheContainer(new MemoryStorage()),
+  orderBooks: new CacheContainer(new MemoryStorage()),
+  allOrderBooks: new CacheContainer(new MemoryStorage()),
+
+  ticker: new CacheContainer(new MemoryStorage()),
+  tickers: new CacheContainer(new MemoryStorage()),
+  allTickers: new CacheContainer(new MemoryStorage()),
+
+  order: new CacheContainer(new MemoryStorage()),
+  orders: new CacheContainer(new MemoryStorage()),
+  allOrders: new CacheContainer(new MemoryStorage()),
+
+  filledOrder: new CacheContainer(new MemoryStorage()),
+  filledOrders: new CacheContainer(new MemoryStorage()),
+  allFilledOrders: new CacheContainer(new MemoryStorage()),
+}
 
 export type Serumish = Serum;
 
 export class Serum {
-  private static instances: { [name: string]: Serum };
-
   private initializing: boolean = false;
 
-  private tokens: string[] = ['ABC', 'SOL'];
-  private markets: Map<string, Market | null> = new Map();
-
-  private config;
-  private solana: Solana;
-  private connection: Connection;
-  private owner: Keypair;
-  private ownerAccount: Account;
+  private readonly config: SerumConfig.Config;
+  private solana!: Solana;
+  private readonly connection: Connection;
 
   ready: boolean = false;
   chain: string;
@@ -35,11 +59,13 @@ export class Serum {
    * @param chain
    * @param config
    */
-  private constructor(chain?: string, network?: string) {
+  private constructor(chain: string, network: string) {
+    this.chain = chain;
+    this.network = network;
+
     this.config = SerumConfig.config;
 
-    this.chain = chain || this.config.chain;
-    this.network = network || this.network.slug;
+    this.connection = new Connection(this.config.network.rpcUrl);
   }
 
   /**
@@ -48,37 +74,19 @@ export class Serum {
    * @param chain
    * @param network
    */
-  static getInstance(chain?: string, network?: string): Serum {
-    if (!Serum.instances) Serum.instances = {};
+  @Cache(caches.instances, {isCachedForever = true})
+  static async getInstance(chain: string, network: string): Promise<Serum> {
+    const instance = new Serum(chain, network);
 
-    if (!chain) chain = SerumConfig.config.chain;
-    if (!network) network = SerumConfig.config.network.slug;
+    await instance.init();
 
-    if (!(`${chain}:${network}` in Serum.instances)) {
-      Serum.instances[`${chain}:${network}`] = new Serum(chain, network);
-    }
-
-    return Serum.instances[`${chain}:${network}`];
-  }
-
-  /**
-   * Reload the Serum instance for the given chain and network
-   *
-   * @param chain
-   * @param network
-   */
-  static reload(chain: string, network: string): Serum {
-    Serum.instances[`${chain}:${network}`] = new Serum(chain, network);
-
-    return Serum.instances[`${chain}:${network}`];
+    return instance;
   }
 
   private parseToMarket(
     info: Record<string, unknown>,
-    market: SerumMarket | undefined | null
-  ): Market | null {
-    if (!market) return null;
-
+    market: SerumMarket
+  ): Market {
     return {
       ...info,
       market: market,
@@ -101,6 +109,7 @@ export class Serum {
 
   private parseToOrder(order: SerumOrder | Record<string, unknown>): Order {
     // TODO convert the loadFills and placeOrder returns too!!!
+    // TODO return the clientOrderId and status pending when creating a new order (the exchangeOrderId will not be sent)!!!
     return {
       ...order,
       order: order,
@@ -119,6 +128,13 @@ export class Serum {
     return result;
   }
 
+  private parseToTicker(ticker: any): Ticker {
+    return {
+      ...ticker,
+      ticker: ticker,
+    } as Ticker;
+  }
+
   /**
    * Initialize the Serum instance.
    */
@@ -127,12 +143,9 @@ export class Serum {
       this.initializing = true;
 
       this.solana = Solana.getInstance(this.network);
-      this.connection = new Connection(this.config.network.rpcUrl);
+      await this.solana.init();
 
-      this.owner = new Keypair(this.config.accounts.owner.privateKey);
-      this.ownerAccount = new Account(this.owner.publicKey.toBuffer());
-
-      this.markets = await this.getAllMarkets();
+      await this.getAllMarkets();
 
       this.ready = true;
       this.initializing = false;
@@ -143,23 +156,27 @@ export class Serum {
    *
    * @param name
    */
-  async getMarket(name: string): Promise<Market | null> {
+  @Cache(caches.market, {isCachedForever = true})
+  async getMarket(name: string): Promise<Market> {
     const markets = await this.getAllMarkets();
 
-    return markets.get(name) || null;
+    const market = markets.get(name);
+
+    if (!market) throw new Error(`Market ${name} not found.`);
+
+    return market;
   }
 
   /**
    *
    * @param names
    */
-  async getMarkets(names: string[]): Promise<Map<string, Market | null>> {
-    const allMarkets = await this.getAllMarkets();
-
-    const markets = new Map<string, Market | null>();
+  @Cache(caches.markets, {isCachedForever = true})
+  async getMarkets(names: string[]): Promise<Map<string, Market>> {
+    const markets = new Map<string, Market>();
 
     for (const name of names) {
-      const market = allMarkets.get(name) || null;
+      const market = await this.getMarket(name);
 
       markets.set(name, market);
     }
@@ -170,10 +187,9 @@ export class Serum {
   /**
    *
    */
-  async getAllMarkets(): Promise<Map<string, Market | null>> {
-    if (this.markets && this.markets.size) return this.markets;
-
-    const allMarkets = new Map<string, Market | null>();
+  @Cache(caches.allMarkets, {isCachedForever = true})
+  async getAllMarkets(): Promise<Map<string, Market>> {
+    const allMarkets = new Map<string, Market>();
 
     for (const market of MARKETS) {
       allMarkets.set(
@@ -190,15 +206,14 @@ export class Serum {
       );
     }
 
-    this.markets = allMarkets;
-
-    return this.markets;
+    return allMarkets;
   }
 
-  async getOrderBook(marketName: string): Promise<OrderBook | null> {
+  @Cache(caches.orderBook, {ttl: 1})
+  async getOrderBook(marketName: string): Promise<OrderBook> {
     const market = await this.getMarket(marketName);
 
-    if (!market) return null;
+    if (!market) throw new Error(`Market ${marketName} not found.`);
 
     return this.parseToOrderBook(
       await market.market.loadAsks(this.connection),
@@ -206,10 +221,11 @@ export class Serum {
     );
   }
 
+  @Cache(caches.orderBooks, {ttl: 1})
   async getOrderBooks(
     marketNames: string[]
-  ): Promise<Map<string, OrderBook | null>> {
-    const orderBooks = new Map<string, OrderBook | null>();
+  ): Promise<Map<string, OrderBook>> {
+    const orderBooks = new Map<string, OrderBook>();
 
     for (const marketName of marketNames) {
       const orderBook = await this.getOrderBook(marketName);
@@ -220,44 +236,119 @@ export class Serum {
     return orderBooks;
   }
 
-  async getAllOrderBooks(): Promise<Map<string, OrderBook | null>> {
+  @Cache(caches.allOrderBooks, {ttl: 1})
+  async getAllOrderBooks(): Promise<Map<string, OrderBook>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return this.getOrderBooks(marketNames);
   }
 
-  async getTicker(): Promise<any> {
+  @Cache(caches.ticker, {ttl: 1})
+  async getTicker(marketName: string): Promise<Ticker> {
+    const market = await this.getMarket(marketName);
 
+    if (!market) throw new Error(`Market ${marketName} not found.`);
+
+    return this.parseToTicker(market.market.loadTicker(this.connection));
   }
 
-  async getTickers(): Promise<any> {
+  @Cache(caches.tickers, {ttl: 1})
+  async getTickers(marketNames: string[]): Promise<Map<string, Ticker>> {
+    const tickers = new Map<string, Ticker>();
 
+    for (const marketName of marketNames) {
+      const ticker = await this.getTicker(marketName);
+
+      tickers.set(marketName, ticker);
+    }
+
+    return tickers;
   }
 
-  async getAllTickers(): Promise<any> {
+  @Cache(caches.allTickers, {ttl: 1})
+  async getAllTickers(): Promise<Map<string, Ticker>> {
+    const marketNames = Array.from((await this.getAllMarkets()).keys());
+
+    return await this.getTickers(marketNames);
   }
 
-  async getOrder(): Promise<Order | null> {
+  @Cache(caches.order, {ttl: 1})
+  async getOrder(target: GetOrder): Promise<Order> {
+    const market = await this.getMarket(target.marketName);
 
+    if (!market) throw new Error(`Market ${target.marketName} not found.`);
+
+    return this.parseToOrder(
+      await market.market.loadOrder(this.connection, target.clientOrderId, target.exchangeOrderId)
+    );
   }
 
-  async getOrders(): Promise<Map<BN, Order>> {
+  @Cache(caches.orders, {ttl: 1})
+  async getOrders(targets: GetOrder[]): Promise<Map<BN, Order>> {
+    const orders = new Map<BN, Order>();
 
+    for (const target of targets) {
+      const order = await this.getOrder(target);
+
+      orders.set(order.id, order);
+    }
+
+    return orders;
   }
 
-  async getAllOrders(): Promise<Map<BN, Order>> {
+  async getAllOpenOrdersForMarket(target: OpenOrders): Promise<Order[]> {
+    const market = await this.getMarket(target.marketName);
+
+    if (!market) throw Error(`Market ${target.marketName} not found.`);
+
+    const owner = await this.solana.getAccount(target.address);
+
+    const serumOpenOrders = await market.market.loadOrdersForOwner(
+      this.connection,
+      owner.publicKey
+    );
+
+    return this.parseToOrders(serumOpenOrders);
   }
 
-  async createOrder(candidateOrder: CandidateOrder): Promise<Order> {
-    const market = await this.getMarket(candidateOrder.marketName);
+  async getAllOpenOrdersForMarkets(target: OpenOrders): Promise<Map<string, Order[]>> {
+    const result = new Map<string, Order[]>();
+
+    const markets = await this.getMarkets(target.marketNames);
+
+    for (const [marketName, market] of markets) {
+      result.set(marketName, await this.getAllOpenOrdersForMarket(market));
+    }
+
+    return result;
+  }
+
+  async getAllOpenOrders(): Promise<Map<string, Order[]>> {
+    return await this.getAllOpenOrdersForMarkets(this.getAllMarkets());
+  }
+
+  async createOrder(candidate: CreateOrder): Promise<Order> {
+    const market = await this.getMarket(candidate.marketName);
 
     if (!market)
-      throw new Error(`Market ${candidateOrder.marketName} not found.`);
+      throw new Error(`Market ${candidate.marketName} not found.`);
+
+    const owner = await this.solana.getAccount(candidate.address);
+
+    let mintAddress: PublicKey;
+    if (candidate.side == OrderSide.BUY.toLowerCase()) {
+      mintAddress = market.market.quoteMintAddress;
+    } else {
+      mintAddress = market.market.baseMintAddress;
+    }
 
     const serumOrderParams: SerumOrderParams<Account> = {
-      ...candidateOrder,
-      owner: this.ownerAccount,
-      payer: this.owner.publicKey,
+      ...candidate,
+      owner: owner,
+      payer: await this.solana.findAssociatedTokenAddress(
+        owner.publicKey,
+        mintAddress
+      ),
     };
 
     const signature = await market.market.placeOrder(
@@ -266,59 +357,59 @@ export class Serum {
     );
 
     return this.parseToOrder({
-      ...candidateOrder,
+      ...candidate,
       signature: signature,
     });
   }
 
-  async createOrders(candidateOrders: CandidateOrder[]): Promise<Order[]> {
-    const orders = [];
-    for (const candidateOrder of candidateOrders) {
+  async createOrders(candidates: CreateOrder[]): Promise<Order[]> {
+    // TODO what about if some orders fail to be created? Is it possible to create transactions with Serum?!!!
+    const createdOrders = [];
+    for (const candidateOrder of candidates) {
       const order = await this.createOrder(candidateOrder);
 
-      orders.push(order);
+      createdOrders.push(order);
     }
 
-    return orders;
+    return createdOrders;
   }
 
-  async deleteOrder(): Promise<any> {
-    await market.cancelOrder(connection, owner, order);
+  async cancelOrder(request: CancelOrder): Promise<any> {
+    const market = await this.getMarket(request.marketName);
+
+    if (!market) throw Error(`Market ${request.marketName} not found.`);
+
+    const owner = await this.solana.getAccount(request.address);
+    const order = await this.getOrder(request.order);
+
+    await market.market.cancelOrder(this.connection, owner, order?.order);
   }
 
-  async deleteOrders(): Promise<any> {
+  async cancelOrders(orders: Order[]): Promise<Order[]> {
+    // TODO what about if some orders fail to be canceled? Is it possible to create transactions with Serum?!!!
     const canceledOrders = [];
-    for (const candidateOrder of candidateOrders) {
-      const order = await this.createOrder(candidateOrder);
 
-      canceledOrders.push(order);
+    for (const order of orders) {
+      const result = await this.cancelOrder(order);
+
+      canceledOrders.push(result);
     }
 
     return canceledOrders;
   }
 
-  async getOpenOrder(): Promise<any> {
+  async cancelAllOpenOrders(): Promise<Order[]> {
+    const orders = await this.getAllOpenOrders();
+
+    return await this.cancelOrders(orders);
   }
 
-  async getOpenOrders(): Promise<any> {
-    await market.loadOrdersForOwner(connection, owner.publicKey);
-  }
-
-  async getAllOpenOrders(): Promise<any> {
-  }
-
-  async deleteOpenOrder(): Promise<any> {
-  }
-
-  async deleteOpenOrders(): Promise<any> {
-  }
-
-  async deleteAllOpenOrders(): Promise<any> {
-  }
-
+  @Cache(caches.filledOrder, {ttl: 60})
   async getFilledOrder(): Promise<Order | undefined> {
+    for (market )
   }
 
+  @Cache(caches.filledOrders, {ttl: 60})
   async getFilledOrders(
     marketNames?: string | string[]
   ): Promise<Map<string, Order[] | undefined> | undefined> {
@@ -346,6 +437,7 @@ export class Serum {
     return result;
   }
 
+  @Cache(caches.allFilledOrders, {ttl: 60})
   async getAllFilledOrders(): Promise<
     Map<string, Order[] | undefined> | undefined
   > {
