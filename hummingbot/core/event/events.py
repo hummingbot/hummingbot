@@ -267,5 +267,6 @@ class LimitOrderStatus(Enum):
 class PositionModeChangeEvent:
     timestamp: float
     is_success: bool
+    trading_pair: str
     position_mode: PositionMode
     reason: Optional[str] = None

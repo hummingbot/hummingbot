@@ -1473,8 +1473,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("O1", request_data["order_link_id"])
         self.assertEqual(0, len(self.connector.in_flight_orders))
 
-        self.assertTrue(self._is_logged("INFO", "The market order O1 has failed according to order status event. "
-                                                "Reason: Out of limits"))
         failure_events = self.order_failure_logger.event_log
         self.assertEqual(1, len(failure_events))
         self.assertEqual("O1", failure_events[0].order_id)

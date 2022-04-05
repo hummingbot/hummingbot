@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import time
 import warnings
@@ -175,16 +176,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _set_position_mode(self, position_mode: PositionMode):
         """
         An overwriten method from the base class that sends a request to change the position mode first
-        :param position_mode: ONEWAY or HEDGE position mode
+        :param position_mode: PositionMode.ONEWAY or PositionMode.HEDGE
         """
-        mode = None
-        if position_mode == PositionMode.ONEWAY:
-            mode = CONSTANTS.POSITION_MODE_API_ONEWAY
-        elif position_mode == PositionMode.HEDGE:
-            mode = CONSTANTS.POSITION_MODE_API_HEDGE
+        mode = CONSTANTS.POSITION_MODE_API_HEDGE if position_mode == PositionMode.HEDGE else CONSTANTS.POSITION_MODE_API_ONEWAY
 
         if self._trading_pairs is not None:
             for trading_pair in self._trading_pairs:
+                is_linear = bybit_utils.is_linear_perpetual(trading_pair)
+
+                if not is_linear:
+                    #  Inverse Perpetuals don't have set_position_mode()
+                    raise Exception("Inverse Perpetuals don't allow for a position mode change.")
+
                 symbol = await self._trading_pair_symbol(trading_pair)
                 body_params = {"symbol": symbol, "mode": mode}
 
@@ -202,18 +205,24 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
                                            False,
+                                           trading_pair,
                                            position_mode,
                                            response['ret_msg']
                                        ))
-                    raise IOError(f"Bybit Perpetual encountered a problem switching position mode to "
-                                  f"{position_mode} for {trading_pair}"
-                                  f" ({response['ret_code']} - {response['ret_msg']})")
-                self.trigger_event(AccountEvent.PositionModeChange,
-                                   PositionModeChangeEvent(
-                                       self.current_timestamp,
-                                       True,
-                                       position_mode
-                                   ))
+                    self.logger().debug(f"Bybit Perpetual encountered a problem switching position mode to "
+                                        f"{position_mode} for {trading_pair}"
+                                        f" ({response['ret_code']} - {response['ret_msg']})")
+                else:
+                    if response_code not in [CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
+                        self.trigger_event(AccountEvent.PositionModeChange,
+                                           PositionModeChangeEvent(
+                                               self.current_timestamp,
+                                               True,
+                                               trading_pair,
+                                               position_mode
+                                           ))
+                    self.logger().debug(f"Bybit Perpetual switching position mode to "
+                                        f"{position_mode} for {trading_pair} succeeded.")
 
         super().set_position_mode(position_mode)
 
@@ -415,27 +424,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     ):
         """
         Starts tracking an order by calling the appropriate method in the Client Order Tracker
-
-        Parameters
-        ----------
-        order_id:
-            Client order ID
-        exchange_order_id:
-            Order ID on the exhange
-        trading_pair:
-            The pair that is being traded
-        trading_type:
-            BUY or SELL
-        price:
-            Price for a limit order
-        amount:
-            The amount to trade
-        order_type:
-            LIMIT or MARKET
-        leverage:
-            Leverage of the position
-        position:
-            OPEN or CLOSE
+        :param order_id: Client order ID
+        :param exchange_order_id: Order ID on the exhange
+        :param trading_pair: The pair that is being traded
+        :param trading_type: BUY or SELL
+        :param price: Price for a limit order
+        :param amount: The amount to trade
+        :param order_type: LIMIT or MARKET
+        :param leverage: Leverage of the position
+        :param position: OPEN or CLOSE
         """
         self._client_order_tracker.start_tracking_order(
             InFlightOrder(
@@ -553,7 +550,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if send_order_results["ret_code"] != CONSTANTS.RET_CODE_OK:
                 if send_order_results["ret_code"] == CONSTANTS.RET_CODE_POSITION_ZERO:
-                    self.stop_tracking_order(order_id)
+                    order_update: OrderUpdate = OrderUpdate(
+                        trading_pair=trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FAILED,
+                        client_order_id=order_id,
+                    )
+                    self._client_order_tracker.process_order_update(order_update)
                     return
                 else:
                     raise ValueError(f"Order is rejected by the API. "
@@ -562,7 +565,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             result = send_order_results["result"]
             exchange_order_id = str(result["order_id"])
 
-            tracked_order = self._client_order_tracker.active_orders.get(order_id)
+            tracked_order = self._client_order_tracker.fetch_order(order_id)
 
             if tracked_order is not None:
                 order_update: OrderUpdate = OrderUpdate(
@@ -650,7 +653,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param client_order_id: The client_order_id of the order to be cancelled.
         """
         try:
-            tracked_order: Optional[InFlightOrder] = self._client_order_tracker.fetch_order(client_order_id)
+            tracked_order: Optional[InFlightOrder] = self.in_flight_orders.get(client_order_id, None)
             if tracked_order is None:
                 raise ValueError(f"Order {client_order_id} is not being tracked")
 
@@ -732,6 +735,43 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 app_warning_msg="Failed to cancel order with ByBit Perpetual. Check API key and network connection."
             )
         return successful_cancellations + failed_cancellations
+
+    async def _cancel_all_account_orders(self, trading_pair: str):
+        """
+        Async cancel all account's orders, not just orders tracked by the ClientOrderTracker
+        :param trading_pair: The market (e.g. BTC-CAD) of the order.
+        """
+        try:
+            body_params = {
+                "symbol": await self._trading_pair_symbol(trading_pair),
+            }
+            response = await self._api_request(
+                method="POST",
+                endpoint=CONSTANTS.CANCEL_ALL_ACTIVE_ORDERS_PATH_URL,
+                trading_pair=trading_pair,
+                body=body_params,
+                is_auth_required=True,
+            )
+
+            response_code = response["ret_code"]
+
+            if response_code != CONSTANTS.RET_CODE_OK:
+                for order_id in list(self._client_order_tracker.active_orders.keys()):
+                    self.stop_tracking_order(order_id)
+            else:
+                raise IOError(f"Bybit Perpetual encountered a problem cancelling all account's orders "
+                              f"for {trading_pair}"
+                              f" ({response['ret_code']} - {response['ret_msg']})")
+        except Exception as e:
+            self.logger().error("Could not cancel all account orders.")
+            raise e
+
+    def cancel_all_account_orders(self, trading_pair: str):
+        """
+        Cancel all account's orders, not just orders tracked by the ClientOrderTracker
+        :param trading_pair: The market (e.g. BTC-CAD) of the order.
+        """
+        safe_ensure_future(self._cancel_all_account_orders(trading_pair))
 
     def tick(self, timestamp: float):
         """
@@ -854,6 +894,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 raise Exception("Cannot connect to Bybit Perpetual. Reason: API key expired")
             else:
                 raise Exception(f"Cannot connect to Bybit Perpetual. Reason: {wallet_balance['ret_msg']}")
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._client_order_tracker.active_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_order_status(self):
         """
@@ -1040,7 +1083,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         client_order_id = str(order_msg["order_link_id"])
 
         if client_order_id in self._client_order_tracker.active_orders.keys():
-            tracked_order = self._client_order_tracker.active_orders[client_order_id]
+            tracked_order = self._client_order_tracker.fetch_order(client_order_id)
 
             # Update order execution status
             new_order_update: OrderUpdate = OrderUpdate(
@@ -1053,11 +1096,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             self._client_order_tracker.process_order_update(new_order_update)
 
-            if new_order_update.new_state == OrderState.FAILED:
-                reason = order_msg["reject_reason"] if "reject_reason" in order_msg else "unknown"
-                self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
-                                   f"Reason: {reason}")
-
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
@@ -1067,7 +1105,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         client_order_id = str(trade_msg["order_link_id"])
         if client_order_id in self._client_order_tracker.active_orders.keys():
-            tracked_order = self._client_order_tracker.active_orders[client_order_id]
+            tracked_order = self._client_order_tracker.fetch_order(client_order_id)
 
             trade_id: str = str(trade_msg["exec_id"])
 
