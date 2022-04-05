@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from decimal import Decimal
@@ -92,16 +93,16 @@ class BuyDipExample(ScriptStrategyBase):
         - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
         - Lastly, execute the proposal on the exchange
         """
-        proposal: List[OrderCandidate] = await self.create_proposal()
+        proposal: List[OrderCandidate] = self.create_proposal()
         proposal = self.connector.budget_checker.adjust_candidates(proposal, all_or_none=False)
         if proposal:
             self.execute_proposal(proposal)
 
-    async def create_proposal(self) -> List[OrderCandidate]:
+    def create_proposal(self) -> List[OrderCandidate]:
         """
         Creates and returns a proposal (a list of order candidate), in this strategy the list has 1 element at most.
         """
-        daily_closes = await self.get_daily_close_list(self.trading_pair)
+        daily_closes = asyncio.get_event_loop().run_until_complete(self.get_daily_close_list(self.trading_pair))
         start_index = (-1 * self.moving_avg_period) - 1
         # Calculate the average of the 50 element prior to the last element
         avg_close = mean(daily_closes[start_index:-1])
@@ -109,7 +110,7 @@ class BuyDipExample(ScriptStrategyBase):
         # If the current price (the last close) is below the dip, add a new order candidate to the proposal
         if daily_closes[-1] < avg_close * (Decimal("1") - self.dip_percentage):
             order_price = self.connector.get_price(self.trading_pair, False) * Decimal("0.9")
-            usd_conversion_rate = await RateOracle.rate_async(self.conversion_pair)
+            usd_conversion_rate = RateOracle.get_instance().rate(self.conversion_pair)
             amount = (self.buy_usd_amount / usd_conversion_rate) / order_price
             proposal.append(OrderCandidate(self.trading_pair, False, OrderType.LIMIT, TradeType.BUY, amount,
                                            order_price))
