@@ -5,6 +5,7 @@ import NodeCache from 'node-cache';
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
 import {
+  Account,
   AccountInfo,
   Commitment,
   Connection,
@@ -185,6 +186,11 @@ export class Solana implements Solanaish {
   getKeypairFromPrivateKey(privateKey: string): Keypair {
     const decoded = bs58.decode(privateKey);
     return Keypair.fromSecretKey(decoded);
+  }
+
+  async getAccount(address: string): Promise<Account> {
+    const keypair = await this.getKeypair(address);
+    return new Account(keypair.secretKey);
   }
 
   async getKeypair(address: string): Promise<Keypair> {
