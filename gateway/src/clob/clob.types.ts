@@ -1,12 +1,16 @@
-export type OrderSide = 'BUY' | 'SELL';
+export enum OrderSide {
+  BUY = 'BUY',
+  SELL = 'SELL',
+}
 
 export type OrderStatus =
   | 'OPEN'
+  | 'PENDING'
   | 'FILLED'
   | 'CANCELED'
-  | 'UNKNOWN'
   | 'FAILED'
-  | 'DONE';
+  | 'EXPIRED'
+  | 'TIMED_OUT';
 
 export interface Fee {
   maker: string;

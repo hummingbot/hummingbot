@@ -112,12 +112,6 @@ export class Solana implements Solanaish {
     return Solana._instances;
   }
 
-  public static reload(network: string): Solana {
-    Solana._instances[network] = new Solana(network);
-
-    return Solana._instances[network];
-  }
-
   ready(): boolean {
     return this._ready;
   }
@@ -192,6 +186,20 @@ export class Solana implements Solanaish {
   async getAccount(address: string): Promise<Account> {
     const keypair = await this.getKeypair(address);
     return new Account(keypair.secretKey);
+  }
+
+  async findAssociatedTokenAddress(
+    walletAddress: PublicKey,
+    tokenMintAddress: PublicKey
+  ): Promise<PublicKey> {
+    return (await PublicKey.findProgramAddress(
+      [
+          walletAddress.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          tokenMintAddress.toBuffer(),
+      ],
+      SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
+    ))[0];
   }
 
   async getKeypair(address: string): Promise<Keypair> {

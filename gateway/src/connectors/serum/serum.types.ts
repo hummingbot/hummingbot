@@ -33,8 +33,24 @@ export interface Order {
   order: SerumOrder;
 }
 
-export interface CandidateOrder extends SerumOrderParams {
+export interface Ticker {}
+
+// TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
+export interface CreateOrder extends SerumOrderParams {
   marketName: string;
+  address: string;
+}
+
+export interface GetOrder {
+  marketName: string;
+  clientOrderId?: string;
+  exchangeOrderId?: string;
+}
+
+export interface CancelOrder {
+}
+
+export interface DeleteOrder {
 }
 
 // export interface FeeInfo {
