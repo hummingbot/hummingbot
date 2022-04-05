@@ -51,7 +51,6 @@ class CreateCommand:
         strategy = await self.get_strategy_name()
 
         if self.app.to_stop_config:
-            self.stop_config()
             return
 
         config_map = get_strategy_config_map(strategy)
@@ -60,14 +59,14 @@ class CreateCommand:
 
         if isinstance(config_map, ClientConfigAdapter):
             await self.prompt_for_model_config(config_map)
-            file_name = await self.save_config_to_file(file_name, config_map)
+            if not self.app.to_stop_config:
+                file_name = await self.save_config_to_file(file_name, config_map)
         elif config_map is not None:
             file_name = await self.prompt_for_configuration_legacy(file_name, strategy, config_map)
         else:
             self.app.to_stop_config = True
 
         if self.app.to_stop_config:
-            self.stop_config()
             return
 
         self.strategy_file_name = file_name
@@ -87,9 +86,7 @@ class CreateCommand:
         strategy = None
         strategy_config = ClientConfigAdapter(BaseStrategyConfigMap.construct())
         await self.prompt_for_model_config(strategy_config)
-        if self.app.to_stop_config:
-            self.stop_config()
-        else:
+        if not self.app.to_stop_config:
             strategy = strategy_config.strategy
         return strategy
 
@@ -130,13 +127,12 @@ class CreateCommand:
                 config.value = config.default
 
         if self.app.to_stop_config:
-            self.stop_config(config_map, config_map_backup)
             return
 
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
             if self.app.to_stop_config:
-                self.stop_config(config_map, config_map_backup)
+                self.restore_config_legacy(config_map, config_map_backup)
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
@@ -209,7 +205,6 @@ class CreateCommand:
         if file_name is None:
             file_name = await self.prompt_new_file_name(config_map.strategy)
             if self.app.to_stop_config:
-                self.stop_config()
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
@@ -255,15 +250,6 @@ class CreateCommand:
             raise
         if all_status_go:
             self._notify("\nEnter \"start\" to start market making.")
-
-    def stop_config(
-        self,
-        config_map: Optional[Dict[str, ConfigVar]] = None,
-        config_map_backup: Optional[Dict[str, ConfigVar]] = None,
-    ):
-        if config_map is not None and config_map_backup is not None:
-            self.restore_config_legacy(config_map, config_map_backup)
-        self.app.to_stop_config = False
 
     @staticmethod
     def restore_config_legacy(config_map: Dict[str, ConfigVar], config_map_backup: Dict[str, ConfigVar]):
