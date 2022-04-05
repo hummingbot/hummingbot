@@ -359,7 +359,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                             params=params,
                                             )
         elif method == "POST":
-
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
@@ -745,6 +744,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             body_params = {
                 "symbol": await self._trading_pair_symbol(trading_pair),
             }
+
             response = await self._api_request(
                 method="POST",
                 endpoint=CONSTANTS.CANCEL_ALL_ACTIVE_ORDERS_PATH_URL,
@@ -755,7 +755,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             response_code = response["ret_code"]
 
-            if response_code != CONSTANTS.RET_CODE_OK:
+            if response_code is CONSTANTS.RET_CODE_OK:
                 for order_id in list(self._client_order_tracker.active_orders.keys()):
                     self.stop_tracking_order(order_id)
             else:
