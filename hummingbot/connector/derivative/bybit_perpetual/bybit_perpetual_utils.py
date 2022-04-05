@@ -225,6 +225,9 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
 
 
 def _build_private_pair_specific_non_linear_rate_limits(trading_pair: str) -> List[RateLimit]:
+    pair_specific_account_private_bucket_10_limit_id = get_pair_specific_limit_id(
+        base_limit_id=CONSTANTS.ACCOUNT_PRIVATE_BUCKET_10_LIMIT_ID, trading_pair=trading_pair
+    )
     pair_specific_non_linear_private_bucket_100_limit_id = get_pair_specific_limit_id(
         base_limit_id=CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_100_LIMIT_ID, trading_pair=trading_pair
     )
@@ -242,6 +245,7 @@ def _build_private_pair_specific_non_linear_rate_limits(trading_pair: str) -> Li
     )
 
     rate_limits = [
+        RateLimit(limit_id=pair_specific_account_private_bucket_10_limit_id, limit=10, time_interval=60),
         RateLimit(limit_id=pair_specific_non_linear_private_bucket_100_limit_id, limit=100, time_interval=60),
         RateLimit(limit_id=pair_specific_non_linear_private_bucket_600_limit_id, limit=600, time_interval=60),
         RateLimit(limit_id=pair_specific_non_linear_private_bucket_75_limit_id, limit=75, time_interval=60),
@@ -314,12 +318,25 @@ def _build_private_pair_specific_non_linear_rate_limits(trading_pair: str) -> Li
             time_interval=60,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=CONSTANTS.CANCEL_ALL_ACTIVE_ORDERS_PATH_URL[CONSTANTS.NON_LINEAR_MARKET],
+                trading_pair=trading_pair,
+            ),
+            limit=10,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.POST_LIMIT_ID),
+                           LinkedLimitWeightPair(pair_specific_account_private_bucket_10_limit_id)],
+        ),
     ]
 
     return rate_limits
 
 
 def _build_private_pair_specific_linear_rate_limits(trading_pair: str) -> List[RateLimit]:
+    pair_specific_account_private_bucket_10_limit_id = get_pair_specific_limit_id(
+        base_limit_id=CONSTANTS.ACCOUNT_PRIVATE_BUCKET_10_LIMIT_ID, trading_pair=trading_pair
+    )
     pair_specific_linear_private_bucket_100_limit_id = get_pair_specific_limit_id(
         base_limit_id=CONSTANTS.LINEAR_PRIVATE_BUCKET_100_LIMIT_ID, trading_pair=trading_pair
     )
@@ -334,6 +351,7 @@ def _build_private_pair_specific_linear_rate_limits(trading_pair: str) -> List[R
     )
 
     rate_limits = [
+        RateLimit(limit_id=pair_specific_account_private_bucket_10_limit_id, limit=10, time_interval=60),
         RateLimit(limit_id=pair_specific_linear_private_bucket_100_limit_id, limit=100, time_interval=60),
         RateLimit(limit_id=pair_specific_linear_private_bucket_600_limit_id, limit=600, time_interval=60),
         RateLimit(limit_id=pair_specific_linear_private_bucket_75_limit_id, limit=75, time_interval=60),
@@ -401,6 +419,15 @@ def _build_private_pair_specific_linear_rate_limits(trading_pair: str) -> List[R
             time_interval=60,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
                            LinkedLimitWeightPair(pair_specific_linear_private_bucket_120_a_limit_id)],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=CONSTANTS.CANCEL_ALL_ACTIVE_ORDERS_PATH_URL[CONSTANTS.LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=10,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.POST_LIMIT_ID),
+                           LinkedLimitWeightPair(pair_specific_account_private_bucket_10_limit_id)],
         ),
     ]
 

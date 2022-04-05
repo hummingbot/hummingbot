@@ -60,8 +60,8 @@ CANCEL_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/cancel",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel"}
 CANCEL_ALL_ACTIVE_ORDERS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/cancelAll",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancelAll"}
+    LINEAR_MARKET: "/private/linear/order/cancel-all",
+    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel-all"}
 QUERY_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/search",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
@@ -102,6 +102,8 @@ GET_LIMIT_ID = "GETLimit"
 POST_LIMIT_ID = "POSTLimit"
 GET_RATE = 49  # per second
 POST_RATE = 19  # per second
+
+ACCOUNT_PRIVATE_BUCKET_10_LIMIT_ID = "AccountPrivateBucket10"
 
 NON_LINEAR_PRIVATE_BUCKET_100_LIMIT_ID = "NonLinearPrivateBucket100"
 NON_LINEAR_PRIVATE_BUCKET_600_LIMIT_ID = "NonLinearPrivateBucket600"
