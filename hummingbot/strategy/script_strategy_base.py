@@ -1,15 +1,18 @@
-from decimal import Decimal
-from typing import Dict, Set, List, Any
-from time import perf_counter
-import asyncio
+import importlib
+import inspect
 import logging
-import pandas as pd
+from decimal import Decimal
+from typing import Any, Dict, List, Set
+
 import numpy as np
+import pandas as pd
+
+from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import OrderType, PositionAction
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.clock import Clock
+from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -18,10 +21,9 @@ lsb_logger = None
 s_decimal_nan = Decimal("NaN")
 
 
-class LiteStrategyBase(StrategyPyBase):
+class ScriptStrategyBase(StrategyPyBase):
     """
-    This new strategy base class that simplifies strategy creation and implements basic functionality which every
-    stragegy needs.
+    This new strategy base class that simplifies strategy creation and implements basic functionality to create scripts.
     """
 
     # This class member defines connectors and their trading pairs needed for the strategy operation,
@@ -37,7 +39,8 @@ class LiteStrategyBase(StrategyPyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         """
-        Initialising a new lite strategy object.
+        Initialising a new script strategy object.
+
         :param connectors: A dictionary of connector names and their corresponding connector.
         """
         super().__init__()
@@ -45,10 +48,26 @@ class LiteStrategyBase(StrategyPyBase):
         self.ready_to_trade: bool = False
         self.add_markets(list(connectors.values()))
 
+    @classmethod
+    def load_script_class(cls, script_name):
+        """
+        Imports the script module based on its name (module file name) and returns the loaded script class
+
+        :param script_name: name of the module where the script class is defined
+        """
+        script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
+        try:
+            script_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                 if inspect.isclass(member) and issubclass(member, cls)))
+        except StopIteration:
+            raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
+        return script_class
+
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
         Checks if all connectors are ready, if so the strategy is ready to trade.
+
         :param timestamp: current tick timestamp
         """
         if not self.ready_to_trade:
@@ -57,32 +76,32 @@ class LiteStrategyBase(StrategyPyBase):
                 for con in [c for c in self.connectors.values() if not c.ready]:
                     self.logger().warning(f"{con.name} is not ready. Please wait...")
                 return
-            else:
-                self.logger().info("All connector(s) are ready. Trading started.")
+        else:
+            self.on_tick()
 
-    async def run(self):
-        """
-        Runs the strategy on perpetuality (til stop is called).
-        """
-        while True:
-            start_time = perf_counter()
-            if self.ready_to_trade:
-                await self.on_tick()
-            end_time = perf_counter()
-            await asyncio.sleep(self.tick_size - (end_time - start_time))
+    # async def run(self):
+    #     """
+    #     Runs the strategy on perpetuality (til stop is called).
+    #     """
+    #     while True:
+    #         start_time = perf_counter()
+    #         if self.ready_to_trade:
+    #             await self.on_tick()
+    #         end_time = perf_counter()
+    #         await asyncio.sleep(self.tick_size - (end_time - start_time))
 
-    async def on_tick(self):
+    def on_tick(self):
         """
         An event which is called on every tick, a sub class implements this to define what operation the strategy needs
         to operate on a regular tick basis.
         """
         pass
 
-    def start(self, clock: Clock, timestamp: float):
-        self.run_task = safe_ensure_future(self.run())
-
-    def stop(self, clock: Clock):
-        self.run_task.cancel()
+    # def start(self, clock: Clock, timestamp: float):
+    #     self.run_task = safe_ensure_future(self.run())
+    #
+    # def stop(self, clock: Clock):
+    #     self.run_task.cancel()
 
     def buy(self,
             connector_name: str,
@@ -90,7 +109,7 @@ class LiteStrategyBase(StrategyPyBase):
             amount: Decimal,
             order_type: OrderType,
             price=s_decimal_nan,
-            position_action=PositionAction.OPEN):
+            position_action=PositionAction.OPEN) -> str:
         """
         A wrapper function to buy_with_specific_market.
         :param connector_name: The name of the connector
@@ -99,10 +118,12 @@ class LiteStrategyBase(StrategyPyBase):
         :param order_type: The type of the order
         :param price: An order price
         :param position_action: A position action (for perpetual market only)
+
+        :return: The client assigned id for the new order
         """
-        market_pair = self.get_market_trading_pair_tuple(connector_name, trading_pair)
+        market_pair = self._market_trading_pair_tuple(connector_name, trading_pair)
         self.logger().info(f"Creating {trading_pair} buy order: price: {price} amount: {amount}.")
-        self.buy_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
+        return self.buy_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
 
     def sell(self,
              connector_name: str,
@@ -110,19 +131,36 @@ class LiteStrategyBase(StrategyPyBase):
              amount: Decimal,
              order_type: OrderType,
              price=s_decimal_nan,
-             position_action=PositionAction.OPEN):
+             position_action=PositionAction.OPEN) -> str:
         """
         A wrapper function to sell_with_specific_market.
+
         :param connector_name: The name of the connector
         :param trading_pair: The market trading pair
         :param amount: An order amount in base token value
         :param order_type: The type of the order
         :param price: An order price
         :param position_action: A position action (for perpetual market only)
+
+        :return: The client assigned id for the new order
         """
-        market_pair = self.get_market_trading_pair_tuple(connector_name, trading_pair)
+        market_pair = self._market_trading_pair_tuple(connector_name, trading_pair)
         self.logger().info(f"Creating {trading_pair} sell order: price: {price} amount: {amount}.")
-        self.sell_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
+        return self.sell_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
+
+    def cancel(self,
+               connector_name: str,
+               trading_pair: str,
+               order_id: str):
+        """
+        A wrapper function to cancel_order.
+
+        :param connector_name: The name of the connector
+        :param trading_pair: The market trading pair
+        :param order_id: The identifier assigned by the client of the order to be cancelled
+        """
+        market_pair = self._market_trading_pair_tuple(connector_name, trading_pair)
+        self.cancel_order(market_trading_pair_tuple=market_pair, order_id=order_id)
 
     def get_active_orders(self, connector_name: str) -> List[LimitOrder]:
         """
@@ -140,24 +178,10 @@ class LiteStrategyBase(StrategyPyBase):
         :param connector_name: The name of the connector
         :return: A list of token names
         """
-        result: List = []
+        result: Set = set()
         for trading_pair in self.markets[connector_name]:
-            for asset in trading_pair.split("-"):
-                if asset not in result:
-                    result.append(asset)
+            result.update(split_hb_trading_pair(trading_pair))
         return sorted(result)
-
-    def get_market_trading_pair_tuple(self,
-                                      connector_name: str,
-                                      trading_pair: str) -> MarketTradingPairTuple:
-        """
-        Creates and returns a new MarketTradingPairTuple.
-        :param connector_name: The name of the connector
-        :param trading_pair: The trading pair
-        :return: A new MarketTradingPairTuple object.
-        """
-        base, quote = trading_pair.split("-")
-        return MarketTradingPairTuple(self.connectors[connector_name], trading_pair, base, quote)
 
     def get_market_trading_pair_tuples(self) -> List[MarketTradingPairTuple]:
         """
@@ -167,7 +191,7 @@ class LiteStrategyBase(StrategyPyBase):
         result: List[MarketTradingPairTuple] = []
         for name, connector in self.connectors.items():
             for trading_pair in self.markets[name]:
-                result.append(self.get_market_trading_pair_tuple(name, trading_pair))
+                result.append(self._market_trading_pair_tuple(name, trading_pair))
         return result
 
     def get_balance_df(self) -> pd.DataFrame:
@@ -179,9 +203,9 @@ class LiteStrategyBase(StrategyPyBase):
         for connector_name, connector in self.connectors.items():
             for asset in self.get_assets(connector_name):
                 data.append([connector_name,
-                            asset,
-                            float(connector.get_balance(asset)),
-                            float(connector.get_available_balance(asset))])
+                             asset,
+                             float(connector.get_balance(asset)),
+                             float(connector.get_available_balance(asset))])
         df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
         df.sort_values(by=["Exchange", "Asset"], inplace=True)
         return df
@@ -233,3 +257,16 @@ class LiteStrategyBase(StrategyPyBase):
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)
+
+    def _market_trading_pair_tuple(self,
+                                   connector_name: str,
+                                   trading_pair: str) -> MarketTradingPairTuple:
+        """
+        Creates and returns a new MarketTradingPairTuple
+
+        :param connector_name: The name of the connector
+        :param trading_pair: The trading pair
+        :return: A new MarketTradingPairTuple object.
+        """
+        base, quote = split_hb_trading_pair(trading_pair)
+        return MarketTradingPairTuple(self.connectors[connector_name], trading_pair, base, quote)

@@ -22,7 +22,7 @@ class OracleRateUnavailable(HummingbotBaseException):
     """
 
 
-class InvalidLiteStrategyFile(HummingbotBaseException):
+class InvalidScriptModule(HummingbotBaseException):
     """
-    The file does not contain a LiteStrategyBase subclass
+    The file does not contain a ScriptBase subclass
     """

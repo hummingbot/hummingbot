@@ -1,26 +1,24 @@
 import re
-from typing import List
-from prompt_toolkit.completion import (
-    Completer,
-    WordCompleter,
-    CompleteEvent,
-)
-from prompt_toolkit.document import Document
 from os import listdir
-from os.path import isfile, join, exists
+from os.path import exists, isfile, join
+from typing import List
+
+from prompt_toolkit.completion import Completer, CompleteEvent, WordCompleter
+from prompt_toolkit.document import Document
+
+from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.settings import (
     AllConnectorSettings,
-    STRATEGIES,
     CONF_FILE_PATH,
-    SCRIPTS_PATH,
-    LITE_STRATEGIES_PATH,
-    ConnectorType
+    ConnectorType,
+    PMM_SCRIPTS_PATH,
+    SCRIPT_STRATEGIES_PATH,
+    STRATEGIES,
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
-from hummingbot.core.utils.wallet_setup import list_wallets
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+from hummingbot.core.utils.wallet_setup import list_wallets
 
 
 def file_name_list(path, file_extension):
@@ -39,20 +37,27 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
-        self._spot_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
-        self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
-        self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
+        self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()),
+                                                 ignore_case=True)
+        self._spot_completer = WordCompleter(
+            sorted(AllConnectorSettings.get_exchange_names().union(SPOT_PROTOCOL_CONNECTOR)),
+            ignore_case=True)
+        self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()),
+                                                      ignore_case=True)
+        self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"],
+                                                          ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
-        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
+        self._derivative_exchange_completer = WordCompleter(
+            AllConnectorSettings.get_derivative_names().difference(DERIVATIVE_PROTOCOL_CONNECTOR),
+            ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["generate_certs", "list-configs", "update"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
-        self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
-        self._lite_strategy_completer = WordCompleter(file_name_list(LITE_STRATEGIES_PATH, "py"))
+        self._py_file_completer = WordCompleter(file_name_list(PMM_SCRIPTS_PATH, "py"))
+        self._script_strategy_completer = WordCompleter(file_name_list(SCRIPT_STRATEGIES_PATH, "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
 
     @property
@@ -97,8 +102,8 @@ class HummingbotCompleter(Completer):
     def _complete_strategies(self, document: Document) -> bool:
         return "strategy" in self.prompt_text and "strategy file" not in self.prompt_text
 
-    def _complete_script_files(self, document: Document) -> bool:
-        return "script file" in self.prompt_text
+    def _complete_pmm_script_files(self, document: Document) -> bool:
+        return "PMM script file" in self.prompt_text
 
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -144,9 +149,9 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway ")
 
-    def _complete_lite_strategy_files(self, document: Document) -> bool:
+    def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("start --lite ")
+        return text_before_cursor.startswith("start --script ")
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
@@ -182,12 +187,12 @@ class HummingbotCompleter(Completer):
         :param document:
         :param complete_event:
         """
-        if self._complete_script_files(document):
+        if self._complete_pmm_script_files(document):
             for c in self._py_file_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_lite_strategy_files(document):
-            for c in self._lite_strategy_completer.get_completions(document, complete_event):
+        elif self._complete_script_strategy_files(document):
+            for c in self._script_strategy_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_paths(document):

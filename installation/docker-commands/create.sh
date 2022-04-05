@@ -67,8 +67,9 @@ create_instance () {
  mkdir $FOLDER/hummingbot_conf
  mkdir $FOLDER/hummingbot_logs
  mkdir $FOLDER/hummingbot_data
- mkdir $FOLDER/hummingbot_scripts
+ mkdir $FOLDER/hummingbot_pmm_scripts
  mkdir $FOLDER/hummingbot_certs
+  mkdir $FOLDER/hummingbot_scripts
  # 3) Set required permissions to save hummingbot password the first time
  sudo chmod a+rw $FOLDER/hummingbot_conf
  # 4) Launch a new instance of hummingbot
@@ -78,8 +79,9 @@ create_instance () {
  --mount "type=bind,source=$FOLDER/hummingbot_conf,destination=/conf/" \
  --mount "type=bind,source=$FOLDER/hummingbot_logs,destination=/logs/" \
  --mount "type=bind,source=$FOLDER/hummingbot_data,destination=/data/" \
- --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_pmm_scripts,destination=/pmm_scripts/" \
  --mount "type=bind,source=$FOLDER/hummingbot_certs,destination=/certs/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/"
  coinalpha/hummingbot:$TAG
 }
 

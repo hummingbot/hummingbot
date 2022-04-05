@@ -1,28 +1,23 @@
 import asyncio
+import inspect
+import time
+from collections import deque, OrderedDict
+from typing import Dict, List
+from typing import TYPE_CHECKING
 
 import pandas as pd
-import time
-from collections import (
-    deque,
-    OrderedDict
-)
-import inspect
-from typing import List, Dict
+
 from hummingbot import check_dev_mode
-from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.client.config.config_helpers import get_strategy_config_map, missing_required_configs
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    missing_required_configs,
-    get_strategy_config_map
-)
-from hummingbot.client.config.security import Security
-from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.user.user_balances import UserBalances
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -81,8 +76,8 @@ class StatusCommand:
         else:
             st_status = self.strategy.format_status()
         status = paper_trade + "\n" + st_status + "\n" + app_warning
-        if self._script_iterator is not None and live is False:
-            self._script_iterator.request_status()
+        if self._pmm_script_iterator is not None and live is False:
+            self._pmm_script_iterator.request_status()
         return status
 
     def application_warning(self):
@@ -128,8 +123,8 @@ class StatusCommand:
                 await self.stop_live_update()
                 self.app.live_updates = True
                 while self.app.live_updates and self.strategy:
-                    script_status = '\n Status from script would not appear here. ' \
-                                    'Simply run the status command without "--live" to see script status.'
+                    script_status = '\n Status from PMM script would not appear here. ' \
+                                    'Simply run the status command without "--live" to see PMM script status.'
                     await self.cls_display_delay(
                         await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 1
                     )
