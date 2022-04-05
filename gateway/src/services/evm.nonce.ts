@@ -79,6 +79,7 @@ export class NonceLocalStorage extends LocalStorage {
  */
 export class EVMNonceManager {
   #addressToNonce: Record<string, [number, Date]> = {};
+  #addressToLastNonce: Record<string, [number, Date]> = {};
 
   #initialized: boolean = false;
   #chainId: number;
@@ -167,6 +168,7 @@ export class EVMNonceManager {
   async getNonce(ethAddress: string): Promise<number> {
     if (this._provider !== null) {
       if (this.#addressToNonce[ethAddress]) {
+        // TODO: If leading_nonce is available, returns leading_nonce + 1
         const timestamp = this.#addressToNonce[ethAddress][1];
         const now = new Date();
         const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
@@ -223,6 +225,12 @@ export class EVMNonceManager {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
+  }
+
+  async isValidNonce(ethAddress: string, _nonce: number): Promise<boolean> {
+    const currentNonce: number = this.#addressToNonce[ethAddress][0];
+    if (_nonce > currentNonce) return true;
+    return false;
   }
 
   async close(): Promise<void> {
