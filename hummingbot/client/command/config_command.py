@@ -8,10 +8,10 @@ from prompt_toolkit.utils import is_windows
 
 from hummingbot.client.config.config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
     missing_required_configs_legacy,
     save_to_yml,
     save_to_yml_legacy,
-    ClientConfigAdapter,
 )
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
