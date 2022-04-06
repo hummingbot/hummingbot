@@ -106,12 +106,9 @@ class ClientConfigAdapter:
         self._hb_config = hb_config
 
     def __getattr__(self, item):
-        if item == "_hb_config":
-            value = super().__getattribute__(item)
-        else:
-            value = getattr(self._hb_config, item)
-            if isinstance(value, BaseClientModel):
-                value = ClientConfigAdapter(value)
+        value = getattr(self._hb_config, item)
+        if isinstance(value, BaseClientModel):
+            value = ClientConfigAdapter(value)
         return value
 
     def __setattr__(self, key, value):

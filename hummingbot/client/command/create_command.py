@@ -6,6 +6,8 @@ from typing import Dict, Optional, TYPE_CHECKING
 
 from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    ConfigValidationError,
     default_strategy_file_path,
     format_config_file_name,
     get_strategy_config_map,
@@ -13,9 +15,7 @@ from hummingbot.client.config.config_helpers import (
     parse_config_default_to_text,
     parse_cvar_value,
     save_to_yml,
-    save_to_yml_legacy,
-    ClientConfigAdapter,
-    ConfigValidationError,
+    save_to_yml_legacy
 )
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
