@@ -1,5 +1,5 @@
-from hummingbot.core.event.event_reporter cimport EventReporter
 from hummingbot.core.event.event_logger cimport EventLogger
+from hummingbot.core.event.event_reporter cimport EventReporter
 from hummingbot.core.network_iterator cimport NetworkIterator
 
 cdef class ConnectorBase(NetworkIterator):
@@ -15,6 +15,7 @@ cdef class ConnectorBase(NetworkIterator):
         public set _current_trade_fills
         public dict _exchange_order_ids
         public object _trade_fee_schema
+        public object _trade_volume_metric_collector
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)

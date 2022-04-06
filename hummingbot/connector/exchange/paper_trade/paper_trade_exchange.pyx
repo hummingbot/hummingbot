@@ -13,6 +13,7 @@ from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
 
 from hummingbot.connector.budget_checker import BudgetChecker
+from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
@@ -147,11 +148,12 @@ cdef class PaperTradeExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
-    def __init__(self, order_book_tracker: OrderBookTracker, target_market: type):
+    def __init__(self, order_book_tracker: OrderBookTracker, target_market: type, exchange_name: str):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
         self._budget_checker = BudgetChecker(exchange=self)
         super(ExchangeBase, self).__init__()
+        self._exchange_name = exchange_name
         self._account_balances = {}
         self._account_available_balances = {}
         self._paper_trade_market_initialized = False
@@ -162,6 +164,9 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
+
+        # Trade volume metrics should never be gather for paper trade connector
+        self._trade_volume_metric_collector = DummyMetricsCollector()
 
     @property
     def order_book_tracker(self) -> OrderBookTracker:
@@ -196,11 +201,11 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
-        return self._order_book_tracker.exchange_name
+        return self._exchange_name
 
     @property
     def display_name(self) -> str:
-        return f"{self._order_book_tracker.exchange_name}_PaperTrade"
+        return f"{self._exchange_name}_PaperTrade"
 
     @property
     def order_books(self) -> Dict[str, CompositeOrderBook]:

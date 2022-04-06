@@ -1,9 +1,8 @@
-import aiohttp
 import asyncio
 import json
 
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from typing import Dict, Any, Awaitable
 from aioresponses import aioresponses
 
@@ -20,11 +19,11 @@ class AscendExUserStreamTrackerTests(TestCase):
         self.ev_loop = asyncio.get_event_loop()
         self.mocking_assistant = NetworkMockingAssistant()
         self.listening_task = None
-        self.session = None
+        self.api_factory = None
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.tracker = AscendExUserStreamTracker(
             ascend_ex_auth=AscendExAuth(api_key="testAPIKey", secret_key="testSecret"),
-            shared_client=self.session,
+            api_factory=self.api_factory,
             throttler=self.throttler,
         )
 
@@ -47,10 +46,10 @@ class AscendExUserStreamTrackerTests(TestCase):
         return message
 
     @aioresponses()
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_authenticates_and_subscribes_to_events(self, api_mock, ws_connect_mock):
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.listening_task = self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(output_queue))
 
         # Add the account group response
         resp = self._accountgroup_response()
@@ -80,38 +79,3 @@ class AscendExUserStreamTrackerTests(TestCase):
         ret = self.ev_loop.run_until_complete(output_queue.get())
 
         self.assertEqual(resp, ret)
-
-    @aioresponses()
-    @patch("aiohttp.client.ClientSession.ws_connect")
-    def test_listen_for_user_stream_authenticates_and_handles_ping_message(self, api_mock, ws_connect_mock):
-        output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.tracker.data_source.listen_for_user_stream(self.ev_loop, output_queue))
-
-        # Add the account group response
-        resp = self._accountgroup_response()
-        api_mock.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}", body=json.dumps(resp))
-
-        # Create WS mock
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        # Add the authentication response for the websocket
-        resp = self._authentication_response(authenticated=True)
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
-        self.ev_loop.run_until_complete(output_queue.get())
-
-        resp = {"m": "ping", "hp": 3}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(resp),
-            message_type=aiohttp.WSMsgType.TEXT,
-        )
-
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        resp = {"data": "dummyMessage"}
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
-
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-        sent_json = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-
-        self.assertTrue(any(["pong" in str(payload) for payload in sent_json]))
