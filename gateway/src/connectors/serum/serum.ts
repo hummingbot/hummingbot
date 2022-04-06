@@ -6,7 +6,15 @@ import {
 } from '@project-serum/serum';
 import { Solana } from '../../chains/solana/solana';
 import { SerumConfig } from './serum.config';
-import { CreateOrder, Market, Order, OrderBook, Ticker } from './serum.types';
+import {
+  CreateOrder,
+  OrderRequest,
+  Market,
+  Order,
+  OrderBook,
+  Ticker,
+  OrderRequests,
+} from './serum.types';
 import {
   Order as SerumOrder,
   OrderParams as SerumOrderParams,
@@ -175,7 +183,7 @@ export class Serum {
   async getAllMarkets(): Promise<Map<string, Market>> {
     const allMarkets = new Map<string, Market>();
 
-    // TODO use fetch to retrieve ther markets instead of using the JSON!!!
+    // TODO use fetch to retrieve the markets instead of using the JSON!!!
 
     for (const market of MARKETS) {
       allMarkets.set(
@@ -229,7 +237,7 @@ export class Serum {
 
     if (!market) throw new Error(`Market ${marketName} not found.`);
 
-    // TODO check ther returned order!!!
+    // TODO check the returned order of loadFills!!!
     return this.parseToTicker(
       (await market.market.loadFills(this.connection, 1))[0]
     );
@@ -286,14 +294,7 @@ export class Serum {
     throw Error(`Order ${target.clientOrderId} not found.`);
   }
 
-  async getOrders(
-    targets: {
-      marketName: string;
-      address: string;
-      clientOrderId: string;
-      exchangeOrderId: string;
-    }[]
-  ): Promise<Map<string, Order>> {
+  async getOrders(targets: OrderRequest[]): Promise<Map<string, Order>> {
     const orders = new Map<string, Order>();
 
     for (const target of targets) {
@@ -392,12 +393,7 @@ export class Serum {
     return createdOrders;
   }
 
-  async cancelOrder(target: {
-    marketName: string;
-    address: string;
-    clientOrderId: string;
-    exchangeOrderId: string;
-  }): Promise<any> {
+  async cancelOrder(target: OrderRequest): Promise<any> {
     const market = await this.getMarket(target.marketName);
 
     if (!market) throw Error(`Market ${target.marketName} not found.`);
@@ -414,14 +410,7 @@ export class Serum {
     await market.market.cancelOrder(this.connection, owner, order.order);
   }
 
-  async cancelOrders(
-    targets: {
-      marketName: string;
-      address: string;
-      clientOrderId: string;
-      exchangeOrderId: string;
-    }[]
-  ): Promise<Order[]> {
+  async cancelOrders(targets: OrderRequest[]): Promise<Order[]> {
     // TODO improve to use transactions in the future
 
     const canceledOrders = [];
@@ -463,20 +452,15 @@ export class Serum {
     return orders;
   }
 
-  async getFilledOrder(target: {
-    marketName?: string;
-    address?: string;
-    exchangeOrderId?: string;
-    clientOrderId?: string;
-  }): Promise<Order> {
+  async getFilledOrder(target: OrderRequest): Promise<Order> {
     const filledOrders = await this.getFilledOrders([
       {
         marketName: target.marketName,
-        address: target.address,
+        addresses: target.address ? [target.address] : [],
         exchangeOrderIds: target.exchangeOrderId
           ? [target.exchangeOrderId]
           : [],
-        clientOrderIds: target.clientOrderId? [target.clientOrderId] : [],
+        clientOrderIds: target.clientOrderId ? [target.clientOrderId] : [],
       },
     ]);
 
@@ -484,12 +468,7 @@ export class Serum {
   }
 
   async getFilledOrders(
-    targets: {
-      marketName?: string;
-      address?: string;
-      exchangeOrderIds?: string[];
-      clientOrderIds?: string[];
-    }[]
+    targets: OrderRequests[]
   ): Promise<Map<string, Order[]>> {
     const result = new Map<string, Order[]>();
 
@@ -518,6 +497,6 @@ export class Serum {
   }
 
   async getAllFilledOrders(): Promise<Map<string, Order[]>> {
-    return await this.getFilledOrders([{ marketName: undefined }]);
+    return await this.getFilledOrders([{}]);
   }
 }

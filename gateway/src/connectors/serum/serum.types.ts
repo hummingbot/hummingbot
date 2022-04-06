@@ -7,7 +7,6 @@ import {
   Order as SerumOrder,
   OrderParams as SerumOrderParams,
 } from '@project-serum/serum/lib/market';
-import BN from 'bn.js';
 
 export interface Market {
   name: string;
@@ -27,13 +26,18 @@ export interface OrderBook {
 }
 
 export interface Order {
-  id: BN;
+  id: string;
+  exchangeId: string;
+  marketName: string;
+  ownerAddress: string;
   price: number;
   amount: number;
   order: SerumOrder;
 }
 
-export interface Ticker {}
+export interface Ticker {
+  ticker: any;
+}
 
 // TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
 export interface CreateOrder extends SerumOrderParams {
@@ -41,18 +45,21 @@ export interface CreateOrder extends SerumOrderParams {
   address: string;
 }
 
-export interface GetOrder {
+export interface OrderRequest {
   marketName: string;
-  clientOrderId?: string;
-  exchangeOrderId?: string;
+  address: string;
+  clientOrderId: string;
+  exchangeOrderId: string;
 }
 
-export interface CancelOrder {
+export interface OrderRequests {
+  marketName?: string;
+  addresses?: string[];
+  clientOrderIds?: string[];
+  exchangeOrderIds?: string[];
 }
 
-export interface DeleteOrder {
-}
-
+// TODO remove comments later!!!
 // export interface FeeInfo {
 //   maker: string;
 //   taker: string;
