@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from datetime import datetime, time, date
+from datetime import date, datetime, time
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
