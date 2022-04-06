@@ -138,6 +138,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         self._time_between_stop_loss_orders = time_between_stop_loss_orders
         self._stop_loss_slippage_buffer = stop_loss_slippage_buffer
 
+        self._strategy_ready = False
+        self._strategy_not_ready_counter = 0
+
     def all_markets_ready(self):
         return all([market.ready for market in self.active_markets])
 
@@ -459,6 +462,15 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         market.set_position_mode(position)
 
     def tick(self, timestamp: float):
+        if not self._strategy_ready:
+            self._strategy_not_ready_counter += 1
+            # Attempt to switch position mode every 10 ticks only to not to spam and DDOS
+            if self._strategy_not_ready_counter == 10:
+                market: ExchangeBase = self._market_info.market
+                market.set_position_mode(self._position_mode)
+                self._strategy_not_ready_counter = 0
+            return
+        self._strategy_not_ready_counter = 0
         market: ExchangeBase = self._market_info.market
         session_positions = [s for s in self.active_positions.values() if s.trading_pair == self.trading_pair]
         current_tick = timestamp // self._status_report_interval
@@ -863,17 +875,19 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             self.logger().error(
                 f"Changing position mode to {self._position_mode.name} failed. "
                 f"Reason: {position_mode_changed_event.reason}.")
+            self._strategy_ready = False
             market: ExchangeBase = self._market_info.market
             if position_mode_changed_event.has_order:
                 self.logger().error("Cancelling all open orders and retrying ...")
                 market.cancel_all_account_orders(self.trading_pair)
+                market.set_position_mode(self._position_mode)
             if position_mode_changed_event.has_position:
                 self.logger().warning("Position exists, please close it manually first.")
-            market.set_position_mode(self._position_mode)
         else:
             if self._position_mode is position_mode_changed_event.position_mode:
                 self.logger().info(
                     f"Changing position mode to {self._position_mode.name} succeeded.")
+                self._strategy_ready = True
 
     def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
         if len(current_prices) != len(proposal_prices):
