@@ -308,8 +308,8 @@ class GatewayEVMAMM(ConnectorBase):
             **request_args
         )
 
-        transaction_hash = resp.get("approval").get("hash")
-        nonce = resp.get("nonce")
+        transaction_hash: Optional[str] = resp.get("approval").get("hash")
+        nonce: Optional[int] = resp.get("nonce")
         if transaction_hash is not None and nonce is not None:
             self.start_tracking_order(order_id, transaction_hash, token_symbol)
             tracked_order = self._in_flight_orders.get(order_id)
