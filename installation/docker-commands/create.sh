@@ -81,7 +81,7 @@ create_instance () {
  --mount "type=bind,source=$FOLDER/hummingbot_data,destination=/data/" \
  --mount "type=bind,source=$FOLDER/hummingbot_pmm_scripts,destination=/pmm_scripts/" \
  --mount "type=bind,source=$FOLDER/hummingbot_certs,destination=/certs/" \
- --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/"
+ --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/" \
  coinalpha/hummingbot:$TAG
 }
 
