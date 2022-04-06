@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Optional
 
@@ -16,7 +15,6 @@ from hummingbot.logger import HummingbotLogger
 
 
 class BybitPerpetualUserStreamTracker(UserStreamTracker):
-
     _bpust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -25,17 +23,20 @@ class BybitPerpetualUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(self, auth_assistant: BybitPerpetualAuth, domain: Optional[str] = None, session: Optional[aiohttp.ClientSession] = None):
-        super().__init__()
-        self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
-
+    def __init__(self,
+                 auth_assistant: BybitPerpetualAuth,
+                 domain: Optional[str] = None,
+                 session: Optional[aiohttp.ClientSession] = None):
         self._auth_assistant = auth_assistant
         self._domain = domain
         self._session = session
 
         if self._session is None:
             self._session = aiohttp.ClientSession()
+        super().__init__(data_source=BybitPerpetualUserStreamDataSource(
+            auth_assistant=self._auth_assistant,
+            session=self._session,
+            domain=self._domain))
 
     @property
     def exchange_name(self) -> str:
@@ -44,7 +45,10 @@ class BybitPerpetualUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if self._data_source is None:
-            self._data_source = BybitPerpetualUserStreamDataSource(auth_assistant=self._auth_assistant, session=self._session, domain=self._domain)
+            self._data_source = BybitPerpetualUserStreamDataSource(
+                auth_assistant=self._auth_assistant,
+                session=self._session,
+                domain=self._domain)
         return self._data_source
 
     async def start(self):

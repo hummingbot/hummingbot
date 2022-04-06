@@ -1,56 +1,81 @@
-#!/usr/bin/env python
-
 import asyncio
-from collections import deque, defaultdict
 import logging
 import time
-import bisect
+from collections import defaultdict, deque
 from typing import (
     Deque,
     Dict,
     List,
-    Optional
+    Optional,
 )
 
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
-from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 
-class KucoinOrderBookTracker(OrderBookTracker):
-    _kobt_logger: Optional[HummingbotLogger] = None
+class CoinflexOrderBookTracker(OrderBookTracker):
+    _logger: Optional[HummingbotLogger] = None
+
+    def __init__(self,
+                 trading_pairs: Optional[List[str]] = None,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 throttler: Optional[AsyncThrottler] = None):
+        super().__init__(
+            data_source=CoinflexAPIOrderBookDataSource(
+                trading_pairs=trading_pairs,
+                domain=domain,
+                api_factory=api_factory,
+                throttler=throttler),
+            trading_pairs=trading_pairs,
+            domain=domain
+        )
+        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
+        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
+        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._domain = domain
+        self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
+
+        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._kobt_logger is None:
-            cls._kobt_logger = logging.getLogger(__name__)
-        return cls._kobt_logger
-
-    def __init__(self,
-                 throttler: Optional[AsyncThrottler] = None,
-                 trading_pairs: Optional[List[str]] = None,
-                 auth: Optional[KucoinAuth] = None):
-        super().__init__(KucoinAPIOrderBookDataSource(throttler, trading_pairs, auth), trading_pairs)
-        self._auth = auth
-        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
-        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
-        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        self._saved_message_queues: Dict[str, Deque[KucoinOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._active_order_trackers: Dict[str, KucoinActiveOrderTracker] = defaultdict(KucoinActiveOrderTracker)
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     @property
     def exchange_name(self) -> str:
-        return "kucoin"
+        if self._domain != CONSTANTS.DEFAULT_DOMAIN:
+            return f"coinflex_{self._domain}"
+        return "coinflex"
+
+    def start(self):
+        """
+        Starts the background task that connects to the exchange and listens to order book updates and trade events.
+        """
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
+
+    def stop(self):
+        """
+        Stops the background task
+        """
+        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        super().stop()
 
     async def _order_book_diff_router(self):
         """
-        Route the real-time order book diff messages to the correct order book.
+        Routes the real-time order book diff messages to the correct order book.
         """
         last_message_timestamp: float = time.time()
         messages_queued: int = 0
@@ -59,7 +84,7 @@ class KucoinOrderBookTracker(OrderBookTracker):
 
         while True:
             try:
-                ob_message: KucoinOrderBookMessage = await self._order_book_diff_stream.get()
+                ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
                 trading_pair: str = ob_message.trading_pair
 
                 if trading_pair not in self._tracking_message_queues:
@@ -98,20 +123,18 @@ class KucoinOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, trading_pair: str):
-        past_diffs_window: Deque[KucoinOrderBookMessage] = deque()
+        past_diffs_window: Deque[OrderBookMessage] = deque()
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
         order_book: OrderBook = self._order_books[trading_pair]
-        active_order_tracker: KucoinActiveOrderTracker = self._active_order_trackers[trading_pair]
-
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
             try:
-                message: KucoinOrderBookMessage = None
-                saved_messages: Deque[KucoinOrderBookMessage] = self._saved_message_queues[trading_pair]
+                message: OrderBookMessage = None
+                saved_messages: Deque[OrderBookMessage] = self._saved_message_queues[trading_pair]
 
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
@@ -120,8 +143,7 @@ class KucoinOrderBookTracker(OrderBookTracker):
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
-                    bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
-                    order_book.apply_diffs(bids, asks, message.update_id)
+                    order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     past_diffs_window.append(message)
                     while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
                         past_diffs_window.popleft()
@@ -134,16 +156,8 @@ class KucoinOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[KucoinOrderBookMessage] = list(past_diffs_window)
-                    # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
-                    replay_position = bisect.bisect_right(past_diffs, message)
-                    replay_diffs = past_diffs[replay_position:]
-                    s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
+                    past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
-                    for diff_message in replay_diffs:
-                        d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
-                        order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
-
                     self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
