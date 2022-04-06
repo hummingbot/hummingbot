@@ -1,16 +1,16 @@
 import asyncio
 import os
+from typing import TYPE_CHECKING
 
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
+    format_config_file_name,
     load_strategy_config_map_from_file,
     short_strategy_name,
-    format_config_file_name,
     validate_strategy_file
 )
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
-from typing import TYPE_CHECKING
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication

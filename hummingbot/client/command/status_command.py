@@ -1,30 +1,26 @@
 import asyncio
+import inspect
+import time
+from collections import OrderedDict, deque
+from typing import Dict, List, TYPE_CHECKING
 
 import pandas as pd
-import time
-from collections import (
-    deque,
-    OrderedDict
-)
-import inspect
-from typing import Dict, List
 
 from hummingbot import check_dev_mode
-from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    get_strategy_config_map,
+    missing_required_configs_legacy
+)
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import ethereum_wallet_required, required_exchanges
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    get_strategy_config_map,
-    missing_required_configs_legacy,
-    ClientConfigAdapter,
-)
-from hummingbot.client.config.security import Security
-from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.user.user_balances import UserBalances
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 

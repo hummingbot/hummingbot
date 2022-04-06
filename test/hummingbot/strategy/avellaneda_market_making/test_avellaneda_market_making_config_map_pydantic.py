@@ -15,8 +15,11 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
     AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
     FromDateToDateModel,
-    InfiniteModel, SingleOrderLevelModel, MultiOrderLevelModel,
-    IgnoreHangingOrdersModel, TrackHangingOrdersModel,
+    IgnoreHangingOrdersModel,
+    InfiniteModel,
+    MultiOrderLevelModel,
+    SingleOrderLevelModel,
+    TrackHangingOrdersModel
 )
 
 
