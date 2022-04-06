@@ -786,6 +786,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
             position=PositionAction.OPEN
         )
@@ -847,6 +848,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
             position=PositionAction.OPEN
         )
@@ -888,6 +890,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
             position=PositionAction.OPEN
         )
@@ -928,6 +931,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
             position=PositionAction.OPEN
         )
@@ -992,42 +996,46 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
-        self.connector.in_flight_orders["O2"] = InFlightOrder(
-            client_order_id="O2",
+            position=PositionAction.OPEN,
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["New"])
-        # Add also an order already done, that should not be cancelled
-        self.connector.in_flight_orders["O3"] = InFlightOrder(
-            client_order_id="O3",
+            position=PositionAction.OPEN
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O3",
             exchange_order_id="EO3",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Filled"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["Filled"])
+            position=PositionAction.OPEN
+        )
 
         cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=10))
 
@@ -1039,17 +1047,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
+            position=PositionAction.OPEN,
+        )
 
         cancellation_results = asyncio.get_event_loop().run_until_complete(
             self.connector.cancel_all(timeout_seconds=0.1))
@@ -1111,29 +1122,33 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(local_connector.ready)
 
     def test_limit_orders(self):
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
-        self.connector.in_flight_orders["O2"] = InFlightOrder(
-            client_order_id="O2",
+            position=PositionAction.OPEN
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
+            trading_type=TradeType.SELL,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.MARKET,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
             position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["New"])
+        )
 
         limit_orders = self.connector.limit_orders
 
@@ -1142,29 +1157,33 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("O2", limit_orders[1].client_order_id)
 
     def test_generate_tracking_states(self):
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
-        self.connector.in_flight_orders["O2"] = InFlightOrder(
-            client_order_id="O2",
+            position=PositionAction.OPEN
+        )
+
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
+            trading_type=TradeType.SELL,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.MARKET,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["New"])
+            position=PositionAction.OPEN
+        )
 
         tracking_states = self.connector.tracking_states
 
@@ -1183,17 +1202,23 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(expected_second_order_json, tracking_states["O2"])
 
     def test_restore_tracking_states(self):
-        order = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
+            position=PositionAction.OPEN
+        )
+
+        order = self.connector.in_flight_orders["O1"]
+
         order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
                       'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
                       'executed_amount_base': '0', 'executed_amount_quote': '0', 'last_state': '0',
@@ -1380,18 +1405,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
             position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["New"])
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
 
@@ -1452,18 +1479,20 @@ class BybitPerpetualDerivativeTests(TestCase):
         get_mock.get(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["New"])
+            position=PositionAction.OPEN
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
         request_data = mock_response["result"]
@@ -1498,18 +1527,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["New"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["New"])
+            position=PositionAction.OPEN
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
 
@@ -1524,18 +1555,20 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
-        self.connector.in_flight_orders["O1"] = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Created"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["Created"])
+            position=PositionAction.OPEN
+        )
 
         status_request_result = {
             "user_id": 106958,
@@ -1568,18 +1601,18 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertTrue(self.connector.in_flight_orders["O1"].current_state == OrderState.OPEN)
 
-        self.connector.in_flight_orders["O2"] = InFlightOrder(
-            client_order_id="O2",
+        self.connector.start_tracking_order(
+            order_id="O2",
             exchange_order_id="EO2",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
+            trading_type=TradeType.SELL,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Created"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["Created"])
+            position=PositionAction.OPEN
+        )
 
         status_request_result = {
             "user_id": 106958,
@@ -1619,19 +1652,20 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
-        order = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=CONSTANTS.ORDER_STATE["Created"],
             leverage=10,
-            position=PositionAction.OPEN,
-            initial_state=CONSTANTS.ORDER_STATE["Created"])
-        self.connector.in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
 
         status_request_result = {
             "user_id": 106958,
@@ -1710,18 +1744,22 @@ class BybitPerpetualDerivativeTests(TestCase):
         get_mock.get(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
-        order = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
-        self.connector.in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
+
+        order = self.connector.in_flight_orders["O1"]
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
@@ -1818,18 +1856,22 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
-        order = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
-        self.connector.in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
+
+        order = self.connector.in_flight_orders["O1"]
 
         get_mock.get(regex_url, body=json.dumps(mock_response_partial_fill))
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
@@ -1894,18 +1936,20 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
 
-        order = InFlightOrder(
-            client_order_id="O1",
+        self.connector._set_current_timestamp(1640001112.0)
+
+        self.connector.start_tracking_order(
+            order_id="O1",
             exchange_order_id="EO1",
             trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
+            trading_type=TradeType.BUY,
             price=Decimal(44000),
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            creation_timestamp=1640001112.0,
+            initial_state=OrderState.PENDING_CREATE,
             leverage=10,
-            position=PositionAction.OPEN)
-        self.connector.in_flight_orders["O1"] = order
+            position=PositionAction.OPEN
+        )
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
@@ -2453,10 +2497,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.connector._user_stream_tracker.start())
 
+        self.connector._set_current_timestamp(1640001112.0)
+
         # Prepare inflight order
         self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
                                             "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1,
-                                            "Market", 1, "")
+                                            "Market", 0, 1, "")
 
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
@@ -2509,10 +2555,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.connector._user_stream_tracker.start())
 
+        self.connector._set_current_timestamp(1640001112.0)
+
         # Prepare inflight order
         self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419",
                                             "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1,
-                                            "Market", 1, "")
+                                            "Market", 0, 1, "")
 
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_json_message(ws_connect_mock.return_value, self._authentication_response(True))
