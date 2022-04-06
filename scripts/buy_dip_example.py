@@ -1,13 +1,13 @@
-import asyncio
 import logging
 import time
 from decimal import Decimal
 from statistics import mean
 from typing import List
 
-import aiohttp
+import requests
 
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -26,7 +26,7 @@ class BuyDipExample(ScriptStrategyBase):
     """
     connector_name: str = "binance_paper_trade"
     trading_pair: str = "ETH-BTC"
-    base_asset, quote_asset = trading_pair.split("-")
+    base_asset, quote_asset = split_hb_trading_pair(trading_pair)
     conversion_pair: str = f"{quote_asset}-USD"
     buy_usd_amount: Decimal = Decimal("100")
     moving_avg_period: int = 50
@@ -35,49 +35,8 @@ class BuyDipExample(ScriptStrategyBase):
     cool_off_interval: float = 10.
     #: The last buy timestamp
     last_ordered_ts: float = 0.
-    shared_client: aiohttp.ClientSession = None
 
     markets = {connector_name: {trading_pair}}
-    #: Override tick_size to manually set how often the on_tick runs
-    tick_size = 5.
-
-    @classmethod
-    async def http_client(cls) -> aiohttp.ClientSession:
-        if cls.shared_client is None:
-            cls.shared_client = aiohttp.ClientSession()
-        return cls.shared_client
-
-    @classmethod
-    async def get_daily_close_list(cls, trading_pair: str) -> List[Decimal]:
-        """
-        Fetches binance candle stick data and returns a list daily close
-        :param trading_pair: A market trading pair to
-        :return: A list of daily close
-        This is the API response data structure:
-        [
-          [
-            1499040000000,      // Open time
-            "0.01634790",       // Open
-            "0.80000000",       // High
-            "0.01575800",       // Low
-            "0.01577100",       // Close
-            "148976.11427815",  // Volume
-            1499644799999,      // Close time
-            "2434.19055334",    // Quote asset volume
-            308,                // Number of trades
-            "1756.87402397",    // Taker buy base asset volume
-            "28.46694368",      // Taker buy quote asset volume
-            "17928899.62484339" // Ignore.
-          ]
-        ]
-        """
-        url = "https://api.binance.com/api/v3/klines"
-        client = await cls.http_client()
-        params = {"symbol": trading_pair.replace("-", ""),
-                  "interval": "1d"}
-        async with client.request("GET", url, params=params) as resp:
-            records = await resp.json()
-            return [Decimal(str(record[4])) for record in records]
 
     @property
     def connector(self) -> ExchangeBase:
@@ -102,7 +61,7 @@ class BuyDipExample(ScriptStrategyBase):
         """
         Creates and returns a proposal (a list of order candidate), in this strategy the list has 1 element at most.
         """
-        daily_closes = asyncio.get_event_loop().run_until_complete(self.get_daily_close_list(self.trading_pair))
+        daily_closes = self._get_daily_close_list(self.trading_pair)
         start_index = (-1 * self.moving_avg_period) - 1
         # Calculate the average of the 50 element prior to the last element
         avg_close = mean(daily_closes[start_index:-1])
@@ -133,7 +92,39 @@ class BuyDipExample(ScriptStrategyBase):
         Listens to fill order event to log it and notify the hummingbot application.
         If you set up Telegram bot, you will get notification there as well.
         """
-        msg = f"({event.trading_pair}) {event.trade_type.name} order (price: {event.price}) of {event.amount} " \
-              f"{event.trading_pair.split('-')[0]} is filled."
+        msg = (f"({event.trading_pair}) {event.trade_type.name} order (price: {event.price}) of {event.amount} "
+               f"{split_hb_trading_pair(event.trading_pair)[0]} is filled.")
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
+
+    def _get_daily_close_list(self, trading_pair: str) -> List[Decimal]:
+        """
+        Fetches binance candle stick data and returns a list daily close
+        This is the API response data structure:
+        [
+          [
+            1499040000000,      // Open time
+            "0.01634790",       // Open
+            "0.80000000",       // High
+            "0.01575800",       // Low
+            "0.01577100",       // Close
+            "148976.11427815",  // Volume
+            1499644799999,      // Close time
+            "2434.19055334",    // Quote asset volume
+            308,                // Number of trades
+            "1756.87402397",    // Taker buy base asset volume
+            "28.46694368",      // Taker buy quote asset volume
+            "17928899.62484339" // Ignore.
+          ]
+        ]
+
+        :param trading_pair: A market trading pair to
+
+        :return: A list of daily close
+        """
+
+        url = "https://api.binance.com/api/v3/klines"
+        params = {"symbol": trading_pair.replace("-", ""),
+                  "interval": "1d"}
+        records = requests.get(url=url, params=params).json()
+        return [Decimal(str(record[4])) for record in records]
