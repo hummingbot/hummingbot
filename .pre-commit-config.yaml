@@ -5,3 +5,9 @@ repos:
     - id: flake8
       types: ['file']
       files: \.(py|pyx|pxd)$
+-   repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        files: "\\.(py)$"
+        args: [--settings-path=pyproject.toml]
