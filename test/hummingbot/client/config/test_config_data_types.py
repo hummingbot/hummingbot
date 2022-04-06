@@ -17,7 +17,7 @@ from hummingbot.client.config.config_data_types import (
     ClientFieldData,
 )
 from hummingbot.client.config.config_helpers import (
-    ConfigTraversalItem, ClientConfigAdapter, ConfigValidationError
+    ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
 )
 
 
