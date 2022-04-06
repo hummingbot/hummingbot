@@ -74,7 +74,7 @@ class CreateCommand:
         self.strategy_config_map = config_map
         # Reload completer here otherwise the new file will not appear
         self.app.input_field.completer = load_completer(self)
-        self._notify(f"A new config file {self.strategy_file_name} created.")
+        self._notify(f"A new config file has been created: {self.strategy_file_name}")
         self.placeholder_mode = False
         self.app.hide_input = False
 
