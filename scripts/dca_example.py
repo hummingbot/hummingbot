@@ -38,40 +38,40 @@ class DCAExample(ScriptStrategyBase):
         """
         Method called when the connector notifies a buy order has been created
         """
-        self.log_with_clock(logging.INFO, f"The buy order {event.order_id} has been created")
+        self.logger().info(logging.INFO, f"The buy order {event.order_id} has been created")
 
     def did_create_sell_order(self, event: SellOrderCreatedEvent):
         """
         Method called when the connector notifies a sell order has been created
         """
-        self.log_with_clock(logging.INFO, f"The sell order {event.order_id} has been created")
+        self.logger().info(logging.INFO, f"The sell order {event.order_id} has been created")
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
         Method called when the connector notifies that an order has been partially or totally filled (a trade happened)
         """
-        self.log_with_clock(logging.INFO, f"The order {event.order_id} has been filled")
+        self.logger().info(logging.INFO, f"The order {event.order_id} has been filled")
 
     def did_fail_order(self, event: MarketOrderFailureEvent):
         """
         Method called when the connector notifies an order has failed
         """
-        self.log_with_clock(logging.INFO, f"The order {event.order_id} failed")
+        self.logger().info(logging.INFO, f"The order {event.order_id} failed")
 
     def did_cancel_order(self, event: OrderCancelledEvent):
         """
         Method called when the connector notifies an order has been cancelled
         """
-        self.log_with_clock(logging.INFO, f"The order {event.order_id} has been cancelled")
+        self.logger().info(f"The order {event.order_id} has been cancelled")
 
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
         """
         Method called when the connector notifies a buy order has been completed (fully filled)
         """
-        self.log_with_clock(logging.INFO, f"The buy order {event.order_id} has been completed")
+        self.logger().info(f"The buy order {event.order_id} has been completed")
 
     def did_complete_sell_order(self, event: SellOrderCompletedEvent):
         """
         Method called when the connector notifies a sell order has been completed (fully filled)
         """
-        self.log_with_clock(logging.INFO, f"The sell order {event.order_id} has been completed")
+        self.logger().info(f"The sell order {event.order_id} has been completed")

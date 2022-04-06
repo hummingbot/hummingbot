@@ -28,7 +28,6 @@ class ScriptStrategyBase(StrategyPyBase):
 
     # This class member defines connectors and their trading pairs needed for the strategy operation,
     markets: Dict[str, Set[str]]
-    tick_size: float = 1.
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -79,29 +78,12 @@ class ScriptStrategyBase(StrategyPyBase):
         else:
             self.on_tick()
 
-    # async def run(self):
-    #     """
-    #     Runs the strategy on perpetuality (til stop is called).
-    #     """
-    #     while True:
-    #         start_time = perf_counter()
-    #         if self.ready_to_trade:
-    #             await self.on_tick()
-    #         end_time = perf_counter()
-    #         await asyncio.sleep(self.tick_size - (end_time - start_time))
-
     def on_tick(self):
         """
         An event which is called on every tick, a sub class implements this to define what operation the strategy needs
         to operate on a regular tick basis.
         """
         pass
-
-    # def start(self, clock: Clock, timestamp: float):
-    #     self.run_task = safe_ensure_future(self.run())
-    #
-    # def stop(self, clock: Clock):
-    #     self.run_task.cancel()
 
     def buy(self,
             connector_name: str,
@@ -112,6 +94,7 @@ class ScriptStrategyBase(StrategyPyBase):
             position_action=PositionAction.OPEN) -> str:
         """
         A wrapper function to buy_with_specific_market.
+
         :param connector_name: The name of the connector
         :param trading_pair: The market trading pair
         :param amount: An order amount in base token value
@@ -175,7 +158,9 @@ class ScriptStrategyBase(StrategyPyBase):
     def get_assets(self, connector_name: str) -> List[str]:
         """
         Returns a unique list of unique of token names sorted alphabetically
+
         :param connector_name: The name of the connector
+
         :return: A list of token names
         """
         result: Set = set()
