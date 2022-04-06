@@ -5,7 +5,7 @@ import logging
 import shutil
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import date, time, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, unlink
 from os.path import isfile, join
