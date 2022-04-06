@@ -2048,6 +2048,106 @@ class BybitPerpetualDerivativeTests(TestCase):
         expected_result = [PositionMode.ONEWAY]
         self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
 
+    @aioresponses()
+    def test_set_position_mode_success(self, post_mock):
+        self.connector._trading_pairs = [self.trading_pair]
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_POSITION_MODE_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": None,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._set_position_mode(PositionMode.HEDGE)
+        )
+
+        self.assertTrue(
+            self._is_logged("DEBUG", "Bybit Perpetual switching position mode to PositionMode.HEDGE for "
+                                     f"{self.trading_pair} succeeded.")
+        )
+
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._set_position_mode(PositionMode.ONEWAY)
+        )
+
+        self.assertTrue(
+            self._is_logged("DEBUG", "Bybit Perpetual switching position mode to PositionMode.ONEWAY for "
+                                     f"{self.trading_pair} succeeded.")
+        )
+
+    @aioresponses()
+    def test_set_position_mode_failure(self, post_mock):
+        self.connector._trading_pairs = [self.trading_pair]
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_POSITION_MODE_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1000,
+            "ret_msg": "Some problem",
+            "ext_code": "",
+            "result": None,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._set_position_mode(PositionMode.HEDGE)
+        )
+
+        self.assertTrue(
+            self._is_logged(
+                "DEBUG",
+                "Bybit Perpetual encountered a problem switching position mode to PositionMode.HEDGE for "
+                f"{self.trading_pair} (1000 - Some problem)"
+            )
+        )
+
+    @aioresponses()
+    def test_set_position_mode_nonlinear(self, post_mock):
+        self.connector._trading_pairs = [self.non_linear_trading_pair]
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_POSITION_MODE_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1000,
+            "ret_msg": "Some problem",
+            "ext_code": "",
+            "result": None,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        with self.assertRaisesRegex(Exception, "Inverse Perpetuals don't allow for a position mode change."):
+            asyncio.get_event_loop().run_until_complete(
+                self.connector._set_position_mode(PositionMode.HEDGE)
+            )
+
     def test_tick_funding_fee_poll_notifier_not_set(self):
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
         self.connector.tick(int(time.time()))
