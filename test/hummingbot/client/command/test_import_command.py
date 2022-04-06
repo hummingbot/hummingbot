@@ -11,7 +11,7 @@ from pydantic import Field
 
 from hummingbot.client.command import import_command
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseTradingStrategyConfigMap, ClientConfigEnum
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml, save_to_yml, ClientConfigAdapter
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml, save_to_yml
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
