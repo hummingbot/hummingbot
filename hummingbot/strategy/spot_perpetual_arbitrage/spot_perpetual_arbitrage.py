@@ -100,9 +100,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._ready_to_start = False
         self._last_arb_op_reported_ts = 0
 
-        self._strategy_ready = False
-        self._strategy_not_ready_counter = 0
-
         perp_market_info.market.set_leverage(perp_market_info.trading_pair, self._perp_leverage)
         perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
 
@@ -145,14 +142,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             if not self._all_markets_ready:
                 return
             else:
-                if not self._strategy_ready:
-                    self._strategy_not_ready_counter += 1
-                    # Attempt to switch position mode every 10 ticks only to not to spam and DDOS
-                    if self._strategy_not_ready_counter == 10:
-                        market: ExchangeBase = self._perp_market_info.market
-                        market.set_position_mode(PositionMode.ONEWAY)
-                        self._strategy_not_ready_counter = 0
-                    return
                 self.logger().info("Markets are ready.")
                 self.logger().info("Trading started.")
 
@@ -163,8 +152,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                 if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or \
                         len(self.perp_positions) > 1:
                     self.logger().info("This strategy supports only Oneway position mode. Attempting to switch ...")
-                    market: ExchangeBase = self._perp_market_info.market
-                    market.set_position_mode(PositionMode.ONEWAY)
+                    self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
                     return
 
                 if len(self.perp_positions) == 1:
@@ -531,7 +519,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.logger().error(
                 f"Changing position mode to {PositionMode.ONEWAY.name} failed. "
                 f"Reason: {position_mode_changed_event.reason}.")
-            self._strategy_ready = False
             market: ExchangeBase = self._perp_market_info.market
             if position_mode_changed_event.has_order:
                 self.logger().error("Cancelling all open orders and retrying ...")
@@ -543,7 +530,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             if position_mode_changed_event.position_mode is PositionMode.ONEWAY:
                 self.logger().info(
                     f"Changing position mode to {PositionMode.ONEWAY.name} succeeded.")
-                self._strategy_ready = True
 
     def update_complete_order_id_lists(self, order_id: str):
         if self._strategy_state == StrategyState.Opening:
