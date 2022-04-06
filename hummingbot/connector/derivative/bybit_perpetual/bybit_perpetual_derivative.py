@@ -421,6 +421,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         price: Decimal,
         amount: Decimal,
         order_type: OrderType,
+        initial_state: OrderState,
         leverage: int,
         position: PositionAction,
     ):
@@ -445,6 +446,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 trade_type=trading_type,
                 price=price,
                 amount=amount,
+                initial_state=initial_state,
                 leverage=leverage,
                 position=position,
                 creation_timestamp=self.current_timestamp
@@ -538,6 +540,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                       price,
                                       amount,
                                       order_type,
+                                      OrderState.PENDING_CREATE,
                                       self.get_leverage(trading_pair),
                                       position_action)
 
