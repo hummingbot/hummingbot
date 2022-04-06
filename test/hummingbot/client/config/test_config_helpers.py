@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from typing import Awaitable
 
 from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
-from hummingbot.client.config.config_helpers import get_strategy_config_map, save_to_yml, ClientConfigAdapter
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_strategy_config_map, save_to_yml
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap
 )

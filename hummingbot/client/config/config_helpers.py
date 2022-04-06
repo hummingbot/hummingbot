@@ -5,7 +5,7 @@ import logging
 import shutil
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import date, time, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, unlink
 from os.path import isfile, join
@@ -28,9 +28,7 @@ from pydantic.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel, ClientConfigEnum, ClientFieldData
-)
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
