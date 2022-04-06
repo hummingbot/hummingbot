@@ -10,7 +10,8 @@ export type OrderStatus =
   | 'CANCELED'
   | 'FAILED'
   | 'EXPIRED'
-  | 'TIMED_OUT';
+  | 'TIMED_OUT'
+  | 'UNKNOWN';
 
 export interface Fee {
   maker: string;
