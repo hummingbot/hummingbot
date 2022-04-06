@@ -28,9 +28,7 @@ from pydantic.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel, ClientConfigEnum, ClientFieldData
-)
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
