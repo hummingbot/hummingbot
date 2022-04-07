@@ -891,10 +891,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         else:
             self.logger().error(
                 f"Error fetching balances. Response: {wallet_balance['ret_code']} - {wallet_balance['ret_msg']}")
-            if wallet_balance['ret_code'] is CONSTANTS.RET_CODE_API_KEY_INVALID:
+            if wallet_balance['ret_code'] in [CONSTANTS.RET_CODE_API_KEY_INVALID, CONSTANTS.RET_CODE_API_KEY_EXPIRED]:
                 raise Exception("Cannot connect to Bybit Perpetual. Reason: API key invalid")
-            if wallet_balance['ret_code'] is CONSTANTS.RET_CODE_API_KEY_EXPIRED:
-                raise Exception("Cannot connect to Bybit Perpetual. Reason: API key expired")
             else:
                 raise Exception(f"Cannot connect to Bybit Perpetual. Reason: {wallet_balance['ret_msg']}")
 
