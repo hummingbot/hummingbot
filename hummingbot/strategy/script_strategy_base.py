@@ -23,7 +23,7 @@ s_decimal_nan = Decimal("NaN")
 
 class ScriptStrategyBase(StrategyPyBase):
     """
-    This new strategy base class that simplifies strategy creation and implements basic functionality to create scripts.
+    This is a strategy base class that simplifies strategy creation and implements basic functionality to create scripts.
     """
 
     # This class member defines connectors and their trading pairs needed for the strategy operation,
