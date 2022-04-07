@@ -154,7 +154,8 @@ class StartCommand:
                 if self.strategy_name != "pure_market_making":
                     self._notify("Error: PMM script feature is only available for pure_market_making strategy.")
                 else:
-                    self._pmm_script_iterator = PMMScriptIterator(pmm_script_file, list(self.markets.values()),
+                    self._pmm_script_iterator = PMMScriptIterator(pmm_script_file,
+                                                                  list(self.markets.values()),
                                                                   self.strategy, 0.1)
                     self.clock.add_iterator(self._pmm_script_iterator)
                     self._notify(f"PMM script ({pmm_script_file}) started.")
