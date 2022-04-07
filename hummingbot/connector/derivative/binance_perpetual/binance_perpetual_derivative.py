@@ -18,9 +18,8 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth im
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
     BinancePerpetualOrderBookTracker
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
-    BinancePerpetualUserStreamTracker
-)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import \
+    BinancePerpetualUserStreamDataSource
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
@@ -35,6 +34,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.event.events import (
     FundingInfo,
     FundingPaymentCompletedEvent,
@@ -94,12 +94,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         ExchangeBase.__init__(self)
         PerpetualTrading.__init__(self)
 
-        self._user_stream_tracker = BinancePerpetualUserStreamTracker(
-            auth=self._auth,
-            domain=self._domain,
-            throttler=self._throttler,
-            api_factory=self._api_factory,
-            time_synchronizer=self._binance_time_synchronizer)
+        self._user_stream_tracker = UserStreamTracker(
+            data_source=BinancePerpetualUserStreamDataSource(
+                auth=self._auth,
+                domain=self._domain,
+                throttler=self._throttler,
+                api_factory=self._api_factory,
+                time_synchronizer=self._binance_time_synchronizer))
         self._order_book_tracker = BinancePerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=self._domain,
@@ -739,16 +740,13 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         Queries the necessary API endpoint and initialize the TradingRule object for each trading pair being traded.
         """
-        last_tick = int(self._last_timestamp / 60.0)
-        current_tick = int(self.current_timestamp / 60.0)
-        if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
-                                                    method=RESTMethod.GET,
-                                                    )
-            trading_rules_list = self._format_trading_rules(exchange_info)
-            self._trading_rules.clear()
-            for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+        exchange_info = await self._api_request(path=CONSTANTS.EXCHANGE_INFO_URL,
+                                                method=RESTMethod.GET,
+                                                )
+        trading_rules_list = self._format_trading_rules(exchange_info)
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -902,6 +900,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 await self._update_order_fills_from_trades(),
                 await self._update_order_status()
                 self._last_poll_timestamp = self.current_timestamp
+                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -909,8 +908,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                       app_warning_msg="Could not fetch account updates from Binance Perpetuals. "
                                                       "Check API key and network connection.")
                 await self._sleep(0.5)
-            finally:
-                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         """
@@ -1066,7 +1063,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if isinstance(order_update, Exception) or "code" in order_update:
                     if not isinstance(order_update, Exception) and \
                             (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist."):
-                        self._client_order_tracker.process_order_not_found(client_order_id)
+                        await self._client_order_tracker.process_order_not_found(client_order_id)
                     else:
                         self.logger().network(
                             f"Error fetching status update for the order {client_order_id}: " f"{order_update}."

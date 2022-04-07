@@ -2,19 +2,14 @@ import asyncio
 import logging
 from decimal import Decimal
 from enum import Enum
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import aiohttp
 
 import hummingbot.client.settings # noqa
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
-from hummingbot.connector.exchange.kucoin.kucoin_utils import convert_from_exchange_trading_pair as \
-    kucoin_convert_from_exchange_pair
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -270,7 +265,12 @@ class RateOracle(NetworkBase):
         async with client.request("GET", cls.kucoin_price_url) as resp:
             records = await resp.json(content_type=None)
             for record in records["data"]["ticker"]:
-                pair = kucoin_convert_from_exchange_pair(record["symbolName"])
+                try:
+                    pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                        record["symbolName"])
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
                 if Decimal(record["buy"]) > 0 and Decimal(record["sell"]) > 0:
                     results[pair] = (Decimal(str(record["buy"])) + Decimal(str(record["sell"]))) / Decimal("2")
         return results

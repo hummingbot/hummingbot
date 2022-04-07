@@ -1,8 +1,7 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 import time
-from typing import Any, AsyncIterable, List, Optional
+from typing import List, Optional
 
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
@@ -56,11 +55,11 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant.last_recv_time
         return 0
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
 

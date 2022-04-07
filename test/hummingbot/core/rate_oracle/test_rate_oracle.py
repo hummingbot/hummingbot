@@ -3,13 +3,15 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from typing import Dict, Awaitable
+from typing import Awaitable, Dict
 
 from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
+from hummingbot.connector.exchange.kucoin import kucoin_constants as KUCOIN_CONSTANTS
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from .fixture import Fixture
@@ -39,11 +41,18 @@ class RateOracleTest(unittest.TestCase):
              "MAPS/USDT": "MAPS-USDT",
              "QTUM/BTC": "QTUM-BTC"}
         )
+        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {
+            KUCOIN_CONSTANTS.DEFAULT_DOMAIN: bidict(
+                {"SHA-USDT": "SHA-USDT",
+                 "LOOM-BTC": "LOOM-BTC",
+                 })
+        }
 
     @classmethod
     def tearDownClass(cls) -> None:
         BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         AscendExAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDownClass()
 
     def setUp(self) -> None:

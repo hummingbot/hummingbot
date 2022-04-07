@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-
-import asyncio
 import logging
 from typing import List, Optional
 
@@ -31,14 +28,16 @@ class AscendExUserStreamTracker(UserStreamTracker):
                  throttler: Optional[AsyncThrottler] = None,
                  ascend_ex_auth: Optional[AscendExAuth] = None,
                  trading_pairs: Optional[List[str]] = None):
-        super().__init__()
         self._api_factory = api_factory
         self._throttler = throttler
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs: List[str] = trading_pairs or []
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        super().__init__(data_source=AscendExAPIUserStreamDataSource(
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            ascend_ex_auth=self._ascend_ex_auth,
+            trading_pairs=self._trading_pairs
+        ))
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
@@ -68,6 +67,6 @@ class AscendExUserStreamTracker(UserStreamTracker):
         Starts the background task that connects to the exchange and listens to user activity updates
         """
         self._user_stream_tracking_task = safe_ensure_future(
-            self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
+            self.data_source.listen_for_user_stream(self._user_stream)
         )
         await safe_gather(self._user_stream_tracking_task)
