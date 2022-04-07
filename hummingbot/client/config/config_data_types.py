@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
-from pydantic import BaseModel, Field, Extra, validator
+from pydantic import BaseModel, Extra, Field, validator
 from pydantic.schema import default_ref_template
 
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
