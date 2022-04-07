@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from typing import Awaitable
 
 from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
-from hummingbot.client.config.config_helpers import get_strategy_config_map, save_to_yml
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_strategy_config_map, save_to_yml
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap
 )
@@ -28,15 +28,21 @@ class ConfigHelpersTest(unittest.TestCase):
 
     def test_get_strategy_config_map(self):
         cm = get_strategy_config_map(strategy="avellaneda_market_making")
-        self.assertIsInstance(cm, AvellanedaMarketMakingConfigMap)
+        self.assertIsInstance(cm.hb_config, AvellanedaMarketMakingConfigMap)
         self.assertFalse(hasattr(cm, "market"))  # uninitialized instance
 
     def test_save_to_yml(self):
-        cm = BaseStrategyConfigMap(strategy="pure_market_making")
+        class DummyStrategy(BaseStrategyConfigMap):
+            class Config:
+                title = "pure_market_making"
+
+            strategy: str = "pure_market_making"
+
+        cm = ClientConfigAdapter(DummyStrategy())
         expected_str = """\
-##############################################
-###   Pure Market Making Strategy config   ###
-##############################################
+#####################################
+###   pure_market_making config   ###
+#####################################
 
 strategy: pure_market_making
 """

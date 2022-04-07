@@ -1,16 +1,17 @@
 import asyncio
 import os
+from typing import TYPE_CHECKING
 
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
-    update_strategy_config_map_from_file,
-    short_strategy_name,
     format_config_file_name,
+    load_strategy_config_map_from_file,
+    short_strategy_name,
     validate_strategy_file
 )
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
-from typing import TYPE_CHECKING
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -36,9 +37,14 @@ class ImportCommand:
             self.app.to_stop_config = False
             return
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
-        strategy = await update_strategy_config_map_from_file(strategy_path)
+        config_map = await load_strategy_config_map_from_file(strategy_path)
         self.strategy_file_name = file_name
-        self.strategy_name = strategy
+        self.strategy_name = (
+            config_map.strategy
+            if not isinstance(config_map, dict)
+            else config_map.get("strategy").value  # legacy
+        )
+        self.strategy_config_map = config_map
         self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
         self.placeholder_mode = False
         self.app.hide_input = False
@@ -48,6 +54,7 @@ class ImportCommand:
         except asyncio.TimeoutError:
             self.strategy_file_name = None
             self.strategy_name = None
+            self.strategy_config_map = None
             raise
         if all_status_go:
             self._notify("\nEnter \"start\" to start market making.")

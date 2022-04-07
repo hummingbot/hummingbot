@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Awaitable, Dict
 from unittest.mock import patch
 
-from pydantic import Field, ValidationError
+from pydantic import Field
 from pydantic.fields import FieldInfo
 
 from hummingbot.client.config.config_data_types import (
@@ -15,9 +15,10 @@ from hummingbot.client.config.config_data_types import (
     BaseTradingStrategyConfigMap,
     ClientConfigEnum,
     ClientFieldData,
-    TraversalItem,
 )
-from hummingbot.client.config.config_helpers import retrieve_validation_error_msg
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
+)
 
 
 class BaseClientModelTest(unittest.TestCase):
@@ -63,23 +64,25 @@ class BaseClientModelTest(unittest.TestCase):
                 title = "dummy_model"
 
         expected = [
-            TraversalItem(0, "some_attr", "some_attr", 1, "1", ClientFieldData(), None),
-            TraversalItem(0, "nested_model", "nested_model", NestedModel(), "nested_model", None, None),
-            TraversalItem(1, "nested_model.nested_attr", "nested_attr", "some value", "some value", None, None),
-            TraversalItem(
+            ConfigTraversalItem(0, "some_attr", "some_attr", 1, "1", ClientFieldData(), None),
+            ConfigTraversalItem(
+                0, "nested_model", "nested_model", ClientConfigAdapter(NestedModel()), "nested_model", None, None
+            ),
+            ConfigTraversalItem(1, "nested_model.nested_attr", "nested_attr", "some value", "some value", None, None),
+            ConfigTraversalItem(
                 1,
                 "nested_model.double_nested_model",
                 "double_nested_model",
-                DoubleNestedModel(),
+                ClientConfigAdapter(DoubleNestedModel()),
                 "double_nested_model",
                 None,
                 None,
             ),
-            TraversalItem(
+            ConfigTraversalItem(
                 2, "nested_model.double_nested_model.double_nested_attr", "double_nested_attr", 3.0, "3.0", None, None
             ),
         ]
-        cm = DummyModel()
+        cm = ClientConfigAdapter(DummyModel())
 
         for expected, actual in zip(expected, cm.traverse()):
             self.assertEqual(expected.depth, actual.depth)
@@ -128,7 +131,7 @@ class BaseClientModelTest(unittest.TestCase):
             class Config:
                 title = "dummy_model"
 
-        instance = DummyModel()
+        instance = ClientConfigAdapter(DummyModel())
         res_str = instance.generate_yml_output_str_with_comments()
 
         expected_str = """\
@@ -162,13 +165,19 @@ date_attr: 2022-01-02
 
 class BaseStrategyConfigMapTest(unittest.TestCase):
     def test_generate_yml_output_dict_title(self):
-        instance = BaseStrategyConfigMap(strategy="pure_market_making")
+        class DummyStrategy(BaseStrategyConfigMap):
+            class Config:
+                title = "pure_market_making"
+
+            strategy: str = "pure_market_making"
+
+        instance = ClientConfigAdapter(DummyStrategy())
         res_str = instance.generate_yml_output_str_with_comments()
 
         expected_str = """\
-##############################################
-###   Pure Market Making Strategy config   ###
-##############################################
+#####################################
+###   pure_market_making config   ###
+#####################################
 
 strategy: pure_market_making
 """
@@ -189,7 +198,7 @@ class BaseTradingStrategyConfigMapTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         config_settings = self.get_default_map()
-        self.config_map = BaseTradingStrategyConfigMap(**config_settings)
+        self.config_map = ClientConfigAdapter(BaseTradingStrategyConfigMap(**config_settings))
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -207,12 +216,11 @@ class BaseTradingStrategyConfigMapTest(unittest.TestCase):
         "hummingbot.client.config.config_data_types.validate_market_trading_pair"
     )
     def test_validators(self, validate_market_trading_pair_mock):
-        with self.assertRaises(ValidationError) as e:
+        with self.assertRaises(ConfigValidationError) as e:
             self.config_map.exchange = "test-exchange"
 
         error_msg = "Invalid exchange, please choose value from "
-        actual_msg = retrieve_validation_error_msg(e.exception)
-        self.assertTrue(actual_msg.startswith(error_msg))
+        self.assertTrue(str(e.exception).startswith(error_msg))
 
         alt_pair = "ETH-USDT"
         error_msg = "Failed"
@@ -223,8 +231,7 @@ class BaseTradingStrategyConfigMapTest(unittest.TestCase):
         self.config_map.market = alt_pair
         self.assertEqual(alt_pair, self.config_map.market)
 
-        with self.assertRaises(ValidationError) as e:
+        with self.assertRaises(ConfigValidationError) as e:
             self.config_map.market = "XXX-USDT"
 
-        actual_msg = retrieve_validation_error_msg(e.exception)
-        self.assertTrue(actual_msg.startswith(error_msg))
+        self.assertTrue(str(e.exception).startswith(error_msg))

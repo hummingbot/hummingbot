@@ -4,17 +4,16 @@ import os
 import shutil
 from typing import Dict, Optional, TYPE_CHECKING
 
-from pydantic import ValidationError
-
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap
+from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    ConfigValidationError,
     default_strategy_file_path,
     format_config_file_name,
     get_strategy_config_map,
     get_strategy_template_path,
     parse_config_default_to_text,
     parse_cvar_value,
-    retrieve_validation_error_msg,
     save_to_yml,
     save_to_yml_legacy
 )
@@ -52,31 +51,30 @@ class CreateCommand:
         strategy = await self.get_strategy_name()
 
         if self.app.to_stop_config:
-            self.stop_config()
             return
 
         config_map = get_strategy_config_map(strategy)
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
                      f"while setting up these below configuration.")
 
-        if isinstance(config_map, BaseStrategyConfigMap):
+        if isinstance(config_map, ClientConfigAdapter):
             await self.prompt_for_model_config(config_map)
+            if not self.app.to_stop_config:
+                file_name = await self.save_config_to_file(file_name, config_map)
         elif config_map is not None:
-            await self.prompt_for_configuration_legacy(file_name, strategy, config_map)
-            self.app.to_stop_config = True
+            file_name = await self.prompt_for_configuration_legacy(file_name, strategy, config_map)
         else:
             self.app.to_stop_config = True
 
         if self.app.to_stop_config:
-            self.stop_config()
             return
 
-        file_name = await self.save_config_to_file(file_name, config_map)
         self.strategy_file_name = file_name
         self.strategy_name = strategy
         self.strategy_config_map = config_map
         # Reload completer here otherwise the new file will not appear
         self.app.input_field.completer = load_completer(self)
+        self._notify(f"A new config file has been created: {self.strategy_file_name}")
         self.placeholder_mode = False
         self.app.hide_input = False
 
@@ -86,23 +84,21 @@ class CreateCommand:
         self,  # type: HummingbotApplication
     ) -> Optional[str]:
         strategy = None
-        strategy_config = BaseStrategyConfigMap.construct()
+        strategy_config = ClientConfigAdapter(BaseStrategyConfigMap.construct())
         await self.prompt_for_model_config(strategy_config)
-        if self.app.to_stop_config:
-            self.stop_config()
-        else:
+        if not self.app.to_stop_config:
             strategy = strategy_config.strategy
         return strategy
 
     async def prompt_for_model_config(
         self,  # type: HummingbotApplication
-        config_map: BaseClientModel,
+        config_map: ClientConfigAdapter,
     ):
-        for key, field in config_map.__fields__.items():
+        for key in config_map.keys():
             client_data = config_map.get_client_data(key)
             if (
                 client_data is not None
-                and (client_data.prompt_on_new and field.required)
+                and (client_data.prompt_on_new and config_map.is_required(key))
             ):
                 await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
@@ -131,13 +127,12 @@ class CreateCommand:
                 config.value = config.default
 
         if self.app.to_stop_config:
-            self.stop_config(config_map, config_map_backup)
             return
 
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
             if self.app.to_stop_config:
-                self.stop_config(config_map, config_map_backup)
+                self.restore_config_legacy(config_map, config_map_backup)
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
@@ -145,27 +140,18 @@ class CreateCommand:
         template = get_strategy_template_path(strategy)
         shutil.copy(template, strategy_path)
         save_to_yml_legacy(strategy_path, config_map)
-        self.strategy_file_name = file_name
-        self.strategy_name = strategy
-        self.strategy_config = None
-        # Reload completer here otherwise the new file will not appear
-        self.app.input_field.completer = load_completer(self)
-        self._notify(f"A new config file {self.strategy_file_name} created.")
-        self.placeholder_mode = False
-        self.app.hide_input = False
-
-        await self.verify_status()
+        return file_name
 
     async def prompt_a_config(
         self,  # type: HummingbotApplication
-        model: BaseClientModel,
+        model: ClientConfigAdapter,
         config: str,
         input_value=None,
     ):
         config_path = config.split(".")
         while len(config_path) != 1:
             sub_model_attr = config_path.pop(0)
-            model = model.__getattribute__(sub_model_attr)
+            model = getattr(model, sub_model_attr)
         config = config_path[0]
         if input_value is None:
             prompt = await model.get_client_prompt(config)
@@ -177,14 +163,13 @@ class CreateCommand:
         new_config_value = None
         if not self.app.to_stop_config and input_value is not None:
             try:
-                model.__setattr__(config, input_value)
-                new_config_value = model.__getattribute__(config)
-            except ValidationError as e:
-                err_msg = retrieve_validation_error_msg(e)
-                self._notify(err_msg)
+                setattr(model, config, input_value)
+                new_config_value = getattr(model, config)
+            except ConfigValidationError as e:
+                self._notify(str(e))
                 new_config_value = await self.prompt_a_config(model, config)
 
-        if not self.app.to_stop_config and isinstance(new_config_value, BaseClientModel):
+        if not self.app.to_stop_config and isinstance(new_config_value, ClientConfigAdapter):
             await self.prompt_for_model_config(new_config_value)
 
     async def prompt_a_config_legacy(
@@ -215,12 +200,11 @@ class CreateCommand:
     async def save_config_to_file(
         self,  # type: HummingbotApplication
         file_name: Optional[str],
-        config_map: BaseStrategyConfigMap,
+        config_map: ClientConfigAdapter,
     ) -> str:
         if file_name is None:
             file_name = await self.prompt_new_file_name(config_map.strategy)
             if self.app.to_stop_config:
-                self.stop_config()
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
@@ -249,7 +233,7 @@ class CreateCommand:
     ):
         await Security.wait_til_decryption_done()
         Security.update_config_map(global_config_map)
-        if self.strategy_config_map is not None and not isinstance(self.strategy_config_map, BaseStrategyConfigMap):
+        if self.strategy_config_map is not None and not isinstance(self.strategy_config_map, ClientConfigAdapter):
             Security.update_config_map(self.strategy_config_map)
 
     async def verify_status(
@@ -266,15 +250,6 @@ class CreateCommand:
             raise
         if all_status_go:
             self._notify("\nEnter \"start\" to start market making.")
-
-    def stop_config(
-        self,
-        config_map: Optional[Dict[str, ConfigVar]] = None,
-        config_map_backup: Optional[Dict[str, ConfigVar]] = None,
-    ):
-        if config_map is not None and config_map_backup is not None:
-            self.restore_config_legacy(config_map, config_map_backup)
-        self.app.to_stop_config = False
 
     @staticmethod
     def restore_config_legacy(config_map: Dict[str, ConfigVar], config_map_backup: Dict[str, ConfigVar]):
