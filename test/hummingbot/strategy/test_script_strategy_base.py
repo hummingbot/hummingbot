@@ -19,18 +19,6 @@ class MockScriptStrategy(ScriptStrategyBase):
 
 class ScriptStrategyBaseTest(unittest.TestCase):
     level = 0
-    log_records = []
-    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
-    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
-    start_timestamp: float = start.timestamp()
-    end_timestamp: float = end.timestamp()
-    connector_name: str = "mock_paper_exchange"
-    trading_pair: str = "HBOT-USDT"
-    base_asset, quote_asset = trading_pair.split("-")
-    base_balance: int = 500
-    quote_balance: int = 5000
-    initial_mid_price: int = 100
-    clock_tick_size = 1
 
     def handle(self, record):
         self.log_records.append(record)
@@ -40,6 +28,18 @@ class ScriptStrategyBaseTest(unittest.TestCase):
                    for record in self.log_records)
 
     def setUp(self):
+        self.log_records = []
+        self.start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
+        self.end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
+        self.start_timestamp: float = self.start.timestamp()
+        self.end_timestamp: float = self.end.timestamp()
+        self.connector_name: str = "mock_paper_exchange"
+        self.trading_pair: str = "HBOT-USDT"
+        self.base_asset, quote_asset = self.trading_pair.split("-")
+        self.base_balance: int = 500
+        self.quote_balance: int = 5000
+        self.initial_mid_price: int = 100
+        self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.connector: MockPaperExchange = MockPaperExchange()
         self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
