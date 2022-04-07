@@ -35,8 +35,7 @@ export const isFractionString = (str: string): boolean => {
   const fractionSplit = str.split('/');
   if (fractionSplit.length == 2) {
     return (
-      isIntegerString(fractionSplit[0]) &&
-      isNaturalNumberString(fractionSplit[1])
+      isIntegerString(fractionSplit[0]) && isIntegerString(fractionSplit[1])
     );
   }
   return false;
