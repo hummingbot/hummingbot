@@ -30,7 +30,7 @@ class BitmartInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self.cancelled_event = asyncio.Event()
+        self.canceled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:
@@ -41,7 +41,7 @@ class BitmartInFlightOrder(InFlightOrderBase):
         return self.last_state in {"REJECTED", "FAILED"}
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
 
     def update_with_trade_update_rest(self, trade_update: Dict[str, Any]) -> Tuple[Decimal, Decimal, str]:

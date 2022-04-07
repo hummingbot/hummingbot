@@ -198,7 +198,7 @@ class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @patch(
         "hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source.DydxPerpetualAPIOrderBookDataSource._sleep"
     )
-    def test_listen_for_subcriptions_raises_cancelled_exception(self, _, ws_connect_mock):
+    def test_listen_for_subcriptions_raises_canceled_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):

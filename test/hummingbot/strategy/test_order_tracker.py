@@ -93,7 +93,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
     @staticmethod
     def simulate_stop_tracking_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
         """
-        Simulates an order being cancelled or filled completely.
+        Simulates an order being canceled or filled completely.
         """
         if isinstance(order, LimitOrder):
             order_tracker.stop_tracking_limit_order(market_pair=market_info,
@@ -107,7 +107,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
     @staticmethod
     def simulate_cancel_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder]):
         """
-        Simulates order being cancelled.
+        Simulates order being canceled.
         """
         order_id = order.client_order_id if isinstance(order, LimitOrder) else order.order_id
         if order_id:
@@ -124,7 +124,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.active_limit_orders) == len(self.limit_orders))
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.limit_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
@@ -141,7 +141,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.shadow_limit_orders) == len(self.limit_orders))
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.limit_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
@@ -191,11 +191,11 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.tracked_limit_orders) == len(self.limit_orders))
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.limit_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
-        # Note: This includes all orders(open, cancelled, filled, partially filled).
+        # Note: This includes all orders(open, canceled, filled, partially filled).
         # Hence it should not differ from initial list of orders
         self.assertTrue(len(self.order_tracker.tracked_limit_orders) == len(self.limit_orders))
 
@@ -210,11 +210,11 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.tracked_limit_orders_data_frame) == len(self.limit_orders))
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.limit_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
-        # Note: This includes all orders(open, cancelled, filled, partially filled).
+        # Note: This includes all orders(open, canceled, filled, partially filled).
         # Hence it should not differ from initial list of orders
         self.assertTrue(len(self.order_tracker.tracked_limit_orders_data_frame) == len(self.limit_orders))
 
@@ -229,11 +229,11 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.tracked_market_orders) == len(self.market_orders))
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
-        # Note: This includes all orders(open, cancelled, filled, partially filled).
+        # Note: This includes all orders(open, canceled, filled, partially filled).
         # Hence it should not differ from initial list of orders
         self.assertTrue(len(self.order_tracker.tracked_market_orders) == len(self.market_orders))
 
@@ -248,11 +248,11 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.tracked_market_orders_data_frame) == len(self.market_orders))
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
-        # Note: This includes all orders(open, cancelled, filled, partially filled).
+        # Note: This includes all orders(open, canceled, filled, partially filled).
         # Hence it should not differ from initial list of orders
         self.assertTrue(len(self.order_tracker.tracked_market_orders_data_frame) == len(self.market_orders))
 
@@ -265,7 +265,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        # Simulates order cancellation request being sent to exchange
+        # Simulates order cancelation request being sent to exchange
         order_to_cancel = self.limit_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
@@ -321,7 +321,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.assertEqual(order.quantity, other_order.quantity)
         self.assertEqual(order.is_buy, other_order.is_buy)
 
-        # Simulate order being cancelled
+        # Simulate order being canceled
         self.simulate_cancel_order(self.order_tracker, order)
         self.simulate_stop_tracking_order(self.order_tracker, order, self.market_info)
 
@@ -348,10 +348,10 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.simulate_place_order(self.order_tracker, order, self.market_info)
         self.simulate_order_created(self.order_tracker, order)
 
-        # Order not yet cancelled.
+        # Order not yet canceled.
         self.assertFalse(self.order_tracker.has_in_flight_cancel(order.client_order_id))
 
-        # Simulate order being cancelled
+        # Simulate order being canceled
         self.simulate_cancel_order(self.order_tracker, order)
 
         # Order inflight cancel timestamp has not yet expired
@@ -367,7 +367,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.simulate_place_order(self.order_tracker, order, self.market_info)
         self.simulate_order_created(self.order_tracker, order)
 
-        # Simulate order being cancelled and no longer tracked
+        # Simulate order being canceled and no longer tracked
         self.simulate_cancel_order(self.order_tracker, order)
         self.simulate_stop_tracking_order(self.order_tracker, order, self.market_info)
 

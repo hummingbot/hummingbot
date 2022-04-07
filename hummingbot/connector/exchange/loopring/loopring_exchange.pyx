@@ -25,7 +25,7 @@ from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import L
 from hummingbot.connector.exchange.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -36,7 +36,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -63,7 +63,7 @@ def now():
 
 BUY_ORDER_COMPLETED_EVENT = MarketEvent.BuyOrderCompleted.value
 SELL_ORDER_COMPLETED_EVENT = MarketEvent.SellOrderCompleted.value
-ORDER_CANCELLED_EVENT = MarketEvent.OrderCancelled.value
+ORDER_CANCELED_EVENT = MarketEvent.OrderCanceled.value
 ORDER_EXPIRED_EVENT = MarketEvent.OrderExpired.value
 ORDER_FILLED_EVENT = MarketEvent.OrderFilled.value
 ORDER_FAILURE_EVENT = MarketEvent.OrderFailure.value
@@ -371,7 +371,7 @@ cdef class LoopringExchange(ExchangeBase):
             except asyncio.TimeoutError:
                 # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                 # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
-                # updates mark this as cancelled if it doesn't actually exist.
+                # updates mark this as canceled if it doesn't actually exist.
                 self.logger().warning(f"Order {client_order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
                 return True
 
@@ -461,32 +461,32 @@ cdef class LoopringExchange(ExchangeBase):
         return client_order_id
 
     # ----------------------------------------
-    # Cancellation
+    # Cancelation
 
     async def cancel_order(self, client_order_id: str):
         in_flight_order = self._in_flight_orders.get(client_order_id)
-        cancellation_event = OrderCancelledEvent(now(), client_order_id)
+        cancelation_event = OrderCanceledEvent(now(), client_order_id)
 
         if in_flight_order is None:
-            self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+            self.c_trigger_event(ORDER_CANCELED_EVENT, cancelation_event)
             return
 
         try:
-            cancellation_payload = {
+            cancelation_payload = {
                 "accountId": self._loopring_accountid,
                 "clientOrderId": client_order_id
             }
 
-            res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
+            res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancelation_payload, secure=True)
 
             if 'resultInfo' in res:
                 code = res['resultInfo']['code']
                 message = res['resultInfo']['message']
                 if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
-                    self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                    self.c_trigger_event(ORDER_CANCELED_EVENT, cancelation_event)
                     self.c_stop_tracking_order(client_order_id)
-                elif code is not None and code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
+                elif code is not None and code != 0 and (code != 100001 or message != "order in status CANCELED can't be canceled"):
                     raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
             return True
@@ -503,25 +503,25 @@ cdef class LoopringExchange(ExchangeBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        cancellation_queue = self._in_flight_orders.copy()
-        if len(cancellation_queue) == 0:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+        cancelation_queue = self._in_flight_orders.copy()
+        if len(cancelation_queue) == 0:
             return []
 
-        order_status = {o.client_order_id: False for o in cancellation_queue.values()}
+        order_status = {o.client_order_id: False for o in cancelation_queue.values()}
         for o, s in order_status.items():
             self.logger().info(o + ' ' + str(s))
 
-        def set_cancellation_status(oce: OrderCancelledEvent):
+        def set_cancelation_status(oce: OrderCanceledEvent):
             if oce.order_id in order_status:
                 order_status[oce.order_id] = True
                 return True
             return False
 
-        cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
-        self.c_add_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+        cancel_verifier = LatchingEventResponder(set_cancelation_status, len(cancelation_queue))
+        self.c_add_listener(ORDER_CANCELED_EVENT, cancel_verifier)
 
-        for order_id, in_flight in cancellation_queue.iteritems():
+        for order_id, in_flight in cancelation_queue.iteritems():
             try:
                 if not await self.cancel_order(order_id):
                     # this order did not exist on the exchange
@@ -530,9 +530,9 @@ cdef class LoopringExchange(ExchangeBase):
                 cancel_verifier.cancel_one()
 
         all_completed: bool = await cancel_verifier.wait_for_completion(timeout_seconds)
-        self.c_remove_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+        self.c_remove_listener(ORDER_CANCELED_EVENT, cancel_verifier)
 
-        return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
+        return [CancelationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -620,12 +620,12 @@ cdef class LoopringExchange(ExchangeBase):
 
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
-            if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+            if market_event == MarketEvent.OrderCanceled:
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
                 self.stop_tracking(tracked_order.client_order_id)
-                self.c_trigger_event(ORDER_CANCELLED_EVENT,
-                                     OrderCancelledEvent(self._current_timestamp,
-                                                         tracked_order.client_order_id))
+                self.c_trigger_event(ORDER_CANCELED_EVENT,
+                                     OrderCanceledEvent(self._current_timestamp,
+                                                        tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderFilled:
                 self.c_trigger_event(ORDER_FILLED_EVENT,
                                      OrderFilledEvent(self._current_timestamp,
@@ -675,12 +675,12 @@ cdef class LoopringExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.order_type))
                 else:
-                    # check if its a cancelled order
-                    # if its a cancelled order, check in flight orders
+                    # check if its a canceled order
+                    # if its a canceled order, check in flight orders
                     # if present in in flight orders issue cancel and stop tracking order
-                    if tracked_order.is_cancelled:
+                    if tracked_order.is_canceled:
                         if tracked_order.client_order_id in self._in_flight_orders:
-                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
                     else:
                         self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
                                            f"order status API.")
@@ -851,13 +851,13 @@ cdef class LoopringExchange(ExchangeBase):
                                       f"{client_order_id }({tracked_order.exchange_order_id}) from api (code: {loopring_order_request})")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
-                # is reasonably old, mark the order as cancelled
+                # is reasonably old, mark the order as canceled
                 print(loopring_order_request)
                 if loopring_order_request['resultInfo']['code'] == 107003:
                     if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
-                        self.logger().warning(f"marking {client_order_id} as cancelled")
-                        cancellation_event = OrderCancelledEvent(now(), client_order_id)
-                        self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                        self.logger().warning(f"marking {client_order_id} as canceled")
+                        cancelation_event = OrderCanceledEvent(now(), client_order_id)
+                        self.c_trigger_event(ORDER_CANCELED_EVENT, cancelation_event)
                         self.stop_tracking(client_order_id)
                 continue
 

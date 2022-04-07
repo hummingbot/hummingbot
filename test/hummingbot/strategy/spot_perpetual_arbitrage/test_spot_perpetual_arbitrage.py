@@ -92,9 +92,9 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.clock.add_iterator(self.perp_connector)
 
         self.spot_connector.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
-        self.spot_connector.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+        self.spot_connector.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
         self.perp_connector.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
-        self.perp_connector.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+        self.perp_connector.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
 
         self.strategy = SpotPerpetualArbitrageStrategy()
         self.strategy.init_params(

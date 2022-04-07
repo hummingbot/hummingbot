@@ -142,7 +142,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(type(result) == OrderBook)
 
     @aioresponses()
-    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+    def test_listen_for_snapshots_canceled_when_fetching_snapshot(self, mock_api):
         trading_pair = convert_to_exchange_trading_pair(self.trading_pair)
         tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
         url = CONSTANTS.MEXC_BASE_URL + tick_url
@@ -183,7 +183,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(msg_queue.qsize(), 1)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_cancelled_when_subscribing(self, mock_ws):
+    def test_listen_for_subscriptions_canceled_when_subscribing(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.send_str.side_effect = asyncio.CancelledError()
 
@@ -196,7 +196,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(self.listening_task)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
+    def test_listen_for_order_book_diffs_canceled_when_listening(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         data = {'symbol': 'MX_USDT',

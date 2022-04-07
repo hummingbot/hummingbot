@@ -74,7 +74,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         self.assertEqual(initial_ws_assistant, subsequent_ws_assistant)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_authenticate_client_raises_cancelled(self, ws_connect_mock):
+    def test_authenticate_client_raises_canceled(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = asyncio.CancelledError
 
@@ -145,7 +145,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         self._is_logged("INFO", "Successfully authenticated to user...")
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_subscribe_channels_raises_cancelled(self, ws_connect_mock):
+    def test_subscribe_channels_raises_canceled(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = asyncio.CancelledError
 
@@ -220,7 +220,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source.HuobiAPIUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_raises_cancelled_error(self, _, ws_connect_mock):
+    def test_listen_for_user_stream_raises_canceled_error(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.side_effect = asyncio.CancelledError
 
@@ -333,7 +333,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
                 "symbol": "ethusdt",
                 "orderId": 414497810678464,
                 "orderStatus": "canceled",
-                "eventType": "cancellation",
+                "eventType": "cancelation",
                 "clientOrderId": "AAc484720a-buy-ETH-USDT-1637553180003697",
                 "type": "buy-limit-maker",
             },

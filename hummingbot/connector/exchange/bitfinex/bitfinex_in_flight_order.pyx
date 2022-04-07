@@ -55,7 +55,7 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         return self.last_state == OrderStatus.CANCELED
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         return self.last_state == OrderStatus.CANCELED
 
     @property

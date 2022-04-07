@@ -18,7 +18,7 @@ from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.composite_order_book import CompositeOrderBook
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
@@ -35,7 +35,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderBookEvent,
     OrderBookTradeEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -142,7 +142,7 @@ cdef class PaperTradeExchange(ExchangeBase):
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
@@ -664,9 +664,9 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   f"{quote_balance:.8g} {quote_asset} available.")
 
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp,
-                                                     order_id)
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                 OrderCanceledEvent(self._current_timestamp,
+                                                    order_id)
                                  )
             return
 
@@ -755,9 +755,9 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   f"{sold_amount:.8g} {base_asset} needed vs. "
                                   f"{base_balance:.8g} {base_asset} available.")
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp,
-                                                     order_id)
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                 OrderCanceledEvent(self._current_timestamp,
+                                                    order_id)
                                  )
             return
 
@@ -930,20 +930,20 @@ cdef class PaperTradeExchange(ExchangeBase):
     cdef object c_get_available_balance(self, str currency):
         return self.available_balances.get(currency.upper(), s_decimal_0)
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
         cdef:
             LimitOrders *limit_orders_map_ptr
-            list cancellation_results = []
+            list cancelation_results = []
         limit_orders_map_ptr = address(self._bid_limit_orders)
         for trading_pair_str in self._trading_pairs.keys():
             results = self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, cancel_all=True)
-            cancellation_results.extend(results)
+            cancelation_results.extend(results)
 
         limit_orders_map_ptr = address(self._ask_limit_orders)
         for trading_pair_str in self._trading_pairs.keys():
             results = self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, cancel_all=True)
-            cancellation_results.extend(results)
-        return cancellation_results
+            cancelation_results.extend(results)
+        return cancelation_results
 
     cdef object c_cancel_order_from_orders_map(self,
                                                LimitOrders *orders_map,
@@ -958,7 +958,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             vector[SingleTradingPairLimitOrdersIterator] process_order_its
             const CPPLimitOrder *limit_order_ptr = NULL
             str limit_order_cid
-            list cancellation_results = []
+            list cancelation_results = []
         try:
             if map_it == orders_map.end():
                 return []
@@ -976,13 +976,13 @@ cdef class PaperTradeExchange(ExchangeBase):
                 limit_order_ptr = address(deref(orders_it))
                 limit_order_cid = limit_order_ptr.getClientOrderID().decode("utf8")
                 delete_success = self.c_delete_limit_order(orders_map, address(map_it), orders_it)
-                cancellation_results.append(CancellationResult(limit_order_cid,
-                                                               delete_success))
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp,
-                                                         limit_order_cid)
+                cancelation_results.append(CancelationResult(limit_order_cid,
+                                                             delete_success))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                     OrderCanceledEvent(self._current_timestamp,
+                                                        limit_order_cid)
                                      )
-            return cancellation_results
+            return cancelation_results
         except Exception as err:
             self.logger().error(f"Error canceling order.", exc_info=True)
 

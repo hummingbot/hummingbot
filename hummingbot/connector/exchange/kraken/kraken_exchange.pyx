@@ -38,7 +38,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -50,7 +50,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -88,7 +88,7 @@ cdef class KrakenExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -359,7 +359,7 @@ cdef class KrakenExchange(ExchangeBase):
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed do nothing
+                # If the order has already been canceled or has failed do nothing
                 if client_order_id not in self._in_flight_orders:
                     continue
 
@@ -422,12 +422,12 @@ cdef class KrakenExchange(ExchangeBase):
                                                                          executed_amount_quote,
                                                                          tracked_order.order_type))
                     else:
-                        # check if its a cancelled order
-                        # if its a cancelled order, issue cancel and stop tracking order
-                        if tracked_order.is_cancelled:
-                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                 OrderCancelledEvent(
+                        # check if its a canceled order
+                        # if its a canceled order, issue cancel and stop tracking order
+                        if tracked_order.is_canceled:
+                            self.logger().info(f"Successfully canceled order {client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                                 OrderCanceledEvent(
                                                      self._current_timestamp,
                                                      client_order_id))
                         else:
@@ -528,15 +528,15 @@ cdef class KrakenExchange(ExchangeBase):
                                                                                      tracked_order.executed_amount_quote,
                                                                                      tracked_order.order_type))
                                 else:
-                                    # check if its a cancelled order
-                                    # if its a cancelled order, check in flight orders
+                                    # check if its a canceled order
+                                    # if its a canceled order, check in flight orders
                                     # if present in in flight orders issue cancel and stop tracking order
-                                    if tracked_order.is_cancelled:
+                                    if tracked_order.is_canceled:
                                         if tracked_order.client_order_id in self._in_flight_orders:
-                                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                                 OrderCancelledEvent(self._current_timestamp,
-                                                                                     tracked_order.client_order_id))
+                                            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
+                                            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                                                 OrderCanceledEvent(self._current_timestamp,
+                                                                                    tracked_order.client_order_id))
                                     else:
                                         self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
                                                            f"order status API.")
@@ -983,48 +983,48 @@ cdef class KrakenExchange(ExchangeBase):
                                                                is_auth_required=True)
 
             if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
-                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.logger().info(f"Successfully canceled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                     OrderCanceledEvent(self._current_timestamp, order_id))
             return {
                 "origClientOrderId": order_id
             }
         except KrakenInFlightOrderNotCreated:
             raise
         except Exception as e:
-            self.logger().warning(f"Error cancelling order on Kraken",
+            self.logger().warning(f"Error canceling order on Kraken",
                                   exc_info=True)
 
     cdef c_cancel(self, str trading_pair, str order_id):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
         incomplete_orders = [(key, o) for (key, o) in self._in_flight_orders.items() if not o.is_done]
         tasks = [self.execute_cancel(o.trading_pair, key) for (key, o) in incomplete_orders]
         order_id_set = set([key for (key, o) in incomplete_orders])
-        successful_cancellations = []
+        successful_cancelations = []
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cr in cancellation_results:
+                cancelation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cr in cancelation_results:
                     if isinstance(cr, Exception):
                         continue
                     if isinstance(cr, dict) and "origClientOrderId" in cr:
                         client_order_id = cr.get("origClientOrderId")
                         order_id_set.remove(client_order_id)
-                        successful_cancellations.append(CancellationResult(client_order_id, True))
+                        successful_cancelations.append(CancelationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Kraken. Check API key and network connection."
             )
 
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
+        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
+        return successful_cancelations + failed_cancelations
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:

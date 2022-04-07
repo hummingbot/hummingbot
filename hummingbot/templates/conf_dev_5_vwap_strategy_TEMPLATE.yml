@@ -20,7 +20,7 @@ order_amount: null
 # Price of Order (in case of Limit Order)
 order_price: null
 
-# Time in seconds before cancelling the limit order
+# Time in seconds before canceling the limit order
 # If cancel_order wait time is 60 and the order is still open after 60 seconds since placing the order,
 # it will cancel the limit order.
 cancel_order_wait_time: null

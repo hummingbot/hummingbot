@@ -80,16 +80,16 @@ class NdaxInFlightOrderTests(TestCase):
         order.last_state = "Rejected"
         self.assertTrue(order.is_failure)
 
-    def test_is_cancelled(self):
+    def test_is_canceled(self):
         order = NdaxInFlightOrder.from_json(self._example_json())
 
         for status in ["Working", "FullyExecuted", "Rejected"]:
             order.last_state = status
-            self.assertFalse(order.is_cancelled)
+            self.assertFalse(order.is_canceled)
 
         for status in ["Canceled", "Expired"]:
             order.last_state = status
-            self.assertTrue(order.is_cancelled)
+            self.assertTrue(order.is_canceled)
 
     def test_mark_as_filled(self):
         order = NdaxInFlightOrder.from_json(self._example_json())

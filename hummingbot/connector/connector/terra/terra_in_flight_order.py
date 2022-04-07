@@ -39,5 +39,5 @@ class TerraInFlightOrder(InFlightOrderBase):
         return self.last_state in {"REJECTED"}
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}

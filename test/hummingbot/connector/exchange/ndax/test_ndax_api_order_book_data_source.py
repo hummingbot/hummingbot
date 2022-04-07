@@ -254,7 +254,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep")
     @patch("aiohttp.ClientSession.get")
-    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api, mock_sleep):
+    def test_listen_for_snapshots_canceled_when_fetching_snapshot(self, mock_api, mock_sleep):
         mock_api.side_effect = asyncio.CancelledError
         self.simulate_trading_pair_ids_initialized()
 
@@ -320,7 +320,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(snapshot_msg.update_id, 0)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_cancelled_when_subscribing(self, mock_ws):
+    def test_listen_for_order_book_diffs_canceled_when_subscribing(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.send_json.side_effect = asyncio.CancelledError()
@@ -337,7 +337,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.ev_loop.run_until_complete(self.listening_task)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
+    def test_listen_for_order_book_diffs_canceled_when_listening(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.receive.side_effect = lambda: (

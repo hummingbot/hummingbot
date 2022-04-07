@@ -23,7 +23,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -33,7 +33,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -416,7 +416,7 @@ class ProbitExchange(ExchangeBase):
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
+        To get the cancelation result, you'll have to wait for OrderCanceledEvent.
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param order_id: The internal order id (also called client_order_id)
         """
@@ -545,8 +545,8 @@ class ProbitExchange(ExchangeBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
-        the cancellation is successful, it simply states it receives the request.
+        Executes order cancelation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancelation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
         :param order_id: The internal order id
         order.last_state to change to CANCELED
@@ -709,7 +709,7 @@ class ProbitExchange(ExchangeBase):
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers trade, cancellation or failure event if needed.
+        Updates in-flight order and triggers trade, cancelation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
         client_order_id = order_msg["client_order_id"]
@@ -721,13 +721,13 @@ class ProbitExchange(ExchangeBase):
         tracked_order.last_state = order_msg["status"]
 
         # NOTE: In ProBit partially-filled orders will retain "filled" status when canceled.
-        if tracked_order.is_cancelled or Decimal(str(order_msg["cancelled_quantity"])) > Decimal("0"):
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(
+        if tracked_order.is_canceled or Decimal(str(order_msg["canceled_quantity"])) > Decimal("0"):
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
+            self.trigger_event(MarketEvent.OrderCanceled,
+                               OrderCanceledEvent(
                                    self.current_timestamp,
                                    client_order_id))
-            tracked_order.cancelled_event.set()
+            tracked_order.canceled_event.set()
             self.stop_tracking_order(client_order_id)
 
         # NOTE: ProBit does not have a 'fail' order status
@@ -841,14 +841,14 @@ class ProbitExchange(ExchangeBase):
 
     async def cancel_all(self, timeout_seconds: float):
         """
-        Cancels all in-flight orders and waits for cancellation results.
-        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancelation results.
+        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        :returns List of CancelationResult which indicates whether each order is successfully canceled.
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
-        cancellation_results = []
+        cancelation_results = []
         try:
 
             # ProBit does not have cancel_all_order endpoint
@@ -871,18 +871,18 @@ class ProbitExchange(ExchangeBase):
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
                 if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    cancelation_results.append(CancelationResult(cl_order_id, True))
+                    self.trigger_event(MarketEvent.OrderCanceled,
+                                       OrderCanceledEvent(self.current_timestamp, cl_order_id))
                 else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
+                    cancelation_results.append(CancelationResult(cl_order_id, False))
         except Exception:
             self.logger().network(
                 "Failed to cancel all orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on ProBit. Check API key and network connection."
             )
-        return cancellation_results
+        return cancelation_results
 
     def tick(self, timestamp: float):
         """

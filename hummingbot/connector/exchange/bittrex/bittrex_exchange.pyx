@@ -14,7 +14,7 @@ from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import Bi
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -25,7 +25,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -58,7 +58,7 @@ cdef class BittrexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -339,7 +339,7 @@ cdef class BittrexExchange(ExchangeBase):
                 client_order_id = tracked_order.client_order_id
                 order = open_orders.get(exchange_order_id)
 
-                # Do nothing, if the order has already been cancelled or has failed
+                # Do nothing, if the order has already been canceled or has failed
                 if client_order_id not in self._in_flight_orders:
                     continue
 
@@ -437,11 +437,11 @@ cdef class BittrexExchange(ExchangeBase):
                                          tracked_order.executed_amount_quote,
                                          tracked_order.order_type))
         else:  # Order PARTIAL-CANCEL or CANCEL
-            tracked_order.last_state = "CANCELLED"
+            tracked_order.last_state = "CANCELED"
             self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
-                               f"{client_order_id} has been cancelled according to Bittrex order status API.")
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(
+                               f"{client_order_id} has been canceled according to Bittrex order status API.")
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                 OrderCanceledEvent(
                                      self._current_timestamp,
                                      client_order_id
                                  ))
@@ -527,12 +527,12 @@ cdef class BittrexExchange(ExchangeBase):
                 self.c_stop_tracking_order(tracked_order.client_order_id)
 
             else:  # CANCEL
-                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                self.logger().info(f"The order {tracked_order.client_order_id} has been canceled "
                                    f"according to Order Delta WebSocket API.")
-                tracked_order.last_state = "cancelled"
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp,
-                                                         tracked_order.client_order_id))
+                tracked_order.last_state = "canceled"
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                     OrderCanceledEvent(self._current_timestamp,
+                                                        tracked_order.client_order_id))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
 
     async def _process_execution_event(self, stream_message: Dict[str, Any]):
@@ -698,9 +698,9 @@ cdef class BittrexExchange(ExchangeBase):
                 "type": "LIMIT",
                 "quantity": f"{amount:f}",
                 "limit": f"{price:f}",
-                "timeInForce": "GOOD_TIL_CANCELLED"
-                # Available options [GOOD_TIL_CANCELLED, IMMEDIATE_OR_CANCEL,
-                # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
+                "timeInForce": "GOOD_TIL_CANCELED"
+                # Available options [GOOD_TIL_CANCELED, IMMEDIATE_OR_CANCEL,
+                # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELED]
             }
         elif order_type is OrderType.LIMIT_MAKER:
             body = {
@@ -709,7 +709,7 @@ cdef class BittrexExchange(ExchangeBase):
                 "type": "LIMIT",
                 "quantity": f"{amount:f}",
                 "limit": f"{price:f}",
-                "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
+                "timeInForce": "POST_ONLY_GOOD_TIL_CANCELED"
             }
         api_response = await self._api_request("POST", path_url=path_url, body=body)
         return api_response
@@ -916,21 +916,21 @@ cdef class BittrexExchange(ExchangeBase):
 
             cancel_result = await self._api_request("DELETE", path_url=path_url)
             if cancel_result["status"] == "CLOSED":
-                self.logger().info(f"Successfully cancelled order {order_id}.")
-                tracked_order.last_state = "CANCELLED"
+                self.logger().info(f"Successfully canceled order {order_id}.")
+                tracked_order.last_state = "CANCELED"
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                     OrderCanceledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
             raise
         except Exception as err:
             if "NOT_FOUND" in str(err):
-                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Bittrex. No cancellation needed.")
+                # The order was never there to begin with. So canceling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Bittrex. No cancelation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                     OrderCanceledEvent(self._current_timestamp, order_id))
                 return order_id
 
             if "ORDER_NOT_OPEN" in str(err):
@@ -954,11 +954,11 @@ cdef class BittrexExchange(ExchangeBase):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
         incomplete_orders = [order for order in self._in_flight_orders.values() if not order.is_done]
         tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellation = []
+        successful_cancelation = []
 
         try:
             async with timeout(timeout_seconds):
@@ -966,15 +966,15 @@ cdef class BittrexExchange(ExchangeBase):
                 for order_id in api_responses:
                     if order_id:
                         order_id_set.remove(order_id)
-                        successful_cancellation.append(CancellationResult(order_id, True))
+                        successful_cancelation.append(CancelationResult(order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 app_warning_msg="Failed to cancel order on Bittrex. Check API key and network connection."
             )
 
-        failed_cancellation = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellation + failed_cancellation
+        failed_cancelation = [CancelationResult(oid, False) for oid in order_id_set]
+        return successful_cancelation + failed_cancelation
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:

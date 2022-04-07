@@ -17,7 +17,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent
 )
@@ -115,7 +115,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.market.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
 
     @staticmethod
     def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder):
@@ -185,13 +185,13 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), bid_order.price)
         self.assertEqual(1, bid_order.quantity)
 
-        # Check whether order is cancelled after cancel_order_wait_time
+        # Check whether order is canceled after cancel_order_wait_time
         self.clock.backtest_til(self.start_timestamp
                                 + self.clock_tick_size + self.time_delay + self.cancel_order_wait_time)
         self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
-        order_cancelled_events: List[OrderCancelledEvent] = [t for t in self.cancel_order_logger.event_log
-                                                             if isinstance(t, OrderCancelledEvent)]
-        self.assertEqual(1, len(order_cancelled_events))
+        order_canceled_events: List[OrderCanceledEvent] = [t for t in self.cancel_order_logger.event_log
+                                                           if isinstance(t, OrderCanceledEvent)]
+        self.assertEqual(1, len(order_canceled_events))
         self.cancel_order_logger.clear()
 
     def test_limit_sell_order(self):
@@ -210,13 +210,13 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("101"), ask_order.price)
         self.assertEqual(1, ask_order.quantity)
 
-        # Check whether order is cancelled after cancel_order_wait_time
+        # Check whether order is canceled after cancel_order_wait_time
         self.clock.backtest_til(
             self.start_timestamp + self.clock_tick_size + self.time_delay + self.cancel_order_wait_time)
         self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
-        order_cancelled_events: List[OrderCancelledEvent] = [t for t in self.cancel_order_logger.event_log
-                                                             if isinstance(t, OrderCancelledEvent)]
-        self.assertEqual(1, len(order_cancelled_events))
+        order_canceled_events: List[OrderCanceledEvent] = [t for t in self.cancel_order_logger.event_log
+                                                           if isinstance(t, OrderCanceledEvent)]
+        self.assertEqual(1, len(order_canceled_events))
         self.cancel_order_logger.clear()
 
     def test_market_buy_order(self):

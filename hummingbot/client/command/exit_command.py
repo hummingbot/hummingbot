@@ -15,7 +15,7 @@ class ExitCommand:
 
     async def exit_loop(self,  # type: HummingbotApplication
                         force: bool = False):
-        if self.strategy_task is not None and not self.strategy_task.cancelled():
+        if self.strategy_task is not None and not self.strategy_task.canceled():
             self.strategy_task.cancel()
         if force is False and self._trading_required:
             success = await self._cancel_outstanding_orders()

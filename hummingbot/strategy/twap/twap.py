@@ -15,7 +15,7 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (MarketOrderFailureEvent,
-                                          OrderCancelledEvent,
+                                          OrderCanceledEvent,
                                           OrderExpiredEvent,
                                           )
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -59,7 +59,7 @@ class TwapTradeStrategy(StrategyPyBase):
         :param order_price: price to place the order at
         :param order_delay_time: how long to wait between placing trades
         :param execution_state: execution state object with the conditions that should be satisfied to run each tick
-        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param cancel_order_wait_time: how long to wait before canceling an order
         :param status_report_interval: how often to report network connection related warnings, if any
         """
 
@@ -245,8 +245,8 @@ class TwapTradeStrategy(StrategyPyBase):
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
             )
 
-    def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
-        self.update_remaining_after_removing_order(cancelled_event.order_id, 'cancel')
+    def did_cancel_order(self, canceled_event: OrderCanceledEvent):
+        self.update_remaining_after_removing_order(canceled_event.order_id, 'cancel')
 
     def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
         self.update_remaining_after_removing_order(order_failed_event.order_id, 'fail')

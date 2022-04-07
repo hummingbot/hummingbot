@@ -33,7 +33,7 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 SIDE_BUY = 'BUY'
 SIDE_SELL = 'SELL'
 
-TIME_IN_FORCE_GTC = 'GTC'  # Good till cancelled
+TIME_IN_FORCE_GTC = 'GTC'  # Good till canceled
 TIME_IN_FORCE_IOC = 'IOC'  # Immediate or cancel
 TIME_IN_FORCE_FOK = 'FOK'  # Fill or kill
 
@@ -56,7 +56,7 @@ ORDER_STATE = {
     "FILLED": OrderState.FILLED,
     "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
     "PENDING_CANCEL": OrderState.OPEN,
-    "CANCELED": OrderState.CANCELLED,
+    "CANCELED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
 }

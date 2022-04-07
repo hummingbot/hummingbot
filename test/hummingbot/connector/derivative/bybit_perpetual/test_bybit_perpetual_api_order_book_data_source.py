@@ -363,7 +363,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
@@ -421,7 +421,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.listening_task.cancel()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(
@@ -467,7 +467,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(trades_queue.empty())
@@ -512,7 +512,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('data')"))
@@ -550,7 +550,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(order_book_messages.empty())
@@ -601,7 +601,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(order_book_messages.empty())
@@ -649,7 +649,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
@@ -692,7 +692,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertEqual(46355.0, last_traded_prices["BTC-USDT"])
@@ -821,7 +821,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertEqual(0, data_source_queue.qsize())
@@ -893,7 +893,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertEqual(Decimal('50000'), funding_info.mark_price)
@@ -927,7 +927,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
@@ -1120,7 +1120,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
+            # The exception will happen when canceling the task
             pass
 
         self.assertEqual(Decimal('50000'), funding_info.mark_price)

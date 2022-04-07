@@ -54,13 +54,13 @@ class BittrexExchangeTest(unittest.TestCase):
         self.buy_order_completed_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
         self.order_filled_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
+        self.order_canceled_logger = EventLogger()
 
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger)]
+            (MarketEvent.OrderCanceled, self.order_canceled_logger)]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -89,7 +89,7 @@ class BittrexExchangeTest(unittest.TestCase):
             "type": "LIMIT",
             "quantity": "1",
             "limit": "10",
-            "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED",
+            "timeInForce": "POST_ONLY_GOOD_TIL_CANCELED",
             "fillQuantity": "1",
             "commission": "0.11805420",
             "proceeds": "23.61084196",
@@ -120,9 +120,9 @@ class BittrexExchangeTest(unittest.TestCase):
 
         self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
 
-        self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(1, len(self.order_canceled_logger.event_log))
 
-        event = self.order_cancelled_logger.event_log[0]
+        event = self.order_canceled_logger.event_log[0]
 
         self.assertEqual(order_id, event.order_id)
         self.assertTrue(order_id not in self.exchange.in_flight_orders)
@@ -296,7 +296,7 @@ class BittrexExchangeTest(unittest.TestCase):
             "quantity": "1",
             "limit": "10000",
             "ceiling": "10000",
-            "timeInForce": "GOOD_TIL_CANCELLED",
+            "timeInForce": "GOOD_TIL_CANCELED",
             "clientOrderId": "OID1",
             "fillQuantity": "1",
             "commission": "10",

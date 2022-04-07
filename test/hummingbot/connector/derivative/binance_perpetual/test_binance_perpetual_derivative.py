@@ -88,14 +88,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def _initialize_event_loggers(self):
         self.buy_order_completed_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
+        self.order_canceled_logger = EventLogger()
         self.order_filled_logger = EventLogger()
         self.funding_payment_completed_logger = EventLogger()
 
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+            (MarketEvent.OrderCanceled, self.order_canceled_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
 
@@ -934,7 +934,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
         self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
 
-    def test_order_event_with_cancelled_status_marks_order_as_cancelled(self):
+    def test_order_event_with_canceled_status_marks_order_as_canceled(self):
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",
@@ -997,14 +997,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(1, len(self.order_canceled_logger.event_log))
 
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Successfully cancelled order {order.client_order_id}."
+            f"Successfully canceled order {order.client_order_id}."
         ))
 
-    def test_user_stream_event_listener_raises_cancelled_error(self):
+    def test_user_stream_event_listener_raises_canceled_error(self):
         mock_user_stream = AsyncMock()
         mock_user_stream.get.side_effect = asyncio.CancelledError
 
@@ -1375,14 +1375,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
         self.assertTrue("OID2" in self.exchange._client_order_tracker._in_flight_orders)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+        cancelation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
 
-        order_cancelled_events = self.order_cancelled_logger.event_log
+        order_canceled_events = self.order_canceled_logger.event_log
 
-        self.assertEqual(0, len(order_cancelled_events))
-        self.assertEqual(2, len(cancellation_results))
-        self.assertEqual("OID1", cancellation_results[0].order_id)
-        self.assertEqual("OID2", cancellation_results[1].order_id)
+        self.assertEqual(0, len(order_canceled_events))
+        self.assertEqual(2, len(cancelation_results))
+        self.assertEqual("OID1", cancelation_results[0].order_id)
+        self.assertEqual("OID2", cancelation_results[1].order_id)
 
     @aioresponses()
     def test_cancel_all_unknown_order(self, req_mock):
@@ -1411,15 +1411,15 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+        cancelation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
 
-        self.assertEqual(1, len(cancellation_results))
-        self.assertEqual("OID1", cancellation_results[0].order_id)
+        self.assertEqual(1, len(cancelation_results))
+        self.assertEqual("OID1", cancelation_results[0].order_id)
 
         self.assertTrue(self._is_logged(
             "DEBUG",
             "The order OID1 does not exist on Binance Perpetuals. "
-            "No cancellation needed."
+            "No cancelation needed."
         ))
 
         self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
@@ -1450,10 +1450,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue("OID1" in self.exchange._client_order_tracker._in_flight_orders)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+        cancelation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
 
-        self.assertEqual(1, len(cancellation_results))
-        self.assertEqual("OID1", cancellation_results[0].order_id)
+        self.assertEqual(1, len(cancelation_results))
+        self.assertEqual("OID1", cancelation_results[0].order_id)
 
         self.assertTrue(self._is_logged(
             "ERROR",
@@ -1541,7 +1541,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

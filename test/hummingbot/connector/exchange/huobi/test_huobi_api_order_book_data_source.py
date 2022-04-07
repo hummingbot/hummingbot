@@ -228,7 +228,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(0.007019, list(result.ask_entries())[0].amount)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_when_subscribing_raised_cancelled(self, ws_connect_mock):
+    def test_listen_for_subscriptions_when_subscribing_raised_canceled(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):

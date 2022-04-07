@@ -15,7 +15,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -141,10 +141,10 @@ class ClientOrderTracker:
             ),
         )
 
-    def _trigger_cancelled_event(self, order: InFlightOrder):
+    def _trigger_canceled_event(self, order: InFlightOrder):
         self._connector.trigger_event(
-            MarketEvent.OrderCancelled,
-            OrderCancelledEvent(
+            MarketEvent.OrderCanceled,
+            OrderCanceledEvent(
                 timestamp=self.current_timestamp,
                 order_id=order.client_order_id,
                 exchange_order_id=order.exchange_order_id,
@@ -236,9 +236,9 @@ class ClientOrderTracker:
         if tracked_order.is_open:
             return
 
-        if tracked_order.is_cancelled:
-            self._trigger_cancelled_event(tracked_order)
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+        if tracked_order.is_canceled:
+            self._trigger_canceled_event(tracked_order)
+            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)

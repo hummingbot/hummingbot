@@ -29,7 +29,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -63,11 +63,11 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.OrderFilled,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure
     ]
 
@@ -280,8 +280,8 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancellation_results:
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     def test_limit_taker_buy(self):
@@ -356,17 +356,17 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         if API_MOCK_ENABLED:
             resp = FixtureKucoin.CANCEL_ORDER.copy()
-            resp["data"]["cancelledOrderIds"] = [exch_order_id]
+            resp["data"]["canceledOrderIds"] = [exch_order_id]
             self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
         self.market.cancel(trading_pair, order_id)
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
+            resp = FixtureKucoin.GET_CANCELED_ORDER.copy()
             resp["data"]["id"] = exch_order_id
             resp["data"]["clientOid"] = order_id
             self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(order_cancelled_event.order_id, order_id)
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
+        self.assertEqual(order_canceled_event.order_id, order_id)
         self.market_logger.clear()
 
     def test_cancel_all(self):
@@ -389,11 +389,11 @@ class KucoinExchangeUnitTest(unittest.TestCase):
 
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
-            resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
+            resp = FixtureKucoin.ORDERS_BATCH_CANCELED.copy()
+            resp["data"]["canceledOrderIds"] = [exch_order_id, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, "/api/v1/orders", resp)
-        [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
-        for cr in cancellation_results:
+        [cancelation_results] = self.run_parallel(self.market_2.cancel_all(5))
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
         self.market_2_logger.clear()
 
@@ -465,16 +465,16 @@ class KucoinExchangeUnitTest(unittest.TestCase):
 
             if API_MOCK_ENABLED:
                 resp = FixtureKucoin.CANCEL_ORDER.copy()
-                resp["data"]["cancelledOrderIds"] = exch_order_id
+                resp["data"]["canceledOrderIds"] = exch_order_id
                 self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
             # Cancel the order and verify that the change is saved.
             self.market.cancel(trading_pair, order_id)
             if API_MOCK_ENABLED:
-                resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
+                resp = FixtureKucoin.GET_CANCELED_ORDER.copy()
                 resp["data"]["id"] = exch_order_id
                 resp["data"]["clientOid"] = order_id
                 self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
-            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
@@ -483,7 +483,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -529,7 +529,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

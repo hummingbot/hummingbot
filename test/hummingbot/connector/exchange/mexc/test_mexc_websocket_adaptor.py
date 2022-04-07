@@ -82,7 +82,7 @@ class MexcWebSocketUnitTests(unittest.TestCase):
         self.assertEqual(1, ws.close.await_count)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_subscribe_to_order_book_streams_raises_cancelled_exception(self, ws_connect_mock):
+    def test_subscribe_to_order_book_streams_raises_canceled_exception(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.async_run_with_timeout(self.websocket.connect())

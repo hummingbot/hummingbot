@@ -30,7 +30,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -68,11 +68,11 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.OrderFilled,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure
     ]
 
@@ -285,15 +285,15 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id}", exch_order_id)
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
         if API_MOCK_ENABLED:
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id_2
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
-        for cr in cancellation_results:
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
@@ -367,10 +367,10 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
                                                    quantize_bid_price, 10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
                                                    FixtureCoinbasePro.WS_ORDER_OPEN)
 
-        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(order_cancelled_event.order_id, order_id)
+        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
+        self.assertEqual(order_canceled_event.order_id, order_id)
 
     def test_cancel_all(self):
         trading_pair = "ETH-USDC"
@@ -393,15 +393,15 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id}", exch_order_id)
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
         if API_MOCK_ENABLED:
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELED.copy()
             resp["order_id"] = exch_order_id_2
             MockWebSocketServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
-        for cr in cancellation_results:
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
@@ -488,8 +488,8 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
-            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
+            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
@@ -497,8 +497,8 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
+                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -552,8 +552,8 @@ class CoinbaseProExchangeUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELED)
+                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
