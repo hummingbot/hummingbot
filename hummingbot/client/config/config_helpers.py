@@ -1,19 +1,34 @@
+import contextlib
+import inspect
 import json
 import logging
 import shutil
 from collections import OrderedDict
+from dataclasses import dataclass
+from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, unlink
 from os.path import isfile, join
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Union,
+)
 
 import ruamel.yaml
+import yaml
 from eth_account import Account
 from pydantic import ValidationError
-from pydantic.json import pydantic_encoder
-from pydantic.main import ModelMetaclass
+from pydantic.fields import FieldInfo
+from pydantic.main import ModelMetaclass, validate_model
+from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.config.global_config_map import global_config_map
@@ -28,11 +43,229 @@ from hummingbot.client.settings import (
     TRADE_FEES_CONFIG_PATH,
 )
 
-if TYPE_CHECKING:  # avoid circular import problems
-    from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
-
 # Use ruamel.yaml to preserve order and comments in .yml file
-yaml_parser = ruamel.yaml.YAML()
+yaml_parser = ruamel.yaml.YAML()  # legacy
+
+
+def decimal_representer(dumper: SafeDumper, data: Decimal):
+    return dumper.represent_float(float(data))
+
+
+def enum_representer(dumper: SafeDumper, data: ClientConfigEnum):
+    return dumper.represent_str(str(data))
+
+
+def date_representer(dumper: SafeDumper, data: date):
+    return dumper.represent_date(data)
+
+
+def time_representer(dumper: SafeDumper, data: time):
+    return dumper.represent_str(data.strftime("%H:%M:%S"))
+
+
+def datetime_representer(dumper: SafeDumper, data: datetime):
+    return dumper.represent_datetime(data)
+
+
+yaml.add_representer(
+    data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
+)
+yaml.add_multi_representer(
+    data_type=ClientConfigEnum, multi_representer=enum_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=date, representer=date_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=time, representer=time_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
+)
+
+
+class ConfigValidationError(Exception):
+    pass
+
+
+@dataclass()
+class ConfigTraversalItem:
+    depth: int
+    config_path: str
+    attr: str
+    value: Any
+    printable_value: str
+    client_field_data: Optional[ClientFieldData]
+    field_info: FieldInfo
+
+
+class ClientConfigAdapter:
+    def __init__(self, hb_config: BaseClientModel):
+        self._hb_config = hb_config
+
+    def __getattr__(self, item):
+        value = getattr(self._hb_config, item)
+        if isinstance(value, BaseClientModel):
+            value = ClientConfigAdapter(value)
+        return value
+
+    def __setattr__(self, key, value):
+        if key == "_hb_config":
+            super().__setattr__(key, value)
+        else:
+            try:
+                self._hb_config.__setattr__(key, value)
+            except ValidationError as e:
+                raise ConfigValidationError(retrieve_validation_error_msg(e))
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}.{self._hb_config.__repr__()}"
+
+    def __eq__(self, other):
+        if isinstance(other, ClientConfigAdapter):
+            eq = self._hb_config.__eq__(other._hb_config)
+        else:
+            eq = super().__eq__(other)
+        return eq
+
+    @property
+    def hb_config(self) -> BaseClientModel:
+        return self._hb_config
+
+    @property
+    def title(self) -> str:
+        return self._hb_config.Config.title
+
+    def is_required(self, attr: str) -> bool:
+        return self._hb_config.is_required(attr)
+
+    def keys(self) -> Generator[str, None, None]:
+        return self._hb_config.__fields__.keys()
+
+    def setattr_no_validation(self, attr: str, value: Any):
+        with self._disable_validation():
+            setattr(self, attr, value)
+
+    def traverse(self) -> Generator[ConfigTraversalItem, None, None]:
+        """The intended use for this function is to simplify config map traversals in the client code.
+
+        If the field is missing, its value will be set to `None` and its printable value will be set to
+        'MISSING_AND_REQUIRED'.
+        """
+        depth = 0
+        for attr, field in self._hb_config.__fields__.items():
+            if hasattr(self, attr):
+                value = getattr(self, attr)
+                printable_value = (
+                    str(value) if not isinstance(value, ClientConfigAdapter) else value.hb_config.Config.title
+                )
+                field_info = field.field_info
+                client_field_data = field_info.extra.get("client_data")
+            else:
+                value = None
+                printable_value = "&cMISSING_AND_REQUIRED"
+                client_field_data = self.get_client_data(attr)
+                field_info = self._hb_config.__fields__[attr].field_info
+            yield ConfigTraversalItem(
+                depth, attr, attr, value, printable_value, client_field_data, field_info
+            )
+            if isinstance(value, ClientConfigAdapter):
+                for traversal_item in value.traverse():
+                    traversal_item.depth += 1
+                    config_path = f"{attr}.{traversal_item.config_path}"
+                    traversal_item.config_path = config_path
+                    yield traversal_item
+
+    async def get_client_prompt(self, attr_name: str) -> Optional[str]:
+        prompt = None
+        client_data = self.get_client_data(attr_name)
+        if client_data is not None:
+            prompt_fn = client_data.prompt
+            if inspect.iscoroutinefunction(prompt_fn):
+                prompt = await prompt_fn(self._hb_config)
+            else:
+                prompt = prompt_fn(self._hb_config)
+        return prompt
+
+    def is_secure(self, attr_name: str) -> bool:
+        client_data = self.get_client_data(attr_name)
+        secure = client_data is not None and client_data.is_secure
+        return secure
+
+    def get_client_data(self, attr_name: str) -> Optional[ClientFieldData]:
+        return self._hb_config.__fields__[attr_name].field_info.extra.get("client_data")
+
+    def get_description(self, attr_name: str) -> str:
+        return self._hb_config.__fields__[attr_name].field_info.description
+
+    def generate_yml_output_str_with_comments(self) -> str:
+        original_fragments = yaml.safe_dump(self._dict_in_conf_order(), sort_keys=False).split("\n")
+        fragments_with_comments = [self._generate_title()]
+        self._add_model_fragments(fragments_with_comments, original_fragments)
+        fragments_with_comments.append("\n")  # EOF empty line
+        yml_str = "".join(fragments_with_comments)
+        return yml_str
+
+    def validate_model(self) -> List[str]:
+        results = validate_model(type(self._hb_config), json.loads(self._hb_config.json()))
+        self._hb_config = self._hb_config.__class__.construct()
+        for key, value in results[0].items():
+            self.setattr_no_validation(key, value)
+        errors = results[2]
+        validation_errors = []
+        if errors is not None:
+            errors = errors.errors()
+            validation_errors = [
+                f"{'.'.join(e['loc'])} - {e['msg']}"
+                for e in errors
+            ]
+        return validation_errors
+
+    @contextlib.contextmanager
+    def _disable_validation(self):
+        self._hb_config.Config.validate_assignment = False
+        yield
+        self._hb_config.Config.validate_assignment = True
+
+    def _dict_in_conf_order(self) -> Dict[str, Any]:
+        d = {}
+        for attr in self._hb_config.__fields__.keys():
+            value = getattr(self, attr)
+            if isinstance(value, ClientConfigAdapter):
+                value = value._dict_in_conf_order()
+            d[attr] = value
+        return d
+
+    def _generate_title(self) -> str:
+        title = f"{self._hb_config.Config.title}"
+        title = self._adorn_title(title)
+        return title
+
+    @staticmethod
+    def _adorn_title(title: str) -> str:
+        if title:
+            title = f"###   {title} config   ###"
+            title_len = len(title)
+            title = f"{'#' * title_len}\n{title}\n{'#' * title_len}"
+        return title
+
+    def _add_model_fragments(
+        self,
+        fragments_with_comments: List[str],
+        original_fragments: List[str],
+    ):
+        for i, traversal_item in enumerate(self.traverse()):
+            attr_comment = traversal_item.field_info.description
+            if attr_comment is not None:
+                comment_prefix = f"\n{' ' * 2 * traversal_item.depth}# "
+                attr_comment = "".join(f"{comment_prefix}{c}" for c in attr_comment.split("\n"))
+                if traversal_item.depth == 0:
+                    attr_comment = f"\n{attr_comment}"
+                fragments_with_comments.extend([attr_comment, f"\n{original_fragments[i]}"])
+            elif traversal_item.depth == 0:
+                fragments_with_comments.append(f"\n\n{original_fragments[i]}")
+            else:
+                fragments_with_comments.append(f"\n{original_fragments[i]}")
 
 
 def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
@@ -175,20 +408,21 @@ def get_connector_class(connector_name: str) -> Callable:
 
 def get_strategy_config_map(
     strategy: str
-) -> Optional[Union["BaseStrategyConfigMap", Dict[str, ConfigVar]]]:
+) -> Optional[Union[ClientConfigAdapter, Dict[str, ConfigVar]]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
     config_map = None
     try:
-        config_map = get_strategy_pydantic_config(strategy)
-        if config_map is None:  # legacy
+        config_cls = get_strategy_pydantic_config_cls(strategy)
+        if config_cls is None:  # legacy
             cm_key = f"{strategy}_config_map"
             strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
                                          fromlist=[f"hummingbot.strategy.{strategy}"])
             config_map = getattr(strategy_module, cm_key)
         else:
-            config_map = config_map.construct()
+            hb_config = config_cls.construct()
+            config_map = ClientConfigAdapter(hb_config)
     except Exception as e:
         logging.getLogger().error(e, exc_info=True)
     return config_map
@@ -209,17 +443,9 @@ def get_strategy_starter_file(strategy: str) -> Callable:
         logging.getLogger().error(e, exc_info=True)
 
 
-def load_required_configs(strategy_name) -> OrderedDict:
-    strategy_config_map = get_strategy_config_map(strategy_name)
-    # create an ordered dict where `strategy` is inserted first
-    # so that strategy-specific configs are prompted first and populate required_exchanges
-    return _merge_dicts(strategy_config_map, global_config_map)
-
-
 def strategy_name_from_file(file_path: str) -> str:
-    with open(file_path) as stream:
-        data = yaml_parser.load(stream) or {}
-        strategy = data.get("strategy")
+    data = read_yml_file(file_path)
+    strategy = data.get("strategy")
     return strategy
 
 
@@ -234,7 +460,13 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
     return None
 
 
-def get_strategy_pydantic_config(strategy_name: str) -> Optional[ModelMetaclass]:
+def read_yml_file(yml_path: str) -> Dict[str, Any]:
+    with open(yml_path, "r") as file:
+        data = yaml.safe_load(file) or {}
+    return dict(data)
+
+
+def get_strategy_pydantic_config_cls(strategy_name: str) -> Optional[ModelMetaclass]:
     pydantic_cm_class = None
     try:
         pydantic_cm_pkg = f"{strategy_name}_config_map_pydantic"
@@ -248,15 +480,28 @@ def get_strategy_pydantic_config(strategy_name: str) -> Optional[ModelMetaclass]
     return pydantic_cm_class
 
 
-async def update_strategy_config_map_from_file(yml_path: str) -> str:
-    strategy = strategy_name_from_file(yml_path)
-    config_map = get_strategy_config_map(strategy)
-    template_path = get_strategy_template_path(strategy)
-    await load_yml_into_cm(yml_path, template_path, config_map)
-    return strategy
+async def load_strategy_config_map_from_file(yml_path: str) -> Union[ClientConfigAdapter, Dict[str, ConfigVar]]:
+    strategy_name = strategy_name_from_file(yml_path)
+    config_cls = get_strategy_pydantic_config_cls(strategy_name)
+    if config_cls is None:  # legacy
+        config_map = get_strategy_config_map(strategy_name)
+        template_path = get_strategy_template_path(strategy_name)
+        await load_yml_into_cm_legacy(yml_path, template_path, config_map)
+    else:
+        config_data = read_yml_file(yml_path)
+        hb_config = config_cls.construct()
+        config_map = ClientConfigAdapter(hb_config)
+        for key in config_map.keys():
+            if key in config_data:
+                config_map.setattr_no_validation(key, config_data[key])
+        try:
+            config_map.validate_model()  # try to coerce the values to the appropriate type
+        except Exception:
+            pass  # but don't raise if it fails
+    return config_map
 
 
-async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
+async def load_yml_into_cm_legacy(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
         data = {}
         conf_version = -1
@@ -317,9 +562,9 @@ async def read_system_configs_from_yml():
     Read global config and selected strategy yml files and save the values to corresponding config map
     If a yml file is outdated, it gets reformatted with the new template
     """
-    await load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
-    await load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
-                           fee_overrides_config_map)
+    await load_yml_into_cm_legacy(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
+    await load_yml_into_cm_legacy(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
+                                  fee_overrides_config_map)
     # In case config maps get updated (due to default values)
     save_system_configs_to_yml()
 
@@ -352,7 +597,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
-def save_to_yml(yml_path: str, cm: "BaseStrategyConfigMap"):
+def save_to_yml(yml_path: str, cm: ClientConfigAdapter):
     try:
         cm_yml_str = cm.generate_yml_output_str_with_comments()
         with open(yml_path, "w+") as outfile:
@@ -364,11 +609,14 @@ def save_to_yml(yml_path: str, cm: "BaseStrategyConfigMap"):
 async def write_config_to_yml(strategy_name, strategy_file_name):
     strategy_config_map = get_strategy_config_map(strategy_name)
     strategy_file_path = join(CONF_FILE_PATH, strategy_file_name)
-    save_to_yml_legacy(strategy_file_path, strategy_config_map)
+    if isinstance(strategy_config_map, ClientConfigAdapter):
+        save_to_yml(strategy_file_path, strategy_config_map)
+    else:
+        save_to_yml_legacy(strategy_file_path, strategy_config_map)
     save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
 
 
-async def create_yml_files():
+async def create_yml_files_legacy():
     """
     Copy `hummingbot_logs.yml` and `conf_global.yml` templates to the `conf` directory on start up
     """
@@ -435,12 +683,6 @@ def missing_required_configs_legacy(config_map):
     return [c for c in config_map.values() if c.required and c.value is None and not c.is_connect_key]
 
 
-def load_all_secure_values(strategy):
-    strategy_map = get_strategy_config_map(strategy)
-    load_secure_values(global_config_map)
-    load_secure_values(strategy_map)
-
-
 def load_secure_values(config_map):
     for key, config in config_map.items():
         if config.is_secure:
@@ -471,25 +713,5 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
     return default
 
 
-def secondary_market_conversion_rate(strategy) -> Decimal:
-    config_map = get_strategy_config_map(strategy)
-    if "secondary_to_primary_quote_conversion_rate" in config_map:
-        base_rate = config_map["secondary_to_primary_base_conversion_rate"].value
-        quote_rate = config_map["secondary_to_primary_quote_conversion_rate"].value
-    elif "taker_to_maker_quote_conversion_rate" in config_map:
-        base_rate = config_map["taker_to_maker_base_conversion_rate"].value
-        quote_rate = config_map["taker_to_maker_quote_conversion_rate"].value
-    else:
-        return Decimal("1")
-    return quote_rate / base_rate
-
-
 def retrieve_validation_error_msg(e: ValidationError) -> str:
     return e.errors().pop()["msg"]
-
-
-def strategy_config_schema_encoder(o):
-    if callable(o):
-        return None
-    else:
-        return pydantic_encoder(o)

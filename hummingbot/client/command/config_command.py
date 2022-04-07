@@ -6,12 +6,13 @@ from typing import Any, Dict, List, Tuple, TYPE_CHECKING, Union
 import pandas as pd
 from prompt_toolkit.utils import is_windows
 
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
-    BaseStrategyConfigMap,
-    BaseTradingStrategyConfigMap
+from hummingbot.client.config.config_data_types import BaseTradingStrategyConfigMap
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    missing_required_configs_legacy,
+    save_to_yml,
+    save_to_yml_legacy,
 )
-from hummingbot.client.config.config_helpers import missing_required_configs_legacy, save_to_yml, save_to_yml_legacy
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
@@ -115,16 +116,16 @@ class ConfigCommand:
 
     def build_df_data_from_config_map(
         self,  # type: HummingbotApplication
-        config_map: Union[BaseClientModel, Dict[str, ConfigVar]]
+        config_map: Union[ClientConfigAdapter, Dict[str, ConfigVar]]
     ) -> List[Tuple[str, Any]]:
-        if isinstance(config_map, BaseClientModel):
+        if isinstance(config_map, ClientConfigAdapter):
             data = self.build_model_df_data(config_map)
         else:  # legacy
             data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
         return data
 
     @staticmethod
-    def build_model_df_data(config_map: BaseClientModel) -> List[Tuple[str, Any]]:
+    def build_model_df_data(config_map: ClientConfigAdapter) -> List[Tuple[str, Any]]:
         model_data = []
         for traversal_item in config_map.traverse():
             attr_printout = (
@@ -143,7 +144,7 @@ class ConfigCommand:
         """
         keys = [c.key for c in global_config_map.values() if c.prompt is not None and not c.is_connect_key]
         if self.strategy_config_map is not None:
-            if isinstance(self.strategy_config_map, BaseStrategyConfigMap):
+            if isinstance(self.strategy_config_map, ClientConfigAdapter):
                 keys.extend([
                     traversal_item.config_path
                     for traversal_item in self.strategy_config_map.traverse()
@@ -191,7 +192,7 @@ class ConfigCommand:
             if (
                 key in global_config_map
                 or (
-                    not isinstance(self.strategy_config_map, (type(None), BaseClientModel))
+                    not isinstance(self.strategy_config_map, (type(None), ClientConfigAdapter))
                     and key in self.strategy_config_map
                 )
             ):

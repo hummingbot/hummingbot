@@ -9,15 +9,14 @@ from hummingbot import data_path
 import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
-    AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
     FromDateToDateModel,
     MultiOrderLevelModel,
-    TrackHangingOrdersModel,    
+    TrackHangingOrdersModel,
 )
 from hummingbot.strategy.conditional_execution_state import (
     RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState
+    RunInTimeConditionalExecutionState,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.avellaneda_market_making import (
@@ -27,7 +26,7 @@ from hummingbot.strategy.avellaneda_market_making import (
 
 def start(self):
     try:
-        c_map: AvellanedaMarketMakingConfigMap = self.strategy_config_map
+        c_map = self.strategy_config_map
         order_amount = c_map.order_amount
         order_optimization_enabled = c_map.order_optimization_enabled
         order_refresh_time = c_map.order_refresh_time
@@ -38,14 +37,14 @@ def start(self):
             c_map.inventory_target_base_pct / Decimal('100')
         filled_order_delay = c_map.filled_order_delay
         order_refresh_tolerance_pct = c_map.order_refresh_tolerance_pct / Decimal('100')
-        if isinstance(c_map.order_levels_mode, MultiOrderLevelModel):
+        if c_map.order_levels_mode.title == MultiOrderLevelModel.Config.title:
             order_levels = c_map.order_levels_mode.order_levels
             level_distances = c_map.order_levels_mode.level_distances
         else:
             order_levels = 1
             level_distances = 0
         order_override = c_map.order_override
-        if isinstance(c_map.hanging_orders_mode, TrackHangingOrdersModel):
+        if c_map.hanging_orders_mode.title == TrackHangingOrdersModel.Config.title:
             hanging_orders_enabled = True
             hanging_orders_cancel_pct = c_map.hanging_orders_mode.hanging_orders_cancel_pct / Decimal('100')
         else:
@@ -65,11 +64,11 @@ def start(self):
         order_amount_shape_factor = c_map.order_amount_shape_factor
 
         execution_timeframe = c_map.execution_timeframe_mode.Config.title
-        if isinstance(c_map.execution_timeframe_mode, FromDateToDateModel):
+        if c_map.execution_timeframe_mode.title == FromDateToDateModel.Config.title:
             start_time = c_map.execution_timeframe_mode.start_datetime
             end_time = c_map.execution_timeframe_mode.end_datetime
             execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
-        elif isinstance(c_map.execution_timeframe_mode, DailyBetweenTimesModel):
+        elif c_map.execution_timeframe_mode.title == DailyBetweenTimesModel.Config.title:
             start_time = c_map.execution_timeframe_mode.start_time
             end_time = c_map.execution_timeframe_mode.end_time
             execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
