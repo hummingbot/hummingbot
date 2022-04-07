@@ -64,9 +64,6 @@ class StartCommand:
                 self._notify("The strategy failed to start.")
                 return
 
-        # We always start the RateOracle. It is required for PNL calculation.
-        RateOracle.get_instance().start()
-
         if strategy_file_name:
             file_name = strategy_file_name.split(".")[0]
             self.strategy_file_name = file_name
@@ -86,6 +83,13 @@ class StartCommand:
             appnope.nope()
 
         self._initialize_notifiers()
+        try:
+            self._initialize_strategy(self.strategy_name)
+        except NotImplementedError:
+            self.strategy_name = None
+            self.strategy_file_name = None
+            self._notify("Invalid strategy. Start aborted.")
+            raise
 
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
@@ -106,7 +110,9 @@ class StartCommand:
                 self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                              "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        await self.start_market_making(self.strategy_name, restore)
+        await self.start_market_making(restore)
+        # We always start the RateOracle. It is required for PNL calculation.
+        RateOracle.get_instance().start()
 
     def start_script_strategy(self):
         script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
@@ -121,16 +127,7 @@ class StartCommand:
         return exists(script_file_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
-                                  strategy_name: str,
                                   restore: Optional[bool] = False):
-        if self.is_current_strategy_script_strategy():
-            self.start_script_strategy()
-        else:
-            start_strategy: Callable = get_strategy_starter_file(strategy_name)
-            if strategy_name in settings.STRATEGIES:
-                start_strategy(self)
-            else:
-                raise NotImplementedError
         try:
             self.start_time = time.time() * 1e3  # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
@@ -161,7 +158,7 @@ class StartCommand:
                     self._notify(f"PMM script ({pmm_script_file}) started.")
 
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
-            self._notify(f"\n'{strategy_name}' strategy started.\n"
+            self._notify(f"\n'{self.strategy_name}' strategy started.\n"
                          f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
 
@@ -173,6 +170,16 @@ class StartCommand:
                 await self.wait_till_ready(self.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
+
+    def _initialize_strategy(self, strategy_name: str):
+        if self.is_current_strategy_script_strategy():
+            self.start_script_strategy()
+        else:
+            start_strategy: Callable = get_strategy_starter_file(strategy_name)
+            if strategy_name in settings.STRATEGIES:
+                start_strategy(self)
+            else:
+                raise NotImplementedError
 
     async def confirm_oracle_conversion_rate(self,  # type: HummingbotApplication
                                              ) -> bool:
