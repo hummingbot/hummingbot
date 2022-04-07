@@ -1,13 +1,11 @@
-#!/usr/bin/env python
-import aiohttp
-import time
 import asyncio
 import logging
+import time
+from typing import Optional
+
+import aiohttp
 
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as CONSTANTS
-
-from typing import Optional, AsyncIterable, Any
-
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -69,11 +67,11 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                   f"({e})")
             raise
 
-    async def listen_for_user_stream(self, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
+
         :param output: an async queue where the incoming messages are stored
         """
         ws = None
