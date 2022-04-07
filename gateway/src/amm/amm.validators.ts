@@ -73,7 +73,7 @@ export const validateLimitPrice: Validator = mkValidator(
 );
 
 export const validateAllowedSlippage: Validator = mkValidator(
-  'allowSlippage',
+  'allowedSlippage',
   invalidAllowedSlippageError,
   (val) => typeof val === 'string' && isFractionString(val),
   true

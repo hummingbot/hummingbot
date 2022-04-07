@@ -120,7 +120,7 @@ export class Pangolin implements Uniswapish {
    *
    * @param allowedSlippageStr (Optional) should be of the form '1/10'.
    */
-  getAllowedSlippage(allowedSlippageStr?: string): Percent {
+  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
     if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
       const fractionSplit = allowedSlippageStr.split('/');
       return new Percent(fractionSplit[0], fractionSplit[1]);
