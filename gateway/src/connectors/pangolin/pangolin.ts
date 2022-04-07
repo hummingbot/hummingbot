@@ -7,6 +7,7 @@ import {
   Transaction,
   Wallet,
 } from 'ethers';
+import { isFractionString } from '../../services/validators';
 import { PangolinConfig } from './pangolin.config';
 import routerAbi from './IPangolinRouter.json';
 import {
@@ -113,7 +114,18 @@ export class Pangolin implements Uniswapish {
     return this._ttl;
   }
 
-  getSlippagePercentage(): Percent {
+  /**
+   * Gets the allowed slippage percent from the optional parameter or the value
+   * in the configuration.
+   *
+   * @param allowedSlippageStr (Optional) should be of the form '1/10'.
+   */
+  getAllowedSlippage(allowedSlippageStr?: string): Percent {
+    if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
+      const fractionSplit = allowedSlippageStr.split('/');
+      return new Percent(fractionSplit[0], fractionSplit[1]);
+    }
+
     const allowedSlippage = PangolinConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
@@ -135,7 +147,8 @@ export class Pangolin implements Uniswapish {
   async estimateSellTrade(
     baseToken: Token,
     quoteToken: Token,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade> {
     const nativeTokenAmount: TokenAmount = new TokenAmount(
       baseToken,
@@ -164,7 +177,7 @@ export class Pangolin implements Uniswapish {
       `Best trade for ${baseToken.address}-${quoteToken.address}: ${trades[0]}`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -182,7 +195,8 @@ export class Pangolin implements Uniswapish {
   async estimateBuyTrade(
     quoteToken: Token,
     baseToken: Token,
-    amount: BigNumber
+    amount: BigNumber,
+    allowedSlippage?: string
   ): Promise<ExpectedTrade> {
     const nativeTokenAmount: TokenAmount = new TokenAmount(
       baseToken,
@@ -212,7 +226,7 @@ export class Pangolin implements Uniswapish {
     );
 
     const expectedAmount = trades[0].maximumAmountIn(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -241,12 +255,13 @@ export class Pangolin implements Uniswapish {
     gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    maxPriorityFeePerGas?: BigNumber,
+    allowedSlippage?: string
   ): Promise<Transaction> {
     const result = Router.swapCallParameters(trade, {
       ttl,
       recipient: wallet.address,
-      allowedSlippage: this.getSlippagePercentage(),
+      allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
     const contract = new Contract(pangolinRouter, abi, wallet);
