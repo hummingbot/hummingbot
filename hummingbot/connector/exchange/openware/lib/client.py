@@ -2,12 +2,11 @@
 
 import hashlib
 import hmac
-import requests
 import time
-import urllib
-from operator import itemgetter
-from hummingbot.market.openware.lib.helpers import date_to_milliseconds, interval_to_milliseconds
-from hummingbot.market.openware.lib.exceptions import OpenwareAPIException, OpenwareRequestException, OpenwareWithdrawException
+
+import requests
+
+from hummingbot.connector.exchange.openware.lib.exceptions import OpenwareAPIException, OpenwareRequestException
 
 
 class Client(object):
@@ -80,16 +79,16 @@ class Client(object):
                                 'X-Auth-Nonce': timestamp,
                                 'X-Auth-Signature': signature})
         return session
-    
+
     def update_headers(self):
-        
+
         timestamp = str(time.time() * 1000)
         signature = self._generate_signature(timestamp)
         self.session.headers.update({'Accept': 'application/json',
-                                'User-Agent': 'openware/python',
-                                'X-Auth-Apikey': self.api_key,
-                                'X-Auth-Nonce': timestamp,
-                                'X-Auth-Signature': signature})
+                                     'User-Agent': 'openware/python',
+                                     'X-Auth-Apikey': self.api_key,
+                                     'X-Auth-Nonce': timestamp,
+                                     'X-Auth-Signature': signature})
         return self.session
 
     def _create_api_uri(self, path):
@@ -118,7 +117,7 @@ class Client(object):
         return self._request(method, uri, **kwargs)
 
     def _handle_response(self, response):
-        
+
         if not str(response.status_code).startswith('2'):
             raise OpenwareAPIException(response)
         try:
@@ -137,7 +136,8 @@ class Client(object):
         return self._request_api('put', path, **kwargs)
 
     def _delete(self, path, **kwargs):
-        return self._request_api('delete', path, signed, version, **kwargs)
+        return self._request_api('delete', path, **kwargs)
+        # return self._request_api('delete', path, signed, version, **kwargs)
 
     def version(self):
         return self._get("/public/timestamp")
@@ -150,27 +150,27 @@ class Client(object):
 
     def get_server_time(self):
         return self._get('/public/timestamp')
-    
+
     def get_balances(self):
         return self._get('/account/balances')
 
     def get_trade_fee(self):
         return self._get('/public/trading_fees')
-    
+
     async def get_my_trades(self, **params):
         return self._get("/market/trades", data=params)
-    
+
     async def get_order_by_id(self, **params):
         id = params.get('id')
         result = self._get("/market/orders/{}".format(id))
         return result
-    
+
     async def get_order(self, **params):
         return self._get("/market/orders", data=params)
 
     def get_deposit_address(self, currency):
         return self._get("/account/deposit_address/%s" % currency)
-    
+
     def withdraw(self, **params):
         return self._post("/account/withdraws", data=params)
 
@@ -188,7 +188,7 @@ class Client(object):
             'ord_type': self.ORDER_TYPE_MARKET
         })
         return self.create_order(**params)
-    
+
     def order_limit(self, **params):
         """
         Send in a new market order
@@ -197,7 +197,7 @@ class Client(object):
             'ord_type': self.ORDER_TYPE_LIMIT
         })
         return self.create_order(**params)
-    
+
     def order_market_buy(self, **params):
         """
         Send in a new market buy order
@@ -215,7 +215,7 @@ class Client(object):
             'side': self.SIDE_BUY
         })
         return self.order_limit(**params)
-    
+
     def order_market_sell(self, **params):
         """
         Send in a new market sell order

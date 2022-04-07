@@ -13,9 +13,9 @@ from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.internet.error import ReactorAlreadyRunning
 
-from hummingbot.market.openware.lib.client import Client
+from hummingbot.connector.exchange.openware.lib.client import Client
 
-from hummingbot.openware_settings import API_SECRET, API_KEY
+from hummingbot.connector.exchange.openware.openware_settings import API_SECRET, API_KEY
 
 
 class OpenwareClientProtocol(WebSocketClientProtocol):
@@ -109,10 +109,10 @@ class OpenwareSocketManager(threading.Thread):
 
     def start_trade_socket(self, market, callback):
         return self._start_socket(market.lower() + '.trades', False, callback)
-    
+
     def start_orderbook_socket(self, market, callback):
         return self._start_socket(market.lower() + '.update', False, callback)
-    
+
     def start_ticker_socket(self, callback):
         return self._start_socket('global.tickers', callback)
 
@@ -122,7 +122,7 @@ class OpenwareSocketManager(threading.Thread):
 
     def start_user_trade_socket(self, callback):
         return self._start_socket('trade', True, callback)
-    
+
     def start_user_order_socket(self, callback):
         return self._start_socket('order', True, callback)
 
