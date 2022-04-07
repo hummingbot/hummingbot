@@ -13,7 +13,7 @@ from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker impor
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -23,7 +23,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -327,7 +327,7 @@ class DigifinexExchange(ExchangeBase):
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
+        To get the cancelation result, you'll have to wait for OrderCanceledEvent.
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param order_id: The internal order id (also called client_order_id)
         """
@@ -447,8 +447,8 @@ class DigifinexExchange(ExchangeBase):
 
     async def _execute_cancel(self, o: DigifinexInFlightOrder) -> str:
         """
-        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
-        the cancellation is successful, it simply states it receives the request.
+        Executes order cancelation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancelation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
         :param order_id: The internal order id
         order.last_state to change to CANCELED
@@ -461,8 +461,8 @@ class DigifinexExchange(ExchangeBase):
                 True
             )
             if o.client_order_id in self._in_flight_orders:
-                self.trigger_event(MarketEvent.OrderCancelled,
-                                   OrderCancelledEvent(self.current_timestamp, o.client_order_id))
+                self.trigger_event(MarketEvent.OrderCanceled,
+                                   OrderCanceledEvent(self.current_timestamp, o.client_order_id))
                 del self._in_flight_orders[o.client_order_id]
             return o.exchange_order_id
         except asyncio.CancelledError:
@@ -547,7 +547,7 @@ class DigifinexExchange(ExchangeBase):
 
     def _process_order_status(self, exchange_order_id: str, status: int):
         """
-        Updates in-flight order and triggers cancellation or failure event if needed.
+        Updates in-flight order and triggers cancelation or failure event if needed.
         """
         tracked_order = self.find_exchange_order(exchange_order_id)
         if tracked_order is None:
@@ -555,13 +555,13 @@ class DigifinexExchange(ExchangeBase):
         client_order_id = tracked_order.client_order_id
         # Update order execution status
         tracked_order.last_state = str(status)
-        if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(
+        if tracked_order.is_canceled:
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
+            self.trigger_event(MarketEvent.OrderCanceled,
+                               OrderCanceledEvent(
                                    self.current_timestamp,
                                    client_order_id))
-            tracked_order.cancelled_event.set()
+            tracked_order.canceled_event.set()
             self.stop_tracking_order(client_order_id)
         # elif tracked_order.is_failure:
         #     self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
@@ -676,14 +676,14 @@ class DigifinexExchange(ExchangeBase):
 
     async def cancel_all(self, timeout_seconds: float):
         """
-        Cancels all in-flight orders and waits for cancellation results.
-        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancelation results.
+        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        :returns List of CancelationResult which indicates whether each order is successfully canceled.
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
-        cancellation_results = []
+        cancelation_results = []
         try:
             # for trading_pair in self._trading_pairs:
             #     await self._global.rest_api.request(
@@ -700,18 +700,18 @@ class DigifinexExchange(ExchangeBase):
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.exchange_order_id == tracked_order.exchange_order_id]
                 if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    # self.trigger_event(MarketEvent.OrderCancelled,
-                    #                    OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    cancelation_results.append(CancelationResult(cl_order_id, True))
+                    # self.trigger_event(MarketEvent.OrderCanceled,
+                    #                    OrderCanceledEvent(self.current_timestamp, cl_order_id))
                 else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
+                    cancelation_results.append(CancelationResult(cl_order_id, False))
         except Exception:
             self.logger().network(
                 "Failed to cancel all orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on Digifinex. Check API key and network connection."
             )
-        return cancellation_results
+        return cancelation_results
 
     def tick(self, timestamp: float):
         """

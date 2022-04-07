@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
@@ -36,7 +36,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure
     ]
 
@@ -137,18 +137,18 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
 
         # Cancel Buy Order
         self.market.cancel(trading_pair, buy_order_id)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(buy_order_id, order_cancelled_event.order_id)
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
+        self.assertEqual(buy_order_id, order_canceled_event.order_id)
         self.assertEqual(1, len(self.market.in_flight_orders))
         self.assertTrue(sell_order_id in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
 
         # Cancel Sell Order
         self.market.cancel(trading_pair, sell_order_id)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(sell_order_id, order_cancelled_event.order_id)
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
+        self.assertEqual(sell_order_id, order_canceled_event.order_id)
         self.assertEqual(0, len(self.market.in_flight_orders))
         self.assertTrue(sell_order_id not in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
@@ -186,8 +186,8 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertTrue(buy_order_id in self.market.in_flight_orders)
 
         # Cancel All Orders
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cancel_result in cancellation_results:
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cancel_result in cancelation_results:
             self.assertEqual(cancel_result.success, True)
 
         self.assertEqual(0, len(self.market.in_flight_orders))

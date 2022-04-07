@@ -43,8 +43,8 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
         return self.status >= LoopringOrderStatus.DONE
 
     @property
-    def is_cancelled(self) -> bool:
-        return self.status == LoopringOrderStatus.cancelled
+    def is_canceled(self) -> bool:
+        return self.status == LoopringOrderStatus.canceled
 
     @property
     def is_failure(self) -> bool:
@@ -130,8 +130,8 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
 
             events.append((MarketEvent.OrderFilled, diff_base, price, diff_fee))
 
-        if not self.is_done and new_status == LoopringOrderStatus.cancelled:
-            events.append((MarketEvent.OrderCancelled, None, None, None))
+        if not self.is_done and new_status == LoopringOrderStatus.canceled:
+            events.append((MarketEvent.OrderCanceled, None, None, None))
 
         if not self.is_done and new_status == LoopringOrderStatus.expired:
             events.append((MarketEvent.OrderExpired, None, None, None))

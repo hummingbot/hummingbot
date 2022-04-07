@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
@@ -70,11 +70,11 @@ class BittrexExchangeUnitTest(unittest.TestCase):
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.OrderFilled,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure
     ]
 
@@ -312,8 +312,8 @@ class BittrexExchangeUnitTest(unittest.TestCase):
             resp = FixtureBittrex.ORDER_CANCEL.copy()
             resp["id"] = exch_order_id_2
             self.web_app.update_response("delete", API_BASE_URL, f"/v3/orders/{exch_order_id_2}", resp)
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancellation_results:
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     def test_limit_taker_buy(self):
@@ -387,9 +387,9 @@ class BittrexExchangeUnitTest(unittest.TestCase):
                                                    FixtureBittrex.WS_AFTER_BUY_1)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.cancel_order(trading_pair, order_id, exch_order_id)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(order_cancelled_event.order_id, order_id)
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
+        self.assertEqual(order_canceled_event.order_id, order_id)
 
     def test_cancel_all(self):
         self.assertGreater(self.market.get_balance("USDT"), 20)
@@ -419,8 +419,8 @@ class BittrexExchangeUnitTest(unittest.TestCase):
             resp = FixtureBittrex.CANCEL_ORDER.copy()
             resp["id"] = exch_order_id_2
             self.web_app.update_response("delete", API_BASE_URL, f"/v3/orders/{exch_order_id_2}", resp)
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancellation_results:
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     def test_orders_saving_and_restoration(self):
@@ -486,7 +486,7 @@ class BittrexExchangeUnitTest(unittest.TestCase):
 
             # Cancel the order and verify that the change is saved.
             self.cancel_order(trading_pair, order_id, exch_order_id)
-            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
@@ -495,7 +495,7 @@ class BittrexExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -540,7 +540,7 @@ class BittrexExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

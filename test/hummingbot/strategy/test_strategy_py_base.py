@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -45,8 +45,8 @@ class MockPyStrategy(StrategyPyBase):
     def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
         self.events_queue.append(order_failed_event)
 
-    def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
-        self.events_queue.append(cancelled_event)
+    def did_cancel_order(self, canceled_event: OrderCanceledEvent):
+        self.events_queue.append(canceled_event)
 
     def did_expire_order(self, expired_event: OrderExpiredEvent):
         self.events_queue.append(expired_event)
@@ -125,8 +125,8 @@ class StrategyPyBaseUnitTests(unittest.TestCase):
     @staticmethod
     def simulate_cancel_order(market_info: MarketTradingPairTuple, order: Union[LimitOrder, MarketOrder]):
         market_info.market.trigger_event(
-            MarketEvent.OrderCancelled,
-            OrderCancelledEvent(
+            MarketEvent.OrderCanceled,
+            OrderCanceledEvent(
                 int(time.time() * 1e3),
                 order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
             )
@@ -245,7 +245,7 @@ class StrategyPyBaseUnitTests(unittest.TestCase):
 
         event = self.strategy.events_queue.popleft()
 
-        self.assertIsInstance(event, OrderCancelledEvent)
+        self.assertIsInstance(event, OrderCanceledEvent)
 
     def test_did_fail_order(self):
         limit_order: LimitOrder = LimitOrder(client_order_id="test",

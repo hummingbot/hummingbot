@@ -18,7 +18,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     SellOrderCreatedEvent,
 )
 
@@ -32,7 +32,7 @@ class LoopringExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderFilled,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
     ]
 
     market: LoopringExchange
@@ -131,12 +131,12 @@ class LoopringExchangeUnitTest(unittest.TestCase):
         client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.5"))
         self.run_parallel(asyncio.sleep(1.0))
         self.market.cancel(trading_pair, client_order_id)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
 
         self.run_parallel(asyncio.sleep(6.0))
         self.assertEqual(0, len(self.market.limit_orders))
-        self.assertEqual(client_order_id, order_cancelled_event.order_id)
+        self.assertEqual(client_order_id, order_canceled_event.order_id)
 
     def test_place_limit_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("USDT"), 20)

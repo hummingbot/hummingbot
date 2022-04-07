@@ -362,7 +362,7 @@ pure_market_making_config_map = {
                   type_str="json"),
     "should_wait_order_cancel_confirmation":
         ConfigVar(key="should_wait_order_cancel_confirmation",
-                  prompt="Should the strategy wait to receive a confirmation for orders cancellation "
+                  prompt="Should the strategy wait to receive a confirmation for orders cancelation "
                          "before creating a new set of orders? "
                          "(Not waiting requires enough available balance) (Yes/No) >>> ",
                   type_str="bool",

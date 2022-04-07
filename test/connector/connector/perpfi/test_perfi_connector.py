@@ -44,7 +44,7 @@ class PerpetualFinanceDerivativeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure,
         MarketEvent.FundingPaymentCompleted
     ]

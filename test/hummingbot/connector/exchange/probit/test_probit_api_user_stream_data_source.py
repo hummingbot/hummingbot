@@ -130,7 +130,7 @@ class ProbitAPIUserStreamDataSourceTest(unittest.TestCase):
         )
 
     @patch("aiohttp.client.ClientSession.ws_connect")
-    def test_listen_for_user_stream_stops_on_asyncio_cancelled_error(self, ws_connect_mock):
+    def test_listen_for_user_stream_stops_on_asyncio_canceled_error(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):

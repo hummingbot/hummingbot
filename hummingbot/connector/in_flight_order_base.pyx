@@ -65,7 +65,7 @@ cdef class InFlightOrderBase:
         raise NotImplementedError
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         raise NotImplementedError
 
     @property

@@ -8,7 +8,7 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     SellOrderCompletedEvent,
 )
 from hummingbot.logger import HummingbotLogger
@@ -59,7 +59,7 @@ class HangingOrdersTracker:
         self._hanging_orders_cancel_pct: Decimal = hanging_orders_cancel_pct or Decimal("0.1")
         self.trading_pair: str = trading_pair or self.strategy.trading_pair
         self.orders_being_renewed: Set[HangingOrder] = set()
-        self.orders_being_cancelled: Set[str] = set()
+        self.orders_being_canceled: Set[str] = set()
         self.current_created_pairs_of_orders: List[CreatedPairOfOrders] = list()
         self.original_orders: Set[LimitOrder] = orders or set()
         self.strategy_current_hanging_orders: Set[HangingOrder] = set()
@@ -71,7 +71,7 @@ class HangingOrdersTracker:
         self._complete_sell_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
             self._did_complete_sell_order)
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
-            (MarketEvent.OrderCancelled, self._cancel_order_forwarder),
+            (MarketEvent.OrderCanceled, self._cancel_order_forwarder),
             (MarketEvent.BuyOrderCompleted, self._complete_buy_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder)]
 
@@ -90,16 +90,16 @@ class HangingOrdersTracker:
     def _did_cancel_order(self,
                           event_tag: int,
                           market: ConnectorBase,
-                          event: OrderCancelledEvent):
+                          event: OrderCanceledEvent):
 
         self._process_cancel_as_part_of_renew(event)
 
-        self.orders_being_cancelled.discard(event.order_id)
+        self.orders_being_canceled.discard(event.order_id)
         order_to_be_removed = next((order for order in self.strategy_current_hanging_orders
                                     if order.order_id == event.order_id), None)
         if order_to_be_removed:
             self.strategy_current_hanging_orders.remove(order_to_be_removed)
-            self.logger().notify(f"({self.trading_pair}) Hanging order {event.order_id} cancelled.")
+            self.logger().notify(f"({self.trading_pair}) Hanging order {event.order_id} canceled.")
 
         limit_order_to_be_removed = next((order for order in self.original_orders
                                           if order.client_order_id == event.order_id), None)
@@ -153,7 +153,7 @@ class HangingOrdersTracker:
         """Updates the currently active hanging orders.
 
         Removes active and pending hanging orders with prices that have surpassed
-        the cancellation percent and renews active hanging orders that have passed
+        the cancelation percent and renews active hanging orders that have passed
         the max order age.
 
         This method should be called on each clock tick.
@@ -161,11 +161,11 @@ class HangingOrdersTracker:
         self.remove_orders_far_from_price()
         self.renew_hanging_orders_past_max_order_age()
 
-    def _process_cancel_as_part_of_renew(self, event: OrderCancelledEvent):
+    def _process_cancel_as_part_of_renew(self, event: OrderCanceledEvent):
         renewing_order = next((order for order in self.orders_being_renewed if order.order_id == event.order_id), None)
         if renewing_order:
             self.logger().info(f"({self.trading_pair}) Hanging order {event.order_id} "
-                               f"has been cancelled as part of the renew process. "
+                               f"has been canceled as part of the renew process. "
                                f"Now the replacing order will be created.")
             self.strategy_current_hanging_orders.remove(renewing_order)
             self.orders_being_renewed.remove(renewing_order)
@@ -223,22 +223,22 @@ class HangingOrdersTracker:
                 else -1)
 
     def renew_hanging_orders_past_max_order_age(self):
-        to_be_cancelled: Set[HangingOrder] = set()
+        to_be_canceled: Set[HangingOrder] = set()
         max_order_age = getattr(self.strategy, "max_order_age", None)
         if max_order_age:
             for order in self.strategy_current_hanging_orders:
                 if self.hanging_order_age(order) > max_order_age and order not in self.orders_being_renewed:
                     self.logger().info(f"Reached max_order_age={max_order_age}sec hanging order: {order}. Renewing...")
-                    to_be_cancelled.add(order)
+                    to_be_canceled.add(order)
 
-            self._cancel_multiple_orders_in_strategy([o.order_id for o in to_be_cancelled if o.order_id])
-            self.orders_being_renewed = self.orders_being_renewed.union(to_be_cancelled)
+            self._cancel_multiple_orders_in_strategy([o.order_id for o in to_be_canceled if o.order_id])
+            self.orders_being_renewed = self.orders_being_renewed.union(to_be_canceled)
 
     def remove_orders_far_from_price(self):
         current_price = self.strategy.get_price()
         orders_to_be_removed = set()
         for order in self.original_orders:
-            if (order.client_order_id not in self.orders_being_cancelled
+            if (order.client_order_id not in self.orders_being_canceled
                     and abs(order.price - current_price) / current_price > self._hanging_orders_cancel_pct):
                 self.logger().info(
                     f"Hanging order passed max_distance from price={self._hanging_orders_cancel_pct * 100}% {order}. Removing...")
@@ -276,7 +276,7 @@ class HangingOrdersTracker:
         """Updates the strategy hanging orders.
 
         Checks the internal list of hanging orders that should exist for the strategy
-        and ensures that those orders do exist by creating/cancelling orders
+        and ensures that those orders do exist by creating/canceling orders
         within the strategy accordingly.
         """
 
@@ -338,7 +338,7 @@ class HangingOrdersTracker:
         for order_id in order_ids:
             if any(o.client_order_id == order_id for o in self.strategy.active_orders):
                 self.strategy.cancel_order(order_id)
-                self.orders_being_cancelled.add(order_id)
+                self.orders_being_canceled.add(order_id)
 
     def _get_equivalent_orders_no_aggregation(self, orders):
         return frozenset(self._get_hanging_order_from_limit_order(o) for o in orders)

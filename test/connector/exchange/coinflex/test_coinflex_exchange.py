@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderCancelledEvent
+    OrderCanceledEvent
 )
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -51,7 +51,7 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure
     ]
     connector: CoinflexExchange
@@ -171,9 +171,9 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
 
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(60))
-        self._run_with_timeout(self.event_logger.wait_for(OrderCancelledEvent))
+        self._run_with_timeout(self.event_logger.wait_for(OrderCanceledEvent))
         self.ev_loop.run_until_complete(asyncio.sleep(1))
-        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
+        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCanceledEvent)]
         self.assertEqual({buy_id, sell_id}, {o.order_id for o in cancel_events})
 
     def test_buy_and_sell(self):
@@ -286,7 +286,7 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
             except Exception:
                 self.assertAlmostEqual(expected_quote_bal_with_fee_t, self.connector.get_available_balance(self.quote_token), 5)
         self._cancel_order(cl_order_id)
-        event = self._run_with_timeout(self.event_logger.wait_for(OrderCancelledEvent))
+        event = self._run_with_timeout(self.event_logger.wait_for(OrderCanceledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
@@ -297,7 +297,7 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
         order_created_event = self._run_with_timeout(self.event_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(cl_order_id, order_created_event.order_id)
         self._cancel_order(cl_order_id)
-        event = self._run_with_timeout(self.event_logger.wait_for(OrderCancelledEvent))
+        event = self._run_with_timeout(self.event_logger.wait_for(OrderCanceledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
     def test_order_quantized_values(self):
@@ -327,9 +327,9 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
         self._run_with_timeout(self.event_logger.wait_for(SellOrderCreatedEvent))
 
         self._cancel_order(cl_order_id_1)
-        self._run_with_timeout(self.event_logger.wait_for(OrderCancelledEvent))
+        self._run_with_timeout(self.event_logger.wait_for(OrderCanceledEvent))
         self._cancel_order(cl_order_id_2)
-        self._run_with_timeout(self.event_logger.wait_for(OrderCancelledEvent))
+        self._run_with_timeout(self.event_logger.wait_for(OrderCanceledEvent))
 
     def test_filled_orders_recorded(self):
         config_path: str = "test_config"
@@ -373,7 +373,7 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -450,7 +450,7 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
 
             # Cancel the order and verify that the change is saved.
             self._cancel_order(cl_order_id, new_connector)
-            self._run_with_timeout(self.event_logger.wait_for(OrderCancelledEvent))
+            self._run_with_timeout(self.event_logger.wait_for(OrderCanceledEvent))
             self.ev_loop.run_until_complete(asyncio.sleep(2))
             with recorder._sql_manager.get_new_session() as session:
                 recorder.save_market_states(config_path, new_connector, session=session)
@@ -463,7 +463,7 @@ class CoinflexExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, cl_order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

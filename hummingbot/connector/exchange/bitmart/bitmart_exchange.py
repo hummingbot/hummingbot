@@ -15,7 +15,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -25,7 +25,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -425,7 +425,7 @@ class BitmartExchange(ExchangeBase):
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
+        To get the cancelation result, you'll have to wait for OrderCanceledEvent.
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param order_id: The internal order id (also called client_order_id)
         """
@@ -538,8 +538,8 @@ class BitmartExchange(ExchangeBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
-        the cancellation is successful, it simply states it receives the request.
+        Executes order cancelation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancelation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
         :param order_id: The internal order id
         order.last_state to change to CANCELED
@@ -559,9 +559,9 @@ class BitmartExchange(ExchangeBase):
                 "SIGNED"
             )
 
-            # result = True is a successful cancel, False indicates cancel failed due to already cancelled or matched
+            # result = True is a successful cancel, False indicates cancel failed due to already canceled or matched
             if "result" in response["data"] and not response["data"]["result"]:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order was already matched or cancelled on the exchange.")
+                raise ValueError(f"Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange.")
             return order_id
         except asyncio.CancelledError:
             raise
@@ -651,7 +651,7 @@ class BitmartExchange(ExchangeBase):
 
     async def _process_order_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers cancellation or failure event if needed.
+        Updates in-flight order and triggers cancelation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
         for order in self._in_flight_orders.values():
@@ -670,13 +670,13 @@ class BitmartExchange(ExchangeBase):
         elif "state" in order_msg:      # WebSocket
             tracked_order.last_state = CONSTANTS.ORDER_STATUS[int(order_msg["state"])]
 
-        if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(
+        if tracked_order.is_canceled:
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
+            self.trigger_event(MarketEvent.OrderCanceled,
+                               OrderCanceledEvent(
                                    self.current_timestamp,
                                    client_order_id))
-            tracked_order.cancelled_event.set()
+            tracked_order.canceled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
@@ -785,17 +785,17 @@ class BitmartExchange(ExchangeBase):
 
     async def cancel_all(self, timeout_seconds: float):
         """
-        Cancels all in-flight orders and waits for cancellation results.
-        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancelation results.
+        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        :returns List of CancelationResult which indicates whether each order is successfully canceled.
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         for order in self._in_flight_orders.values():
             await order.get_exchange_order_id()
         tracked_orders: Dict[str, BitmartInFlightOrder] = self._in_flight_orders.copy().items()
-        cancellation_results = []
+        cancelation_results = []
         try:
             tasks = []
 
@@ -815,19 +815,19 @@ class BitmartExchange(ExchangeBase):
             for cl_order_id, tracked_order in tracked_orders:
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
                 if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    cancelation_results.append(CancelationResult(cl_order_id, True))
+                    self.trigger_event(MarketEvent.OrderCanceled,
+                                       OrderCanceledEvent(self.current_timestamp, cl_order_id))
                     self.stop_tracking_order(cl_order_id)
                 else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
+                    cancelation_results.append(CancelationResult(cl_order_id, False))
         except Exception:
             self.logger().network(
                 "Failed to cancel all orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on BitMart. Check API key and network connection."
             )
-        return cancellation_results
+        return cancelation_results
 
     def tick(self, timestamp: float):
         """

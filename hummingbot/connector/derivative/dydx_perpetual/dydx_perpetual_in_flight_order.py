@@ -55,7 +55,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
         return self.status >= DydxPerpetualOrderStatus.done
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         return self.status in [DydxPerpetualOrderStatus.CANCELED, DydxPerpetualOrderStatus.expired]
 
     @property
@@ -201,7 +201,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
                 self._queued_events.append((MarketEvent.OrderFailure, None, None, None))
                 new_status = DydxPerpetualOrderStatus.failed
             else:
-                self._queued_events.append((MarketEvent.OrderCancelled, None, None, None))
+                self._queued_events.append((MarketEvent.OrderCanceled, None, None, None))
 
         self.status = new_status
         self.last_state = str(new_status)

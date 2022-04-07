@@ -24,7 +24,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
 )
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -74,7 +74,7 @@ class NdaxExchangeTests(TestCase):
         self.exchange.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.exchange.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.exchange.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
-        self.exchange.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+        self.exchange.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
         self.exchange.add_listener(MarketEvent.OrderFailure, self.order_failure_logger)
 
         self.mocking_assistant = NetworkMockingAssistant()
@@ -195,7 +195,7 @@ class NdaxExchangeTests(TestCase):
 
         self.assertTrue(self._is_logged('NETWORK', "Unknown error. Retrying after 1 seconds."))
 
-    def test_user_event_queue_notifies_cancellations(self):
+    def test_user_event_queue_notifies_cancelations(self):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
 
@@ -301,12 +301,12 @@ class NdaxExchangeTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual("Canceled", inflight_order.last_state)
-        self.assertTrue(inflight_order.is_cancelled)
+        self.assertTrue(inflight_order.is_canceled)
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
-        self.assertTrue(self._is_logged("INFO", f"Successfully cancelled order {inflight_order.client_order_id}"))
+        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {inflight_order.client_order_id}"))
         self.assertEqual(1, len(self.cancel_order_logger.event_log))
         cancel_event = self.cancel_order_logger.event_log[0]
-        self.assertEqual(OrderCancelledEvent, type(cancel_event))
+        self.assertEqual(OrderCanceledEvent, type(cancel_event))
         self.assertEqual(inflight_order.client_order_id, cancel_event.order_id)
 
     def test_order_event_with_rejected_status_makes_in_flight_order_fail(self):
@@ -1522,13 +1522,13 @@ class NdaxExchangeTests(TestCase):
         self.mocking_assistant.configure_http_request_mock(mock_post_request)
         self.mocking_assistant.add_http_response(mock_post_request, 200, mock_response, "")
 
-        cancellation_results = asyncio.new_event_loop().run_until_complete(
+        cancelation_results = asyncio.new_event_loop().run_until_complete(
             self.exchange.cancel_all(10)
         )
 
-        self.assertEqual(1, len(cancellation_results))
-        self.assertEqual("0", cancellation_results[0].order_id)
-        self.assertTrue(cancellation_results[0].success)
+        self.assertEqual(1, len(cancelation_results))
+        self.assertEqual("0", cancelation_results[0].order_id)
+        self.assertTrue(cancelation_results[0].success)
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
@@ -1550,7 +1550,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Regardless of Response, the method returns the client_order_id
-        # Actual cancellation verification is done using WebSocket message or REST API.
+        # Actual cancelation verification is done using WebSocket message or REST API.
         mock_response = {
             "result": False,
             "errormsg": "Invalid Request",

@@ -20,7 +20,7 @@ from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils i
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -644,7 +644,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
 
         return parsed_response
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
         return []
 
     @property

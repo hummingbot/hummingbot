@@ -24,7 +24,7 @@ class MexcInFlightOrder(InFlightOrderBase):
             price,
             amount,
             creation_timestamp,
-            initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
+            initial_state,  # submitted, partial-filled, canceling, filled, canceled, partial-canceled
         )
         self.fee_asset = self.quote_asset
 
@@ -33,7 +33,7 @@ class MexcInFlightOrder(InFlightOrderBase):
         return self.last_state in {"FILLED", "CANCELED", "PARTIALLY_CANCELED"}
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         return self.last_state in {"CANCELED", "PARTIALLY_CANCELED"}
 
     @property

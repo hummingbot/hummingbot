@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderCancelledEvent
+    OrderCanceledEvent
 )
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.model.sql_connection_manager import (
@@ -51,7 +51,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure
     ]
     connector: K2Exchange
@@ -220,7 +220,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token))
         self._cancel_order(cl_order_id)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
@@ -231,7 +231,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(cl_order_id, order_created_event.order_id)
         self._cancel_order(cl_order_id)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
     def test_cancel_all(self):
@@ -247,7 +247,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(5))
         self.ev_loop.run_until_complete(asyncio.sleep(5))
-        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
+        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCanceledEvent)]
         self.assertEqual({buy_id, sell_id}, {o.order_id for o in cancel_events})
 
     def test_order_price_precision(self):
@@ -359,7 +359,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
 
             # Cancel the order and verify that the change is saved.
             self._cancel_order(cl_order_id)
-            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
             order_id = None
             self.assertEqual(0, len(new_connector.limit_orders))
             self.assertEqual(0, len(new_connector.tracking_states))
@@ -368,7 +368,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, cl_order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -430,7 +430,7 @@ class K2ExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

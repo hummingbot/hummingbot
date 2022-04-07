@@ -6,7 +6,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     OrderFilledEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderExpiredEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -63,10 +63,10 @@ cdef class StrategyPyBase(StrategyBase):
     def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
         pass
 
-    cdef c_did_cancel_order(self, object cancelled_event):
-        self.did_cancel_order(cancelled_event)
+    cdef c_did_cancel_order(self, object canceled_event):
+        self.did_cancel_order(canceled_event)
 
-    def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
+    def did_cancel_order(self, canceled_event: OrderCanceledEvent):
         pass
 
     cdef c_did_expire_order(self, object expired_event):

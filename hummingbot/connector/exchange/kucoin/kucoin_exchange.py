@@ -19,7 +19,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -290,38 +290,38 @@ class KucoinExchange(ExchangePyBase):
         safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
         """
-        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+        Cancels all currently active orders. The cancelations are performed in parallel tasks.
 
         :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
 
-        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        :return: a list of CancelationResult instances, one for each of the orders to be canceled
         """
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
+        successful_cancelations = []
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cr in cancellation_results:
+                cancelation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cr in cancelation_results:
                     if isinstance(cr, Exception):
                         continue
                     if cr is not None:
                         client_order_id = cr
                         order_id_set.remove(client_order_id)
-                        successful_cancellations.append(CancellationResult(client_order_id, True))
+                        successful_cancelations.append(CancelationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order. Check API key and network connection."
             )
 
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
+        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
+        return successful_cancelations + failed_cancelations
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         """
@@ -605,12 +605,12 @@ class KucoinExchange(ExchangePyBase):
                     limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
                 )
 
-                if tracked_order.exchange_order_id in cancel_result["data"].get("cancelledOrderIds", []):
+                if tracked_order.exchange_order_id in cancel_result["data"].get("canceledOrderIds", []):
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                     return order_id
@@ -694,7 +694,7 @@ class KucoinExchange(ExchangePyBase):
                         elif order_event_type == "filled":
                             updated_status = OrderState.FILLED
                         elif order_event_type == "canceled":
-                            updated_status = OrderState.CANCELLED
+                            updated_status = OrderState.CANCELED
 
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
@@ -889,7 +889,7 @@ class KucoinExchange(ExchangePyBase):
             for update_result, tracked_order in zip(results, reviewed_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed do nothing
+                # If the order has already been canceled or has failed do nothing
                 if client_order_id in self.in_flight_orders:
                     if isinstance(update_result, Exception):
                         self.logger().network(
@@ -908,7 +908,7 @@ class KucoinExchange(ExchangePyBase):
 
                         new_state = tracked_order.current_state
                         if ordered_canceled or op_type == "CANCEL":
-                            new_state = OrderState.CANCELLED
+                            new_state = OrderState.CANCELED
                         elif not is_active:
                             new_state = OrderState.FILLED
 

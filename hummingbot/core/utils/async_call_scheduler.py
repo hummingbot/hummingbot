@@ -85,7 +85,7 @@ class AsyncCallScheduler:
                     pass
                 raise
             except asyncio.InvalidStateError:
-                # The future is already cancelled from outside. Ignore.
+                # The future is already canceled from outside. Ignore.
                 pass
             except Exception as e:
                 # Add exception information.

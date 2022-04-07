@@ -38,10 +38,10 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.state is FtxOrderStatus.FAILURE or self.is_cancelled
+        return self.state is FtxOrderStatus.FAILURE or self.is_canceled
 
     @property
-    def is_cancelled(self) -> bool:
+    def is_canceled(self) -> bool:
         return self.state is FtxOrderStatus.closed and self.executed_amount_base < self.amount
 
     def set_status(self, status: str):
@@ -79,7 +79,7 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
 
         if not self.is_done and new_status == FtxOrderStatus.closed:
             if overall_remaining_size > 0:
-                events.append((MarketEvent.OrderCancelled, None, None, None))
+                events.append((MarketEvent.OrderCanceled, None, None, None))
             elif self.trade_type is TradeType.BUY:
                 events.append((MarketEvent.BuyOrderCompleted, overall_executed_base, overall_executed_quote, None))
             else:

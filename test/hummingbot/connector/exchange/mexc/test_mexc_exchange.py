@@ -19,7 +19,7 @@ from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlight
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.event.events import OrderCancelledEvent, SellOrderCompletedEvent
+from hummingbot.core.event.events import OrderCanceledEvent, SellOrderCompletedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -156,7 +156,7 @@ class MexcExchangeTests(TestCase):
 
         self.assertTrue(self._is_logged('ERROR', "Unknown error. Retrying after 1 second. Dummy test error"))
 
-    def test_user_event_queue_notifies_cancellations(self):
+    def test_user_event_queue_notifies_cancelations(self):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
 
@@ -243,13 +243,13 @@ class MexcExchangeTests(TestCase):
             pass
 
         self.assertEqual("CANCELED", inflight_order.last_state)
-        self.assertTrue(inflight_order.is_cancelled)
+        self.assertTrue(inflight_order.is_canceled)
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"Order {inflight_order.client_order_id} "
-                                                f"has been cancelled according to order delta websocket API."))
+                                                f"has been canceled according to order delta websocket API."))
         self.assertEqual(1, len(self.exchange.event_logs))
         cancel_event = self.exchange.event_logs[0]
-        self.assertEqual(OrderCancelledEvent, type(cancel_event))
+        self.assertEqual(OrderCanceledEvent, type(cancel_event))
         self.assertEqual(inflight_order.client_order_id, cancel_event.order_id)
 
     @aioresponses()
@@ -284,10 +284,10 @@ class MexcExchangeTests(TestCase):
         self.assertTrue(inflight_order.is_failure)
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"Order {inflight_order.client_order_id} "
-                                                f"has been cancelled according to order delta websocket API."))
+                                                f"has been canceled according to order delta websocket API."))
         self.assertEqual(1, len(self.exchange.event_logs))
         failure_event = self.exchange.event_logs[0]
-        self.assertEqual(OrderCancelledEvent, type(failure_event))
+        self.assertEqual(OrderCanceledEvent, type(failure_event))
         self.assertEqual(inflight_order.client_order_id, failure_event.order_id)
 
     @aioresponses()
@@ -894,13 +894,13 @@ class MexcExchangeTests(TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_post_request.delete(regex_url, body=json.dumps(mock_response))
 
-        cancellation_results = self.async_run_with_timeout(
+        cancelation_results = self.async_run_with_timeout(
             self.exchange.cancel_all(10)
         )
 
-        self.assertEqual(1, len(cancellation_results))
-        self.assertEqual("0", cancellation_results[0].order_id)
-        self.assertTrue(cancellation_results[0].success)
+        self.assertEqual(1, len(cancelation_results))
+        self.assertEqual("0", cancelation_results[0].order_id)
+        self.assertTrue(cancelation_results[0].success)
 
     @aioresponses()
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")

@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -66,7 +66,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
+        MarketEvent.OrderCanceled,
         MarketEvent.OrderFailure,
     ]
     market: BeaxyExchange
@@ -376,8 +376,8 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("delete", PRIVET_API_BASE_URL, "/api/v1/orders", "")
 
         self.run_parallel(asyncio.sleep(1))
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancellation_results:
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     def test_market_buy(self):
@@ -480,9 +480,9 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
                                                            FixtureBeaxy.TEST_CANCEL_BUY_WS_ORDER_CANCELED, delay=3)
 
         self.cancel_order(trading_pair, order_id, exch_order_id)
-        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
-        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(order_cancelled_event.order_id, order_id)
+        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        order_canceled_event: OrderCanceledEvent = order_canceled_event
+        self.assertEqual(order_canceled_event.order_id, order_id)
 
     def test_cancel_all(self):
 
@@ -520,7 +520,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
                                               quantize_ask_price)
         self.run_parallel(asyncio.sleep(1))
 
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
 
         if API_MOCK_ENABLED:
             MockWebSocketServerFactory.send_str_threadsafe(BeaxyConstants.TradingApi.WS_BASE_URL,
@@ -528,7 +528,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
             MockWebSocketServerFactory.send_str_threadsafe(BeaxyConstants.TradingApi.WS_BASE_URL,
                                                            FixtureBeaxy.TEST_CANCEL_BUY_WS_ORDER2_CANCELED, delay=3)
 
-        for cr in cancellation_results:
+        for cr in cancelation_results:
             self.assertEqual(cr.success, True)
 
     def test_cancel_empty(self):

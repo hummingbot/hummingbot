@@ -18,7 +18,7 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import (
     AscendExTradingRule,
 )
 from hummingbot.connector.utils import get_new_client_order_id
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -206,7 +206,7 @@ class TestAscendExExchange(unittest.TestCase):
         )
 
         self.async_task = asyncio.get_event_loop().create_task(self.exchange.cancel_all(10))
-        result: List[CancellationResult] = self.async_run_with_timeout(self.async_task)
+        result: List[CancelationResult] = self.async_run_with_timeout(self.async_task)
 
         self.assertEqual(2, len(result))
         self.assertEqual("testOrderId1", result[0].order_id)
@@ -214,7 +214,7 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertEqual("testOrderId2", result[1].order_id)
         self.assertFalse(result[1].success)
 
-    def test_order_without_exchange_id_marked_as_failure_and_removed_during_cancellation(self):
+    def test_order_without_exchange_id_marked_as_failure_and_removed_during_cancelation(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="testOrderId1",
@@ -516,7 +516,7 @@ class TestAscendExExchange(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",
@@ -635,7 +635,7 @@ class TestAscendExExchange(unittest.TestCase):
         try:
             self.async_run_with_timeout(self.test_task)
         except asyncio.CancelledError:
-            # Ignore cancellation errors, it is the expected signal to cut the background loop
+            # Ignore cancelation errors, it is the expected signal to cut the background loop
             pass
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
@@ -712,7 +712,7 @@ class TestAscendExExchange(unittest.TestCase):
         try:
             self.async_run_with_timeout(self.test_task)
         except asyncio.CancelledError:
-            # Ignore cancellation errors, it is the expected signal to cut the background loop
+            # Ignore cancelation errors, it is the expected signal to cut the background loop
             pass
 
         # Check after
@@ -754,7 +754,7 @@ class TestAscendExExchange(unittest.TestCase):
         try:
             self.async_run_with_timeout(self.test_task)
         except asyncio.CancelledError:
-            # Ignore cancellation errors, it is the expected signal to cut the background loop
+            # Ignore cancelation errors, it is the expected signal to cut the background loop
             pass
 
         # Check after
@@ -1181,14 +1181,14 @@ class TestAscendExExchange(unittest.TestCase):
 
         self.test_task = self.ev_loop.create_task(self._iter_user_event_queue_task())
 
-        is_cancelled = False
+        is_canceled = False
 
         try:
             self.async_run_with_timeout(self.test_task)
         except asyncio.exceptions.CancelledError:
-            is_cancelled = True
+            is_canceled = True
 
-        self.assertTrue(is_cancelled)
+        self.assertTrue(is_canceled)
 
     def test_iter_user_event_queue_error(self):
         mock_queue = AsyncMock()
@@ -1588,7 +1588,7 @@ class TestAscendExExchange(unittest.TestCase):
             )
         )
 
-    def test_cancel_order_already_cancelled(self):
+    def test_cancel_order_already_canceled(self):
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange._in_flight_order_tracker._cached_orders["testOrderId1"] = "My Order"
@@ -1607,6 +1607,6 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                "The order testOrderId1 was finished before being cancelled"
+                "The order testOrderId1 was finished before being canceled"
             )
         )

@@ -19,7 +19,7 @@ from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
 )
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
@@ -58,13 +58,13 @@ class AltmarketsExchangeTests(TestCase):
         self.buy_order_created_logger: EventLogger = EventLogger()
         self.sell_order_created_logger: EventLogger = EventLogger()
         self.buy_order_completed_logger: EventLogger = EventLogger()
-        self.order_cancelled_logger: EventLogger = EventLogger()
+        self.order_canceled_logger: EventLogger = EventLogger()
         self.order_failure_logger: EventLogger = EventLogger()
         self.order_filled_logger: EventLogger = EventLogger()
         self.exchange.add_listener(MarketEvent.BuyOrderCreated, self.buy_order_created_logger)
         self.exchange.add_listener(MarketEvent.SellOrderCreated, self.sell_order_created_logger)
         self.exchange.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
-        self.exchange.add_listener(MarketEvent.OrderCancelled, self.order_cancelled_logger)
+        self.exchange.add_listener(MarketEvent.OrderCanceled, self.order_canceled_logger)
         self.exchange.add_listener(MarketEvent.OrderFailure, self.order_failure_logger)
         self.exchange.add_listener(MarketEvent.OrderFilled, self.order_filled_logger)
 
@@ -110,14 +110,14 @@ class AltmarketsExchangeTests(TestCase):
         }
 
     def get_order_create_response_mock(self,
-                                       cancelled: bool = False,
+                                       canceled: bool = False,
                                        failed: bool = False,
                                        exchange_order_id: str = "someExchId",
                                        amount: str = "1",
                                        price: str = "5.00032",
                                        executed: str = "0.5") -> Dict:
         order_state = "wait"
-        if cancelled:
+        if canceled:
             order_state = "cancel"
         elif failed:
             order_state = "reject"
@@ -219,7 +219,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(ret, NetworkStatus.CONNECTED)
 
     @aioresponses()
-    def test_check_network_raises_cancelled_error(self, mock_api):
+    def test_check_network_raises_canceled_error(self, mock_api):
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['NETWORK_CHECK']}"
         mock_api.get(url, exception=asyncio.CancelledError)
 
@@ -311,7 +311,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(order_id, sent_message["client_id"])
 
     @aioresponses()
-    def test_create_order_raises_on_asyncio_cancelled_error(self, mocked_api):
+    def test_create_order_raises_on_asyncio_canceled_error(self, mocked_api):
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['ORDER_CREATE']}"
         regex_url = re.compile(f"^{url}")
         mocked_api.post(regex_url, exception=asyncio.CancelledError)
@@ -388,7 +388,7 @@ class AltmarketsExchangeTests(TestCase):
         )
         self.exchange.in_flight_orders[order_id].update_exchange_order_id("E-OID-1")
 
-        result: CancellationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, order_id))
+        result: CancelationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, order_id))
 
         self.assertEqual(order_id, result.order_id)
         self.assertTrue(result.success)
@@ -416,7 +416,7 @@ class AltmarketsExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
         )
 
-        result: CancellationResult = self.async_run_with_timeout(
+        result: CancelationResult = self.async_run_with_timeout(
             self.exchange._execute_cancel(self.trading_pair, order_id))
 
         self.assertEqual(order_id, result.order_id)
@@ -427,7 +427,7 @@ class AltmarketsExchangeTests(TestCase):
     def test_cancel_order_not_present_in_inflight_orders(self):
         client_order_id = "test-id"
         event_logger = EventLogger()
-        self.exchange.add_listener(MarketEvent.OrderCancelled, event_logger)
+        self.exchange.add_listener(MarketEvent.OrderCanceled, event_logger)
 
         result = self.async_run_with_timeout(
             coroutine=self.exchange._execute_cancel(self.trading_pair, client_order_id)
@@ -471,7 +471,7 @@ class AltmarketsExchangeTests(TestCase):
 
     @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
     @aioresponses()
-    def test_execute_cancel_raises_on_asyncio_cancelled_error(self, retry_sleep_time_mock, mocked_api):
+    def test_execute_cancel_raises_on_asyncio_canceled_error(self, retry_sleep_time_mock, mocked_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['ORDER_DELETE'].format(id='1234')}"
         mocked_api.post(url, exception=asyncio.CancelledError)
@@ -555,7 +555,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(0, len(self.exchange.in_flight_orders))
 
     @aioresponses()
-    def test_update_order_status_cancelled_event(self, mocked_api):
+    def test_update_order_status_canceled_event(self, mocked_api):
         exchange_order_id = "2147857398"
         order_id = "someId"
         price = "46100.0000000000"
@@ -563,7 +563,7 @@ class AltmarketsExchangeTests(TestCase):
 
         self.exchange._order_not_found_records[order_id] = self.exchange.ORDER_NOT_EXIST_CONFIRMATION_COUNT
 
-        resp = self.get_order_create_response_mock(cancelled=True,
+        resp = self.get_order_create_response_mock(canceled=True,
                                                    exchange_order_id=exchange_order_id,
                                                    amount=amount,
                                                    price=price,
@@ -585,14 +585,14 @@ class AltmarketsExchangeTests(TestCase):
         self.async_run_with_timeout(self.exchange._update_order_status())
 
         order_completed_events = self.buy_order_completed_logger.event_log
-        order_cancelled_events = self.order_cancelled_logger.event_log
+        order_canceled_events = self.order_canceled_logger.event_log
 
-        self.assertTrue(order.is_cancelled and order.is_done)
+        self.assertTrue(order.is_canceled and order.is_done)
         self.assertFalse(order.is_failure)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
-        self.assertEqual(1, len(order_cancelled_events))
-        self.assertEqual(order_id, order_cancelled_events[0].order_id)
+        self.assertEqual(1, len(order_canceled_events))
+        self.assertEqual(order_id, order_canceled_events[0].order_id)
 
     @aioresponses()
     def test_update_order_status_logs_missing_data_in_response(self, mocked_api):
@@ -626,7 +626,7 @@ class AltmarketsExchangeTests(TestCase):
         price = "46100.0000000000"
         amount = "1.0000000000"
 
-        resp = self.get_order_create_response_mock(cancelled=False,
+        resp = self.get_order_create_response_mock(canceled=False,
                                                    exchange_order_id=exchange_order_id,
                                                    amount=amount,
                                                    price=price,
@@ -650,7 +650,7 @@ class AltmarketsExchangeTests(TestCase):
         order_completed_events = self.buy_order_completed_logger.event_log
         orders_filled_events = self.order_filled_logger.event_log
 
-        self.assertFalse(order.is_done or order.is_failure or order.is_cancelled)
+        self.assertFalse(order.is_done or order.is_failure or order.is_canceled)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(orders_filled_events))
         self.assertEqual(order_id, orders_filled_events[0].order_id)
@@ -662,7 +662,7 @@ class AltmarketsExchangeTests(TestCase):
         price = "46100.0000000000"
         amount = "1.0000000000"
 
-        resp = self.get_order_create_response_mock(cancelled=False,
+        resp = self.get_order_create_response_mock(canceled=False,
                                                    exchange_order_id=exchange_order_id,
                                                    amount=amount,
                                                    price=price,
@@ -687,7 +687,7 @@ class AltmarketsExchangeTests(TestCase):
         orders_filled_events = self.order_filled_logger.event_log
 
         self.assertTrue(order.is_done)
-        self.assertFalse(order.is_failure or order.is_cancelled)
+        self.assertFalse(order.is_failure or order.is_canceled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(1, len(order_completed_events))
         self.assertEqual(order_id, order_completed_events[0].order_id)
@@ -726,7 +726,7 @@ class AltmarketsExchangeTests(TestCase):
         order_failure_events = self.order_failure_logger.event_log
 
         self.assertTrue(order.is_failure and order.is_done)
-        self.assertFalse(order.is_cancelled)
+        self.assertFalse(order.is_canceled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(order_failure_events))
@@ -811,7 +811,7 @@ class AltmarketsExchangeTests(TestCase):
 
         self.assertEqual(None, order.exchange_order_id)
         self.assertTrue(order.is_failure and order.is_done)
-        self.assertFalse(order.is_cancelled)
+        self.assertFalse(order.is_canceled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(order_failure_events))
@@ -833,7 +833,7 @@ class AltmarketsExchangeTests(TestCase):
         self.exchange._in_flight_orders[client_order_id] = self.get_in_flight_order(client_order_id, exchange_order_id)
 
         # Order Status Updates
-        order_status_resp = self.get_order_create_response_mock(cancelled=False, exchange_order_id=exchange_order_id)
+        order_status_resp = self.get_order_create_response_mock(canceled=False, exchange_order_id=exchange_order_id)
         order_status_called_event = asyncio.Event()
         mock_api.get(
             self._get_order_status_url(),
@@ -855,7 +855,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(Decimal("0.5"), partially_filled_order.executed_amount_base)
 
     @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._update_balances")
-    def test_status_polling_loop_raises_on_asyncio_cancelled_error(self, update_balances_mock: AsyncMock):
+    def test_status_polling_loop_raises_on_asyncio_canceled_error(self, update_balances_mock: AsyncMock):
         update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             exception=asyncio.CancelledError
         )
@@ -1019,15 +1019,15 @@ class AltmarketsExchangeTests(TestCase):
 
         self.exchange.in_flight_orders[order_id].update_exchange_order_id("1234")
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+        cancelation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
 
-        order_cancelled_events = self.order_cancelled_logger.event_log
+        order_canceled_events = self.order_canceled_logger.event_log
 
-        self.assertEqual(1, len(order_cancelled_events))
-        self.assertEqual(order_id, order_cancelled_events[0].order_id)
+        self.assertEqual(1, len(order_canceled_events))
+        self.assertEqual(order_id, order_canceled_events[0].order_id)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
-        self.assertEqual(1, len(cancellation_results))
-        self.assertEqual(order_id, cancellation_results[0].order_id)
+        self.assertEqual(1, len(cancelation_results))
+        self.assertEqual(order_id, cancelation_results[0].order_id)
 
     @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
     @aioresponses()
@@ -1155,7 +1155,7 @@ class AltmarketsExchangeTests(TestCase):
         order_completed_events = self.buy_order_completed_logger.event_log
         orders_filled_events = self.order_filled_logger.event_log
 
-        self.assertFalse(order.is_done or order.is_failure or order.is_cancelled)
+        self.assertFalse(order.is_done or order.is_failure or order.is_canceled)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(orders_filled_events))
         self.assertEqual(order_id, orders_filled_events[0].order_id)
@@ -1197,20 +1197,20 @@ class AltmarketsExchangeTests(TestCase):
         orders_filled_events = self.order_filled_logger.event_log
 
         self.assertTrue(order.is_done)
-        self.assertFalse(order.is_failure or order.is_cancelled)
+        self.assertFalse(order.is_failure or order.is_canceled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(1, len(order_completed_events))
         self.assertEqual(order_id, order_completed_events[0].order_id)
         self.assertEqual(1, len(orders_filled_events))
         self.assertEqual(order_id, orders_filled_events[0].order_id)
 
-    def test_user_stream_order_event_registers_cancelled_event(self):
+    def test_user_stream_order_event_registers_canceled_event(self):
         exchange_order_id = "2147857398"
         order_id = "someId"
         price = "46100.0000000000"
         amount = "1.0000000000"
 
-        order = self.get_order_create_response_mock(cancelled=True,
+        order = self.get_order_create_response_mock(canceled=True,
                                                     exchange_order_id=exchange_order_id,
                                                     amount=amount,
                                                     price=price,
@@ -1239,14 +1239,14 @@ class AltmarketsExchangeTests(TestCase):
         self.resume_test_event.clear()
 
         order_completed_events = self.buy_order_completed_logger.event_log
-        order_cancelled_events = self.order_cancelled_logger.event_log
+        order_canceled_events = self.order_canceled_logger.event_log
 
-        self.assertTrue(order.is_cancelled and order.is_done)
+        self.assertTrue(order.is_canceled and order.is_done)
         self.assertFalse(order.is_failure)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
-        self.assertEqual(1, len(order_cancelled_events))
-        self.assertEqual(order_id, order_cancelled_events[0].order_id)
+        self.assertEqual(1, len(order_canceled_events))
+        self.assertEqual(order_id, order_canceled_events[0].order_id)
 
     def test_user_stream_order_event_registers_failed_event(self):
         exchange_order_id = "2147857398"
@@ -1286,7 +1286,7 @@ class AltmarketsExchangeTests(TestCase):
         order_failure_events = self.order_failure_logger.event_log
 
         self.assertTrue(order.is_failure and order.is_done)
-        self.assertFalse(order.is_cancelled)
+        self.assertFalse(order.is_canceled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(order_failure_events))

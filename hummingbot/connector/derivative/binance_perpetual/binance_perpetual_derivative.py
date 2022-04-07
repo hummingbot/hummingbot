@@ -28,7 +28,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -310,34 +310,34 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def cancel_all(self, timeout_seconds: float):
         """
         The function that is primarily triggered by the ExitCommand that cancels all InFlightOrder's
-        being tracked by the Client Order Tracker. It confirms the successful cancellation
+        being tracked by the Client Order Tracker. It confirms the successful cancelation
         of the orders.
 
         Parameters
         ----------
         timeout_seconds:
-            How long to wait before checking whether the orders were cancelled
+            How long to wait before checking whether the orders were canceled
         """
         incomplete_orders = [order for order in self._client_order_tracker.active_orders.values() if not order.is_done]
         tasks = [self._execute_cancel(order.trading_pair, order.client_order_id) for order in incomplete_orders]
-        successful_cancellations = []
-        failed_cancellations = []
+        successful_cancelations = []
+        failed_cancelations = []
 
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cancel_result, order in zip(cancellation_results, incomplete_orders):
+                cancelation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cancel_result, order in zip(cancelation_results, incomplete_orders):
                     if cancel_result and cancel_result == order.client_order_id:
-                        successful_cancellations.append(CancellationResult(order.client_order_id, True))
+                        successful_cancelations.append(CancelationResult(order.client_order_id, True))
                     else:
-                        failed_cancellations.append(CancellationResult(order.client_order_id, False))
+                        failed_cancelations.append(CancelationResult(order.client_order_id, False))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Binance Perpetual. Check API key and network connection."
             )
-        return successful_cancellations + failed_cancellations
+        return successful_cancelations + failed_cancelations
 
     async def cancel_all_account_orders(self, trading_pair: str):
         try:
@@ -354,7 +354,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 for order_id in list(self._client_order_tracker.active_orders.keys()):
                     self.stop_tracking_order(order_id)
             else:
-                raise IOError(f"Error cancelling all account orders. Server Response: {response}")
+                raise IOError(f"Error canceling all account orders. Server Response: {response}")
         except Exception as e:
             self.logger().error("Could not cancel all account orders.")
             raise e
@@ -1310,7 +1310,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
             if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
-                                    f"No cancellation needed.")
+                                    f"No cancelation needed.")
                 self.stop_tracking_order(client_order_id)
                 return None
             return client_order_id

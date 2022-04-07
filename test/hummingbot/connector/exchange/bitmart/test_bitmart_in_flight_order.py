@@ -80,16 +80,16 @@ class BitmartInFlightOrderTests(TestCase):
             order.last_state = status
             self.assertTrue(order.is_failure)
 
-    def test_is_cancelled(self):
+    def test_is_canceled(self):
         order = BitmartInFlightOrder.from_json(self._example_json())
 
         for status in ["ACTIVE", "FILLED", "REJECTED", "FAILED"]:
             order.last_state = status
-            self.assertFalse(order.is_cancelled)
+            self.assertFalse(order.is_canceled)
 
         for status in ["CANCELED", "EXPIRED"]:
             order.last_state = status
-            self.assertTrue(order.is_cancelled)
+            self.assertTrue(order.is_canceled)
 
     def test_to_json(self):
         order = BitmartInFlightOrder.from_json(self._example_json())

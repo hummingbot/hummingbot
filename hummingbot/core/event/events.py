@@ -14,7 +14,7 @@ class MarketEvent(Enum):
     SellOrderCompleted = 103
     # Trade = 104  Deprecated
     WithdrawAsset = 105  # Locally Deprecated, but still present in hummingsim
-    OrderCancelled = 106
+    OrderCanceled = 106
     OrderFilled = 107
     OrderExpired = 108
     OrderFailure = 198
@@ -81,7 +81,7 @@ class SellOrderCompletedEvent:
 
 
 @dataclass
-class OrderCancelledEvent:
+class OrderCanceledEvent:
     timestamp: float
     order_id: str
     exchange_order_id: Optional[str] = None

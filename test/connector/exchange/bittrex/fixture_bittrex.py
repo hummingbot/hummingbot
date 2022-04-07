@@ -47,33 +47,33 @@ class FixtureBittrex:
     FILLED_BUY_LIMIT_ORDER = {
         "id": "d7850281-0440-4478-879f-248499b2134d", "marketSymbol": "ETH-USDT", "direction": "BUY",
         "type": "LIMIT", "quantity": "0.06000000", "limit": "268.09208274",
-        "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.06000000", "commission": "0.01333791",
+        "timeInForce": "GOOD_TIL_CANCELED", "fillQuantity": "0.06000000", "commission": "0.01333791",
         "proceeds": "5.33516582", "status": "CLOSED", "createdAt": "2020-02-24T09:38:13.1Z",
         "updatedAt": "2020-02-24T09:38:13.1Z", "closedAt": "2020-02-24T09:38:13.1Z"}
 
     OPEN_BUY_LIMIT_ORDER = {
         "id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
         "type": "LIMIT", "quantity": "0.06000000", "limit": "205.64319999",
-        "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.00000000", "commission": "0.00000000",
+        "timeInForce": "GOOD_TIL_CANCELED", "fillQuantity": "0.00000000", "commission": "0.00000000",
         "proceeds": "0.00000000", "status": "OPEN", "createdAt": "2020-02-25T11:13:32.12Z",
         "updatedAt": "2020-02-25T11:13:32.12Z"}
 
     CANCEL_ORDER = {
         "id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
         "type": "LIMIT", "quantity": "0.06000000", "limit": "205.64319999",
-        "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.00000000", "commission": "0.00000000",
+        "timeInForce": "GOOD_TIL_CANCELED", "fillQuantity": "0.00000000", "commission": "0.00000000",
         "proceeds": "0.00000000", "status": "CLOSED", "createdAt": "2020-02-25T11:13:32.12Z",
         "updatedAt": "2020-02-25T11:13:33.63Z", "closedAt": "2020-02-25T11:13:33.63Z"}
 
     ORDERS_OPEN = [
         {
             "id": "9854dc2a-0762-408d-922f-882f4359c517", "marketSymbol": "ETH-USDT", "direction": "BUY", "type": "LIMIT",
-            "quantity": "0.03000000", "limit": "134.75247524", "timeInForce": "GOOD_TIL_CANCELLED",
+            "quantity": "0.03000000", "limit": "134.75247524", "timeInForce": "GOOD_TIL_CANCELED",
             "fillQuantity": "0.00000000", "commission": "0.00000000", "proceeds": "0.00000000", "status": "OPEN",
             "createdAt": "2020-01-10T10:25:25.13Z", "updatedAt": "2020-01-10T10:25:25.13Z"},
         {
             "id": "261d9158-c9c1-40a6-bad8-4b447a471d8f", "marketSymbol": "ETH-USDT", "direction": "BUY", "type": "LIMIT",
-            "quantity": "0.03000000", "limit": "158.26732673", "timeInForce": "GOOD_TIL_CANCELLED",
+            "quantity": "0.03000000", "limit": "158.26732673", "timeInForce": "GOOD_TIL_CANCELED",
             "fillQuantity": "0.00000000", "commission": "0.00000000", "proceeds": "0.00000000", "status": "OPEN",
             "createdAt": "2020-01-26T02:58:14.19Z", "updatedAt": "2020-01-26T02:58:14.19Z"}
     ]

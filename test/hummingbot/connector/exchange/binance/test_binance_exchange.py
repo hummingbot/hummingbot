@@ -14,7 +14,7 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.cancelation_result import CancelationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCancelledEvent,
+    OrderCanceledEvent,
     OrderFilledEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
@@ -78,7 +78,7 @@ class BinanceExchangeTests(TestCase):
     def _initialize_event_loggers(self):
         self.buy_order_completed_logger = EventLogger()
         self.buy_order_created_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
+        self.order_canceled_logger = EventLogger()
         self.order_failure_logger = EventLogger()
         self.order_filled_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
@@ -87,7 +87,7 @@ class BinanceExchangeTests(TestCase):
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+            (MarketEvent.OrderCanceled, self.order_canceled_logger),
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
@@ -375,14 +375,14 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
         self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
 
-        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        cancel_event: OrderCanceledEvent = self.order_canceled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
 
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order.client_order_id}."
+                f"Successfully canceled order {order.client_order_id}."
             )
         )
 
@@ -418,12 +418,12 @@ class BinanceExchangeTests(TestCase):
                                if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_for_request(cancel_request[1][0])
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEquals(0, len(self.order_canceled_logger.event_log))
 
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                f"There was a an error when requesting cancelation of order {order.client_order_id}"
             )
         )
 
@@ -479,21 +479,21 @@ class BinanceExchangeTests(TestCase):
         mock_api.delete(regex_url, body=json.dumps(response))
         mock_api.delete(regex_url, status=400)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+        cancelation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
 
-        self.assertEqual(2, len(cancellation_results))
-        self.assertEqual(CancellationResult(order1.client_order_id, True), cancellation_results[0])
-        self.assertEqual(CancellationResult(order2.client_order_id, False), cancellation_results[1])
+        self.assertEqual(2, len(cancelation_results))
+        self.assertEqual(CancelationResult(order1.client_order_id, True), cancelation_results[0])
+        self.assertEqual(CancelationResult(order2.client_order_id, False), cancelation_results[1])
 
-        self.assertEqual(1, len(self.order_cancelled_logger.event_log))
-        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        self.assertEqual(1, len(self.order_canceled_logger.event_log))
+        cancel_event: OrderCanceledEvent = self.order_canceled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order1.client_order_id, cancel_event.order_id)
 
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -535,7 +535,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(self._is_logged("NETWORK", "Error getting server time."))
 
     @aioresponses()
-    def test_update_time_synchronizer_raises_cancelled_error(self, mock_api):
+    def test_update_time_synchronizer_raises_canceled_error(self, mock_api):
         url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -900,7 +900,7 @@ class BinanceExchangeTests(TestCase):
         )
 
     @aioresponses()
-    def test_update_order_status_when_cancelled(self, mock_api):
+    def test_update_order_status_when_canceled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
@@ -952,13 +952,13 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
         self._validate_auth_credentials_for_request(order_request[1][0])
 
-        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        cancel_event: OrderCanceledEvent = self.order_canceled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     @aioresponses()
@@ -1240,7 +1240,7 @@ class BinanceExchangeTests(TestCase):
             )
         )
 
-    def test_user_stream_update_for_cancelled_order(self):
+    def test_user_stream_update_for_canceled_order(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1297,16 +1297,16 @@ class BinanceExchangeTests(TestCase):
         except asyncio.CancelledError:
             pass
 
-        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        cancel_event: OrderCanceledEvent = self.order_canceled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(order.is_cancelled)
+        self.assertTrue(order.is_canceled)
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1513,7 +1513,7 @@ class BinanceExchangeTests(TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

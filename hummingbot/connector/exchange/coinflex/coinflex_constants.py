@@ -44,7 +44,7 @@ API_MAX_RETRIES = 3
 SIDE_BUY = 'BUY'
 SIDE_SELL = 'SELL'
 
-TIME_IN_FORCE_GTC = 'GTC'         # Good till cancelled
+TIME_IN_FORCE_GTC = 'GTC'         # Good till canceled
 TIME_IN_FORCE_IOC = 'IOC'         # Immediate or cancel
 TIME_IN_FORCE_FOK = 'FOK'         # Fill or kill
 TIME_IN_FORCE_MAK = 'MAKER_ONLY'  # Maker
@@ -62,7 +62,7 @@ ONE_DAY = 86400
 MAX_REQUEST = 5000
 
 # Order States
-ORDER_CANCELLED_STATES = [
+ORDER_CANCELED_STATES = [
     "OrderClosed",
     "CANCELED",
     "CANCELED_BY_USER",
@@ -85,8 +85,8 @@ ORDER_STATE = {
     "EXPIRED": OrderState.FAILED,
 }
 
-for state in ORDER_CANCELLED_STATES:
-    ORDER_STATE[state] = OrderState.CANCELLED
+for state in ORDER_CANCELED_STATES:
+    ORDER_STATE[state] = OrderState.CANCELED
 
 ORDER_NOT_FOUND_ERROR = "Open order not found with clientOrderId or orderId"
 
