@@ -159,7 +159,6 @@ class BinanceExchange(ExchangeBaseV2):
             path_url=CONSTANTS.ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True)
-
         if cancel_result.get("status") == "CANCELED":
             return True
         return False

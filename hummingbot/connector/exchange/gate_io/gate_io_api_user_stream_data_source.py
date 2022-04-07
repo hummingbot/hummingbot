@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import logging
-from typing import Any, AsyncIterable, Optional
+from typing import Any, AsyncIterable, Optional, List
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -16,7 +16,6 @@ from .gate_io_websocket import GateIoWebsocket
 
 
 class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -28,13 +27,14 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self,
                  auth,
                  domain: str,
+                 trading_pairs: List[str],
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         self._api_factory = api_factory
         self._auth: GateIoAuth = auth
         self._ws: Optional[GateIoWebsocket] = None
-        # self._trading_pairs = trading_pairs or []
+        self._trading_pairs: List[str] = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         super().__init__()
@@ -52,16 +52,13 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = GateIoWebsocket(self._gate_io_auth, self._api_factory)
-
+            self._ws = GateIoWebsocket(self._auth, self._api_factory)
             await self._ws.connect()
-
             user_channels = [
                 CONSTANTS.USER_TRADES_ENDPOINT_NAME,
                 CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
                 CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
             ]
-
             await self._ws.subscribe(CONSTANTS.USER_TRADES_ENDPOINT_NAME,
                                      [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
             await self._ws.subscribe(CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
@@ -69,7 +66,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
 
             async for msg in self._ws.on_message():
-
                 if msg.get("event") in ["subscribe", "unsubscribe"]:
                     continue
                 if msg.get("result", None) is None:
