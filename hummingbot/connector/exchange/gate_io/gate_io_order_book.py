@@ -3,9 +3,9 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
 
 _logger = None
@@ -33,12 +33,12 @@ class GateIoOrderBook(OrderBook):
         extra_data = metadata or {}
         extra_data["update_id"] = msg["id"]
         msg.update(extra_data)
-
-        return GateIoOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=msg,
-            timestamp=timestamp
-        )
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": msg["trading_pair"],
+            "update_id": msg["update_id"],
+            "bids": msg["bids"],
+            "asks": msg["asks"]
+        }, timestamp=timestamp)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -55,12 +55,14 @@ class GateIoOrderBook(OrderBook):
         extra_data = metadata or {}
         extra_data["update_id"] = msg["u"]
         msg.update(extra_data)
-
-        return GateIoOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=msg,
-            timestamp=timestamp
-        )
+        return OrderBookMessage(OrderBookMessageType.DIFF, {
+            "trading_pair": msg["trading_pair"],
+            "first_update_id": msg["U"],
+            "update_id": msg["u"],
+            "bids": msg["b"],
+            "asks": msg["a"]
+        }, timestamp=timestamp)
+        # TODO should we use timestamp coming from the message?
 
     @classmethod
     def trade_message_from_exchange(cls,
@@ -72,27 +74,31 @@ class GateIoOrderBook(OrderBook):
         :param record: a trade data from the database
         :return: GateIoOrderBookMessage
         """
-
         if metadata:
             msg.update(metadata)
-
         msg.update({
             "trade_id": msg.get("id"),
             "trade_type": msg.get("side"),
             "price": msg.get("price"),
             "amount": msg.get("amount"),
         })
+        # TODO should we use timestamp coming from the message?
+        return OrderBookMessage(OrderBookMessageType.TRADE, {
+            "trading_pair": msg["trading_pair"],
+            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
+            "trade_id": msg["t"],
+            # "update_id": ts,
+            "update_id": timestamp,
+            "price": msg["p"],
+            "amount": msg["q"]
+        }, timestamp=timestamp)
+        # }, timestamp=ts * 1e-3)
 
-        return GateIoOrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=msg,
-            timestamp=timestamp
-        )
-
+    # TODO
     @classmethod
-    def from_snapshot(cls, snapshot: OrderBookMessage):
+    def __from_snapshot(cls, snapshot: OrderBookMessage):
         raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book needs to retain individual order data.")
 
     @classmethod
-    def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
+    def __restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book needs to retain individual order data.")

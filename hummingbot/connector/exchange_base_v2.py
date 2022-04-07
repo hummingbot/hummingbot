@@ -1,8 +1,8 @@
-from typing import Any, AsyncIterable, Dict, List, Optional
-import asyncio
 import logging
-
+import asyncio
+from typing import Any, AsyncIterable, Dict, List, Optional
 from decimal import Decimal
+
 from async_timeout import timeout
 
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -51,7 +51,6 @@ class ExchangeApiMixin(object):
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
-    # TODO in binance and gate io it's async
     def _stop_network(self):
         # Resets timestamps and events for status_polling_loop
         self._last_poll_timestamp = 0
@@ -128,6 +127,10 @@ class ExchangeApiMixin(object):
             try:
                 await safe_gather(self._update_trading_fees())
                 await self._sleep(TWELVE_HOURS)
+            except NotImplementedError:
+                # currently used only by kucoin
+                # if it's not defined, we just exit the loop
+                return
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -156,9 +159,10 @@ class ExchangeApiMixin(object):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from {self.name_cap}. "
-                                                      "Check API key and network connection.")
+                self.logger().network(
+                    "Unexpected error while fetching account updates.", exc_info=True,
+                    app_warning_msg=f"Could not fetch account updates from {self.name_cap}. "
+                                    "Check API key and network connection.")
                 await self._sleep(0.5)
 
     async def _update_time_synchronizer(self):
@@ -186,28 +190,8 @@ class ExchangeApiMixin(object):
             self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     async def _update_trading_fees(self):
-        trading_symbols = [await self._orderbook_ds.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
-        params = {"symbols": ",".join(trading_symbols)}
-        resp = await self._api_get(
-            path_url=self.FEE_PATH_URL,
-            params=params,
-            is_auth_required=True,
-        )
-        fees_json = resp["data"]
-        for fee_json in fees_json:
-            trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
-                symbol=fee_json["symbol"],
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
-            )
-            self._trading_fees[trading_pair] = fee_json
+        # this is currently only used by kucoin
+        raise NotImplementedError
 
     async def _api_get(self, *args, **kwargs):
         kwargs["method"] = RESTMethod.GET
@@ -251,9 +235,6 @@ class ExchangeApiMixin(object):
     def _user_stream_event_listener(self):
         raise NotImplementedError
 
-    # NOTE the following methods are tightly coupled
-    # exchange and api logics; should probably be in ExchangeBaseV2
-
     # coupled with ob ds; could be generalised if
     # raw_trading_pair_info is normalised
     def _format_trading_rules(self):
@@ -272,15 +253,17 @@ class ExchangeApiMixin(object):
 class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
     _logger = None
 
-    DEFAULT_DOMAIN = ""
-    RATE_LIMITS = None
-    SUPPORTED_ORDER_TYPES = []
-
-    MAX_ORDER_ID_LEN = None
-    HBOT_ORDER_ID_PREFIX = None
-    SYMBOLS_PATH_URL = ""
-    FEE_PATH_URL = ""
-    CHECK_NETWORK_URL = ""
+    # The following class vars MUST be redefined in the child class
+    # because they cannot have defaults, so we keep them commented
+    # to cause a NameError if not defined
+    # DEFAULT_DOMAIN = ""
+    # RATE_LIMITS = None
+    # SUPPORTED_ORDER_TYPES = []
+    # MAX_ORDER_ID_LEN = None
+    # HBOT_ORDER_ID_PREFIX = None
+    # SYMBOLS_PATH_URL = ""
+    # FEE_PATH_URL = ""
+    # CHECK_NETWORK_URL = ""
 
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 120.0
@@ -328,6 +311,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
 
         # init UserStream Data Source and Tracker
         self._userstream_ds = self.USERSTREAM_DS_CLASS(
+            trading_pairs=self._trading_pairs,
             auth=self._auth,
             domain=self._domain,
             api_factory=self._api_factory,
@@ -628,6 +612,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
+        exchange_order_id = ""
         trading_rule = self._trading_rules[trading_pair]
 
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
@@ -698,6 +683,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
+        return order_id, exchange_order_id
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
@@ -721,21 +707,17 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
                     return order_id
             except asyncio.CancelledError:
                 raise
-            # TODO is this logic applicable to binance?
             except asyncio.TimeoutError:
-                self.logger().warning(f"Failed to cancel the order {order_id} because it does not have an exchange"
-                                      f" order id yet")
+                # Binance does not allow cancels with the client/user order id
+                # so log a warning and wait for the creation of the order to complete
+                self.logger().warning(
+                    f"Failed to cancel the order {order_id} because it does not have an exchange order id yet")
                 await self._order_tracker.process_order_not_found(order_id)
-            # TODO kucoin
-            # except Exception as e:
-            #    self.logger().network(
-            #        f"Failed to cancel order {order_id}: {str(e)}", exc_info=True,
-            #        app_warning_msg=f"Failed to cancel the order {order_id} on {self.name_cap}. "
-            #                        f"Check API key and network connection."
-            #    )
-            except Exception:
-                self.logger().exception(f"There was an error when requesting cancellation of order {order_id}")
-                raise
+            except Exception as e:
+                self.logger().network(
+                    f"Failed to cancel order {order_id}: {str(e)}", exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on {self.name_cap}. "
+                                    f"Check API key and network connection.")
         return None
 
     # Order Tracking

@@ -101,7 +101,7 @@ async def api_request(path: str,
     )
     async with throttler.execute_task(limit_id=limit_id if limit_id else path):
         response = await rest_assistant.call(request=request, timeout=timeout)
-        if response.status != 200:
+        if response.status not in (200, 201):
             if return_err:
                 error_response = await response.json()
                 return error_response

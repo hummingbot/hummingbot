@@ -95,15 +95,12 @@ class GateIoWebsocket:
             "channel": channel,
             **data,
         }
-
         # if auth class was passed into websocket class
         # we need to emit authenticated requests
         if self._is_private:
-            payload["auth"] = self._auth.generate_auth_dict_ws(payload)
-
+            payload["auth"] = self._auth._get_auth_headers_ws(payload)
         request = WSRequest(payload)
         await self._ws_assistant.send(request)
-
         return payload["time"]
 
     async def request(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:

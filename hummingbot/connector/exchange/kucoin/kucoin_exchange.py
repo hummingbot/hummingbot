@@ -276,6 +276,30 @@ class KucoinExchange(ExchangeBaseV2):
                     self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
         return trading_rules
 
+    async def _update_trading_fees(self):
+        trading_symbols = [await self._orderbook_ds.exchange_symbol_associated_to_pair(
+            trading_pair=trading_pair,
+            domain=self._domain,
+            api_factory=self._api_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
+        params = {"symbols": ",".join(trading_symbols)}
+        resp = await self._api_get(
+            path_url=self.FEE_PATH_URL,
+            params=params,
+            is_auth_required=True,
+        )
+        fees_json = resp["data"]
+        for fee_json in fees_json:
+            trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
+                symbol=fee_json["symbol"],
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
+            )
+            self._trading_fees[trading_pair] = fee_json
+
     async def _update_order_status(self):
         # The poll interval for order status is 10 seconds.
         interval_expired = False
