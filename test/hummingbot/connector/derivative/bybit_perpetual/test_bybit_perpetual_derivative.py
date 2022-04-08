@@ -899,7 +899,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
 
-        self.assertNotIn("O1", self.connector.in_flight_orders)
+        # Orders are not being removed on failure, needs to be done in the strategy
+        self.assertIn("O1", self.connector.in_flight_orders)
         self.assertTrue(self._is_logged(
             "WARNING",
             "Failed to cancel order O1: order not found (20001 - order not exists)"))
