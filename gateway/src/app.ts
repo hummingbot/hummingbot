@@ -104,12 +104,19 @@ gatewayApp.post(
         req.body.configValue
       );
 
-      // kill the current process and trigger the exit event
-      process.exit();
-      // this is only to satisfy the compiler, it will never be called.
       res.status(200).json({ message: 'The config has been updated' });
     }
   )
+);
+
+gatewayApp.post(
+  '/restart',
+  asyncHandler(async (_req, res) => {
+    // kill the current process and trigger the exit event
+    process.exit();
+    // this is only to satisfy the compiler, it will never be called.
+    res.status(200).json();
+  })
 );
 
 // handle any error thrown in the gateway api route
