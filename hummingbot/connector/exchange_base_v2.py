@@ -635,7 +635,6 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
             price=price,
             amount=amount
         )
-
         if amount < trading_rule.min_order_size:
             self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
                                   f" size {trading_rule.min_order_size}. The order will not be created.")

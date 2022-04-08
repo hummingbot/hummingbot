@@ -1,7 +1,8 @@
-import time
+import sys
 import logging
 import asyncio
-from typing import Awaitable
+from enum import Enum
+from distutils.util import strtobool
 
 from decimal import Decimal
 from bidict import bidict
@@ -10,7 +11,7 @@ from async_timeout import timeout
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType  # , TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -22,6 +23,7 @@ from hummingbot.core.event.events import (
 )
 import hummingbot.logger.logger
 from hummingbot.logger.logger import HummingbotLogger
+import hummingbot.core.pubsub
 
 from certs import creds
 
@@ -36,6 +38,40 @@ class TestingHL(HummingbotLogger):
 hummingbot.logger.logger.HummingbotLogger = TestingHL
 
 logging.getLogger().setLevel(logging.DEBUG)
+
+
+class FixPubSub(hummingbot.core.pubsub.PubSub):
+    def trigger_event(self, event_tag: Enum, message: any):
+        print("EVENT ", event_tag, message)
+        self.c_trigger_event(event_tag.value, message)
+
+
+# KeyError: '__pyx_vtable__'
+# hummingbot.core.pubsub.PubSub = FixPubSub
+
+
+async def sleep_yes_no(question):
+    await asyncio.sleep(5)
+    sys.stdout.write('\n%s [y/n]\n' % question)
+    while True:
+        try:
+            answer = strtobool(input().lower())
+            if not answer:
+                print('sleep for 5')
+                await asyncio.sleep(5)
+            else:
+                return answer
+        except ValueError:
+            sys.stdout.write('Please respond with \'y\' or \'n\'.\n')
+
+
+def proceed(question):
+    sys.stdout.write('\n%s [y/n]\n' % question)
+    while True:
+        try:
+            return strtobool(input().lower())
+        except ValueError:
+            sys.stdout.write('Please respond with \'y\' or \'n\'.\n')
 
 
 def get_binance(trading_pair):
@@ -100,6 +136,9 @@ class ExchangeClient(object):
         self.sell_order_completed_logger = EventLogger()
         self.sell_order_created_logger = EventLogger()
 
+        # TODO
+        # subscribe to other events
+        # use only 1 logger
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
@@ -111,10 +150,6 @@ class ExchangeClient(object):
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
@@ -138,87 +173,69 @@ class ExchangeClient(object):
         return ret
 
     async def get_msg_from_queue(self):
+        results = []
         try:
             async with timeout(5):
-                try:
-                    print('user stream ', await self.exchange._user_stream_tracker._user_stream.get())
-                    print('ob snapshot stream ', await self.exchange._order_book_tracker._order_book_snapshot_stream.get())
-                    print('ob trade stream', await self.exchange._order_book_tracker._order_book_trade_stream.get())
-                except asyncio.queues.QueueEmpty:
-                    pass
+                tasks = [
+                    self.exchange._order_book_tracker._order_book_snapshot_stream.get(),
+                    self.exchange._order_book_tracker._order_book_trade_stream.get(),
+                    # OK
+                    self.exchange._user_stream_tracker._user_stream.get()
+                ]
+                results = await asyncio.gather(*tasks)
         except asyncio.exceptions.TimeoutError:
             pass
-
-    async def tests(self):
-        self.set_trading_pair("XRP", "USD")
-        self._simulate_trading_rules_initialized()
-
-        await self.exchange.start_network()
-
-        balances = await self.update_balances()
-        print(balances)
-
-        order_id = "t-123456"
-        ret = await self.create_buy_order(order_id)
-        print('create_buy_order ret ', ret)
-
-        await self.get_msg_from_queue()
-
-        # 2/b check ws create order update and balance update
-
-        tracked_order = self.exchange._order_tracker.fetch_tracked_order(order_id)
-        assert tracked_order.client_order_id == order_id
-
-        ret = await self.cancel_order(order_id, tracked_order)
-        print('deleted order: ', ret)
-
-        await self.get_msg_from_queue()
-
-        # 4
-        # make sure the canceled order event is received from websocket
-
-        # 5
-        # connect and update from websocket updates from trades
-
-        # 6
-        # sell order create
-        # balance should change (locked balance for error)
-
-        # 7
-        # connect to ws order book
-        # make sure 1 update is received
-
-        # 8 run test pure mm strategy
+        print('msgs ', results)
 
     async def update_balances(self):
         return await self.task_and_gather(self.exchange._update_balances())
 
-    async def create_buy_order(self, order_id):
-        return await self.create_order(TradeType.BUY, order_id)
+    async def tests(self):
+        base = "ETH"
+        quote = "USDT"
+        pair = f"{base}-{quote}"
+        self.set_trading_pair(base, quote)
+        self._simulate_trading_rules_initialized()
 
-    async def create_order(self, trade_type, order_id):
-        self.exchange._set_current_timestamp(int(time.time()))
-        return await self.task_and_gather(
-            self.exchange._create_order(trade_type=trade_type,
-                                        order_id=order_id,
-                                        trading_pair=self.trading_pair,
-                                        amount=Decimal("0.001"),
-                                        order_type=OrderType.LIMIT,
-                                        price=Decimal("0.0001"))
-        )
+        await self.exchange.start_network()
+        await self.update_balances()
 
-    async def cancel_order(self, order_id, tracked_order):
-        self.exchange._set_current_timestamp(int(time.time()))
-        return await self.task_and_gather(
-            self.exchange._place_cancel(order_id, tracked_order)
-        )
+        if proceed("run two failed orders?"):
+            order_id = self.exchange.buy(pair, amount=Decimal(0.1), price=Decimal(1), order_type=OrderType.LIMIT)
+            order_id = self.exchange.buy(pair, amount=Decimal(1000000), price=Decimal(1), order_type=OrderType.LIMIT)
+            await sleep_yes_no("Two order should have failed.")
 
-    async def list_orders(self, trading_pair):
-        return await self.task_and_gather(
-            # self.exchange._place_cancel(order_id, tracked_order)
-        )
+        if proceed("run 1% safety?"):
+            order_id = self.exchange.buy(pair, amount=Decimal(1), price=Decimal(1), order_type=OrderType.LIMIT)
+            await sleep_yes_no(f"LIMIT buy {order_id} should have failed because of line 816 1% safety")
+
+        if proceed("run buy succeeeds then cancel?"):
+            order_id = self.exchange.buy(pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
+            await sleep_yes_no(f"LIMIT buy {order_id} should have succeeded")
+            order_id = self.exchange.cancel(pair, order_id)
+            await sleep_yes_no(f"{order_id} should have been canceled")
+
+        if proceed("run buy and cancel via web?"):
+            order_id = self.exchange.buy(pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
+            await sleep_yes_no(f"{order_id} should have been placed")
+            if proceed("did you delete it via web?"):
+                await sleep_yes_no(f"{order_id} should have been cancelled")
+
+        return
+
+        # multiple orders +
+        # cancellations = await self.exchange.cancel_all(10)
+
+        # check ws create order update and balance update
+
+        # connect to ws order book and make sure 1 update is received
+
+        # to check no methods were left untested, run test pure mm strategy
 
 
 if __name__ == '__main__':
     ec = ExchangeClient()
-    asyncio.run(ec.start())
+    try:
+        asyncio.run(ec.start())
+    except KeyboardInterrupt as e:
+        print(e)

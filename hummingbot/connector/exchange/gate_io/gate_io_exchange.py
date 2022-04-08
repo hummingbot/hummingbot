@@ -371,11 +371,9 @@ class GateIoExchange(ExchangeBaseV2):
             "user": 5660412,
         }
         """
-
         client_order_id = str(order_msg["text"])
         tracked_order = self.in_flight_orders.get(client_order_id, None)
         if tracked_order:
-
             tracked_order.last_state = order_msg.get("status", order_msg.get("event"))
 
             if tracked_order.is_cancelled:
