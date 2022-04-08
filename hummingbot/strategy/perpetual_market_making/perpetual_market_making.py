@@ -870,24 +870,22 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
 
-    def did_change_position_mode(self, position_mode_changed_event: PositionModeChangeEvent):
-        if not position_mode_changed_event.is_success:
-            self.logger().error(
-                f"Changing position mode to {self._position_mode.name} failed. "
-                f"Reason: {position_mode_changed_event.reason}.")
-            self._strategy_ready = False
-            market: ExchangeBase = self._market_info.market
-            if position_mode_changed_event.has_order:
-                self.logger().error("Cancelling all open orders and retrying ...")
-                market.cancel_all_account_orders(self.trading_pair)
-                market.set_position_mode(self._position_mode)
-            if position_mode_changed_event.has_position:
-                self.logger().warning("Position exists, please close it manually first.")
+    def did_change_position_mode_succeed(self, position_mode_changed_event: PositionModeChangeEvent):
+        if self._position_mode is position_mode_changed_event.position_mode:
+            self.logger().info(
+                f"Changing position mode to {self._position_mode.name} succeeded.")
+            self._strategy_ready = True
         else:
-            if self._position_mode is position_mode_changed_event.position_mode:
-                self.logger().info(
-                    f"Changing position mode to {self._position_mode.name} succeeded.")
-                self._strategy_ready = True
+            self.logger().warning(
+                f"Changing position mode to {self._position_mode.name} did not succeed.")
+            self._strategy_ready = False
+
+    def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
+        self.logger().error(
+            f"Changing position mode to {self._position_mode.name} failed. "
+            f"Reason: {position_mode_changed_event.message}.")
+        self._strategy_ready = False
+        self.logger().warning("Cannot continue. Please resolve the issue in the account.")
 
     def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
         if len(current_prices) != len(proposal_prices):
