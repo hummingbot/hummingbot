@@ -1,18 +1,19 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
 import argparse
 import asyncio
+import grp
 import logging
 import os
-from pathlib import Path
 import pwd
+import subprocess
+from pathlib import Path
 from typing import (
     Coroutine,
     List,
 )
-import subprocess
 
+import path_util        # noqa: F401
 from bin.hummingbot import (
     detect_available_port,
     UIStartListener,
@@ -31,7 +32,7 @@ from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
 from hummingbot.client.config.security import Security
 
 from bin.docker_connection import fork_and_start
@@ -56,7 +57,11 @@ class CmdlineParser(argparse.ArgumentParser):
 
 
 def autofix_permissions(user_group_spec: str):
-    uid, gid = [int(i) for i in user_group_spec.split(':')]
+    uid, gid = [sub_str for sub_str in user_group_spec.split(':')]
+
+    uid = int(uid) if uid.isnumeric() else pwd.getpwnam(uid).pw_uid
+    gid = int(gid) if gid.isnumeric() else grp.getgrnam(gid).gr_gid
+
     os.environ["HOME"] = pwd.getpwuid(uid).pw_dir
     project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
 

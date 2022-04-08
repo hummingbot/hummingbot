@@ -1,19 +1,16 @@
+import os.path
 import random
 import re
-from typing import Callable, Optional, Dict
 from decimal import Decimal
-import os.path
+from typing import Callable, Optional, Dict
 
 from tabulate import tabulate_formats
 
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
-from hummingbot.client.config.config_validators import (
-    validate_bool,
-    validate_decimal
-)
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import AllConnectorSettings, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
-from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 
 
 def generate_client_id() -> str:
@@ -238,17 +235,17 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: False,
                   default="5000"),
-    "heartbeat_enabled":
-        ConfigVar(key="heartbeat_enabled",
-                  prompt="Do you want to enable aggregated order and trade data collection? >>> ",
+    "anonymized_metrics_enabled":
+        ConfigVar(key="anonymized_metrics_enabled",
+                  prompt="Do you want to report aggregated, anonymized trade volume by exchange to "
+                         "Hummingbot Foundation? >>> ",
                   required_if=lambda: False,
                   type_str="bool",
                   validator=validate_bool,
                   default=True),
-    "heartbeat_interval_min":
-        ConfigVar(key="heartbeat_interval_min",
-                  prompt="How often do you want Hummingbot to send aggregated order and trade data (in minutes, "
-                         "e.g. enter 5 for once every 5 minutes)? >>> ",
+    "anonymized_metrics_interval_min":
+        ConfigVar(key="anonymized_metrics_interval_min",
+                  prompt="How often do you want to send the anonymized metrics (Enter 5 for 5 minutes)? >>> ",
                   required_if=lambda: False,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),

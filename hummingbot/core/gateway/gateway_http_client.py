@@ -3,6 +3,7 @@ import logging
 import ssl
 
 from decimal import Decimal
+from enum import Enum
 from typing import Optional, Any, Dict, List, Union
 
 from hummingbot.client.config.global_config_map import global_config_map
@@ -14,6 +15,25 @@ from hummingbot.core.gateway import (
     restart_gateway
 )
 from hummingbot.logger import HummingbotLogger
+
+
+class GatewayError(Enum):
+    """
+    The gateway route error codes defined in /gateway/src/services/error-handler.ts
+    """
+
+    Network = 1001
+    RateLimit = 1002
+    OutOfGas = 1003
+    TransactionGasPriceTooLow = 1004
+    LoadWallet = 1005
+    TokenNotSupported = 1006
+    TradeFailed = 1007
+    SwapPriceExceedsLimitPrice = 1008
+    SwapPriceLowerThanLimitPrice = 1009
+    ServiceUnitialized = 1010
+    UnknownChainError = 1011
+    UnknownError = 1099
 
 
 class GatewayHttpClient:
@@ -76,6 +96,38 @@ class GatewayHttpClient:
     def base_url(self, url: str):
         self._base_url = url
 
+    def log_error_codes(self, resp: Dict[str, Any]):
+        """
+        If the API returns an error code, interpret the code, log a useful
+        message to the user, then raise an exception.
+        """
+        error_code: Optional[int] = resp.get("errorCode")
+        if error_code is not None:
+            if error_code == GatewayError.Network.value:
+                self.logger().info("Gateway had a network error. Make sure it is still able to communicate with the node.")
+            elif error_code == GatewayError.RateLimit.value:
+                self.logger().info("Gateway was unable to communicate with the node because of rate limiting.")
+            elif error_code == GatewayError.OutOfGas.value:
+                self.logger().info("There was an out of gas error. Adjust the gas limit in the gateway config.")
+            elif error_code == GatewayError.TransactionGasPriceTooLow.value:
+                self.logger().info("The gas price provided by gateway was too low to create a blockchain operation. Consider increasing the gas price.")
+            elif error_code == GatewayError.LoadWallet.value:
+                self.logger().info("Gateway failed to load your wallet. Try running 'gateway connect' with the correct wallet settings.")
+            elif error_code == GatewayError.TokenNotSupported.value:
+                self.logger().info("Gateway tried to use an unsupported token.")
+            elif error_code == GatewayError.TradeFailed.value:
+                self.logger().info("The trade on gateway has failed.")
+            elif error_code == GatewayError.ServiceUnitialized.value:
+                self.logger().info("Some values was uninitialized. Please contact dev@hummingbot.io ")
+            elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
+                self.logger().info("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
+            elif error_code == GatewayError.SwapPriceLowerThanLimitPrice.value:
+                self.logger().info("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
+            elif error_code == GatewayError.UnknownChainError.value:
+                self.logger().info("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
+            elif error_code == GatewayError.UnknownError.value:
+                self.logger().info("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
+
     async def api_request(
             self,
             method: str,
@@ -107,6 +159,8 @@ class GatewayHttpClient:
                 raise ValueError(f"Unsupported request method {method}")
             parsed_response = await response.json()
             if response.status != 200 and not fail_silently:
+                self.log_error_codes(parsed_response)
+
                 if "error" in parsed_response:
                     raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
                 else:
