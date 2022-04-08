@@ -38,7 +38,8 @@ class HummingbotUIEvent(Enum):
 
 
 class AccountEvent(Enum):
-    PositionModeChange = 400
+    PositionModeChangeSucceeded = 400
+    PositionModeChangeFailed = 401
 
 
 class FundingInfo(NamedTuple):
@@ -266,9 +267,6 @@ class LimitOrderStatus(Enum):
 @dataclass
 class PositionModeChangeEvent:
     timestamp: float
-    is_success: bool
     trading_pair: str
     position_mode: PositionMode
-    has_order: Optional[bool] = False
-    has_position: Optional[bool] = False
-    reason: Optional[str] = None
+    message: Optional[str] = None

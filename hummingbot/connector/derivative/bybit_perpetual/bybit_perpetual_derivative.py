@@ -44,7 +44,7 @@ from hummingbot.core.event.events import (
     AccountEvent,
     FundingPaymentCompletedEvent,
     MarketEvent,
-    PositionModeChangeEvent
+    PositionModeChangeEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -201,26 +201,20 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 response_code = response["ret_code"]
 
                 if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
-                    has_order = response_code in [CONSTANTS.RET_CODE_MODE_ORDER_NOT_EMPTY]
-                    has_position = response_code in [CONSTANTS.RET_CODE_MODE_POSITION_NOT_EMPTY]
-                    self.trigger_event(AccountEvent.PositionModeChange,
+                    self.trigger_event(AccountEvent.PositionModeChangeFailed,
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
-                                           False,
                                            trading_pair,
                                            position_mode,
-                                           has_order,
-                                           has_position,
                                            response['ret_msg']
                                        ))
                     self.logger().debug(f"Bybit Perpetual encountered a problem switching position mode to "
                                         f"{position_mode} for {trading_pair}"
                                         f" ({response['ret_code']} - {response['ret_msg']})")
                 else:
-                    self.trigger_event(AccountEvent.PositionModeChange,
+                    self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
-                                           True,
                                            trading_pair,
                                            position_mode
                                        ))
@@ -741,44 +735,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             )
         return successful_cancellations + failed_cancellations
 
-    async def _cancel_all_account_orders(self, trading_pair: str):
-        """
-        Async cancel all account's orders, not just orders tracked by the ClientOrderTracker
-        :param trading_pair: The market (e.g. BTC-CAD) of the order.
-        """
-        try:
-            body_params = {
-                "symbol": await self._trading_pair_symbol(trading_pair),
-            }
-
-            response = await self._api_request(
-                method="POST",
-                endpoint=CONSTANTS.CANCEL_ALL_ACTIVE_ORDERS_PATH_URL,
-                trading_pair=trading_pair,
-                body=body_params,
-                is_auth_required=True,
-            )
-
-            response_code = response["ret_code"]
-
-            if response_code is CONSTANTS.RET_CODE_OK:
-                for order_id in list(self._client_order_tracker.active_orders.keys()):
-                    self.stop_tracking_order(order_id)
-            else:
-                raise IOError(f"Bybit Perpetual encountered a problem cancelling all account's orders "
-                              f"for {trading_pair}"
-                              f" ({response['ret_code']} - {response['ret_msg']})")
-        except Exception as e:
-            self.logger().error("Could not cancel all account orders.")
-            raise e
-
-    def cancel_all_account_orders(self, trading_pair: str):
-        """
-        Cancel all account's orders, not just orders tracked by the ClientOrderTracker
-        :param trading_pair: The market (e.g. BTC-CAD) of the order.
-        """
-        safe_ensure_future(self._cancel_all_account_orders(trading_pair))
-
     def tick(self, timestamp: float):
         """
         Is called automatically by the clock for each clock tick(1 second by default).
@@ -894,10 +850,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         else:
             self.logger().error(
                 f"Error fetching balances. Response: {wallet_balance['ret_code']} - {wallet_balance['ret_msg']}")
-            if wallet_balance['ret_code'] is CONSTANTS.RET_CODE_API_KEY_INVALID:
+            if wallet_balance['ret_code'] in [CONSTANTS.RET_CODE_API_KEY_INVALID, CONSTANTS.RET_CODE_API_KEY_EXPIRED]:
                 raise Exception("Cannot connect to Bybit Perpetual. Reason: API key invalid")
-            if wallet_balance['ret_code'] is CONSTANTS.RET_CODE_API_KEY_EXPIRED:
-                raise Exception("Cannot connect to Bybit Perpetual. Reason: API key expired")
             else:
                 raise Exception(f"Cannot connect to Bybit Perpetual. Reason: {wallet_balance['ret_msg']}")
 
