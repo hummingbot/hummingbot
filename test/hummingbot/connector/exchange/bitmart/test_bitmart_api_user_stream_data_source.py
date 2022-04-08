@@ -95,8 +95,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         initial_last_recv_time = self.data_source.last_recv_time
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop,
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
@@ -132,8 +131,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop,
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
@@ -155,8 +153,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_user_stream(self.ev_loop,
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.ev_loop.run_until_complete(self.listening_task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -171,8 +168,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_user_stream(self.ev_loop,
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.ev_loop.run_until_complete(self.listening_task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -186,8 +182,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         )
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_user_stream(self.ev_loop,
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,
@@ -200,7 +195,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         messages = asyncio.Queue()
         ws_connect_mock.side_effect = Exception
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, messages))
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(messages))
             try:
                 self.async_run_with_timeout(self.listening_task)
             except asyncio.TimeoutError:
@@ -221,8 +216,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
 
         try:
             self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_user_stream(self.ev_loop,
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             self.ev_loop.run_until_complete(self.listening_task)
         except Exception:
             pass
@@ -246,8 +240,7 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
 
         try:
             self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_user_stream(self.ev_loop,
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,

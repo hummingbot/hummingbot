@@ -226,7 +226,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
 
         self.assertEqual(0, msg_queue.qsize())
 
@@ -259,7 +259,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
 
         self.async_tasks.append(
-            self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+            self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -298,7 +298,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
 
         self.async_tasks.append(
-            self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+            self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -379,7 +379,7 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
 
         self.async_tasks.append(
-            self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+            self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
