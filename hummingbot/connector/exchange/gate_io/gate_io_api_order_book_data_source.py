@@ -315,7 +315,6 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = await self._subscribe_to_order_book_streams()
                 async for response in ws.on_message():
                     channel: str = response.get("channel", None)
-
                     if response.get("event") in ["subscribe", "unsubscribe"]:
                         continue
                     self._message_queue[channel].put_nowait(response)
