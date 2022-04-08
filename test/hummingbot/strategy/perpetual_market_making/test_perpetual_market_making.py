@@ -114,6 +114,7 @@ class PerpetualMarketMakingTests(TestCase):
         self.strategy = strategy
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
+        self.strategy._strategy_ready = True
         self.clock.add_iterator(self.strategy)
         self.strategy.start(self.clock, self.start_timestamp)
 

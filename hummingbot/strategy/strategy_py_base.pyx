@@ -94,10 +94,16 @@ cdef class StrategyPyBase(StrategyBase):
     def did_complete_funding_payment(self, funding_payment_completed_event: FundingPaymentCompletedEvent):
         pass
 
-    cdef c_did_change_position_mode(self, object position_mode_changed_event):
-        self.did_change_position_mode(position_mode_changed_event)
+    cdef c_did_change_position_mode_succeed(self, object position_mode_changed_event):
+        self.did_change_position_mode_succeed(position_mode_changed_event)
 
-    def did_change_position_mode(self, position_mode_changed_event: PositionModeChangeEvent):
+    def did_change_position_mode_succeed(self, position_mode_changed_event: PositionModeChangeEvent):
+        pass
+
+    cdef c_did_change_position_mode_fail(self, object position_mode_changed_event):
+        self.did_change_position_mode_fail(position_mode_changed_event)
+
+    def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
         pass
 
     cdef c_did_create_range_position_order(self, object order_created_event):
