@@ -28,7 +28,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -39,7 +39,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -523,10 +523,10 @@ class NdaxExchange(ExchangeBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        To determine if an order is successfully canceled, we either call the
+        To determine if an order is successfully cancelled, we either call the
         GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
         :param trading_pair: The market (e.g. BTC-CAD) the order is in.
-        :param order_id: The client_order_id of the order to be canceled.
+        :param order_id: The client_order_id of the order to be cancelled.
         """
         try:
             tracked_order: Optional[NdaxInFlightOrder] = self._in_flight_orders.get(order_id, None)
@@ -571,15 +571,15 @@ class NdaxExchange(ExchangeBase):
                 if self._order_not_found_records[order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
                     self.logger().warning(f"Order {order_id} does not seem to be active, will stop tracking order...")
                     self.stop_tracking_order(order_id)
-                    self.trigger_event(MarketEvent.OrderCanceled,
-                                       OrderCanceledEvent(self.current_timestamp, order_id))
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, order_id))
 
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        An Order is only determined to be canceled when a OrderCanceledEvent is received.
+        An Order is only determined to be cancelled when a OrderCancelledEvent is received.
         :param trading_pair: The market (e.g. BTC-CAD) of the order.
-        :param order_id: The client_order_id of the order to be canceled.
+        :param order_id: The client_order_id of the order to be cancelled.
         """
         safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
@@ -611,16 +611,16 @@ class NdaxExchange(ExchangeBase):
                           )
                 for order in open_orders]
 
-    async def cancel_all(self, timeout_sec: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_sec: float) -> List[CancellationResult]:
         """
-        Cancels all in-flight orders and waits for cancelation results.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancellation results.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_sec: The timeout at which the operation will be canceled.
-        :returns List of CancelationResult which indicates whether each order is successfully canceled.
+        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
 
         # Note: NDAX's CancelOrder endpoint simply indicates if the cancel requests has been succesfully received.
-        cancelation_results = []
+        cancellation_results = []
         tracked_orders = self.in_flight_orders
         try:
             for order in tracked_orders.values():
@@ -632,11 +632,11 @@ class NdaxExchange(ExchangeBase):
             for client_oid, tracked_order in tracked_orders.items():
                 matched_order = [o for o in open_orders if o.client_order_id == client_oid]
                 if not matched_order:
-                    cancelation_results.append(CancelationResult(client_oid, True))
-                    self.trigger_event(MarketEvent.OrderCanceled,
-                                       OrderCanceledEvent(self.current_timestamp, client_oid))
+                    cancellation_results.append(CancellationResult(client_oid, True))
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, client_oid))
                 else:
-                    cancelation_results.append(CancelationResult(client_oid, False))
+                    cancellation_results.append(CancellationResult(client_oid, False))
 
         except Exception as ex:
             self.logger().network(
@@ -644,7 +644,7 @@ class NdaxExchange(ExchangeBase):
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection."
             )
-        return cancelation_results
+        return cancellation_results
 
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """
@@ -779,8 +779,8 @@ class NdaxExchange(ExchangeBase):
                 if self._order_not_found_records[active_order.client_order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
                     self.logger().info(f"Order {active_order.client_order_id} does not seem to be active, will stop tracking order...")
                     self.stop_tracking_order(active_order.client_order_id)
-                    self.trigger_event(MarketEvent.OrderCanceled,
-                                       OrderCanceledEvent(self.current_timestamp, active_order.client_order_id))
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, active_order.client_order_id))
                 continue
 
             query_params = {
@@ -953,7 +953,7 @@ class NdaxExchange(ExchangeBase):
 
     def _process_order_event_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers cancelation or failure event if needed.
+        Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
         client_order_id = str(order_msg["ClientOrderId"])
@@ -966,10 +966,10 @@ class NdaxExchange(ExchangeBase):
 
             if was_locally_working and tracked_order.is_working:
                 self.trigger_order_created_event(tracked_order)
-            elif tracked_order.is_canceled:
-                self.logger().info(f"Successfully canceled order {client_order_id}")
-                self.trigger_event(MarketEvent.OrderCanceled,
-                                   OrderCanceledEvent(
+            elif tracked_order.is_cancelled:
+                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(
                                        self.current_timestamp,
                                        client_order_id))
                 self.stop_tracking_order(client_order_id)

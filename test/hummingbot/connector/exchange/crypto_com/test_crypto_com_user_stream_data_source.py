@@ -64,7 +64,7 @@ class CryptoComAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(data_source._get_shared_client(), aiohttp_client)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_raised_canceled(self, ws_connect_mock):
+    def test_create_websocket_connection_raised_cancelled(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
@@ -83,7 +83,7 @@ class CryptoComAPIUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_listen_for_user_stream_raises_canceled_exception(self, _, ws_connect_mock):
+    def test_listen_for_user_stream_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):

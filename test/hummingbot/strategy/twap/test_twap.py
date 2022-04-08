@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -97,7 +97,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.market.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def handle(self, record):
         self.log_records.append(record)
@@ -183,7 +183,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), second_bid_order.price)
         self.assertEqual(1, second_bid_order.quantity)
 
-        # Check whether order is canceled after cancel_order_wait_time
+        # Check whether order is cancelled after cancel_order_wait_time
         cancel_time_1 = order_time_1 + self.cancel_order_wait_time
         self.clock.backtest_til(cancel_time_1)
         self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
@@ -304,7 +304,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(self.limit_buy_strategy._quantity_remaining, 1)
 
         # Simulate order cancel
-        self.market.trigger_event(MarketEvent.OrderCanceled, OrderCanceledEvent(
+        self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
             self.market.current_timestamp,
             bid_order.client_order_id))
 

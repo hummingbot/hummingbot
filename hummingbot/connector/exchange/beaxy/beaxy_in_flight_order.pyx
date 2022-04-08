@@ -32,16 +32,16 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {'closed', 'completely_filled', 'canceled', 'canceled', 'rejected', 'replaced', 'expired', 'pending_cancel', 'suspended', 'pending_replace'}
+        return self.last_state in {'closed', 'completely_filled', 'canceled', 'cancelled', 'rejected', 'replaced', 'expired', 'pending_cancel', 'suspended', 'pending_replace'}
 
     @property
     def is_failure(self) -> bool:
         # This is the only known canceled state
-        return self.last_state in {'canceled', 'canceled', 'pending_cancel', 'rejected', 'expired', 'suspended'}
+        return self.last_state in {'canceled', 'cancelled', 'pending_cancel', 'rejected', 'expired', 'suspended'}
 
     @property
-    def is_canceled(self) -> bool:
-        return self.last_state in {'canceled', 'canceled'}
+    def is_cancelled(self) -> bool:
+        return self.last_state in {'cancelled', 'canceled'}
 
     @property
     def order_type_description(self) -> str:

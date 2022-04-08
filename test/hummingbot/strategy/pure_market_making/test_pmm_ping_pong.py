@@ -69,7 +69,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def test_strategy_ping_pong_on_ask_fill(self):
         self.strategy = PureMarketMakingStrategy()

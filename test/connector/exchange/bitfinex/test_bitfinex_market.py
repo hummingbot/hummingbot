@@ -25,7 +25,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -54,11 +54,11 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         MarketEvent.SellOrderCompleted,
         MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
     ]
 
     market: BitfinexExchange
@@ -163,9 +163,9 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         # Cancel order. Automatically asserts that order is tracked
         self.market.cancel(trading_pair, order_id)
 
-        [order_canceled_event] = self.run_parallel(
-            self.market_logger.wait_for(OrderCanceledEvent))
-        self.assertEqual(order_canceled_event.order_id, order_id)
+        [order_cancelled_event] = self.run_parallel(
+            self.market_logger.wait_for(OrderCancelledEvent))
+        self.assertEqual(order_cancelled_event.order_id, order_id)
         # # Reset the logs
         self.market_logger.clear()
 
@@ -185,10 +185,10 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         # Cancel order. Automatically asserts that order is tracked
         self.market.cancel(trading_pair, order_id)
 
-        [order_canceled_event] = self.run_parallel(
-            self.market_logger.wait_for(OrderCanceledEvent))
+        [order_cancelled_event] = self.run_parallel(
+            self.market_logger.wait_for(OrderCancelledEvent))
 
-        self.assertEqual(order_canceled_event.order_id, order_id)
+        self.assertEqual(order_cancelled_event.order_id, order_id)
 
         # Reset the logs
         self.market_logger.clear()
@@ -341,7 +341,7 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
             # Cancel the order and verify that the change is saved.
             self.run_parallel(asyncio.sleep(5.0))
             self.market.cancel(trading_pair, order_id)
-            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
@@ -350,7 +350,7 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             self.setUpClass()
@@ -368,6 +368,6 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
         self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
         self.run_parallel(asyncio.sleep(5))
-        [cancelation_results] = self.run_parallel(self.market.cancel_all(45))
-        for cr in cancelation_results:
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(45))
+        for cr in cancellation_results:
             self.assertEqual(cr.success, True)

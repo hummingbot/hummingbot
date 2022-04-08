@@ -27,7 +27,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     OrderBookTradeEvent,
     SellOrderCompletedEvent,
@@ -131,7 +131,7 @@ class PaperTradeExchangeTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled
+        MarketEvent.OrderCancelled
     ]
 
     market: PaperTradeExchange
@@ -439,7 +439,7 @@ class PaperTradeExchangeTest(unittest.TestCase):
         self.assertAlmostEqual(self.market.get_available_balance(trading_pair.base_asset),
                                starting_base_balance - base_quantity)
 
-    def test_order_cancelation(self):
+    def test_order_cancellation(self):
         trading_pair = TradingPair("ETH-USDT", "ETH", "USDT")
         base_quantity = 2.0
         starting_base_balance = 200
@@ -470,7 +470,7 @@ class PaperTradeExchangeTest(unittest.TestCase):
         self.assertEqual(0, len(matched_limit_orders))
 
         matched_order_cancel_events = TestUtils.get_match_events(
-            self.market_logger.event_log, OrderCanceledEvent, {
+            self.market_logger.event_log, OrderCancelledEvent, {
                 "order_id": ask_client_order_id
             })
         # Market should emit cancel event
@@ -498,6 +498,6 @@ class PaperTradeExchangeTest(unittest.TestCase):
         self.assertEqual(0, len(self.market.limit_orders))
 
         matched_order_cancel_events = TestUtils.get_match_events(
-            self.market_logger.event_log, OrderCanceledEvent, {})
+            self.market_logger.event_log, OrderCancelledEvent, {})
         # Market should emit cancel event
         self.assertEqual(2, len(matched_order_cancel_events))

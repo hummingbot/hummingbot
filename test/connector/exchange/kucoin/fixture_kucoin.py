@@ -57,7 +57,7 @@ class FixtureKucoin:
             "stopPrice": "0", "size": "0.01", "stop": "", "cancelExist": False,
             "clientOid": "buy-ETH-USDT-1581056207008008"}}
 
-    CANCEL_ORDER = {"code": "200000", "data": {"canceledOrderIds": ["5e3d03c86e350a0009b380a7"]}}
+    CANCEL_ORDER = {"code": "200000", "data": {"cancelledOrderIds": ["5e3d03c86e350a0009b380a7"]}}
 
     OPEN_SELL_LIMIT_ORDER = {
         "code": "200000",
@@ -75,7 +75,7 @@ class FixtureKucoin:
             "stop": "", "cancelExist": False,
             "clientOid": "sell-ETH-USDT-1581056966892386"}}
 
-    GET_CANCELED_ORDER = {
+    GET_CANCELLED_ORDER = {
         "code": "200000",
         "data": {
             "symbol": "ETH-USDT", "hidden": False, "opType": "DEAL", "fee": "0",
@@ -101,6 +101,6 @@ class FixtureKucoin:
             "postOnly": False, "stopPrice": "0", "size": "0.01", "stop": "",
             "cancelExist": False, "clientOid": "buy-ETH-USDT-1581058129011078"}}
 
-    ORDERS_BATCH_CANCELED = {
+    ORDERS_BATCH_CANCELLED = {
         "code": "200000",
-        "data": {"canceledOrderIds": ["5e3d0851051a350008723a81", "5e3d08516e350a0009bcd272"]}}
+        "data": {"cancelledOrderIds": ["5e3d0851051a350008723a81", "5e3d08516e350a0009bcd272"]}}

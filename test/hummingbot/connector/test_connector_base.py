@@ -14,7 +14,7 @@ class InFightOrderTest(InFlightOrderBase):
         return False
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return False
 
     @property

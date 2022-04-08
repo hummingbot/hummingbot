@@ -15,7 +15,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    OrderCanceledEvent)
+    OrderCancelledEvent)
 from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -86,7 +86,7 @@ class PMMUnitTest(unittest.TestCase):
         self.order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
         self.one_level_strategy = PureMarketMakingStrategy()
         self.one_level_strategy.init_params(
@@ -681,7 +681,7 @@ class PMMUnitTest(unittest.TestCase):
         hanging_sell: LimitOrder = strategy.active_sells[0]
         self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
 
-        self.market.trigger_event(MarketEvent.OrderCanceled, OrderCanceledEvent(
+        self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
             self.market.current_timestamp,
             hanging_sell.client_order_id
         ))
@@ -714,7 +714,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_sells))
         self.assertEqual(0, len(strategy.hanging_order_ids))
 
-        # At order_refresh_time, hanging orders are created, active orders are canceled
+        # At order_refresh_time, hanging orders are created, active orders are cancelled
         self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
 
         self.assertEqual(0, len(strategy.active_buys))
@@ -1083,7 +1083,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("102.01"), sell.price)
         self.assertEqual(1, sell.quantity)
 
-    def test_no_new_orders_created_until_previous_orders_cancelation_confirmed(self):
+    def test_no_new_orders_created_until_previous_orders_cancellation_confirmed(self):
         strategy = self.one_level_strategy
         self.clock.add_iterator(strategy)
 
@@ -1096,10 +1096,10 @@ class PMMUnitTest(unittest.TestCase):
 
         orders_creation_timestamp = strategy.current_timestamp
 
-        # Add a fake in flight cancelation to simulate a confirmation has not arrived
+        # Add a fake in flight cancellation to simulate a confirmation has not arrived
         strategy._sb_order_tracker.in_flight_cancels["OID-99"] = strategy.current_timestamp
 
-        # After refresh time the two real orders should be canceled, but no new order should be created
+        # After refresh time the two real orders should be cancelled, but no new order should be created
         self.clock.backtest_til(orders_creation_timestamp + refresh_time)
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
@@ -1222,8 +1222,8 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        # Minimum Spread Threshold Cancelation
-        # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Buy Order Canceled
+        # Minimum Spread Threshold Cancellation
+        # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Buy Order Cancelled
         self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(50, 1000, 2)],
                                                                [OrderBookRow(50, 1000, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
@@ -1245,7 +1245,7 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        # t = 36, Mid Market Price Moves Up - Below Min Spread (Old Ask) => Sell Order Canceled
+        # t = 36, Mid Market Price Moves Up - Below Min Spread (Old Ask) => Sell Order Cancelled
         # Clear Order Book (setting all orders above price 0, to quantity 0)
         simulate_order_book_widening(self.market.order_books[self.trading_pair], 0, 0)
         # New Mid-Market Price
@@ -1256,7 +1256,7 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        # Simulate Minimum Spread Threshold Cancelation
+        # Simulate Minimum Spread Threshold Cancellation
         self.clock.backtest_til(self.start_timestamp + 40 * self.clock_tick_size)
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))

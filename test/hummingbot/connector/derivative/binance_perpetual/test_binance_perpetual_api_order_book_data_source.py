@@ -373,7 +373,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_subscriptions_canceled_when_connecting(self, _, mock_ws):
+    def test_listen_for_subscriptions_cancelled_when_connecting(self, _, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.side_effect = asyncio.CancelledError
 
@@ -462,7 +462,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(funding_info.rate, Decimal(self._funding_info_event()["data"]["r"]))
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_canceled_error_raised(self, mock_api):
+    def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
         url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -558,7 +558,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertNotIn(self.trading_pair, self.data_source.funding_info)
 
-    def test_listen_for_funding_info_canceled_error_raised(self):
+    def test_listen_for_funding_info_cancelled_error_raised(self):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError

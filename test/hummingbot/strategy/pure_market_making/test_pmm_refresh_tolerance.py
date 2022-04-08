@@ -71,7 +71,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
         self.one_level_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
         self.one_level_strategy.init_params(
@@ -111,7 +111,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             hanging_orders_enabled=True
         )
 
-    def test_active_orders_are_canceled_when_mid_price_moves(self):
+    def test_active_orders_are_cancelled_when_mid_price_moves(self):
         strategy = self.one_level_strategy
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
@@ -158,7 +158,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(old_ask, new_ask)
         self.assertEqual(old_bid, new_bid)
 
-    def test_multi_levels_active_orders_are_canceled_when_mid_price_moves(self):
+    def test_multi_levels_active_orders_are_cancelled_when_mid_price_moves(self):
         strategy = self.multi_levels_strategy
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)

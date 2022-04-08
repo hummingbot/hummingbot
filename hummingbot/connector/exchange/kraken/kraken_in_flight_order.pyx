@@ -55,7 +55,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         return self.last_state in {"canceled", "expired"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"canceled"}
 
     @classmethod

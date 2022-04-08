@@ -39,4 +39,4 @@ class AltmarketsInFlightOrderTests(TestCase):
         self.assertFalse(order.is_local)
         self.assertFalse(order.is_done)
         self.assertFalse(order.is_failure)
-        self.assertFalse(order.is_canceled)
+        self.assertFalse(order.is_cancelled)

@@ -34,7 +34,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import (
     OrderType,
     PositionAction,
@@ -52,7 +52,7 @@ from hummingbot.core.event.events import (
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -562,11 +562,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancelation process by first calling the CancelOrder endpoint. The API response simply verifies
-        that the API request have been received by the API servers. To determine if an order is successfully canceled,
+        Executes order cancellation process by first calling the CancelOrder endpoint. The API response simply verifies
+        that the API request have been received by the API servers. To determine if an order is successfully cancelled,
         we either call the GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
         :param trading_pair: The market (e.g. BTC-CAD) the order is in.
-        :param order_id: The client_order_id of the order to be canceled.
+        :param order_id: The client_order_id of the order to be cancelled.
         """
         try:
             tracked_order: Optional[BybitPerpetualInFlightOrder] = self._in_flight_orders.get(order_id, None)
@@ -597,7 +597,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         f" order not found ({response_code} - {response['ret_msg']})")
                     self.stop_tracking_order(order_id)
                 else:
-                    raise IOError(f"Bybit Perpetual encountered a problem canceling the order"
+                    raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
 
             return order_id
@@ -616,18 +616,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        An Order is only determined to be canceled when a OrderCanceledEvent is received.
+        An Order is only determined to be cancelled when a OrderCancelledEvent is received.
         :param trading_pair: The market (e.g. BTC-CAD) of the order.
-        :param order_id: The client_order_id of the order to be canceled.
+        :param order_id: The client_order_id of the order to be cancelled.
         """
         safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         Async function that cancels all active orders.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
-        :returns: List of CancelationResult which indicates whether each order is successfully canceled.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         tasks = []
         order_id_set = set()
@@ -636,7 +636,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 order_id_set.add(order.client_order_id)
                 tasks.append(asyncio.get_event_loop().create_task(
                     self._execute_cancel(order.trading_pair, order.client_order_id)))
-        successful_cancelations = []
+        successful_cancellations = []
 
         try:
             results = await asyncio.wait_for(
@@ -645,13 +645,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             for result in results:
                 if result is not None:
                     order_id_set.remove(result)
-                    successful_cancelations.append(CancelationResult(result, True))
+                    successful_cancellations.append(CancellationResult(result, True))
         except asyncio.TimeoutError:
-            self.logger().warning("Cancelation of all active orders for Bybit Perpetual connector"
+            self.logger().warning("Cancellation of all active orders for Bybit Perpetual connector"
                                   " stopped after max wait time")
 
-        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelations + failed_cancelations
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     def tick(self, timestamp: float):
         """
@@ -946,7 +946,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def _process_order_event_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers cancelation or failure event if needed.
+        Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
         client_order_id = str(order_msg["order_link_id"])
@@ -960,10 +960,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if was_created and tracked_order.is_new:
                 self.trigger_order_created_event(tracked_order)
-            elif tracked_order.is_canceled:
-                self.logger().info(f"Successfully canceled order {client_order_id}")
-                self.trigger_event(MarketEvent.OrderCanceled,
-                                   OrderCanceledEvent(
+            elif tracked_order.is_cancelled:
+                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(
                                        self.current_timestamp,
                                        client_order_id))
                 self.stop_tracking_order(client_order_id)

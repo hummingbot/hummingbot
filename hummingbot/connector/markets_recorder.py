@@ -19,7 +19,7 @@ from hummingbot.core.event.events import (
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
     PositionAction,
@@ -84,7 +84,7 @@ class MarketsRecorder:
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
             (MarketEvent.SellOrderCreated, self._create_order_forwarder),
             (MarketEvent.OrderFilled, self._fill_order_forwarder),
-            (MarketEvent.OrderCanceled, self._cancel_order_forwarder),
+            (MarketEvent.OrderCancelled, self._cancel_order_forwarder),
             (MarketEvent.OrderFailure, self._fail_order_forwarder),
             (MarketEvent.BuyOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_order_forwarder),
@@ -329,7 +329,7 @@ class MarketsRecorder:
     def _update_order_status(self,
                              event_tag: int,
                              market: ConnectorBase,
-                             evt: Union[OrderCanceledEvent,
+                             evt: Union[OrderCancelledEvent,
                                         MarketOrderFailureEvent,
                                         BuyOrderCompletedEvent,
                                         SellOrderCompletedEvent,
@@ -358,7 +358,7 @@ class MarketsRecorder:
     def _did_cancel_order(self,
                           event_tag: int,
                           market: ConnectorBase,
-                          evt: OrderCanceledEvent):
+                          evt: OrderCancelledEvent):
         self._update_order_status(event_tag, market, evt)
 
     def _did_fail_order(self,

@@ -28,7 +28,7 @@ from hummingbot.connector.exchange.ftx.ftx_utils import (
 from hummingbot.connector.exchange_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -39,7 +39,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -71,7 +71,7 @@ cdef class FtxExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -195,12 +195,12 @@ cdef class FtxExchange(ExchangeBase):
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             base, quote = self.split_trading_pair(tracked_order.trading_pair)
-            if market_event == MarketEvent.OrderCanceled:
-                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
+            if market_event == MarketEvent.OrderCancelled:
+                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                     OrderCanceledEvent(self._current_timestamp,
-                                                        tracked_order.client_order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp,
+                                                         tracked_order.client_order_id))
 
             elif market_event == MarketEvent.OrderFailure:
                 self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
@@ -629,7 +629,7 @@ cdef class FtxExchange(ExchangeBase):
                 except asyncio.TimeoutError:
                     # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                     # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
-                    # updates mark this as canceled if it doesn't actually exist.
+                    # updates mark this as cancelled if it doesn't actually exist.
                     self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
                     return True
             elif order_type is OrderType.MARKET:
@@ -643,7 +643,7 @@ cdef class FtxExchange(ExchangeBase):
                 except asyncio.TimeoutError:
                     # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                     # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
-                    # updates mark this as canceled if it doesn't actually exist.
+                    # updates mark this as cancelled if it doesn't actually exist.
                     self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
                     return True
             else:
@@ -754,7 +754,7 @@ cdef class FtxExchange(ExchangeBase):
                 except asyncio.TimeoutError:
                     # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                     # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
-                    # updates mark this as canceled if it doesn't actually exist.
+                    # updates mark this as cancelled if it doesn't actually exist.
                     self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
                     return True
             elif order_type is OrderType.MARKET:
@@ -768,7 +768,7 @@ cdef class FtxExchange(ExchangeBase):
                 except asyncio.TimeoutError:
                     # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                     # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
-                    # updates mark this as canceled if it doesn't actually exist.
+                    # updates mark this as cancelled if it doesn't actually exist.
                     self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
                     return True
             else:
@@ -838,11 +838,11 @@ cdef class FtxExchange(ExchangeBase):
         try:
             cancel_result = await self._api_request("DELETE", path_url=path_url)
 
-            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancelation"]):
-                self.logger().info(f"Requested cancelation of order {order_id}.")
+            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancellation"]):
+                self.logger().info(f"Requested cancellation of order {order_id}.")
                 return order_id
             else:
-                self.logger().info(f"Could not request cancelation of order {order_id} as FTX returned: {cancel_result}")
+                self.logger().info(f"Could not request cancellation of order {order_id} as FTX returned: {cancel_result}")
                 return order_id
         except Exception as e:
             self.logger().network(
@@ -857,12 +857,12 @@ cdef class FtxExchange(ExchangeBase):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [order for order in self._in_flight_orders.values() if not order.is_done]
 
         tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancelation = []
+        successful_cancellation = []
 
         try:
             async with timeout(timeout_seconds):
@@ -870,15 +870,15 @@ cdef class FtxExchange(ExchangeBase):
                 for order_id in api_responses:
                     if order_id:
                         order_id_set.remove(order_id)
-                        successful_cancelation.append(CancelationResult(order_id, True))
+                        successful_cancellation.append(CancellationResult(order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error canceling orders.",
+                f"Unexpected error cancelling orders.",
                 app_warning_msg="Failed to cancel order on ftx. Check API key and network connection."
             )
 
-        failed_cancelation = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelation + failed_cancelation
+        failed_cancellation = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellation + failed_cancellation
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:

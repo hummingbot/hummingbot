@@ -46,7 +46,7 @@ class BalancerConnectorUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
     connector: TerraConnector

@@ -301,9 +301,9 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     cdef c_did_cancel_order(self, object cancel_event):
         """
-        Output log for canceled order.
+        Output log for cancelled order.
 
-        :param cancel_event: Order canceled event.
+        :param cancel_event: Order cancelled event.
         """
         cdef:
             str order_id = cancel_event.order_id

@@ -371,7 +371,7 @@ class FixtureOKEx:
         ]
     }
 
-    ORDERS_BATCH_CANCELED = {
+    ORDERS_BATCH_CANCELLED = {
         "code": "0",
         "msg": "",
         "data": [

@@ -429,7 +429,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
                 "ERROR",
                 "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
-    def test_listen_for_trades_canceled_when_listening(self):
+    def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
@@ -501,7 +501,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
 
         self.assertTrue(trade_event["data"]["tradeId"], msg.trade_id)
 
-    def test_listen_for_order_book_diffs_canceled(self):
+    def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
@@ -573,7 +573,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
         self.assertTrue(diff_event["data"]["sequenceEnd"], msg.update_id)
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_canceled_when_fetching_snapshot(self, mock_api):
+    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 

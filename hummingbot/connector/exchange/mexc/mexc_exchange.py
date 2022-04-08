@@ -22,7 +22,7 @@ from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -33,7 +33,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -59,7 +59,7 @@ class MexcExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled
@@ -433,11 +433,11 @@ class MexcExchange(ExchangeBase):
                     if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
                         tracked_order.last_state = order_status
                         self.stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
+                        self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
                                            f"according to order delta restful API.")
-                        self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                           OrderCanceledEvent(self.current_timestamp,
-                                                              tracked_order.client_order_id))
+                        self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                           OrderCancelledEvent(self.current_timestamp,
+                                                               tracked_order.client_order_id))
                 except Exception as ex:
                     self.logger().error("_update_order_status error ..." + repr(ex), exc_info=True)
 
@@ -576,11 +576,11 @@ class MexcExchange(ExchangeBase):
 
         if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
             tracked_order.last_state = order_status
-            self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
+            self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
                                f"according to order delta websocket API.")
-            self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                               OrderCanceledEvent(self.current_timestamp,
-                                                  tracked_order.client_order_id))
+            self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                               OrderCancelledEvent(self.current_timestamp,
+                                                   tracked_order.client_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)
 
     @property
@@ -801,7 +801,7 @@ class MexcExchange(ExchangeBase):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         orders_by_trading_pair = {}
 
         for order in self._in_flight_orders.values():
@@ -828,7 +828,7 @@ class MexcExchange(ExchangeBase):
                     'order_ids': quote(','.join([o for o in this_turn_cancel_order_ids])),
                 }
 
-                cancelation_results = []
+                cancellation_results = []
                 try:
                     cancel_all_results = await self._api_request(
                         "DELETE",
@@ -841,12 +841,12 @@ class MexcExchange(ExchangeBase):
                         for o in orders_by_trading_pair[trading_pair]:
                             if o.client_order_id == order_result_client_order_id:
                                 result_bool = True if order_result_value == "invalid order state" or order_result_value == "success" else False
-                                cancelation_results.append(CancelationResult(o.client_order_id, result_bool))
+                                cancellation_results.append(CancellationResult(o.client_order_id, result_bool))
                                 if result_bool:
-                                    self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                                       OrderCanceledEvent(self.current_timestamp,
-                                                                          order_id=o.client_order_id,
-                                                                          exchange_order_id=o.exchange_order_id))
+                                    self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                       OrderCancelledEvent(self.current_timestamp,
+                                                                           order_id=o.client_order_id,
+                                                                           exchange_order_id=o.exchange_order_id))
                                     self.stop_tracking_order(o.client_order_id)
 
                 except Exception as ex:
@@ -856,7 +856,7 @@ class MexcExchange(ExchangeBase):
                         exc_info=True,
                         app_warning_msg="Failed to cancel all orders on Mexc. Check API key and network connection."
                     )
-        return cancelation_results
+        return cancellation_results
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if trading_pair not in self._order_book_tracker.order_books:

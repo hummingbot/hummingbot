@@ -18,7 +18,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -413,36 +413,36 @@ class BinanceExchange(ExchangeBase):
         safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
-        Cancels all currently active orders. The cancelations are performed in parallel tasks.
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
         :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-        :return: a list of CancelationResult instances, one for each of the orders to be canceled
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
         """
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancelations = []
+        successful_cancellations = []
 
         try:
             async with timeout(timeout_seconds):
-                cancelation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cr in cancelation_results:
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cr in cancellation_results:
                     if isinstance(cr, Exception):
                         continue
                     if isinstance(cr, dict) and "origClientOrderId" in cr:
                         client_order_id = cr.get("origClientOrderId")
                         order_id_set.remove(client_order_id)
-                        successful_cancelations.append(CancelationResult(client_order_id, True))
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error canceling orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
             )
 
-        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelations + failed_cancelations
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     async def _create_order(self,
                             trade_type: TradeType,
@@ -572,7 +572,7 @@ class BinanceExchange(ExchangeBase):
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELED,
+                        new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
                     return cancel_result
@@ -580,7 +580,7 @@ class BinanceExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
+                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
                 raise
 
     async def _status_polling_loop(self):
@@ -707,7 +707,7 @@ class BinanceExchange(ExchangeBase):
             try:
                 event_type = event_message.get("e")
                 # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
-                # As per the order update section in Binance the ID of the order being canceled is under the "C" key
+                # As per the order update section in Binance the ID of the order being cancelled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -893,7 +893,7 @@ class BinanceExchange(ExchangeBase):
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been canceled or has failed do nothing
+                # If the order has already been cancelled or has failed do nothing
                 if client_order_id not in self.in_flight_orders:
                     continue
 

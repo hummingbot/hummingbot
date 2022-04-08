@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -48,11 +48,11 @@ class KrakenExchangeUnitTest(unittest.TestCase):
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.OrderFilled,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled
+        MarketEvent.OrderCancelled
     ]
 
     market: KrakenExchange
@@ -277,16 +277,16 @@ class KrakenExchangeUnitTest(unittest.TestCase):
 
         self.cancel_order(PAIR, order_id)
 
-        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
-        order_canceled_event: OrderCanceledEvent = order_canceled_event
-        self.assertEqual(order_canceled_event.order_id, order_id)
+        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
+        self.assertEqual(order_cancelled_event.order_id, order_id)
 
     def test_cancel_all(self):
         order_ids = self.underpriced_limit_buy_multiple(2)
 
-        canceled_orders = self.run_async(self.market.cancel_all(10.))
-        self.assertEqual([order.order_id for order in canceled_orders], order_ids)
-        self.assertTrue([order.success for order in canceled_orders])
+        cancelled_orders = self.run_async(self.market.cancel_all(10.))
+        self.assertEqual([order.order_id for order in cancelled_orders], order_ids)
+        self.assertTrue([order.success for order in cancelled_orders])
 
     def test_order_saving_and_restoration(self):
         config_path: str = "test_config"
@@ -344,7 +344,7 @@ class KrakenExchangeUnitTest(unittest.TestCase):
 
             # Cancel the order and verify that the change is saved.
             self.market.cancel(PAIR, order_id)
-            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
@@ -353,7 +353,7 @@ class KrakenExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(PAIR, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             unlink(self.db_path)
@@ -409,7 +409,7 @@ class KrakenExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(PAIR, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             unlink(self.db_path)

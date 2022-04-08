@@ -541,7 +541,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     if ((active_positions[0].amount < 0 and order.is_buy)
                             or (active_positions[0].amount > 0 and not order.is_buy)):
                         self.cancel_order(self._market_info, order.client_order_id)
-                        self.logger().info(f"Initiated cancelation of {'buy' if order.is_buy else 'sell'} order "
+                        self.logger().info(f"Initiated cancellation of {'buy' if order.is_buy else 'sell'} order "
                                            f"{order.client_order_id} in favour of take profit order.")
 
         for position in active_positions:
@@ -561,7 +561,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 for old_order in old_exit_orders:
                     self.cancel_order(self._market_info, old_order.client_order_id)
                     self.logger().info(
-                        f"Initiated cancelation of previous take profit order {old_order.client_order_id} in favour of new take profit order.")
+                        f"Initiated cancellation of previous take profit order {old_order.client_order_id} in favour of new take profit order.")
                 exit_order_exists = [o for o in self.active_orders if o.price == price]
                 if len(exit_order_exists) == 0:
                     if size > 0 and price > 0:
@@ -868,7 +868,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 return False
         return True
 
-    # Return value: whether order cancelation is deferred.
+    # Return value: whether order cancellation is deferred.
     def cancel_active_orders(self, proposal: Proposal):
         if self._cancel_timestamp > self.current_timestamp:
             return
@@ -890,7 +890,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             for order in self.active_orders:
                 self.cancel_order(self._market_info, order.client_order_id)
         else:
-            self.logger().info(f"Not canceling active orders since difference between new order prices "
+            self.logger().info(f"Not cancelling active orders since difference between new order prices "
                                f"and current order prices is within "
                                f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
             self.set_timers()
@@ -901,7 +901,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - price) / price) < self._minimum_spread:
                 self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
-                                   f" Canceling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                                   f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
                 self.cancel_order(self._market_info, order.client_order_id)
 

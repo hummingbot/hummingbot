@@ -38,5 +38,5 @@ cdef class BlocktaneInFlightOrder(InFlightOrderBase):
         return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED"}

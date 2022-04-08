@@ -309,7 +309,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                       amount=order.quantity)
 
     @staticmethod
-    def simulate_canceling_all_active_orders(strategy: AvellanedaMarketMakingStrategy):
+    def simulate_cancelling_all_active_orders(strategy: AvellanedaMarketMakingStrategy):
         strategy.cancel_active_orders(None)
 
     @staticmethod
@@ -1195,14 +1195,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_orders))
 
         # Case (2): Has active orders and within _order_refresh_tolerance_pct.
-        # Note: Order will NOT be canceled
+        # Note: Order will NOT be cancelled
         self.strategy.order_refresh_tolerance_pct = Decimal("100")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
         self.assertEqual(2, len(self.strategy.active_orders))
 
         # Case (3a): Has active orders and EXCEED _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
-        # Note: Orders will NOT be canceled
+        # Note: Orders will NOT be cancelled
         self.strategy.order_refresh_tolerance_pct = Decimal("-1")
         self.assertEqual(2, len(self.strategy.active_orders))
 
@@ -1211,7 +1211,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(2, len(self.strategy.active_orders))
 
         # Case (3b): Has active orders and EXCEED _order_refresh_tolerance_pct AND cancel_timestamp <= current_timestamp
-        # Note: Orders will be canceled
+        # Note: Orders will be cancelled
         self.clock.backtest_til(self.strategy.current_timestamp + self.strategy.order_refresh_time + 1)
 
         self.strategy.cancel_active_orders(proposal)
@@ -1219,7 +1219,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_orders))
 
         # Case (4): Has active orders and within _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
-        # Note: Order not canceled
+        # Note: Order not cancelled
         self.strategy.order_refresh_tolerance_pct = Decimal("100")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
@@ -1270,7 +1270,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Case (2) create_timestamp >= current_timestamp + order_refresh_time
         self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 1)
-        self.simulate_canceling_all_active_orders(self.strategy)
+        self.simulate_cancelling_all_active_orders(self.strategy)
 
         self.assertTrue(self.strategy.to_create_orders(proposal))
 
@@ -1413,7 +1413,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(buy_order.client_order_id,
                          list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
-    def test_no_new_orders_created_until_previous_orders_cancelation_confirmed(self):
+    def test_no_new_orders_created_until_previous_orders_cancellation_confirmed(self):
 
         refresh_time = self.strategy.order_refresh_time
 
@@ -1436,10 +1436,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         orders_creation_timestamp = self.strategy.current_timestamp
 
-        # Add a fake in flight cancelation to simulate a confirmation has not arrived
+        # Add a fake in flight cancellation to simulate a confirmation has not arrived
         self.strategy._sb_order_tracker.in_flight_cancels["OID-99"] = self.strategy.current_timestamp
 
-        # After refresh time the two real orders should be canceled, but no new order should be created
+        # After refresh time the two real orders should be cancelled, but no new order should be created
         self.clock.backtest_til(orders_creation_timestamp + refresh_time)
         self.assertEqual(0, len(self.strategy.active_buys))
         self.assertEqual(0, len(self.strategy.active_sells))

@@ -35,7 +35,7 @@ class HitbtcInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self.canceled_event = asyncio.Event()
+        self.cancelled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:
@@ -46,7 +46,7 @@ class HitbtcInFlightOrder(InFlightOrderBase):
         return self.last_state in {"suspended"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"canceled", "expired"}
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:

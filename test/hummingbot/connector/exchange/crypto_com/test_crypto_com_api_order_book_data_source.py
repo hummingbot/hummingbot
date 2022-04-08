@@ -176,7 +176,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(snapshot_timestamp, result.snapshot_uid)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_raised_canceled(self, ws_connect_mock):
+    def test_create_websocket_connection_raised_cancelled(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
@@ -194,7 +194,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_exception_raised_canceled_when_connecting(self, ws_connect_mock):
+    def test_listen_for_subscriptions_exception_raised_cancelled_when_connecting(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
@@ -202,7 +202,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_listen_for_subscriptions_exception_raised_canceled_when_subscribing(self, _, ws_connect_mock):
+    def test_listen_for_subscriptions_exception_raised_cancelled_when_subscribing(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.send_json.side_effect = asyncio.CancelledError
 
@@ -211,7 +211,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_listen_for_subscriptions_exception_raised_canceled_when_listening(self, _, ws_connect_mock):
+    def test_listen_for_subscriptions_exception_raised_cancelled_when_listening(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = asyncio.CancelledError
 

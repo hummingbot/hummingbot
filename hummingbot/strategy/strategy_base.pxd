@@ -28,7 +28,7 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_create_sell_order(self, object order_created_event)
     cdef c_did_fill_order(self, object order_filled_event)
     cdef c_did_fail_order(self, object order_failed_event)
-    cdef c_did_cancel_order(self, object canceled_event)
+    cdef c_did_cancel_order(self, object cancelled_event)
     cdef c_did_expire_order(self, object expired_event)
     cdef c_did_complete_buy_order(self, object order_completed_event)
     cdef c_did_complete_sell_order(self, object order_completed_event)
@@ -37,7 +37,7 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_remove_range_position_order(self, object order_completed_event)
 
     cdef c_did_fail_order_tracker(self, object order_failed_event)
-    cdef c_did_cancel_order_tracker(self, object order_canceled_event)
+    cdef c_did_cancel_order_tracker(self, object order_cancelled_event)
     cdef c_did_expire_order_tracker(self, object order_expired_event)
     cdef c_did_complete_buy_order_tracker(self, object order_completed_event)
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event)

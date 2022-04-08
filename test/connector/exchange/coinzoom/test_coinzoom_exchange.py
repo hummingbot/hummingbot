@@ -21,7 +21,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -51,7 +51,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
     connector: CoinzoomExchange
@@ -229,7 +229,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
 
         self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token), 5)
         self._cancel_order(cl_order_id)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
@@ -240,7 +240,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(cl_order_id, order_created_event.order_id)
         self._cancel_order(cl_order_id)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
     # # @TODO: find a way to create "rejected"
@@ -249,14 +249,14 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
     #     price = self.connector.quantize_order_price(self.trading_pair, price)
     #     amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000001"))
     #     cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1)
-    #     event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+    #     event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
     #     self.assertEqual(cl_order_id, event.order_id)
 
     #     price = self.connector.get_price(self.trading_pair, False) * Decimal("0.8")
     #     price = self.connector.quantize_order_price(self.trading_pair, price)
     #     amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000001"))
     #     cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2)
-    #     event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+    #     event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
     #     self.assertEqual(cl_order_id, event.order_id)
 
     def test_cancel_all(self):
@@ -271,9 +271,9 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
 
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(15))
-        self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.ev_loop.run_until_complete(asyncio.sleep(1))
-        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCanceledEvent)]
+        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
         self.assertEqual({buy_id, sell_id}, {o.order_id for o in cancel_events})
 
     def test_order_quantized_values(self):
@@ -303,9 +303,9 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
 
         self._cancel_order(cl_order_id_1)
-        self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self._cancel_order(cl_order_id_2)
-        self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
 
     def test_orders_saving_and_restoration(self):
         config_path = "test_config"
@@ -371,7 +371,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
 
             # Cancel the order and verify that the change is saved.
             self._cancel_order(cl_order_id, new_connector)
-            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
             recorder.save_market_states(config_path, new_connector)
             order_id = None
             self.assertEqual(0, len(new_connector.limit_orders))
@@ -381,7 +381,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, cl_order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -435,7 +435,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

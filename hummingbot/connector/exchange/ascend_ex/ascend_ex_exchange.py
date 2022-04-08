@@ -20,7 +20,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -341,7 +341,7 @@ class AscendExExchange(ExchangePyBase):
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        To get the cancelation result, you'll have to wait for OrderCanceledEvent.
+        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param order_id: The internal order id (also called client_order_id)
         """
@@ -390,15 +390,15 @@ class AscendExExchange(ExchangePyBase):
 
     async def cancel_all(self, timeout_seconds: float):
         """
-        Cancels all in-flight orders and waits for cancelation results.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancellation results.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancelationResult which indicates whether each order is successfully canceled.
+        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         order_ids_to_cancel = []
         cancel_payloads = []
-        successful_cancelations = []
-        failed_cancelations = []
+        successful_cancellations = []
+        failed_cancellations = []
 
         for order in filter(lambda active_order: not active_order.is_done,
                             self._in_flight_order_tracker.active_orders.values()):
@@ -413,7 +413,7 @@ class AscendExExchange(ExchangePyBase):
                 })
                 order_ids_to_cancel.append(order.client_order_id)
             else:
-                failed_cancelations.append(CancelationResult(order.client_order_id, False))
+                failed_cancellations.append(CancellationResult(order.client_order_id, False))
 
         if cancel_payloads:
             try:
@@ -426,7 +426,7 @@ class AscendExExchange(ExchangePyBase):
                     force_auth_path_url="order/batch",
                 )
 
-                successful_cancelations = [CancelationResult(order_id, True) for order_id in order_ids_to_cancel]
+                successful_cancellations = [CancellationResult(order_id, True) for order_id in order_ids_to_cancel]
 
             except Exception:
                 self.logger().network(
@@ -434,7 +434,7 @@ class AscendExExchange(ExchangePyBase):
                     exc_info=True,
                     app_warning_msg="Failed to cancel all orders on AscendEx. Check API key and network connection.",
                 )
-        return successful_cancelations + failed_cancelations
+        return successful_cancellations + failed_cancellations
 
     def tick(self, timestamp: float):
         """
@@ -567,7 +567,7 @@ class AscendExExchange(ExchangePyBase):
 
     async def _process_order_message(self, order_msg: AscendExOrder):
         """
-        Updates in-flight order and triggers cancelation or failure event if needed.
+        Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
         tracked_order = self._in_flight_order_tracker.fetch_order(exchange_order_id=order_msg.orderId)
@@ -705,8 +705,8 @@ class AscendExExchange(ExchangePyBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancelation process by first calling cancel-order API. The API result doesn't confirm whether
-        the cancelation is successful, it simply states it receives the request.
+        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancellation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
         :param order_id: The internal order id
         """
@@ -717,7 +717,7 @@ class AscendExExchange(ExchangePyBase):
                 if non_tracked_order is None:
                     raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
                 else:
-                    self.logger().info(f"The order {order_id} was finished before being canceled")
+                    self.logger().info(f"The order {order_id} was finished before being cancelled")
             else:
                 ex_order_id = await tracked_order.get_exchange_order_id()
 

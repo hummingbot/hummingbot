@@ -46,7 +46,7 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
         return self.last_state in {"REJECTED"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
 
     def to_json(self):

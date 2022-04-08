@@ -140,7 +140,7 @@ class BybitPerpetualWebSocketAdaptorTests(TestCase):
         try:
             asyncio.get_event_loop().run_until_complete(task)
         except asyncio.CancelledError:
-            # Ignore the canceled error
+            # Ignore the cancelled error
             pass
 
         expected_message = {"op": "ping"}

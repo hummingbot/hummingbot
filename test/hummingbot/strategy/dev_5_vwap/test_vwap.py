@@ -119,7 +119,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.market.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     @staticmethod
     def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder):
@@ -207,7 +207,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), bid_order_2.price)
         self.assertLessEqual(bid_order_2.quantity, 100 - bid_order.quantity)
 
-        # Check whether order is canceled after cancel_order_wait_time
+        # Check whether order is cancelled after cancel_order_wait_time
         cancel_time_2 = order_time_2 + self.cancel_order_wait_time
         self.clock.backtest_til(cancel_time_2)
         self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
@@ -249,7 +249,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("101"), ask_order_2.price)
         self.assertLessEqual(ask_order_2.quantity, 100 - ask_order.quantity)
 
-        # Check whether order is canceled after cancel_order_wait_time
+        # Check whether order is cancelled after cancel_order_wait_time
         cancel_time_2 = order_time_2 + self.cancel_order_wait_time
         self.clock.backtest_til(cancel_time_2)
         self.assertEqual(0, len(self.limit_sell_strategy.active_asks))

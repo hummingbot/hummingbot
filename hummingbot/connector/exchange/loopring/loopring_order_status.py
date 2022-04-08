@@ -5,11 +5,11 @@ class LoopringOrderStatus(Enum):
     waiting = 0
     ACTIVE = 100
     processing = 101
-    canceling = 200
+    cancelling = 200
     DONE = 300
     processed = 301
     failed = 400
-    canceled = 402
+    cancelled = 402
     expired = 403
 
     def __ge__(self, other):

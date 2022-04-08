@@ -74,7 +74,7 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    def test_limit_order_canceled(self):
+    def test_limit_order_cancelled(self):
         """
         This test should be run after the developer has implemented the limit buy and cancel
         in the corresponding market class

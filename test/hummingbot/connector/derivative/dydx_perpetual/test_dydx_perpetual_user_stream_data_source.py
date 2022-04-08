@@ -71,7 +71,7 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_raises_canceled_exception(self, _, ws_connect_mock):
+    def test_listen_for_user_stream_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):

@@ -79,7 +79,7 @@ class PureMMTakeIfCrossUnitTest(unittest.TestCase):
         self.order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
         self.ext_market: MockPaperExchange = MockPaperExchange()
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(

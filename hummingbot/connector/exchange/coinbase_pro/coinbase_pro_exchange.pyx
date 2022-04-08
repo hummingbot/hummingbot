@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -31,7 +31,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -66,7 +66,7 @@ cdef class CoinbaseProExchangeTransactionTracker(TransactionTracker):
 cdef class CoinbaseProExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -436,8 +436,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                         )
                         self.c_stop_tracking_order(client_order_id)
                         self.c_trigger_event(
-                            self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                            OrderCanceledEvent(self._current_timestamp, client_order_id)
+                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            OrderCancelledEvent(self._current_timestamp, client_order_id)
                         )
                 except asyncio.CancelledError:
                     raise
@@ -515,10 +515,10 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      order_type))
                 else:
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
                                        f"according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                         OrderCanceledEvent(
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id
                                          ))
@@ -632,8 +632,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 elif content.get("reason") == "canceled":  # reason == "canceled":
                     execute_amount_diff = 0
                     tracked_order.last_state = "canceled"
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                         OrderCanceledEvent(self._current_timestamp, tracked_order.client_order_id))
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                     execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
@@ -806,20 +806,20 @@ cdef class CoinbaseProExchange(ExchangeBase):
         try:
             exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
             endpoint = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
-            canceled_id = await self._api_request(RESTMethod.DELETE, endpoint=endpoint)
-            if canceled_id == exchange_order_id:
-                self.logger().info(f"Successfully canceled order {order_id}.")
+            cancelled_id = await self._api_request(RESTMethod.DELETE, endpoint=endpoint)
+            if cancelled_id == exchange_order_id:
+                self.logger().info(f"Successfully cancelled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                     OrderCanceledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as e:
             if "order not found" in str(e):
-                # The order was never there to begin with. So canceling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancelation needed.")
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                     OrderCanceledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
             raise
@@ -835,22 +835,22 @@ cdef class CoinbaseProExchange(ExchangeBase):
     cdef c_cancel(self, str trading_pair, str order_id):
         """
         *required
-        Synchronous wrapper that schedules canceling an order.
+        Synchronous wrapper that schedules cancelling an order.
         """
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         *required
         Async function that cancels all active orders.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
-        :returns: List of CancelationResult which indicates whether each order is successfully canceled.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancelations = []
+        successful_cancellations = []
 
         try:
             async with timeout(timeout_seconds):
@@ -858,7 +858,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 for client_order_id in results:
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
-                        successful_cancelations.append(CancelationResult(client_order_id, True))
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
                     else:
                         self.logger().warning(
                             f"failed to cancel order with error: "
@@ -866,13 +866,13 @@ cdef class CoinbaseProExchange(ExchangeBase):
                         )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error canceling orders.",
+                f"Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
             )
 
-        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelations + failed_cancelations
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     async def _status_polling_loop(self):
         """

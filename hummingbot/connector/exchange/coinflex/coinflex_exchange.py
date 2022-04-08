@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import C
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import (
     InFlightOrder,
@@ -417,36 +417,36 @@ class CoinflexExchange(ExchangeBase):
         safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
-        Cancels all currently active orders. The cancelations are performed in parallel tasks.
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
         :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-        :return: a list of CancelationResult instances, one for each of the orders to be canceled
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
         """
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancelations = []
+        successful_cancellations = []
 
         try:
             async with timeout(timeout_seconds):
-                cancelation_results = await safe_gather(*tasks, return_exceptions=True)
-                for cr in cancelation_results:
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for cr in cancellation_results:
                     if isinstance(cr, Exception):
                         continue
                     if isinstance(cr, dict) and "clientOrderId" in cr:
                         client_order_id = cr.get("clientOrderId")
                         order_id_set.remove(client_order_id)
-                        successful_cancelations.append(CancelationResult(client_order_id, True))
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error canceling orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with CoinFLEX. Check API key and network connection."
             )
 
-        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelations + failed_cancelations
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     async def _create_order(self,
                             trade_type: TradeType,
@@ -582,20 +582,20 @@ class CoinflexExchange(ExchangeBase):
                         is_auth_required=True)
                     cancel_result = result["data"][0]
                 except web_utils.CoinflexAPIError as e:
-                    # Catch order not found as canceled.
+                    # Catch order not found as cancelled.
                     cancel_result = {}
                     if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
                         cancel_result = e.error_payload["data"][0]
                     else:
-                        self.logger().error(f"Unhandled error canceling order: {order_id}. Error: {e.error_payload}", exc_info=True)
+                        self.logger().error(f"Unhandled error cancelling order: {order_id}. Error: {e.error_payload}", exc_info=True)
 
-                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELED_STATES:
-                    canceled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
+                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
+                    cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
-                        update_timestamp=int(canceled_timestamp) * 1e-3 if canceled_timestamp else self.current_timestamp,
-                        new_state=OrderState.CANCELED,
+                        update_timestamp=int(cancelled_timestamp) * 1e-3 if cancelled_timestamp else self.current_timestamp,
+                        new_state=OrderState.CANCELLED,
                     )
                     self._order_tracker.process_order_update(order_update)
                 else:
@@ -606,7 +606,7 @@ class CoinflexExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
+                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
                 raise
 
     async def _status_polling_loop(self):
@@ -884,7 +884,7 @@ class CoinflexExchange(ExchangeBase):
             for order_result, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been canceled or has failed do nothing
+                # If the order has already been cancelled or has failed do nothing
                 if client_order_id not in self.in_flight_orders:
                     continue
 

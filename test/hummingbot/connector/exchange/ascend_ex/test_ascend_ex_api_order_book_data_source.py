@@ -256,14 +256,14 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(f"{self.data_source.TRADE_TOPIC_ID}:{self.ex_trading_pair}" in stream_topics)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_exception_raised_canceled_when_connecting(self, ws_connect_mock):
+    def test_listen_for_subscriptions_exception_raised_cancelled_when_connecting(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_exception_raised_canceled_when_subscribing(self, ws_connect_mock):
+    def test_listen_for_subscriptions_exception_raised_cancelled_when_subscribing(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.send_json.side_effect = asyncio.CancelledError
 
@@ -271,7 +271,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_exception_raised_canceled_when_listening(self, ws_connect_mock):
+    def test_listen_for_subscriptions_exception_raised_cancelled_when_listening(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = asyncio.CancelledError
 
@@ -516,7 +516,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             self.ev_loop.run_until_complete(task)
         except asyncio.CancelledError:
-            # The exception will happen when canceling the task
+            # The exception will happen when cancelling the task
             pass
 
         self.assertTrue(order_book_messages.empty())

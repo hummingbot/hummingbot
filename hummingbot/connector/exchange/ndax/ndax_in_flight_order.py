@@ -57,7 +57,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
         return self.last_state in {"Rejected"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"Canceled", "Expired"}
 
     def mark_as_filled(self):

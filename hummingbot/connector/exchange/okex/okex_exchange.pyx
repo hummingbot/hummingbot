@@ -25,7 +25,7 @@ from hummingbot.connector.exchange_base import (
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -38,7 +38,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -82,7 +82,7 @@ cdef class OkexExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -431,7 +431,7 @@ cdef class OkexExchange(ExchangeBase):
                 continue
 
             if tracked_order.is_done:
-                if not tracked_order.is_canceled:  # Handles "filled" order
+                if not tracked_order.is_cancelled:  # Handles "filled" order
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
@@ -458,10 +458,10 @@ cdef class OkexExchange(ExchangeBase):
                 else:  # Handles "canceled" or "partial-canceled" order
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The market order {tracked_order.client_order_id} "
-                                       f"has been canceled according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                         OrderCanceledEvent(self._current_timestamp,
-                                                            tracked_order.client_order_id))
+                                       f"has been cancelled according to order status API.")
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id))
 
     async def _status_polling_loop(self):
         while True:
@@ -605,11 +605,11 @@ cdef class OkexExchange(ExchangeBase):
 
                         if order_status == "canceled":
                             tracked_order.last_state = order_status
-                            self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
+                            self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
                                                f"according to order delta websocket API.")
-                            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                                 OrderCanceledEvent(self._current_timestamp,
-                                                                    tracked_order.client_order_id))
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                 OrderCancelledEvent(self._current_timestamp,
+                                                                     tracked_order.client_order_id))
                             self.c_stop_tracking_order(tracked_order.client_order_id)
 
                     else:
@@ -860,7 +860,7 @@ cdef class OkexExchange(ExchangeBase):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         orders_by_trading_pair = {}
 
         for order in self._in_flight_orders.values():
@@ -879,7 +879,7 @@ cdef class OkexExchange(ExchangeBase):
                     'instId': trading_pair} for cancel_order_id in cancel_order_ids]
             # TODO, check that only a max of 4 orders can be included per trading pair
 
-            cancelation_results = []
+            cancellation_results = []
             try:
                 cancel_all_results = await self._api_request(
                     "POST",
@@ -889,12 +889,12 @@ cdef class OkexExchange(ExchangeBase):
                 )
 
                 for order_result in cancel_all_results['data']:
-                    cancelation_results.append(CancelationResult(order_result["clOrdId"], order_result["sCode"]))
+                    cancellation_results.append(CancellationResult(order_result["clOrdId"], order_result["sCode"]))
                     if order_result["sCode"]=='0':
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                             OrderCanceledEvent(self._current_timestamp,
-                                                                order_result["clOrdId"],
-                                                                exchange_order_id=order_result["ordId"]))
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                             OrderCancelledEvent(self._current_timestamp,
+                                                                 order_result["clOrdId"],
+                                                                 exchange_order_id=order_result["ordId"]))
 
             except Exception as e:
                 self.logger().network(
@@ -902,7 +902,7 @@ cdef class OkexExchange(ExchangeBase):
                     exc_info=True,
                     app_warning_msg=f"Failed to cancel all orders on OKEx. Check API key and network connection."
                 )
-            return cancelation_results
+            return cancellation_results
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:

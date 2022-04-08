@@ -3,6 +3,6 @@
 from typing import NamedTuple
 
 
-class CancelationResult(NamedTuple):
+class CancellationResult(NamedTuple):
     order_id: str
     success: bool

@@ -200,24 +200,24 @@ class HummingbotApplication(*commands):
         success = True
         try:
             kill_timeout: float = self.KILL_TIMEOUT
-            self._notify("Canceling outstanding orders...")
+            self._notify("Cancelling outstanding orders...")
 
             for market_name, market in self.markets.items():
-                cancelation_results = await market.cancel_all(kill_timeout)
-                uncanceled = list(filter(lambda cr: cr.success is False, cancelation_results))
-                if len(uncanceled) > 0:
+                cancellation_results = await market.cancel_all(kill_timeout)
+                uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
+                if len(uncancelled) > 0:
                     success = False
-                    uncanceled_order_ids = list(map(lambda cr: cr.order_id, uncanceled))
+                    uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
                     self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
                         market_name,
-                        '\n'.join(uncanceled_order_ids)
+                        '\n'.join(uncancelled_order_ids)
                     ))
         except Exception:
             self.logger().error("Error canceling outstanding orders.", exc_info=True)
             success = False
 
         if success:
-            self._notify("All outstanding orders canceled.")
+            self._notify("All outstanding orders cancelled.")
         return success
 
     async def run(self):

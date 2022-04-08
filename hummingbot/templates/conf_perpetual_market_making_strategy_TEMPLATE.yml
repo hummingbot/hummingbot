@@ -33,7 +33,7 @@ ask_spread: null
 # How far away from the mid price to cancel active orders
 minimum_spread: null
 
-# Time in seconds before canceling and placing new orders.
+# Time in seconds before cancelling and placing new orders.
 # If the value is 60, the bot cancels active orders and placing new ones after a minute.
 order_refresh_time: null
 
