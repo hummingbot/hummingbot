@@ -680,6 +680,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.logger().warning(
                         f"Failed to cancel order {client_order_id}:"
                         f" order not found ({response_code} - {response['ret_msg']})")
+                    self._client_order_tracker.process_order_cancelation_failed(client_order_id)
                 else:
                     raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
