@@ -197,7 +197,7 @@ class GatewayHttpClient:
         return response
 
     async def post_restart(self):
-        await self.api_request("post", "restart")
+        await self.api_request("post", "restart", fail_silently=True)
 
     async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
         return await self.api_request("get", "connectors", fail_silently=fail_silently)
