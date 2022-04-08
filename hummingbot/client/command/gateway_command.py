@@ -313,7 +313,8 @@ class GatewayCommand:
 
     async def _update_gateway_configuration(self, key: str, value: Any):
         try:
-            await GatewayHttpClient.get_instance().update_config(key, value)
+            response = await GatewayHttpClient.get_instance().update_config(key, value)
+            self.notify(response["message"])
             await self._gateway_monitor.update_gateway_config_key_list()
         except Exception:
             self.notify("\nError: Gateway configuration update failed. See log file for more details.")
