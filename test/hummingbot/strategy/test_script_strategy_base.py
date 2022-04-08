@@ -35,7 +35,7 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.end_timestamp: float = self.end.timestamp()
         self.connector_name: str = "mock_paper_exchange"
         self.trading_pair: str = "HBOT-USDT"
-        self.base_asset, quote_asset = self.trading_pair.split("-")
+        self.base_asset, self.quote_asset = self.trading_pair.split("-")
         self.base_balance: int = 500
         self.quote_balance: int = 5000
         self.initial_mid_price: int = 100
