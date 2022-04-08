@@ -1,9 +1,15 @@
 [run]
 source_pkgs = hummingbot
 omit =
+        hummingbot/core/gateway/*
         hummingbot/core/management/*
+        hummingbot/client/config/config_helpers.py
+        hummingbot/client/config/security.py
         hummingbot/client/hummingbot_application.py
         hummingbot/client/command/*
+        hummingbot/client/settings.py
+        hummingbot/client/ui/completer.py
+        hummingbot/client/ui/layout.py
         hummingbot/client/tab/*
         hummingbot/client/ui/parser.py
         hummingbot/connector/connector/balancer*
@@ -26,7 +32,13 @@ omit =
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
         hummingbot/connector/exchange/wazirx*
+        hummingbot/connector/gateway*
+        hummingbot/core/utils/gateway_config_utils.py
+        hummingbot/core/utils/kill_switch.py
+        hummingbot/core/utils/wallet_setup.py
         hummingbot/strategy/aroon_oscillator*
+        hummingbot/strategy/*/start.py
+        hummingbot/strategy/dev*
         hummingbot/strategy/hedge*
 dynamic_context = test_function
 branch = true
