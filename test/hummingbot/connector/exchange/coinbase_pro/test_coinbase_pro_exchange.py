@@ -15,7 +15,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     SellOrderCreatedEvent
 )
 from hummingbot.core.data_type.common import OrderType
@@ -382,7 +382,7 @@ class TestCoinbaseProExchange(unittest.TestCase):
         resp = some_order_id
         mock_api.delete(url, body=json.dumps(resp))
 
-        self.exchange.add_listener(MarketEvent.OrderCanceled, self.event_listener)
+        self.exchange.add_listener(MarketEvent.OrderCancelled, self.event_listener)
 
         self.async_run_with_timeout(self.exchange.execute_cancel(self.trading_pair, some_order_id))
 
@@ -390,7 +390,7 @@ class TestCoinbaseProExchange(unittest.TestCase):
 
         event = self.event_listener.event_log[0]
 
-        self.assertIsInstance(event, OrderCanceledEvent)
+        self.assertIsInstance(event, OrderCancelledEvent)
         self.assertEqual(some_order_id, event.order_id)
         self.assertNotIn(some_order_id, self.exchange.in_flight_orders)
 
@@ -403,7 +403,7 @@ class TestCoinbaseProExchange(unittest.TestCase):
         url = f"{CONSTANTS.REST_URL}{CONSTANTS.ORDERS_PATH_URL}/{some_order_id}"
         mock_api.delete(url, exception=IOError("order not found"))
 
-        self.exchange.add_listener(MarketEvent.OrderCanceled, self.event_listener)
+        self.exchange.add_listener(MarketEvent.OrderCancelled, self.event_listener)
 
         self.async_run_with_timeout(self.exchange.execute_cancel(self.trading_pair, some_order_id))
 
@@ -411,7 +411,7 @@ class TestCoinbaseProExchange(unittest.TestCase):
 
         event = self.event_listener.event_log[0]
 
-        self.assertIsInstance(event, OrderCanceledEvent)
+        self.assertIsInstance(event, OrderCancelledEvent)
         self.assertEqual(some_order_id, event.order_id)
         self.assertNotIn(some_order_id, self.exchange.in_flight_orders)
 

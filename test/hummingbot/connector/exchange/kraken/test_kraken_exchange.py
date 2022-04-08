@@ -18,7 +18,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     SellOrderCreatedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
@@ -267,7 +267,7 @@ class KrakenExchangeTest(unittest.TestCase):
         self.assertEqual(ret, NetworkStatus.CONNECTED)
 
     @aioresponses()
-    def test_check_network_raises_canceled_error(self, mock_api):
+    def test_check_network_raises_cancelled_error(self, mock_api):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.TIME_PATH_URL}"
         mock_api.get(url, exception=asyncio.CancelledError)
 
@@ -422,11 +422,11 @@ class KrakenExchangeTest(unittest.TestCase):
         )
         self.exchange.in_flight_orders[order_id].update_exchange_order_id(exchange_id)
         self.exchange.in_flight_orders[order_id].last_state = "pending"
-        self.exchange.add_listener(MarketEvent.OrderCanceled, self.event_listener)
+        self.exchange.add_listener(MarketEvent.OrderCancelled, self.event_listener)
         ret = self.async_run_with_timeout(self.exchange.execute_cancel(self.trading_pair, order_id))
 
         self.assertEqual(len(self.event_listener.event_log), 1)
-        self.assertTrue(isinstance(self.event_listener.event_log[0], OrderCanceledEvent))
+        self.assertTrue(isinstance(self.event_listener.event_log[0], OrderCancelledEvent))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(ret["origClientOrderId"], order_id)
 

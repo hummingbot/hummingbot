@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -43,7 +43,7 @@ class MockExchange(ExchangeBase):
     def in_flight_orders(self) -> Dict[str, InFlightOrderBase]:
         pass
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         pass
 
     def stop_tracking_order(self, order_id: str):

@@ -120,7 +120,7 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.market.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     @staticmethod
     def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder, timestamp: float):

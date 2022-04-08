@@ -10,7 +10,7 @@ from aioresponses import aioresponses
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 from hummingbot.connector.exchange.coinzoom.coinzoom_exchange import CoinzoomExchange
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 
@@ -64,7 +64,7 @@ class CoinzoomExchangeTests(TestCase):
         self.assertEqual(ret, NetworkStatus.CONNECTED)
 
     @aioresponses()
-    def test_check_network_raises_canceled_error(self, mock_api):
+    def test_check_network_raises_cancelled_error(self, mock_api):
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['NETWORK_CHECK']}"
         mock_api.get(url, exception=asyncio.CancelledError)
 
@@ -166,7 +166,7 @@ class CoinzoomExchangeTests(TestCase):
         )
         self.exchange.in_flight_orders["OID-1"].update_exchange_order_id("E-OID-1")
 
-        result: CancelationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, "OID-1"))
+        result: CancellationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, "OID-1"))
 
         self.assertEqual("OID-1", result.order_id)
         self.assertTrue(result.success)
@@ -195,7 +195,7 @@ class CoinzoomExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
         )
 
-        result: CancelationResult = self.async_run_with_timeout(
+        result: CancellationResult = self.async_run_with_timeout(
             self.exchange._execute_cancel(self.trading_pair, "OID-1"))
 
         self.assertEqual("OID-1", result.order_id)

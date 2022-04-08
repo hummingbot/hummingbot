@@ -79,12 +79,12 @@ class MexcInFlightOrderTests(TestCase):
         # order.last_state = "Rejected"
         # self.assertTrue(order.is_failure)
 
-    def test_is_canceled(self):
+    def test_is_cancelled(self):
         order = MexcInFlightOrder.from_json(self._example_json())
 
         for status in ["Working", "FullyExecuted", "Rejected"]:
             order.last_state = status
-            self.assertFalse(order.is_canceled)
+            self.assertFalse(order.is_cancelled)
 
     def test_mark_as_filled(self):
         order = MexcInFlightOrder.from_json(self._example_json())

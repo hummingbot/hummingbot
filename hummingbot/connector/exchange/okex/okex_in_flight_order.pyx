@@ -28,7 +28,7 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
             price,
             amount,
             creation_timestamp,
-            initial_state,  # submitted, partial-filled, canceling, filled, canceled, partial-canceled
+            initial_state,  # submitted, partial-filled, cancelling, filled, canceled, partial-canceled
         )
 
     @property
@@ -36,7 +36,7 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
         return self.last_state in {"filled", "canceled"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"canceled"}
 
     @property

@@ -14,7 +14,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -610,7 +610,7 @@ class BalancerConnector(ConnectorBase):
 
         return parsed_response
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
 
     @property

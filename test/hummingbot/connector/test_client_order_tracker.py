@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
 )
 
@@ -58,7 +58,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
     def _initialize_event_loggers(self):
         self.buy_order_completed_logger = EventLogger()
         self.buy_order_created_logger = EventLogger()
-        self.order_canceled_logger = EventLogger()
+        self.order_cancelled_logger = EventLogger()
         self.order_failure_logger = EventLogger()
         self.order_filled_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
@@ -67,7 +67,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-            (MarketEvent.OrderCanceled, self.order_canceled_logger),
+            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
@@ -407,7 +407,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(event_logged.trading_pair, order.trading_pair)
         self.assertEqual(event_logged.type, order.order_type)
 
-    def test_process_order_update_trigger_order_canceled_event(self):
+    def test_process_order_update_trigger_order_cancelled_event(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id="someClientOrderId",
             exchange_order_id="someExchangeOrderId",
@@ -422,24 +422,24 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
 
         self.tracker.start_tracking_order(order)
 
-        order_canceled_update: OrderUpdate = OrderUpdate(
+        order_cancelled_update: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             trading_pair=self.trading_pair,
             update_timestamp=1,
-            new_state=OrderState.CANCELED,
+            new_state=OrderState.CANCELLED,
         )
 
-        update_future = self.tracker.process_order_update(order_canceled_update)
+        update_future = self.tracker.process_order_update(order_cancelled_update)
         self.async_run_with_timeout(update_future)
 
-        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}."))
         self.assertEqual(0, len(self.tracker.active_orders))
         self.assertEqual(1, len(self.tracker.cached_orders))
-        self.assertEqual(1, len(self.order_canceled_logger.event_log))
+        self.assertEqual(1, len(self.order_cancelled_logger.event_log))
 
-        event_triggered = self.order_canceled_logger.event_log[0]
-        self.assertIsInstance(event_triggered, OrderCanceledEvent)
+        event_triggered = self.order_cancelled_logger.event_log[0]
+        self.assertIsInstance(event_triggered, OrderCancelledEvent)
         self.assertEqual(event_triggered.exchange_order_id, order.exchange_order_id)
         self.assertEqual(event_triggered.order_id, order.client_order_id)
 
@@ -783,7 +783,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             creation_timestamp=1640001112.223,
             price=Decimal("1.0"),
-            initial_state=OrderState.CANCELED
+            initial_state=OrderState.CANCELLED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

@@ -29,7 +29,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -64,7 +64,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
 
@@ -299,7 +299,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
             resp[0]["reserved_balance"] = float((buy_price * amount))
             self.web_app.update_response("get", API_HOST, "/crypto_accounts", resp)
         self.market.cancel("CEL-ETH", order_id_2)
-        self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+        self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         quote_bal = self.market.get_available_balance(quote)
         expected_quote_bal = starting_quote_bal - 1 * (buy_price * amount)
         print(f"expected_quote_bal: {expected_quote_bal}")
@@ -311,7 +311,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("put", API_HOST, f"/orders/{str(exchange_id_1)}/cancel",
                                          order_cancel_resp)
 
-        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
 
     def test_limit_taker_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.01"))
@@ -426,8 +426,8 @@ class LiquidExchangeUnitTest(unittest.TestCase):
             order_cancel_resp = FixtureLiquid.BUY_LIMIT_ORDER_AFTER_CANCEL
             self.web_app.update_response("put", API_HOST, f"/orders/{str(sell_exchange_id)}/cancel",
                                          order_cancel_resp)
-        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancelation_results:
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
     def test_cancel_all(self):
@@ -456,8 +456,8 @@ class LiquidExchangeUnitTest(unittest.TestCase):
             order_cancel_resp = FixtureLiquid.BUY_LIMIT_ORDER_AFTER_CANCEL
             self.web_app.update_response("put", API_HOST, f"/orders/{str(sell_exchange_id)}/cancel",
                                          order_cancel_resp)
-        [cancelation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancelation_results:
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
     def test_orders_saving_and_restoration(self):
@@ -530,7 +530,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
                 self.web_app.update_response("put", API_HOST, f"/orders/{str(buy_exchange_id)}/cancel",
                                              order_cancel_resp)
             self.market.cancel("CEL-ETH", order_id)
-            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
@@ -539,7 +539,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel("CEL-ETH", order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -583,7 +583,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel("CEL-ETH", order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

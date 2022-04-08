@@ -70,7 +70,7 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
     def _initialize_event_loggers(self):
         self.buy_order_completed_logger = EventLogger()
         self.buy_order_created_logger = EventLogger()
-        self.order_canceled_logger = EventLogger()
+        self.order_cancelled_logger = EventLogger()
         self.order_failure_logger = EventLogger()
         self.order_filled_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
@@ -79,7 +79,7 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
             (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-            (MarketEvent.OrderCanceled, self.order_canceled_logger),
+            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),

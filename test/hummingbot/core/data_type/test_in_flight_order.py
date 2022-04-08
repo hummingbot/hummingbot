@@ -53,8 +53,8 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
     def _simulate_cancel_order_request_sent(self, order: InFlightOrder):
         order.current_state = OrderState.PENDING_CANCEL
 
-    def _simulate_order_canceled(self, order: InFlightOrder):
-        order.current_state = OrderState.CANCELED
+    def _simulate_order_cancelled(self, order: InFlightOrder):
+        order.current_state = OrderState.CANCELLED
 
     def _simulate_order_failed(self, order: InFlightOrder):
         order.current_state = OrderState.FAILED
@@ -89,18 +89,18 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertIsNotNone(order.exchange_order_id)
         self.assertTrue(order.exchange_order_id_update_event.is_set())
 
-        # Simulate Order Cancelation request sent
+        # Simulate Order Cancellation request sent
         self._simulate_cancel_order_request_sent(order)
 
         self.assertTrue(order.is_pending_cancel_confirmation
                         and order.is_open
-                        and not order.is_canceled
+                        and not order.is_cancelled
                         and not order.is_done)
 
-        # Simulate Order Canceled
-        self._simulate_order_canceled(order)
+        # Simulate Order Cancelled
+        self._simulate_order_cancelled(order)
 
-        self.assertTrue(order.is_done and order.is_canceled)
+        self.assertTrue(order.is_done and order.is_cancelled)
 
         failed_order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,

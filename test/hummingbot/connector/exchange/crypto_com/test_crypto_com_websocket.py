@@ -110,7 +110,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_subscribe_to_order_book_streams_raises_canceled_exception(self, _, ws_connect_mock):
+    def test_subscribe_to_order_book_streams_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.async_run_with_timeout(self.websocket.connect())
@@ -138,7 +138,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_subscribe_to_user_streams_raises_canceled_exception(self, _, ws_connect_mock):
+    def test_subscribe_to_user_streams_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.async_run_with_timeout(self.websocket.connect())

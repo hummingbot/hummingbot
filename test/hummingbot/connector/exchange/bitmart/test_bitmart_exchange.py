@@ -61,13 +61,13 @@ class BitmartExchangeTests(unittest.TestCase):
         self.buy_order_created_logger: EventLogger = EventLogger()
         self.sell_order_created_logger: EventLogger = EventLogger()
         self.buy_order_completed_logger: EventLogger = EventLogger()
-        self.order_canceled_logger: EventLogger = EventLogger()
+        self.order_cancelled_logger: EventLogger = EventLogger()
         self.order_failure_logger: EventLogger = EventLogger()
         self.order_filled_logger: EventLogger = EventLogger()
         self.exchange.add_listener(MarketEvent.BuyOrderCreated, self.buy_order_created_logger)
         self.exchange.add_listener(MarketEvent.SellOrderCreated, self.sell_order_created_logger)
         self.exchange.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
-        self.exchange.add_listener(MarketEvent.OrderCanceled, self.order_canceled_logger)
+        self.exchange.add_listener(MarketEvent.OrderCancelled, self.order_cancelled_logger)
         self.exchange.add_listener(MarketEvent.OrderFailure, self.order_failure_logger)
         self.exchange.add_listener(MarketEvent.OrderFilled, self.order_filled_logger)
 
@@ -176,7 +176,7 @@ class BitmartExchangeTests(unittest.TestCase):
         return response
 
     @staticmethod
-    def get_order_canceled_response_mock(success: bool) -> Dict:
+    def get_order_cancelled_response_mock(success: bool) -> Dict:
         response = {
             "code": 1000,
             "trace": "886fb6ae-456b-4654-b4e0-d681ac05cea1",
@@ -238,7 +238,7 @@ class BitmartExchangeTests(unittest.TestCase):
         self.assertEqual(Decimal(min_order_size), trading_rules.min_order_size)
 
     @aioresponses()
-    def test_trading_rules_polling_loop_stops_on_asyncio_canceled_error(self, mocked_api):
+    def test_trading_rules_polling_loop_stops_on_asyncio_cancelled_error(self, mocked_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_RULES_PATH_URL}"
         mocked_api.get(url, exception=asyncio.CancelledError)
 
@@ -375,7 +375,7 @@ class BitmartExchangeTests(unittest.TestCase):
         self.assertEqual(order_id, event.order_id)
 
     @aioresponses()
-    def test_create_order_raises_on_asyncio_canceled_error(self, mocked_api):
+    def test_create_order_raises_on_asyncio_cancelled_error(self, mocked_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.CREATE_ORDER_PATH_URL}"
         regex_url = re.compile(f"^{url}")
         mocked_api.post(regex_url, exception=asyncio.CancelledError)
@@ -464,7 +464,7 @@ class BitmartExchangeTests(unittest.TestCase):
     def test_execute_cancel(self, mocked_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.CANCEL_ORDER_PATH_URL}"
         regex_url = re.compile(f"^{url}")
-        resp = self.get_order_canceled_response_mock(success=True)
+        resp = self.get_order_cancelled_response_mock(success=True)
         mocked_api.post(regex_url, body=json.dumps(resp))
 
         order_id = "someId"
@@ -486,7 +486,7 @@ class BitmartExchangeTests(unittest.TestCase):
     def test_execute_cancel_failed_is_logged(self, mocked_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.CANCEL_ORDER_PATH_URL}"
         regex_url = re.compile(f"^{url}")
-        resp = self.get_order_canceled_response_mock(success=False)
+        resp = self.get_order_cancelled_response_mock(success=False)
         mocked_api.post(regex_url, body=json.dumps(resp))
 
         order_id = "someId"
@@ -504,12 +504,12 @@ class BitmartExchangeTests(unittest.TestCase):
 
         logged_msg = (
             f"Failed to cancel order {order_id}:"
-            f" Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange."
+            f" Failed to cancel order - {order_id}. Order was already matched or cancelled on the exchange."
         )
         self.assertTrue(self.is_logged("NETWORK", logged_msg))
 
     @aioresponses()
-    def test_execute_cancel_raises_on_asyncio_canceled_error(self, mocked_api):
+    def test_execute_cancel_raises_on_asyncio_cancelled_error(self, mocked_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.CANCEL_ORDER_PATH_URL}"
         regex_url = re.compile(f"^{url}")
         mocked_api.post(regex_url, exception=asyncio.CancelledError)
@@ -565,7 +565,7 @@ class BitmartExchangeTests(unittest.TestCase):
         update_order_status_mock.assert_called()
 
     @patch("hummingbot.connector.exchange.bitmart.bitmart_exchange.BitmartExchange._update_balances")
-    def test_status_polling_loop_raises_on_asyncio_canceled_error(self, update_balances_mock: AsyncMock):
+    def test_status_polling_loop_raises_on_asyncio_cancelled_error(self, update_balances_mock: AsyncMock):
         update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             exception=asyncio.CancelledError
         )
@@ -744,7 +744,7 @@ class BitmartExchangeTests(unittest.TestCase):
         order_completed_events = self.buy_order_completed_logger.event_log
         orders_filled_events = self.order_filled_logger.event_log
 
-        self.assertFalse(order.is_done or order.is_failure or order.is_canceled)
+        self.assertFalse(order.is_done or order.is_failure or order.is_cancelled)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(orders_filled_events))
         self.assertEqual(order_id, orders_filled_events[0].order_id)
@@ -802,7 +802,7 @@ class BitmartExchangeTests(unittest.TestCase):
         orders_filled_events = self.order_filled_logger.event_log
 
         self.assertTrue(order.is_done)
-        self.assertFalse(order.is_failure or order.is_canceled)
+        self.assertFalse(order.is_failure or order.is_cancelled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(1, len(order_completed_events))
         self.assertEqual(order_id, order_completed_events[0].order_id)
@@ -810,7 +810,7 @@ class BitmartExchangeTests(unittest.TestCase):
         self.assertEqual(order_id, orders_filled_events[0].order_id)
 
     @aioresponses()
-    def test_update_order_status_canceled_event(self, mocked_api):
+    def test_update_order_status_cancelled_event(self, mocked_api):
         exchange_order_id = "2147857398"
         order_id = "someId"
         price = "46100.0000000000"
@@ -834,7 +834,7 @@ class BitmartExchangeTests(unittest.TestCase):
                 "notional": "0.00000000",
                 "filled_notional": "0",
                 "filled_size": "0",
-                "status": "8",  # canceled
+                "status": "8",  # cancelled
             }
         }
         mocked_api.get(regex_url, body=json.dumps(resp))
@@ -859,14 +859,14 @@ class BitmartExchangeTests(unittest.TestCase):
         self.async_run_with_timeout(self.exchange._update_order_status())
 
         order_completed_events = self.buy_order_completed_logger.event_log
-        order_canceled_events = self.order_canceled_logger.event_log
+        order_cancelled_events = self.order_cancelled_logger.event_log
 
-        self.assertTrue(order.is_canceled and order.is_done)
+        self.assertTrue(order.is_cancelled and order.is_done)
         self.assertFalse(order.is_failure)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
-        self.assertEqual(1, len(order_canceled_events))
-        self.assertEqual(order_id, order_canceled_events[0].order_id)
+        self.assertEqual(1, len(order_cancelled_events))
+        self.assertEqual(order_id, order_cancelled_events[0].order_id)
 
     @aioresponses()
     def test_update_order_status_order_failed_event(self, mocked_api):
@@ -921,7 +921,7 @@ class BitmartExchangeTests(unittest.TestCase):
         order_failure_events = self.order_failure_logger.event_log
 
         self.assertTrue(order.is_failure and order.is_done)
-        self.assertFalse(order.is_canceled)
+        self.assertFalse(order.is_cancelled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(order_failure_events))
@@ -1005,7 +1005,7 @@ class BitmartExchangeTests(unittest.TestCase):
         order_completed_events = self.buy_order_completed_logger.event_log
         orders_filled_events = self.order_filled_logger.event_log
 
-        self.assertFalse(order.is_done or order.is_failure or order.is_canceled)
+        self.assertFalse(order.is_done or order.is_failure or order.is_cancelled)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(orders_filled_events))
         self.assertEqual(order_id, orders_filled_events[0].order_id)
@@ -1063,14 +1063,14 @@ class BitmartExchangeTests(unittest.TestCase):
         orders_filled_events = self.order_filled_logger.event_log
 
         self.assertTrue(order.is_done)
-        self.assertFalse(order.is_failure or order.is_canceled)
+        self.assertFalse(order.is_failure or order.is_cancelled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(1, len(order_completed_events))
         self.assertEqual(order_id, order_completed_events[0].order_id)
         self.assertEqual(1, len(orders_filled_events))
         self.assertEqual(order_id, orders_filled_events[0].order_id)
 
-    def test_user_stream_order_event_registers_canceled_event(self):
+    def test_user_stream_order_event_registers_cancelled_event(self):
         exchange_order_id = "2147857398"
         order_id = "someId"
         price = "46100.0000000000"
@@ -1089,7 +1089,7 @@ class BitmartExchangeTests(unittest.TestCase):
                     "filled_notional": "0",
                     "filled_size": "0",
                     "margin_trading": "0",
-                    "state": "8",  # canceled
+                    "state": "8",  # cancelled
                     "order_id": exchange_order_id,
                     "order_type": "0",
                     "last_fill_time": "1609926039226",
@@ -1120,14 +1120,14 @@ class BitmartExchangeTests(unittest.TestCase):
         self.resume_test_event.clear()
 
         order_completed_events = self.buy_order_completed_logger.event_log
-        order_canceled_events = self.order_canceled_logger.event_log
+        order_cancelled_events = self.order_cancelled_logger.event_log
 
-        self.assertTrue(order.is_canceled and order.is_done)
+        self.assertTrue(order.is_cancelled and order.is_done)
         self.assertFalse(order.is_failure)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
-        self.assertEqual(1, len(order_canceled_events))
-        self.assertEqual(order_id, order_canceled_events[0].order_id)
+        self.assertEqual(1, len(order_cancelled_events))
+        self.assertEqual(order_id, order_cancelled_events[0].order_id)
 
     def test_user_stream_order_event_registers_failed_event(self):
         exchange_order_id = "2147857398"
@@ -1182,7 +1182,7 @@ class BitmartExchangeTests(unittest.TestCase):
         order_failure_events = self.order_failure_logger.event_log
 
         self.assertTrue(order.is_failure and order.is_done)
-        self.assertFalse(order.is_canceled)
+        self.assertFalse(order.is_cancelled)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(1, len(order_failure_events))
@@ -1341,7 +1341,7 @@ class BitmartExchangeTests(unittest.TestCase):
 
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.CANCEL_ORDER_PATH_URL}"
         regex_url = re.compile(f"^{url}")
-        resp = self.get_order_canceled_response_mock(success=True)
+        resp = self.get_order_cancelled_response_mock(success=True)
         mocked_api.post(regex_url, body=json.dumps(resp))
 
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_OPEN_ORDERS_PATH_URL}"
@@ -1367,15 +1367,15 @@ class BitmartExchangeTests(unittest.TestCase):
             order_type=OrderType.LIMIT,
         )
 
-        cancelation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
 
-        order_canceled_events = self.order_canceled_logger.event_log
+        order_cancelled_events = self.order_cancelled_logger.event_log
 
-        self.assertEqual(1, len(order_canceled_events))
-        self.assertEqual(order_id, order_canceled_events[0].order_id)
+        self.assertEqual(1, len(order_cancelled_events))
+        self.assertEqual(order_id, order_cancelled_events[0].order_id)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
-        self.assertEqual(1, len(cancelation_results))
-        self.assertEqual(order_id, cancelation_results[0].order_id)
+        self.assertEqual(1, len(cancellation_results))
+        self.assertEqual(order_id, cancellation_results[0].order_id)
 
     @aioresponses()
     def test_cancel_all_logs_exceptions(self, mocked_api):

@@ -8,7 +8,7 @@ from hummingbot.connector.connector_metrics_collector import TradeVolumeMetricCo
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
@@ -27,7 +27,7 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.WithdrawAsset,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.OrderFilled,
         MarketEvent.OrderExpired,
         MarketEvent.OrderFailure,
@@ -114,7 +114,7 @@ cdef class ConnectorBase(NetworkIterator):
         asset_balances = {}
         if in_flight_orders is None:
             return asset_balances
-        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_canceled)]:
+        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
             if order.trade_type is TradeType.BUY:
                 order_value = Decimal(order.amount * order.price)
                 outstanding_value = order_value - order.executed_amount_quote
@@ -227,12 +227,12 @@ cdef class ConnectorBase(NetworkIterator):
         NetworkIterator.c_stop(self, clock)
         self._trade_volume_metric_collector.stop()
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
-        Cancels all in-flight orders and waits for cancelation results.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancellation results.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancelationResult which indicates whether each order is successfully canceled.
+        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         raise NotImplementedError
 

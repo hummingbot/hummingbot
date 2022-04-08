@@ -7,7 +7,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
 )
 from hummingbot.strategy.data_types import OrderType
 from hummingbot.strategy.hanging_orders_tracker import (
@@ -86,11 +86,11 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertEqual(len(self.tracker.original_orders), 0)
 
     def test_renew_hanging_orders_past_max_order_age(self):
-        canceled_orders_ids = []
+        cancelled_orders_ids = []
         strategy_active_orders = []
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234967891)
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
-        self.strategy.cancel_order.side_effect = lambda order_id: canceled_orders_ids.append(order_id)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
         self.strategy.buy_with_specific_market.return_value = "Order-1234569990000000"
 
         # Order just executed
@@ -126,18 +126,18 @@ class TestHangingOrdersTracker(unittest.TestCase):
         # When calling the renew logic, the old order should start the renew process (it should be canceled)
         # but it will only stop being a current hanging order once the cancel confirmation arrives
         self.tracker.process_tick()
-        self.assertTrue(old_order.client_order_id in canceled_orders_ids)
+        self.assertTrue(old_order.client_order_id in cancelled_orders_ids)
         self.assertTrue(any(order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
                             for order
                             in self.tracker.strategy_current_hanging_orders))
 
         # When the cancel is confirmed the order should no longer be considered a hanging order
         strategy_active_orders.remove(old_order)
-        self.tracker._did_cancel_order(MarketEvent.OrderCanceled,
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
                                        self,
-                                       OrderCanceledEvent(old_order.client_order_id, old_order.client_order_id))
+                                       OrderCancelledEvent(old_order.client_order_id, old_order.client_order_id))
         self.assertTrue(self._is_logged("INFO", f"(BTC-USDT) Hanging order {old_order.client_order_id} "
-                                                f"has been canceled as part of the renew process. "
+                                                f"has been cancelled as part of the renew process. "
                                                 f"Now the replacing order will be created."))
         self.assertFalse(any(order.order_id == old_order.client_order_id for order
                              in self.tracker.strategy_current_hanging_orders))
@@ -145,11 +145,11 @@ class TestHangingOrdersTracker(unittest.TestCase):
                             in self.tracker.strategy_current_hanging_orders))
 
     def test_order_being_renewed_is_canceled_only_one_time(self):
-        canceled_orders_ids = []
+        cancelled_orders_ids = []
         strategy_active_orders = []
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234967891)
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
-        self.strategy.cancel_order.side_effect = lambda order_id: canceled_orders_ids.append(order_id)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
         self.strategy.buy_with_specific_market.return_value = "Order-1234569990000000"
 
         # Order just executed
@@ -185,13 +185,13 @@ class TestHangingOrdersTracker(unittest.TestCase):
         # When calling the renew logic, the old order should start the renew process (it should be canceled)
         # but it will only stop being a current hanging order once the cancel confirmation arrives
         self.tracker.process_tick()
-        self.assertTrue(old_order.client_order_id in canceled_orders_ids)
-        # Now we suppose that a new tick happens before the cancelation confirmation arrives
+        self.assertTrue(old_order.client_order_id in cancelled_orders_ids)
+        # Now we suppose that a new tick happens before the cancellation confirmation arrives
         self.tracker.process_tick()
         # The cancel request should not have been sent a second time
-        self.assertEqual(1, canceled_orders_ids.count(old_order.client_order_id))
+        self.assertEqual(1, cancelled_orders_ids.count(old_order.client_order_id))
 
-    def test_hanging_order_removed_when_canceled(self):
+    def test_hanging_order_removed_when_cancelled(self):
         strategy_active_orders = []
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
@@ -210,14 +210,14 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.update_strategy_orders_with_equivalent_orders()
 
-        # Now we simulate the order is canceled
-        self.tracker._did_cancel_order(MarketEvent.OrderCanceled.value,
+        # Now we simulate the order is cancelled
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled.value,
                                        self,
-                                       OrderCanceledEvent(datetime.now().timestamp(),
-                                                          new_order.client_order_id,
-                                                          new_order.client_order_id))
+                                       OrderCancelledEvent(datetime.now().timestamp(),
+                                                           new_order.client_order_id,
+                                                           new_order.client_order_id))
 
-        self.assertTrue(self._is_logged("INFO", "(BTC-USDT) Hanging order Order-1234567890000000 canceled."))
+        self.assertTrue(self._is_logged("INFO", "(BTC-USDT) Hanging order Order-1234567890000000 cancelled."))
         self.assertTrue(len(self.tracker.strategy_current_hanging_orders) == 0)
         self.assertNotIn(new_order, self.tracker.original_orders)
 
@@ -343,7 +343,7 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertTrue(self.tracker.is_potential_hanging_order(sell_order_1))
 
     def test_non_grouping_tracker_cancels_order_when_removing_far_from_price(self):
-        canceled_orders_ids = []
+        cancelled_orders_ids = []
         strategy_active_orders = []
 
         newly_created_buy_orders_ids = ["Order-1234570000000000",
@@ -356,7 +356,7 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                          "Order-1234570070000000"]
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
-        self.strategy.cancel_order.side_effect = lambda order_id: canceled_orders_ids.append(order_id)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
         self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
         self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
 
@@ -392,22 +392,22 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         # After removing orders far from price, the order 2 should be canceled but still be a hanging order
         self.tracker.remove_orders_far_from_price()
-        self.assertEqual(1, len(canceled_orders_ids))
-        self.assertIn(hanging_order_2.order_id, canceled_orders_ids)
+        self.assertEqual(1, len(cancelled_orders_ids))
+        self.assertIn(hanging_order_2.order_id, cancelled_orders_ids)
         self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_2))
-        # We simulate a new request to remove orders far from price before the cancelation confirmation arrives
-        # The order should not be canceled again. Both the order and the hanging order should still be present
+        # We simulate a new request to remove orders far from price before the cancellation confirmation arrives
+        # The order should not be cancelled again. Both the order and the hanging order should still be present
         self.tracker.remove_orders_far_from_price()
-        self.assertEqual(1, canceled_orders_ids.count(buy_order_2.client_order_id))
-        self.assertIn(hanging_order_2.order_id, canceled_orders_ids)
+        self.assertEqual(1, cancelled_orders_ids.count(buy_order_2.client_order_id))
+        self.assertIn(hanging_order_2.order_id, cancelled_orders_ids)
         self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_2))
 
-        # We emulate the reception of the cancelation confirmation. After that the hanging order should not be present
+        # We emulate the reception of the cancellation confirmation. After that the hanging order should not be present
         # in the tracker, and the original order should not be considered a potential hanging order.
         strategy_active_orders.remove(buy_order_2)
-        self.tracker._did_cancel_order(MarketEvent.OrderCanceled,
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
                                        self,
-                                       OrderCanceledEvent(buy_order_2.client_order_id, buy_order_2.client_order_id))
+                                       OrderCancelledEvent(buy_order_2.client_order_id, buy_order_2.client_order_id))
 
         self.assertNotIn(hanging_order_2, self.tracker.strategy_current_hanging_orders)
         self.assertFalse(self.tracker.is_potential_hanging_order(buy_order_2))

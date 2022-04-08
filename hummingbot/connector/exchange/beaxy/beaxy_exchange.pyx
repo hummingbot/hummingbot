@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyU
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -30,7 +30,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -62,7 +62,7 @@ cdef class BeaxyExchangeTransactionTracker(TransactionTracker):
 cdef class BeaxyExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -315,7 +315,7 @@ cdef class BeaxyExchange(ExchangeBase):
         for tracked_order in tracked_orders:
             client_order_id = tracked_order.client_order_id
 
-            # Do nothing, if the order has already been canceled or has failed
+            # Do nothing, if the order has already been cancelled or has failed
             if client_order_id not in self._in_flight_orders:
                 continue
 
@@ -344,8 +344,8 @@ cdef class BeaxyExchange(ExchangeBase):
                 )
                 tracked_order.last_state = 'CLOSED'
                 self.c_trigger_event(
-                    self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                    OrderCanceledEvent(self._current_timestamp, client_order_id)
+                    self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    OrderCancelledEvent(self._current_timestamp, client_order_id)
                 )
                 self.c_stop_tracking_order(client_order_id)
                 del self._order_not_found_records[client_order_id]
@@ -388,7 +388,7 @@ cdef class BeaxyExchange(ExchangeBase):
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
             if tracked_order.is_done:
-                if not tracked_order.is_failure and not tracked_order.is_canceled:
+                if not tracked_order.is_failure and not tracked_order.is_cancelled:
 
                     new_confirmed_amount = Decimal(str(order_update['size']))
                     execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
@@ -446,11 +446,11 @@ cdef class BeaxyExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.order_type))
                 else:
-                    self.logger().info(f'The market order {tracked_order.client_order_id} has failed/been canceled '
+                    self.logger().info(f'The market order {tracked_order.client_order_id} has failed/been cancelled '
                                        f'according to order status API.')
-                    tracked_order.last_state = 'canceled'
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                         OrderCanceledEvent(
+                    tracked_order.last_state = 'cancelled'
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id
                                          ))
@@ -671,11 +671,11 @@ cdef class BeaxyExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except BeaxyIOError as e:
-            if e.result and 'Active order not found or already canceled.' in e.result['items']:
-                # The order was never there to begin with. So canceling it is a no-op but semantically successful.
+            if e.result and 'Active order not found or already cancelled.' in e.result['items']:
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                     OrderCanceledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as ioe:
             self.logger().warning(ioe)
@@ -691,22 +691,22 @@ cdef class BeaxyExchange(ExchangeBase):
     cdef c_cancel(self, str trading_pair, str order_id):
         """
         *required
-        Synchronous wrapper that schedules canceling an order.
+        Synchronous wrapper that schedules cancelling an order.
         """
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         *required
         Async function that cancels all active orders.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
-        :returns: List of CancelationResult which indicates whether each order is successfully canceled.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancelations = []
+        successful_cancellations = []
 
         try:
             async with timeout(timeout_seconds):
@@ -714,16 +714,16 @@ cdef class BeaxyExchange(ExchangeBase):
                 for client_order_id in results:
                     if client_order_id:
                         order_id_set.remove(client_order_id)
-                        successful_cancelations.append(CancelationResult(client_order_id, True))
+                        successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception as e:
             self.logger().network(
-                'Unexpected error canceling orders.',
+                'Unexpected error cancelling orders.',
                 exc_info=True,
                 app_warning_msg='Failed to cancel order on Beaxy exchange. Check API key and network connection.'
             )
 
-        failed_cancelations = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelations + failed_cancelations
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     async def _update_trade_fees(self):
 
@@ -742,7 +742,7 @@ cdef class BeaxyExchange(ExchangeBase):
 
             self._last_fee_percentage_update_timestamp = current_timestamp
         except asyncio.CancelledError:
-            self.logger().warning('Got canceled error fetching beaxy fees.')
+            self.logger().warning('Got cancelled error fetching beaxy fees.')
             raise
         except Exception:
             self.logger().network('Error fetching Beaxy trade fees.', exc_info=True,
@@ -966,8 +966,8 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     elif order_status == 'canceled':
                         tracked_order.last_state = 'canceled'
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                             OrderCanceledEvent(self._current_timestamp, tracked_order.client_order_id))
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                             OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                     elif order_status in ['rejected', 'replaced', 'suspended']:
                         tracked_order.last_state = order_status

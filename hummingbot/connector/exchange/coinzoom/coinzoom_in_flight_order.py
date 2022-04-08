@@ -35,19 +35,19 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self.canceled_event = asyncio.Event()
+        self.cancelled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "REJECTED"}
+        return self.last_state in {"FILLED", "CANCELLED", "REJECTED"}
 
     @property
     def is_failure(self) -> bool:
         return self.last_state in {"REJECTED"}
 
     @property
-    def is_canceled(self) -> bool:
-        return self.last_state in {"CANCELED"}
+    def is_cancelled(self) -> bool:
+        return self.last_state in {"CANCELLED"}
 
     @property
     def is_local(self) -> bool:
@@ -100,7 +100,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                 'price': 5000,
                 'quantity': 0.001,
                 'executionType': 'CANCEL',
-                'orderStatus': 'CANCELED',
+                'orderStatus': 'CANCELLED',
                 'lastQuantity': 0,
                 'leavesQuantity': 0,
                 'cumulativeQuantity': 0,

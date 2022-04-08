@@ -48,7 +48,7 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
         return self.last_state == "Rejected"
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state == "Cancelled"
 
     @property

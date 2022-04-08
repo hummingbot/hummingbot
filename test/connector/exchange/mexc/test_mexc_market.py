@@ -44,7 +44,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -83,11 +83,11 @@ class MexcExchangeUnitTest(unittest.TestCase):
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.OrderFilled,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
 
@@ -333,11 +333,11 @@ class MexcExchangeUnitTest(unittest.TestCase):
 
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
-            resp = FixtureMEXC.ORDERS_BATCH_CANCELED.copy()
+            resp = FixtureMEXC.ORDERS_BATCH_CANCELLED.copy()
             resp["data"]["success"] = [exch_order_id1, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, "/open/api/v2/order/cancel_by_symbol", resp)
-        [cancelation_results] = self.run_parallel(self.market_2.cancel_all(5))
-        for cr in cancelation_results:
+        [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
+        for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
         # Reset the logs
@@ -410,9 +410,9 @@ class MexcExchangeUnitTest(unittest.TestCase):
                                                    quantize_bid_price, 10001, FixtureMEXC.ORDER_GET_LIMIT_BUY_UNFILLED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.cancel_order(trading_pair, order_id, exch_order_id, FixtureMEXC.ORDER_GET_CANCELED)
-        [order_canceled_event] = self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
-        order_canceled_event: OrderCanceledEvent = order_canceled_event
-        self.assertEqual(order_canceled_event.order_id, order_id)
+        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
+        self.assertEqual(order_cancelled_event.order_id, order_id)
 
     def test_cancel_all(self):
         trading_pair = "ETH-USDT"
@@ -434,12 +434,12 @@ class MexcExchangeUnitTest(unittest.TestCase):
                                              1002, FixtureMEXC.ORDER_GET_LIMIT_BUY_FILLED, self.market_2)
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
-            resp = FixtureMEXC.ORDERS_BATCH_CANCELED.copy()
+            resp = FixtureMEXC.ORDERS_BATCH_CANCELLED.copy()
             resp["data"][0]["ordId"] = exch_order_id1
             self.web_app.update_response("delete", API_BASE_URL, '/' + MEXC_BATCH_ORDER_CANCEL, resp)
 
-        [cancelation_results] = self.run_parallel(self.market_2.cancel_all(5))
-        for cr in cancelation_results:
+        [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
+        for cr in cancellation_results:
             self.assertEqual(cr.success, '0')
 
     def test_orders_saving_and_restoration(self):
@@ -509,7 +509,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
             # Cancel the order and verify that the change is saved.
             self.cancel_order(trading_pair, order_id, exch_order_id, FixtureMEXC.ORDER_GET_CANCELED)
             # saved_market_states2 = recorder.get_market_states(config_path, self.market)
-            self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+            self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             # saved_market_states3 = recorder.get_market_states(config_path, self.market)
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -519,7 +519,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -564,7 +564,7 @@ class MexcExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
-                self.run_parallel(self.market_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

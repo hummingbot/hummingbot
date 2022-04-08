@@ -198,7 +198,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(type(result) == OrderBook)
         self.assertEqual(result.snapshot_uid, mock_response["data"]["timestamp"])
 
-    def test_listen_for_snapshots_canceled_when_fetching_snapshot(self):
+    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self):
         trades_queue = asyncio.Queue()
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_order_book_snapshots(ev_loop=asyncio.get_event_loop(), output=trades_queue))
@@ -261,7 +261,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(snapshot_msg.update_id, mock_response["data"]["timestamp"])
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_canceled_when_listening(self, mock_ws):
+    def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.listening_task = asyncio.get_event_loop().create_task(

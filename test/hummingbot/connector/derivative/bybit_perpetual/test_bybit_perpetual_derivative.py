@@ -66,13 +66,13 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.buy_order_created_logger: EventLogger = EventLogger()
         self.sell_order_created_logger: EventLogger = EventLogger()
         self.buy_order_completed_logger: EventLogger = EventLogger()
-        self.order_canceled_logger: EventLogger = EventLogger()
+        self.order_cancelled_logger: EventLogger = EventLogger()
         self.order_failure_logger: EventLogger = EventLogger()
         self.order_filled_logger: EventLogger = EventLogger()
         self.connector.add_listener(MarketEvent.BuyOrderCreated, self.buy_order_created_logger)
         self.connector.add_listener(MarketEvent.SellOrderCreated, self.sell_order_created_logger)
         self.connector.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
-        self.connector.add_listener(MarketEvent.OrderCanceled, self.order_canceled_logger)
+        self.connector.add_listener(MarketEvent.OrderCancelled, self.order_cancelled_logger)
         self.connector.add_listener(MarketEvent.OrderFailure, self.order_failure_logger)
         self.connector.add_listener(MarketEvent.OrderFilled, self.order_filled_logger)
 
@@ -368,7 +368,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(new_order_id, failure_events[0].order_id)
 
     @aioresponses()
-    def test_create_order_raises_canceled_errors(self, post_mock):
+    def test_create_order_raises_cancelled_errors(self, post_mock):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -714,7 +714,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", f"Error parsing the trading pair rule: {symbol_info}. Skipping..."))
 
     @aioresponses()
-    def test_update_trading_rules_polling_loop_raises_canceled_error(self, get_mock):
+    def test_update_trading_rules_polling_loop_raises_cancelled_error(self, get_mock):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -788,13 +788,13 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name
         )
 
-        canceled_order_id = self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
+        cancelled_order_id = self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
 
         cancel_json = mock_response["result"]
 
         self.assertEqual("BTCUSDT", cancel_json["symbol"])
         self.assertEqual("EO1", cancel_json["order_id"])
-        self.assertEqual(canceled_order_id, cancel_json["order_link_id"])
+        self.assertEqual(cancelled_order_id, cancel_json["order_link_id"])
 
     @aioresponses()
     def test_cancel_tracked_order_logs_error_notified_in_the_response(self, post_mock):
@@ -856,10 +856,10 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged(
             "ERROR",
             "Failed to cancel order O1:"
-            " Bybit Perpetual encountered a problem canceling the order (1001 - Test error description)"))
+            " Bybit Perpetual encountered a problem cancelling the order (1001 - Test error description)"))
 
     @aioresponses()
-    def test_order_marked_as_canceled_if_cancelation_status_error_is_not_found(self, post_mock):
+    def test_order_marked_as_cancelled_if_cancellation_status_error_is_not_found(self, post_mock):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
 
@@ -899,7 +899,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "WARNING",
             "Failed to cancel order O1: order not found (130010 - order not exists)"))
 
-    def test_cancel_tracked_order_logs_error_when_canceling_non_tracked_order(self):
+    def test_cancel_tracked_order_logs_error_when_cancelling_non_tracked_order(self):
         self._simulate_trading_rules_initialized()
 
         self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
@@ -910,7 +910,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "Failed to cancel order O1: Order O1 is not being tracked"))
 
     @aioresponses()
-    def test_cancel_tracked_order_raises_canceled(self, post_mock):
+    def test_cancel_tracked_order_raises_cancelled(self, post_mock):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -940,8 +940,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
 
-        # Emulate first cancelation happening without problems
-        mock_response_first_cancelation = {
+        # Emulate first cancellation happening without problems
+        mock_response_first_cancellation = {
             "ret_code": 0,
             "ret_msg": "OK",
             "ext_code": "",
@@ -972,8 +972,8 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 100
         }
-        # Emulate second cancelation failing
-        mock_response_second_cancelation = {
+        # Emulate second cancellation failing
+        mock_response_second_cancellation = {
             "ret_code": 1001,
             "ret_msg": "Test error description",
             "ext_code": "",
@@ -985,8 +985,8 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit": 100
         }
 
-        post_mock.post(regex_url, body=json.dumps(mock_response_first_cancelation))
-        post_mock.post(regex_url, body=json.dumps(mock_response_second_cancelation))
+        post_mock.post(regex_url, body=json.dumps(mock_response_first_cancellation))
+        post_mock.post(regex_url, body=json.dumps(mock_response_second_cancellation))
 
         self._simulate_trading_rules_initialized()
 
@@ -1013,7 +1013,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
-        # Add also an order already done, that should not be canceled
+        # Add also an order already done, that should not be cancelled
         self.connector._in_flight_orders["O3"] = BybitPerpetualInFlightOrder(
             client_order_id="O3",
             exchange_order_id="EO3",
@@ -1027,11 +1027,11 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name,
             initial_state="Filled")
 
-        cancelation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=10))
+        cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=10))
 
-        self.assertEqual(2, len(cancelation_results))
-        self.assertTrue(any(map(lambda result: result.order_id == "O1" and result.success, cancelation_results)))
-        self.assertTrue(any(map(lambda result: result.order_id == "O2" and not result.success, cancelation_results)))
+        self.assertEqual(2, len(cancellation_results))
+        self.assertTrue(any(map(lambda result: result.order_id == "O1" and result.success, cancellation_results)))
+        self.assertTrue(any(map(lambda result: result.order_id == "O2" and not result.success, cancellation_results)))
 
     def test_cancel_all_logs_warning_when_process_times_out(self):
 
@@ -1049,13 +1049,13 @@ class BybitPerpetualDerivativeTests(TestCase):
             leverage=10,
             position=PositionAction.OPEN.name)
 
-        cancelation_results = asyncio.get_event_loop().run_until_complete(
+        cancellation_results = asyncio.get_event_loop().run_until_complete(
             self.connector.cancel_all(timeout_seconds=0.1))
 
-        self.assertTrue(self._is_logged("WARNING", "Cancelation of all active orders for Bybit Perpetual connector"
+        self.assertTrue(self._is_logged("WARNING", "Cancellation of all active orders for Bybit Perpetual connector"
                                                    " stopped after max wait time"))
-        self.assertEqual(1, len(cancelation_results))
-        self.assertTrue(cancelation_results[0].order_id == "O1" and not cancelation_results[0].success)
+        self.assertEqual(1, len(cancellation_results))
+        self.assertTrue(cancellation_results[0].order_id == "O1" and not cancellation_results[0].success)
 
     def test_fee_estimation(self):
         with self.assertRaises(DeprecationWarning):
@@ -1333,7 +1333,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal(30500), available_balances["USDT"])
 
     @aioresponses()
-    def test_update_order_status_for_cancelation(self, get_mock):
+    def test_update_order_status_for_cancellation(self, get_mock):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -1401,10 +1401,10 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("EO1", request_data["order_id"])
         self.assertEqual("O1", request_data["order_link_id"])
         self.assertEqual(0, len(self.connector.in_flight_orders))
-        self.assertTrue(self._is_logged("INFO", "Successfully canceled order O1"))
-        cancelation_events = self.order_canceled_logger.event_log
-        self.assertEqual(1, len(cancelation_events))
-        self.assertEqual("O1", cancelation_events[0].order_id)
+        self.assertTrue(self._is_logged("INFO", "Successfully cancelled order O1"))
+        cancellation_events = self.order_cancelled_logger.event_log
+        self.assertEqual(1, len(cancellation_events))
+        self.assertEqual("O1", cancellation_events[0].order_id)
 
     @aioresponses()
     def test_update_order_status_for_rejection(self, get_mock):
@@ -2514,7 +2514,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         # Wait until the connector finishes processing the message queue
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
-        self.assertTrue(self._is_logged('INFO', 'Successfully canceled order xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418'))
+        self.assertTrue(self._is_logged('INFO', 'Successfully cancelled order xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418'))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_receives_updates_execution(self, ws_connect_mock):

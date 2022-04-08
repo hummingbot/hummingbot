@@ -30,7 +30,7 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -42,7 +42,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     MarketTransactionFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -83,7 +83,7 @@ cdef class BlocktaneExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCanceled.value
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -453,9 +453,9 @@ cdef class BlocktaneExchange(ExchangeBase):
                     if order_state == "cancel":
                         tracked_order.last_state = "cancel"
                         self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
-                                           f"{client_order_id} has been canceled according to Blocktane order status API.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                             OrderCanceledEvent(
+                                           f"{client_order_id} has been cancelled according to Blocktane order status API.")
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                             OrderCancelledEvent(
                                                  self._current_timestamp,
                                                  client_order_id
                                              ))
@@ -587,12 +587,12 @@ cdef class BlocktaneExchange(ExchangeBase):
 
                     if order_status == "cancel":  # CANCEL
 
-                        self.logger().info(f"The order {tracked_order.client_order_id} has been canceled "
+                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
                                            f"according to Blocktane WebSocket API.")
                         tracked_order.last_state = "cancel"
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                             OrderCanceledEvent(self._current_timestamp,
-                                                                tracked_order.client_order_id))
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                             OrderCancelledEvent(self._current_timestamp,
+                                                                 tracked_order.client_order_id))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
 
                     if order_status == 'reject':
@@ -931,10 +931,10 @@ cdef class BlocktaneExchange(ExchangeBase):
             if ("record.not_found" in str(err) and tracked_order is not None and
                     tracked_order.creation_timestamp < (time.time() - self.ORDER_NOT_EXIST_WAIT_TIME)):
                 # The order doesn't exist
-                self.logger().info(f"The order {order_id} does not exist on Blocktane. Marking as canceled.")
+                self.logger().info(f"The order {order_id} does not exist on Blocktane. Marking as cancelled.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                     OrderCanceledEvent(self._current_timestamp, order_id))
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
 
             self.logger().error(
@@ -950,25 +950,25 @@ cdef class BlocktaneExchange(ExchangeBase):
     def cancel(self, trading_pair: str, client_order_id: str):
         return self.c_cancel(trading_pair, client_order_id)
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_orders = [order for order in self._in_flight_orders.values() if not order.is_done]
         tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancelation = []
+        successful_cancellation = []
 
         try:
             async with timeout(timeout_seconds):
                 api_responses = await safe_gather(*tasks, return_exceptions=True)
                 for res in api_responses:
                     order_id_set.remove(res)
-                    successful_cancelation.append(CancelationResult(res, True))
+                    successful_cancellation.append(CancellationResult(res, True))
         except Exception as e:
             self.logger().error(
-                f"Unexpected error canceling orders. {e}"
+                f"Unexpected error cancelling orders. {e}"
             )
 
-        failed_cancelation = [CancelationResult(oid, False) for oid in order_id_set]
-        return successful_cancelation + failed_cancelation
+        failed_cancellation = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellation + failed_cancellation
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None:

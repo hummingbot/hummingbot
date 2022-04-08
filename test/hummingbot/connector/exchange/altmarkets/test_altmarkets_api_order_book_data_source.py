@@ -177,7 +177,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
                 self.data_source.get_new_order_book(self.trading_pair))
 
     @aioresponses()
-    def test_listen_for_snapshots_canceled_when_fetching_snapshot(self, mock_get):
+    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_get):
         trades_queue = asyncio.Queue()
 
         endpoint = Constants.ENDPOINT['ORDER_BOOK'].format(trading_pair=r'[\w]+')

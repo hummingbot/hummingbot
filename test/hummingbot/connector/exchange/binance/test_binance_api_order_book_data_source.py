@@ -468,7 +468,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
         )
 
-    def test_listen_for_trades_canceled_when_listening(self):
+    def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
@@ -523,7 +523,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(12345, msg.trade_id)
 
-    def test_listen_for_order_book_diffs_canceled(self):
+    def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
@@ -579,7 +579,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(12345, msg.update_id)
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_canceled_when_fetching_snapshot(self, mock_api):
+    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 

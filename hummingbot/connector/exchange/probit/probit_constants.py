@@ -37,5 +37,5 @@ WS_PRIVATE_CHANNELS = [
 ORDER_STATUS = [
     "open",
     "filled",
-    "canceled",
+    "cancelled",
 ]

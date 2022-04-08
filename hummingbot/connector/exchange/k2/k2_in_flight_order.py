@@ -36,7 +36,7 @@ class K2InFlightOrder(InFlightOrderBase):
         )
         self.last_executed_amount_base = Decimal("nan")
         self.trade_id_set = set()
-        self.canceled_event = asyncio.Event()
+        self.cancelled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:
@@ -47,7 +47,7 @@ class K2InFlightOrder(InFlightOrderBase):
         return self.last_state in {"No Balance"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"Cancelled", "Expired"}
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:

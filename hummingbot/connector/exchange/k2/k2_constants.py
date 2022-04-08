@@ -36,7 +36,7 @@ ORDER_STATUS = [
     'Partially Filled',
     'Filled',
     'Expired',
-    'Canceled',
+    'Cancelled',
     'Canceling',
     'Processing',
     'No Balance',

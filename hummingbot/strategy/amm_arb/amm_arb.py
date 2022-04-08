@@ -315,8 +315,8 @@ class AmmArbStrategy(StrategyPyBase):
     def did_fail_order(self, order_failed_event):
         self.first_order_done(order_failed_event, False)
 
-    def did_cancel_order(self, canceled_event):
-        self.first_order_done(canceled_event, False)
+    def did_cancel_order(self, cancelled_event):
+        self.first_order_done(cancelled_event, False)
 
     def did_expire_order(self, expired_event):
         self.first_order_done(expired_event, False)

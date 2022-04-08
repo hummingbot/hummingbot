@@ -130,7 +130,7 @@ class StartCommand:
                     self.markets_recorder.restore_market_states(config_path, market)
                     if len(market.limit_orders) > 0:
                         if restore is False:
-                            self._notify(f"Canceling dangling limit orders on {market.name}...")
+                            self._notify(f"Cancelling dangling limit orders on {market.name}...")
                             await market.cancel_all(5.0)
                         else:
                             self._notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")

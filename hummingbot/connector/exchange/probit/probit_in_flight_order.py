@@ -37,11 +37,11 @@ class ProbitInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self.canceled_event = asyncio.Event()
+        self.cancelled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled"}
+        return self.last_state in {"filled", "cancelled"}
 
     @property
     def is_failure(self) -> bool:
@@ -49,8 +49,8 @@ class ProbitInFlightOrder(InFlightOrderBase):
         return NotImplementedError
 
     @property
-    def is_canceled(self) -> bool:
-        return self.last_state in {"canceled"}
+    def is_cancelled(self) -> bool:
+        return self.last_state in {"cancelled"}
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """

@@ -94,7 +94,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.taker_order_created_logger: EventLogger = EventLogger()
         self.maker_market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.taker_market.add_listener(MarketEvent.OrderFilled, self.taker_order_fill_logger)
-        self.maker_market.add_listener(MarketEvent.OrderCanceled, self.cancel_order_logger)
+        self.maker_market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
         self.maker_market.add_listener(MarketEvent.BuyOrderCreated, self.maker_order_created_logger)
         self.maker_market.add_listener(MarketEvent.SellOrderCreated, self.maker_order_created_logger)
         self.taker_market.add_listener(MarketEvent.BuyOrderCreated, self.taker_order_created_logger)
@@ -379,7 +379,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0.99451"), bid_order.price)
         self.assertEqual(Decimal("1.0055"), ask_order.price)
 
-    def test_order_fills_after_cancelation(self):  # TODO
+    def test_order_fills_after_cancellation(self):  # TODO
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
@@ -689,8 +689,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         active_bids = strategy_with_slippage_buffer.active_bids
         active_asks = strategy_with_slippage_buffer.active_asks
 
-        self.assertEqual(0, len(active_bids))  # canceled
-        self.assertEqual(0, len(active_asks))  # canceled
+        self.assertEqual(0, len(active_bids))  # cancelled
+        self.assertEqual(0, len(active_asks))  # cancelled
 
         self.clock.backtest_til(self.start_timestamp + 4)
 

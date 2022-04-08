@@ -41,7 +41,7 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
         return self.last_state == "canceled"
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state == "canceled"
 
     @property

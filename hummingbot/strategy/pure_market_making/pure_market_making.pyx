@@ -1185,18 +1185,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - price) / price) < self._minimum_spread:
                 self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
-                                   f" Canceling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                                   f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef bint c_to_create_orders(self, object proposal):
-        non_hanging_orders_non_canceled = [o for o in self.active_non_hanging_orders if not
-                                           self._hanging_orders_tracker.is_potential_hanging_order(o)]
+        non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
+                                            self._hanging_orders_tracker.is_potential_hanging_order(o)]
         return (self._create_timestamp < self._current_timestamp
                 and (not self._should_wait_order_cancel_confirmation or
                      len(self._sb_order_tracker.in_flight_cancels) == 0)
                 and proposal is not None
-                and len(non_hanging_orders_non_canceled) == 0)
+                and len(non_hanging_orders_non_cancelled) == 0)
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:

@@ -33,7 +33,7 @@ class DigifinexInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self.canceled_event = asyncio.Event()
+        self.cancelled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:
@@ -45,7 +45,7 @@ class DigifinexInFlightOrder(InFlightOrderBase):
         # return self.last_state in {"REJECTED"}
 
     @property
-    def is_canceled(self) -> bool:
+    def is_cancelled(self) -> bool:
         return self.last_state in {"3", "4"}
 
     def update_with_rest_order_detail(self, trade_update: Dict[str, Any]) -> bool:

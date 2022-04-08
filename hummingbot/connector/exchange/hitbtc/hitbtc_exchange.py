@@ -31,7 +31,7 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancelation_result import CancelationResult
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -42,7 +42,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderCanceledEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -397,7 +397,7 @@ class HitbtcExchange(ExchangeBase):
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order. This function returns immediately.
-        To get the cancelation result, you'll have to wait for OrderCanceledEvent.
+        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param order_id: The internal order id (also called client_order_id)
         """
@@ -513,13 +513,13 @@ class HitbtcExchange(ExchangeBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancelation process by first calling cancel-order API. The API result doesn't confirm whether
-        the cancelation is successful, it simply states it receives the request.
+        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancellation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair (Unused during cancel on HitBTC)
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
-        order_was_canceled = False
+        order_was_cancelled = False
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -530,7 +530,7 @@ class HitbtcExchange(ExchangeBase):
             await self._api_request("DELETE",
                                     Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id),
                                     is_auth_required=True)
-            order_was_canceled = True
+            order_was_cancelled = True
         except asyncio.CancelledError:
             raise
         except HitbtcAPIError as e:
@@ -538,14 +538,14 @@ class HitbtcExchange(ExchangeBase):
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
             if err.get('code') == 20002 and \
                     self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-                order_was_canceled = True
-        if order_was_canceled:
-            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
+                order_was_cancelled = True
+        if order_was_cancelled:
+            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
-            self.trigger_event(MarketEvent.OrderCanceled,
-                               OrderCanceledEvent(self.current_timestamp, order_id))
-            tracked_order.canceled_event.set()
-            return CancelationResult(order_id, True)
+            self.trigger_event(MarketEvent.OrderCancelled,
+                               OrderCancelledEvent(self.current_timestamp, order_id))
+            tracked_order.cancelled_event.set()
+            return CancellationResult(order_id, True)
         else:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
@@ -553,7 +553,7 @@ class HitbtcExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
                                 f"Check API key and network connection."
             )
-            return CancelationResult(order_id, False)
+            return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):
         """
@@ -629,7 +629,7 @@ class HitbtcExchange(ExchangeBase):
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers cancelation or failure event if needed.
+        Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         Example Order:
         {
@@ -659,12 +659,12 @@ class HitbtcExchange(ExchangeBase):
         tracked_order.executed_amount_base = Decimal(order_msg["cumQuantity"])
         tracked_order.executed_amount_quote = Decimal(order_msg["price"]) * Decimal(order_msg["cumQuantity"])
 
-        if tracked_order.is_canceled:
-            self.logger().info(f"Successfully canceled order {client_order_id}.")
+        if tracked_order.is_cancelled:
+            self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.stop_tracking_order(client_order_id)
-            self.trigger_event(MarketEvent.OrderCanceled,
-                               OrderCanceledEvent(self.current_timestamp, client_order_id))
-            tracked_order.canceled_event.set()
+            self.trigger_event(MarketEvent.OrderCancelled,
+                               OrderCancelledEvent(self.current_timestamp, client_order_id))
+            tracked_order.cancelled_event.set()
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
             self.trigger_event(MarketEvent.OrderFailure,
@@ -760,12 +760,12 @@ class HitbtcExchange(ExchangeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancelationResult]:
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
-        Cancels all in-flight orders and waits for cancelation results.
-        Used by bot's top level stop and exit commands (canceling outstanding orders on exit)
+        Cancels all in-flight orders and waits for cancellation results.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
         :param timeout_seconds: The timeout at which the operation will be canceled.
-        :returns List of CancelationResult which indicates whether each order is successfully canceled.
+        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
@@ -773,17 +773,17 @@ class HitbtcExchange(ExchangeBase):
         if len(open_orders) == 0:
             return []
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in open_orders]
-        cancelation_results = []
+        cancellation_results = []
         try:
             async with timeout(timeout_seconds):
-                cancelation_results = await safe_gather(*tasks, return_exceptions=False)
+                cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
-                "Unexpected error canceling orders.", exc_info=True,
+                "Unexpected error cancelling orders.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )
-        return cancelation_results
+        return cancellation_results
 
     def tick(self, timestamp: float):
         """

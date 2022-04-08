@@ -94,7 +94,7 @@ class TestGateIoExchange(unittest.TestCase):
         ]
         return trading_rules
 
-    def get_order_create_response_mock(self, canceled: bool = False, exchange_order_id: str = "someExchId") -> Dict:
+    def get_order_create_response_mock(self, cancelled: bool = False, exchange_order_id: str = "someExchId") -> Dict:
         order_create_resp_mock = {
             "id": exchange_order_id,
             "text": "t-123456",
@@ -103,7 +103,7 @@ class TestGateIoExchange(unittest.TestCase):
             "create_time_ms": 1548000000123,
             "update_time_ms": 1548000100123,
             "currency_pair": f"{self.base_asset}_{self.quote_asset}",
-            "status": "canceled" if canceled else "open",
+            "status": "cancelled" if cancelled else "open",
             "type": "limit",
             "account": "spot",
             "side": "buy",
@@ -348,7 +348,7 @@ class TestGateIoExchange(unittest.TestCase):
 
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_order_create_response_mock(canceled=True)
+        resp = self.get_order_create_response_mock(cancelled=True)
         mock_api.post(regex_url, body=json.dumps(resp))
 
         self.exchange.add_listener(MarketEvent.BuyOrderCreated, self.event_listener)
@@ -372,14 +372,14 @@ class TestGateIoExchange(unittest.TestCase):
     def test_execute_cancel(self, mock_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_order_create_response_mock(canceled=True)
+        resp = self.get_order_create_response_mock(cancelled=True)
         mock_api.delete(regex_url, body=json.dumps(resp))
 
         client_order_id = "someId"
         exchange_order_id = "someExchId"
         self.exchange._in_flight_orders[client_order_id] = self.get_in_flight_order(client_order_id, exchange_order_id)
 
-        self.exchange.add_listener(MarketEvent.OrderCanceled, self.event_listener)
+        self.exchange.add_listener(MarketEvent.OrderCancelled, self.event_listener)
 
         self.async_run_with_timeout(coroutine=self.exchange._execute_cancel(self.trading_pair, client_order_id))
 
@@ -393,7 +393,7 @@ class TestGateIoExchange(unittest.TestCase):
     def test_cancel_order_not_present_in_inflight_orders(self):
         client_order_id = "test-id"
         event_logger = EventLogger()
-        self.exchange.add_listener(MarketEvent.OrderCanceled, event_logger)
+        self.exchange.add_listener(MarketEvent.OrderCancelled, event_logger)
 
         result = self.async_run_with_timeout(
             coroutine=self.exchange._execute_cancel(self.trading_pair, client_order_id)
@@ -515,7 +515,7 @@ class TestGateIoExchange(unittest.TestCase):
         # Order Status Updates
         order_status_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_STATUS_PATH_URL}"
         regex_order_status_url = re.compile(f"^{order_status_url[:-4]}".replace(".", r"\.").replace("?", r"\?"))
-        order_status_resp = self.get_order_create_response_mock(canceled=False, exchange_order_id=exchange_order_id)
+        order_status_resp = self.get_order_create_response_mock(cancelled=False, exchange_order_id=exchange_order_id)
         order_status_called_event = asyncio.Event()
         mock_api.get(
             regex_order_status_url,

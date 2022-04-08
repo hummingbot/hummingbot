@@ -710,8 +710,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # Avellaneda-Stoikov for an infinite timespan
                 # The equations in the paper for this contain a few mistakes
                 # - the units don't align with the rest of the paper
-                # - volatility cancels itself out completely
-                # - the risk factor gets partially canceled
+                # - volatility cancells itself out completely
+                # - the risk factor gets partially cancelled
                 # The proposed solution is to use the same equation as for the constrained timespan but with
                 # a fixed time left
                 time_left_fraction = 1
@@ -1225,14 +1225,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_cancel_active_orders(proposal)
 
     cdef bint c_to_create_orders(self, object proposal):
-        non_hanging_orders_non_canceled = [o for o in self.active_non_hanging_orders if not
-                                           self._hanging_orders_tracker.is_potential_hanging_order(o)]
+        non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
+                                            self._hanging_orders_tracker.is_potential_hanging_order(o)]
 
         return (self._create_timestamp < self._current_timestamp
                 and (not self._should_wait_order_cancel_confirmation or
                      len(self._sb_order_tracker.in_flight_cancels) == 0)
                 and proposal is not None
-                and len(non_hanging_orders_non_canceled) == 0)
+                and len(non_hanging_orders_non_cancelled) == 0)
 
     def to_create_orders(self, proposal: Proposal) -> bool:
         return self.c_to_create_orders(proposal)

@@ -39,16 +39,16 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled"}
+        return self.last_state in {"filled", "cancelled"}
 
     @property
     def is_failure(self) -> bool:
         # This is the only known canceled state
-        return self.last_state == "canceled"
+        return self.last_state == "cancelled"
 
     @property
-    def is_canceled(self) -> bool:
-        return self.last_state == "canceled"
+    def is_cancelled(self) -> bool:
+        return self.last_state == "cancelled"
 
     @property
     def order_type_description(self) -> str:

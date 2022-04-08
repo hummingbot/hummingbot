@@ -22,7 +22,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderCanceledEvent
+    OrderCancelledEvent
 )
 from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -48,7 +48,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCanceled,
+        MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
     connector: WazirxExchange
@@ -217,7 +217,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token))
         self._cancel_order(cl_order_id)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
@@ -228,7 +228,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(cl_order_id, order_created_event.order_id)
         self._cancel_order(cl_order_id)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
     def _mock_ws_bal_update(self, token, available):
@@ -240,16 +240,16 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("15"))
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, None, None,
-                                        fixture.WS_ORDER_CANCELED)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+                                        fixture.WS_ORDER_CANCELLED)
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
         price = self.connector.get_price(self.trading_pair, False) * Decimal("0.8")
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("15"))
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2, None, None,
-                                        fixture.WS_ORDER_CANCELED)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+                                        fixture.WS_ORDER_CANCELLED)
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
     def test_cancel_all(self):
@@ -265,7 +265,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(3))
         self.ev_loop.run_until_complete(asyncio.sleep(3))
-        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCanceledEvent)]
+        cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
         self.assertEqual({buy_id, sell_id}, {o.order_id for o in cancel_events})
 
     def test_order_price_precision(self):
@@ -369,7 +369,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
 
             # Cancel the order and verify that the change is saved.
             self._cancel_order(cl_order_id)
-            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCanceledEvent))
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(new_connector.limit_orders))
             self.assertEqual(0, len(new_connector.tracking_states))
@@ -378,7 +378,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, cl_order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
@@ -434,7 +434,7 @@ class WazirxExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, order_id)
-                self.run_parallel(self.event_logger.wait_for(OrderCanceledEvent))
+                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)

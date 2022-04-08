@@ -90,7 +90,7 @@ class DigifinexRestApi:
                 20033: "Wrong Withdrawal ID",
                 20034: "Withdrawal service of this crypto has been closed",
                 20035: "Withdrawal limit",
-                20036: "Withdrawal cancelation failed",
+                20036: "Withdrawal cancellation failed",
                 20037: "The withdrawal address, Tag or chain type is not included in the withdrawal management list",
                 20038: "The withdrawal address is not on the white list",
                 20039: "Can't be canceled in current status",
