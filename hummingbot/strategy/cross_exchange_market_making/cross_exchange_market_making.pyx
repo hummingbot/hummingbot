@@ -847,6 +847,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
             taker_balance = taker_balance_in_quote / (taker_price * taker_slippage_adjustment_factor)
+            if Decimal.is_nan(taker_price):
+                taker_balance = maker_balance
+
             order_amount = min(maker_balance, taker_balance, user_order)
 
             return maker_market.c_quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
@@ -1163,7 +1166,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 taker_trading_pair, True, quote_asset_amount
             ).result_price
             adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
-            order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
+            order_size_limit = base_asset_amount
+            if not Decimal.is_nan(taker_price):
+                order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
 
         quantized_size_limit = maker_market.c_quantize_order_amount(active_order.trading_pair, order_size_limit)
 
