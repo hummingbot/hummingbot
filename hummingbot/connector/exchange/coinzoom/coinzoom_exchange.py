@@ -18,8 +18,8 @@ from async_timeout import timeout
 import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
-from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
     CoinzoomAPIError,
@@ -33,22 +33,20 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
-    OrderFilledEvent,
     OrderCancelledEvent,
-    OrderType,
+    OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -809,10 +807,8 @@ class CoinzoomExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 

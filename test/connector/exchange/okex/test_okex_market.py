@@ -1,57 +1,20 @@
-#!/usr/bin/env python
-import logging
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 import asyncio
 import contextlib
-from decimal import Decimal
+import logging
+import math
 import os
 import time
+import unittest
+from decimal import Decimal
+from os.path import join, realpath
 from typing import (
     List,
-    Optional
+    Optional,
 )
-import unittest
-import math
-import conf
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    MarketOrderFailureEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    TradeType,
-)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
-from hummingbot.connector.exchange_base import OrderType
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
-from hummingbot.model.trade_fill import TradeFill
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from test.connector.exchange.okex.fixture_okex import FixtureOKEx
 from unittest import mock
+
+import conf
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.exchange.okex.constants import (
     OKEX_BASE_URL,
     OKEX_SERVER_TIME,
@@ -65,6 +28,39 @@ from hummingbot.connector.exchange.okex.constants import (
     OKEX_DEPTH_URL,
     OKEX_TICKERS_URL,
 )
+from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
+from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.mock_api.mock_web_server import MockWebServer
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType
+)
+from hummingbot.model.trade_fill import TradeFill
+from test.connector.exchange.okex.fixture_okex import FixtureOKEx
 
 MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 # MOCK_API_ENABLED = True
@@ -364,7 +360,6 @@ class OkexExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
         self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
-        self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs

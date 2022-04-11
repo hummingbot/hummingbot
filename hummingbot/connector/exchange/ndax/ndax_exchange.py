@@ -30,6 +30,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -40,10 +41,8 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -1039,10 +1038,8 @@ class NdaxExchange(ExchangeBase):
                                                    tracked_order.client_order_id,
                                                    tracked_order.base_asset,
                                                    tracked_order.quote_asset,
-                                                   tracked_order.fee_asset,
                                                    tracked_order.executed_amount_base,
                                                    tracked_order.executed_amount_quote,
-                                                   tracked_order.fee_paid,
                                                    tracked_order.order_type,
                                                    tracked_order.exchange_order_id))
                     self.stop_tracking_order(tracked_order.client_order_id)

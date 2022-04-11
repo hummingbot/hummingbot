@@ -21,6 +21,7 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import (
@@ -31,17 +32,13 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
-    PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
-from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -402,13 +399,8 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
                                                        tracked_order.client_order_id,
                                                        tracked_order.base_asset,
                                                        tracked_order.quote_asset,
-                                                       tracked_order.fee_asset,
                                                        tracked_order.executed_amount_base,
                                                        tracked_order.executed_amount_quote,
-                                                       float(fee.fee_amount_in_quote(tracked_order.trading_pair,
-                                                                                     Decimal(str(tracked_order.price)),
-                                                                                     Decimal(str(tracked_order.amount)),
-                                                                                     self)),  # this ignores the gas fee, which is fine for now
                                                        tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:

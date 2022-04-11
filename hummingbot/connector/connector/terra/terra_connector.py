@@ -14,6 +14,7 @@ from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CE
 from hummingbot.connector.connector.terra.terra_in_flight_order import TerraInFlightOrder
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
@@ -22,10 +23,8 @@ from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
@@ -243,10 +242,8 @@ class TerraConnector(ConnectorBase):
                                                tracked_order.client_order_id,
                                                tracked_order.base_asset,
                                                tracked_order.quote_asset,
-                                               tracked_order.fee_asset,
                                                tracked_order.executed_amount_base,
                                                tracked_order.executed_amount_quote,
-                                               tracked_order.fee_paid,
                                                tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
             else:

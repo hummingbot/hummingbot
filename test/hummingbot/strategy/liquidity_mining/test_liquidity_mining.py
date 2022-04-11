@@ -1,24 +1,21 @@
-"""
-Unit tests for hummingbot.strategy.liquidity_mining.liquidity_mining
-"""
-
-from decimal import Decimal
-import pandas as pd
-from typing import Dict, List, Optional
 import unittest.mock
+from decimal import Decimal
+from typing import Dict, List, Optional
+
+import pandas as pd
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, TradeType
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent
 from hummingbot.strategy.liquidity_mining.data_types import PriceSize, Proposal
 from hummingbot.strategy.liquidity_mining.liquidity_mining import LiquidityMiningStrategy
-
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 
@@ -195,7 +192,7 @@ class LiquidityMiningTest(unittest.TestCase):
 
         # initiate strategy and add active orders
         self.clock.add_iterator(self.default_strategy)
-        self.clock.backtest_til(self.start_timestamp + 10)
+        self.clock.backtest_til(self.start_timestamp + 9)
 
         # the order tolerance is 1%
         # set the orders to the same values

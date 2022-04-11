@@ -1,36 +1,34 @@
-#!/usr/bin/env python
 import datetime
 import math
-import numpy as np
-import pandas as pd
 import unittest
-
 from copy import deepcopy
 from decimal import Decimal
 from typing import (
     List,
     Tuple,
 )
+
+import numpy as np
+import pandas as pd
+
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
+    BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-
+from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
-from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 s_decimal_zero = Decimal(0)
@@ -339,10 +337,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -363,10 +359,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
 

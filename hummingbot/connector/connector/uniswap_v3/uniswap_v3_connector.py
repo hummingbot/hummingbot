@@ -10,6 +10,8 @@ from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position imp
     UniswapV3InFlightPosition,
     UniswapV3PositionStatus,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -23,10 +25,7 @@ from hummingbot.core.event.events import (
     RangePositionUpdatedEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderType,
-    TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
@@ -160,10 +159,8 @@ class UniswapV3Connector(UniswapConnector):
                                                tracked_order.client_order_id,
                                                tracked_order.base_asset,
                                                tracked_order.quote_asset,
-                                               tracked_order.fee_asset,
                                                tracked_order.executed_amount_base,
                                                tracked_order.executed_amount_quote,
-                                               float(fee),
                                                tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
             else:

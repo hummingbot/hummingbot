@@ -1,32 +1,20 @@
 #!/usr/bin/env python
 
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
+
 import dateutil.parser as dp
 
-from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    List,
-    Tuple
-)
-
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDT"
 
 DEFAULT_FEES = [0.2, 0.2]
-
-
-def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "B" if is_buy else "S"
-    return f"{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 def convert_iso_to_epoch(ts: str) -> float:
