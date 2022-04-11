@@ -151,16 +151,6 @@ class ClientOrderTracker:
             ),
         )
 
-    def _trigger_cancellation_failed_event(self, order: InFlightOrder):
-        self._connector.trigger_event(
-            MarketEvent.OrderCancelationFailed,
-            OrderCancelledEvent(
-                timestamp=self.current_timestamp,
-                order_id=order.client_order_id,
-                exchange_order_id=order.exchange_order_id,
-            ),
-        )
-
     def _trigger_filled_event(
             self,
             order: InFlightOrder,
@@ -338,21 +328,3 @@ class ClientOrderTracker:
                         new_state=OrderState.FAILED,
                     )
                     await self._process_order_update(order_update)
-
-    async def _process_order_cancelation_failed(self, client_order_id: str):
-        """
-        An order cancellation failure event is triggered
-
-        :param client_order_id: Client order id of an order.
-        :type client_order_id: str
-        """
-        # Only concerned with active orders.
-        tracked_order: Optional[InFlightOrder] = self.fetch_tracked_order(client_order_id=client_order_id)
-
-        if tracked_order is None:
-            self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
-        else:
-            self._trigger_cancellation_failed_event()
-
-    def process_order_cancelation_failed(self, client_order_id: str):
-        return safe_ensure_future(self._process_order_cancelation_failed(client_order_id))
