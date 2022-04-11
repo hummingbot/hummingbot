@@ -192,14 +192,25 @@ export class Solana implements Solanaish {
     walletAddress: PublicKey,
     tokenMintAddress: PublicKey
   ): Promise<PublicKey> {
-    return (await PublicKey.findProgramAddress(
-      [
+    // TODO Ask Mike the correct way to implement this method!!!
+
+    const tokenProgramId = this._tokenProgramAddress;
+    const splAssociatedTokenAccountProgramId = (
+      await this.connection.getParsedTokenAccountsByOwner(walletAddress, {
+        programId: this._tokenProgramAddress,
+      })
+    ).value.map((item) => item.pubkey)[0];
+
+    return (
+      await PublicKey.findProgramAddress(
+        [
           walletAddress.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
+          tokenProgramId.toBuffer(),
           tokenMintAddress.toBuffer(),
-      ],
-      SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
-    ))[0];
+        ],
+        splAssociatedTokenAccountProgramId
+      )
+    )[0];
   }
 
   async getKeypair(address: string): Promise<Keypair> {

@@ -1,16 +1,5 @@
-import {
-  NetworkSelectionRequest,
-  BaseResponse,
-} from '../services/common-interfaces';
-
-import {
-  FilledOrder,
-  OpenClientOrder,
-  SimpleOrderBook,
-  Market,
-  OrderSide,
-  OrderStatus,
-} from './clob.types';
+import { NetworkSelectionRequest } from '../../services/common-interfaces';
+import { CreateOrder, Market, Order, OrderBook, OrderRequest, Ticker } from './serum.types';
 
 //
 // GET /clob/markets
@@ -24,147 +13,92 @@ export type SerumGetMarketsRequest = NetworkSelectionRequest &
       }
   );
 
-export class SerumGetMarketsResponse extends BaseResponse<
-  Market[] | Market | null
-> {}
+export type SerumGetMarketsResponse = Map<string, Market> | Market;
 
 //
 // GET /clob/orderBooks
 //
 
-export interface SerumGetOrderBooksRequest extends NetworkSelectionRequest {
-  marketNames: string[]; // TODO marketName instead of seperated quote & base (in line with self._trading_pairs)!!!
-  depth?: number; // TODO is this needed?!!!
-}
+export type SerumGetOrderBooksRequest = NetworkSelectionRequest &
+  (
+    | { marketName: string }
+    | {
+        marketNames: string[];
+      }
+  );
 
-export interface SerumGetOrderBooksResponse {
-  orderBooks: SimpleOrderBook[];
-}
+export type SerumGetOrderBooksResponse = Map<string, OrderBook> | OrderBook;
 
 //
 // GET /clob/tickers
 //
 
-export interface Ticker {
-  market: string;
-  price: string;
-  amount: string;
-  side: OrderSide;
-  timestamp: string;
-}
+export type SerumGetTickersRequest = NetworkSelectionRequest &
+  (
+    | { marketName: string }
+    | {
+        marketNames: string[];
+      }
+  );
 
-export interface SerumGetTickersRequest extends NetworkSelectionRequest {
-  marketNames?: [];
-}
-
-export interface SerumGetTickersResponse {
-  lastTradedPrices: Ticker[];
-}
-
-//
-// Orders
-//
-
-export interface SerumOrdersResponse {
-  status: OrderStatus;
-  exchangeOrderId?: string;
-  clientOrderId?: string;
-}
+export type SerumGetTickersResponse = Map<string, Ticker> | Ticker;
 
 //
 // GET /clob/orders
 //
 
-export interface SerumGetOrdersRequestItem {
-  marketName?: string;
-  clientOrderId?: string;
-  exchangeOrderId?: string;
-}
+export type SerumGetOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: OrderRequest }
+    | {
+        orders: OrderRequest[];
+      }
+  );
 
-export interface SerumGetOrdersRequest extends NetworkSelectionRequest {
-  orders: SerumGetOrdersRequestItem[];
-}
-
-export interface SerumGetOrdersResponseItem {
-  // TODO fill interface with the correct fields!!!
-}
-
-export interface SerumGetOrdersResponse extends SerumOrdersResponse {
-  // TODO check what orderWithFills means!!! Ask Mike
-  orders: SerumGetOrdersResponseItem[];
-}
+export type SerumGetOrdersResponse = Map<string, Order> | Order;
 
 //
 // POST /clob/orders
 //
 
-export interface SerumPostOrdersRequest extends NetworkSelectionRequest {
-  address: string;
-  marketName: string;
-  side: OrderSide;
-  amount: string;
-  price: string;
-  orderType: 'LIMIT' | 'MARKET'; // market == ioc (immediate-or-cancel)
-  postOnly: boolean; // place only an order, if no liquidity has been taken
-  clientOrderId?: string; // set a client's own orderId for tracking
-}
+export type SerumPostOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: CreateOrder }
+    | {
+        orders: CreateOrder[];
+      }
+  );
 
-export interface SerumPostOrdersResponse extends SerumOrdersResponse {
-}
+export type SerumPostOrdersResponse = Map<string, Order> | Order;
 
 //
 // DELETE /clob/orders
 //
 
-export interface SerumDeleteOrdersRequest extends NetworkSelectionRequest {
-  address: string; // solana account, which orders belong to
-  exchangeOrderId?: string; // is simply 'orderId' in mango.ts
-  clientOrderId?: string;
-}
+export type SerumDeleteOrdersRequest = NetworkSelectionRequest & {};
 
-export interface SerumDeleteOrdersResponse extends SerumOrdersResponse {
-}
+export type SerumDeleteOrdersResponse = Map<string, Order> | Order;
 
 //
 // GET /clob/openOrders
 //
 
-export interface SerumGetOpenOrdersRequest extends NetworkSelectionRequest {
-  address?: string; // filter by owner
-  marketName?: string; // filter by market (can speed up request dramatically)
-  exchangeOrderId?: string; // filter by exchangeOrderId
-  clientOrderId?: string; // filter by clientOrderId
-}
+export type SerumGetOpenOrdersRequest = NetworkSelectionRequest & {};
 
-export interface SerumGetOpenOrdersResponse {
-  spot: OpenClientOrder[];
-  perp: OpenClientOrder[];
-}
+export type SerumGetOpenOrdersResponse = Map<string, Order> | Order;
 
 //
 // DELETE /clob/openOrders
 //
 
-export interface SerumDeleteOpenOrdersRequest extends NetworkSelectionRequest {
-  address: string; // solana account, for which to cancel
-  marketNames?: string[]; // on which markets to cancel
-}
+export type SerumDeleteOpenOrdersRequest = NetworkSelectionRequest & {};
 
-export interface SerumDeleteOpenOrdersResponse {
-  orders: SerumOrdersResponse;
-}
+export type SerumDeleteOpenOrdersResponse = Map<string, Order> | Order;
 
 //
 // GET /clob/filledOrders
 //
 
-export interface SerumGetFilledOrdersRequest extends NetworkSelectionRequest {
-  marketNames?: string[];
-  account?: string;
-}
+export type SerumGetFilledOrdersRequest = NetworkSelectionRequest & {};
 
-export interface SerumGetFilledOrdersResponse {
-  // sorted from newest to oldest
-  spot: FilledOrder[];
-  perp: FilledOrder[];
-}
+export type SerumGetFilledOrdersResponse = Map<string, Order> | Order;

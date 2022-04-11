@@ -59,6 +59,12 @@ export interface OrderRequests {
   exchangeOrderIds?: string[];
 }
 
+export class SerumishError extends Error {}
+
+export class MarketNotFoundError extends SerumishError {}
+
+export class OrderNotFoundError extends SerumishError {}
+
 // TODO remove comments later!!!
 // export interface FeeInfo {
 //   maker: string;

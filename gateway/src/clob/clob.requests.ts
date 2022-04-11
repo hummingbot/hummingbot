@@ -20,7 +20,6 @@ import {
 } from '../connectors/serum/serum.requests';
 
 export type ClobDeleteOpenOrdersRequest = SerumDeleteOpenOrdersRequest;
-export const ClobDeleteOpenOrdersRequest = SerumDeleteOpenOrdersRequest;
 export type ClobDeleteOpenOrdersResponse = SerumDeleteOpenOrdersResponse;
 export type ClobDeleteOrdersRequest = SerumDeleteOrdersRequest;
 export type ClobDeleteOrdersResponse = SerumDeleteOrdersResponse;
@@ -30,7 +29,6 @@ export type ClobGetOpenOrdersRequest = SerumGetOpenOrdersRequest;
 export type ClobGetOpenOrdersResponse = SerumGetOpenOrdersResponse;
 export type ClobGetMarketsRequest = SerumGetMarketsRequest;
 export type ClobGetMarketsResponse = SerumGetMarketsResponse;
-export const ClobGetMarketsResponse = SerumGetMarketsResponse;
 export type ClobGetOrderBooksRequest = SerumGetOrderBooksRequest;
 export type ClobGetOrderBooksResponse = SerumGetOrderBooksResponse;
 export type ClobPostOrdersRequest = SerumPostOrdersRequest;
