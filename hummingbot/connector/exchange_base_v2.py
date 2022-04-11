@@ -190,7 +190,7 @@ class ExchangeApiMixin(object):
             self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     async def _update_trading_fees(self):
-        # this is currently only used by kucoin
+        # this is currently only implemented in kucoin exchange
         raise NotImplementedError
 
     async def _api_get(self, *args, **kwargs):

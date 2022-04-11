@@ -1,31 +1,41 @@
 import sys
+import time
 import logging
 import asyncio
-from enum import Enum
 from distutils.util import strtobool
+import functools
 
 from decimal import Decimal
 from bidict import bidict
-from async_timeout import timeout
+# from async_timeout import timeout
 
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType  # , TradeType
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    #    BuyOrderCompletedEvent,
-    #    BuyOrderCreatedEvent,
-    #    MarketOrderFailureEvent,
-    #    OrderCancelledEvent,
-    #    OrderFilledEvent,
-)
 import hummingbot.logger.logger
 from hummingbot.logger.logger import HummingbotLogger
 import hummingbot.core.pubsub
 
 from certs import creds
+
+
+class Prompt:
+    def __init__(self, loop=None):
+        self.loop = loop or asyncio.get_event_loop()
+        self.q = asyncio.Queue()
+        self.loop.add_reader(sys.stdin, self.got_input)
+
+    def got_input(self):
+        asyncio.ensure_future(self.q.put(sys.stdin.readline()), loop=self.loop)
+
+    async def __call__(self, msg, end='\n', flush=False):
+        print(msg, end=end, flush=flush)
+        return (await self.q.get()).rstrip('\n')
+
+
+async_input = None
 
 
 class TestingHL(HummingbotLogger):
@@ -40,38 +50,30 @@ hummingbot.logger.logger.HummingbotLogger = TestingHL
 logging.getLogger().setLevel(logging.DEBUG)
 
 
-class FixPubSub(hummingbot.core.pubsub.PubSub):
-    def trigger_event(self, event_tag: Enum, message: any):
-        print("EVENT ", event_tag, message)
-        self.c_trigger_event(event_tag.value, message)
-
-
-# KeyError: '__pyx_vtable__'
-# hummingbot.core.pubsub.PubSub = FixPubSub
-
-
 async def sleep_yes_no(question):
-    await asyncio.sleep(5)
-    sys.stdout.write('\n%s [y/n]\n' % question)
+    await asyncio.sleep(3)
     while True:
         try:
-            answer = strtobool(input().lower())
+            answer = await async_input("\n--> " + question + " [y/n]")
+            print("\n")
+            answer = strtobool(answer.lower())
             if not answer:
                 print('sleep for 5')
                 await asyncio.sleep(5)
             else:
                 return answer
         except ValueError:
-            sys.stdout.write('Please respond with \'y\' or \'n\'.\n')
+            pass
 
 
-def proceed(question):
-    sys.stdout.write('\n%s [y/n]\n' % question)
+async def proceed(question):
     while True:
         try:
-            return strtobool(input().lower())
+            answer = await async_input("\n--> " + question + " [y/n]")
+            print("\n")
+            return strtobool(answer.lower())
         except ValueError:
-            sys.stdout.write('Please respond with \'y\' or \'n\'.\n')
+            pass
 
 
 def get_binance(trading_pair):
@@ -93,6 +95,18 @@ def get_gate_io(trading_pair):
 class ExchangeClient(object):
     # the level is required to receive logs from the data source logger
     level = 0
+    log_records = []
+
+    def handle(self, log):
+        print('handle ', log)
+        self.log_records.append(log)
+
+    def _initialize_event_loggers(self):
+        self.event_logger = EventLogger()
+        # TODO subscribe to other events?
+        for event in self.exchange.MARKET_EVENTS:
+            self.exchange.add_listener(event, self.event_logger)
+            print(event)
 
     def set_trading_pair(self, base, quote):
         self.base_asset = base
@@ -102,13 +116,13 @@ class ExchangeClient(object):
         self.symbol = f"{self.base_asset}{self.quote_asset}"
 
     async def start(self) -> None:
-        self.log_records = []
-        self.test_task = None  # : Optional[asyncio.Task] = None
-
-        self.set_trading_pair("COINALPHA", "HBOT")
-        self.set_trading_pair("XRP", "USD")
-        # self.exchange = get_binance(self.trading_pair)
+        self.base = "ETH"
+        self.quote = "USDT"
+        self.pair = f"{self.base}-{self.quote}"
+        self.set_trading_pair(self.base, self.quote)
         self.exchange = get_gate_io(self.trading_pair)
+        # self.exchange = get_binance(self.trading_pair)
+        # TODO
         self.exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
             "com": bidict(
                 {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
@@ -125,31 +139,18 @@ class ExchangeClient(object):
         self.exchange._order_tracker.logger().addHandler(self)
         self._initialize_event_loggers()
 
-        await self.tests()
+        tasks = [
+            self.loop_clock(),
+            self.tests()
+        ]
+        await asyncio.gather(*tasks)
 
-    def _initialize_event_loggers(self):
-        self.buy_order_completed_logger = EventLogger()
-        self.buy_order_created_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
-        self.order_failure_logger = EventLogger()
-        self.order_filled_logger = EventLogger()
-        self.sell_order_completed_logger = EventLogger()
-        self.sell_order_created_logger = EventLogger()
-
-        # TODO
-        # subscribe to other events
-        # use only 1 logger
-        events_and_loggers = [
-            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
-            (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-            (MarketEvent.OrderFailure, self.order_failure_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
-
-        for event, logger in events_and_loggers:
-            self.exchange.add_listener(event, logger)
+    async def loop_clock(self):
+        while True:
+            ts = time.time()
+            # print(f'ticking {ts}')
+            self.exchange.tick(ts)
+            await asyncio.sleep(1)
 
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
@@ -161,74 +162,51 @@ class ExchangeClient(object):
             )
         }
 
-    def handle(self, log):
-        self.log_records.append(log)
-
-    async def task_and_gather(self, f):
-        ret = await asyncio.gather(*[
-            asyncio.create_task(f)
-        ])
-        if ret:
-            return ret[0]
-        return ret
-
-    async def get_msg_from_queue(self):
-        results = []
-        try:
-            async with timeout(5):
-                tasks = [
-                    self.exchange._order_book_tracker._order_book_snapshot_stream.get(),
-                    self.exchange._order_book_tracker._order_book_trade_stream.get(),
-                    # OK
-                    self.exchange._user_stream_tracker._user_stream.get()
-                ]
-                results = await asyncio.gather(*tasks)
-        except asyncio.exceptions.TimeoutError:
-            pass
-        print('msgs ', results)
-
-    async def update_balances(self):
-        return await self.task_and_gather(self.exchange._update_balances())
-
     async def tests(self):
-        base = "ETH"
-        quote = "USDT"
-        pair = f"{base}-{quote}"
-        self.set_trading_pair(base, quote)
         self._simulate_trading_rules_initialized()
-
+        # TODO Unclosed client session
         await self.exchange.start_network()
-        await self.update_balances()
 
-        if proceed("run two failed orders?"):
-            order_id = self.exchange.buy(pair, amount=Decimal(0.1), price=Decimal(1), order_type=OrderType.LIMIT)
-            order_id = self.exchange.buy(pair, amount=Decimal(1000000), price=Decimal(1), order_type=OrderType.LIMIT)
+        r = await self.exchange._update_balances()
+        print(r)
+        r = await self.exchange.check_network()
+        print(r)
+
+        global async_input
+        prompt = Prompt()
+        async_input = functools.partial(prompt, end='', flush=True)
+        await asyncio.sleep(3)
+
+        if await proceed("run two failed orders?"):
+            # this one will fail for the 1% margin:
+            # "Add 1% as a safety factor in case the prices changed while making the order."
+            order_id = self.exchange.buy(self.pair, amount=Decimal(0.1), price=Decimal(1), order_type=OrderType.LIMIT)
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1000000), price=Decimal(1), order_type=OrderType.LIMIT)
             await sleep_yes_no("Two order should have failed.")
 
-        if proceed("run 1% safety?"):
-            order_id = self.exchange.buy(pair, amount=Decimal(1), price=Decimal(1), order_type=OrderType.LIMIT)
-            await sleep_yes_no(f"LIMIT buy {order_id} should have failed because of line 816 1% safety")
-
-        if proceed("run buy succeeeds then cancel?"):
-            order_id = self.exchange.buy(pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
+        if await proceed("run buy succeeeds then cancel?"):
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
             await sleep_yes_no(f"LIMIT buy {order_id} should have succeeded")
-            order_id = self.exchange.cancel(pair, order_id)
+            order_id = self.exchange.cancel(self.pair, order_id)
             await sleep_yes_no(f"{order_id} should have been canceled")
 
-        if proceed("run buy and cancel via web?"):
-            order_id = self.exchange.buy(pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
+        if await proceed("run buy and cancel via web?"):
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
             await sleep_yes_no(f"{order_id} should have been placed")
-            if proceed("did you delete it via web?"):
+            if await proceed("did you delete it via web?"):
                 await sleep_yes_no(f"{order_id} should have been cancelled")
 
         return
 
         # multiple orders +
-        # cancellations = await self.exchange.cancel_all(10)
+        if await proceed("run buy and cancel via web?"):
+            pass  # cancellations = await self.exchange.cancel_all(10)
 
         # check ws create order update and balance update
+        if await proceed("run buy and cancel via web?"):
+            pass
 
-        # connect to ws order book and make sure 1 update is received
+        # ws order book and make sure updates are received
 
         # to check no methods were left untested, run test pure mm strategy
 

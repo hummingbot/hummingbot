@@ -11,7 +11,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 
 from .gate_io_auth import GateIoAuth
-from .gate_io_utils import GateIoAPIError, convert_to_exchange_trading_pair
+from .gate_io_web_utils import GateIoAPIError, convert_to_exchange_trading_pair
 from .gate_io_websocket import GateIoWebsocket
 
 
