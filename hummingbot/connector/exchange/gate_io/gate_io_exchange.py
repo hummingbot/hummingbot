@@ -13,14 +13,7 @@ from hummingbot.connector.exchange.gate_io import (
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
-
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-
-from hummingbot.connector.exchange.gate_io.gate_io_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-    GateIoAPIError,
-)
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.core.event.events import (
@@ -128,7 +121,7 @@ class GateIoExchange(ExchangeBaseV2):
         result = []
         for rule in raw_trading_pair_info:
             try:
-                trading_pair = convert_from_exchange_trading_pair(rule["id"])
+                trading_pair = web_utils.convert_from_exchange_trading_pair(rule["id"])
                 min_amount_inc = Decimal(f"1e-{rule['amount_precision']}")
                 min_price_inc = Decimal(f"1e-{rule['precision']}")
                 min_amount = Decimal(str(rule.get("min_base_amount", min_amount_inc)))
@@ -162,7 +155,7 @@ class GateIoExchange(ExchangeBaseV2):
         #    api_factory=self._api_factory,
         #    throttler=self._throttler,
         #    time_synchronizer=self._time_synchronizer)
-        symbol = convert_to_exchange_trading_pair(trading_pair)
+        symbol = web_utils.convert_to_exchange_trading_pair(trading_pair)
         data = {
             "text": order_id,
             "currency_pair": symbol,
@@ -182,7 +175,7 @@ class GateIoExchange(ExchangeBaseV2):
             limit_id=endpoint,
         )
         if order_result.get('status') in {"cancelled", "expired", "failed"}:
-            raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+            raise web_utils.GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, time.time()
 
@@ -195,14 +188,14 @@ class GateIoExchange(ExchangeBaseV2):
             resp = await self._api_delete(
                 path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(id=exchange_order_id),
                 params={
-                    'currency_pair': convert_to_exchange_trading_pair(tracked_order.trading_pair)
+                    'currency_pair': web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
             )
             if resp["status"] == "cancelled":
                 cancelled = True
-        except (asyncio.TimeoutError, GateIoAPIError) as e:
+        except (asyncio.TimeoutError, web_utils.GateIoAPIError) as e:
             if isinstance(e, asyncio.TimeoutError):
                 err_msg = 'Order not tracked.'
                 err_lbl = 'ORDER_NOT_FOUND'
@@ -269,7 +262,7 @@ class GateIoExchange(ExchangeBaseV2):
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
                 continue
 
-            trading_pair = convert_to_exchange_trading_pair(tracked_order.trading_pair)
+            trading_pair = web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
             reviewed_orders.append(tracked_order)
 
             request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
@@ -294,7 +287,7 @@ class GateIoExchange(ExchangeBaseV2):
         self.logger().debug(f"Gathering trade updates for {len(tracked_orders)} orders.")
         responses = await safe_gather(*request_tasks, return_exceptions=True)
         for response, tracked_order in zip(responses, reviewed_orders):
-            if not isinstance(response, GateIoAPIError):
+            if not isinstance(response, web_utils.GateIoAPIError):
                 if len(response) > 0:
                     for trade_fills in response:
                         self._process_trade_message(trade_fills, tracked_order.client_order_id)
@@ -308,7 +301,7 @@ class GateIoExchange(ExchangeBaseV2):
         self.logger().debug(f"Gathering order updates for {len(tracked_orders)} orders.")
         responses = await safe_gather(*order_status_tasks, return_exceptions=True)
         for response, tracked_order in zip(responses, tracked_orders):
-            if not isinstance(response, GateIoAPIError):
+            if not isinstance(response, web_utils.GateIoAPIError):
                 self._process_order_message(response)
             else:
                 self.logger().warning(f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "

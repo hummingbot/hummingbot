@@ -6,7 +6,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIoAPIError, build_gate_io_api_factory
+from hummingbot.connector.exchange.gate_io.gate_io_web_utils import GateIoAPIError, build_api_factory
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -27,7 +27,7 @@ class GateIoWebsocket:
                  api_factory: Optional[WebAssistantsFactory] = None):
         self._auth: Optional[GateIoAuth] = auth
         self._is_private = True if self._auth is not None else False
-        self._api_factory = api_factory or build_gate_io_api_factory()
+        self._api_factory = api_factory or build_api_factory()
         self._ws_assistant: Optional[WSAssistant] = None
         self._closed = True
 

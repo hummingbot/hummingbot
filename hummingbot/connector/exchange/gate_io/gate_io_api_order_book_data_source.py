@@ -21,11 +21,11 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.logger import HummingbotLogger
 
 from .gate_io_order_book import GateIoOrderBook
-from .gate_io_utils import (
+from .gate_io_web_utils import (
     GateIoAPIError,
     GateIORESTRequest,
     api_call_with_retries,
-    build_gate_io_api_factory,
+    build_api_factory,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair
 )
@@ -62,7 +62,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
-        self._api_factory = api_factory or build_gate_io_api_factory()
+        self._api_factory = api_factory or build_api_factory()
         self._rest_assistant: Optional[RESTAssistant] = None
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
@@ -271,7 +271,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         throttler = throttler or cls._get_throttler_instance()
-        api_factory = build_gate_io_api_factory()
+        api_factory = build_api_factory()
         rest_assistant = rest_assistant or await api_factory.get_rest_assistant()
         logger = logger or logging.getLogger()
         try:

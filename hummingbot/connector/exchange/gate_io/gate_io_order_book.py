@@ -85,12 +85,12 @@ class GateIoOrderBook(OrderBook):
         # TODO should we use timestamp coming from the message?
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
+            "trade_type": float(TradeType.SELL.value) if msg["side"] == "sell" else float(TradeType.BUY.value),
+            "trade_id": msg["trade_id"],
             # "update_id": ts,
             "update_id": timestamp,
-            "price": msg["p"],
-            "amount": msg["q"]
+            "price": msg["price"],
+            "amount": msg["amount"]
         }, timestamp=timestamp)
         # }, timestamp=ts * 1e-3)
 
