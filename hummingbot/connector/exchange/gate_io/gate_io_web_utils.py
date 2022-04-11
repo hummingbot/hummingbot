@@ -118,7 +118,7 @@ async def api_request(path: str,
         throttler_limit_id=limit_id if limit_id else path
     )
 
-    def close_session_if():
+    async def close_session_if():
         if close_session:
             await api_factory._connections_factory._shared_client.close()
 
@@ -127,11 +127,11 @@ async def api_request(path: str,
         if response.status not in (200, 201):
             if return_err:
                 error_response = await response.json()
-                close_session_if()
+                await close_session_if()
                 return error_response
             else:
                 error_response = await response.text()
-                close_session_if()
+                await close_session_if()
                 if error_response is not None and "code" in error_response and "msg" in error_response:
                     raise IOError(f"The request to {EXCHANGE} failed. Error: {error_response}. Request: {request}")
                 else:
@@ -139,7 +139,7 @@ async def api_request(path: str,
                                   f"HTTP status is {response.status}. "
                                   f"Error: {error_response}")
         j = await response.json()
-        close_session_if()
+        await close_session_if()
         return j
 
 

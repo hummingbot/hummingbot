@@ -196,14 +196,18 @@ class ExchangeClient(object):
             if await proceed("did you delete it via web?"):
                 await sleep_yes_no(f"{order_id} should have been cancelled")
 
+        if await proceed("3 orders and cancel_all?"):
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
+            if await proceed("orders created?"):
+                cancellations = await self.exchange.cancel_all(10)
+                print(cancellations)
+
         return
 
-        # multiple orders +
-        if await proceed("run buy and cancel via web?"):
-            pass  # cancellations = await self.exchange.cancel_all(10)
-
         # check ws create order update and balance update
-        if await proceed("run buy and cancel via web?"):
+        if await proceed(""):
             pass
 
         # ws order book and make sure updates are received

@@ -32,8 +32,7 @@ class GateIoAuth(AuthBase):
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
-        # TODO test / needed?
-        return request
+        raise NotImplementedError
 
     def _get_auth_headers_ws(self, payload: Dict[str, Any] = None) -> Dict[str, Any]:
         """
