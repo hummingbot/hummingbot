@@ -26,6 +26,13 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import (
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PositionSide,
+    TradeType
+)
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -41,13 +48,8 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -782,10 +784,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.client_order_id,
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        tracked_order.fee_asset,
                         tracked_order.executed_amount_base,
                         tracked_order.executed_amount_quote,
-                        tracked_order.fee_paid,
                         tracked_order.order_type,
                     ),
                 )
@@ -801,10 +801,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.client_order_id,
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        tracked_order.fee_asset,
                         tracked_order.executed_amount_base,
                         tracked_order.executed_amount_quote,
-                        tracked_order.fee_paid,
                         tracked_order.order_type,
                     ),
                 )

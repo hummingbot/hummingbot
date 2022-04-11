@@ -3,6 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
 
@@ -36,56 +37,12 @@ class HummingbotUIEvent(Enum):
     Start = 1
 
 
-class TradeType(Enum):
-    BUY = 1
-    SELL = 2
-    RANGE = 3
-
-
-class OrderType(Enum):
-    MARKET = 1
-    LIMIT = 2
-    LIMIT_MAKER = 3
-
-    def is_limit_type(self):
-        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
-
-
-class PositionAction(Enum):
-    OPEN = "OPEN"
-    CLOSE = "CLOSE"
-    NIL = "NIL"
-
-
-# For Derivatives Exchanges
-class PositionSide(Enum):
-    LONG = "LONG"
-    SHORT = "SHORT"
-    BOTH = "BOTH"
-
-
-# For Derivatives Exchanges
-class PositionMode(Enum):
-    HEDGE = True
-    ONEWAY = False
-
-
 class FundingInfo(NamedTuple):
     trading_pair: str
     index_price: Decimal
     mark_price: Decimal
     next_funding_utc_timestamp: int
     rate: Decimal
-
-
-class PriceType(Enum):
-    MidPrice = 1
-    BestBid = 2
-    BestAsk = 3
-    LastTrade = 4
-    LastOwnTrade = 5
-    InventoryCost = 6
-    Custom = 7
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -105,10 +62,8 @@ class BuyOrderCompletedEvent:
     order_id: str
     base_asset: str
     quote_asset: str
-    fee_asset: str
     base_asset_amount: Decimal
     quote_asset_amount: Decimal
-    fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
 
@@ -119,10 +74,8 @@ class SellOrderCompletedEvent:
     order_id: str
     base_asset: str
     quote_asset: str
-    fee_asset: str
     base_asset_amount: Decimal
     quote_asset_amount: Decimal
-    fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
 

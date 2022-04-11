@@ -13,8 +13,9 @@ import ujson
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
-    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import (
+    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource,
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
@@ -31,12 +32,20 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import (
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PositionSide,
+    TradeType,
+)
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -45,15 +54,9 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionAction,
-    PositionMode,
-    PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -507,7 +510,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id: str = bybit_utils.get_new_client_order_id(True, trading_pair)
+        order_id = get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
         safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
@@ -529,7 +532,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param price: The price in which the order is to be placed at
         :returns: A new client order id
         """
-        order_id: str = bybit_utils.get_new_client_order_id(False, trading_pair)
+        order_id = get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
         safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
                                               trading_pair=trading_pair,
                                               order_id=order_id,
@@ -1031,10 +1034,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        tracked_order.client_order_id,
                                        tracked_order.base_asset,
                                        tracked_order.quote_asset,
-                                       tracked_order.fee_asset,
                                        tracked_order.executed_amount_base,
                                        tracked_order.executed_amount_quote,
-                                       tracked_order.fee_paid,
                                        tracked_order.order_type,
                                        tracked_order.exchange_order_id))
         self.stop_tracking_order(tracked_order.client_order_id)

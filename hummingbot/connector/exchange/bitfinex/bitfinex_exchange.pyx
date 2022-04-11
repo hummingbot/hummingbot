@@ -33,6 +33,7 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_websocket import BitfinexWe
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -44,10 +45,8 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -1092,10 +1091,8 @@ cdef class BitfinexExchange(ExchangeBase):
                             tracked_order.client_order_id,
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            (tracked_order.fee_asset or tracked_order.quote_asset),
                             tracked_order.executed_amount_base,
                             tracked_order.executed_amount_quote,
-                            tracked_order.fee_paid,
                             tracked_order.order_type
                         )
                     )
@@ -1305,11 +1302,8 @@ cdef class BitfinexExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -1319,11 +1313,8 @@ cdef class BitfinexExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "

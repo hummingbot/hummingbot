@@ -2,19 +2,28 @@ import asyncio
 import time
 import unittest
 from decimal import Decimal
+from typing import Awaitable
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.core.data_type.common import PositionAction, OrderType, TradeType
+from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.event.events import PositionAction
-from hummingbot.model.trade_fill import TradeFill
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.model.order import Order  # noqa — Order needs to be defined for TradeFill
+from hummingbot.model.order_status import OrderStatus  # noqa — Order needs to be defined for TradeFill
+from hummingbot.model.trade_fill import TradeFill
 
 trading_pair = "HBOT-USDT"
 base, quote = trading_pair.split("-")
 
 
 class PerformanceMetricsUnitTest(unittest.TestCase):
+
+    def tearDown(self) -> None:
+        RateOracle._shared_instance = None
+        super().tearDown()
+
     def mock_trade(self, id, amount, price, position="OPEN", type="BUY", fee=None):
         trade = MagicMock()
         trade.order_id = id
@@ -26,6 +35,10 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
             trade.trade_fee = fee.to_json()
 
         return trade
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def test_position_order_returns_nothing_when_no_open_and_no_close_orders(self):
         trade_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
@@ -111,6 +124,10 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(aggregated_sells[1], trades[1])
 
     def test_performance_metrics(self):
+        rate_oracle = RateOracle()
+        rate_oracle._prices["USDT-HBOT"] = Decimal("5")
+        RateOracle._shared_instance = rate_oracle
+
         trade_fee = AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])
         trades = [
             TradeFill(
@@ -150,42 +167,48 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         ]
         cur_bals = {base: 100, quote: 10000}
         metrics = asyncio.get_event_loop().run_until_complete(
-            PerformanceMetrics.create("hbot_exchange", trading_pair, trades, cur_bals))
-        self.assertEqual(Decimal("200"), metrics.trade_pnl)
+            PerformanceMetrics.create(trading_pair, trades, cur_bals))
+        self.assertEqual(Decimal("799"), metrics.trade_pnl)
         print(metrics)
 
     @patch('hummingbot.client.performance.PerformanceMetrics._is_trade_fill')
     def test_performance_metrics_for_derivatives(self, is_trade_fill_mock):
+        rate_oracle = RateOracle()
+        rate_oracle._prices["USDT-HBOT"] = Decimal("5")
+        RateOracle._shared_instance = rate_oracle
+
         is_trade_fill_mock.return_value = True
         trades = []
         trades.append(self.mock_trade(id="order1",
-                                      amount=100,
-                                      price=10,
+                                      amount=Decimal("100"),
+                                      price=Decimal("10"),
                                       position="OPEN",
                                       type="BUY",
-                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, 0)])))
+                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])))
         trades.append(self.mock_trade(id="order2",
-                                      amount=100,
-                                      price=15,
+                                      amount=Decimal("100"),
+                                      price=Decimal("15"),
                                       position="CLOSE",
                                       type="SELL",
-                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, 0)])))
+                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])))
         trades.append(self.mock_trade(id="order3",
-                                      amount=100,
-                                      price=20,
+                                      amount=Decimal("100"),
+                                      price=Decimal("20"),
                                       position="OPEN",
                                       type="SELL",
-                                      fee=AddedToCostTradeFee(0.1, flat_fees=[TokenAmount("USD", 0)])))
+                                      fee=AddedToCostTradeFee(Decimal("0.1"),
+                                                              flat_fees=[TokenAmount("USD", Decimal("0"))])))
         trades.append(self.mock_trade(id="order4",
-                                      amount=100,
-                                      price=15,
+                                      amount=Decimal("100"),
+                                      price=Decimal("15"),
                                       position="CLOSE",
                                       type="BUY",
-                                      fee=AddedToCostTradeFee(0.1, flat_fees=[TokenAmount("USD", 0)])))
+                                      fee=AddedToCostTradeFee(Decimal("0.1"),
+                                                              flat_fees=[TokenAmount("USD", Decimal("0"))])))
 
         cur_bals = {base: 100, quote: 10000}
         metrics = asyncio.get_event_loop().run_until_complete(
-            PerformanceMetrics.create("hbot_exchange", trading_pair, trades, cur_bals))
+            PerformanceMetrics.create(trading_pair, trades, cur_bals))
         self.assertEqual(metrics.num_buys, 2)
         self.assertEqual(metrics.num_sells, 2)
         self.assertEqual(metrics.num_trades, 4)
@@ -203,7 +226,7 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(metrics.cur_base_bal, 100)
         self.assertEqual(metrics.cur_quote_bal, 10000),
         self.assertEqual(metrics.start_price, Decimal("10")),
-        self.assertEqual(metrics.cur_price, Decimal("15"))
+        self.assertEqual(metrics.cur_price, Decimal("0.2"))
         self.assertEqual(metrics.trade_pnl, Decimal("1000"))
         self.assertEqual(metrics.total_pnl, Decimal("650"))
 
@@ -230,3 +253,76 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
 
         value = PerformanceMetrics.smart_round(Decimal("0.123456"), 2)
         self.assertEqual(value, Decimal("0.12"))
+
+    def test_calculate_fees_in_quote_for_one_trade_with_fees_different_tokens(self):
+        rate_oracle = RateOracle()
+        rate_oracle._prices["DAI-COINALPHA"] = Decimal("2")
+        rate_oracle._prices["USDT-DAI"] = Decimal("0.9")
+        RateOracle._shared_instance = rate_oracle
+
+        performance_metric = PerformanceMetrics()
+        flat_fees = [
+            TokenAmount(token="USDT", amount=Decimal("10")),
+            TokenAmount(token="DAI", amount=Decimal("5")),
+        ]
+        trade = Trade(
+            trading_pair="HBOT-COINALPHA",
+            side=TradeType.BUY,
+            price=Decimal("1000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            market="binance",
+            timestamp=1640001112.223,
+            trade_fee=AddedToCostTradeFee(percent=Decimal("0.1"),
+                                          percent_token="COINALPHA",
+                                          flat_fees=flat_fees)
+        )
+
+        self.async_run_with_timeout(performance_metric._calculate_fees(
+            quote="COINALPHA",
+            trades=[trade]))
+
+        expected_fee_amount = trade.amount * trade.price * trade.trade_fee.percent
+        expected_fee_amount += flat_fees[0].amount * Decimal("0.9") * Decimal("2")
+        expected_fee_amount += flat_fees[1].amount * Decimal("2")
+        self.assertEqual(expected_fee_amount, performance_metric.fee_in_quote)
+
+    def test_calculate_fees_in_quote_for_one_trade_fill_with_fees_different_tokens(self):
+        rate_oracle = RateOracle()
+        rate_oracle._prices["DAI-COINALPHA"] = Decimal("2")
+        rate_oracle._prices["USDT-DAI"] = Decimal("0.9")
+        RateOracle._shared_instance = rate_oracle
+
+        performance_metric = PerformanceMetrics()
+        flat_fees = [
+            TokenAmount(token="USDT", amount=Decimal("10")),
+            TokenAmount(token="DAI", amount=Decimal("5")),
+        ]
+        trade = TradeFill(
+            config_file_path="some-strategy.yml",
+            strategy="pure_market_making",
+            market="binance",
+            symbol="HBOT-COINALPHA",
+            base_asset="HBOT",
+            quote_asset="COINALPHA",
+            timestamp=int(time.time()),
+            order_id="someId0",
+            trade_type="BUY",
+            order_type="LIMIT",
+            price=1000,
+            amount=1,
+            trade_fee=AddedToCostTradeFee(percent=Decimal("0.1"),
+                                          percent_token="COINALPHA",
+                                          flat_fees=flat_fees).to_json(),
+            exchange_trade_id="someExchangeId0",
+            position=PositionAction.NIL.value,
+        )
+
+        self.async_run_with_timeout(performance_metric._calculate_fees(
+            quote="COINALPHA",
+            trades=[trade]))
+
+        expected_fee_amount = Decimal(str(trade.amount)) * Decimal(str(trade.price)) * Decimal("0.1")
+        expected_fee_amount += flat_fees[0].amount * Decimal("0.9") * Decimal("2")
+        expected_fee_amount += flat_fees[1].amount * Decimal("2")
+        self.assertEqual(expected_fee_amount, performance_metric.fee_in_quote)

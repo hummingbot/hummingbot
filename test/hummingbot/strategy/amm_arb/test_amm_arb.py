@@ -10,16 +10,15 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    OrderType,
-    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-)
+    SellOrderCompletedEvent)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -245,7 +244,7 @@ class AmmArbUnitTest(unittest.TestCase):
         event_class = BuyOrderCompletedEvent if is_buy else SellOrderCompletedEvent
         connector.trigger_event(event_tag,
                                 event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
-                                            quote_asset, amount, amount * price, Decimal("0"), OrderType.LIMIT))
+                                            amount, amount * price, OrderType.LIMIT))
 
     def test_non_concurrent_orders_submission(self):
         # On non concurrent orders submission, the second leg of the arb trade has to wait for the first leg order gets

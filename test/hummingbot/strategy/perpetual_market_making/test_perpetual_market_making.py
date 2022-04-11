@@ -8,20 +8,16 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
+from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    PositionMode,
-    PositionSide,
-    PriceType,
     SellOrderCompletedEvent,
-    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.strategy.data_types import Proposal, PriceSize
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
@@ -152,10 +148,8 @@ class PerpetualMarketMakingTests(TestCase):
             limit_order.client_order_id,
             base_currency,
             quote_currency,
-            quote_currency,
             base_currency_traded,
             quote_currency_traded,
-            Decimal("0"),
             OrderType.LIMIT
         ))
 
@@ -711,9 +705,9 @@ class PerpetualMarketMakingTests(TestCase):
                            "\n    Total Balance     50000"
                            "\n    Available Balance 45000"
                            "\n\n  Orders:"
-                           "\n     Level Type  Price Spread Amount (Orig)  Amount (Adj) Age"
-                           "\n         1 sell    140 40.00%           100           100 n/a"
-                           "\n         1  buy     50 50.00%           100           100 n/a"
+                           "\n     Level Type  Price Spread Amount (Orig)  Amount (Adj)      Age"
+                           "\n         1 sell    140 40.00%           100           100 00:00:00"
+                           "\n         1  buy     50 50.00%           100           100 00:00:00"
                            "\n\n  No active positions.")
         status = self.strategy.format_status()
 

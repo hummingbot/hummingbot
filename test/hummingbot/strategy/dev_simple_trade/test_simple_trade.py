@@ -1,29 +1,31 @@
-#!/usr/bin/env python
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from decimal import Decimal
-import logging; logging.basicConfig(level=logging.ERROR)
-import pandas as pd
-from typing import List
+import logging
 import unittest
+from decimal import Decimal
+from typing import List
+
+import pandas as pd
+
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
     MarketEvent,
     OrderCancelledEvent,
-    TradeType,
-    OrderType,
     OrderFilledEvent,
-    BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from test.mock.mock_paper_exchange import MockPaperExchange
+
+logging.basicConfig(level=logging.ERROR)
 
 
 class SimpleTradeUnitTest(unittest.TestCase):
@@ -140,10 +142,8 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -164,10 +164,8 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
 

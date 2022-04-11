@@ -164,7 +164,8 @@ cdef class LimitOrder:
 
     def __repr__(self) -> str:
         return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "
-                f"'{self.quote_currency}', {self.price}, {self.quantity}, {self.filled_quantity})")
+                f"'{self.quote_currency}', {self.price}, {self.quantity}, {self.filled_quantity}, "
+                f"{self.creation_timestamp})")
 
 
 cdef LimitOrder c_create_limit_order_from_cpp_limit_order(const CPPLimitOrder cpp_limit_order):

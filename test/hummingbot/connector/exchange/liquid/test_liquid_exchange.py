@@ -6,14 +6,12 @@ from unittest import TestCase
 from unittest.mock import AsyncMock
 
 from hummingbot.connector.exchange.liquid.liquid_exchange import LiquidExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    OrderType,
-    TradeType,
 )
 
 
@@ -247,7 +245,3 @@ class LiquidExchangeTests(TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-
-        buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(Decimal(30), buy_complete_event.fee_amount)
-        self.assertEqual(complete_fill["funding_currency"], buy_complete_event.fee_asset)

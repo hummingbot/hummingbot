@@ -9,11 +9,8 @@ from typing import (
 
 from async_timeout import timeout
 
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType
-)
 
 s_decimal_0 = Decimal(0)
 
@@ -182,5 +179,4 @@ cdef class InFlightOrderBase:
             nonce_component = self.client_order_id[-16:]
             timestamp_string = f"{nonce_component[:10]}.{nonce_component[-6:]}"
             timestamp = float(timestamp_string) if nonce_component.isnumeric() else -1
-            start_timestamp = int(timestamp)
         return timestamp
