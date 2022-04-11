@@ -17,7 +17,6 @@ class MarketEvent(Enum):
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108
-    OrderCancelationFailed = 109
     OrderFailure = 198
     TransactionFailure = 199
     BuyOrderCreated = 200
