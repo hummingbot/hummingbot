@@ -2,19 +2,18 @@ import { Request, Response, Router } from 'express';
 import { asyncHandler } from '../../services/error-handler';
 import { verifySolanaIsAvailable } from '../../chains/solana/solana-middlewares';
 import { verifySerumIsAvailable } from './serum-middlewares';
-import { SolanaConfig } from '../../chains/solana/solana.config';
 import { Solana } from '../../chains/solana/solana';
 import { validatePublicKey } from '../../chains/solana/solana.validators';
 import {
   deleteOpenOrders,
-  deleteOrders,
+  cancelOrders,
   getFilledOrders,
   getMarkets,
   getOpenOrders,
   getOrderBooks,
   getOrders,
   getTickers,
-  postOrders,
+  createOrders,
 } from './serum.controllers';
 import {
   SerumDeleteOpenOrdersRequest,
@@ -37,35 +36,50 @@ import {
   SerumPostOrdersResponse,
 } from './serum.requests';
 import { Serum } from './serum';
+import { StatusCodes } from 'http-status-codes';
 
-export namespace MangoRoutes {
+export namespace SerumRoutes {
   export const router = Router();
-  export const solana = Solana.getInstance();
-  export const serum = Serum.getInstance();
+
+  export const getSolana = async (request: Request) =>
+    await Solana.getInstance(request.body.chain);
+
+  export const getSerum = async (request: Request) =>
+    await Serum.getInstance(request.body.chain, request.body.network);
 
   router.use(
     asyncHandler(verifySolanaIsAvailable),
     asyncHandler(verifySerumIsAvailable)
   );
 
-  router.get('/', async (_request: Request, response: Response) => {
-    response.status(200).json({
-      network: SolanaConfig.config.network.slug,
-      connection: serum.ready,
-      timestamp: Date.now(),
-    });
-  });
+  router.get(
+    '/',
+    asyncHandler(
+      async (request: Request<any>, response: Response<any, any>) => {
+        const serum = await getSerum(request);
+
+        response.status(StatusCodes.OK).json({
+          network: serum.network,
+          connection: serum.ready,
+          timestamp: Date.now(),
+        });
+      }
+    )
+  );
 
   router.get(
     '/markets',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumGetMarketsRequest>,
+        request: Request<any, any, SerumGetMarketsRequest>,
         response: Response<SerumGetMarketsResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         const result = await getMarkets(solana, serum, request.body);
 
-        response.status(result.status).json(result);
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -77,12 +91,15 @@ export namespace MangoRoutes {
     '/tickers',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumGetTickersRequest>,
+        request: Request<any, any, SerumGetTickersRequest>,
         response: Response<SerumGetTickersResponse, any>
       ) => {
-        response
-          .status(200)
-          .json(await getTickers(solana, serum, request.body));
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
+        const result = await getTickers(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -91,13 +108,15 @@ export namespace MangoRoutes {
     '/orderBooks',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumGetOrderBooksRequest>,
+        request: Request<any, any, SerumGetOrderBooksRequest>,
         response: Response<SerumGetOrderBooksResponse, any>
       ) => {
-        // TODO: 404 if requested market does not exist
-        response
-          .status(200)
-          .json(await getOrderBooks(solana, serum, request.body));
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
+        const result = await getOrderBooks(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -106,11 +125,17 @@ export namespace MangoRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumGetOrdersRequest>,
+        request: Request<any, any, SerumGetOrdersRequest>,
         response: Response<SerumGetOrdersResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         validatePublicKey(request.body);
-        response.status(200).json(await getOrders(solana, serum, request.body));
+
+        const result = await getOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -119,13 +144,17 @@ export namespace MangoRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumPostOrdersRequest>,
+        request: Request<any, any, SerumPostOrdersRequest>,
         response: Response<SerumPostOrdersResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         validatePublicKey(request.body);
-        response
-          .status(200)
-          .json(await postOrders(solana, serum, request.body));
+
+        const result = await createOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -134,13 +163,17 @@ export namespace MangoRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumDeleteOrdersRequest>,
+        request: Request<any, any, SerumDeleteOrdersRequest>,
         response: Response<SerumDeleteOrdersResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         validatePublicKey(request.body);
-        response
-          .status(200)
-          .json(await deleteOrders(solana, serum, request.body));
+
+        const result = await cancelOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -149,13 +182,17 @@ export namespace MangoRoutes {
     '/openOrders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumGetOpenOrdersRequest>,
+        request: Request<any, any, SerumGetOpenOrdersRequest>,
         response: Response<SerumGetOpenOrdersResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         validatePublicKey(request.body);
-        response
-          .status(200)
-          .json(await getOpenOrders(solana, serum, request.body));
+
+        const result = await getOpenOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -164,13 +201,17 @@ export namespace MangoRoutes {
     '/openOrders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumDeleteOpenOrdersRequest>,
+        request: Request<any, any, SerumDeleteOpenOrdersRequest>,
         response: Response<SerumDeleteOpenOrdersResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         validatePublicKey(request.body);
-        response
-          .status(200)
-          .json(await deleteOpenOrders(solana, serum, request.body));
+
+        const result = await deleteOpenOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -179,13 +220,17 @@ export namespace MangoRoutes {
     '/filledOrders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, SerumGetFilledOrdersRequest>,
+        request: Request<any, any, SerumGetFilledOrdersRequest>,
         response: Response<SerumGetFilledOrdersResponse, any>
       ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
         validatePublicKey(request.body);
-        response
-          .status(200)
-          .json(await getFilledOrders(solana, serum, request.body));
+
+        const result = await getFilledOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );

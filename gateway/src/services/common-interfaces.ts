@@ -147,11 +147,18 @@ export interface NetworkSelectionRequest {
   connector?: string; //the target connector (e.g. uniswap or pangolin)
 }
 
-export class BaseResponse<T> {
-  status?: number;
+export class ResponseWrapper<T> {
+  get status(): number {
+    return this._status || -1;
+  }
+  set status(value: number) {
+    this._status = value;
+  }
+  private _status: number | undefined;
+
   title?: string;
   message?: string;
-  body?: T | any;
+  body?: T;
 }
 
 export interface CustomTransactionReceipt

@@ -1,49 +1,72 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import {
   ClobDeleteOpenOrdersRequest,
   ClobDeleteOpenOrdersResponse,
   ClobDeleteOrdersRequest,
+  ClobDeleteOrdersResponse,
   ClobGetFilledOrdersRequest,
   ClobGetFilledOrdersResponse,
-  ClobGetOpenOrdersRequest,
-  ClobGetOpenOrdersResponse,
-  ClobGetOrdersRequest,
   ClobGetMarketsRequest,
   ClobGetMarketsResponse,
+  ClobGetOpenOrdersRequest,
+  ClobGetOpenOrdersResponse,
   ClobGetOrderBooksRequest,
   ClobGetOrderBooksResponse,
-  ClobOrdersResponse,
-  ClobPostOrdersRequest,
-  ClobGetTickersResponse,
+  ClobGetOrdersRequest,
+  ClobGetOrdersResponse,
   ClobGetTickersRequest,
+  ClobGetTickersResponse,
+  ClobPostOrdersRequest,
+  ClobPostOrdersResponse,
 } from './clob.requests';
 import {
-  deleteOrders,
+  cancelOpenOrders,
+  cancelOrders,
+  createOrders,
   getFilledOrders,
-  getOrders,
   getMarkets,
-  getOrderBooks,
-  postOrders,
-  getTickers,
   getOpenOrders,
-  deleteOpenOrders,
+  getOrderBooks,
+  getOrders,
+  getTickers,
 } from './clob.controllers';
+import { StatusCodes } from 'http-status-codes';
+import { validatePublicKey } from '../chains/solana/solana.validators';
+import { getConnector } from '../services/connection-manager';
 
 export namespace ClobRoutes {
   export const router = Router();
 
-  /**
-   *
-   */
+  router.get(
+    '/',
+    asyncHandler(
+      async (request: Request<any>, response: Response<any, any>) => {
+        const connector = await getConnector(
+          request.body.chain,
+          request.body.network,
+          request.body.connector
+        );
+
+        response.status(StatusCodes.OK).json({
+          network: connector.network,
+          connection: connector.ready,
+          timestamp: Date.now(),
+        });
+      }
+    )
+  );
+
   router.get(
     '/markets',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobGetMarketsRequest>,
+        request: Request<any, any, ClobGetMarketsRequest>,
         response: Response<ClobGetMarketsResponse, any>
       ) => {
-        response.status(200).json(await getMarkets(request.body));
+        const result = await getMarkets(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
@@ -55,116 +78,122 @@ export namespace ClobRoutes {
     '/tickers',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobGetTickersRequest>,
+        request: Request<any, any, ClobGetTickersRequest>,
         response: Response<ClobGetTickersResponse, any>
       ) => {
-        response.status(200).json(await getTickers(request.body));
+        const result = await getTickers(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.get(
     '/orderBooks',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobGetOrderBooksRequest>,
+        request: Request<any, any, ClobGetOrderBooksRequest>,
         response: Response<ClobGetOrderBooksResponse, any>
       ) => {
-        // TODO: 404 if requested market does not exist
-        response.status(200).json(await getOrderBooks(request.body));
+        const result = await getOrderBooks(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.get(
     '/orders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobGetOrdersRequest>,
-        response: Response<ClobOrdersResponse, any>
+        request: Request<any, any, ClobGetOrdersRequest>,
+        response: Response<ClobGetOrdersResponse, any>
       ) => {
-        response.status(200).json(await getOrders(request.body));
+        validatePublicKey(request.body);
+
+        const result = await getOrders(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.post(
     '/orders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobPostOrdersRequest>,
-        response: Response<ClobOrdersResponse, any>
+        request: Request<any, any, ClobPostOrdersRequest>,
+        response: Response<ClobPostOrdersResponse, any>
       ) => {
-        response.status(200).json(await postOrders(request.body));
+        validatePublicKey(request.body);
+
+        const result = await createOrders(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.delete(
     '/orders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobDeleteOrdersRequest>,
-        response: Response<ClobOrdersResponse, any>
+        request: Request<any, any, ClobDeleteOrdersRequest>,
+        response: Response<ClobDeleteOrdersResponse, any>
       ) => {
-        response.status(200).json(await deleteOrders(request.body));
+        validatePublicKey(request.body);
+
+        const result = await cancelOrders(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.get(
     '/openOrders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobGetOpenOrdersRequest>,
+        request: Request<any, any, ClobGetOpenOrdersRequest>,
         response: Response<ClobGetOpenOrdersResponse, any>
       ) => {
-        response.status(200).json(await getOpenOrders(request.body));
+        validatePublicKey(request.body);
+
+        const result = await getOpenOrders(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.delete(
     '/openOrders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobDeleteOpenOrdersRequest>,
+        request: Request<any, any, ClobDeleteOpenOrdersRequest>,
         response: Response<ClobDeleteOpenOrdersResponse, any>
       ) => {
-        response.status(200).json(await deleteOpenOrders(request.body));
+        validatePublicKey(request.body);
+
+        const result = await cancelOpenOrders(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
 
-  /**
-   *
-   */
   router.get(
     '/filledOrders',
     asyncHandler(
       async (
-        request: Request<unknown, unknown, ClobGetFilledOrdersRequest>,
+        request: Request<any, any, ClobGetFilledOrdersRequest>,
         response: Response<ClobGetFilledOrdersResponse, any>
       ) => {
-        response.status(200).json(await getFilledOrders(request.body));
+        validatePublicKey(request.body);
+
+        const result = await getFilledOrders(request.body);
+
+        response.status(result.status).json(result.body);
       }
     )
   );
