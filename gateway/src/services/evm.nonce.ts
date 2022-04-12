@@ -79,7 +79,7 @@ export class NonceLocalStorage extends LocalStorage {
  */
 export class EVMNonceManager {
   #addressToNonce: Record<string, [number, Date]> = {};
-  #addressToLastNonce: Record<string, [number, Date]> = {};
+  #addressToLeadingNonce: Record<string, [number, Date]> = {};
 
   #initialized: boolean = false;
   #chainId: number;
@@ -140,7 +140,19 @@ export class EVMNonceManager {
   }
 
   async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
+    /*
+    Retrieves and saves the nonce from the last successful transaction from the EVM node.
+    If time period of the last stored nonce exceeds the localNonceTTL, we update the nonce using the getTransactionCount
+    call.
+    */
     if (this._provider !== null) {
+      const timestamp = this.#addressToNonce[ethAddress][1];
+      const now = new Date();
+      const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
+      if (diffInSeconds < this.#localNonceTTL) {
+        return;
+      }
+
       const externalNonce: number = await this._provider.getTransactionCount(
         ethAddress
       );
@@ -166,16 +178,13 @@ export class EVMNonceManager {
   }
 
   async getNonce(ethAddress: string): Promise<number> {
+    /*
+    Returns the nonce of the last successful transaction of a given wallet.
+    Retrieves the nonce via an EVM call if not already initialized.
+    */
     if (this._provider !== null) {
       if (this.#addressToNonce[ethAddress]) {
-        // TODO: If leading_nonce is available, returns leading_nonce + 1
-        const timestamp = this.#addressToNonce[ethAddress][1];
-        const now = new Date();
-        const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
-        if (diffInSeconds > this.#localNonceTTL) {
-          await this.mergeNonceFromEVMNode(ethAddress);
-        }
-
+        await this.mergeNonceFromEVMNode(ethAddress);
         return this.#addressToNonce[ethAddress][0];
       } else {
         const nonce: number = await this._provider.getTransactionCount(
@@ -200,23 +209,39 @@ export class EVMNonceManager {
     }
   }
 
-  async commitNonce(
-    ethAddress: string,
-    txNonce: number | null = null
-  ): Promise<void> {
+  async getNextNonce(ethAddress: string): Promise<number> {
+    /*
+    Retrieves the next available nonce for a given wallet address.
+    */
+    let newNonce;
     if (this._provider !== null) {
-      let newNonce;
-      if (txNonce) {
-        newNonce = txNonce + 1;
+      if (this.#addressToLeadingNonce[ethAddress]) {
+        newNonce = this.#addressToLeadingNonce[ethAddress][0] + 1;
       } else {
         newNonce = (await this.getNonce(ethAddress)) + 1;
       }
-      this.#addressToNonce[ethAddress] = [newNonce, new Date()];
+      this.#addressToLeadingNonce[ethAddress] = [newNonce, new Date()];
+      return newNonce;
+    } else {
+      logger.error('EVMNonceManager.getNextNonce called before initiated');
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNextNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
+    }
+  }
+
+  async commitNonce(ethAddress: string, txNonce: number): Promise<void> {
+    /*
+    Stores the nonce of the last successful transaction.
+    */
+    if (this._provider !== null) {
+      this.#addressToNonce[ethAddress] = [txNonce, new Date()];
       await this.#db.saveNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        newNonce
+        txNonce
       );
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
@@ -228,8 +253,8 @@ export class EVMNonceManager {
   }
 
   async isValidNonce(ethAddress: string, _nonce: number): Promise<boolean> {
-    const currentNonce: number = this.#addressToNonce[ethAddress][0];
-    if (_nonce > currentNonce) return true;
+    const expectedNonce: number = await this.getNextNonce(ethAddress);
+    if (_nonce == expectedNonce) return true;
     return false;
   }
 
