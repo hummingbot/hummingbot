@@ -89,7 +89,7 @@ class BybitPerpetualInFlightOrderTests(TestCase):
 
         self.assertFalse(order.is_done)
 
-        for status in ["Filled", "Canceled", "Rejected"]:
+        for status in ["Filled", "Cancelled", "Rejected"]:
             order.last_state = status
             self.assertTrue(order.is_done)
 
