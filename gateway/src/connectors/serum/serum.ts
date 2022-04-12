@@ -17,13 +17,13 @@ import {
   Order,
   OrderBook,
   OrderNotFoundError,
+  OrderSide,
   Ticker,
 } from './serum.types';
 import {
   Order as SerumOrder,
   OrderParams as SerumOrderParams,
 } from '@project-serum/serum/lib/market';
-import { OrderSide } from '../../clob/clob.types';
 
 import { Cache, CacheContainer } from 'node-ts-cache';
 import { MemoryStorage } from 'node-ts-cache-storage-memory';
@@ -38,7 +38,7 @@ const caches = {
 
 export type Serumish = Serum;
 
-// TODO create a documentation saying how many requests we are sending through the Solana/Serum connection
+// TODO create a documentation saying how many requests we are sending through the Solana/Serum connection!!!
 export class Serum {
   private initializing: boolean = false;
 
@@ -49,6 +49,7 @@ export class Serum {
   ready: boolean = false;
   chain: string;
   network: string;
+  readonly connector: string = 'serum';
 
   /**
    *
@@ -275,42 +276,37 @@ export class Serum {
 
   async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
     const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(
-      target.address
+      target.ownerAddress
     );
     for (const mapOfOpenOrdersForMarket of mapOfOpenOrdersForMarkets.values()) {
       for (const openOrder of mapOfOpenOrdersForMarket.values()) {
         if (
-          openOrder.id === target.clientOrderId ||
-          openOrder.exchangeId === target.exchangeOrderId
+          openOrder.id === target.clientId ||
+          openOrder.exchangeId === target.exchangeId
         ) {
           return openOrder;
         }
       }
     }
 
-    throw new OrderNotFoundError(`Order ${target.clientOrderId} not found.`);
+    throw new OrderNotFoundError(`Order ${target.clientId} not found.`);
   }
 
   async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
     const mapOfFilledOrders = await this.getAllFilledOrders();
     for (const filledOrder of mapOfFilledOrders.values()) {
       if (
-        filledOrder.id === target.clientOrderId ||
-        filledOrder.exchangeId === target.exchangeOrderId
+        filledOrder.id === target.clientId ||
+        filledOrder.exchangeId === target.exchangeId
       ) {
         return filledOrder;
       }
     }
 
-    throw new OrderNotFoundError(`Order "${target.clientOrderId}" not found.`);
+    throw new OrderNotFoundError(`Order "${target.clientId}" not found.`);
   }
 
-  async getOrder(target: {
-    marketName: string;
-    clientOrderId: string;
-    exchangeOrderId: string;
-    address: string;
-  }): Promise<Order> {
+  async getOrder(target: GetOrderRequest): Promise<Order> {
     try {
       return await this.getOpenOrder(target);
     } catch (exception) {
@@ -391,7 +387,7 @@ export class Serum {
   async createOrder(candidate: CreateOrderRequest): Promise<Order> {
     const market = await this.getMarket(candidate.marketName);
 
-    const owner = await this.solana.getAccount(candidate.address);
+    const owner = await this.solana.getAccount(candidate.ownerAddress);
 
     let mintAddress: PublicKey;
     if (candidate.side == OrderSide.BUY.toLowerCase()) {
@@ -438,14 +434,9 @@ export class Serum {
   async cancelOrder(target: CancelOrderRequest): Promise<any> {
     const market = await this.getMarket(target.marketName);
 
-    const owner = await this.solana.getAccount(target.address);
+    const owner = await this.solana.getAccount(target.ownerAddress);
 
-    const order = await this.getOrder({
-      marketName: target.marketName,
-      clientOrderId: target.clientOrderId,
-      exchangeOrderId: target.exchangeOrderId,
-      address: target.address,
-    });
+    const order = await this.getOrder({ ...target });
 
     await market.market.cancelOrder(this.connection, owner, order.order);
   }
@@ -460,9 +451,9 @@ export class Serum {
     for (const target of targets) {
       const canceledOrder = await this.cancelOrder({
         marketName: target.marketName,
-        address: target.address,
-        clientOrderId: target.clientOrderId,
-        exchangeOrderId: target.exchangeOrderId,
+        ownerAddress: target.ownerAddress,
+        clientId: target.clientId,
+        exchangeId: target.exchangeId,
       });
 
       canceledOrders.set(canceledOrder.id, canceledOrder);
@@ -480,9 +471,9 @@ export class Serum {
       for (const order of mapOfOrders.values()) {
         await this.cancelOrder({
           marketName: order.marketName,
-          address: order.ownerAddress,
-          clientOrderId: order.id,
-          exchangeOrderId: order.exchangeId,
+          ownerAddress: order.ownerAddress,
+          clientId: order.id,
+          exchangeId: order.exchangeId,
         });
 
         canceledOrders.set(order.id, order);

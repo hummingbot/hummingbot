@@ -12,7 +12,7 @@ import {
   OrderBook,
   Ticker,
 } from '../../../../src/connectors/serum/serum.types';
-import { SerumRoutes } from "../../../../src/connectors/serum/serum.routes";
+import { SerumRoutes } from '../../../../src/connectors/serum/serum.routes';
 
 let app: Express;
 

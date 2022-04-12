@@ -115,19 +115,13 @@ export interface GetOpenOrderRequest {
   ownerAddress: string;
 }
 
-// TODO not used yet, need to be implemented!!!
-export interface GetOpenOrdersRequest {
-  marketName?: string;
-  clientIds?: string[];
-  exchangeIds?: string[];
-  ownerAddresses?: string[];
-}
+// TODO Create interface GetAllOpenOrderRequest?!!!
 
 export interface CancelOpenOrderRequest {
   marketName: string;
-  clientId: string;
-  exchangeId: string;
-  ownerAddress: string;
+  clientOrderId: string;
+  exchangeOrderId: string;
+  address: string;
 }
 
 export interface GetFilledOrderRequest {
@@ -137,12 +131,11 @@ export interface GetFilledOrderRequest {
   ownerAddress: string;
 }
 
-// TODO not used yet, need to be implemented!!!
 export interface GetFilledOrdersRequest {
   marketName?: string;
+  addresses?: string[];
   clientIds?: string[];
   exchangeIds?: string[];
-  ownerAddresses?: string[];
 }
 
 //
@@ -154,3 +147,50 @@ export class SerumishError extends Error {}
 export class MarketNotFoundError extends SerumishError {}
 
 export class OrderNotFoundError extends SerumishError {}
+
+// TODO remove comments later!!!
+// export interface FeeInfo {
+//   maker: string;
+//   taker: string;
+// }
+//
+// export interface MarketInfo {
+//   name: string;
+//   fees: FeeInfo;
+//   minimumOrderSize: string; // smallest allowed order size
+//   tickSize: string; // smallest possible price increment
+//   deprecated: boolean;
+// }
+//
+// export type SimpleOrderBook = {
+//   marketName: string;
+//   bids: SimpleOrder[];
+//   asks: SimpleOrder[];
+//   timestamp: string;
+// };
+//
+// /**
+//  * Very simple representation of an order.
+//  */
+// export interface SimpleOrder {
+//   price: number;
+//   amount: number;
+// }
+//
+// /**
+//  * Represents a client's order with IDs and their side.
+//  */
+// export interface OpenClientOrder extends SimpleOrder {
+//   exchangeOrderId: string;
+//   clientOrderId?: string;
+//   side: 'BUY' | 'SELL';
+// }
+//
+// /**
+//  * Represents a filled order.
+//  */
+// export interface FilledOrder extends OpenClientOrder {
+//   id: string; // should be seqNum from FillEvent
+//   timestamp: string; // the time at which the fill happened
+//   fee: string; // can be positive, when paying, or negative, when rebated
+// }
