@@ -74,7 +74,7 @@ class CoinflexExchangeTests(TestCase):
         self._initialize_event_loggers()
 
         CoinflexAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "live": bidict(
+            "coinflex": bidict(
                 {f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
         }
 
@@ -772,7 +772,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                f"There was an error when requesting cancellation of order {order.client_order_id}"
             )
         )
         expected_error = {"errors": None, "status": None}
@@ -834,7 +834,7 @@ class CoinflexExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                f"There was an error when requesting cancellation of order {order.client_order_id}"
             )
         )
         expected_error = (

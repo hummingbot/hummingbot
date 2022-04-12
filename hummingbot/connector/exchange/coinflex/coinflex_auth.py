@@ -44,7 +44,7 @@ class CoinflexAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         """
         time_now = self._time()
-        tag = datetime.fromtimestamp(int(time_now)).isoformat()
+        tag = datetime.utcfromtimestamp(int(time_now)).isoformat()
         timestamp = int(time_now * 1e3)
 
         request.payload = {
@@ -61,7 +61,7 @@ class CoinflexAuth(AuthBase):
     def _header_for_authentication(self,
                                    request: CoinflexRESTRequest) -> Dict[str, str]:
         time_now = self._time()
-        timestamp = datetime.fromtimestamp(int(time_now)).isoformat()
+        timestamp = datetime.utcfromtimestamp(int(time_now)).isoformat()
         nonce = int(time_now * 1e3)
 
         signature = self._generate_signature(timestamp,

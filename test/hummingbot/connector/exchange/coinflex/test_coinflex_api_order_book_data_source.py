@@ -51,7 +51,7 @@ class CoinflexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.resume_test_event = asyncio.Event()
 
         CoinflexAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "live": bidict(
+            "coinflex": bidict(
                 {f"{self.ex_trading_pair}": self.trading_pair})
         }
 

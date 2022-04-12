@@ -28,12 +28,12 @@ def public_rest_url(path_url: str = "",
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the full URL to the endpoint
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
     endpoint = "" if not len(path_url) else f"/{path_url}"
     if only_hostname:
         return CONSTANTS.REST_URL.format(subdomain_prefix)
@@ -48,12 +48,12 @@ def private_rest_url(path_url: str = "",
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the full URL to the endpoint
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PRIVATE_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
     endpoint = "" if not len(path_url) else f"/{path_url}"
     if only_hostname:
         return CONSTANTS.REST_URL.format(subdomain_prefix)
@@ -66,7 +66,7 @@ def private_rest_auth_path(path_url: str,
     """
     Creates an auth URL path for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param host: the CoinFLEX host to connect to ("live" or "test"). The default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the auth URL path for the endpoint
     """
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PRIVATE_API_VERSION
@@ -78,12 +78,12 @@ def websocket_url(domain: str = CONSTANTS.DEFAULT_DOMAIN,
                   endpoint_api_version: str = None) -> str:
     """
     Creates a full URL for provided public REST endpoint
-    :param host: the CoinFLEX host to connect to (either "live" or "test"). Default value is "live"
+    :param host: the CoinFLEX host to connect to
     :return: the full URL to the endpoint
     """
     local_domain_api_version = domain_api_version or CONSTANTS.PUBLIC_API_VERSION
     local_endpoint_api_version = endpoint_api_version or CONSTANTS.PUBLIC_API_VERSION
-    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "test" else local_domain_api_version
+    subdomain_prefix = f"{local_domain_api_version}stg" if domain == "coinflex_test" else local_domain_api_version
     return CONSTANTS.WSS_URL.format(subdomain_prefix, local_endpoint_api_version)
 
 
@@ -140,8 +140,6 @@ class CoinflexRESTRequest(EndpointRESTRequest):
         if self.endpoint is None:
             raise ValueError("No endpoint specified. Cannot build auth url.")
         uri = private_rest_auth_path(self.endpoint, self.domain, endpoint_api_version=self.endpoint_api_version)
-        if not self.should_use_data and self.params and self.endpoint_api_version != "v2.1":
-            return f"{uri}?{urlencode(self.params)}"
         return uri
 
     @property
