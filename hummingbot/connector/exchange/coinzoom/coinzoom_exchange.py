@@ -721,7 +721,7 @@ class CoinzoomExchange(ExchangeBase):
                 'price': 5000,
                 'quantity': 0.001,
                 'executionType': 'CANCEL',
-                'orderStatus': 'CANCELLED',
+                'orderStatus': 'CANCELED',
                 'lastQuantity': 0,
                 'leavesQuantity': 0,
                 'cumulativeQuantity': 0,

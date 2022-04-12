@@ -437,7 +437,7 @@ cdef class BittrexExchange(ExchangeBase):
                                          tracked_order.executed_amount_quote,
                                          tracked_order.order_type))
         else:  # Order PARTIAL-CANCEL or CANCEL
-            tracked_order.last_state = "CANCELLED"
+            tracked_order.last_state = "CANCELED"
             self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
                                f"{client_order_id} has been canceled according to Bittrex order status API.")
             self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
@@ -917,7 +917,7 @@ cdef class BittrexExchange(ExchangeBase):
             cancel_result = await self._api_request("DELETE", path_url=path_url)
             if cancel_result["status"] == "CLOSED":
                 self.logger().info(f"Successfully canceled order {order_id}.")
-                tracked_order.last_state = "CANCELLED"
+                tracked_order.last_state = "CANCELED"
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
