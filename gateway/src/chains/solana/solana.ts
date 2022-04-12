@@ -192,8 +192,7 @@ export class Solana implements Solanaish {
     walletAddress: PublicKey,
     tokenMintAddress: PublicKey
   ): Promise<PublicKey> {
-    // TODO Ask Mike the correct way to implement this method!!!
-
+    // TODO Check if this implementation is correct!!!
     const tokenProgramId = this._tokenProgramAddress;
     const splAssociatedTokenAccountProgramId = (
       await this.connection.getParsedTokenAccountsByOwner(walletAddress, {

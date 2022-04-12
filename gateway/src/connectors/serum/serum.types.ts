@@ -17,8 +17,8 @@ export interface Market {
 }
 
 export interface OrderBook {
-  bids: Order[];
-  asks: Order[];
+  bids: Map<string, Order>;
+  asks: Map<string, Order>;
   orderBook: {
     asks: SerumOrderBook;
     bids: SerumOrderBook;
@@ -39,25 +39,71 @@ export interface Ticker {
   ticker: any;
 }
 
-// TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
-export interface CreateOrder extends SerumOrderParams {
-  marketName: string;
-  address: string;
-}
+//
+// Requests subtypes
+//
 
-export interface OrderRequest {
+export type GetMarketsRequest = { name: string } | { names: string[] };
+
+export type GetOrderBooksRequest =
+  | { marketName: string }
+  | { marketNames: string[] };
+
+export type GetTickersRequest =
+  | { marketName: string }
+  | { marketNames: string[] };
+
+export interface GetOrderRequest {
   marketName: string;
   address: string;
   clientOrderId: string;
   exchangeOrderId: string;
 }
 
-export interface OrderRequests {
+// TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
+export interface CreateOrderRequest extends SerumOrderParams {
+  marketName: string;
+  address: string;
+}
+
+export interface CancelOrderRequest {
+  marketName: string;
+  clientOrderId: string;
+  exchangeOrderId: string;
+  address: string;
+}
+
+export interface GetOpenOrderRequest {
+  marketName: string;
+  clientOrderId: string;
+  exchangeOrderId: string;
+  address: string;
+}
+
+export interface CancelOpenOrderRequest {
+  marketName: string;
+  clientOrderId: string;
+  exchangeOrderId: string;
+  address: string;
+}
+
+export interface GetFilledOrderRequest {
+  marketName: string;
+  clientOrderId: string;
+  exchangeOrderId: string;
+  address: string;
+}
+
+export interface GetFilledOrdersRequest {
   marketName?: string;
   addresses?: string[];
   clientOrderIds?: string[];
   exchangeOrderIds?: string[];
 }
+
+//
+//  Errors
+//
 
 export class SerumishError extends Error {}
 
