@@ -49,7 +49,9 @@ export namespace ClobRoutes {
         );
 
         response.status(StatusCodes.OK).json({
+          chain: connector.chain,
           network: connector.network,
+          connector: connector.connector,
           connection: connector.ready,
           timestamp: Date.now(),
         });

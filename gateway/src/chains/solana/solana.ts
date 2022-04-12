@@ -97,6 +97,7 @@ export class Solana implements Solanaish {
     return this._lamportPrice;
   }
 
+  // TODO Change to use caching method and async implementation!!!
   public static getInstance(network: string): Solana {
     if (Solana._instances === undefined) {
       Solana._instances = {};

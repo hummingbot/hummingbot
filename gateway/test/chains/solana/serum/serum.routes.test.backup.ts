@@ -5,9 +5,7 @@ import { Serum } from '../../../../src/connectors/serum/serum';
 import { ClobRoutes } from '../../../../src/clob/clob.routes';
 import { patch, unpatch } from '../../../services/patch';
 import { Solana } from '../../../../src/chains/solana/solana';
-
-// ethereum -=> solana
-// uniswap => serum
+import { default as config } from './fixtures/getSerumConfig';
 
 let app: Express;
 let solana: Solana;
@@ -16,10 +14,12 @@ let serum: Serum;
 beforeAll(async () => {
   app = express();
   app.use(express.json());
-  solana = Solana.getInstance(); // TODO check if we need to expose more arguments!!! 'solana', 'kovan'
+
+  solana = Solana.getInstance(config.solana.network);
   await solana.init();
-  serum = Serum.getInstance(); // TODO check about the devnet, (mainnet.beta)  // TODO check if we need to expose more arguments!!! 'serum', 'kovan'
-  await serum.init();
+
+  serum = await Serum.getInstance(config.serum.chain, config.serum.network);
+
   app.use('/clob', ClobRoutes.router);
 });
 
