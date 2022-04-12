@@ -606,8 +606,7 @@ class CoinflexExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
-                raise
+                self.logger().exception(f"There was an error when requesting cancellation of order {order_id}")
 
     async def _status_polling_loop(self):
         """

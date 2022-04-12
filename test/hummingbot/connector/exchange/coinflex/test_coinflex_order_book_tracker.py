@@ -50,7 +50,7 @@ class CoinflexOrderBookTrackerUnitTests(unittest.TestCase):
         self.assertEqual("coinflex", self.tracker.exchange_name)
 
         test_tracker = CoinflexOrderBookTracker(trading_pairs=[self.trading_pair],
-                                                domain="test",
+                                                domain="coinflex_test",
                                                 throttler=self.throttler)
 
         self.assertEqual("coinflex_test", test_tracker.exchange_name)
