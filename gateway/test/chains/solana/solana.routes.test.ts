@@ -12,10 +12,11 @@ import * as getTokenListData from './fixtures/getTokenList.json';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { BigNumber } from 'ethers';
+import { default as config } from './fixtures/getSolanaConfig';
 
 let solana: Solana;
 beforeAll(async () => {
-  solana = Solana.getInstance();
+  solana = Solana.getInstance(config.solana.network);
   solana.getTokenList = jest
     .fn()
     .mockReturnValue([
