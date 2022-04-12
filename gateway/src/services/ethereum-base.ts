@@ -289,7 +289,7 @@ export class EthereumBase {
         '.'
     );
     if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
+      nonce = await this.nonceManager.getNextNonce(wallet.address);
     } else {
       const isValid: boolean = await this.nonceManager.isValidNonce(
         wallet.address,
