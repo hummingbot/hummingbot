@@ -360,7 +360,7 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertTrue(
-            self._is_logged("INFO", f"Initiated cancellation of buy order {order_id} in favour of take profit order."))
+            self._is_logged("INFO", f"Initiated cancelation of buy order {order_id} in favour of take profit order."))
 
         order_id = self.strategy.sell_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -381,7 +381,7 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertTrue(
-            self._is_logged("INFO", f"Initiated cancellation of sell order {order_id} in favour of take profit order."))
+            self._is_logged("INFO", f"Initiated cancelation of sell order {order_id} in favour of take profit order."))
 
     def test_create_profit_taking_proposal_for_long_position(self):
         position = Position(
@@ -460,7 +460,7 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(order_id, self.cancel_order_logger.event_log[0].order_id)
         self.assertTrue(
             self._is_logged("INFO",
-                            f"Initiated cancellation of previous take profit order {order_id} "
+                            f"Initiated cancelation of previous take profit order {order_id} "
                             f"in favour of new take profit order."))
         self.assertEqual(0, len(self.strategy.active_orders))
 
@@ -493,7 +493,7 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(order_id, self.cancel_order_logger.event_log[0].order_id)
         self.assertTrue(
             self._is_logged("INFO",
-                            f"Initiated cancellation of previous take profit order {order_id} "
+                            f"Initiated cancelation of previous take profit order {order_id} "
                             f"in favour of new take profit order."))
         self.assertEqual(0, len(self.strategy.active_orders))
 

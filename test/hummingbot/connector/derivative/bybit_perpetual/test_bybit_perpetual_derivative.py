@@ -856,7 +856,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged(
             "ERROR",
             "Failed to cancel order O1:"
-            " Bybit Perpetual encountered a problem cancelling the order (1001 - Test error description)"))
+            " Bybit Perpetual encountered a problem canceling the order (1001 - Test error description)"))
 
     @aioresponses()
     def test_order_marked_as_cancelled_if_cancellation_status_error_is_not_found(self, post_mock):
@@ -1052,7 +1052,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         cancellation_results = asyncio.get_event_loop().run_until_complete(
             self.connector.cancel_all(timeout_seconds=0.1))
 
-        self.assertTrue(self._is_logged("WARNING", "Cancellation of all active orders for Bybit Perpetual connector"
+        self.assertTrue(self._is_logged("WARNING", "Cancelation of all active orders for Bybit Perpetual connector"
                                                    " stopped after max wait time"))
         self.assertEqual(1, len(cancellation_results))
         self.assertTrue(cancellation_results[0].order_id == "O1" and not cancellation_results[0].success)
@@ -1401,7 +1401,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("EO1", request_data["order_id"])
         self.assertEqual("O1", request_data["order_link_id"])
         self.assertEqual(0, len(self.connector.in_flight_orders))
-        self.assertTrue(self._is_logged("INFO", "Successfully cancelled order O1"))
+        self.assertTrue(self._is_logged("INFO", "Successfully canceled order O1"))
         cancellation_events = self.order_cancelled_logger.event_log
         self.assertEqual(1, len(cancellation_events))
         self.assertEqual("O1", cancellation_events[0].order_id)
@@ -2514,7 +2514,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         # Wait until the connector finishes processing the message queue
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
-        self.assertTrue(self._is_logged('INFO', 'Successfully cancelled order xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418'))
+        self.assertTrue(self._is_logged('INFO', 'Successfully canceled order xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418'))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_receives_updates_execution(self, ws_connect_mock):

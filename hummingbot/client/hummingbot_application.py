@@ -200,7 +200,7 @@ class HummingbotApplication(*commands):
         success = True
         try:
             kill_timeout: float = self.KILL_TIMEOUT
-            self._notify("Cancelling outstanding orders...")
+            self._notify("Canceling outstanding orders...")
 
             for market_name, market in self.markets.items():
                 cancellation_results = await market.cancel_all(kill_timeout)
@@ -217,7 +217,7 @@ class HummingbotApplication(*commands):
             success = False
 
         if success:
-            self._notify("All outstanding orders cancelled.")
+            self._notify("All outstanding orders canceled.")
         return success
 
     async def run(self):
