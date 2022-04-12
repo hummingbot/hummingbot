@@ -26,7 +26,7 @@ from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
-from .moving_price_band import MovingPriceBand, DisabledMovingPriceBand
+from .moving_price_band import MovingPriceBand
 
 
 NaN = float("nan")
@@ -90,7 +90,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if order_override is None:
             order_override = {}
         if moving_price_band is None:
-            moving_price_band = DisabledMovingPriceBand()
+            moving_price_band = MovingPriceBand()
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
         self._sb_order_tracker = PureMarketMakingOrderTracker()
@@ -385,7 +385,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @moving_price_band_enabled.setter
     def moving_price_band_enabled(self, value: bool):
-        self._moving_price_band = self._moving_price_band.switch(value)
+        self._moving_price_band.switch(value)
 
     @property
     def price_ceiling_pct(self) -> Decimal:
@@ -412,7 +412,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @price_band_refresh_time.setter
     def price_band_refresh_time(self, value: Decimal):
         self._moving_price_band.price_band_refresh_time = value
-        self._moving_price_band.update(self.current_timestamp, self.get_price())
+        self._moving_price_band.update(self.get_price())
 
     @property
     def moving_price_band(self) -> MovingPriceBand:
@@ -850,7 +850,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_apply_order_levels_modifiers(self, proposal):
         self.c_apply_price_band(proposal)
-        self.c_apply_moving_price_band(proposal)
+        if self.moving_price_band_enabled:
+            self.c_apply_moving_price_band(proposal)
         if self._ping_pong_enabled:
             self.c_apply_ping_pong(proposal)
 

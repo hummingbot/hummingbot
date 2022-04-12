@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import unittest
 from decimal import Decimal
-from hummingbot.strategy.pure_market_making.moving_price_band import DisabledMovingPriceBand, MovingPriceBand
+from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
 
 
 class MovingPriceBandUnitTest(unittest.TestCase):
@@ -34,12 +34,10 @@ class MovingPriceBandUnitTest(unittest.TestCase):
         self.assertEqual(self.moving_price_band.price_ceiling, Decimal("202"))
 
     def test_switch_moving_price_band(self):
-        price_band = self.moving_price_band.switch(True)
-        self.assertIsInstance(price_band, MovingPriceBand)
-        self.assertEqual(price_band.enabled, True)
-        price_band = self.moving_price_band.switch(False)
-        self.assertIsInstance(price_band, DisabledMovingPriceBand)
-        self.assertEqual(price_band.enabled, False)
+        self.moving_price_band.switch(True)
+        self.assertEqual(self.moving_price_band.enabled, True)
+        self.moving_price_band.switch(False)
+        self.assertEqual(self.moving_price_band.enabled, False)
 
 
 if __name__ == "__main__":

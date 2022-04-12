@@ -1,5 +1,8 @@
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
+
+mpb_logger = None
 
 
 @dataclass
@@ -15,9 +18,17 @@ class MovingPriceBand:
     price_floor_pct: Decimal = -1
     price_ceiling_pct: Decimal = 1
     price_band_refresh_time: float = 86400
+    enabled: bool = False
     _price_floor: Decimal = 0
     _price_ceiling: Decimal = 0
     _set_time: float = 0
+
+    @classmethod
+    def logger(cls):
+        global mpb_logger
+        if mpb_logger is None:
+            mpb_logger = logging.getLogger(__name__)
+        return mpb_logger
 
     @property
     def price_floor(self) -> Decimal:
@@ -29,11 +40,6 @@ class MovingPriceBand:
         '''get price ceiling'''
         return self._price_ceiling
 
-    @property
-    def enabled(self) -> bool:
-        '''return state of moving price band'''
-        return True
-
     def update(self, timestamp: float, price: Decimal) -> None:
         """
         Updates the price band.
@@ -44,6 +50,8 @@ class MovingPriceBand:
         self._price_floor = (Decimal("100") + self.price_floor_pct) / Decimal("100") * price
         self._price_ceiling = (Decimal("100") + self.price_ceiling_pct) / Decimal("100") * price
         self._set_time = timestamp
+        self.logger().info(
+            'moving price band updated: price_floor: %s price_ceiling: %s', self._price_floor, self._price_ceiling)
 
     def check_and_update_price_band(self, timestamp: float, price: Decimal) -> None:
         '''
@@ -71,40 +79,10 @@ class MovingPriceBand:
         '''
         return price >= self.price_ceiling
 
-    def switch(self, value: bool) -> "MovingPriceBand":
+    def switch(self, value: bool) -> None:
         '''
         switch between enabled and disabled state
 
         :param value: set whether to enable or disable MovingPriceBand
         '''
-        if value:
-            return MovingPriceBand(
-                price_floor_pct=self.price_floor_pct,
-                price_ceiling_pct=self.price_ceiling_pct,
-                price_band_refresh_time=self.price_band_refresh_time
-            )
-        return DisabledMovingPriceBand(
-            price_floor_pct=self.price_floor_pct,
-            price_ceiling_pct=self.price_ceiling_pct,
-            price_band_refresh_time=self.price_band_refresh_time
-        )
-
-
-class DisabledMovingPriceBand(MovingPriceBand):
-    '''disable moving price band'''
-    @property
-    def enabled(self) -> bool:
-        '''return state of moving price band'''
-        return False
-
-    def check_and_update_price_band(self, timestamp: float, price: Decimal) -> None:
-        '''return due to disabled state'''
-        return
-
-    def check_price_floor_exceeded(self, price: Decimal) -> bool:
-        '''return false due to disabled check'''
-        return False
-
-    def check_price_ceiling_exceeded(self, price: Decimal) -> bool:
-        '''return false due to disabled check'''
-        return False
+        self.enabled = value
