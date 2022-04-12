@@ -5,7 +5,7 @@ import { verifySerumIsAvailable } from './serum-middlewares';
 import { Solana } from '../../chains/solana/solana';
 import { validatePublicKey } from '../../chains/solana/solana.validators';
 import {
-  deleteOpenOrders,
+  cancelOpenOrders,
   cancelOrders,
   getFilledOrders,
   getMarkets,
@@ -16,10 +16,10 @@ import {
   createOrders,
 } from './serum.controllers';
 import {
-  SerumDeleteOpenOrdersRequest,
-  SerumDeleteOpenOrdersResponse,
-  SerumDeleteOrdersRequest,
-  SerumDeleteOrdersResponse,
+  SerumCancelOpenOrdersRequest,
+  SerumCancelOpenOrdersResponse,
+  SerumCancelOrdersRequest,
+  SerumCancelOrdersResponse,
   SerumGetFilledOrdersRequest,
   SerumGetFilledOrdersResponse,
   SerumGetMarketsRequest,
@@ -32,8 +32,8 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
-  SerumPostOrdersRequest,
-  SerumPostOrdersResponse,
+  SerumCreateOrdersRequest,
+  SerumCreateOrdersResponse,
 } from './serum.requests';
 import { Serum } from './serum';
 import { StatusCodes } from 'http-status-codes';
@@ -144,8 +144,8 @@ export namespace SerumRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<any, any, SerumPostOrdersRequest>,
-        response: Response<SerumPostOrdersResponse, any>
+        request: Request<any, any, SerumCreateOrdersRequest>,
+        response: Response<SerumCreateOrdersResponse, any>
       ) => {
         const solana = await getSolana(request);
         const serum = await getSerum(request);
@@ -163,8 +163,8 @@ export namespace SerumRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<any, any, SerumDeleteOrdersRequest>,
-        response: Response<SerumDeleteOrdersResponse, any>
+        request: Request<any, any, SerumCancelOrdersRequest>,
+        response: Response<SerumCancelOrdersResponse, any>
       ) => {
         const solana = await getSolana(request);
         const serum = await getSerum(request);
@@ -201,15 +201,15 @@ export namespace SerumRoutes {
     '/openOrders',
     asyncHandler(
       async (
-        request: Request<any, any, SerumDeleteOpenOrdersRequest>,
-        response: Response<SerumDeleteOpenOrdersResponse, any>
+        request: Request<any, any, SerumCancelOpenOrdersRequest>,
+        response: Response<SerumCancelOpenOrdersResponse, any>
       ) => {
         const solana = await getSolana(request);
         const serum = await getSerum(request);
 
         validatePublicKey(request.body);
 
-        const result = await deleteOpenOrders(solana, serum, request.body);
+        const result = await cancelOpenOrders(solana, serum, request.body);
 
         response.status(result.status).json(result.body);
       }

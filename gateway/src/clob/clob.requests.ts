@@ -1,8 +1,8 @@
 import {
-  SerumDeleteOpenOrdersRequest,
-  SerumDeleteOpenOrdersResponse,
-  SerumDeleteOrdersRequest,
-  SerumDeleteOrdersResponse,
+  SerumCancelOpenOrdersRequest,
+  SerumCancelOpenOrdersResponse,
+  SerumCancelOrdersRequest,
+  SerumCancelOrdersResponse,
   SerumGetFilledOrdersRequest,
   SerumGetFilledOrdersResponse,
   SerumGetMarketsRequest,
@@ -15,14 +15,14 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
-  SerumPostOrdersRequest,
-  SerumPostOrdersResponse,
+  SerumCreateOrdersRequest,
+  SerumCreateOrdersResponse,
 } from '../connectors/serum/serum.requests';
 
-export type ClobDeleteOpenOrdersRequest = SerumDeleteOpenOrdersRequest;
-export type ClobDeleteOpenOrdersResponse = SerumDeleteOpenOrdersResponse;
-export type ClobDeleteOrdersRequest = SerumDeleteOrdersRequest;
-export type ClobDeleteOrdersResponse = SerumDeleteOrdersResponse;
+export type ClobDeleteOpenOrdersRequest = SerumCancelOpenOrdersRequest;
+export type ClobDeleteOpenOrdersResponse = SerumCancelOpenOrdersResponse;
+export type ClobDeleteOrdersRequest = SerumCancelOrdersRequest;
+export type ClobDeleteOrdersResponse = SerumCancelOrdersResponse;
 export type ClobGetFilledOrdersRequest = SerumGetFilledOrdersRequest;
 export type ClobGetFilledOrdersResponse = SerumGetFilledOrdersResponse;
 export type ClobGetOpenOrdersRequest = SerumGetOpenOrdersRequest;
@@ -31,8 +31,8 @@ export type ClobGetMarketsRequest = SerumGetMarketsRequest;
 export type ClobGetMarketsResponse = SerumGetMarketsResponse;
 export type ClobGetOrderBooksRequest = SerumGetOrderBooksRequest;
 export type ClobGetOrderBooksResponse = SerumGetOrderBooksResponse;
-export type ClobPostOrdersRequest = SerumPostOrdersRequest;
-export type ClobPostOrdersResponse = SerumPostOrdersResponse;
+export type ClobPostOrdersRequest = SerumCreateOrdersRequest;
+export type ClobPostOrdersResponse = SerumCreateOrdersResponse;
 export type ClobGetTickersRequest = SerumGetTickersRequest;
 export type ClobGetTickersResponse = SerumGetTickersResponse;
 export type ClobGetOrdersRequest = SerumGetOrdersRequest;

@@ -2,10 +2,10 @@ import { StatusCodes } from 'http-status-codes';
 import { Solanaish } from '../../chains/solana/solana';
 import { Serumish } from './serum';
 import {
-  SerumDeleteOpenOrdersRequest,
-  SerumDeleteOpenOrdersResponse,
-  SerumDeleteOrdersRequest,
-  SerumDeleteOrdersResponse,
+  SerumCancelOpenOrdersRequest,
+  SerumCancelOpenOrdersResponse,
+  SerumCancelOrdersRequest,
+  SerumCancelOrdersResponse,
   SerumGetFilledOrdersRequest,
   SerumGetFilledOrdersResponse,
   SerumGetMarketsRequest,
@@ -18,12 +18,12 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
-  SerumPostOrdersRequest,
-  SerumPostOrdersResponse,
+  SerumCreateOrdersRequest,
+  SerumCreateOrdersResponse,
 } from './serum.requests';
 import { ResponseWrapper } from '../../services/common-interfaces';
 import { HttpException } from '../../services/error-handler';
-import { MarketNotFoundError } from "./serum.types";
+import { MarketNotFoundError, OrderNotFoundError } from './serum.types';
 
 /**
  * Get the all or the informed markets and their configurations.
@@ -54,7 +54,8 @@ export async function getMarkets(
           // TODO should we create new error codes?!!!
         );
       } else {
-        throw exception; // TODO Ask Mike! Should we throw an HttpException here? or would it be ok to throw the original exception?!!!
+        // TODO Ask Mike! Should we throw an HttpException here? or would it be ok to throw the original exception?!!!
+        throw exception;
       }
     }
   }
@@ -84,10 +85,6 @@ export async function getMarkets(
 
   response.body = await serum.getAllMarkets();
 
-  if (!response.body || !response.body.size) {
-    throw new HttpException(StatusCodes.NOT_FOUND, `No market was found.`);
-  }
-
   response.status = StatusCodes.OK;
 
   return response;
@@ -108,62 +105,45 @@ export async function getOrderBooks(
   const response = new ResponseWrapper<SerumGetOrderBooksResponse>();
 
   if ('marketName' in request) {
-    response.body = await serum.getOrderBook(request.marketName);
+    try {
+      response.body = await serum.getOrderBook(request.marketName);
 
-    if (!response.body) {
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Order book for market ${request.marketName} was not found.`
-      );
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception) {
+      if (exception instanceof MarketNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
     }
-
-    response.status = StatusCodes.OK;
-
-    return response;
   }
 
   if ('marketNames' in request) {
     if (!request.marketNames || !request.marketNames.length) {
       throw new HttpException(
         StatusCodes.BAD_REQUEST,
-        `No markets were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
+        `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
       );
     }
 
-    response.body = await serum.getOrderBooks(request.marketNames);
+    try {
+      response.body = await serum.getOrderBooks(request.marketNames);
 
-    if (!response.body || !response.body.size) {
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Order books for markets "${request.marketNames.concat(
-          ', '
-        )}" were not found.`
-      );
-    }
+      response.status = StatusCodes.OK;
 
-    const values = Array.from(response.body.values());
-    if (values.length != request.marketNames.length) {
-      const missing = [];
-      for (const [key, value] of response.body) {
-        if (!value) missing.push(key);
+      return response;
+    } catch (exception: any) {
+      if (exception instanceof MarketNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
       }
-
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Order books for markets "${missing.concat(', ')}" were not found.`
-      );
     }
-
-    response.status = StatusCodes.OK;
-
-    return response;
   }
 
   response.body = await serum.getAllOrderBooks();
-
-  if (!response.body || !response.body.size) {
-    throw new HttpException(StatusCodes.NOT_FOUND, `No order book was found.`);
-  }
 
   response.status = StatusCodes.OK;
 
@@ -185,62 +165,45 @@ export async function getTickers(
   const response = new ResponseWrapper<SerumGetTickersResponse>();
 
   if ('marketName' in request) {
-    response.body = await serum.getTicker(request.marketName);
+    try {
+      response.body = await serum.getTicker(request.marketName);
 
-    if (!response.body) {
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Ticker for market ${request.marketName} was not found.`
-      );
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception) {
+      if (exception instanceof MarketNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
     }
-
-    response.status = StatusCodes.OK;
-
-    return response;
   }
 
   if ('marketNames' in request) {
     if (!request.marketNames || !request.marketNames.length) {
       throw new HttpException(
         StatusCodes.BAD_REQUEST,
-        `No markets were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
+        `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
       );
     }
 
-    response.body = await serum.getTickers(request.marketNames);
+    try {
+      response.body = await serum.getTickers(request.marketNames);
 
-    if (!response.body || !response.body.size) {
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Tickers for markets "${request.marketNames.concat(
-          ', '
-        )}" were not found.`
-      );
-    }
+      response.status = StatusCodes.OK;
 
-    const values = Array.from(response.body.values());
-    if (values.length != request.marketNames.length) {
-      const missing = [];
-      for (const [key, value] of response.body) {
-        if (!value) missing.push(key);
+      return response;
+    } catch (exception: any) {
+      if (exception instanceof MarketNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
       }
-
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Tickers for markets "${missing.concat(', ')}" were not found.`
-      );
     }
-
-    response.status = StatusCodes.OK;
-
-    return response;
   }
 
   response.body = await serum.getAllTickers();
-
-  if (!response.body || !response.body.size) {
-    throw new HttpException(StatusCodes.NOT_FOUND, `No order book was found.`);
-  }
 
   response.status = StatusCodes.OK;
 
@@ -262,25 +225,48 @@ export async function getOrders(
   const response = new ResponseWrapper<SerumGetOrdersResponse>();
 
   if ('order' in request) {
-    response.body = await serum.getOrder(request.order);
+    try {
+      response.body = await serum.getOrder(request.order);
 
-    if (!response.body) {
-      throw new HttpException(
-        StatusCodes.NOT_FOUND,
-        `Order "${request.order.clientOrderId}" was not found.`
-      );
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception) {
+      if (exception instanceof OrderNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
     }
-
-    response.status = StatusCodes.OK;
-
-    return response;
   }
 
   if ('orders' in request) {
+    if (!request.orders || !request.orders.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No orders were informed.`
+      );
+    }
 
+    try {
+      response.body = await serum.getOrders(request.orders);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception: any) {
+      if (exception instanceof OrderNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
   }
 
-  return response;
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
+  );
 }
 
 /**
@@ -293,8 +279,37 @@ export async function getOrders(
 export async function createOrders(
   _solana: Solanaish,
   serum: Serumish,
-  request: SerumPostOrdersRequest
-): Promise<ResponseWrapper<SerumPostOrdersResponse>> {
+  request: SerumCreateOrdersRequest
+): Promise<ResponseWrapper<SerumCreateOrdersResponse>> {
+  const response = new ResponseWrapper<SerumCreateOrdersResponse>();
+
+  if ('order' in request) {
+    response.body = await serum.createOrder(request.order);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  if ('orders' in request) {
+    if (!request.orders || !request.orders.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No orders were informed.`
+      );
+    }
+
+    response.body = await serum.createOrders(request.orders);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
+  );
 }
 
 /**
@@ -307,8 +322,37 @@ export async function createOrders(
 export async function cancelOrders(
   _solana: Solanaish,
   serum: Serumish,
-  request: SerumDeleteOrdersRequest
-): Promise<ResponseWrapper<SerumDeleteOrdersResponse>> {
+  request: SerumCancelOrdersRequest
+): Promise<ResponseWrapper<SerumCancelOrdersResponse>> {
+  const response = new ResponseWrapper<SerumCancelOrdersResponse>();
+
+  if ('order' in request) {
+    response.body = await serum.cancelOrder(request.order);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  if ('orders' in request) {
+    if (!request.orders || !request.orders.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No orders were informed.`
+      );
+    }
+
+    response.body = await serum.cancelOrders(request.orders);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
+  );
 }
 
 /**
@@ -323,6 +367,51 @@ export async function getOpenOrders(
   serum: Serumish,
   request: SerumGetOpenOrdersRequest
 ): Promise<ResponseWrapper<SerumGetOpenOrdersResponse>> {
+  const response = new ResponseWrapper<SerumGetOpenOrdersResponse>();
+
+  if ('order' in request) {
+    try {
+      response.body = await serum.getOpenOrder(request.order);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception) {
+      if (exception instanceof OrderNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
+  }
+
+  if ('orders' in request) {
+    if (!request.orders || !request.orders.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No orders were informed.`
+      );
+    }
+
+    try {
+      response.body = await serum.getOpenOrders(request.orders);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception: any) {
+      if (exception instanceof OrderNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
+  }
+
+  throw new HttpException(
+    StatusCodes.BAD_REQUEST,
+    `No order(s) was/were informed.`
+  );
 }
 
 /**
@@ -332,11 +421,41 @@ export async function getOpenOrders(
  * @param serum
  * @param request
  */
-export async function deleteOpenOrders(
+export async function cancelOpenOrders(
   _solana: Solanaish,
   serum: Serumish,
-  request: SerumDeleteOpenOrdersRequest
-): Promise<ResponseWrapper<SerumDeleteOpenOrdersResponse>> {
+  request: SerumCancelOpenOrdersRequest
+): Promise<ResponseWrapper<SerumCancelOpenOrdersResponse>> {
+  const response = new ResponseWrapper<SerumCancelOpenOrdersResponse>();
+
+  if ('order' in request) {
+    response.body = await serum.cancelOrder(request.order);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  if ('orders' in request) {
+    if (!request.orders || !request.orders.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No orders were informed.`
+      );
+    }
+
+    response.body = await serum.cancelOrders(request.orders);
+
+    response.status = StatusCodes.OK;
+
+    return response;
+  }
+
+  response.body = await serum.cancelAllOpenOrders(request);
+
+  response.status = StatusCodes.OK;
+
+  return response;
 }
 
 /**
@@ -351,4 +470,50 @@ export async function getFilledOrders(
   serum: Serumish,
   request: SerumGetFilledOrdersRequest
 ): Promise<ResponseWrapper<SerumGetFilledOrdersResponse>> {
+  const response = new ResponseWrapper<SerumGetFilledOrdersResponse>();
+
+  if ('order' in request) {
+    try {
+      response.body = await serum.getFilledOrder(request.order);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception) {
+      if (exception instanceof OrderNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
+  }
+
+  if ('orders' in request) {
+    if (!request.orders || !request.orders.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No orders were informed.`
+      );
+    }
+
+    try {
+      response.body = await serum.getFilledOrders(request.orders);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception: any) {
+      if (exception instanceof OrderNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
+  }
+
+  response.body = await serum.getAllFilledOrders();
+
+  response.status = StatusCodes.OK;
+
+  return response;
 }

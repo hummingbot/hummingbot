@@ -7,14 +7,16 @@ import {
 import { Solana } from '../../chains/solana/solana';
 import { SerumConfig } from './serum.config';
 import {
-  CreateOrder,
+  CancelOrderRequest,
+  CreateOrderRequest,
+  GetFilledOrderRequest,
+  GetOpenOrderRequest,
+  GetOrderRequest,
   Market,
   MarketNotFoundError,
   Order,
   OrderBook,
   OrderNotFoundError,
-  OrderRequest,
-  OrderRequests,
   Ticker,
 } from './serum.types';
 import {
@@ -92,8 +94,8 @@ export class Serum {
     bids: SerumOrderBook
   ): OrderBook {
     return {
-      asks: this.parseToOrders(asks),
-      bids: this.parseToOrders(bids),
+      asks: this.parseToMapOfOrders(asks),
+      bids: this.parseToMapOfOrders(bids),
       orderBook: {
         asks: asks,
         bids: bids,
@@ -110,13 +112,25 @@ export class Serum {
     } as Order;
   }
 
-  private parseToOrders(
+  // private parseToOrders(
+  //   orders: SerumOrder[] | SerumOrderBook | any[]
+  // ): Order[] {
+  //   const result = [];
+  //
+  //   for (const order of orders) {
+  //     result.push(this.parseToOrder(order));
+  //   }
+  //
+  //   return result;
+  // }
+
+  private parseToMapOfOrders(
     orders: SerumOrder[] | SerumOrderBook | any[]
-  ): Order[] {
-    const result = [];
+  ): Map<string, Order> {
+    const result = new Map<string, Order>();
 
     for (const order of orders) {
-      result.push(this.parseToOrder(order));
+      result.set(order.id, this.parseToOrder(order));
     }
 
     return result;
@@ -259,36 +273,56 @@ export class Serum {
     return await this.getTickers(marketNames);
   }
 
+  async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
+    const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(
+      target.address
+    );
+    for (const mapOfOpenOrdersForMarket of mapOfOpenOrdersForMarkets.values()) {
+      for (const openOrder of mapOfOpenOrdersForMarket.values()) {
+        if (
+          openOrder.id === target.clientOrderId ||
+          openOrder.exchangeId === target.exchangeOrderId
+        ) {
+          return openOrder;
+        }
+      }
+    }
+
+    throw new OrderNotFoundError(`Order ${target.clientOrderId} not found.`);
+  }
+
+  async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
+    const mapOfFilledOrders = await this.getAllFilledOrders();
+    for (const filledOrder of mapOfFilledOrders.values()) {
+      if (
+        filledOrder.id === target.clientOrderId ||
+        filledOrder.exchangeId === target.exchangeOrderId
+      ) {
+        return filledOrder;
+      }
+    }
+
+    throw new OrderNotFoundError(`Order "${target.clientOrderId}" not found.`);
+  }
+
   async getOrder(target: {
     marketName: string;
     clientOrderId: string;
     exchangeOrderId: string;
     address: string;
   }): Promise<Order> {
-    const openOrders = await this.getAllOpenOrders(target.address);
-    for (const openOrdersForMarket of openOrders.values()) {
-      const order = openOrdersForMarket.find(
-        (order) =>
-          order.id === target.clientOrderId ||
-          order.exchangeId === target.exchangeOrderId
-      );
+    try {
+      return await this.getOpenOrder(target);
+    } catch (exception) {
+      if (exception instanceof OrderNotFoundError) {
+        return await this.getFilledOrder(target);
+      }
 
-      if (order) return order;
+      throw exception;
     }
-
-    const filledOrders = await this.getAllFilledOrders();
-    for (const filledOrdersForMarket of filledOrders?.values()) {
-      const order = filledOrdersForMarket.find(
-        (order) => order.id === target.clientOrderId
-      );
-
-      if (order) return order;
-    }
-
-    throw new OrderNotFoundError(`Order ${target.clientOrderId} not found.`);
   }
 
-  async getOrders(targets: OrderRequest[]): Promise<Map<string, Order>> {
+  async getOrders(targets: GetOrderRequest[]): Promise<Map<string, Order>> {
     const orders = new Map<string, Order>();
 
     for (const target of targets) {
@@ -300,10 +334,24 @@ export class Serum {
     return orders;
   }
 
+  async getOpenOrders(
+    targets: GetOpenOrderRequest[]
+  ): Promise<Map<string, Order>> {
+    const orders = new Map<string, Order>();
+
+    for (const target of targets) {
+      const order = await this.getOpenOrder(target);
+
+      orders.set(order.id, order);
+    }
+
+    return orders;
+  }
+
   async getAllOpenOrdersForMarket(
     marketName: string,
     address: string
-  ): Promise<Order[]> {
+  ): Promise<Map<string, Order>> {
     const market = await this.getMarket(marketName);
 
     const owner = await this.solana.getAccount(address);
@@ -313,14 +361,14 @@ export class Serum {
       owner.publicKey
     );
 
-    return this.parseToOrders(serumOpenOrders);
+    return this.parseToMapOfOrders(serumOpenOrders);
   }
 
   async getAllOpenOrdersForMarkets(
     marketNames: string[],
     address: string
-  ): Promise<Map<string, Order[]>> {
-    const result = new Map<string, Order[]>();
+  ): Promise<Map<string, Map<string, Order>>> {
+    const result = new Map<string, Map<string, Order>>();
 
     for (const marketName of marketNames) {
       result.set(
@@ -332,13 +380,15 @@ export class Serum {
     return result;
   }
 
-  async getAllOpenOrders(address: string): Promise<Map<string, Order[]>> {
+  async getAllOpenOrders(
+    address: string
+  ): Promise<Map<string, Map<string, Order>>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return await this.getAllOpenOrdersForMarkets(marketNames, address);
   }
 
-  async createOrder(candidate: CreateOrder): Promise<Order> {
+  async createOrder(candidate: CreateOrderRequest): Promise<Order> {
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.address);
@@ -370,7 +420,9 @@ export class Serum {
     });
   }
 
-  async createOrders(candidates: CreateOrder[]): Promise<Map<string, Order>> {
+  async createOrders(
+    candidates: CreateOrderRequest[]
+  ): Promise<Map<string, Order>> {
     // TODO improve to use transactions in the future
 
     const createdOrders = new Map<string, Order>();
@@ -383,7 +435,7 @@ export class Serum {
     return createdOrders;
   }
 
-  async cancelOrder(target: OrderRequest): Promise<any> {
+  async cancelOrder(target: CancelOrderRequest): Promise<any> {
     const market = await this.getMarket(target.marketName);
 
     const owner = await this.solana.getAccount(target.address);
@@ -398,7 +450,9 @@ export class Serum {
     await market.market.cancelOrder(this.connection, owner, order.order);
   }
 
-  async cancelOrders(targets: OrderRequest[]): Promise<Map<string, Order>> {
+  async cancelOrders(
+    targets: CancelOrderRequest[]
+  ): Promise<Map<string, Order>> {
     // TODO improve to use transactions in the future
 
     const canceledOrders = new Map<string, Order>();
@@ -418,47 +472,30 @@ export class Serum {
   }
 
   async cancelAllOpenOrders(address: string): Promise<Map<string, Order>> {
-    const map = await this.getAllOpenOrders(address);
+    const mapOfMapOfOrders = await this.getAllOpenOrders(address);
 
     const canceledOrders = new Map<string, Order>();
 
-    for (const orders of map.values()) {
-      await this.cancelOrders(
-        orders.map((order) => {
-          return {
-            marketName: order.marketName,
-            address: order.ownerAddress,
-            clientOrderId: order.id,
-            exchangeOrderId: order.exchangeId,
-          };
-        })
-      );
+    for (const mapOfOrders of mapOfMapOfOrders.values()) {
+      for (const order of mapOfOrders.values()) {
+        await this.cancelOrder({
+          marketName: order.marketName,
+          address: order.ownerAddress,
+          clientOrderId: order.id,
+          exchangeOrderId: order.exchangeId,
+        });
 
-      orders.push(...orders);
+        canceledOrders.set(order.id, order);
+      }
     }
 
     return canceledOrders;
   }
 
-  async getFilledOrder(target: OrderRequest): Promise<Order> {
-    const filledOrders = await this.getFilledOrders([
-      {
-        marketName: target.marketName,
-        addresses: target.address ? [target.address] : [],
-        exchangeOrderIds: target.exchangeOrderId
-          ? [target.exchangeOrderId]
-          : [],
-        clientOrderIds: target.clientOrderId ? [target.clientOrderId] : [],
-      },
-    ]);
-
-    return filledOrders.values().next().value;
-  }
-
   async getFilledOrders(
-    targets: OrderRequests[]
-  ): Promise<Map<string, Order[]>> {
-    const result = new Map<string, Order[]>();
+    targets: GetFilledOrderRequest[]
+  ): Promise<Map<string, Order>> {
+    let result = new Map<string, Order>();
 
     for (const target of targets) {
       let marketsMap = new Map<string, Market>();
@@ -472,19 +509,19 @@ export class Serum {
         );
       }
 
-      for (const [marketName, market] of marketsMap) {
+      for (const market of marketsMap.values()) {
         // TODO will not work properly because we are loading the fills for everyone and not just for the owner orders!!!
         // TODO check if -1 would also work!!!
         const orders = await market.market.loadFills(this.connection, 0);
 
-        result.set(marketName, this.parseToOrders(orders));
+        result = new Map([...result, ...this.parseToMapOfOrders(orders)]);
       }
     }
 
     return result;
   }
 
-  async getAllFilledOrders(): Promise<Map<string, Order[]>> {
-    return await this.getFilledOrders([{}]);
+  async getAllFilledOrders(): Promise<Map<string, Order>> {
+    return await this.getFilledOrders([]);
   }
 }

@@ -1,17 +1,26 @@
 import { NetworkSelectionRequest } from '../../services/common-interfaces';
-import { CreateOrder, Market, Order, OrderBook, OrderRequest, Ticker } from './serum.types';
+import {
+  CancelOpenOrderRequest,
+  CancelOrderRequest,
+  CreateOrderRequest,
+  GetFilledOrderRequest,
+  GetMarketsRequest,
+  GetOpenOrderRequest,
+  GetOrderBooksRequest,
+  GetOrderRequest,
+  GetTickersRequest,
+  Market,
+  Order,
+  OrderBook,
+  Ticker,
+} from './serum.types';
 
 //
 // GET /clob/markets
 //
 
 export type SerumGetMarketsRequest = NetworkSelectionRequest &
-  (
-    | { name: string }
-    | {
-        names: string[];
-      }
-  );
+  GetMarketsRequest;
 
 export type SerumGetMarketsResponse = Map<string, Market> | Market;
 
@@ -20,12 +29,7 @@ export type SerumGetMarketsResponse = Map<string, Market> | Market;
 //
 
 export type SerumGetOrderBooksRequest = NetworkSelectionRequest &
-  (
-    | { marketName: string }
-    | {
-        marketNames: string[];
-      }
-  );
+  GetOrderBooksRequest;
 
 export type SerumGetOrderBooksResponse = Map<string, OrderBook> | OrderBook;
 
@@ -34,12 +38,7 @@ export type SerumGetOrderBooksResponse = Map<string, OrderBook> | OrderBook;
 //
 
 export type SerumGetTickersRequest = NetworkSelectionRequest &
-  (
-    | { marketName: string }
-    | {
-        marketNames: string[];
-      }
-  );
+  GetTickersRequest;
 
 export type SerumGetTickersResponse = Map<string, Ticker> | Ticker;
 
@@ -49,9 +48,9 @@ export type SerumGetTickersResponse = Map<string, Ticker> | Ticker;
 
 export type SerumGetOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: OrderRequest }
+    | { order: GetOrderRequest }
     | {
-        orders: OrderRequest[];
+        orders: GetOrderRequest[];
       }
   );
 
@@ -61,29 +60,41 @@ export type SerumGetOrdersResponse = Map<string, Order> | Order;
 // POST /clob/orders
 //
 
-export type SerumPostOrdersRequest = NetworkSelectionRequest &
+export type SerumCreateOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CreateOrder }
+    | { order: CreateOrderRequest }
     | {
-        orders: CreateOrder[];
+        orders: CreateOrderRequest[];
       }
   );
 
-export type SerumPostOrdersResponse = Map<string, Order> | Order;
+export type SerumCreateOrdersResponse = Map<string, Order> | Order;
 
 //
 // DELETE /clob/orders
 //
 
-export type SerumDeleteOrdersRequest = NetworkSelectionRequest & {};
+export type SerumCancelOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: CancelOrderRequest }
+    | {
+        orders: CancelOrderRequest[];
+      }
+  );
 
-export type SerumDeleteOrdersResponse = Map<string, Order> | Order;
+export type SerumCancelOrdersResponse = Map<string, Order> | Order;
 
 //
 // GET /clob/openOrders
 //
 
-export type SerumGetOpenOrdersRequest = NetworkSelectionRequest & {};
+export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: GetOpenOrderRequest }
+    | {
+        orders: GetOpenOrderRequest[];
+      }
+  );
 
 export type SerumGetOpenOrdersResponse = Map<string, Order> | Order;
 
@@ -91,14 +102,26 @@ export type SerumGetOpenOrdersResponse = Map<string, Order> | Order;
 // DELETE /clob/openOrders
 //
 
-export type SerumDeleteOpenOrdersRequest = NetworkSelectionRequest & {};
+export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: CancelOpenOrderRequest }
+    | {
+        orders: CancelOpenOrderRequest[];
+      }
+  );
 
-export type SerumDeleteOpenOrdersResponse = Map<string, Order> | Order;
+export type SerumCancelOpenOrdersResponse = Map<string, Order> | Order;
 
 //
 // GET /clob/filledOrders
 //
 
-export type SerumGetFilledOrdersRequest = NetworkSelectionRequest & {};
+export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
+  (
+    | { order: GetFilledOrderRequest }
+    | {
+        orders: GetFilledOrderRequest[];
+      }
+  );
 
 export type SerumGetFilledOrdersResponse = Map<string, Order> | Order;

@@ -165,7 +165,7 @@ export async function cancelOpenOrders(
     request.connector
   );
 
-  return serumControllers.deleteOpenOrders(chain, connector, request);
+  return serumControllers.cancelOpenOrders(chain, connector, request);
 }
 
 /**
