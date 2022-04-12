@@ -95,7 +95,7 @@ cdef class StrategyBase(TimeIterator):
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted.value
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
     ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
@@ -283,7 +283,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.SELL_ORDER_CREATED_EVENT_TAG, self._sb_create_sell_order_listener)
             typed_market.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._sb_fill_order_listener)
             typed_market.c_add_listener(self.ORDER_FAILURE_EVENT_TAG, self._sb_fail_order_listener)
-            typed_market.c_add_listener(self.ORDER_CANCELLED_EVENT_TAG, self._sb_cancel_order_listener)
+            typed_market.c_add_listener(self.ORDER_CANCELED_EVENT_TAG, self._sb_cancel_order_listener)
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
@@ -307,7 +307,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.SELL_ORDER_CREATED_EVENT_TAG, self._sb_create_sell_order_listener)
             typed_market.c_remove_listener(self.ORDER_FILLED_EVENT_TAG, self._sb_fill_order_listener)
             typed_market.c_remove_listener(self.ORDER_FAILURE_EVENT_TAG, self._sb_fail_order_listener)
-            typed_market.c_remove_listener(self.ORDER_CANCELLED_EVENT_TAG, self._sb_cancel_order_listener)
+            typed_market.c_remove_listener(self.ORDER_CANCELED_EVENT_TAG, self._sb_cancel_order_listener)
             typed_market.c_remove_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
@@ -427,7 +427,7 @@ cdef class StrategyBase(TimeIterator):
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
-    # <editor-fold desc="+ Creating and cancelling orders">
+    # <editor-fold desc="+ Creating and canceling orders">
     # ----------------------------------------------------------------------------------------------------------
 
     def buy_with_specific_market(self, market_trading_pair_tuple, amount,
@@ -524,7 +524,7 @@ cdef class StrategyBase(TimeIterator):
         if self._sb_order_tracker.c_check_and_track_cancel(order_id):
             self.log_with_clock(
                 logging.INFO,
-                f"({market_trading_pair_tuple.trading_pair}) Cancelling the limit order {order_id}."
+                f"({market_trading_pair_tuple.trading_pair}) Canceling the limit order {order_id}."
             )
             market.c_cancel(market_trading_pair_tuple.trading_pair, order_id)
 

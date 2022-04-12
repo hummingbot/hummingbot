@@ -41,7 +41,7 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"Filled", "Canceled", "Rejected"}
+        return self.last_state in {"Filled", "Cancelled", "Rejected"}
 
     @property
     def is_failure(self) -> bool:
