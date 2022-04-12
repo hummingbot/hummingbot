@@ -18,6 +18,7 @@ connector_status = {
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
     'coinflex': 'yellow',
+    'coinflex_perpetual': 'yellow',
     'coinzoom': 'yellow',
     'crypto_com': 'yellow',
     'digifinex': "yellow",
