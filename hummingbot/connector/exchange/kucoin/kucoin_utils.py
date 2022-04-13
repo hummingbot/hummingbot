@@ -1,76 +1,29 @@
-from typing import (
-    Tuple,
-)
+from decimal import Decimal
+from typing import Any, Dict
 
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDT"
 
-DEFAULT_FEES = [0.1, 0.1]
-
-# Certain asset tokens is different from its name as per displayed on Kucoin Exchange
-ASSET_TO_NAME_MAPPING = {  # token: name
-    "WAX": "WAXP",
-    "BCHSV": "BSV",
-}
-
-NAME_TO_ASSET_MAPPING = {  # name: token
-    name: asset
-    for asset, name in ASSET_TO_NAME_MAPPING.items()
-}
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+)
 
 
-def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-    try:
-        base, quote = trading_pair.split("-")
+def is_pair_information_valid(pair_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its market information
 
-        if base in ASSET_TO_NAME_MAPPING:
-            base = ASSET_TO_NAME_MAPPING[base]
+    :param pair_info: the market information for a trading pair
 
-        if quote in ASSET_TO_NAME_MAPPING:
-            quote = ASSET_TO_NAME_MAPPING[quote]
-
-        return base, quote
-    except Exception as e:
-        raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
-
-
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    base, quote = exchange_trading_pair.split("-")
-    if base in ASSET_TO_NAME_MAPPING:
-        base = ASSET_TO_NAME_MAPPING[base]
-
-    if quote in ASSET_TO_NAME_MAPPING:
-        quote = ASSET_TO_NAME_MAPPING[quote]
-
-    return f"{base}-{quote}"
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    base, quote = hb_trading_pair.split("-")
-
-    if base in NAME_TO_ASSET_MAPPING:
-        base = NAME_TO_ASSET_MAPPING[base]
-
-    if quote in NAME_TO_ASSET_MAPPING:
-        quote = NAME_TO_ASSET_MAPPING[quote]
-
-    return f"{base}-{quote}"
-
-
-def convert_asset_from_exchange(asset: str) -> str:
-    if asset in ASSET_TO_NAME_MAPPING:
-        asset = ASSET_TO_NAME_MAPPING[asset]
-    return asset
-
-
-def convert_asset_to_exchange(asset: str) -> str:
-    if asset in NAME_TO_ASSET_MAPPING:
-        asset = NAME_TO_ASSET_MAPPING[asset]
-    return asset
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return pair_info.get("enableTrading", False)
 
 
 KEYS = {
@@ -92,4 +45,31 @@ KEYS = {
                   required_if=using_exchange("kucoin"),
                   is_secure=True,
                   is_connect_key=True),
+}
+
+OTHER_DOMAINS = ["kucoin_testnet"]
+OTHER_DOMAINS_PARAMETER = {"kucoin_testnet": "testnet"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"kucoin_testnet": "ETH-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"kucoin_testnet": [0.1, 0.1]}
+OTHER_DOMAINS_KEYS = {
+    "kucoin_testnet": {
+        "kucoin_testnet_api_key":
+            ConfigVar(key="kucoin_testnet_api_key",
+                      prompt="Enter your KuCoin API key >>> ",
+                      required_if=using_exchange("kucoin_testnet"),
+                      is_secure=True,
+                      is_connect_key=True),
+        "kucoin_testnet_secret_key":
+            ConfigVar(key="kucoin_testnet_secret_key",
+                      prompt="Enter your KuCoin secret key >>> ",
+                      required_if=using_exchange("kucoin_testnet"),
+                      is_secure=True,
+                      is_connect_key=True),
+        "kucoin_testnet_passphrase":
+            ConfigVar(key="kucoin_testnet_passphrase",
+                      prompt="Enter your KuCoin passphrase >>> ",
+                      required_if=using_exchange("kucoin_testnet"),
+                      is_secure=True,
+                      is_connect_key=True),
+    }
 }
