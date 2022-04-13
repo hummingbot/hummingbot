@@ -14,6 +14,7 @@ from requests import Response
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import (
     PositionSide,
     TradeType
@@ -611,3 +612,25 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         ))
 
         self.assertFalse("OID1" in self.exchange.in_flight_orders)
+
+    def test_cancel_all(self):
+        self._simulate_trading_rules_initialized()
+
+        self.exchange.start_tracking_order(
+            order_side=TradeType.BUY,
+            client_order_id="OID1",
+            order_type=OrderType.LIMIT,
+            created_at=1640001112.223,
+            hash="hashcode",
+            trading_pair=self.trading_pair,
+            price=Decimal(1000),
+            amount=Decimal(1),
+            leverage=Decimal(1),
+            position="position",
+        )
+
+        result = self.async_run_with_timeout(self.exchange.cancel_all(
+            timeout_seconds=1
+        ))
+
+        self.assertEqual(result, [CancellationResult(order_id='OID1', success=True)])
