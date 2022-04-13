@@ -501,12 +501,13 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def cancel_order(self, client_order_id: str):
         in_flight_order = self._in_flight_orders.get(client_order_id)
         cancellation_event = OrderCancelledEvent(now(), client_order_id)
-        exchange_order_id = in_flight_order.exchange_order_id
 
         if in_flight_order is None:
             self.logger().warning("Canceled an untracked order {client_order_id}")
             self.trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
             return False
+
+        exchange_order_id = in_flight_order.exchange_order_id
 
         try:
             if exchange_order_id is None:
