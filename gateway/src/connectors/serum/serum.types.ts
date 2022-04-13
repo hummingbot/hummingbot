@@ -55,7 +55,7 @@ export interface Order extends OrderParams {
   sideEnum: OrderSide; // TODO check how to handle collision!!!
   status: OrderStatus;
   orderType: any; // TODO check how to properly use: orderType?: 'limit' | 'ioc' | 'postOnly';!!!
-  postOnly: boolean; // TODO check how to properly use: orderType?: 'limit' | 'ioc' | 'postOnly';!!!
+  postOnly: boolean; // TODO is this needed? check how to properly use: orderType?: 'limit' | 'ioc' | 'postOnly';!!!
   fees: Fee;
   filledTimestamp: number;
   order: SerumOrder;

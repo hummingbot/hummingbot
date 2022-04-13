@@ -88,7 +88,9 @@ describe('/clob/markets', () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
-          const map: Map<string, Market> = response.body;
+          const market: Map<string, Market> = response.body;
+
+          console.log(market);
 
           fail('Not implemented');
         });
@@ -106,6 +108,8 @@ describe('/clob/markets', () => {
         .expect(StatusCodes.OK)
         .then((response) => {
           const map: Map<string, Market> = response.body;
+
+          console.log(map);
 
           fail('Not implemented');
         });
@@ -129,6 +133,8 @@ describe('/clob/orderBooks', () => {
         .then((response) => {
           const orderBook: OrderBook = response.body;
 
+          console.log(orderBook);
+
           fail('Not implemented');
         });
     });
@@ -147,6 +153,8 @@ describe('/clob/orderBooks', () => {
         .then((response) => {
           const map: Map<string, OrderBook> = response.body;
 
+          console.log(map);
+
           fail('Not implemented');
         });
     });
@@ -163,6 +171,8 @@ describe('/clob/orderBooks', () => {
         .expect(StatusCodes.OK)
         .then((response) => {
           const map: Map<string, OrderBook> = response.body;
+
+          console.log(map);
 
           fail('Not implemented');
         });
@@ -186,6 +196,8 @@ describe('/clob/tickers', () => {
         .then((response) => {
           const ticker: Ticker = response.body;
 
+          console.log(ticker);
+
           fail('Not implemented');
         });
     });
@@ -204,6 +216,8 @@ describe('/clob/tickers', () => {
         .then((response) => {
           const map: Map<string, Ticker> = response.body;
 
+          console.log(map);
+
           fail('Not implemented');
         });
     });
@@ -220,6 +234,8 @@ describe('/clob/tickers', () => {
         .expect(StatusCodes.OK)
         .then((response) => {
           const map: Map<string, Ticker> = response.body;
+
+          console.log(map);
 
           fail('Not implemented');
         });
