@@ -43,3 +43,7 @@ configurations:
   $namespace uniswap:
     configurationPath: uniswap.yml
     schemaPath: uniswap-schema.json
+
+  $namespace serum:
+    configurationPath: serum.yml
+    schemaPath: serum-schema.json

@@ -1,0 +1,12 @@
+network: devnet
+networks:
+  mainnet:
+    rpcURL: https://solana-api.projectserum.com
+  testnet:
+    rpcURL: https://api.testnet.solana.com
+  devnet:
+    rpcURL: https://api.devnet.solana.com
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '1/100'
+timeToLive: 20

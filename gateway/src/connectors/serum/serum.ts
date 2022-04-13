@@ -62,7 +62,7 @@ export class Serum {
 
     this.config = SerumConfig.config;
 
-    this.connection = new Connection(this.config.network.rpcUrl);
+    this.connection = new Connection(this.config.network.rpcURL);
   }
 
   /**
@@ -112,18 +112,6 @@ export class Serum {
       order: order,
     } as Order;
   }
-
-  // private parseToOrders(
-  //   orders: SerumOrder[] | SerumOrderBook | any[]
-  // ): Order[] {
-  //   const result = [];
-  //
-  //   for (const order of orders) {
-  //     result.push(this.parseToOrder(order));
-  //   }
-  //
-  //   return result;
-  // }
 
   private parseToMapOfOrders(
     orders: SerumOrder[] | SerumOrderBook | any[]
@@ -209,9 +197,9 @@ export class Serum {
           market,
           await SerumMarket.load(
             this.connection,
-            market.address,
+            new PublicKey(market.address),
             {},
-            market.programId
+            new PublicKey(market.programId)
           )
         )
       );
