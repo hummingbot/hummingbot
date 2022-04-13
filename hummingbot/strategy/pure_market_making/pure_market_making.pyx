@@ -412,7 +412,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @price_band_refresh_time.setter
     def price_band_refresh_time(self, value: Decimal):
         self._moving_price_band.price_band_refresh_time = value
-        self._moving_price_band.update(self.current_timestamp, self.get_price())
+        self._moving_price_band.update(self._current_timestamp, self.get_price())
 
     @property
     def moving_price_band(self) -> MovingPriceBand:
