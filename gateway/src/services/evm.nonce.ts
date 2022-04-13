@@ -157,7 +157,14 @@ export class EVMNonceManager {
         ethAddress
       );
 
+      const externalPendingNonce: number =
+        await this._provider.getTransactionCount(ethAddress, 'pending');
+
       this.#addressToNonce[ethAddress] = [externalNonce, new Date()];
+      this.#addressToLeadingNonce[ethAddress] = [
+        externalPendingNonce,
+        new Date(),
+      ];
       await this.#db.saveNonce(
         this.#chainName,
         this.#chainId,
