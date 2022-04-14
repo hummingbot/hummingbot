@@ -165,7 +165,9 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   getSpender(reqSpender: string): string {
     let spender: string;
     if (reqSpender === 'uniswap') {
-      spender = UniswapConfig.config.uniswapV2RouterAddress(this._chain);
+      spender = UniswapConfig.config.uniswapV3SmartOrderRouterAddress(
+        this._chain
+      );
     } else {
       spender = reqSpender;
     }

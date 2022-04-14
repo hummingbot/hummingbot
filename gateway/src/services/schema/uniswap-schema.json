@@ -24,13 +24,11 @@
         "^\\w+$": {
           "type": "object",
           "properties": {
-            "uniswapV2RouterAddress": { "type": "string" },
-            "uniswapV3RouterAddress": { "type": "string" },
+            "uniswapV3SmartOrderRouterAddress": { "type": "string" },
             "uniswapV3NftManagerAddress": { "type": "string" }
           },
           "required": [
-            "uniswapV2RouterAddress",
-            "uniswapV3RouterAddress",
+            "uniswapV3SmartOrderRouterAddress",
             "uniswapV3NftManagerAddress"
           ],
           "additionalProperties": false
