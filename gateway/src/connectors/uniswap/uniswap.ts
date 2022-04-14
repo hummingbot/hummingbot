@@ -35,6 +35,7 @@ export class Uniswap implements Uniswapish {
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
   private _ttl: number;
+  private _maximumHops: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
@@ -44,13 +45,14 @@ export class Uniswap implements Uniswapish {
     const config = UniswapConfig.config;
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
-    this._ttl = UniswapConfig.config.ttl(2);
+    this._ttl = UniswapConfig.config.ttl;
+    this._maximumHops = UniswapConfig.config.maximumHops;
     this._alphaRouter = new AlphaRouter({
       chainId: this.chainId,
       provider: this.ethereum.provider,
     });
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = UniswapConfig.config.gasLimit(2);
+    this._gasLimit = UniswapConfig.config.gasLimit;
     this._router = config.uniswapV3SmartOrderRouterAddress(network);
   }
 
@@ -133,10 +135,17 @@ export class Uniswap implements Uniswapish {
   }
 
   /**
+   * Default maximum number of hops for to go through for a swap transactions.
+   */
+  public get maximumHops(): number {
+    return this._maximumHops;
+  }
+
+  /**
    * Gets the allowed slippage percent from configuration.
    */
   getSlippagePercentage(): Percent {
-    const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
+    const allowedSlippage = UniswapConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
@@ -172,7 +181,7 @@ export class Uniswap implements Uniswapish {
       TradeType.EXACT_INPUT,
       undefined,
       {
-        maxSwapsPerPath: 4,
+        maxSwapsPerPath: this.maximumHops,
       }
     );
 
@@ -218,7 +227,7 @@ export class Uniswap implements Uniswapish {
       TradeType.EXACT_OUTPUT,
       undefined,
       {
-        maxSwapsPerPath: 4,
+        maxSwapsPerPath: this.maximumHops,
       }
     );
     if (!route) {
