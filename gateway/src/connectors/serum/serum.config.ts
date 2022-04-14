@@ -8,20 +8,18 @@ export namespace SerumConfig {
   export interface NetworkConfig {
     rpcURL: string;
   }
-
-  export const config: Config = getSerumConfig();
 }
 
-export function getSerumConfig(): SerumConfig.Config {
+export function getSerumConfig(network: string): SerumConfig.Config {
   const configManager = ConfigManagerV2.getInstance();
 
   const prefix = 'serum';
 
-  const network = configManager.get(`${prefix}.network`);
+  const targetNetwork = network || configManager.get(`${prefix}.network`);
 
   return {
     network: {
-      rpcURL: configManager.get(`${prefix}.networks.${network}.rpcURL`),
+      rpcURL: configManager.get(`${prefix}.networks.${targetNetwork}.rpcURL`),
     }
   };
 }

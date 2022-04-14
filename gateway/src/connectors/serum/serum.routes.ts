@@ -62,7 +62,7 @@ export namespace SerumRoutes {
           chain: serum.chain,
           network: serum.network,
           connector: serum.connector,
-          connection: serum.ready,
+          connection: serum.ready(),
           timestamp: Date.now(),
         });
       }

@@ -1,10 +1,10 @@
 export default {
   solana: {
-    network: 'testnet',
+    network: 'mainnet-beta',
   },
   serum: {
     chain: 'solana',
-    network: 'testnet',
+    network: 'mainnet-beta',
     connector: 'serum',
   },
 };
