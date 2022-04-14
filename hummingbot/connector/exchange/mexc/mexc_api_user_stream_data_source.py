@@ -60,7 +60,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _authenticate_client(self):
         pass
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
             session = self._shared_client
             try:

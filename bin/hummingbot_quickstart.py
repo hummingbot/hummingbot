@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
 import argparse
 import asyncio
 import logging
+import os
+import subprocess
 from typing import (
     Coroutine,
     List,
 )
-import os
-import subprocess
 
+import path_util        # noqa: F401
 from bin.hummingbot import (
     detect_available_port,
     UIStartListener,
@@ -28,7 +28,7 @@ from hummingbot.client.ui import login_prompt
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, CONF_FILE_PATH
 from hummingbot.client.config.security import Security
 
 

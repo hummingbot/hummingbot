@@ -5,7 +5,6 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
@@ -18,11 +17,6 @@ DEFAULT_FEES = [-0.025, 0.075]
 # USE_ETHEREUM_WALLET not required because default value is false
 # FEE_TYPE not required because default value is Percentage
 # FEE_TOKEN not required because the fee is not flat
-
-
-def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "B" if is_buy else "S"
-    return f"{CONSTANTS.HBOT_BROKER_ID}-{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:

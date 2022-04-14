@@ -21,8 +21,9 @@ from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiU
 from hummingbot.connector.exchange.huobi.huobi_utils import (
     build_api_factory,
     convert_to_exchange_trading_pair,
-    get_new_client_order_id,
+    BROKER_ID,
 )
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.clock cimport Clock
@@ -50,7 +51,6 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
@@ -486,10 +486,8 @@ cdef class HuobiExchange(ExchangeBase):
                                                                         tracked_order.client_order_id,
                                                                         tracked_order.base_asset,
                                                                         tracked_order.quote_asset,
-                                                                        tracked_order.fee_asset or tracked_order.base_asset,
                                                                         tracked_order.executed_amount_base,
                                                                         tracked_order.executed_amount_quote,
-                                                                        tracked_order.fee_paid,
                                                                         tracked_order.order_type))
                         else:
                             self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -499,10 +497,8 @@ cdef class HuobiExchange(ExchangeBase):
                                                                          tracked_order.client_order_id,
                                                                          tracked_order.base_asset,
                                                                          tracked_order.quote_asset,
-                                                                         tracked_order.fee_asset or tracked_order.quote_asset,
                                                                          tracked_order.executed_amount_base,
                                                                          tracked_order.executed_amount_quote,
-                                                                         tracked_order.fee_paid,
                                                                          tracked_order.order_type))
                     else:  # Handles "canceled" or "partial-canceled" order
                         self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -615,24 +611,7 @@ cdef class HuobiExchange(ExchangeBase):
             except asyncio.TimeoutError:
                 self.logger().warning(
                     f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
-                    f"The complete update will be processed with estimated fees.")
-                fee_asset = tracked_order.quote_asset
-                fee = self.get_fee(
-                    tracked_order.base_asset,
-                    tracked_order.quote_asset,
-                    tracked_order.order_type,
-                    tracked_order.trade_type,
-                    tracked_order.amount,
-                    tracked_order.price)
-                fee_amount = fee.fee_amount_in_token(
-                    tracked_order.trading_pair,
-                    tracked_order.price,
-                    tracked_order.amount,
-                    token=tracked_order.quote_asset,
-                    exchange=self)
-            else:
-                fee_asset = tracked_order.fee_asset
-                fee_amount = tracked_order.fee_paid
+                    f"The complete update will be processed with incorrect information.")
 
             self.logger().info(f"The {tracked_order.trade_type.name} order {tracked_order.client_order_id} "
                                f"has completed according to order delta websocket API.")
@@ -642,10 +621,8 @@ cdef class HuobiExchange(ExchangeBase):
                                      tracked_order.client_order_id,
                                      tracked_order.base_asset,
                                      tracked_order.quote_asset,
-                                     tracked_order.fee_asset or tracked_order.quote_asset,
                                      tracked_order.executed_amount_base,
                                      tracked_order.executed_amount_quote,
-                                     tracked_order.fee_paid,
                                      tracked_order.order_type
                                  ))
             self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -800,7 +777,9 @@ cdef class HuobiExchange(ExchangeBase):
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
-            str order_id = get_new_client_order_id(TradeType.BUY, trading_pair)
+            str order_id = get_new_client_order_id(
+                is_buy=True, trading_pair=trading_pair, hbot_order_id_prefix=BROKER_ID
+            )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -870,8 +849,10 @@ cdef class HuobiExchange(ExchangeBase):
                     object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = get_new_client_order_id(TradeType.SELL, trading_pair)
+            str order_id = get_new_client_order_id(
+                is_buy=False, trading_pair=trading_pair, hbot_order_id_prefix=BROKER_ID
+            )
+
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 

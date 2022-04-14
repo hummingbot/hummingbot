@@ -21,6 +21,7 @@ from hummingbot.connector.exchange.probit.probit_order_book_tracker import Probi
 from hummingbot.connector.exchange.probit.probit_user_stream_tracker import ProbitUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
@@ -389,7 +390,9 @@ class ProbitExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = probit_utils.get_new_client_order_id(True, trading_pair)
+        order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+        )
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -404,7 +407,9 @@ class ProbitExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = probit_utils.get_new_client_order_id(False, trading_pair)
+        order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+        )
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -793,10 +798,8 @@ class ProbitExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type,
                                            tracked_order.exchange_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)

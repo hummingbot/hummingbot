@@ -1,25 +1,16 @@
 import asyncio
 import logging
 import time
-
-from typing import (
-    Dict,
-    Optional,
-    Tuple,
-)
+from typing import Optional
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance import binance_utils
+import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
-from hummingbot.connector.utils import build_api_factory
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    RESTRequest,
-    RESTResponse,
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -35,16 +26,22 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: BinanceAuth,
-                 domain: str = "com",
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
-                 throttler: Optional[AsyncThrottler] = None):
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
         self._auth: BinanceAuth = auth
+        self._time_synchronizer = time_synchronizer
         self._current_listen_key = None
         self._last_recv_time: float = 0
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
-        self._api_factory = api_factory or build_api_factory()
+        self._throttler = throttler
+        self._api_factory = api_factory or web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            auth=self._auth)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._ws_assistant: Optional[WSAssistant] = None
 
@@ -67,11 +64,13 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant.last_recv_time
         return 0
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Connects to the user private channel in the exchange using a websocket connection. With the established
         connection listens to all balance events and order updates provided by the exchange, and stores them in the
         output queue
+
+        :param output: the queue to use to store the received messages
         """
         ws = None
         while True:
@@ -100,38 +99,46 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._listen_key_initialized_event.clear()
                 await self._sleep(5)
 
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
-
     async def _get_listen_key(self):
-        rest_assistant = await self._get_rest_assistant()
-        url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-        request = RESTRequest(method=RESTMethod.POST, url=url, headers=self._auth.header_for_authentication())
+        try:
+            data = await web_utils.api_request(
+                path=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                api_factory=self._api_factory,
+                throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
+                domain=self._domain,
+                method=RESTMethod.POST,
+                headers=self._auth.header_for_authentication())
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            raise IOError(f"Error fetching user stream listen key. Error: {exception}")
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
-            response: RESTResponse = await rest_assistant.call(request=request)
-
-            if response.status != 200:
-                raise IOError(f"Error fetching user stream listen key. Response: {response}")
-            data: Dict[str, str] = await response.json()
-            return data["listenKey"]
+        return data["listenKey"]
 
     async def _ping_listen_key(self) -> bool:
-        rest_assistant = await self._get_rest_assistant()
-        url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-        request = RESTRequest(method=RESTMethod.PUT, url=url,
-                              headers=self._auth.header_for_authentication(),
-                              params={"listenKey": self._current_listen_key})
+        try:
+            data = await web_utils.api_request(
+                path=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                api_factory=self._api_factory,
+                throttler=self._throttler,
+                time_synchronizer=self._time_synchronizer,
+                domain=self._domain,
+                params={"listenKey": self._current_listen_key},
+                method=RESTMethod.PUT,
+                return_err=True)
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
-            response: RESTResponse = await rest_assistant.call(request=request)
-
-            data: Tuple[str, any] = await response.json()
             if "code" in data:
                 self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
                 return False
-            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {exception}")
+            return False
+
+        return True
 
     async def _manage_listen_key_task_loop(self):
         try:
@@ -156,11 +163,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
-
-    async def _get_rest_assistant(self) -> RESTAssistant:
-        if self._rest_assistant is None:
-            self._rest_assistant = await self._api_factory.get_rest_assistant()
-        return self._rest_assistant
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:

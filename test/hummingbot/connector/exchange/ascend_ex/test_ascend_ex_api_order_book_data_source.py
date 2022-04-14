@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import json
 import re
@@ -6,10 +7,12 @@ from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAs
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
-import aiohttp
+from bidict import bidict
+
 from aioresponses import aioresponses
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
+from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
@@ -31,23 +34,26 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.listening_task = None
         self.async_task: Optional[asyncio.Task] = None
 
-        self.shared_client = None
+        self.api_factory = build_api_factory()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
         self.data_source = AscendExAPIOrderBookDataSource(
-            shared_client=self.shared_client, throttler=self.throttler, trading_pairs=[self.trading_pair]
+            api_factory=self.api_factory, throttler=self.throttler, trading_pairs=[self.trading_pair]
         )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
-        self.data_source._trading_pair_symbol_map = {}
 
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
+            {self.ex_trading_pair: f"{self.base_asset}-{self.quote_asset}"}
+        )
+
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
         self.listening_task and self.listening_task.cancel()
-        self.data_source._shared_client and self.data_source._shared_client.close()
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = None
         super().tearDown()
 
     def handle(self, record):
@@ -69,51 +75,37 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs(self, api_mock):
+        AscendExAPIOrderBookDataSource._trading_pair_symbol_map = None
+
         mock_response = {
-            "code": 0,
             "data": [
                 {
                     "symbol": self.ex_trading_pair,
-                    "open": "0.06777",
-                    "close": "0.06809",
-                    "high": "0.06899",
-                    "low": "0.06708",
-                    "volume": "19823722",
-                    "ask": ["0.0681", "43641"],
-                    "bid": ["0.0676", "443"],
-                },
-                {
-                    "symbol": "BTC/USDT",
-                    "open": "0.06777",
-                    "close": "0.06809",
-                    "high": "0.06899",
-                    "low": "0.06708",
-                    "volume": "19823722",
-                    "ask": ["0.0681", "43641"],
-                    "bid": ["0.0676", "443"],
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
                 },
                 {
                     "symbol": "ETH/USDT",
-                    "open": "0.06777",
-                    "close": "0.06809",
-                    "high": "0.06899",
-                    "low": "0.06708",
-                    "volume": "19823722",
-                    "ask": ["0.0681", "43641"],
-                    "bid": ["0.0676", "443"],
+                    "baseAsset": "ETH",
+                    "quoteAsset": "USDT",
+                },
+                {
+                    "symbol": "DOGE/USDT",
+                    "baseAsset": "DOGE",
+                    "quoteAsset": "USDT",
                 },
             ],
         }
 
-        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
         api_mock.get(url, body=json.dumps(mock_response))
 
         trading_pairs = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(client=self.data_source._shared_client, throttler=self.throttler)
+            self.data_source.fetch_trading_pairs()
         )
 
         self.assertEqual(3, len(trading_pairs))
-        self.assertEqual("BTC-USDT", trading_pairs[1])
+        self.assertEqual("ETH-USDT", trading_pairs[1])
 
     @aioresponses()
     def test_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(self, api_mock):
@@ -137,7 +129,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         results = self.ev_loop.run_until_complete(
             self.data_source.get_last_traded_prices(
-                trading_pairs=[self.trading_pair], client=self.data_source._shared_client, throttler=self.throttler
+                trading_pairs=[self.trading_pair], api_factory=self.data_source._api_factory, throttler=self.throttler
             )
         )
 
@@ -286,23 +278,20 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep")
-    def test_listen_for_subscription_logs_exception(self, _, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.receive.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR")
-        )
-        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscription_logs_exception(self, ws_connect_mock, sleep_mock):
+        ws_connect_mock.side_effect = Exception("TEST ERROR.")
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
 
         self.async_run_with_timeout(self.resume_test_event.wait())
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred iterating through websocket messages."))
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
-        )
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_enqueues_diff_and_trade_messages(self, ws_connect_mock):
@@ -341,6 +330,19 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(1, trade_queue.qsize())
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diff_raises_cancel_exceptions(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task.cancel()
+            self.ev_loop.run_until_complete(self.listening_task)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_handle_ping_message(self, ws_connect_mock):
         # In AscendEx Ping message is sent as a aiohttp.WSMsgType.TEXT message
         mock_response = {"m": "ping", "hp": 3}
@@ -357,19 +359,6 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         sent_json = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         self.assertTrue(any(["pong" in str(payload) for payload in sent_json]))
-
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diff_raises_cancel_exceptions(self, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
-        )
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task.cancel()
-            self.ev_loop.run_until_complete(self.listening_task)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep")
