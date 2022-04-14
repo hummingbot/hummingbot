@@ -7,20 +7,19 @@ import {
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
 import {
-  Contract,
   ContractInterface,
   ContractTransaction,
 } from '@ethersproject/contracts';
+import { AlphaRouter } from '@uniswap/smart-order-router';
+import { Trade, SwapRouter } from '@uniswap/router-sdk';
+import { MethodParameters } from '@uniswap/v3-sdk';
 import {
-  Fetcher,
-  Percent,
-  Router,
   Token,
-  TokenAmount,
-  Trade,
-  Pair,
-  SwapParameters,
-} from '@uniswap/sdk';
+  CurrencyAmount,
+  Percent,
+  TradeType,
+  Currency,
+} from '@uniswap/sdk-core';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
@@ -31,6 +30,7 @@ export class Uniswap implements Uniswapish {
   private static _instances: { [name: string]: Uniswap };
   private ethereum: Ethereum;
   private _chain: string;
+  private _alphaRouter: AlphaRouter;
   private _router: string;
   private _routerAbi: ContractInterface;
   private _gasLimit: number;
@@ -45,9 +45,13 @@ export class Uniswap implements Uniswapish {
     this.ethereum = Ethereum.getInstance(network);
     this.chainId = this.ethereum.chainId;
     this._ttl = UniswapConfig.config.ttl(2);
+    this._alphaRouter = new AlphaRouter({
+      chainId: this.chainId,
+      provider: this.ethereum.provider,
+    });
     this._routerAbi = routerAbi.abi;
     this._gasLimit = UniswapConfig.config.gasLimit(2);
-    this._router = config.uniswapV2RouterAddress(network);
+    this._router = config.uniswapV3SmartOrderRouterAddress(network);
   }
 
   public static getInstance(chain: string, network: string): Uniswap {
@@ -101,6 +105,13 @@ export class Uniswap implements Uniswapish {
   }
 
   /**
+   * AlphaRouter instance.
+   */
+  public get alphaRouter(): AlphaRouter {
+    return this._alphaRouter;
+  }
+
+  /**
    * Router smart contract ABI.
    */
   public get routerAbi(): ContractInterface {
@@ -148,39 +159,37 @@ export class Uniswap implements Uniswapish {
     quoteToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount: TokenAmount = new TokenAmount(
-      baseToken,
-      amount.toString()
-    );
+    const nativeTokenAmount: CurrencyAmount<Token> =
+      CurrencyAmount.fromRawAmount(baseToken, amount.toString());
+
     logger.info(
-      `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
+      `Fetching trade data for ${baseToken.address}-${quoteToken.address}.`
     );
 
-    const pair: Pair = await Fetcher.fetchPairData(
-      baseToken,
-      quoteToken,
-      this.ethereum.provider
-    );
-    const trades: Trade[] = Trade.bestTradeExactIn(
-      [pair],
+    const route = await this._alphaRouter.route(
       nativeTokenAmount,
       quoteToken,
-      { maxHops: 1 }
+      TradeType.EXACT_INPUT,
+      undefined,
+      {
+        maxSwapsPerPath: 4,
+      }
     );
-    if (!trades || trades.length === 0) {
+
+    if (!route) {
       throw new UniswapishPriceError(
         `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
       );
     }
     logger.info(
       `Best trade for ${baseToken.address}-${quoteToken.address}: ` +
-        `${trades[0].executionPrice.toFixed(6)}` +
-        `${baseToken.name}.`
+        `${route.trade.executionPrice.toFixed(6)}` +
+        `${baseToken.symbol}.`
     );
-    const expectedAmount = trades[0].minimumAmountOut(
+    const expectedAmount = route.trade.minimumAmountOut(
       this.getSlippagePercentage()
     );
-    return { trade: trades[0], expectedAmount };
+    return { trade: route.trade, expectedAmount };
   }
 
   /**
@@ -198,39 +207,35 @@ export class Uniswap implements Uniswapish {
     baseToken: Token,
     amount: BigNumber
   ): Promise<ExpectedTrade> {
-    const nativeTokenAmount: TokenAmount = new TokenAmount(
-      baseToken,
-      amount.toString()
-    );
+    const nativeTokenAmount: CurrencyAmount<Token> =
+      CurrencyAmount.fromRawAmount(baseToken, amount.toString());
     logger.info(
       `Fetching pair data for ${quoteToken.address}-${baseToken.address}.`
     );
-    const pair: Pair = await Fetcher.fetchPairData(
-      quoteToken,
-      baseToken,
-      this.ethereum.provider
-    );
-    const trades: Trade[] = Trade.bestTradeExactOut(
-      [pair],
-      quoteToken,
+    const route = await this._alphaRouter.route(
       nativeTokenAmount,
-      { maxHops: 1 }
+      quoteToken,
+      TradeType.EXACT_OUTPUT,
+      undefined,
+      {
+        maxSwapsPerPath: 4,
+      }
     );
-    if (!trades || trades.length === 0) {
+    if (!route) {
       throw new UniswapishPriceError(
         `priceSwapOut: no trade pair found for ${quoteToken.address} to ${baseToken.address}.`
       );
     }
     logger.info(
       `Best trade for ${quoteToken.address}-${baseToken.address}: ` +
-        `${trades[0].executionPrice.invert().toFixed(6)} ` +
-        `${baseToken.name}.`
+        `${route.trade.executionPrice.invert().toFixed(6)} ` +
+        `${baseToken.symbol}.`
     );
 
-    const expectedAmount = trades[0].maximumAmountIn(
+    const expectedAmount = route.trade.maximumAmountIn(
       this.getSlippagePercentage()
     );
-    return { trade: trades[0], expectedAmount };
+    return { trade: route.trade, expectedAmount };
   }
 
   /**
@@ -241,7 +246,7 @@ export class Uniswap implements Uniswapish {
    * @param gasPrice Base gas price, for pre-EIP1559 transactions
    * @param uniswapRouter Router smart contract address
    * @param ttl How long the swap is valid before expiry, in seconds
-   * @param abi Router contract ABI
+   * @param _abi Router contract ABI
    * @param gasLimit Gas limit
    * @param nonce (Optional) EVM transaction nonce
    * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
@@ -249,40 +254,46 @@ export class Uniswap implements Uniswapish {
    */
   async executeTrade(
     wallet: Wallet,
-    trade: Trade,
+    trade: Trade<Currency, Currency, TradeType>,
     gasPrice: number,
     uniswapRouter: string,
     ttl: number,
-    abi: ContractInterface,
+    _abi: ContractInterface,
     gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
   ): Promise<Transaction> {
-    const result: SwapParameters = Router.swapCallParameters(trade, {
-      ttl,
-      recipient: wallet.address,
-      allowedSlippage: this.getSlippagePercentage(),
-    });
+    const methodParameters: MethodParameters = SwapRouter.swapCallParameters(
+      trade,
+      {
+        deadlineOrPreviousBlockhash: Math.floor(Date.now() / 1000 + ttl),
+        recipient: wallet.address,
+        slippageTolerance: this.getSlippagePercentage(),
+      }
+    );
 
-    const contract: Contract = new Contract(uniswapRouter, abi, wallet);
     if (nonce === undefined) {
       nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
     }
     let tx: ContractTransaction;
     if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
-      tx = await contract[result.methodName](...result.args, {
+      tx = await wallet.sendTransaction({
+        data: methodParameters.calldata,
+        to: uniswapRouter,
         gasLimit: gasLimit.toFixed(0),
-        value: result.value,
+        value: methodParameters.value,
         nonce: nonce,
         maxFeePerGas,
         maxPriorityFeePerGas,
       });
     } else {
-      tx = await contract[result.methodName](...result.args, {
+      tx = await wallet.sendTransaction({
+        data: methodParameters.calldata,
+        to: this.router,
         gasPrice: (gasPrice * 1e9).toFixed(0),
         gasLimit: gasLimit.toFixed(0),
-        value: result.value,
+        value: methodParameters.value,
         nonce: nonce,
       });
     }

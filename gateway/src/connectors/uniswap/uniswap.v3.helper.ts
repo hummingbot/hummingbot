@@ -26,7 +26,8 @@ export class UniswapV3Helper {
 
   constructor(network: string) {
     this.ethereum = Ethereum.getInstance(network);
-    this._router = UniswapConfig.config.uniswapV3RouterAddress(network);
+    this._router =
+      UniswapConfig.config.uniswapV3SmartOrderRouterAddress(network);
     this._nftManager = UniswapConfig.config.uniswapV3NftManagerAddress(network);
     this._ttl = UniswapConfig.config.ttl(3);
     this._routerAbi =
