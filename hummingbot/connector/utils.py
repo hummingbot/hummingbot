@@ -1,16 +1,17 @@
-#!/usr/bin/env python
-
 import base64
 import os
 import socket
 from collections import namedtuple
 from hashlib import md5
-from typing import Dict, Optional, Tuple
-
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from typing import Callable, Dict, Optional, Tuple
 
 from zero_ex.order_utils import Order as ZeroExOrder
+
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 TradeFillOrderDetails = namedtuple("TradeFillOrderDetails", "market exchange_trade_id symbol")
 
@@ -84,3 +85,19 @@ def get_new_client_order_id(
     if max_id_len is not None:
         client_order_id = client_order_id[:max_id_len]
     return client_order_id
+
+
+class TimeSynchronizerRESTPreProcessor(RESTPreProcessorBase):
+    """
+    This pre processor is intended to be used in those connectors that require synchronization with the server time
+    to accept API requests. It ensures the synchronizer has at least one server time sample before being used.
+    """
+
+    def __init__(self, synchronizer: TimeSynchronizer, time_provider: Callable):
+        super().__init__()
+        self._synchronizer = synchronizer
+        self._time_provider = time_provider
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        await self._synchronizer.update_server_time_if_not_initialized(time_provider=self._time_provider())
+        return request
