@@ -35,7 +35,7 @@ export async function getConnector(
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
   else if (chain === 'solana' && connector === 'serum')
-    connectorInstance = Serum.getInstance(chain, network);
+    connectorInstance = await Serum.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
 
   if (!connectorInstance.ready()) {

@@ -1,11 +1,7 @@
-import { Account, Connection, PublicKey } from '@solana/web3.js';
-import {
-  Market as SerumMarket,
-  MARKETS,
-  Orderbook as SerumOrderBook,
-} from '@project-serum/serum';
-import { Solana } from '../../chains/solana/solana';
-import { SerumConfig } from './serum.config';
+import {Account, Connection, PublicKey} from '@solana/web3.js';
+import {Market as SerumMarket, MARKETS, Orderbook as SerumOrderBook,} from '@project-serum/serum';
+import {Solana} from '../../chains/solana/solana';
+import {getSerumConfig, SerumConfig} from './serum.config';
 import {
   CancelOrderRequest,
   CreateOrderRequest,
@@ -20,13 +16,10 @@ import {
   OrderSide,
   Ticker,
 } from './serum.types';
-import {
-  Order as SerumOrder,
-  OrderParams as SerumOrderParams,
-} from '@project-serum/serum/lib/market';
+import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
 
-import { Cache, CacheContainer } from 'node-ts-cache';
-import { MemoryStorage } from 'node-ts-cache-storage-memory';
+import {Cache, CacheContainer} from 'node-ts-cache';
+import {MemoryStorage} from 'node-ts-cache-storage-memory';
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
@@ -45,8 +38,8 @@ export class Serum {
   private readonly config: SerumConfig.Config;
   private solana!: Solana;
   private readonly connection: Connection;
+  private _ready: boolean = false;
 
-  ready: boolean = false;
   chain: string;
   network: string;
   readonly connector: string = 'serum';
@@ -60,7 +53,7 @@ export class Serum {
     this.chain = chain;
     this.network = network;
 
-    this.config = SerumConfig.config;
+    this.config = getSerumConfig(network)
 
     this.connection = new Connection(this.config.network.rpcURL);
   }
@@ -136,7 +129,7 @@ export class Serum {
    * Initialize the Serum instance.
    */
   async init() {
-    if (!this.ready && !this.initializing) {
+    if (!this._ready && !this.initializing) {
       this.initializing = true;
 
       this.solana = Solana.getInstance(this.network);
@@ -144,9 +137,13 @@ export class Serum {
 
       await this.getAllMarkets();
 
-      this.ready = true;
+      this._ready = true;
       this.initializing = false;
     }
+  }
+
+  ready(): boolean {
+    return this._ready;
   }
 
   /**
@@ -190,7 +187,7 @@ export class Serum {
 
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
 
-    for (const market of MARKETS) {
+    for (const market of MARKETS.slice(0, 1)) {
       allMarkets.set(
         market.name,
         this.parseToMarket(

@@ -52,7 +52,7 @@ export namespace ClobRoutes {
           chain: connector.chain,
           network: connector.network,
           connector: connector.connector,
-          connection: connector.ready,
+          connection: connector.ready(),
           timestamp: Date.now(),
         });
       }

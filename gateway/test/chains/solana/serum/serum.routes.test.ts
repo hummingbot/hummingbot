@@ -16,6 +16,8 @@ import { SerumRoutes } from '../../../../src/connectors/serum/serum.routes';
 
 let app: Express;
 
+jest.setTimeout(100000);
+
 beforeAll(async () => {
   app = express();
   app.use(express.json());
