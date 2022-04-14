@@ -187,7 +187,7 @@ export class Serum {
 
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
 
-    for (const market of MARKETS.slice(0, 1)) {
+    for (const market of MARKETS) {
       allMarkets.set(
         market.name,
         this.parseToMarket(
