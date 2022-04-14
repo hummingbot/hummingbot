@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from hummingbot.connector.derivative.position import Position
+from hummingbot.connector.derivative_base import DerivativeBase
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import (
@@ -138,8 +139,8 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         self._time_between_stop_loss_orders = time_between_stop_loss_orders
         self._stop_loss_slippage_buffer = stop_loss_slippage_buffer
 
-        self._strategy_ready = False
-        self._strategy_not_ready_counter = 0
+        self._position_mode_ready = False
+        self._position_mode_not_ready_counter = 0
 
     def all_markets_ready(self):
         return all([market.ready for market in self.active_markets])
@@ -457,21 +458,21 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         self.apply_initial_settings(self.trading_pair, self._position_mode, self._leverage)
 
     def apply_initial_settings(self, trading_pair: str, position: Position, leverage: int):
-        market: ExchangeBase = self._market_info.market
+        market: DerivativeBase = self._market_info.market
         market.set_leverage(trading_pair, leverage)
         market.set_position_mode(position)
 
     def tick(self, timestamp: float):
-        if not self._strategy_ready:
-            self._strategy_not_ready_counter += 1
+        if not self._position_mode_ready:
+            self._position_mode_not_ready_counter += 1
             # Attempt to switch position mode every 10 ticks only to not to spam and DDOS
-            if self._strategy_not_ready_counter == 10:
-                market: ExchangeBase = self._market_info.market
+            if self._position_mode_not_ready_counter == 10:
+                market: DerivativeBase = self._market_info.market
                 market.set_position_mode(self._position_mode)
-                self._strategy_not_ready_counter = 0
+                self._position_mode_not_ready_counter = 0
             return
-        self._strategy_not_ready_counter = 0
-        market: ExchangeBase = self._market_info.market
+        self._position_mode_not_ready_counter = 0
+        market: DerivativeBase = self._market_info.market
         session_positions = [s for s in self.active_positions.values() if s.trading_pair == self.trading_pair]
         current_tick = timestamp // self._status_report_interval
         last_tick = self._last_timestamp // self._status_report_interval
@@ -534,7 +535,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
     def profit_taking_proposal(self, mode: PositionMode, active_positions: List) -> Proposal:
 
-        market: ExchangeBase = self._market_info.market
+        market: DerivativeBase = self._market_info.market
         unwanted_exit_orders = [o for o in self.active_orders
                                 if o.client_order_id not in self._exit_orders.keys()]
         ask_price = market.get_price(self.trading_pair, True)
@@ -590,7 +591,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         return time_since_stop_loss >= self._time_between_stop_loss_orders
 
     def stop_loss_proposal(self, mode: PositionMode, active_positions: List[Position]) -> Proposal:
-        market: ExchangeBase = self._market_info.market
+        market: DerivativeBase = self._market_info.market
         top_ask = market.get_price(self.trading_pair, False)
         top_bid = market.get_price(self.trading_pair, True)
         buys = []
@@ -642,7 +643,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         return Proposal(buys, sells)
 
     def create_base_proposal(self):
-        market: ExchangeBase = self._market_info.market
+        market: DerivativeBase = self._market_info.market
         buys = []
         sells = []
 
@@ -755,7 +756,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     def filter_out_takers(self, proposal: Proposal):
-        market: ExchangeBase = self._market_info.market
+        market: DerivativeBase = self._market_info.market
         top_ask = market.get_price(self.trading_pair, True)
         if not top_ask.is_nan():
             proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
@@ -765,7 +766,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
     # Compare the market price with the top bid and top ask price
     def apply_order_optimization(self, proposal: Proposal):
-        market: ExchangeBase = self._market_info.market
+        market: DerivativeBase = self._market_info.market
         own_buy_size = s_decimal_zero
         own_sell_size = s_decimal_zero
 
@@ -874,17 +875,17 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if self._position_mode is position_mode_changed_event.position_mode:
             self.logger().info(
                 f"Changing position mode to {self._position_mode.name} succeeded.")
-            self._strategy_ready = True
+            self._position_mode_ready = True
         else:
             self.logger().warning(
                 f"Changing position mode to {self._position_mode.name} did not succeed.")
-            self._strategy_ready = False
+            self._position_mode_ready = False
 
     def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
         self.logger().error(
             f"Changing position mode to {self._position_mode.name} failed. "
             f"Reason: {position_mode_changed_event.message}.")
-        self._strategy_ready = False
+        self._position_mode_ready = False
         self.logger().warning("Cannot continue. Please resolve the issue in the account.")
 
     def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
