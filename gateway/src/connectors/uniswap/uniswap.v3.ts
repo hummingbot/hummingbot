@@ -30,7 +30,7 @@ export class UniswapV3 extends UniswapV3Helper {
   private constructor(chain: string, network: string) {
     super(network);
     this._chain = chain;
-    this._gasLimit = UniswapConfig.config.gasLimit(3);
+    this._gasLimit = UniswapConfig.config.gasLimit;
   }
 
   public static getInstance(chain: string, network: string): UniswapV3 {
