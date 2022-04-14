@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
 from typing import List, Optional
@@ -22,16 +20,15 @@ class FtxUserStreamTracker(UserStreamTracker):
         return cls._btust_logger
 
     def __init__(
-        self,
-        ftx_auth: Optional[FtxAuth] = None,
-        trading_pairs: Optional[List[str]] = [],
+            self,
+            ftx_auth: Optional[FtxAuth] = None,
+            trading_pairs: Optional[List[str]] = None,
     ):
-        super().__init__()
         self._ftx_auth: FtxAuth = ftx_auth
-        self._trading_pairs: List[str] = trading_pairs
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        super().__init__(data_source=FtxAPIUserStreamDataSource(
+            ftx_auth=self._ftx_auth
+        ))
+        self._trading_pairs: List[str] = trading_pairs or []
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
@@ -47,6 +44,6 @@ class FtxUserStreamTracker(UserStreamTracker):
 
     async def start(self):
         self._user_stream_tracking_task = safe_ensure_future(
-            self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
+            self.data_source.listen_for_user_stream(self._user_stream)
         )
         await asyncio.gather(self._user_stream_tracking_task)

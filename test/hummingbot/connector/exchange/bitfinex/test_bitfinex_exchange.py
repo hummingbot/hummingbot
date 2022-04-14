@@ -7,7 +7,7 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_exchange import BitfinexExc
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderFilledEvent
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
 class BitfinexExchangeTests(TestCase):
@@ -155,6 +155,3 @@ class BitfinexExchangeTests(TestCase):
         ))
 
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
-        buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
-        self.assertEqual(Decimal(30), buy_complete_event.fee_amount)
-        self.assertEqual(partial_fill[2][10], buy_complete_event.fee_asset)
