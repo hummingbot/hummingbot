@@ -131,10 +131,8 @@ class TWAPUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -155,10 +153,8 @@ class TWAPUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
 

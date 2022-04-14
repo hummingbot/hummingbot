@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+import decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
@@ -106,6 +106,17 @@ def on_validated_price_type(value: str):
 
 def exchange_on_validated(value: str):
     required_exchanges.add(value)
+
+
+def validate_decimal_list(value: str) -> Optional[str]:
+    decimal_list = list(value.split(","))
+    for number in decimal_list:
+        try:
+            validate_result = validate_decimal(Decimal(number), 0, 100, inclusive=False)
+        except decimal.InvalidOperation:
+            return "Please enter valid decimal numbers"
+        if validate_result is not None:
+            return validate_result
 
 
 pure_market_making_config_map = {
@@ -357,4 +368,56 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=True,
                   validator=validate_bool),
+    "split_order_levels_enabled":
+        ConfigVar(key="split_order_levels_enabled",
+                  prompt="Do you want bid and ask orders to be placed at multiple defined spread and amount? "
+                         "(This acts as an overrides which replaces order_amount, order_spreads, "
+                         "order_level_amount, order_level_spreads) (Yes/No) >>> ",
+                  default=False,
+                  type_str="bool",
+                  validator=validate_bool),
+    "bid_order_level_spreads":
+        ConfigVar(key="bid_order_level_spreads",
+                  prompt="Enter the spreads (as percentage) for all bid spreads "
+                         "e.g 1,2,3,4 to represent 1%,2%,3%,4%. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  validator=validate_decimal_list),
+    "ask_order_level_spreads":
+        ConfigVar(key="ask_order_level_spreads",
+                  prompt="Enter the spreads (as percentage) for all ask spreads "
+                         "e.g 1,2,3,4 to represent 1%,2%,3%,4%. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  validator=validate_decimal_list),
+    "bid_order_level_amounts":
+        ConfigVar(key="bid_order_level_amounts",
+                  prompt="Enter the amount for all bid amounts. "
+                         "e.g 1,2,3,4. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  validator=validate_decimal_list),
+    "ask_order_level_amounts":
+        ConfigVar(key="ask_order_level_amounts",
+                  prompt="Enter the amount for all ask amounts. "
+                         "e.g 1,2,3,4. "
+                         "The number of levels set will be equal to the "
+                         "minimum length of bid_order_level_spreads and bid_order_level_amounts >>> ",
+                  default=None,
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "split_order_levels_enabled").value,
+                  type_str="str",
+                  validator=validate_decimal_list),
 }

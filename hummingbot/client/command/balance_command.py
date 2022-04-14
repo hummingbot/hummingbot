@@ -111,8 +111,13 @@ class BalanceCommand:
             else:
                 lines = ["    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
-                self._notify(f"\n  Total: {RateOracle.global_token_symbol} {PerformanceMetrics.smart_round(df[total_col_name].sum())}    "
-                             f"Allocated: {allocated_total / df[sum_not_for_show_name].sum():.2%}")
+                self._notify(f"\n  Total: {RateOracle.global_token_symbol} "
+                             f"{PerformanceMetrics.smart_round(df[total_col_name].sum())}")
+                allocated_percentage = 0
+                if df[sum_not_for_show_name].sum() != Decimal("0"):
+                    allocated_percentage = allocated_total / df[sum_not_for_show_name].sum()
+                self._notify(f"Allocated: {allocated_percentage:.2%}")
+
                 exchanges_total += df[total_col_name].sum()
 
         self._notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
