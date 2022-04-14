@@ -187,7 +187,7 @@ export class Serum {
 
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
 
-    for (const market of MARKETS) {
+    for (const market of MARKETS.filter(market => ['BTC/USDT', 'ETH/USDT'].includes(market.name))) {
       allMarkets.set(
         market.name,
         this.parseToMarket(
