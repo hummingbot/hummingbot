@@ -1,3 +1,4 @@
+from async_timeout import timeout
 from decimal import Decimal
 from typing import (
     Any,
@@ -7,6 +8,9 @@ from typing import (
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
+
+
+GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
 
 
 class GatewayInFlightOrder(InFlightOrderBase):
@@ -86,3 +90,12 @@ class GatewayInFlightOrder(InFlightOrderBase):
     @cancel_tx_hash.setter
     def cancel_tx_hash(self, cancel_tx_hash):
         self._cancel_tx_hash = cancel_tx_hash
+
+    async def get_exchange_order_id(self) -> Optional[str]:
+        """
+        Overridden from parent class because blockchain orders take more time than ones from CEX.
+        """
+        if self.exchange_order_id is None:
+            async with timeout(GET_GATEWAY_EX_ORDER_ID_TIMEOUT):
+                await self.exchange_order_id_update_event.wait()
+        return self.exchange_order_id
