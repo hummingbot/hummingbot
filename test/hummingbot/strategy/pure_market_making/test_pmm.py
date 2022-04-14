@@ -506,6 +506,42 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
 
+    def test_moving_price_band_price_ceiling_breach(self):
+        strategy = self.multi_levels_strategy
+        strategy.moving_price_band_enabled = True
+        strategy.price_floor_pct = Decimal("-1")
+        strategy.price_ceiling_pct = Decimal("1")
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], self.mid_price, 115, )
+
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+    def test_moving_price_band_price_floor_breach(self):
+        strategy = self.multi_levels_strategy
+        strategy.moving_price_band_enabled = True
+        strategy.price_floor_pct = Decimal("-1")
+        strategy.price_ceiling_pct = Decimal("1")
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], 85, self.mid_price)
+
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
     def test_add_transaction_costs(self):
         strategy = self.multi_levels_strategy
         strategy.add_transaction_costs_to_orders = True
