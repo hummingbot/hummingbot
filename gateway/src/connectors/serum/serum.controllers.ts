@@ -40,6 +40,13 @@ export async function getMarkets(
   const response = new ResponseWrapper<SerumGetMarketsResponse>();
 
   if ('name' in request) {
+    if (!request.name) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No market was informed. If you want to get a market, please inform the parameter "name".`
+      );
+    }
+
     try {
       response.body = await serum.getMarket(request.name);
 

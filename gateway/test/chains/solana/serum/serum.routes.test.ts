@@ -1,22 +1,19 @@
 import express from 'express';
-import { Express } from 'express-serve-static-core';
+import {Express} from 'express-serve-static-core';
 import request from 'supertest';
-import { Serum } from '../../../../src/connectors/serum/serum';
-import { ClobRoutes } from '../../../../src/clob/clob.routes';
-import { unpatch } from '../../../services/patch';
-import { Solana } from '../../../../src/chains/solana/solana';
-import { default as config } from './fixtures/getSerumConfig';
-import { StatusCodes } from 'http-status-codes';
-import {
-  Market,
-  OrderBook,
-  Ticker,
-} from '../../../../src/connectors/serum/serum.types';
-import { SerumRoutes } from '../../../../src/connectors/serum/serum.routes';
+import {MARKETS} from '@project-serum/serum';
+import {Serum} from '../../../../src/connectors/serum/serum';
+import {ClobRoutes} from '../../../../src/clob/clob.routes';
+import {unpatch} from '../../../services/patch';
+import {Solana} from '../../../../src/chains/solana/solana';
+import {default as config} from './fixtures/getSerumConfig';
+import {StatusCodes} from 'http-status-codes';
+import {Market, OrderBook, Ticker,} from '../../../../src/connectors/serum/serum.types';
+import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
 
 let app: Express;
 
-jest.setTimeout(100000);
+jest.setTimeout(1000000);
 
 beforeAll(async () => {
   app = express();
@@ -60,41 +57,55 @@ describe('/clob', () => {
 describe('/clob/markets', () => {
   describe('GET /clob/markets', () => {
     it('Get an specific market by its name', async () => {
+      const marketName = 'BTC/USDT';
+
       await request(app)
         .get('/clob/markets')
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          name: 'BTC/USDT',
+          name: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
+          const targetMarket = MARKETS.find(
+            (market) => market.name === marketName
+          )!;
+
           const market: Market = response.body;
 
-          expect(market.name).toBe('BTC/USDT');
-          fail('Not implemented');
+          expect(market.name).toBe(targetMarket.name);
+          expect(market.address).toBe(targetMarket.address.toString());
+          expect(market.programId).toBe(targetMarket.programId.toString());
+          expect(market.deprecated).toBe(targetMarket.deprecated);
+          // TODO fill the rest of the fields!!!
         });
     });
 
     it('Get a map of markets by their names', async () => {
+      const marketNames = ['BTC/USDT', 'ETH/USDT'];
+
       await request(app)
         .get('/clob/markets')
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: ['BTC/USDT', 'ETH/USDT'],
+          names: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
+        .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const market: Map<string, Market> = response.body;
+          const marketsMap: Map<string, Market> = response.body;
 
-          console.log(market);
-
-          fail('Not implemented');
+          expect(marketsMap.size).toBe(marketNames.length);
+          for (const [marketName, market] of marketsMap) {
+            expect(marketNames.includes(marketName)).toBe(true);
+            expect(market.name).toBe(marketName);
+          }
         });
     });
 
@@ -108,13 +119,108 @@ describe('/clob/markets', () => {
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
+        .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const map: Map<string, Market> = response.body;
+          const marketsMap: Map<string, Market> = response.body;
 
-          console.log(map);
-
-          fail('Not implemented');
+          expect(marketsMap.size).toBe(MARKETS.length);
+          for (const [marketName, market] of marketsMap) {
+            expect(market.name).toBe(marketName);
+          }
         });
+    });
+
+    it('Fail when trying to get a market without informing its name', async () => {
+      const marketName = '';
+
+      await request(app)
+        .get('/clob/markets')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          name: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .expect('Content-Type', 'text/html; charset=utf-8')
+        .then((response) => {
+          expect(response.error).not.toBeFalsy();
+          if (response.error) {
+            expect(response.error.text).toContain(
+              `No market was informed. If you want to get a market, please inform the parameter "name".`
+            );
+          }
+        });
+    });
+
+    it('Fail when trying to get an non existing market', async () => {
+      const marketName = 'ABC/XYZ';
+
+      await request(app)
+        .get('/clob/markets')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          name: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.NOT_FOUND)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text).toContain(
+              `Market ${marketName} not found.`
+            );
+          }
+        });
+    });
+
+    it('Fail when trying to get a map of markets but without informing any of their names', async () => {
+      const marketNames: string[] = [];
+
+      await request(app)
+        .get('/clob/markets')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          names: marketNames,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+            expect(response.error).not.toBeFalsy()
+            if (response.error) {
+              expect(response.error.text).toContain(
+                `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`
+              );
+            }
+          });
+    });
+
+    it('Fail when trying to get a map of markets but with a non existing one', async () => {
+      const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
+
+      await request(app)
+        .get('/clob/markets')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          names: marketNames,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.NOT_FOUND)
+        .then((response) => {
+            expect(response.error).not.toBeFalsy()
+            if (response.error) {
+              expect(response.error.text).toContain(
+                `Market ${marketNames[1]} not found`
+              );
+            }
+          });
     });
   });
 });

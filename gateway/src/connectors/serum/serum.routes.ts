@@ -81,7 +81,7 @@ export namespace SerumRoutes {
 
         const result = await getMarkets(solana, serum, request.body);
 
-        response.status(result.status).json(result.body);
+        return await response.status(result.status).json(result.body);
       }
     )
   );
