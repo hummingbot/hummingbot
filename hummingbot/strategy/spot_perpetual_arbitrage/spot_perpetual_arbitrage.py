@@ -98,7 +98,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._strategy_state = StrategyState.Closed
         self._ready_to_start = False
         self._last_arb_op_reported_ts = 0
-        self._strategy_ready = False
+        self._position_mode_ready = False
 
         perp_market_info.market.set_leverage(perp_market_info.trading_pair, self._perp_leverage)
         perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
@@ -518,17 +518,17 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         if position_mode_changed_event.position_mode is PositionMode.ONEWAY:
             self.logger().info(
                 f"Changing position mode to {PositionMode.ONEWAY.name} succeeded.")
-            self._strategy_ready = True
+            self._position_mode_ready = True
         else:
             self.logger().warning(
                 f"Changing position mode to {PositionMode.ONEWAY.name} did not succeed.")
-            self._strategy_ready = False
+            self._position_mode_ready = False
 
     def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
         self.logger().error(
             f"Changing position mode to {PositionMode.ONEWAY.name} failed. "
             f"Reason: {position_mode_changed_event.message}.")
-        self._strategy_ready = False
+        self._position_mode_ready = False
         self.logger().warning("Cannot continue. Please resolve the issue in the account.")
 
     def update_complete_order_id_lists(self, order_id: str):
