@@ -3,9 +3,9 @@ import {
   CancelOpenOrderRequest,
   CancelOrderRequest,
   CreateOrderRequest,
-  GetFilledOrderRequest,
+  GetFilledOrderRequest, GetFilledOrdersRequest,
   GetMarketsRequest,
-  GetOpenOrderRequest,
+  GetOpenOrderRequest, GetOpenOrdersRequest,
   GetOrderBooksRequest,
   GetOrderRequest,
   GetTickersRequest,
@@ -92,7 +92,7 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
   (
     | { order: GetOpenOrderRequest }
     | {
-        orders: GetOpenOrderRequest[];
+        orders: GetOpenOrdersRequest[];
       }
   );
 
@@ -120,7 +120,7 @@ export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
   (
     | { order: GetFilledOrderRequest }
     | {
-        orders: GetFilledOrderRequest[];
+        orders: GetFilledOrdersRequest[];
       }
   );
 

@@ -91,8 +91,8 @@ export type GetTickersRequest =
 export interface GetOrderRequest {
   marketName: string; // TODO is this necessary?!!!
   ownerAddress: string; // TODO is this necessary?!!!
-  clientId: string;
-  exchangeId: string;
+  clientId?: string;
+  exchangeId?: string;
 }
 
 // TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
@@ -102,47 +102,45 @@ export interface CreateOrderRequest extends SerumOrderParams {
 }
 
 export interface CancelOrderRequest {
-  marketName: string; // TODO is this necessary?!!!
-  clientId: string;
-  exchangeId: string;
+  marketName?: string;
+  clientId?: string;
+  exchangeId?: string;
   ownerAddress: string;
 }
 
 export interface GetOpenOrderRequest {
-  marketName: string;
-  clientId: string;
-  exchangeId: string;
+  marketName?: string;
+  clientId?: string;
+  exchangeId?: string;
   ownerAddress: string;
 }
 
-// TODO not used yet, need to be implemented!!!
 export interface GetOpenOrdersRequest {
   marketName?: string;
   clientIds?: string[];
   exchangeIds?: string[];
-  ownerAddresses?: string[];
+  ownerAddress: string;
 }
 
 export interface CancelOpenOrderRequest {
-  marketName: string;
-  clientId: string;
-  exchangeId: string;
+  marketName?: string;
+  clientId?: string;
+  exchangeId?: string;
   ownerAddress: string;
 }
 
 export interface GetFilledOrderRequest {
-  marketName: string;
-  clientId: string;
-  exchangeId: string;
+  marketName?: string;
+  clientId?: string;
+  exchangeId?: string;
   ownerAddress: string;
 }
 
-// TODO not used yet, need to be implemented!!!
 export interface GetFilledOrdersRequest {
   marketName?: string;
   clientIds?: string[];
   exchangeIds?: string[];
-  ownerAddresses?: string[];
+  ownerAddress?: string;
 }
 
 //

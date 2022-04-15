@@ -112,6 +112,13 @@ export async function getOrderBooks(
   const response = new ResponseWrapper<SerumGetOrderBooksResponse>();
 
   if ('marketName' in request) {
+    if (!request.marketName) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`
+      );
+    }
+
     try {
       response.body = await serum.getOrderBook(request.marketName);
 
@@ -172,6 +179,13 @@ export async function getTickers(
   const response = new ResponseWrapper<SerumGetTickersResponse>();
 
   if ('marketName' in request) {
+    if (!request.marketName) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`
+      );
+    }
+
     try {
       response.body = await serum.getTicker(request.marketName);
 
