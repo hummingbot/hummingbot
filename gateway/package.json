@@ -52,6 +52,7 @@
     "express-ipfilter": "^1.2.0",
     "express-winston": "^4.1.0",
     "fs-extra": "^10.0.0",
+    "immutable": "^4.0.0",
     "js-yaml": "^4.1.0",
     "level": "^7.0.1",
     "level-party": "^5.1.1",

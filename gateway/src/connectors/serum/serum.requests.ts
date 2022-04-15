@@ -1,11 +1,14 @@
-import { NetworkSelectionRequest } from '../../services/common-interfaces';
+import { Map as ImmutableMap } from 'immutable';
+import {NetworkSelectionRequest} from '../../services/common-interfaces';
 import {
   CancelOpenOrderRequest,
   CancelOrderRequest,
   CreateOrderRequest,
-  GetFilledOrderRequest, GetFilledOrdersRequest,
+  GetFilledOrderRequest,
+  GetFilledOrdersRequest,
   GetMarketsRequest,
-  GetOpenOrderRequest, GetOpenOrdersRequest,
+  GetOpenOrderRequest,
+  GetOpenOrdersRequest,
   GetOrderBooksRequest,
   GetOrderRequest,
   GetTickersRequest,
@@ -22,7 +25,7 @@ import {
 export type SerumGetMarketsRequest = NetworkSelectionRequest &
   GetMarketsRequest;
 
-export type SerumGetMarketsResponse = Map<string, Market> | Market;
+export type SerumGetMarketsResponse = ImmutableMap<string, Market> | Market;
 
 //
 // GET /clob/orderBooks
@@ -31,7 +34,7 @@ export type SerumGetMarketsResponse = Map<string, Market> | Market;
 export type SerumGetOrderBooksRequest = NetworkSelectionRequest &
   GetOrderBooksRequest;
 
-export type SerumGetOrderBooksResponse = Map<string, OrderBook> | OrderBook;
+export type SerumGetOrderBooksResponse = ImmutableMap<string, OrderBook> | OrderBook;
 
 //
 // GET /clob/tickers
@@ -40,7 +43,7 @@ export type SerumGetOrderBooksResponse = Map<string, OrderBook> | OrderBook;
 export type SerumGetTickersRequest = NetworkSelectionRequest &
   GetTickersRequest;
 
-export type SerumGetTickersResponse = Map<string, Ticker> | Ticker;
+export type SerumGetTickersResponse = ImmutableMap<string, Ticker> | Ticker;
 
 //
 // GET /clob/orders
@@ -54,7 +57,7 @@ export type SerumGetOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumGetOrdersResponse = Map<string, Order> | Order;
+export type SerumGetOrdersResponse = ImmutableMap<string, Order> | Order;
 
 //
 // POST /clob/orders
@@ -68,7 +71,7 @@ export type SerumCreateOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumCreateOrdersResponse = Map<string, Order> | Order;
+export type SerumCreateOrdersResponse = ImmutableMap<string, Order> | Order;
 
 //
 // DELETE /clob/orders
@@ -82,7 +85,7 @@ export type SerumCancelOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumCancelOrdersResponse = Map<string, Order> | Order;
+export type SerumCancelOrdersResponse = ImmutableMap<string, Order> | Order;
 
 //
 // GET /clob/openOrders
@@ -96,7 +99,7 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumGetOpenOrdersResponse = Map<string, Order> | Order;
+export type SerumGetOpenOrdersResponse = ImmutableMap<string, Order> | Order;
 
 //
 // DELETE /clob/openOrders
@@ -110,7 +113,7 @@ export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumCancelOpenOrdersResponse = Map<string, Order> | Order;
+export type SerumCancelOpenOrdersResponse = ImmutableMap<string, Order> | Order;
 
 //
 // GET /clob/filledOrders
@@ -124,4 +127,4 @@ export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumGetFilledOrdersResponse = Map<string, Order> | Order;
+export type SerumGetFilledOrdersResponse = ImmutableMap<string, Order> | Order;
