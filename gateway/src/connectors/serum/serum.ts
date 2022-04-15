@@ -154,6 +154,7 @@ export class Serum {
   async getMarket(name: string): Promise<Market> {
     const markets = await this.getAllMarkets();
 
+    // TODO Change to load the market directly instead of using the map for performance reasons!!!
     const market = markets.get(name);
 
     if (!market) throw new MarketNotFoundError(`Market ${name} not found.`);
@@ -260,6 +261,7 @@ export class Serum {
   }
 
   async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
+    // TODO Add validation!!!
     const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(
       target.ownerAddress
     );
@@ -278,6 +280,7 @@ export class Serum {
   }
 
   async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
+    // TODO Add validation!!!
     const mapOfFilledOrders = await this.getAllFilledOrders();
     for (const filledOrder of mapOfFilledOrders.values()) {
       if (
@@ -292,6 +295,7 @@ export class Serum {
   }
 
   async getOrder(target: GetOrderRequest): Promise<Order> {
+    // TODO Add validation!!!
     try {
       return await this.getOpenOrder(target);
     } catch (exception) {
@@ -370,6 +374,7 @@ export class Serum {
   }
 
   async createOrder(candidate: CreateOrderRequest): Promise<Order> {
+    // TODO Add validation!!!
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.ownerAddress);
@@ -417,6 +422,7 @@ export class Serum {
   }
 
   async cancelOrder(target: CancelOrderRequest): Promise<any> {
+    // TODO Add validation!!!
     const market = await this.getMarket(target.marketName);
 
     const owner = await this.solana.getAccount(target.ownerAddress);

@@ -56,7 +56,7 @@ describe('/clob', () => {
 
 describe('/clob/markets', () => {
   describe('GET /clob/markets', () => {
-    it('Get an specific market by its name', async () => {
+    it('Get a specific market by its name', async () => {
       const marketName = 'BTC/USDT';
 
       await request(app)
@@ -154,7 +154,7 @@ describe('/clob/markets', () => {
         });
     });
 
-    it('Fail when trying to get an non existing market', async () => {
+    it('Fail when trying to get a non existing market', async () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
@@ -200,7 +200,7 @@ describe('/clob/markets', () => {
           });
     });
 
-    it('Fail when trying to get a map of markets but with a non existing one', async () => {
+    it('Fail when trying to get a map of markets but including a non existing market name', async () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
@@ -217,7 +217,7 @@ describe('/clob/markets', () => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
               expect(response.error.text).toContain(
-                `Market ${marketNames[1]} not found`
+                `Market ${marketNames[1]} not found.`
               );
             }
           });
@@ -227,43 +227,46 @@ describe('/clob/markets', () => {
 
 describe('/clob/orderBooks', () => {
   describe('GET /clob/orderBooks', () => {
-    it('Get an specific order book by its market name', async () => {
+    it('Get a specific order book by its market name', async () => {
+      const marketName = 'BTC/USDT';
+
       await request(app)
         .get('/clob/orderBooks')
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          marketName: 'BTC/USDT',
+          marketName: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
-          const orderBook: OrderBook = response.body;
-
-          console.log(orderBook);
-
-          fail('Not implemented');
+          fail('not implemented');
         });
     });
 
     it('Get a map of order books by their market names', async () => {
+      const marketNames = ['BTC/USDT', 'ETH/USDT'];
+
       await request(app)
         .get('/clob/orderBooks')
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: ['BTC/USDT', 'ETH/USDT'],
+          marketNames: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
+        .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const map: Map<string, OrderBook> = response.body;
+          const marketsMap: Map<string, Market> = response.body;
 
-          console.log(map);
-
-          fail('Not implemented');
+          expect(marketsMap.size).toBe(marketNames.length);
+          for (const [marketName, market] of marketsMap) {
+            expect(marketNames.includes(marketName)).toBe(true);
+            expect(market.name).toBe(marketName);
+          }
         });
     });
 
@@ -277,56 +280,154 @@ describe('/clob/orderBooks', () => {
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
+        .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const map: Map<string, OrderBook> = response.body;
+          const marketsMap: Map<string, Market> = response.body;
 
-          console.log(map);
-
-          fail('Not implemented');
+          expect(marketsMap.size).toBe(MARKETS.length);
+          for (const [marketName, market] of marketsMap) {
+            expect(market.name).toBe(marketName);
+          }
         });
+    });
+
+    it('Fail when trying to get an order book without informing its market name', async () => {
+      const marketName = '';
+
+      await request(app)
+        .get('/clob/orderBooks')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          name: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .expect('Content-Type', 'text/html; charset=utf-8')
+        .then((response) => {
+          expect(response.error).not.toBeFalsy();
+          if (response.error) {
+            expect(response.error.text).toContain(
+              `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`
+            );
+          }
+        });
+    });
+
+    it('Fail when trying to get a non existing order book', async () => {
+      const marketName = 'ABC/XYZ';
+
+      await request(app)
+        .get('/clob/orderBooks')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          name: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.NOT_FOUND)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text).toContain(
+              `Market ${marketName} not found.`
+            );
+          }
+        });
+    });
+
+    it('Fail when trying to get a map of order books but without informing any of their market names', async () => {
+      const marketNames: string[] = [];
+
+      await request(app)
+        .get('/clob/orderBooks')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          names: marketNames,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+            expect(response.error).not.toBeFalsy()
+            if (response.error) {
+              expect(response.error.text).toContain(
+                `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
+              );
+            }
+          });
+    });
+
+    it('Fail when trying to get a map of order books but including a non existing market name', async () => {
+      const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
+
+      await request(app)
+        .get('/clob/orderBooks')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          names: marketNames,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.NOT_FOUND)
+        .then((response) => {
+            expect(response.error).not.toBeFalsy()
+            if (response.error) {
+              expect(response.error.text).toContain(
+                `Market ${marketNames[1]} not found.`
+              );
+            }
+          });
     });
   });
 });
 
 describe('/clob/tickers', () => {
   describe('GET /clob/tickers', () => {
-    it('Get an specific ticker by its market name', async () => {
+    it('Get a specific ticker by its market name', async () => {
+      const marketName = 'BTC/USDT';
+
       await request(app)
         .get('/clob/tickers')
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          marketName: 'BTC/USDT',
+          marketName: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
-          const ticker: Ticker = response.body;
-
-          console.log(ticker);
-
-          fail('Not implemented');
+          fail('not implemented');
         });
     });
 
     it('Get a map of tickers by their market names', async () => {
+      const marketNames = ['BTC/USDT', 'ETH/USDT'];
+
       await request(app)
         .get('/clob/tickers')
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: ['BTC/USDT', 'ETH/USDT'],
+          marketNames: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
+        .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const map: Map<string, Ticker> = response.body;
+          const marketsMap: Map<string, Market> = response.body;
 
-          console.log(map);
-
-          fail('Not implemented');
+          expect(marketsMap.size).toBe(marketNames.length);
+          for (const [marketName, market] of marketsMap) {
+            expect(marketNames.includes(marketName)).toBe(true);
+            expect(market.name).toBe(marketName);
+          }
         });
     });
 
@@ -340,64 +441,482 @@ describe('/clob/tickers', () => {
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
+        .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const map: Map<string, Ticker> = response.body;
+          const marketsMap: Map<string, Market> = response.body;
 
-          console.log(map);
-
-          fail('Not implemented');
+          expect(marketsMap.size).toBe(MARKETS.length);
+          for (const [marketName, market] of marketsMap) {
+            expect(market.name).toBe(marketName);
+          }
         });
+    });
+
+    it('Fail when trying to get a ticker without informing its market name', async () => {
+      const marketName = '';
+
+      await request(app)
+        .get('/clob/tickers')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          name: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .expect('Content-Type', 'text/html; charset=utf-8')
+        .then((response) => {
+          expect(response.error).not.toBeFalsy();
+          if (response.error) {
+            expect(response.error.text).toContain(
+              `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`
+            );
+          }
+        });
+    });
+
+    it('Fail when trying to get a non existing ticker', async () => {
+      const marketName = 'ABC/XYZ';
+
+      await request(app)
+        .get('/clob/tickers')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          name: marketName,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.NOT_FOUND)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text).toContain(
+              `Market ${marketName} not found.`
+            );
+          }
+        });
+    });
+
+    it('Fail when trying to get a map of tickers but without informing any of their market names', async () => {
+      const marketNames: string[] = [];
+
+      await request(app)
+        .get('/clob/tickers')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          names: marketNames,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+            expect(response.error).not.toBeFalsy()
+            if (response.error) {
+              expect(response.error.text).toContain(
+                `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
+              );
+            }
+          });
+    });
+
+    it('Fail when trying to get a map of tickers but including a non existing market name', async () => {
+      const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
+
+      await request(app)
+        .get('/clob/tickers')
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          names: marketNames,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.NOT_FOUND)
+        .then((response) => {
+            expect(response.error).not.toBeFalsy()
+            if (response.error) {
+              expect(response.error.text).toContain(
+                `Market ${marketNames[1]} not found.`
+              );
+            }
+          });
     });
   });
 });
 
 describe('/clob/orders', () => {
   describe('GET /clob/orders', () => {
-    it('Get an specific order by its id', async () => {
+    it('Fail when trying to get one or more orders without informing any parameters', async () => {
       console.log('');
     });
-    it('Get an specific order by its exchange id', async () => {
-      console.log('');
+
+    describe('Single order', () => {
+      it('Get a specific order by its id', async () => {
+        console.log('');
+      });
+
+      it('Get a specific order by its id and market name', async () => {
+        console.log('');
+      });
+
+      it('Get a specific order by its exchange id', async () => {
+        console.log('');
+      });
+
+      it('Get a specific order by its exchange id and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get an order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get an order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Get a map of orders by their ids', async () => {
+        console.log('');
+      });
+
+      it('Get a map of orders by their ids and market names', async () => {
+        console.log('');
+      });
+
+      it('Get a map of orders by their exchange ids', async () => {
+        console.log('');
+      });
+
+      it('Get a map of orders by their exchange ids and market names', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of orders without informing any orders within the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of orders without informing the id or exchange id of one of them', async () => {
+        console.log('');
+      });
     });
   });
 
   describe('POST /clob/orders', () => {
-    it('', async () => {
-      console.log('');
+    describe('Single order', () => {
+      it('Create an order and receive a response with the new information', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create an order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create an order without informing some of its required parameters', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Create multiple orders and receive a response as a map with the new information', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
+        console.log('');
+      });
     });
   });
 
   describe('DELETE /clob/orders', () => {
-    it('', async () => {
-      console.log('');
+    describe('Single order', () => {
+      it('Cancel a specific order by its id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Cancel a specific order by its id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Cancel a specific order by its exchange id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Cancel a specific order by its exchange id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel an order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel an order without informing its owner address', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel an order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Cancel multiple orders by their ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Cancel multiple orders by their ids, owner addresses, and market names', async () => {
+        console.log('');
+      });
+
+      it('Cancel multiple orders by their exchange ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Cancel multiple orders by their exchange ids, owner addresses, and market names', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple orders without informing any orders within the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple orders without informing some of their owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple orders without informing some of their ids and exchange ids', async () => {
+        console.log('');
+      });
     });
   });
 });
 
 describe('/clob/openOrders', () => {
   describe('GET /clob/openOrders', () => {
-    it('', async () => {
-      console.log('');
+    describe('Single order', () => {
+      it('Get a specific open order by its id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Get a specific open order by its id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Get a specific open order by its exchange id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Get a specific open order by its exchange id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get an open order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get an open order without informing its owner address', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get an open order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Get a map of open orders by their ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Get a map of open orders by their ids, owner addresses and market names', async () => {
+        console.log('');
+      });
+
+      it('Get a map of open orders by their exchange ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Get a map of open orders by their exchange ids, owner addresses and market names', async () => {
+        console.log('');
+      });
+
+      it('Get a map of with all open orders by for a specific owner address', async () => {
+        console.log('');
+      });
+
+      it('Get a map of with all open orders by for a specific owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of open orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of open orders without informing any orders filter within the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of open orders without informing some of their owner addresses', async () => {
+        console.log('');
+      });
     });
   });
 
   describe('DELETE /clob/openOrders', () => {
-    it('', async () => {
-      console.log('');
+    describe('Single open order', () => {
+      it('Cancel a specific open order by its id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Cancel a specific open order by its id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Cancel a specific open order by its exchange id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Cancel a specific open order by its exchange id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel an open order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel an open order without informing its owner address', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel an open order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Cancel multiple open orders by their ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Cancel multiple open orders by their ids, owner addresses, and market names', async () => {
+        console.log('');
+      });
+
+      it('Cancel multiple open orders by their exchange ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Cancel multiple open orders by their exchange ids, owner addresses, and market names', async () => {
+        console.log('');
+      });
+
+      it('Cancel all open orders for an owner address', async () => {
+        console.log('');
+      });
+
+      it('Cancel all open orders for an owner address and a market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple open orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple open orders without informing any orders within the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple open orders without informing some of their owner addresses', async () => {
+        console.log('');
+      });
     });
   });
 });
 
 describe('/clob/filledOrders', () => {
   describe('GET /clob/filledOrders', () => {
-    it('', async () => {
-      console.log('');
-    });
-  });
+    describe('Single order', () => {
+      it('Get a specific filled order by its id and owner address', async () => {
+        console.log('');
+      });
 
-  describe('DELETE /clob/filledOrders', () => {
-    it('', async () => {
-      console.log('');
+      it('Get a specific filled order by its id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Get a specific filled order by its exchange id and owner address', async () => {
+        console.log('');
+      });
+
+      it('Get a specific filled order by its exchange id, owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a filled order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a filled order without informing its owner address', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a filled order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Get a map of filled orders by their ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Get a map of filled orders by their ids, owner addresses and market names', async () => {
+        console.log('');
+      });
+
+      it('Get a map of filled orders by their exchange ids and owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Get a map of filled orders by their exchange ids, owner addresses and market names', async () => {
+        console.log('');
+      });
+
+      it('Get a map of with all filled orders by for a specific owner address', async () => {
+        console.log('');
+      });
+
+      it('Get a map of with all filled orders by for a specific owner address and market name', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of filled orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of filled orders without informing any orders filter within the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a map of filled orders without informing some of their owner addresses', async () => {
+        console.log('');
+      });
     });
   });
 });
