@@ -98,6 +98,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._strategy_state = StrategyState.Closed
         self._ready_to_start = False
         self._last_arb_op_reported_ts = 0
+        self._strategy_ready = False
 
         perp_market_info.market.set_leverage(perp_market_info.trading_pair, self._perp_leverage)
         perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
