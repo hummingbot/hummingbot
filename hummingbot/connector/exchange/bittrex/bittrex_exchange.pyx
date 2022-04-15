@@ -698,9 +698,9 @@ cdef class BittrexExchange(ExchangeBase):
                 "type": "LIMIT",
                 "quantity": f"{amount:f}",
                 "limit": f"{price:f}",
-                "timeInForce": "GOOD_TIL_CANCELED"
-                # Available options [GOOD_TIL_CANCELED, IMMEDIATE_OR_CANCEL,
-                # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELED]
+                "timeInForce": "GOOD_TIL_CANCELLED"
+                # Available options [GOOD_TIL_CANCELLED, IMMEDIATE_OR_CANCEL,
+                # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
             }
         elif order_type is OrderType.LIMIT_MAKER:
             body = {
@@ -709,7 +709,7 @@ cdef class BittrexExchange(ExchangeBase):
                 "type": "LIMIT",
                 "quantity": f"{amount:f}",
                 "limit": f"{price:f}",
-                "timeInForce": "POST_ONLY_GOOD_TIL_CANCELED"
+                "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
             }
         api_response = await self._api_request("POST", path_url=path_url, body=body)
         return api_response
