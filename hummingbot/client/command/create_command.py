@@ -127,6 +127,8 @@ class CreateCommand:
                 config.value = config.default
 
         if self.app.to_stop_config:
+            self.restore_config_legacy(config_map, config_map_backup)
+            self.app.set_text("")
             return
 
         if file_name is None:
