@@ -1,5 +1,5 @@
-import { Request, Response, Router } from 'express';
-import { asyncHandler } from '../services/error-handler';
+import {Request, Response, Router} from 'express';
+import {asyncHandler} from '../services/error-handler';
 import {
   ClobDeleteOpenOrdersRequest,
   ClobDeleteOpenOrdersResponse,
@@ -31,9 +31,9 @@ import {
   getOrders,
   getTickers,
 } from './clob.controllers';
-import { StatusCodes } from 'http-status-codes';
-import { validatePublicKey } from '../chains/solana/solana.validators';
-import { getConnector } from '../services/connection-manager';
+import {StatusCodes} from 'http-status-codes';
+import {validatePublicKey} from '../chains/solana/solana.validators';
+import {getConnector} from '../services/connection-manager';
 
 export namespace ClobRoutes {
   export const router = Router();
@@ -68,7 +68,7 @@ export namespace ClobRoutes {
       ) => {
         const result = await getMarkets(request.body);
 
-        response.status(result.status).json(result.body);
+        response.status(result.status).send(result.body);
       }
     )
   );

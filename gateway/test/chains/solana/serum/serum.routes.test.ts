@@ -3,13 +3,13 @@ import {Express} from 'express-serve-static-core';
 import request from 'supertest';
 import {MARKETS} from '@project-serum/serum';
 import {Serum} from '../../../../src/connectors/serum/serum';
-import {ClobRoutes} from '../../../../src/clob/clob.routes';
 import {unpatch} from '../../../services/patch';
 import {Solana} from '../../../../src/chains/solana/solana';
 import {default as config} from './fixtures/getSerumConfig';
 import {StatusCodes} from 'http-status-codes';
-import {Market, OrderBook, Ticker,} from '../../../../src/connectors/serum/serum.types';
+import {Market} from '../../../../src/connectors/serum/serum.types';
 import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
+import {ClobRoutes} from '../../../../src/clob/clob.routes';
 
 let app: Express;
 
@@ -23,7 +23,7 @@ beforeAll(async () => {
 
   await Serum.getInstance(config.serum.chain, config.serum.network);
 
-  app.use('/clob', ClobRoutes.router);
+  app.use(`/clob`, ClobRoutes.router);
   app.use('/serum', SerumRoutes.router);
 });
 
@@ -31,11 +31,13 @@ afterEach(() => {
   unpatch();
 });
 
-describe('/clob', () => {
-  describe('GET /clob', () => {
+const routePrefix = '/clob';
+
+describe(`${routePrefix}`, () => {
+  describe(`GET ${routePrefix}`, () => {
     it('Get the API status', async () => {
       await request(app)
-        .get('/clob')
+        .get(`${routePrefix}`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -54,13 +56,13 @@ describe('/clob', () => {
   });
 });
 
-describe('/clob/markets', () => {
-  describe('GET /clob/markets', () => {
+describe(`${routePrefix}/markets`, () => {
+  describe(`GET ${routePrefix}/markets`, () => {
     it('Get a specific market by its name', async () => {
       const marketName = 'BTC/USDT';
 
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -88,7 +90,7 @@ describe('/clob/markets', () => {
       const marketNames = ['BTC/USDT', 'ETH/USDT'];
 
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -99,7 +101,7 @@ describe('/clob/markets', () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap: Map<string, Market> = response.body;
+          const marketsMap = new Map<string, Market>(Object.entries(response.body));
 
           expect(marketsMap.size).toBe(marketNames.length);
           for (const [marketName, market] of marketsMap) {
@@ -111,7 +113,7 @@ describe('/clob/markets', () => {
 
     it('Get a map with all markets', async () => {
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -121,7 +123,7 @@ describe('/clob/markets', () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap: Map<string, Market> = response.body;
+          const marketsMap = new Map<string, Market>(Object.entries(response.body));
 
           expect(marketsMap.size).toBe(MARKETS.length);
           for (const [marketName, market] of marketsMap) {
@@ -134,7 +136,7 @@ describe('/clob/markets', () => {
       const marketName = '';
 
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -158,7 +160,7 @@ describe('/clob/markets', () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -181,7 +183,7 @@ describe('/clob/markets', () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -204,7 +206,7 @@ describe('/clob/markets', () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
-        .get('/clob/markets')
+        .get(`${routePrefix}/markets`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -225,13 +227,13 @@ describe('/clob/markets', () => {
   });
 });
 
-describe('/clob/orderBooks', () => {
-  describe('GET /clob/orderBooks', () => {
+describe(`${routePrefix}/orderBooks`, () => {
+  describe(`GET ${routePrefix}/orderBooks`, () => {
     it('Get a specific order book by its market name', async () => {
       const marketName = 'BTC/USDT';
 
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -241,6 +243,7 @@ describe('/clob/orderBooks', () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
+          console.log(response.body);
           fail('not implemented');
         });
     });
@@ -249,7 +252,7 @@ describe('/clob/orderBooks', () => {
       const marketNames = ['BTC/USDT', 'ETH/USDT'];
 
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -272,7 +275,7 @@ describe('/clob/orderBooks', () => {
 
     it('Get a map with all order books', async () => {
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -295,7 +298,7 @@ describe('/clob/orderBooks', () => {
       const marketName = '';
 
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -319,7 +322,7 @@ describe('/clob/orderBooks', () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -342,7 +345,7 @@ describe('/clob/orderBooks', () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -365,7 +368,7 @@ describe('/clob/orderBooks', () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
-        .get('/clob/orderBooks')
+        .get(`${routePrefix}/orderBooks`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -386,13 +389,13 @@ describe('/clob/orderBooks', () => {
   });
 });
 
-describe('/clob/tickers', () => {
-  describe('GET /clob/tickers', () => {
+describe(`${routePrefix}/tickers`, () => {
+  describe(`GET ${routePrefix}/tickers`, () => {
     it('Get a specific ticker by its market name', async () => {
       const marketName = 'BTC/USDT';
 
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -402,6 +405,7 @@ describe('/clob/tickers', () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
+          console.log(response.body);
           fail('not implemented');
         });
     });
@@ -410,7 +414,7 @@ describe('/clob/tickers', () => {
       const marketNames = ['BTC/USDT', 'ETH/USDT'];
 
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -433,7 +437,7 @@ describe('/clob/tickers', () => {
 
     it('Get a map with all tickers', async () => {
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -456,7 +460,7 @@ describe('/clob/tickers', () => {
       const marketName = '';
 
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -480,7 +484,7 @@ describe('/clob/tickers', () => {
       const marketName = 'ABC/XYZ';
 
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -503,7 +507,7 @@ describe('/clob/tickers', () => {
       const marketNames: string[] = [];
 
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -526,7 +530,7 @@ describe('/clob/tickers', () => {
       const marketNames = ['BTC/USDT', 'ABC/XYZ', 'ETH/USDT'];
 
       await request(app)
-        .get('/clob/tickers')
+        .get(`${routePrefix}/tickers`)
         .send({
           chain: config.serum.chain,
           network: config.serum.network,
@@ -547,8 +551,8 @@ describe('/clob/tickers', () => {
   });
 });
 
-describe('/clob/orders', () => {
-  describe('GET /clob/orders', () => {
+describe(`${routePrefix}/orders`, () => {
+  describe(`GET ${routePrefix}/orders`, () => {
     it('Fail when trying to get one or more orders without informing any parameters', async () => {
       console.log('');
     });
@@ -610,7 +614,7 @@ describe('/clob/orders', () => {
     });
   });
 
-  describe('POST /clob/orders', () => {
+  describe(`POST ${routePrefix}/orders`, () => {
     describe('Single order', () => {
       it('Create an order and receive a response with the new information', async () => {
         console.log('');
@@ -640,7 +644,7 @@ describe('/clob/orders', () => {
     });
   });
 
-  describe('DELETE /clob/orders', () => {
+  describe(`DELETE ${routePrefix}/orders`, () => {
     describe('Single order', () => {
       it('Cancel a specific order by its id and owner address', async () => {
         console.log('');
@@ -707,8 +711,8 @@ describe('/clob/orders', () => {
   });
 });
 
-describe('/clob/openOrders', () => {
-  describe('GET /clob/openOrders', () => {
+describe(`${routePrefix}/openOrders`, () => {
+  describe(`GET ${routePrefix}/openOrders`, () => {
     describe('Single order', () => {
       it('Get a specific open order by its id and owner address', async () => {
         console.log('');
@@ -778,7 +782,7 @@ describe('/clob/openOrders', () => {
     });
   });
 
-  describe('DELETE /clob/openOrders', () => {
+  describe(`DELETE ${routePrefix}/openOrders`, () => {
     describe('Single open order', () => {
       it('Cancel a specific open order by its id and owner address', async () => {
         console.log('');
@@ -849,8 +853,8 @@ describe('/clob/openOrders', () => {
   });
 });
 
-describe('/clob/filledOrders', () => {
-  describe('GET /clob/filledOrders', () => {
+describe(`${routePrefix}/filledOrders`, () => {
+  describe(`GET ${routePrefix}/filledOrders`, () => {
     describe('Single order', () => {
       it('Get a specific filled order by its id and owner address', async () => {
         console.log('');

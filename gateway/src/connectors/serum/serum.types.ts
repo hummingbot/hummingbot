@@ -8,6 +8,7 @@ import {
   OrderParams,
   OrderParams as SerumOrderParams,
 } from '@project-serum/serum/lib/market';
+import { Map as ImmutableMap } from 'immutable';
 
 export enum OrderSide {
   BUY = 'BUY',
@@ -37,8 +38,8 @@ export interface Market {
 
 export interface OrderBook {
   market: Market;
-  bids: Map<string, Order>;
-  asks: Map<string, Order>;
+  bids: ImmutableMap<string, Order>;
+  asks: ImmutableMap<string, Order>;
   orderBook: {
     asks: SerumOrderBook;
     bids: SerumOrderBook;
@@ -89,10 +90,10 @@ export type GetTickersRequest =
   | { marketNames: string[] };
 
 export interface GetOrderRequest {
-  marketName: string; // TODO is this necessary?!!!
-  ownerAddress: string; // TODO is this necessary?!!!
+  marketName?: string;
   clientId?: string;
   exchangeId?: string;
+  ownerAddress: string;
 }
 
 // TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
