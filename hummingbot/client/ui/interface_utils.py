@@ -10,7 +10,7 @@ from typing import (
 
 import pandas as pd
 import psutil
-from tabulate import tabulate
+import tabulate
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
