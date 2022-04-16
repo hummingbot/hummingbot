@@ -824,7 +824,7 @@ class GateIoExchange(ExchangeBase):
                 tracked_order.trade_type,
                 tracked_order.order_type,
                 Decimal(str(update_msg.get("fill_price", update_msg.get("price", "0")))),
-                tracked_order.executed_amount_base,
+                Decimal(str(update_msg.get("amount","0"))),# changed from cumulative total to current fill amount
                 AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, tracked_order.fee_paid)]),
                 str(update_msg.get("update_time_ms", update_msg.get("id")))
             )
