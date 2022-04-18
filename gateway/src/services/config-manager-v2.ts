@@ -1,5 +1,5 @@
 import Ajv from 'ajv';
-import { ValidateFunction } from 'ajv';
+import { ValidateFunction, DefinedError } from 'ajv';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
@@ -160,9 +160,19 @@ export class ConfigurationNamespace {
       ) as Configuration;
       deepCopy(configCandidate, configTemplateCandidate);
       if (!this.#validator(configTemplateCandidate)) {
-        throw new Error(
-          `Configuration for namespace ${this.id} seems to be outdated/broken. Kindly fix manually.`
-        );
+        for (const err of this.#validator.errors as DefinedError[]) {
+          switch (err.keyword) {
+            case 'additionalProperties':
+              throw new Error(
+                `${this.id} config file seems to be outdated/broken due to additional property "${err.params.additionalProperty}". Kindly fix manually.`
+              );
+              break;
+            default:
+              throw new Error(
+                `${this.id} config file seems to be outdated/broken due to "${err.keyword}" - ${err.message}. Kindly fix manually.`
+              );
+          }
+        }
       }
       this.#configuration = configTemplateCandidate;
       this.saveConfig();
