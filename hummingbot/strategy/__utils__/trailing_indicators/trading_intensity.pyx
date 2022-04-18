@@ -70,8 +70,6 @@ cdef class TradingIntensityIndicator():
         # Store the last processed trade
         self._last_trade = trades.iloc[-1]
 
-        print(new_trades)
-
         # Add trades
         self._trades += [new_trades]
         if len(self._trades) > _sampling_length:
