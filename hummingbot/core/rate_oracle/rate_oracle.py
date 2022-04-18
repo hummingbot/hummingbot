@@ -46,11 +46,19 @@ class RateOracle(NetworkBase):
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
     binance_us_price_url = "https://api.binance.us/api/v3/ticker/bookTicker"
-    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?order=market_cap_desc&page={}" \
-                              "&per_page=250&sparkline=false&vs_currency={}"
+    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?category={}&order=market_cap_desc" \
+                              "&page={}&per_page=250&sparkline=false&vs_currency={}"
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
     kucoin_price_url = "https://api.kucoin.com/api/v1/market/allTickers"
     ascend_ex_price_url = "https://ascendex.com/api/pro/v1/ticker"
+
+    coingecko_token_categories = [
+        "cryptocurrency",
+        "decentralized-exchange",
+        "decentralized-finance-defi",
+        "smart-contract-platform",
+        "stablecoins",
+        "wrapped-tokens"]
 
     @classmethod
     def get_instance(cls) -> "RateOracle":
@@ -310,7 +318,9 @@ class RateOracle(NetworkBase):
                 cls._cgecko_supported_vs_tokens = records
         if vs_currency.lower() not in cls._cgecko_supported_vs_tokens:
             vs_currency = "usd"
-        tasks = [cls.get_coingecko_prices_by_page(vs_currency, i) for i in range(1, 5)]
+        tasks = [asyncio.get_event_loop().create_task(cls.get_coingecko_prices_by_page(vs_currency, i, category))
+                 for i in range(1, 3)
+                 for category in cls.coingecko_token_categories]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
             if isinstance(task_result, Exception):
@@ -322,17 +332,20 @@ class RateOracle(NetworkBase):
         return results
 
     @classmethod
-    async def get_coingecko_prices_by_page(cls, vs_currency: str, page_no: int) -> Dict[str, Decimal]:
+    async def get_coingecko_prices_by_page(cls, vs_currency: str, page_no: int, category: str) -> Dict[str, Decimal]:
         """
         Fetches CoinGecko prices by page number.
+
         :param vs_currency: A currency (crypto or fiat) to get prices of tokens in, see
         https://api.coingecko.com/api/v3/simple/supported_vs_currencies for the current supported list
         :param page_no: The page number
+        :param category: category to filter tokens to get from the provider
+
         :return A dictionary of trading pairs and prices (250 results max)
         """
         results = {}
         client = await cls._http_client()
-        async with client.request("GET", cls.coingecko_usd_price_url.format(page_no, vs_currency)) as resp:
+        async with client.request("GET", cls.coingecko_usd_price_url.format(category, page_no, vs_currency)) as resp:
             records = await resp.json(content_type=None)
             for record in records:
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
