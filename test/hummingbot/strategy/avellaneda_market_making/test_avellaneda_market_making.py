@@ -113,7 +113,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(sampling_length=100,
                                                                                         processing_length=1)
 
-        self.trading_intensity_indicator: TradingIntensityIndicator = TradingIntensityIndicator(sampling_length=200)
+        self.trading_intensity_indicator: TradingIntensityIndicator = TradingIntensityIndicator(sampling_length=20)
 
         self.strategy.avg_vol = self.avg_vol_indicator
         self.strategy.trading_intensity = self.trading_intensity_indicator
@@ -131,7 +131,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_low_volatility(self, strategy: AvellanedaMarketMakingStrategy):
         if self.volatility_indicator_low_vol is None:
-            N_SAMPLES = 350
+            N_SAMPLES = 400
             INITIAL_RANDOM_SEED = 3141592653
             original_price = 100
             volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
@@ -159,7 +159,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_high_volatility(self, strategy: AvellanedaMarketMakingStrategy):
         if self.volatility_indicator_high_vol is None:
-            N_SAMPLES = 350
+            N_SAMPLES = 400
             INITIAL_RANDOM_SEED = 3141592653
             original_price = 100
             volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
@@ -187,7 +187,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_low_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
         if self.trading_intensity_indicator_low_liq is None:
-            N_SAMPLES = 350
+            N_SAMPLES = 400
             INITIAL_RANDOM_SEED = 3141592653
             volatility = self.high_vol
             original_price_mid = 100
@@ -202,13 +202,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
             # Generate orderbooks for all ticks
             bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
+            trades = AvellanedaMarketMakingUnitTests.make_trades(bids_df, asks_df)
 
             # This replicates the same indicator Avellaneda uses for trading intensity estimation
             trading_intensity_indicator = strategy.trading_intensity
 
-            for bid_df, ask_df in zip(bids_df, asks_df):
+            timestamp = self.start_timestamp
+            for bid_df, ask_df, trade in zip(bids_df, asks_df, trades):
                 snapshot = (bid_df, ask_df)
-                trading_intensity_indicator.add_sample(snapshot)
+                trading_intensity_indicator.add_sample(timestamp, snapshot, trade)
+                timestamp += 1
 
             self.trading_intensity_indicator_low_liq = trading_intensity_indicator
 
@@ -217,7 +220,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_high_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
         if self.trading_intensity_indicator_high_liq is None:
-            N_SAMPLES = 350
+            N_SAMPLES = 400
             INITIAL_RANDOM_SEED = 3141592653
             volatility = self.low_vol
             original_price_mid = 100
@@ -232,13 +235,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
             # Generate orderbooks for all ticks
             bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
+            trades = AvellanedaMarketMakingUnitTests.make_trades(bids_df, asks_df)
 
             # This replicates the same indicator Avellaneda uses for trading intensity estimation
             trading_intensity_indicator = strategy.trading_intensity
 
-            for bid_df, ask_df in zip(bids_df, asks_df):
+            timestamp = self.start_timestamp
+            for bid_df, ask_df, trade in zip(bids_df, asks_df, trades):
                 snapshot = (bid_df, ask_df)
-                trading_intensity_indicator.add_sample(snapshot)
+                trading_intensity_indicator.add_sample(timestamp, snapshot, trade)
+                timestamp += 1
 
             self.trading_intensity_indicator_high_liq = trading_intensity_indicator
 
@@ -248,7 +254,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     @staticmethod
     def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
         # 0.1% quantization of prices in the orderbook
-        PRICE_STEP_FRACTION = 0.001
+        PRICE_STEP_FRACTION = 0.01
 
         # Generate BBO quotes
         samples_mid = np.random.normal(original_price_mid, volatility * original_price_mid, samples)
@@ -292,6 +298,92 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         ask_df = pd.DataFrame(data=data_ask)
 
         return bid_df, ask_df
+
+    @staticmethod
+    def make_trades(bids_df, asks_df):
+        # Estimate market orders that happened
+        # Assume every movement in the BBO is caused by a market order and its size is the volume differential
+
+        bid_df_prev = None
+        ask_df_prev = None
+        bid_prev = None
+        ask_prev = None
+        price_prev = None
+
+        trades = []
+
+        start = pd.Timestamp("2019-01-01", tz="UTC")
+        start_timestamp = start.timestamp()
+        timestamp = start_timestamp
+
+        for bid_df, ask_df in zip(bids_df, asks_df):
+
+            trades += [pd.DataFrame(columns=['trading_pair', 'timestamp', 'type', 'price', 'amount'])]
+
+            bid = bid_df["price"].iloc[0]
+            ask = ask_df["price"].iloc[0]
+
+            if bid_prev is not None and ask_prev is not None and price_prev is not None:
+                # Higher bids were filled - someone matched them - a determined seller
+                # Equal bids - if amount lower - partially filled
+                for index, row in bid_df_prev[bid_df_prev['price'] >= bid].iterrows():
+                    if row['price'] == bid:
+                        if bid_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - bid_df["amount"].iloc[0]
+                            new_trade = {
+                                'trading_pair': "ETHUSDT",
+                                'timestamp': timestamp,
+                                'type': "SELL",
+                                'price': row['price'],
+                                'amount': amount
+                            }
+                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                    else:
+                        amount = row['amount']
+                        new_trade = {
+                            'trading_pair': "ETHUSDT",
+                            'timestamp': timestamp,
+                            'type': "SELL",
+                            'price': row['price'],
+                            'amount': amount
+                        }
+                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+
+                # Lower asks were filled - someone matched them - a determined buyer
+                # Equal asks - if amount lower - partially filled
+                for index, row in ask_df_prev[ask_df_prev['price'] <= ask].iterrows():
+                    if row['price'] == ask:
+                        if ask_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - ask_df["amount"].iloc[0]
+                            new_trade = {
+                                'trading_pair': "ETHUSDT",
+                                'timestamp': timestamp,
+                                'type': "BUY",
+                                'price': row['price'],
+                                'amount': amount
+                            }
+                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                    else:
+                        amount = row['amount']
+                        new_trade = {
+                            'trading_pair': "ETHUSDT",
+                            'timestamp': timestamp,
+                            'type': "BUY",
+                            'price': row['price'],
+                            'amount': amount
+                        }
+                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+
+            # Store previous values
+            bid_df_prev = bid_df
+            ask_df_prev = ask_df
+            bid_prev = bid_df["price"].iloc[0]
+            ask_prev = ask_df["price"].iloc[0]
+            price_prev = (bid_prev + ask_prev) / 2
+
+            timestamp += 1
+
+        return trades
 
     @staticmethod
     def simulate_place_limit_order(strategy: AvellanedaMarketMakingStrategy, market_info: MarketTradingPairTuple, order: LimitOrder):
@@ -609,16 +701,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(100.21531031989907, alpha, 5)
-        self.assertAlmostEqual(0.03337631497363119, kappa, 5)
+        self.assertAlmostEqual(112.78451379967403, alpha, 5)
+        self.assertAlmostEqual(2.337349643261438, kappa, 5)
 
         # Simulate high liquidity
         self.simulate_low_liquidity(self.strategy)
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(1.0028041271598158, alpha, 5)
-        self.assertAlmostEqual(0.00038015903945779595, kappa, 5)
+        self.assertAlmostEqual(1.0095482106417624, alpha, 5)
+        self.assertAlmostEqual(0.0006894160253319163, kappa, 5)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
@@ -637,10 +729,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Check reservation_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("99.95404856954350080330559626"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("8.10312337812488556961420323"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("104.0056102586059435881126979"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("95.90248688048105801849849464"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.0326907301569683694926933"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("0.7860626006639657442408037805"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.4257220304889512416130952"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.63965942982498549737229141"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
@@ -658,10 +750,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Check reservation_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("99.95896878169542000413199532"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("6.939263378124513371978331884"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("103.4286004707576766901211613"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.48933709263316331814282938"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.0368705177791277118658666"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("0.7750196181220796732957702464"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.4243803268401675485137517"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.64936070871808787521798148"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
@@ -716,8 +808,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.006770071564337964594388892810'), Decimal('0.01015510734650694689158333922')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.006770071564337964594388892810'), Decimal('0.01015510734650694689158333922')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 

@@ -136,7 +136,6 @@ cdef class TradingIntensityIndicator():
         # Do not process until a previous order book is not available
         if self._bids_df is not None and self._asks_df is not None:
             is_new_trades = self.c_process_sample(bids_df, asks_df, trades)
-
             if is_new_trades and self.is_sampling_buffer_full:
                 # Estimate alpha and kappa
                 self.c_estimate_intensity()
