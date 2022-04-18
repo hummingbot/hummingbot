@@ -197,6 +197,33 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("-1"),
                   validator=validate_price_floor_ceiling),
+    "moving_price_band_enabled":
+        ConfigVar(key="moving_price_band_enabled",
+                  prompt="Would you like to enable moving price floor and ceiling? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "price_ceiling_pct":
+        ConfigVar(key="price_ceiling_pct",
+                  prompt="Enter a percentage to the current price that sets the price ceiling. Above this price, only sell orders will be placed >>> ",
+                  type_str="decimal",
+                  default=Decimal("1"),
+                  required_if=lambda: pure_market_making_config_map.get("moving_price_band_enabled").value,
+                  validator=validate_decimal),
+    "price_floor_pct":
+        ConfigVar(key="price_floor_pct",
+                  prompt="Enter a percentage to the current price that sets the price floor. Below this price, only buy orders will be placed >>> ",
+                  type_str="decimal",
+                  default=Decimal("-1"),
+                  required_if=lambda: pure_market_making_config_map.get("moving_price_band_enabled").value,
+                  validator=validate_decimal),
+    "price_band_refresh_time":
+        ConfigVar(key="price_band_refresh_time",
+                  prompt="After this amount of time (in seconds), the price bands are reset based on the current price >>> ",
+                  type_str="float",
+                  default=86400,
+                  required_if=lambda: pure_market_making_config_map.get("moving_price_band_enabled").value,
+                  validator=validate_decimal),
     "ping_pong_enabled":
         ConfigVar(key="ping_pong_enabled",
                   prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
