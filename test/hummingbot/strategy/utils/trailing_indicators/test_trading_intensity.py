@@ -8,7 +8,10 @@ from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import 
 
 class TradingIntensityTest(unittest.TestCase):
     INITIAL_RANDOM_SEED = 3141592653
-    BUFFER_LENGTH = 200
+    BUFFER_LENGTH = 50
+
+    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
+    start_timestamp: float = start.timestamp()
 
     def setUp(self) -> None:
         np.random.seed(self.INITIAL_RANDOM_SEED)
@@ -16,7 +19,7 @@ class TradingIntensityTest(unittest.TestCase):
     @staticmethod
     def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
         # 0.1% quantization of prices in the orderbook
-        PRICE_STEP_FRACTION = 0.001
+        PRICE_STEP_FRACTION = 0.01
 
         # Generate BBO quotes
         samples_mid = np.random.normal(original_price_mid, volatility * original_price_mid, samples)
@@ -61,8 +64,94 @@ class TradingIntensityTest(unittest.TestCase):
 
         return bid_df, ask_df
 
+    @staticmethod
+    def make_trades(bids_df, asks_df):
+        # Estimate market orders that happened
+        # Assume every movement in the BBO is caused by a market order and its size is the volume differential
+
+        bid_df_prev = None
+        ask_df_prev = None
+        bid_prev = None
+        ask_prev = None
+        price_prev = None
+
+        trades = []
+
+        start = pd.Timestamp("2019-01-01", tz="UTC")
+        start_timestamp = start.timestamp()
+        timestamp = start_timestamp
+
+        for bid_df, ask_df in zip(bids_df, asks_df):
+
+            trades += [pd.DataFrame(columns=['trading_pair', 'timestamp', 'type', 'price', 'amount'])]
+
+            bid = bid_df["price"].iloc[0]
+            ask = ask_df["price"].iloc[0]
+
+            if bid_prev is not None and ask_prev is not None and price_prev is not None:
+                # Higher bids were filled - someone matched them - a determined seller
+                # Equal bids - if amount lower - partially filled
+                for index, row in bid_df_prev[bid_df_prev['price'] >= bid].iterrows():
+                    if row['price'] == bid:
+                        if bid_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - bid_df["amount"].iloc[0]
+                            new_trade = {
+                                'trading_pair': "ETHUSDT",
+                                'timestamp': timestamp,
+                                'type': "SELL",
+                                'price': row['price'],
+                                'amount': amount
+                            }
+                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                    else:
+                        amount = row['amount']
+                        new_trade = {
+                            'trading_pair': "ETHUSDT",
+                            'timestamp': timestamp,
+                            'type': "SELL",
+                            'price': row['price'],
+                            'amount': amount
+                        }
+                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+
+                # Lower asks were filled - someone matched them - a determined buyer
+                # Equal asks - if amount lower - partially filled
+                for index, row in ask_df_prev[ask_df_prev['price'] <= ask].iterrows():
+                    if row['price'] == ask:
+                        if ask_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - ask_df["amount"].iloc[0]
+                            new_trade = {
+                                'trading_pair': "ETHUSDT",
+                                'timestamp': timestamp,
+                                'type': "BUY",
+                                'price': row['price'],
+                                'amount': amount
+                            }
+                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                    else:
+                        amount = row['amount']
+                        new_trade = {
+                            'trading_pair': "ETHUSDT",
+                            'timestamp': timestamp,
+                            'type': "BUY",
+                            'price': row['price'],
+                            'amount': amount
+                        }
+                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+
+            # Store previous values
+            bid_df_prev = bid_df
+            ask_df_prev = ask_df
+            bid_prev = bid_df["price"].iloc[0]
+            ask_prev = ask_df["price"].iloc[0]
+            price_prev = (bid_prev + ask_prev) / 2
+
+            timestamp += 1
+
+        return trades
+
     def test_calculate_trading_intensity(self):
-        N_SAMPLES = 1000
+        N_SAMPLES = 300
 
         self.indicator = TradingIntensityIndicator(self.BUFFER_LENGTH)
 
@@ -76,10 +165,13 @@ class TradingIntensityTest(unittest.TestCase):
 
         # Generate orderbooks for all ticks
         bids_df, asks_df = TradingIntensityTest.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
+        trades = TradingIntensityTest.make_trades(bids_df, asks_df)
 
-        for bid_df, ask_df in zip(bids_df, asks_df):
+        timestamp = self.start_timestamp
+        for bid_df, ask_df, trade in zip(bids_df, asks_df, trades):
             snapshot = (bid_df, ask_df)
-            self.indicator.add_sample(snapshot)
+            self.indicator.add_sample(timestamp, snapshot, trade)
+            timestamp += 1
 
-        self.assertAlmostEqual(self.indicator.current_value[0], 1.0006118838992204, 4)
-        self.assertAlmostEqual(self.indicator.current_value[1], 0.00016076949224819458, 4)
+        self.assertAlmostEqual(self.indicator.current_value[0], 1.0023826912651235, 4)
+        self.assertAlmostEqual(self.indicator.current_value[1], 0.00010734018225339922, 4)
