@@ -10,6 +10,8 @@ cdef class TradingIntensityIndicator():
         object _asks_df
         int _sampling_length
         int _samples_length
+        object _last_trade
+        float _last_timestamp
 
-    cdef c_simulate_execution(self, bids_df, asks_df)
+    cdef c_process_sample(self, new_bids_df, new_asks_df, trades)
     cdef c_estimate_intensity(self)
