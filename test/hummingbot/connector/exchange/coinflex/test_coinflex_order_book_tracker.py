@@ -1,22 +1,17 @@
 import asyncio
 import time
 import unittest
-
 from collections import deque
-from typing import (
-    Deque,
-    Optional,
-    Union,
-)
+from typing import Deque, Optional, Union
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
-from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
+import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
+from hummingbot.connector.exchange.coinflex.coinflex_order_book import CoinflexOrderBook
+from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
-class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
+class CoinflexOrderBookTrackerUnitTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -29,12 +24,12 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self.tracker: BinanceOrderBookTracker = BinanceOrderBookTracker(trading_pairs=[self.trading_pair],
-                                                                        throttler=self.throttler)
+        self.tracker: CoinflexOrderBookTracker = CoinflexOrderBookTracker(trading_pairs=[self.trading_pair],
+                                                                          throttler=self.throttler)
         self.tracking_task: Optional[asyncio.Task] = None
 
         # Simulate start()
-        self.tracker._order_books[self.trading_pair] = BinanceOrderBook()
+        self.tracker._order_books[self.trading_pair] = CoinflexOrderBook()
         self.tracker._tracking_message_queues[self.trading_pair] = asyncio.Queue()
         self.tracker._past_diffs_windows[self.trading_pair] = deque()
         self.tracker._order_books_initialized.set()
@@ -52,13 +47,13 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
             raise NotImplementedError
 
     def test_exchange_name(self):
-        self.assertEqual("binance", self.tracker.exchange_name)
+        self.assertEqual("coinflex", self.tracker.exchange_name)
 
-        us_tracker = BinanceOrderBookTracker(trading_pairs=[self.trading_pair],
-                                             domain="us",
-                                             throttler=self.throttler)
+        test_tracker = CoinflexOrderBookTracker(trading_pairs=[self.trading_pair],
+                                                domain="test",
+                                                throttler=self.throttler)
 
-        self.assertEqual("binance_us", us_tracker.exchange_name)
+        self.assertEqual("coinflex_test", test_tracker.exchange_name)
 
     def test_order_book_diff_router_trading_pair_not_found_append_to_saved_message_queue(self):
         expected_msg: OrderBookMessage = OrderBookMessage(
@@ -123,10 +118,10 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         task.cancel()
 
     def test_track_single_book_snapshot_message_no_past_diffs(self):
-        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = CoinflexOrderBook.snapshot_message_from_exchange(
             msg={
-                "trading_pair": self.trading_pair,
-                "lastUpdateId": 1,
+                "marketCode": self.trading_pair,
+                "timestamp": 1,
                 "bids": [
                     ["4.00000000", "431.00000000"]
                 ],
@@ -145,10 +140,10 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         self.assertEqual(1, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
     def test_track_single_book_snapshot_message_with_past_diffs(self):
-        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = CoinflexOrderBook.snapshot_message_from_exchange(
             msg={
-                "trading_pair": self.trading_pair,
-                "lastUpdateId": 1,
+                "marketCode": self.trading_pair,
+                "timestamp": 1,
                 "bids": [
                     ["4.00000000", "431.00000000"]
                 ],
@@ -158,25 +153,26 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
             },
             timestamp=time.time()
         )
-        past_diff_msg: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+        past_diff_msg: OrderBookMessage = CoinflexOrderBook.diff_message_from_exchange(
             msg={
-                "e": "depthUpdate",
-                "E": 123456789,
-                "s": "BNBBTC",
-                "U": 1,
-                "u": 2,
-                "b": [
-                    [
-                        "0.0024",
-                        "10"
+                "table": "depth",
+                "data": [{
+                    "timestamp": 2,
+                    "instrumentId": "BNBBTC",
+                    "seqNum": 123456789,
+                    "bids": [
+                        [
+                            "0.0024",
+                            "10"
+                        ]
+                    ],
+                    "asks": [
+                        [
+                            "0.0026",
+                            "100"
+                        ]
                     ]
-                ],
-                "a": [
-                    [
-                        "0.0026",
-                        "100"
-                    ]
-                ]
+                }]
             },
             metadata={"trading_pair": self.trading_pair}
         )
@@ -196,25 +192,26 @@ class BinanceOrderBookTrackerUnitTests(unittest.TestCase):
         self.assertEqual(2, self.tracker.order_books[self.trading_pair].last_diff_uid)
 
     def test_track_single_book_diff_message(self):
-        diff_msg: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+        diff_msg: OrderBookMessage = CoinflexOrderBook.diff_message_from_exchange(
             msg={
-                "e": "depthUpdate",
-                "E": 123456789,
-                "s": "BNBBTC",
-                "U": 1,
-                "u": 2,
-                "b": [
-                    [
-                        "0.0024",
-                        "10"
+                "table": "depth",
+                "data": [{
+                    "timestamp": 2,
+                    "instrumentId": "BNBBTC",
+                    "seqNum": 123456789,
+                    "bids": [
+                        [
+                            "0.0024",
+                            "10"
+                        ]
+                    ],
+                    "asks": [
+                        [
+                            "0.0026",
+                            "100"
+                        ]
                     ]
-                ],
-                "a": [
-                    [
-                        "0.0026",
-                        "100"
-                    ]
-                ]
+                }]
             },
             metadata={"trading_pair": self.trading_pair}
         )

@@ -20,6 +20,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 | logo | id | name | ver | doc | status | referral |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| <img src="assets/altmarkets_logo1.png" alt="AltMarkets.io" width="90" /> | altmarkets | [AltMarkets.io](https://altmarkets.io/) | 2 | [API](https://altmarkets.io/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/ascendex-logo.jpg" alt="AscendEx" width="90" /> | ascend_ex | [AscendEx](https://ascendex.com/en/global-digital-asset-platform) | 1 | [API](https://ascendex.github.io/ascendex-pro-api/#ascendex-pro-api-documentation) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW)
 | <img src="assets/beaxy-logo.png" alt="Beaxy" width="90" /> | beaxy | [Beaxy](https://beaxy.com/) | 2 | [API](https://beaxyapiv2trading.docs.apiary.io/) |![GREEN](https://via.placeholder.com/15/008000/?text=+)|
 | <img src="assets/binance_futures-logo.jpg" alt="Binance Perpetual" width="90" /> | binance_perpetual | [Binance Futures](https://www.binance.com/) | 1 | [API](https://binance-docs.github.io/apidocs/futures/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) | [54499305](https://www.binance.com/en/futures/ref/hummingbot)
@@ -31,6 +32,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/blocktane-logo.jpg" alt="Blocktane" width="90" /> | blocktane | [Blocktane](https://blocktane.io/) | 2 | [API](https://blocktane.io/api) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
 | <img src="assets/bybit-logo.jpg" alt="Bybit Perpetual" width="90" /> | bybit_perpetual | [Bybit Perpetual](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
 | <img src="assets/coinbase_pro-logo.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/coinflex_logo.png" alt="CoinFLEX" width="90" /> | coinflex | [CoinFLEX](https://coinflex.com/) | 2 | [API](https://coinflex.com/api/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/coinzoom-logo.jpg" alt="CoinZoom" width="90" /> | coinzoom | [CoinZoom](https://trade.coinzoom.com/landing) | * | [API](https://api-docs.coinzoom.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/cryptocom-logo.jpg" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/digifinex-logo.jpg" alt="Digifinex" width="90" /> | digifinex | [Digifinex](https://www.digifinex.com/en-ww) | 3 | [API](https://docs.digifinex.com/en-ww/v3/#introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
