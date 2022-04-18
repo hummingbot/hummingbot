@@ -434,10 +434,8 @@ class UniswapConnector(ConnectorBase):
                                                        tracked_order.client_order_id,
                                                        tracked_order.base_asset,
                                                        tracked_order.quote_asset,
-                                                       tracked_order.fee_asset,
                                                        tracked_order.executed_amount_base,
                                                        tracked_order.executed_amount_quote,
-                                                       float(fee),
                                                        tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:

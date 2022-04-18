@@ -83,7 +83,7 @@ cdef class TradingIntensityIndicator():
         # Add trades
         self._trades += [trades]
         if len(self._trades) > _sampling_length:
-            self._trades = self._trades[1:]
+            self._trades = self._trades[-_sampling_length:]
 
     def _estimate_intensity(self):
         self.c_estimate_intensity()

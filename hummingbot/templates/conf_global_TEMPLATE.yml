@@ -32,6 +32,11 @@ coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
 
+coinflex_api_key: null
+coinflex_api_secret: null
+coinflex_test_api_key: null
+coinflex_test_api_secret: null
+
 coinzoom_api_key: null
 coinzoom_secret_key: null
 coinzoom_username: null
@@ -61,6 +66,10 @@ loopring_private_key: null
 kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
+
+kucoin_testnet_api_key: null
+kucoin_testnet_secret_key: null
+kucoin_testnet_passphrase: null
 
 altmarkets_api_key: null
 altmarkets_secret_key: null

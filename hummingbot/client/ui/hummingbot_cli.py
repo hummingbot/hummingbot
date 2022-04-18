@@ -14,7 +14,7 @@ from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 from hummingbot import init_logging
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.tab.data_types import CommandTab
-from hummingbot.client.ui.interface_utils import start_timer, start_process_monitor, start_trade_monitor
+from hummingbot.client.ui.interface_utils import start_process_monitor, start_timer, start_trade_monitor
 from hummingbot.client.ui.layout import (
     create_input_field,
     create_live_field,
