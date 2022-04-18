@@ -1,11 +1,14 @@
-import { StatusCodes } from 'http-status-codes';
-import { Solanaish } from '../../chains/solana/solana';
-import { Serumish } from './serum';
+import {StatusCodes} from 'http-status-codes';
+import {Map as ImmutableMap} from 'immutable';
+import {Solanaish} from '../../chains/solana/solana';
+import {Serumish} from './serum';
 import {
   SerumCancelOpenOrdersRequest,
   SerumCancelOpenOrdersResponse,
   SerumCancelOrdersRequest,
   SerumCancelOrdersResponse,
+  SerumCreateOrdersRequest,
+  SerumCreateOrdersResponse,
   SerumGetFilledOrdersRequest,
   SerumGetFilledOrdersResponse,
   SerumGetMarketsRequest,
@@ -18,12 +21,11 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
-  SerumCreateOrdersRequest,
-  SerumCreateOrdersResponse,
 } from './serum.requests';
-import { ResponseWrapper } from '../../services/common-interfaces';
-import { HttpException } from '../../services/error-handler';
-import { MarketNotFoundError, OrderNotFoundError } from './serum.types';
+import {ResponseWrapper} from '../../services/common-interfaces';
+import {HttpException} from '../../services/error-handler';
+import {Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker} from './serum.types';
+import {convert, Types} from "./serum.convertors";
 
 /**
  * Get the all or the informed markets and their configurations.
@@ -48,7 +50,7 @@ export async function getMarkets(
     }
 
     try {
-      response.body = await serum.getMarket(request.name);
+      response.body = convert<Market, SerumGetMarketsResponse>(await serum.getMarket(request.name), Types.GetMarketsResponse);
 
       response.status = StatusCodes.OK;
 
@@ -76,7 +78,7 @@ export async function getMarkets(
     }
 
     try {
-      response.body = await serum.getMarkets(request.names);
+      response.body = convert<ImmutableMap<string, Market>, SerumGetMarketsResponse>(await serum.getMarkets(request.names), Types.GetMarketsResponse);
 
       response.status = StatusCodes.OK;
 
@@ -90,7 +92,7 @@ export async function getMarkets(
     }
   }
 
-  response.body = await serum.getAllMarkets();
+  response.body = convert<ImmutableMap<string, Market>, SerumGetMarketsResponse>(await serum.getAllMarkets(), Types.GetMarketsResponse);
 
   response.status = StatusCodes.OK;
 
@@ -120,7 +122,7 @@ export async function getOrderBooks(
     }
 
     try {
-      response.body = await serum.getOrderBook(request.marketName);
+      response.body = convert<OrderBook, SerumGetOrderBooksResponse>(await serum.getOrderBook(request.marketName), Types.GetOrderBooksResponse);
 
       response.status = StatusCodes.OK;
 
@@ -143,7 +145,7 @@ export async function getOrderBooks(
     }
 
     try {
-      response.body = await serum.getOrderBooks(request.marketNames);
+      response.body = convert<ImmutableMap<string, OrderBook>, SerumGetOrderBooksResponse>(await serum.getOrderBooks(request.marketNames), Types.GetOrderBooksResponse);
 
       response.status = StatusCodes.OK;
 
@@ -157,7 +159,7 @@ export async function getOrderBooks(
     }
   }
 
-  response.body = await serum.getAllOrderBooks();
+  response.body = convert<ImmutableMap<string, OrderBook>, SerumGetOrderBooksResponse>(await serum.getAllOrderBooks(), Types.GetOrderBooksResponse);
 
   response.status = StatusCodes.OK;
 
@@ -187,7 +189,7 @@ export async function getTickers(
     }
 
     try {
-      response.body = await serum.getTicker(request.marketName);
+      response.body = convert<Ticker, SerumGetTickersResponse>(await serum.getTicker(request.marketName), Types.GetTickersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -210,7 +212,7 @@ export async function getTickers(
     }
 
     try {
-      response.body = await serum.getTickers(request.marketNames);
+      response.body = convert<ImmutableMap<string, Ticker>, SerumGetTickersResponse>(await serum.getTickers(request.marketNames), Types.GetTickersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -224,7 +226,7 @@ export async function getTickers(
     }
   }
 
-  response.body = await serum.getAllTickers();
+  response.body = convert<ImmutableMap<string, Ticker>, SerumGetTickersResponse>(await serum.getAllTickers(), Types.GetTickersResponse);
 
   response.status = StatusCodes.OK;
 
@@ -247,7 +249,7 @@ export async function getOrders(
 
   if ('order' in request) {
     try {
-      response.body = await serum.getOrder(request.order);
+      response.body = convert<Order, SerumGetOrdersResponse>(await serum.getOrder(request.order), Types.GetOrdersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -270,7 +272,7 @@ export async function getOrders(
     }
 
     try {
-      response.body = await serum.getOrders(request.orders);
+      response.body = convert<ImmutableMap<string, Order>, SerumGetOrdersResponse>(await serum.getOrders(request.orders), Types.GetOrdersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -305,7 +307,7 @@ export async function createOrders(
   const response = new ResponseWrapper<SerumCreateOrdersResponse>();
 
   if ('order' in request) {
-    response.body = await serum.createOrder(request.order);
+    response.body = convert<Order, SerumCreateOrdersResponse>(await serum.createOrder(request.order), Types.CreateOrdersResponse);
 
     response.status = StatusCodes.OK;
 
@@ -320,7 +322,7 @@ export async function createOrders(
       );
     }
 
-    response.body = await serum.createOrders(request.orders);
+    response.body = convert<ImmutableMap<string, Order>, SerumCreateOrdersResponse>(await serum.createOrders(request.orders), Types.CreateOrdersResponse);
 
     response.status = StatusCodes.OK;
 
@@ -348,7 +350,7 @@ export async function cancelOrders(
   const response = new ResponseWrapper<SerumCancelOrdersResponse>();
 
   if ('order' in request) {
-    response.body = await serum.cancelOrder(request.order);
+    response.body = convert<Order, SerumCancelOrdersResponse>(await serum.cancelOrder(request.order), Types.CancelOrdersResponse);
 
     response.status = StatusCodes.OK;
 
@@ -363,7 +365,7 @@ export async function cancelOrders(
       );
     }
 
-    response.body = await serum.cancelOrders(request.orders);
+    response.body = convert<ImmutableMap<string, Order>, SerumCancelOrdersResponse>(await serum.cancelOrders(request.orders), Types.CancelOrdersResponse);
 
     response.status = StatusCodes.OK;
 
@@ -392,7 +394,7 @@ export async function getOpenOrders(
 
   if ('order' in request) {
     try {
-      response.body = await serum.getOpenOrder(request.order);
+      response.body = convert<Order, SerumGetOpenOrdersResponse>(await serum.getOpenOrder(request.order), Types.GetOpenOrdersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -415,7 +417,7 @@ export async function getOpenOrders(
     }
 
     try {
-      response.body = await serum.getOpenOrders(request.orders);
+      response.body = convert<ImmutableMap<string, Order>, SerumGetOpenOrdersResponse>(await serum.getOpenOrders(request.orders), Types.GetOpenOrdersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -450,7 +452,7 @@ export async function cancelOpenOrders(
   const response = new ResponseWrapper<SerumCancelOpenOrdersResponse>();
 
   if ('order' in request) {
-    response.body = await serum.cancelOrder(request.order);
+    response.body = convert<Order, SerumCancelOpenOrdersResponse>(await serum.cancelOrder(request.order), Types.CancelOpenOrdersResponse);
 
     response.status = StatusCodes.OK;
 
@@ -465,14 +467,14 @@ export async function cancelOpenOrders(
       );
     }
 
-    response.body = await serum.cancelOrders(request.orders);
+    response.body = convert<ImmutableMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelOrders(request.orders), Types.CancelOpenOrdersResponse);
 
     response.status = StatusCodes.OK;
 
     return response;
   }
 
-  response.body = await serum.cancelAllOpenOrders(request);
+  response.body = convert<ImmutableMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelAllOpenOrders(request), Types.CancelOpenOrdersResponse);
 
   response.status = StatusCodes.OK;
 
@@ -495,7 +497,7 @@ export async function getFilledOrders(
 
   if ('order' in request) {
     try {
-      response.body = await serum.getFilledOrder(request.order);
+      response.body = convert<Order, SerumGetFilledOrdersResponse>(await serum.getFilledOrder(request.order), Types.GetFilledOrdersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -518,7 +520,7 @@ export async function getFilledOrders(
     }
 
     try {
-      response.body = await serum.getFilledOrders(request.orders);
+      response.body = convert<ImmutableMap<string, Order>, SerumGetFilledOrdersResponse>(await serum.getFilledOrders(request.orders), Types.GetFilledOrdersResponse);
 
       response.status = StatusCodes.OK;
 
@@ -532,7 +534,7 @@ export async function getFilledOrders(
     }
   }
 
-  response.body = await serum.getAllFilledOrders();
+  response.body = convert<ImmutableMap<string, Order>, SerumGetFilledOrdersResponse>(await serum.getAllFilledOrders(), Types.GetFilledOrdersResponse);
 
   response.status = StatusCodes.OK;
 

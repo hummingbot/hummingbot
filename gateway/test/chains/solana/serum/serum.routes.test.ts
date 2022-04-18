@@ -7,7 +7,13 @@ import {unpatch} from '../../../services/patch';
 import {Solana} from '../../../../src/chains/solana/solana';
 import {default as config} from './fixtures/getSerumConfig';
 import {StatusCodes} from 'http-status-codes';
-import {Market} from '../../../../src/connectors/serum/serum.types';
+import {
+  GetMarketResponse,
+  GetOrderBookResponse,
+  GetTickerResponse,
+  OrderSide,
+  Ticker
+} from '../../../../src/connectors/serum/serum.types';
 import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
 import {ClobRoutes} from '../../../../src/clob/clob.routes';
 
@@ -76,13 +82,16 @@ describe(`${routePrefix}/markets`, () => {
             (market) => market.name === marketName
           )!;
 
-          const market: Market = response.body;
+          const market: GetMarketResponse = response.body;
 
           expect(market.name).toBe(targetMarket.name);
           expect(market.address).toBe(targetMarket.address.toString());
           expect(market.programId).toBe(targetMarket.programId.toString());
           expect(market.deprecated).toBe(targetMarket.deprecated);
-          // TODO fill the rest of the fields!!!
+          expect(market.minimumOrderSize).toBe(-1);
+          expect(market.tickSize).toBe(-1);
+          expect(market.minimumBaseIncrement).toBe(-1);
+          expect(market.fees).toBe(-1);
         });
     });
 
@@ -101,7 +110,7 @@ describe(`${routePrefix}/markets`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap = new Map<string, Market>(Object.entries(response.body));
+          const marketsMap = new Map<string, GetMarketResponse>(Object.entries(response.body));
 
           expect(marketsMap.size).toBe(marketNames.length);
           for (const [marketName, market] of marketsMap) {
@@ -123,7 +132,7 @@ describe(`${routePrefix}/markets`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap = new Map<string, Market>(Object.entries(response.body));
+          const marketsMap = new Map<string, GetMarketResponse>(Object.entries(response.body));
 
           expect(marketsMap.size).toBe(MARKETS.length);
           for (const [marketName, market] of marketsMap) {
@@ -149,7 +158,7 @@ describe(`${routePrefix}/markets`, () => {
         .then((response) => {
           expect(response.error).not.toBeFalsy();
           if (response.error) {
-            expect(response.error.text).toContain(
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
               `No market was informed. If you want to get a market, please inform the parameter "name".`
             );
           }
@@ -172,8 +181,8 @@ describe(`${routePrefix}/markets`, () => {
         .then((response) => {
           expect(response.error).not.toBeFalsy()
           if (response.error) {
-            expect(response.error.text).toContain(
-              `Market ${marketName} not found.`
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Market "${marketName}" not found.`
             );
           }
         });
@@ -195,7 +204,7 @@ describe(`${routePrefix}/markets`, () => {
         .then((response) => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
-              expect(response.error.text).toContain(
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
                 `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`
               );
             }
@@ -218,8 +227,8 @@ describe(`${routePrefix}/markets`, () => {
         .then((response) => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
-              expect(response.error.text).toContain(
-                `Market ${marketNames[1]} not found.`
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+                `Market "${marketNames[1]}" not found.`
               );
             }
           });
@@ -243,8 +252,22 @@ describe(`${routePrefix}/orderBooks`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
-          console.log(response.body);
-          fail('not implemented');
+          const targetMarket = MARKETS.find(
+            (market) => market.name === marketName
+          )!;
+
+          const orderBook: GetOrderBookResponse = response.body;
+
+          expect(orderBook.market.name).toBe(targetMarket.name);
+          expect(orderBook.market.address).toBe(targetMarket.address.toString());
+          expect(orderBook.market.programId).toBe(targetMarket.programId.toString());
+          expect(orderBook.market.deprecated).toBe(targetMarket.deprecated);
+          expect(orderBook.market.minimumOrderSize).toBe(-1);
+          expect(orderBook.market.tickSize).toBe(-1);
+          expect(orderBook.market.minimumBaseIncrement).toBe(-1);
+          expect(orderBook.market.fees).toBe(-1);
+          expect(orderBook.bids).toBe(-1);
+          expect(orderBook.asks).toBe(-1);
         });
     });
 
@@ -263,12 +286,12 @@ describe(`${routePrefix}/orderBooks`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap: Map<string, Market> = response.body;
+          const orderBooksMap = new Map<string, GetOrderBookResponse>(Object.entries(response.body));
 
-          expect(marketsMap.size).toBe(marketNames.length);
-          for (const [marketName, market] of marketsMap) {
+          expect(orderBooksMap.size).toBe(marketNames.length);
+          for (const [marketName, orderBook] of orderBooksMap) {
             expect(marketNames.includes(marketName)).toBe(true);
-            expect(market.name).toBe(marketName);
+            expect(orderBook.market.name).toBe(marketName);
           }
         });
     });
@@ -285,11 +308,11 @@ describe(`${routePrefix}/orderBooks`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap: Map<string, Market> = response.body;
+          const marketsMap = new Map<string, GetOrderBookResponse>(Object.entries(response.body));
 
           expect(marketsMap.size).toBe(MARKETS.length);
-          for (const [marketName, market] of marketsMap) {
-            expect(market.name).toBe(marketName);
+          for (const [marketName, orderBook] of marketsMap) {
+            expect(orderBook.market.name).toBe(marketName);
           }
         });
     });
@@ -303,7 +326,7 @@ describe(`${routePrefix}/orderBooks`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          name: marketName,
+          marketName: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
@@ -311,7 +334,7 @@ describe(`${routePrefix}/orderBooks`, () => {
         .then((response) => {
           expect(response.error).not.toBeFalsy();
           if (response.error) {
-            expect(response.error.text).toContain(
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
               `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`
             );
           }
@@ -327,15 +350,15 @@ describe(`${routePrefix}/orderBooks`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          name: marketName,
+          marketName: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
           expect(response.error).not.toBeFalsy()
           if (response.error) {
-            expect(response.error.text).toContain(
-              `Market ${marketName} not found.`
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Market "${marketName}" not found.`
             );
           }
         });
@@ -350,14 +373,14 @@ describe(`${routePrefix}/orderBooks`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: marketNames,
+          marketNames: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
         .then((response) => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
-              expect(response.error.text).toContain(
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
                 `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
               );
             }
@@ -373,15 +396,15 @@ describe(`${routePrefix}/orderBooks`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: marketNames,
+          marketNames: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
-              expect(response.error.text).toContain(
-                `Market ${marketNames[1]} not found.`
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+                `Market "${marketNames[1]}" not found.`
               );
             }
           });
@@ -405,8 +428,12 @@ describe(`${routePrefix}/tickers`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.OK)
         .then((response) => {
-          console.log(response.body);
-          fail('not implemented');
+          const ticker = response.body as Ticker;
+
+          expect(ticker.price).toBeGreaterThan(0);
+          expect(ticker.amount).toBeGreaterThan(0);
+          expect(ticker.side).toBe(OrderSide.BUY || OrderSide.SELL);
+          expect((new Date(ticker.timestamp))).toBeValidDate()
         });
     });
 
@@ -425,17 +452,20 @@ describe(`${routePrefix}/tickers`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap: Map<string, Market> = response.body;
+          const tickersMap = new Map<string, GetTickerResponse>(Object.entries(response.body));
 
-          expect(marketsMap.size).toBe(marketNames.length);
-          for (const [marketName, market] of marketsMap) {
+          expect(tickersMap.size).toBe(marketNames.length);
+          for (const [marketName, ticker] of tickersMap) {
             expect(marketNames.includes(marketName)).toBe(true);
-            expect(market.name).toBe(marketName);
+            expect(ticker.price).toBeGreaterThan(0);
+            expect(ticker.amount).toBeGreaterThan(0);
+            expect(ticker.side).toBe(OrderSide.BUY || OrderSide.SELL);
+            expect((new Date(ticker.timestamp))).toBeValidDate()
           }
         });
     });
 
-    it('Get a map with all tickers', async () => {
+    it(async () => {
       await request(app)
         .get(`${routePrefix}/tickers`)
         .send({
@@ -447,14 +477,17 @@ describe(`${routePrefix}/tickers`, () => {
         .expect(StatusCodes.OK)
         .expect('Content-Type', 'application/json; charset=utf-8')
         .then((response) => {
-          const marketsMap: Map<string, Market> = response.body;
+          const tickersMap = new Map<string, GetTickerResponse>(Object.entries(response.body));
 
-          expect(marketsMap.size).toBe(MARKETS.length);
-          for (const [marketName, market] of marketsMap) {
-            expect(market.name).toBe(marketName);
+          expect(tickersMap.size).toBe(MARKETS.length);
+          for (const [_marketName, ticker] of tickersMap) {
+            expect(ticker.price).toBeGreaterThan(0);
+            expect(ticker.amount).toBeGreaterThan(0);
+            expect(ticker.side).toBe(OrderSide.BUY || OrderSide.SELL);
+            expect((new Date(ticker.timestamp))).toBeValidDate()
           }
         });
-    });
+    }, 'Get a map with all tickers');
 
     it('Fail when trying to get a ticker without informing its market name', async () => {
       const marketName = '';
@@ -465,7 +498,7 @@ describe(`${routePrefix}/tickers`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          name: marketName,
+          marketName: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
@@ -473,7 +506,7 @@ describe(`${routePrefix}/tickers`, () => {
         .then((response) => {
           expect(response.error).not.toBeFalsy();
           if (response.error) {
-            expect(response.error.text).toContain(
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
               `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`
             );
           }
@@ -489,15 +522,15 @@ describe(`${routePrefix}/tickers`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          name: marketName,
+          marketName: marketName,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
           expect(response.error).not.toBeFalsy()
           if (response.error) {
-            expect(response.error.text).toContain(
-              `Market ${marketName} not found.`
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Market "${marketName}" not found.`
             );
           }
         });
@@ -512,14 +545,14 @@ describe(`${routePrefix}/tickers`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: marketNames,
+          marketNames: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
         .then((response) => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
-              expect(response.error.text).toContain(
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
                 `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
               );
             }
@@ -535,15 +568,15 @@ describe(`${routePrefix}/tickers`, () => {
           chain: config.serum.chain,
           network: config.serum.network,
           connector: config.serum.connector,
-          names: marketNames,
+          marketNames: marketNames,
         })
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
             expect(response.error).not.toBeFalsy()
             if (response.error) {
-              expect(response.error.text).toContain(
-                `Market ${marketNames[1]} not found.`
+              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+                `Market "${marketNames[1]}" not found.`
               );
             }
           });
