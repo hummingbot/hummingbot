@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
-
 from typing import Optional
 
 from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
@@ -24,16 +21,15 @@ class HuobiUserStreamTracker(UserStreamTracker):
         return cls._hust_logger
 
     def __init__(
-        self,
-        huobi_auth: Optional[HuobiAuth] = None,
-        api_factory: Optional[WebAssistantsFactory] = None,
+            self,
+            huobi_auth: Optional[HuobiAuth] = None,
+            api_factory: Optional[WebAssistantsFactory] = None,
     ):
-        super().__init__()
         self._huobi_auth: HuobiAuth = huobi_auth
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
         self._api_factory = api_factory
+        super().__init__(data_source=HuobiAPIUserStreamDataSource(
+            huobi_auth=self._huobi_auth,
+            api_factory=self._api_factory))
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
@@ -48,6 +44,6 @@ class HuobiUserStreamTracker(UserStreamTracker):
 
     async def start(self):
         self._user_stream_tracking_task = safe_ensure_future(
-            self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
+            self.data_source.listen_for_user_stream(self._user_stream)
         )
         await asyncio.gather(self._user_stream_tracking_task)

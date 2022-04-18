@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
-from typing import Dict, Awaitable
+from typing import Awaitable, Dict
 from unittest.mock import patch
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
@@ -719,7 +719,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.tracker.active_orders))
 
         unknown_order_id = "UNKNOWN_ORDER_ID"
-        self.tracker.process_order_not_found(unknown_order_id)
+        self.async_run_with_timeout(self.tracker.process_order_not_found(unknown_order_id))
 
         self._is_logged("DEBUG", f"Order is not/no longer being tracked ({unknown_order_id})")
 
@@ -737,7 +737,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
         self.tracker.start_tracking_order(order)
 
-        self.tracker.process_order_not_found(order.client_order_id)
+        self.async_run_with_timeout(self.tracker.process_order_not_found(order.client_order_id))
 
         self.assertIn(order.client_order_id, self.tracker.active_orders)
         self.assertIn(order.client_order_id, self.tracker._order_not_found_records)
@@ -758,7 +758,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.tracker.start_tracking_order(order)
 
         self.tracker._order_not_found_records[order.client_order_id] = 3
-        self.tracker.process_order_not_found(order.client_order_id)
+        self.async_run_with_timeout(self.tracker.process_order_not_found(order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.tracker.active_orders)
 
