@@ -20,29 +20,29 @@ cdef class TradingIntensityIndicator():
         self._asks_df = None
         self._sampling_length = sampling_length
         self._samples_length = 0
+        self._last_trade = None
+        self._last_timestamp = 0
 
         warnings.simplefilter("ignore", OptimizeWarning)
 
-    def _simulate_execution(self, bids_df, asks_df):
-        self.c_simulate_execution(bids_df, asks_df)
+    def _process_sample(self, bids_df, asks_df, trades):
+        self.c_simulate_execution(bids_df, asks_df, trades)
 
-    cdef c_simulate_execution(self, new_bids_df, new_asks_df):
+    cdef c_process_sample(self, new_bids_df, new_asks_df, trades):
         cdef:
             object _bids_df = self._bids_df
             object _asks_df = self._asks_df
             object bids_df = new_bids_df
             object asks_df = new_asks_df
             int _sampling_length = self._sampling_length
+            float last_timestamp = self._last_timestamp
             object bid
             object ask
             object price
             object bid_prev
             object ask_prev
             object price_prev
-            list trades
-
-        # Estimate market orders that happened
-        # Assume every movement in the BBO is caused by a market order and its size is the volume differential
+            list new_trades
 
         bid = bids_df["price"].iloc[0]
         ask = asks_df["price"].iloc[0]
@@ -52,36 +52,28 @@ cdef class TradingIntensityIndicator():
         ask_prev = _asks_df["price"].iloc[0]
         price_prev = (bid_prev + ask_prev) / 2
 
-        trades = []
+        new_trades = []
 
-        # Higher bids were filled - someone matched them - a determined seller
-        # Equal bids - if amount lower - partially filled
-        for index, row in _bids_df[_bids_df['price'] >= bid].iterrows():
-            if row['price'] == bid:
-                if bids_df["amount"].iloc[0] < row['amount']:
-                    amount = row['amount'] - bids_df["amount"].iloc[0]
-                    price_level = abs(row['price'] - price_prev)
-                    trades += [{'price_level': price_level, 'amount': amount}]
+        # Iterate from the most recent trade towards the last processed trade
+        # Process only trades after the last stored order book / previous mid price, or at the timestamp (in case they were not processed yet)
+        for idx in reversed(trades[trades.timestamp >= last_timestamp].index):
+            if self._last_trade is not None and self._last_trade.equals(trades.loc[idx]):
+                # No last trade exists, but this current trade happened after the last stored order book snapshot
+                # OR this and all following trades were already processed
+                break
             else:
-                amount = row['amount']
-                price_level = abs(row['price'] - price_prev)
-                trades += [{'price_level': price_level, 'amount': amount}]
+                # New / unprocessed trades
+                amount = trades.loc[idx].amount
+                price_level = abs(trades.loc[idx].price - price_prev)
+                new_trades += [{'price_level': price_level, 'amount': amount}]
 
-        # Lower asks were filled - someone matched them - a determined buyer
-        # Equal asks - if amount lower - partially filled
-        for index, row in _asks_df[_asks_df['price'] <= ask].iterrows():
-            if row['price'] == ask:
-                if asks_df["amount"].iloc[0] < row['amount']:
-                    amount = row['amount'] - asks_df["amount"].iloc[0]
-                    price_level = abs(row['price'] - price_prev)
-                    trades += [{'price_level': price_level, 'amount': amount}]
-            else:
-                amount = row['amount']
-                price_level = abs(row['price'] - price_prev)
-                trades += [{'price_level': price_level, 'amount': amount}]
+        # Store the last processed trade
+        self._last_trade = trades.iloc[-1]
+
+        print(new_trades)
 
         # Add trades
-        self._trades += [trades]
+        self._trades += [new_trades]
         if len(self._trades) > _sampling_length:
             self._trades = self._trades[-_sampling_length:]
 
@@ -129,23 +121,21 @@ cdef class TradingIntensityIndicator():
         except (RuntimeError, ValueError) as e:
             pass
 
-    def add_sample(self, value: Tuple[pd.DataFrame, pd.DataFrame]):
-        bids_df = value[0]
-        asks_df = value[1]
+    def add_sample(self, timestamp: float, snapshot: Tuple[pd.DataFrame, pd.DataFrame], trades: pd.DataFrame):
+        bids_df = snapshot[0]
+        asks_df = snapshot[1]
 
+        # Skip empty order books
         if bids_df.empty or asks_df.empty:
             return
 
-        # Skip snapshots where no trades occured
-        if self._bids_df is not None and self._bids_df.equals(bids_df):
+        # Skip empty trades
+        if len(trades) <= 0:
             return
 
-        if self._asks_df is not None and self._asks_df.equals(asks_df):
-            return
-
+        # Do not process until a previous order book is not available
         if self._bids_df is not None and self._asks_df is not None:
-            # Retrieve previous order book, evaluate execution
-            self.c_simulate_execution(bids_df, asks_df)
+            self.c_process_sample(bids_df, asks_df, trades)
 
             if self.is_sampling_buffer_full:
                 # Estimate alpha and kappa
@@ -154,6 +144,7 @@ cdef class TradingIntensityIndicator():
         # Store the orderbook
         self._bids_df = bids_df
         self._asks_df = asks_df
+        self._last_timestamp = timestamp
 
     @property
     def current_value(self) -> Tuple[float, float]:

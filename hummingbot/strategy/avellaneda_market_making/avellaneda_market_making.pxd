@@ -59,6 +59,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef object c_get_mid_price(self)
     cdef object c_get_order_book_snapshot(self)
+    cdef object c_get_recent_trades(self)
     cdef _create_proposal_based_on_order_levels(self)
     cdef _create_proposal_based_on_order_override(self)
     cdef _create_basic_proposal(self)
