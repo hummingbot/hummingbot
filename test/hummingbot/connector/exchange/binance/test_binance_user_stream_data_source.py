@@ -2,18 +2,15 @@ import asyncio
 import json
 import re
 import unittest
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    Optional,
-)
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
+from typing import Any, Awaitable, Dict, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
+from hummingbot.connector.exchange.binance import (
+    binance_constants as CONSTANTS,
+    binance_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -216,11 +213,11 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         msg = self.async_run_with_timeout(msg_queue.get())
-        self.assertTrue(msg, self._user_update_event)
+        self.assertEqual(json.loads(self._user_update_event()), msg)
         mock_ws.return_value.ping.assert_called()
 
     @aioresponses()
@@ -239,7 +236,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
@@ -262,7 +259,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())
@@ -290,7 +287,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.close.return_value = None
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())

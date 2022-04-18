@@ -10,16 +10,17 @@ from typing import (
     Optional,
 )
 
+from async_timeout import timeout
+
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
-from async_timeout import timeout
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.coinflex import coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -70,7 +71,11 @@ class CoinflexExchange(ExchangeBase):
             domain=domain,
             api_factory=self._api_factory,
             throttler=self._throttler)
-        self._user_stream_tracker = CoinflexUserStreamTracker(auth=self._auth, domain=domain, throttler=self._throttler)
+        self._user_stream_tracker = CoinflexUserStreamTracker(
+            auth=self._auth,
+            domain=domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0

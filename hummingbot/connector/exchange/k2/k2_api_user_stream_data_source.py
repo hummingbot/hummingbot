@@ -110,7 +110,7 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             await ws.close()
 
-    async def listen_for_user_stream(self, ev_loop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Subscribe to user stream via websocket, and keep the connection open for incoming messages
         """
