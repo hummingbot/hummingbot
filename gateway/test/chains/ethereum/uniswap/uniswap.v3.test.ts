@@ -1,7 +1,6 @@
 jest.useFakeTimers();
 import { UniswapV3 } from '../../../../src/connectors/uniswap/uniswap.v3';
 import { patch, unpatch } from '../../../services/patch';
-import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import { Token } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
@@ -31,18 +30,6 @@ const USDC = new Token(
   18,
   'DAI'
 );
-const TICK_PROVIDER = [
-  {
-    index: -887270,
-    liquidityNet: '118445039955967015140',
-    liquidityGross: '118445039955967015140',
-  },
-  {
-    index: 887270,
-    liquidityNet: '-118445039955967015140',
-    liquidityGross: '118445039955967015140',
-  },
-];
 const TX = {
   type: 2,
   chainId: 42,
@@ -91,35 +78,6 @@ beforeAll(async () => {
 afterEach(() => {
   unpatch();
 });
-
-const patchFetchPairData = (noPath?: boolean) => {
-  patch(uniswapV3, 'getPairs', () => {
-    if (noPath) {
-      return [
-        new uniV3.Pool(
-          WETH,
-          USDC,
-          500,
-          '1390012087572052304381352642',
-          '6025055903594410671025',
-          -80865,
-          TICK_PROVIDER
-        ),
-      ];
-    }
-    return [
-      new uniV3.Pool(
-        WETH,
-        DAI,
-        500,
-        '1390012087572052304381352642',
-        '6025055903594410671025',
-        -80865,
-        TICK_PROVIDER
-      ),
-    ];
-  });
-};
 
 const patchPoolState = () => {
   patch(uniswapV3, 'getPoolContract', () => {
@@ -196,50 +154,6 @@ const patchContract = () => {
     };
   });
 };
-
-describe('verify UniswapV3 priceSwapIn', () => {
-  it('Should return an ExpectedTrade when available', async () => {
-    patchFetchPairData();
-
-    const expectedTrade = await uniswapV3.estimateSellTrade(
-      WETH,
-      DAI,
-      BigNumber.from(1)
-    );
-    expect(expectedTrade).toHaveProperty('trade');
-    expect(expectedTrade).toHaveProperty('expectedAmount');
-  });
-
-  it('Should throw an error if no pair is available', async () => {
-    patchFetchPairData(true);
-
-    await expect(async () => {
-      await uniswapV3.estimateSellTrade(WETH, DAI, BigNumber.from(1));
-    }).rejects.toThrow(UniswapishPriceError);
-  });
-});
-
-describe('verify UniswapV3 priceSwapOut', () => {
-  it('Should return an ExpectedTrade when available', async () => {
-    patchFetchPairData();
-
-    const expectedTrade = await uniswapV3.estimateBuyTrade(
-      WETH,
-      DAI,
-      BigNumber.from(1)
-    );
-    expect(expectedTrade).toHaveProperty('trade');
-    expect(expectedTrade).toHaveProperty('expectedAmount');
-  });
-
-  it('Should throw an error if no pair is available', async () => {
-    patchFetchPairData(true);
-
-    await expect(async () => {
-      await uniswapV3.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
-    }).rejects.toThrow(UniswapishPriceError);
-  });
-});
 
 describe('verify UniswapV3 Nft functions', () => {
   it('Should return correct contract addresses', async () => {
