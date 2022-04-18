@@ -1,21 +1,25 @@
-import { Map as ImmutableMap } from 'immutable';
 import {NetworkSelectionRequest} from '../../services/common-interfaces';
 import {
-  CancelOpenOrderRequest,
-  CancelOrderRequest,
-  CreateOrderRequest,
+  CancelOpenOrdersRequest,
+  CancelOpenOrdersResponse,
+  CancelOrdersRequest,
+  CancelOrdersResponse,
+  CreateOrdersRequest,
+  CreateOrdersResponse,
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
+  GetFilledOrdersResponse,
   GetMarketsRequest,
+  GetMarketsResponse,
   GetOpenOrderRequest,
   GetOpenOrdersRequest,
+  GetOpenOrdersResponse,
   GetOrderBooksRequest,
-  GetOrderRequest,
+  GetOrderBooksResponse,
+  GetOrdersRequest,
+  GetOrdersResponse,
   GetTickersRequest,
-  Market,
-  Order,
-  OrderBook,
-  Ticker,
+  GetTickersResponse,
 } from './serum.types';
 
 //
@@ -25,7 +29,7 @@ import {
 export type SerumGetMarketsRequest = NetworkSelectionRequest &
   GetMarketsRequest;
 
-export type SerumGetMarketsResponse = ImmutableMap<string, Market> | Market;
+export type SerumGetMarketsResponse = GetMarketsResponse;
 
 //
 // GET /clob/orderBooks
@@ -34,7 +38,7 @@ export type SerumGetMarketsResponse = ImmutableMap<string, Market> | Market;
 export type SerumGetOrderBooksRequest = NetworkSelectionRequest &
   GetOrderBooksRequest;
 
-export type SerumGetOrderBooksResponse = ImmutableMap<string, OrderBook> | OrderBook;
+export type SerumGetOrderBooksResponse = GetOrderBooksResponse;
 
 //
 // GET /clob/tickers
@@ -43,7 +47,7 @@ export type SerumGetOrderBooksResponse = ImmutableMap<string, OrderBook> | Order
 export type SerumGetTickersRequest = NetworkSelectionRequest &
   GetTickersRequest;
 
-export type SerumGetTickersResponse = ImmutableMap<string, Ticker> | Ticker;
+export type SerumGetTickersResponse = GetTickersResponse;
 
 //
 // GET /clob/orders
@@ -51,13 +55,13 @@ export type SerumGetTickersResponse = ImmutableMap<string, Ticker> | Ticker;
 
 export type SerumGetOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: GetOrderRequest }
+    | { order: GetOrdersRequest }
     | {
-        orders: GetOrderRequest[];
+        orders: GetOrdersRequest[];
       }
   );
 
-export type SerumGetOrdersResponse = ImmutableMap<string, Order> | Order;
+export type SerumGetOrdersResponse = GetOrdersResponse;
 
 //
 // POST /clob/orders
@@ -65,13 +69,14 @@ export type SerumGetOrdersResponse = ImmutableMap<string, Order> | Order;
 
 export type SerumCreateOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CreateOrderRequest }
+    | { order: CreateOrdersRequest }
     | {
-        orders: CreateOrderRequest[];
+        orders: CreateOrdersRequest[];
       }
   );
 
-export type SerumCreateOrdersResponse = ImmutableMap<string, Order> | Order;
+// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
+export type SerumCreateOrdersResponse = CreateOrdersResponse;
 
 //
 // DELETE /clob/orders
@@ -79,13 +84,14 @@ export type SerumCreateOrdersResponse = ImmutableMap<string, Order> | Order;
 
 export type SerumCancelOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CancelOrderRequest }
+    | { order: CancelOrdersRequest }
     | {
-        orders: CancelOrderRequest[];
+        orders: CancelOrdersRequest[];
       }
   );
 
-export type SerumCancelOrdersResponse = ImmutableMap<string, Order> | Order;
+// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
+export type SerumCancelOrdersResponse = CancelOrdersResponse;
 
 //
 // GET /clob/openOrders
@@ -99,7 +105,8 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumGetOpenOrdersResponse = ImmutableMap<string, Order> | Order;
+// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
+export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
 
 //
 // DELETE /clob/openOrders
@@ -107,13 +114,13 @@ export type SerumGetOpenOrdersResponse = ImmutableMap<string, Order> | Order;
 
 export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CancelOpenOrderRequest }
+    | { order: CancelOpenOrdersRequest }
     | {
-        orders: CancelOpenOrderRequest[];
+        orders: CancelOpenOrdersRequest[];
       }
   );
 
-export type SerumCancelOpenOrdersResponse = ImmutableMap<string, Order> | Order;
+export type SerumCancelOpenOrdersResponse = CancelOpenOrdersResponse;
 
 //
 // GET /clob/filledOrders
@@ -127,4 +134,5 @@ export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-export type SerumGetFilledOrdersResponse = ImmutableMap<string, Order> | Order;
+// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
+export type SerumGetFilledOrdersResponse = GetFilledOrdersResponse;

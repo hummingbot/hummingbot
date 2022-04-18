@@ -4,12 +4,12 @@ import { Map as ImmutableMap } from 'immutable';
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
-  CancelOrderRequest,
-  CreateOrderRequest,
+  CancelOrdersRequest,
+  CreateOrdersRequest,
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
   GetOpenOrderRequest,
-  GetOrderRequest,
+  GetOrdersRequest,
   Market,
   MarketNotFoundError,
   Order,
@@ -86,10 +86,12 @@ export class Serum {
   }
 
   private parseToOrderBook(
+    market: Market,
     asks: SerumOrderBook,
     bids: SerumOrderBook
   ): OrderBook {
     return {
+      market: market,
       asks: this.parseToMapOfOrders(asks),
       bids: this.parseToMapOfOrders(bids),
       orderBook: {
@@ -191,7 +193,7 @@ export class Serum {
     const allMarkets = ImmutableMap<string, Market>().asMutable();
 
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
-
+    // TODO change the code to use a background task and load in parallel (using batches) the markets!!!
     for (const market of MARKETS.filter(market => ['BTC/USDT', 'ETH/USDT'].includes(market.name))) {
       allMarkets.set(
         market.name,
@@ -214,6 +216,7 @@ export class Serum {
     const market = await this.getMarket(marketName);
 
     return this.parseToOrderBook(
+      market,
       await market.market.loadAsks(this.connection),
       await market.market.loadBids(this.connection)
     );
@@ -298,7 +301,7 @@ export class Serum {
     throw new OrderNotFoundError(`Order "${target.clientId}" not found.`);
   }
 
-  async getOrder(target: GetOrderRequest): Promise<Order> {
+  async getOrder(target: GetOrdersRequest): Promise<Order> {
     // TODO Add validation!!!
     try {
       return await this.getOpenOrder(target);
@@ -311,7 +314,7 @@ export class Serum {
     }
   }
 
-  async getOrders(targets: GetOrderRequest[]): Promise<ImmutableMap<string, Order>> {
+  async getOrders(targets: GetOrdersRequest[]): Promise<ImmutableMap<string, Order>> {
     const orders = ImmutableMap<string, Order>().asMutable();
 
     for (const target of targets) {
@@ -377,7 +380,7 @@ export class Serum {
     return await this.getAllOpenOrdersForMarkets(marketNames, address);
   }
 
-  async createOrder(candidate: CreateOrderRequest): Promise<Order> {
+  async createOrder(candidate: CreateOrdersRequest): Promise<Order> {
     // TODO Add validation!!!
     const market = await this.getMarket(candidate.marketName);
 
@@ -411,7 +414,7 @@ export class Serum {
   }
 
   async createOrders(
-    candidates: CreateOrderRequest[]
+    candidates: CreateOrdersRequest[]
   ): Promise<ImmutableMap<string, Order>> {
     // TODO improve to use transactions in the future
 
@@ -425,7 +428,7 @@ export class Serum {
     return createdOrders;
   }
 
-  async cancelOrder(target: CancelOrderRequest): Promise<any> {
+  async cancelOrder(target: CancelOrdersRequest): Promise<any> {
     // TODO Add validation!!!
     const market = await this.getMarket(target.marketName);
 
@@ -437,7 +440,7 @@ export class Serum {
   }
 
   async cancelOrders(
-    targets: CancelOrderRequest[]
+    targets: CancelOrdersRequest[]
   ): Promise<ImmutableMap<string, Order>> {
     // TODO improve to use transactions in the future
 
