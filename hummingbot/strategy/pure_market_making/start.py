@@ -16,6 +16,7 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
+from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
 
 
 def start(self):
@@ -61,6 +62,12 @@ def start(self):
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
         split_order_levels_enabled = c_map.get("split_order_levels_enabled").value
+        moving_price_band = MovingPriceBand(
+            enabled=c_map.get("moving_price_band_enabled").value,
+            price_floor_pct=c_map.get("price_floor_pct").value,
+            price_ceiling_pct=c_map.get("price_ceiling_pct").value,
+            price_band_refresh_time=c_map.get("price_band_refresh_time").value
+        )
         bid_order_level_spreads = convert_decimal_string_to_list(
             c_map.get("bid_order_level_spreads").value)
         ask_order_level_spreads = convert_decimal_string_to_list(
@@ -139,6 +146,7 @@ def start(self):
             bid_order_level_spreads=bid_order_level_spreads,
             ask_order_level_spreads=ask_order_level_spreads,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
+            moving_price_band=moving_price_band
         )
     except Exception as e:
         self._notify(str(e))
