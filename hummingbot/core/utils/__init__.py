@@ -1,7 +1,8 @@
-import cachetools
 import functools
-import pandas as pd
+
+import cachetools
 import numpy as np
+import pandas as pd
 
 
 def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
