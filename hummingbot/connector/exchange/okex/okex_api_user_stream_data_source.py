@@ -1,156 +1,106 @@
-#!/usr/bin/env python
-import websockets
 import asyncio
-import json
+from typing import Any, Dict, Optional
 
-import logging
-
-from typing import (
-    Optional,
-    AsyncIterable,
-    List,
-    Dict,
-    Any
-)
-
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
+from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils as web_utils
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
-
-from hummingbot.connector.exchange.okex.constants import OKEX_WS_URI_PRIVATE
-
-import time
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSPlainTextRequest, WSResponse
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    _okexausds_logger: Optional[HummingbotLogger] = None
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._okexausds_logger is None:
-            cls._okexausds_logger = logging.getLogger(__name__)
-
-        return cls._okexausds_logger
-
-    def __init__(self, okex_auth: OKExAuth, trading_pairs: Optional[List[str]] = []):
-        self._current_listen_key = None
-        self._current_endpoint = None
-        self._listen_for_user_steam_task = None
-        self._last_recv_time: float = 0
-        self._auth: OKExAuth = okex_auth
-        self._trading_pairs = trading_pairs
-        self._websocket_connection = None
+    def __init__(
+            self,
+            auth: OKExAuth,
+            api_factory: Optional[WebAssistantsFactory] = None,
+            throttler: Optional[AsyncThrottler] = None,
+            time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
+        self._auth: OKExAuth = auth
+        self._time_synchronizer = time_synchronizer
+        self._throttler = throttler
+        self._api_factory = api_factory or web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            auth=self._auth)
 
-    @property
-    def last_recv_time(self) -> float:
-        """Should be updated(using python's time.time()) everytime a message is received from the websocket."""
-        return self._last_recv_time
-
-    async def _authenticate_client(self):
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         """
-        Sends an Authentication request to OKEx's WebSocket API Server
+        Creates an instance of WSAssistant connected to the exchange
         """
-        await self._websocket_connection.send(json.dumps(self._auth.generate_ws_auth()))
 
-        resp = await self._websocket_connection.recv()
-        msg = json.loads(resp)
+        ws: WSAssistant = await self._get_ws_assistant()
+        await ws.connect(
+            ws_url=CONSTANTS.OKEX_WS_URI_PRIVATE,
+            message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
 
-        if msg["event"] != 'login':
-            self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
-
-        self.logger().info("Successfully authenticated")
-
-    async def _subscribe_topic(self, topic: Dict[str, Any]):
-        subscribe_request = {
-            "op": "subscribe",
-            "args": topic
+        payload = {
+            "op": "login",
+            "args": [self._auth.websocket_login_parameters()]
         }
-        request = json.dumps(subscribe_request)
-        await self._websocket_connection.send(request)
-        resp = await self._websocket_connection.recv()
-        msg = json.loads(resp)
-        if msg["event"] != "subscribe":
-            self.logger().error(f"Error occurred subscribing to topic. {topic}. {msg}")
-        self.logger().info(f"Successfully subscribed to {topic}")
 
-    async def get_ws_connection(self):
-        stream_url: str = f"{OKEX_WS_URI_PRIVATE}"
-        return websockets.connect(stream_url)
+        login_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-    async def _socket_user_stream(self) -> AsyncIterable[str]:
-        """
-        Main iterator that manages the websocket connection.
-        """
+        async with self._throttler.execute_task(limit_id=CONSTANTS.WS_LOGIN_LIMIT_ID):
+            await ws.send(login_request)
+
+        response: WSResponse = await ws.receive()
+        message = response.data
+        if message.get("event") != "login":
+            self.logger().error("Error authenticating the private websocket connection")
+            raise IOError("Private websocket connection authentication failed")
+
+        return ws
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        try:
+            payload = {
+                "op": "subscribe",
+                "args": [{"channel": "account"}],
+            }
+            subscribe_account_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            payload = {
+                "op": "subscribe",
+                "args": [
+                    {
+                        "channel": "orders",
+                        "instType": "SPOT",
+                    }
+                ]
+            }
+            subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+                await ws.send(subscribe_account_request)
+            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+                await ws.send(subscribe_orders_request)
+            self.logger().info("Subscribed to private account and orders channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
+            raise
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                raw_msg = await asyncio.wait_for(self._websocket_connection.recv(), timeout=20)
-
-                # yield json.loads(inflate(raw_msg))
-                yield json.loads(raw_msg)
+                await super()._process_websocket_messages(
+                    websocket_assistant=websocket_assistant,
+                    queue=queue)
             except asyncio.TimeoutError:
-                try:
-                    await self._websocket_connection.send('ping')
-                    await asyncio.wait_for(self._websocket_connection.recv(), timeout=5)
-                except asyncio.TimeoutError:
-                    self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-                    return
-            except Exception:
-                return
+                ping_request = WSPlainTextRequest(payload="ping")
+                await websocket_assistant.send(request=ping_request)
 
-    # TODO needs testing, paper mode is not connecting for some reason
-    async def listen_for_user_stream(self, output: asyncio.Queue):
-        """Subscribe to user stream via web socket, and keep the connection open for incoming messages"""
-        while True:
-            try:
-                if self._websocket_connection is not None:
-                    await self._websocket_connection.close()
-                    self._websocket_connection = None
-                # Initialize Websocket Connection
-                async with (await self.get_ws_connection()) as ws:
-                    self._websocket_connection = ws
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        if len(event_message) > 0 and "data" in event_message:
+            queue.put_nowait(event_message)
 
-                    # Authentication
-                    await self._authenticate_client()
-                    subscription_list = []
-
-                    assets = set()
-                    # Subscribe to Topic(s)
-                    for trading_pair in self._trading_pairs:
-                        # orders
-                        subscription_list.append({
-                            "channel": "orders",
-                            "instType": "SPOT",
-                            "instId": trading_pair})
-
-                        # balances
-                        source, quote = trading_pair.split('-')
-                        assets.add(source)
-                        assets.add(quote)
-
-                    # all assets
-                    for asset in assets:
-                        subscription_list.append({
-                            "channel": "account",
-                            "ccy": asset})
-
-                    # subscribe to all channels
-                    await self._subscribe_topic(subscription_list)
-
-                    # Listen to WebSocket Connection
-                    async for message in self._socket_user_stream():
-                        self._last_recv_time = time.time()
-
-                        # handle all the messages in the queue
-                        output.put_nowait(message)
-
-            except asyncio.CancelledError:
-                raise
-            except IOError as e:
-                self.logger().error(e, exc_info=True)
-            except Exception as e:
-                self.logger().error(f"Unexpected error occurred! {e}", exc_info=True)
-            finally:
-                if self._websocket_connection is not None:
-                    await self._websocket_connection.close()
-                    self._websocket_connection = None
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant

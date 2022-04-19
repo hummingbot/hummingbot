@@ -2,12 +2,11 @@ import asyncio
 import logging
 from typing import Dict, List, Optional
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils as web_utils
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -28,8 +27,8 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth: CoinflexAuth = auth
         self._last_recv_time: float = 0
         self._domain = domain
-        self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory(auth=self._auth)
+        self._throttler = throttler or AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = api_factory or web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
         self._ws_assistant: Optional[WSAssistant] = None
         self._subscribed_channels: List[str] = []
 
@@ -61,7 +60,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "op": "subscribe",
                 "args": CONSTANTS.WS_CHANNELS["USER_STREAM"],
             }
-            subscribe_request: WSRequest = WSRequest(payload=payload)
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             await ws.send(subscribe_request)
 
@@ -88,7 +87,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await ws.connect(
                     ws_url=web_utils.websocket_url(domain=self._domain),
                     ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
-                await ws.send(WSRequest({}, is_auth_required=True))
+                await ws.send(WSJSONRequest({}, is_auth_required=True))
                 await self._subscribe_channels(ws)
                 await ws.ping()  # to update last_recv_timestamp
 

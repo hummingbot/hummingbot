@@ -3,18 +3,15 @@ import logging
 import time
 from collections import defaultdict
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-)
+from typing import Any, Dict, List, Mapping, Optional
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from bidict import bidict
-from hummingbot.connector.exchange.coinflex import coinflex_utils
-from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
+
+from hummingbot.connector.exchange.coinflex import (
+    coinflex_constants as CONSTANTS,
+    coinflex_utils,
+    coinflex_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.coinflex.coinflex_order_book import CoinflexOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -22,7 +19,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -47,7 +44,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain = domain
         self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory()
+        self._api_factory = api_factory or web_utils.build_api_factory(throttler=self._throttler)
         self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
@@ -401,7 +398,7 @@ class CoinflexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "op": "subscribe",
                 "args": trade_params + depth_params,
             }
-            subscribe_request: WSRequest = WSRequest(payload=payload)
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             await ws.send(subscribe_request)
 

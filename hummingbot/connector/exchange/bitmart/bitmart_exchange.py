@@ -73,14 +73,14 @@ class BitmartExchange(ExchangeBase):
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
-        self._api_factory = bitmart_utils.build_api_factory()
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = bitmart_utils.build_api_factory(throttler=self._throttler)
         self._rest_assistant = None
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
                                          secret_key=bitmart_secret_key,
                                          memo=bitmart_memo)
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._order_book_tracker = BitmartOrderBookTracker(
             throttler=self._throttler, trading_pairs=trading_pairs
         )

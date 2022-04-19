@@ -6,17 +6,18 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
-import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.binance import binance_utils
+from hummingbot.connector.exchange.binance import (
+    binance_constants as CONSTANTS,
+    binance_utils,
+    binance_web_utils as web_utils)
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, get_new_client_order_id
+from hummingbot.connector.utils import get_new_client_order_id, TradeFillOrderDetails
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -973,16 +974,19 @@ class BinanceExchange(ExchangeBase):
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
 
-        return await web_utils.api_request(
-            path=path_url,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._binance_time_synchronizer,
-            domain=self._domain,
+        rest_assistant = await self._get_rest_assistant()
+        if is_auth_required:
+            url = web_utils.private_rest_url(path_url, domain=self._domain)
+        else:
+            url = web_utils.public_rest_url(path_url, domain=self._domain)
+
+        return await rest_assistant.execute_request(
+            url=url,
             params=params,
             data=data,
             method=method,
             is_auth_required=is_auth_required,
+            throttler_limit_id=path_url,
         )
 
     async def _get_rest_assistant(self) -> RESTAssistant:
