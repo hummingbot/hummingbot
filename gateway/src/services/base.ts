@@ -79,3 +79,14 @@ export const latency = (startTime: number, endTime: number): number => {
 };
 
 export const walletPath = './conf/wallets';
+
+// API URLs may require the key in the middle or the end of the route.
+// If the src string contains '{}', replace it with the value, otherwise
+// append the value at the end
+export const replaceOrAppend = (src: string, value: string): string => {
+  if (src.includes('{}')) {
+    return src.replace('{}', value);
+  } else {
+    return src + value;
+  }
+};

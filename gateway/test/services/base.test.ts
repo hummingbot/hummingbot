@@ -3,6 +3,7 @@ import {
   bigNumberWithDecimalToStr,
   gasCostInEthString,
   countDecimals,
+  replaceOrAppend,
 } from '../../src/services/base';
 import 'jest-extended';
 
@@ -43,4 +44,17 @@ test('bigNumberWithDecimalToStr', () => {
 
 test('gasCostInEthString', () => {
   expect(gasCostInEthString(200, 21000)).toEqual('0.004200000000000000');
+});
+
+test('replaceOrAppend', () => {
+  expect(
+    replaceOrAppend(
+      'https://speedy-nodes-nyc.moralis.io/{}/avalanche/testnet',
+      'xyz'
+    )
+  ).toEqual('https://speedy-nodes-nyc.moralis.io/xyz/avalanche/testnet');
+
+  expect(
+    replaceOrAppend('https://speedy-nodes-nyc.moralis.io/', '123')
+  ).toEqual('https://speedy-nodes-nyc.moralis.io/123');
 });
