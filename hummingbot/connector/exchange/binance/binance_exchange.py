@@ -79,13 +79,13 @@ class BinanceExchange(ExchangeBaseV2):
     def to_hb_order_type(binance_type: str) -> OrderType:
         return OrderType[binance_type]
 
-    # TODO uses now, why?
-    # kucoin uses passed timestamp
     def tick(self, timestamp: float):
         """
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
+        # TODO uses now, why?
+        # kucoin uses passed timestamp
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
@@ -169,7 +169,6 @@ class BinanceExchange(ExchangeBaseV2):
             self._update_balances(),
             self._update_order_status(),
         )
-        await self._update_order_status()
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """

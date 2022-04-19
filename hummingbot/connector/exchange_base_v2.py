@@ -41,11 +41,7 @@ class ExchangeApiMixin(object):
         self._stop_network()
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        try:
-            # this is only present in kucoin so far, so if the method is not defined, we simply ignore it
-            self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
-        except NotImplementedError:
-            pass
+        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -95,16 +91,6 @@ class ExchangeApiMixin(object):
 
     # loops and sync related methods
     #
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
-        while True:
-            try:
-                yield await self._user_stream_tracker.user_stream.get()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Error while reading user events queue. Retrying after 1 second.")
-                await asyncio.sleep(1.0)
-
     async def _trading_rules_polling_loop(self):
         """
         Updates the trading rules by requesting the latest definitions from the exchange.
@@ -117,46 +103,53 @@ class ExchangeApiMixin(object):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Unexpected error while fetching trading rules.", exc_info=True,
-                                      app_warning_msg=f"Could not fetch new trading rules from {self.name_cap}"
-                                                      "Check network connection.")
+                self.logger().network(
+                    "Unexpected error while fetching trading rules.", exc_info=True,
+                    app_warning_msg=f"Could not fetch new trading rules from {self.name_cap}"
+                                    " Check network connection.")
                 await asyncio.sleep(0.5)
 
     async def _trading_fees_polling_loop(self):
+        """
+        Currently used only by kucoin. If _update_trading_fees() is not defined, we just exit the loop
+        """
         while True:
             try:
                 await safe_gather(self._update_trading_fees())
-                await self._sleep(TWELVE_HOURS)
+                await self._sleep(self.TRADING_FEES_INTERVAL)
             except NotImplementedError:
-                # currently used only by kucoin
-                # if it's not defined, we just exit the loop
                 return
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Unexpected error while fetching trading fees.", exc_info=True,
-                                      app_warning_msg=f"Could not fetch new trading fees from {self.name_cap}. "
-                                                      "Check network connection.")
+                self.logger().network(
+                    "Unexpected error while fetching trading fees.", exc_info=True,
+                    app_warning_msg=f"Could not fetch new trading fees from {self.name_cap}."
+                                    " Check network connection.")
                 await self._sleep(0.5)
 
     async def _status_polling_loop(self):
         """
         Performs all required operation to keep the connector updated and synchronized with the exchange.
-        It contains the backup logic to update status using API requests in case the main update source (the user stream
-        data source websocket) fails.
-        It also updates the time synchronizer. This is necessary because the exchange requires the time of the client to be
-        the same as the time in the exchange.
+        It contains the backup logic to update status using API requests in case the main update source
+        (the user stream data source websocket) fails.
+        It also updates the time synchronizer. This is necessary because the exchange requires
+        the time of the client to be the same as the time in the exchange.
         Executes when the _poll_notifier event is enabled by the `tick` function.
         """
         while True:
             try:
                 await self._poll_notifier.wait()
                 await self._update_time_synchronizer()
+
                 # the following method is implementation-specific
-                await self._status_polling_loop_updates()
+                await self._status_polling_loop_fetch_updates()
+
                 self._last_poll_timestamp = self.current_timestamp
                 self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
+                raise
+            except NotImplementedError:
                 raise
             except Exception:
                 self.logger().network(
@@ -179,6 +172,19 @@ class ExchangeApiMixin(object):
             self.logger().exception(f"Error requesting time from {self.name_cap} server")
             raise
 
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+        """
+        Called by _user_stream_event_listener.
+        """
+        while True:
+            try:
+                yield await self._user_stream_tracker.user_stream.get()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Error while reading user events queue. Retrying in 1s.")
+                await asyncio.sleep(1.0)
+
     # Exchange / Trading logic methods
     # that call the API
     #
@@ -190,7 +196,6 @@ class ExchangeApiMixin(object):
             self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     async def _update_trading_fees(self):
-        # this is currently only implemented in kucoin exchange
         raise NotImplementedError
 
     async def _api_get(self, *args, **kwargs):
@@ -229,23 +234,17 @@ class ExchangeApiMixin(object):
             is_auth_required=is_auth_required,
             limit_id=limit_id)
 
-    # tied to specific data format
-    # seem different between kucoin and binance,
-    # but in the end they both instantiate TradeUpdate and OrderUpdate
+    # Methods tied to specific data format
+    #
     def _user_stream_event_listener(self):
         raise NotImplementedError
 
-    # coupled with ob ds; could be generalised if
-    # raw_trading_pair_info is normalised
     def _format_trading_rules(self):
         raise NotImplementedError
 
-    # calls api, 80% of logic is the same between kucoin and binance
-    # could be generalised if data is normalised
     def _update_order_status(self):
         raise NotImplementedError
 
-    # calls api, similar scenario as _update_order_status above
     def _update_balances(self):
         raise NotImplementedError
 
@@ -256,6 +255,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
     # The following class vars MUST be redefined in the child class
     # because they cannot have defaults, so we keep them commented
     # to cause a NameError if not defined
+    #
     # DEFAULT_DOMAIN = ""
     # RATE_LIMITS = None
     # SUPPORTED_ORDER_TYPES = []
@@ -268,6 +268,8 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 120.0
     TRADING_RULES_INTERVAL = 30 * MINUTE
+    # TODO why such a long time?
+    TRADING_FEES_INTERVAL = TWELVE_HOURS
     UPDATE_ORDERS_INTERVAL = 10.0
     TICK_INTERVAL_LIMIT = 60.0
 

@@ -11,8 +11,8 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 
 from .gate_io_auth import GateIoAuth
-from .gate_io_web_utils import GateIoAPIError, convert_to_exchange_trading_pair
 from .gate_io_websocket import GateIoWebsocket
+from . import gate_io_web_utils as web_utils
 
 
 class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -60,9 +60,9 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
             ]
             await self._ws.subscribe(CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-                                     [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+                                     [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
             await self._ws.subscribe(CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-                                     [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+                                     [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
             await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
 
             async for msg in self._ws.on_message():
@@ -93,7 +93,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
-            except GateIoAPIError as e:
+            except web_utils.APIError as e:
                 self.logger().error(e.error_message, exc_info=True)
                 raise
             except Exception:

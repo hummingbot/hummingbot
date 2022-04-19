@@ -47,7 +47,8 @@ class GateIoExchange(ExchangeBaseV2):
     FEE_PATH_URL = SYMBOLS_PATH_URL
 
     INTERVAL_TRADING_RULES = CONSTANTS.INTERVAL_TRADING_RULES
-    TICK_INTERVAL_LIMIT = 120.0
+    # Using 120 seconds here as Gate.io websocket is quiet
+    TICK_INTERVAL_LIMIT = 10.0  # 120.0
 
     web_utils = web_utils
 
@@ -69,22 +70,9 @@ class GateIoExchange(ExchangeBaseV2):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
 
-        # TODO
-        self._order_not_found_records = {}
         super().__init__()
 
-        # TODO
-        # self._order_book_tracker = GateIoOrderBookTracker(
-        #    self._throttler,
-        #    trading_pairs,
-        #    self._api_factory
-        # )
-        # self._user_stream_tracker = GateIoUserStreamTracker(
-        #    self._gate_io_auth, trading_pairs, self._api_factory
-        # )
-
     def init_auth(self):
-        # TODO time provider
         return GateIoAuth(
             api_key=self._gate_io_api_key,
             secret_key=self._gate_io_secret_key,
@@ -122,6 +110,7 @@ class GateIoExchange(ExchangeBaseV2):
         for rule in raw_trading_pair_info:
             try:
                 trading_pair = web_utils.convert_from_exchange_trading_pair(rule["id"])
+
                 min_amount_inc = Decimal(f"1e-{rule['amount_precision']}")
                 min_price_inc = Decimal(f"1e-{rule['precision']}")
                 min_amount = Decimal(str(rule.get("min_base_amount", min_amount_inc)))
@@ -137,7 +126,8 @@ class GateIoExchange(ExchangeBaseV2):
                     )
                 )
             except Exception:
-                self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
+                self.logger().error(
+                    f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
 
     async def _place_order(self,
@@ -149,12 +139,6 @@ class GateIoExchange(ExchangeBaseV2):
                            price: Decimal) -> str:
 
         order_type_str = order_type.name.lower().split("_")[0]
-        # TODO symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(
-        #    trading_pair=trading_pair,
-        #    domain=self._domain,
-        #    api_factory=self._api_factory,
-        #    throttler=self._throttler,
-        #    time_synchronizer=self._time_synchronizer)
         symbol = web_utils.convert_to_exchange_trading_pair(trading_pair)
         data = {
             "text": order_id,
@@ -175,43 +159,38 @@ class GateIoExchange(ExchangeBaseV2):
             limit_id=endpoint,
         )
         if order_result.get('status') in {"cancelled", "expired", "failed"}:
-            raise web_utils.GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+            raise web_utils.APIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, time.time()
 
     async def _place_cancel(self, order_id, tracked_order):
-        """ This implementation specific function is called by _cancel, and returns True if successful
+        """
+        This implementation-specific method is called by _cancel
+        returns True if successful
         """
         cancelled = False
         exchange_order_id = await tracked_order.get_exchange_order_id()
         try:
+            params = {
+                'currency_pair': web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
+            }
             resp = await self._api_delete(
-                path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(id=exchange_order_id),
-                params={
-                    'currency_pair': web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
-                },
+                path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(order_id=exchange_order_id),
+                params=params,
                 is_auth_required=True,
                 limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
             )
             if resp["status"] == "cancelled":
                 cancelled = True
-        except (asyncio.TimeoutError, web_utils.GateIoAPIError) as e:
-            if isinstance(e, asyncio.TimeoutError):
-                err_msg = 'Order not tracked.'
-                err_lbl = 'ORDER_NOT_FOUND'
-            else:
-                err_msg = e.error_message
-                err_lbl = e.error_label
-            if err_msg and err_lbl:
-                pass
-            # TODO how is this handled on new in flight orders?
-            # self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-            # if err_lbl == 'ORDER_NOT_FOUND' and \
-            #        self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-            #    cancelled = True
+        except (asyncio.TimeoutError, web_utils.APIError) as e:
+            self.logger().debug(f"Canceling order {order_id} failed: {e}")
         return cancelled
 
-    async def _status_polling_loop_updates(self):
+    async def _status_polling_loop_fetch_updates(self):
+        """
+        Called by _status_polling_loop, which executes after each tick() is executed
+        """
+        self.logger().debug(f"Running _status_polling_loop_fetch_updates() at {time.time()}")
         return await safe_gather(
             self._update_balances(),
             self._update_order_status(),
@@ -230,32 +209,29 @@ class GateIoExchange(ExchangeBaseV2):
             )
             self._process_balance_message(account_info)
         except Exception as e:
-            warn_msg = (f"Could not fetch balance update from {self.name_cap}")
-            self.logger().network(f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
-                                  app_warning_msg=warn_msg)
+            self.logger().network(
+                f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
+                app_warning_msg=(f"Could not fetch balance update from {self.name_cap}"))
         return account_info
 
     async def _update_order_status(self):
         """
         Calls REST API to get status update for each in-flight order.
         """
+        orders_tasks = []
+        trades_tasks = []
         reviewed_orders = []
-        order_status_tasks = []
-        request_tasks = []
-
-        interval_expired = False
-        if (self.current_timestamp - self._last_poll_timestamp) > self.UPDATE_ORDERS_INTERVAL:
-            interval_expired = True
-        if not interval_expired:
-            return
-
         tracked_orders = list(self.in_flight_orders.values())
+
+        print(tracked_orders)
         if len(tracked_orders) <= 0:
             return
 
+        # Prepare requests to update trades and orders
         for tracked_order in tracked_orders:
             try:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
+                reviewed_orders.append(tracked_order)
             except asyncio.TimeoutError:
                 self.logger().network(f"Skipped order status update for {tracked_order.client_order_id} "
                                       "- waiting for exchange order id.")
@@ -263,9 +239,7 @@ class GateIoExchange(ExchangeBaseV2):
                 continue
 
             trading_pair = web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
-            reviewed_orders.append(tracked_order)
-
-            request_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
+            trades_tasks.append(self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
                     "currency_pair": trading_pair,
@@ -273,40 +247,40 @@ class GateIoExchange(ExchangeBaseV2):
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL,
-            )))
-            order_status_tasks.append(asyncio.get_event_loop().create_task(self._api_get(
-                path_url=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=exchange_order_id),
+            ))
+            orders_tasks.append(self._api_get(
+                path_url=CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=exchange_order_id),
                 params={
                     "currency_pair": trading_pair
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
-            )))
+            ))
 
         # Process order trades first before processing order statuses
-        self.logger().debug(f"Gathering trade updates for {len(tracked_orders)} orders.")
-        responses = await safe_gather(*request_tasks, return_exceptions=True)
+        responses = await safe_gather(*trades_tasks, return_exceptions=True)
+        self.logger().debug(f"Polled trade updates for {len(tracked_orders)} orders: {len(responses)}.")
         for response, tracked_order in zip(responses, reviewed_orders):
-            if not isinstance(response, web_utils.GateIoAPIError):
+            if not isinstance(response, Exception):
                 if len(response) > 0:
                     for trade_fills in response:
                         self._process_trade_message(trade_fills, tracked_order.client_order_id)
             else:
                 self.logger().warning(f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
                                       f"Response: {response}")
-                if response.error_label == 'ORDER_NOT_FOUND':
+                if 'ORDER_NOT_FOUND' in str(response):
                     self._order_tracker.stop_tracking_order(client_order_id=tracked_order.client_order_id)
 
         # Process order statuses
-        self.logger().debug(f"Gathering order updates for {len(tracked_orders)} orders.")
-        responses = await safe_gather(*order_status_tasks, return_exceptions=True)
+        responses = await safe_gather(*orders_tasks, return_exceptions=True)
+        self.logger().debug(f"Polled order updates for {len(tracked_orders)} orders: {len(responses)}.")
         for response, tracked_order in zip(responses, tracked_orders):
-            if not isinstance(response, web_utils.GateIoAPIError):
+            if not isinstance(response, Exception):
                 self._process_order_message(response)
             else:
                 self.logger().warning(f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
                                       f"Response: {response}")
-                if response.error_label == 'ORDER_NOT_FOUND':
+                if 'ORDER_NOT_FOUND' in str(response):
                     self._order_tracker.stop_tracking_order(client_order_id=tracked_order.client_order_id)
 
     def _get_fee(self,
@@ -324,94 +298,97 @@ class GateIoExchange(ExchangeBaseV2):
         """
         Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
         """
+        # TODO can we get fees from gate io?
         # NOTE this same call is done by _init_trading_pair_symbols( in OB data source
-        # TODO do we need the fees?
         pass
+
+    async def _user_stream_event_listener(self):
+        """
+        Listens to messages from _user_stream_tracker.user_stream queue.
+        Traders, Orders, and Balance updates from the WS.
+        """
+        user_channels = [
+            CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+            CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+            CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+        ]
+
+        async for event_message in self._iter_user_event_queue():
+            channel: str = event_message.get("channel", None)
+            results: str = event_message.get("result", None)
+            try:
+                if channel not in user_channels:
+                    self.logger().error(
+                        f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                    continue
+
+                if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
+                    for trade_msg in results:
+                        self._process_trade_message(trade_msg)
+                elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
+                    for order_msg in results:
+                        self._process_order_message(order_msg)
+                elif channel == CONSTANTS.USER_BALANCE_ENDPOINT_NAME:
+                    self._process_balance_message_ws(results)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(
+                    "Unexpected error in user stream listener loop.", exc_info=True)
+                await asyncio.sleep(5.0)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         Example Order:
-        {
-            "id": "52109248977",
-            "text": "3",
-            "create_time": "1622638707",
-            "update_time": "1622638807",
-            "currency_pair": "BTC_USDT",
-            "type": "limit",
-            "account": "spot",
-            "side": "buy",
-            "amount": "0.001",
-            "price": "1999.8",
-            "time_in_force": "gtc",
-            "left": "0.001",
-            "filled_total": "0",
-            "fee": "0",
-            "fee_currency": "BTC",
-            "point_fee": "0",
-            "gt_fee": "0",
-            "gt_discount": true,
-            "rebated_fee": "0",
-            "rebated_fee_currency": "BTC",
-            "create_time_ms": "1622638707326",
-            "update_time_ms": "1622638807635",
-            ... optional params
-            "status": "open",
-            "event": "finish"
-            "iceberg": "0",
-            "fill_price": "0",
-            "user": 5660412,
-        }
+        https://www.gate.io/docs/apiv4/en/#list-orders
         """
-        client_order_id = str(order_msg["text"])
+        client_order_id = str(order_msg.get("text", ""))
         tracked_order = self.in_flight_orders.get(client_order_id, None)
-        if tracked_order:
-            tracked_order.last_state = order_msg.get("status", order_msg.get("event"))
+        if not tracked_order:
+            self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
+            return
 
-            if tracked_order.is_cancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                self.stop_tracking_order(tracked_order.client_order_id)
-                self.trigger_event(MarketEvent.OrderCancelled,
-                                   OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
-                tracked_order.cancelled_event.set()
-            elif tracked_order.is_failure:
-                self.logger().info(f"The order {tracked_order.client_order_id} has failed according to order status API. ")
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(
-                                       self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
-                self.stop_tracking_order(tracked_order.client_order_id)
+        state = order_msg.get("status", order_msg.get("event"))
+        if state == "cancelled":
+            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.trigger_event(
+                MarketEvent.OrderCancelled,
+                OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
+            self.stop_tracking_order(tracked_order.client_order_id)
+
+        # TODO is_cancelled was not working above for:
+        # tracked_order.last_state = order_msg.get("status", order_msg.get("event"))
+        # if tracked_order.is_cancelled:
+        #
+        elif tracked_order.is_failure:
+            self.logger().info(f"Order {tracked_order.client_order_id} failed according to order status API. ")
+            self.trigger_event(
+                MarketEvent.OrderFailure,
+                MarketOrderFailureEvent(self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+            self.stop_tracking_order(tracked_order.client_order_id)
 
     def _process_trade_message(self, trade_msg: Dict[str, Any], client_order_id: Optional[str] = None):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         Example Trade:
-        {
-            "id": 1234567890,
-            "user_id": 1234567,
-            "order_id": "96780687179",
-            "currency_pair": "ETH_USDT",
-            "create_time": 1637764970,
-            "create_time_ms": "1637764970928.48",
-            "side": "buy",
-            "amount": "0.005",
-            "role": "maker",
-            "price": "4191.1",
-            "fee": "0.000009",
-            "fee_currency": "ETH",
-            "point_fee": "0",
-            "gt_fee": "0",
-            "text": "t-HBOT-B-EHUT1637764969004024",
-        }
+        https://www.gate.io/docs/apiv4/en/#retrieve-market-trades
         """
         client_order_id = client_order_id or str(trade_msg["text"])
         tracked_order = self.in_flight_orders.get(client_order_id, None)
-        if tracked_order:
-            updated = tracked_order.update_with_trade_update(trade_msg)
-            if updated:
-                self._trigger_order_fill(tracked_order=tracked_order,
-                                         update_msg=trade_msg)
+        if not tracked_order:
+            self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
+            return
+
+        updated = tracked_order.update_with_trade_update(trade_msg)
+        if updated:
+            self._trigger_order_fill(
+                tracked_order=tracked_order,
+                update_msg=trade_msg
+            )
 
     def _trigger_order_fill(self,
                             tracked_order: InFlightOrder,
@@ -430,59 +407,31 @@ class GateIoExchange(ExchangeBaseV2):
                 str(update_msg.get("update_time_ms", update_msg.get("id")))
             )
         )
-        if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
-                tracked_order.executed_amount_base >= tracked_order.amount or \
-                tracked_order.is_done:
+        if tracked_order.is_done or \
+           tracked_order.executed_amount_base >= tracked_order.amount or \
+           math.isclose(tracked_order.executed_amount_base, tracked_order.amount):
+
             tracked_order.last_state = "FILLED"
-            self.logger().info(f"The {tracked_order.trade_type.name} order "
-                               f"{tracked_order.client_order_id} has completed "
-                               f"according to order status API.")
-            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                else MarketEvent.SellOrderCompleted
-            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                else SellOrderCompletedEvent
-            self.trigger_event(event_tag,
-                               event_class(self.current_timestamp,
-                                           tracked_order.client_order_id,
-                                           tracked_order.base_asset,
-                                           tracked_order.quote_asset,
-                                           tracked_order.executed_amount_base,
-                                           tracked_order.executed_amount_quote,
-                                           tracked_order.order_type,
-                                           tracked_order.exchange_order_id))
+            self.logger().info(
+                f"The {tracked_order.trade_type.name} order {tracked_order.client_order_id} has completed"
+                " according to order status API.")
+            event_tag = MarketEvent.BuyOrderCompleted
+            event_class = BuyOrderCompletedEvent
+            if tracked_order.trade_type is TradeType.SELL:
+                event_tag = MarketEvent.SellOrderCompleted
+                event_class = SellOrderCompletedEvent
+            self.trigger_event(
+                event_tag,
+                event_class(
+                    self.current_timestamp,
+                    tracked_order.client_order_id,
+                    tracked_order.base_asset,
+                    tracked_order.quote_asset,
+                    tracked_order.executed_amount_base,
+                    tracked_order.executed_amount_quote,
+                    tracked_order.order_type,
+                    tracked_order.exchange_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)
-
-    async def _user_stream_event_listener(self):
-        """
-        Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        GateIoAPIUserStreamDataSource.
-        """
-        async for event_message in self._iter_user_event_queue():
-            try:
-                user_channels = [
-                    CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-                    CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-                    CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
-                ]
-                channel: str = event_message.get("channel", None)
-                results: str = event_message.get("result", None)
-
-                if channel not in user_channels:
-                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
-                    continue
-                if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
-                    for trade_msg in results:
-                        self._process_trade_message(trade_msg)
-                elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
-                    for order_msg in results:
-                        self._process_order_message(order_msg)
-                elif channel == CONSTANTS.USER_BALANCE_ENDPOINT_NAME:
-                    self._process_balance_message_ws(results)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
 
     def _process_balance_message(self, balance_update):
         local_asset_names = set(self._account_balances.keys())

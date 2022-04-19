@@ -21,18 +21,10 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.logger import HummingbotLogger
 
 from .gate_io_order_book import GateIoOrderBook
-from .gate_io_web_utils import (
-    GateIoAPIError,
-    GateIORESTRequest,
-    api_call_with_retries,
-    build_api_factory,
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair
-)
 from .gate_io_websocket import GateIoWebsocket
+from hummingbot.connector.exchange.gate_io import gate_io_web_utils as web_utils
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.utils import async_ttl_cache
-from . import gate_io_web_utils as web_utils
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
@@ -62,7 +54,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
-        self._api_factory = api_factory or build_api_factory()
+        self._api_factory = api_factory or web_utils.build_api_factory()
         self._rest_assistant: Optional[RESTAssistant] = None
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
@@ -85,7 +77,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = {}
         ticker_param = None
         if len(trading_pairs) == 1:
-            ticker_param = {'currency_pair': convert_to_exchange_trading_pair(trading_pairs[0])}
+            ticker_param = {'currency_pair': web_utils.convert_to_exchange_trading_pair(trading_pairs[0])}
 
         tickers = await web_utils.api_request(
             path=CONSTANTS.TICKER_PATH_URL,
@@ -95,7 +87,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             limit_id=CONSTANTS.TICKER_PATH_URL
         )
         for trading_pair in trading_pairs:
-            ex_pair = convert_to_exchange_trading_pair(trading_pair)
+            ex_pair = web_utils.convert_to_exchange_trading_pair(trading_pair)
             ticker = list([tic for tic in tickers if tic['currency_pair'] == ex_pair])[0]
             results[trading_pair] = Decimal(str(ticker["last"]))
         return results
@@ -238,20 +230,18 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         return list(mapping.values())
 
-        # TODO
-        rest_assistant = await api_factory.get_rest_assistant()
         try:
-            async with throttler.execute_task(CONSTANTS.SYMBOL_PATH_URL):
-                endpoint = CONSTANTS.SYMBOL_PATH_URL
-                request = GateIORESTRequest(
-                    method=RESTMethod.GET,
-                    endpoint=endpoint,
-                    throttler_limit_id=endpoint,
-                )
-                symbols = await api_call_with_retries(
-                    request, rest_assistant, throttler, logging.getLogger()
-                )
-            trading_pairs = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
+            symbols = await web_utils.api_request(
+                path=CONSTANTS.SYMBOL_PATH_URL,
+                method=RESTMethod.GET,
+                api_factory=api_factory,
+                throttler=throttler,
+                time_synchronizer=time_synchronizer,
+                domain=domain,
+                limit_id=CONSTANTS.SYMBOL_PATH_URL,
+                retry=True
+            )
+            trading_pairs = list([web_utils.convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
         except Exception:
@@ -270,28 +260,27 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Get whole orderbook
         """
-        throttler = throttler or cls._get_throttler_instance()
-        api_factory = build_api_factory()
-        rest_assistant = rest_assistant or await api_factory.get_rest_assistant()
-        logger = logger or logging.getLogger()
         try:
-            ex_pair = convert_to_exchange_trading_pair(trading_pair)
-            params = {"currency_pair": ex_pair, "with_id": json.dumps(True)}
             endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
-            request = GateIORESTRequest(
+            params = {
+                "currency_pair": web_utils.convert_to_exchange_trading_pair(trading_pair),
+                "with_id": json.dumps(True)
+            }
+            if not logger:
+                logger = cls.logger()
+            return await web_utils.api_request(
+                path=endpoint,
                 method=RESTMethod.GET,
-                endpoint=endpoint,
                 params=params,
-                throttler_limit_id=endpoint,
+                limit_id=endpoint,
+                throttler = throttler or cls._get_throttler_instance(),
+                retry=True,
+                retry_logger=logger,
             )
-            orderbook_response = await api_call_with_retries(
-                request, rest_assistant, throttler, logger
-            )
-            return orderbook_response
-        except GateIoAPIError as e:
+        except Exception as e:
             raise IOError(
-                f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                f"HTTP status is {e.http_status}. Error is {e.error_message}.")
+                f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}."
+                f" Exception is: {e}")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         rest_assistant = await self._get_rest_assistant()
@@ -334,11 +323,11 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await ws.connect()
             await ws.subscribe(
                 CONSTANTS.TRADES_ENDPOINT_NAME,
-                [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs],
+                [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs],
             )
             for pair in self._trading_pairs:
                 await ws.subscribe(CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
-                                   [convert_to_exchange_trading_pair(pair), '100ms'])
+                                   [web_utils.convert_to_exchange_trading_pair(pair), '100ms'])
                 self.logger().info(f"Subscribed to {self._trading_pairs} orderbook data streams...")
         except asyncio.CancelledError:
             raise
@@ -358,7 +347,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg = await msg_queue.get()
                 trade_data: Dict[Any] = msg.get("result", None)
 
-                pair: str = convert_from_exchange_trading_pair(trade_data.get("currency_pair", None))
+                pair: str = web_utils.convert_from_exchange_trading_pair(trade_data.get("currency_pair", None))
 
                 if pair is None:
                     continue
@@ -390,7 +379,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 order_book_data: str = msg.get("result", None)
 
                 timestamp: float = (order_book_data["t"]) * 1e-3
-                pair: str = convert_from_exchange_trading_pair(order_book_data["s"])
+                pair: str = web_utils.convert_from_exchange_trading_pair(order_book_data["s"])
 
                 orderbook_msg: OrderBookMessage = GateIoOrderBook.diff_message_from_exchange(
                     order_book_data,
