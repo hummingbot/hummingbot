@@ -9,13 +9,14 @@ from hummingbot.connector.connector_base cimport ConnectorBase
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange cimport PaperTradeExchange, QuantizationParams
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.mock.mock_order_tracker import MockOrderTracker
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.data_type.order_book import OrderBookRow
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.network_iterator import NetworkStatus
-from .mock_order_tracker import MockOrderTracker
+
 
 s_decimal_0 = Decimal("0")
 

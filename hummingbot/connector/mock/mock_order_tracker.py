@@ -1,7 +1,8 @@
-from typing import List, Dict
 import asyncio
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSource
+from typing import List, Dict
+
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSource
 
 
 class MockOrderBookTrackerDataSource(OrderBookTrackerDataSource):
