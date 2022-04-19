@@ -77,8 +77,8 @@ class StatusMonitor:
                         await self.update_gateway_config_key_list()
                     elif self._current_connector_conn_status is Status.OFFLINE:
                         gateway_connectors_status = await GatewayHttpClient.get_instance().get_gateway_status(fail_silently=True)
-                        self._current_connector_conn_status = Status.ONLINE if len(gateway_connectors_status) > 0 and \
-                            gateway_connectors_status[0]["currentBlockNumber"] > 0 else Status.OFFLINE
+                        self._current_connector_conn_status = Status.ONLINE \
+                            if any([status["currentBlockNumber"] > 0 for status in gateway_connectors_status]) else Status.OFFLINE
                     self._current_status = Status.ONLINE
                 else:
                     self._current_status = Status.OFFLINE
