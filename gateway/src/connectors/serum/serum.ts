@@ -22,6 +22,8 @@ import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-se
 
 import {Cache, CacheContainer} from 'node-ts-cache';
 import {MemoryStorage} from 'node-ts-cache-storage-memory';
+import BN from "bn.js";
+import {convertOrderSideToSerumSide, convertOrderTypeToSerumType} from "./serum.convertors";
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
@@ -268,7 +270,12 @@ export class Serum {
   }
 
   async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
-    // TODO Add validation!!!
+    if (!target.clientId && !target.exchangeId)
+      throw new OrderNotFoundError('No clientId or exchangeId provided.');
+
+    if (!target.ownerAddress)
+      throw new OrderNotFoundError('No ownerAddress provided.');
+
     const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(
       target.ownerAddress
     );
@@ -287,7 +294,9 @@ export class Serum {
   }
 
   async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
-    // TODO Add validation!!!
+    if (!target.clientId && !target.exchangeId)
+      throw new OrderNotFoundError('No clientId or exchangeId provided.');
+
     const mapOfFilledOrders = await this.getAllFilledOrders();
     for (const filledOrder of mapOfFilledOrders.values()) {
       if (
@@ -302,7 +311,9 @@ export class Serum {
   }
 
   async getOrder(target: GetOrdersRequest): Promise<Order> {
-    // TODO Add validation!!!
+    if (!target.clientId && !target.exchangeId)
+      throw new OrderNotFoundError('No clientId or exchangeId provided.');
+
     try {
       return await this.getOpenOrder(target);
     } catch (exception) {
@@ -387,14 +398,18 @@ export class Serum {
     const owner = await this.solana.getAccount(candidate.ownerAddress);
 
     let mintAddress: PublicKey;
-    if (candidate.side == OrderSide.BUY.toLowerCase()) {
+    if (candidate.side.toLowerCase() == OrderSide.BUY.toLowerCase()) {
       mintAddress = market.market.quoteMintAddress;
     } else {
       mintAddress = market.market.baseMintAddress;
     }
 
     const serumOrderParams: SerumOrderParams<Account> = {
-      ...candidate,
+      side: convertOrderSideToSerumSide(candidate.side),
+      price: candidate.price,
+      size: candidate.amount,
+      orderType: convertOrderTypeToSerumType(candidate.orderType),
+      clientId: candidate.id ? new BN(candidate.id) : undefined,
       owner: owner,
       payer: await this.solana.findAssociatedTokenAddress(
         owner.publicKey,
@@ -407,6 +422,7 @@ export class Serum {
       serumOrderParams
     );
 
+    // TODO Add clientId and exchangeId!!!
     return this.parseToOrder({
       ...candidate,
       signature: signature,

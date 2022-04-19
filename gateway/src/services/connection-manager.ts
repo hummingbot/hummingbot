@@ -13,7 +13,7 @@ export async function getChain(chain: string, network: string) {
   else if (chain === 'avalanche')
     chainInstance = Avalanche.getInstance(network);
   else if (chain === 'harmony') chainInstance = Harmony.getInstance(network);
-  else if (chain === 'solana') chainInstance = Solana.getInstance(network);
+  else if (chain === 'solana') chainInstance = await Solana.getInstance(network);
   else throw new Error('unsupported chain');
 
   if (!chainInstance.ready()) {

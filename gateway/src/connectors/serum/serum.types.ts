@@ -1,6 +1,6 @@
 import {Account, PublicKey} from '@solana/web3.js';
-import {Market as SerumMarket, Orderbook as SerumOrderBook,} from '@project-serum/serum';
-import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
+import {Market as SerumMarket, Orderbook as SerumOrderBook} from '@project-serum/serum';
+import {Order as SerumOrder} from '@project-serum/serum/lib/market';
 import {Map as ImmutableMap} from 'immutable';
 import BN from "bn.js";
 
@@ -9,17 +9,22 @@ export enum OrderSide {
   SELL = 'SELL',
 }
 
-export type OrderStatus =
-  | 'OPEN'
-  | 'PENDING'
-  | 'FILLED'
-  | 'CANCELED'
-  | 'FAILED'
-  | 'EXPIRED'
-  | 'TIMED_OUT'
-  | 'UNKNOWN';
+export enum OrderStatus {
+  OPEN = 'OPEN',
+  PENDING = 'PENDING',
+  FILLED = 'FILLED',
+  CANCELED = 'CANCELED',
+  FAILED = 'FAILED',
+  EXPIRED = 'EXPIRED',
+  TIMED_OUT = 'OUT',
+  UNKNOWN = 'UNKNOWN',
+}
 
-export type OrderType = 'LIMIT' | 'IOC' | 'POST_ONLY';
+export enum OrderType {
+  LIMIT = 'LIMIT',
+  IOC = 'IOC',
+  POST_ONLY = 'POST_ONLY',
+}
 
 export interface Market {
   name: string;
@@ -51,6 +56,7 @@ export interface Ticker {
   ticker: any;
 }
 
+// TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
 export interface Order {
   id: string; // client-side id
   exchangeId: string;
@@ -58,16 +64,17 @@ export interface Order {
   ownerAddress: string;
   price: number;
   amount: number;
-  side: OrderSide; // TODO check how to handle collision!!!
-  status: OrderStatus;
-  orderType: OrderType; // // TODO create enum, check how to handle collision!!!
+  sideEnum: OrderSide; // TODO check how to handle collision!!!
+  statusEnum: OrderStatus;
+  orderTypeEnum: OrderType; // // TODO create enum, check how to handle collision!!!
   fee: number; // TODO  fee: string; // can be positive, when paying, or negative, when rebated probably remove, show how much fees were paid for the order!!!
   fillmentTimestamp: number;
   order: SerumOrder;
 
+  side: 'buy' | 'sell'; // TODO remove this!!!
   owner: Account;
   payer: PublicKey;
-  size: number;
+  size: number; // TODO same as amount?!!!
   clientId?: BN;
   openOrdersAddressKey?: PublicKey;
   openOrdersAccount?: Account;
@@ -147,10 +154,15 @@ export interface GetOrderResponse {
 
 export type GetOrdersResponse = ImmutableMap<string, GetOrderResponse> | GetOrderResponse;
 
-// TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
-export interface CreateOrdersRequest extends SerumOrderParams {
+export interface CreateOrdersRequest {
+  id: string;
   marketName: string;
   ownerAddress: string;
+  payerAddress: string;
+  side: OrderSide;
+  price: number;
+  amount: number;
+  orderType?: OrderType;
 }
 
 export interface CreateOrderResponse {
