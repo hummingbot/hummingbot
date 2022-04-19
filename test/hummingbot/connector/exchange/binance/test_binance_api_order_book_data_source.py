@@ -30,13 +30,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = "com"
-        for task in asyncio.all_tasks(loop=cls.ev_loop):
-            task.cancel()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        for task in asyncio.all_tasks(loop=cls.ev_loop):
-            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()
@@ -560,7 +553,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(12345, msg.update_id)
+        self.assertEqual(12345, msg.update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
