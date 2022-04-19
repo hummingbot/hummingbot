@@ -143,9 +143,12 @@ class GatewayCommand:
     ):
         with begin_placeholder_mode(self):
             while True:
-                node_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, "
-                                                          "if you do not have one, make an account at infura.io):  >>> ")
+                infura_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, if you do not have one, make an account at infura.io):  >>> ")
                 self.app.clear_input()
+
+                moralis_api_key: str = await self.app.prompt(prompt="Enter Moralis API Key (required for Avalanche node, if you do not have one, make an account at moralis.io):  >>> ")
+                self.app.clear_input()
+
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
@@ -160,7 +163,7 @@ class GatewayCommand:
                             "params": []
                         }
                         try:
-                            resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{node_api_key}",
+                            resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{infura_api_key}",
                                                          data=json.dumps(data),
                                                          headers=headers)
                             if resp.status != 200:
@@ -169,9 +172,29 @@ class GatewayCommand:
                         except Exception:
                             raise
 
+                    # if moralis_api_key is not empty string
+                    # Verifies that the Moralis API Key/Project ID is valid by sending a request
+                    async with aiohttp.ClientSession() as tmp_client:
+                        headers = {"Content-Type": "application/json"}
+                        data = {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "eth_blockNumber",
+                            "params": []
+                        }
+                        try:
+                            resp = await tmp_client.post(url=f"https://speedy-nodes-nyc.moralis.io/{moralis_api_key}/avalanche/mainnet",
+                                                         data=json.dumps(data),
+                                                         headers=headers)
+                            if resp.status != 200:
+                                self.notify("Error occured verifying Moralis Node API Key. Please check your API Key and try again.")
+                                continue
+                        except Exception:
+                            raise
+
                     exec_info = await docker_ipc(method_name="exec_create",
                                                  container=container_id,
-                                                 cmd=f"./setup/generate_conf.sh {conf_path} {node_api_key}",
+                                                 cmd=f"./setup/generate_conf.sh {conf_path} {infura_api_key} {moralis_api_key}",
                                                  user="hummingbot")
 
                     await docker_ipc(method_name="exec_start",
