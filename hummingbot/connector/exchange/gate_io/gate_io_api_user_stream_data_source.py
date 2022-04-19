@@ -11,7 +11,6 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 
 from .gate_io_auth import GateIoAuth
-from .gate_io_websocket import GateIoWebsocket
 from . import gate_io_web_utils as web_utils
 
 
@@ -33,7 +32,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         self._api_factory = api_factory
         self._auth: GateIoAuth = auth
-        self._ws: Optional[GateIoWebsocket] = None
+        self._ws: Optional[web_utils.GateIoWebsocket] = None
         self._trading_pairs: List[str] = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -52,7 +51,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = GateIoWebsocket(self._auth, self._api_factory)
+            self._ws = web_utils.GateIoWebsocket(self._auth, self._api_factory)
             await self._ws.connect()
             user_channels = [
                 CONSTANTS.USER_TRADES_ENDPOINT_NAME,
