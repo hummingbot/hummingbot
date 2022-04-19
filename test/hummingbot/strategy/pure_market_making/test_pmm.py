@@ -1,34 +1,25 @@
-from typing import List, Optional
+import unittest
 from decimal import Decimal
-import logging
+from typing import List, Optional
 
 import pandas as pd
-import unittest
 
 from hummingbot.client.command.config_command import ConfigCommand
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderBookTradeEvent,
-    OrderCancelledEvent)
-from hummingbot.core.data_type.common import PriceType, TradeType
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType,
-)
+from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, OrderCancelledEvent
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from test.mock.mock_paper_exchange import MockPaperExchange
 from test.mock.mock_asset_price_delegate import MockAssetPriceDelegate
-
-logging.basicConfig(level=logging.ERROR)
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread

@@ -73,6 +73,8 @@ def main():
         "hexbytes",
         "importlib-metadata",
         "mypy-extensions",
+        "nose",
+        "nose-exclude",
         "numpy",
         "pandas",
         "pip",
@@ -105,8 +107,6 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if os.path.exists('test'):
-        cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {
