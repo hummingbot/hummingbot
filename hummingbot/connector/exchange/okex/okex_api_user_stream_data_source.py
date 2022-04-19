@@ -9,9 +9,12 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSPlainTextRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
 
 
 class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
+
+    _logger: Optional[HummingbotLogger] = None
 
     def __init__(
             self,

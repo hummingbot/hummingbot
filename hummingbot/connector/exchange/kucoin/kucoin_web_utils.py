@@ -29,6 +29,7 @@ def build_api_factory(
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+    throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
         throttler=throttler,
