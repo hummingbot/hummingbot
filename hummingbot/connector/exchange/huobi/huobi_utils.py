@@ -4,8 +4,8 @@ from typing import Optional, Tuple
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.huobi.huobi_ws_post_processor import HuobiWSPostProcessor
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
 
 RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(usdt|husd|usdc)$")
 RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(btc|eth|trx)$")
@@ -47,7 +47,8 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 
 
 def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(ws_post_processors=[HuobiWSPostProcessor()])
+    throttler = AsyncThrottler(rate_limits=[])
+    api_factory = WebAssistantsFactory(throttler=throttler, ws_post_processors=[HuobiWSPostProcessor()])
     return api_factory
 
 

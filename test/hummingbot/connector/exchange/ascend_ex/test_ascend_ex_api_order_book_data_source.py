@@ -1,19 +1,19 @@
-import aiohttp
 import asyncio
 import json
 import re
 from typing import Awaitable, Optional
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
+from aioresponses import aioresponses
 from bidict import bidict
 
-from aioresponses import aioresponses
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.utils import build_api_factory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class AscendExAPIOrderBookDataSourceTests(TestCase):
@@ -34,8 +34,8 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.listening_task = None
         self.async_task: Optional[asyncio.Task] = None
 
-        self.api_factory = build_api_factory()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.api_factory = build_api_factory(throttler=self.throttler)
 
         self.data_source = AscendExAPIOrderBookDataSource(
             api_factory=self.api_factory, throttler=self.throttler, trading_pairs=[self.trading_pair]

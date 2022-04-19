@@ -1,71 +1,87 @@
 import base64
-from datetime import datetime
 import hashlib
 import hmac
-import time
-from typing import (
-    Any,
-    Dict
-)
 from collections import OrderedDict
+from datetime import datetime
+from typing import Any, Dict, Optional
+from urllib.parse import urlencode
+
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
-class OKExAuth:
-    def __init__(self, api_key: str, secret_key: str, passphrase: str):
+class OKExAuth(AuthBase):
+
+    def __init__(self, api_key: str, secret_key: str, passphrase: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key
         self.secret_key: str = secret_key
         self.passphrase: str = passphrase
+        self.time_provider: TimeSynchronizer = time_provider
+
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
+        the required parameter in the request header.
+
+        :param request: the request to be configured for authenticated interaction
+        """
+
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authentication_headers(request=request))
+        request.headers = headers
+
+        return request
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. OKX does not use this
+        functionality
+        """
+        return request  # pass-through
 
     @staticmethod
     def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
         return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
 
-    @staticmethod
-    def get_timestamp() -> str:
-        miliseconds = int(time.time() * 1000)
-        utc = datetime.utcfromtimestamp(miliseconds // 1000)
-        return utc.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-6] + "{:03d}".format(int(miliseconds) % 1000) + 'Z'
+    def _generate_signature(self, timestamp: str, method: str, path_url: str, body: Optional[str] = None) -> str:
+        unsigned_signature = timestamp + method + path_url
+        if body is not None:
+            unsigned_signature += body
 
-    def get_signature(self, timestamp, method, path_url, body: str) -> str:
-        auth = timestamp + method + path_url
-        if body:
-            auth += body
-
-        _hash = hmac.new(self.secret_key.encode(), auth.encode(), hashlib.sha256).digest()
-        signature = base64.b64encode(_hash).decode()
+        signature = base64.b64encode(
+            hmac.new(
+                self.secret_key.encode("utf-8"),
+                unsigned_signature.encode("utf-8"),
+                hashlib.sha256).digest()).decode()
         return signature
 
-    def add_auth_to_params(self,
-                           method: str,
-                           path_url: str,
-                           args: Dict[str, Any] = {}) -> Dict[str, Any]:
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        timestamp = datetime.fromtimestamp(self.time_provider.time()).isoformat(timespec="milliseconds")
 
-        uppercase_method = method.upper()
+        path_url = f"/api{request.url.split('/api')[-1]}"
+        if request.params:
+            sorted_params = self.keysort(request.params)
+            query_string_components = urlencode(sorted_params)
+            path_url = f"{path_url}?{query_string_components}"
 
-        timestamp = self.get_timestamp()
-
-        request = {
+        header = {
             "OK-ACCESS-KEY": self.api_key,
-            "OK-ACCESS-SIGN": self.get_signature(timestamp, uppercase_method, path_url, args),
+            "OK-ACCESS-SIGN": self._generate_signature(timestamp, request.method.value.upper(), path_url, request.data),
             "OK-ACCESS-TIMESTAMP": timestamp,
             "OK-ACCESS-PASSPHRASE": self.passphrase,
         }
 
-        sorted_request = self.keysort(request)
+        return header
 
-        return sorted_request
-
-    def generate_ws_auth(self):
-        timestamp = str(int(time.time()))
+    def websocket_login_parameters(self) -> Dict[str, Any]:
+        timestamp = str(int(self.time_provider.time()))
 
         return {
-            "op": "login",
-            "args": [
-                {
-                    "apiKey": self.api_key,
-                    "passphrase": self.passphrase,
-                    "timestamp": timestamp,
-                    "sign": self.get_signature(timestamp, "GET", "/users/self/verify", {})
-                }
-            ]
+            "apiKey": self.api_key,
+            "passphrase": self.passphrase,
+            "timestamp": timestamp,
+            "sign": self._generate_signature(timestamp, "GET", "/users/self/verify")
         }

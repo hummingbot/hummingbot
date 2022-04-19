@@ -188,30 +188,6 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
         self.assertEqual(0, len(result))
 
     @aioresponses()
-    def test_get_snapshot_raises(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, status=500)
-
-        with self.assertRaises(IOError):
-            self.async_run_with_timeout(
-                coroutine=self.ob_data_source.get_snapshot(self.trading_pair)
-            )
-
-    @aioresponses()
-    def test_get_snapshot(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_snapshot_mock()
-        mock_api.get(regex_url, body=json.dumps(resp))
-
-        ret = self.async_run_with_timeout(
-            coroutine=self.ob_data_source.get_snapshot(self.trading_pair)
-        )
-
-        self.assertEqual(ret, resp)  # shallow comparison ok
-
-    @aioresponses()
     def test_get_new_order_book(self, mock_api):
         url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -432,7 +408,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[self.ob_data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -450,7 +426,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[self.ob_data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -486,7 +462,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
             }
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[self.ob_data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -504,7 +480,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[self.ob_data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -522,7 +498,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[self.ob_data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -557,7 +533,7 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
             }
         }
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[self.ob_data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 

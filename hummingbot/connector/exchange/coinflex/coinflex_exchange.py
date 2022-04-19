@@ -2,18 +2,11 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.coinflex import coinflex_utils
@@ -25,12 +18,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import (
-    InFlightOrder,
-    OrderState,
-    OrderUpdate,
-    TradeUpdate,
-)
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
@@ -65,7 +53,7 @@ class CoinflexExchange(ExchangeBase):
             api_key=coinflex_api_key,
             secret_key=coinflex_api_secret)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._api_factory = web_utils.build_api_factory(auth=self._auth)
+        self._api_factory = web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
         self._order_book_tracker = CoinflexOrderBookTracker(
             trading_pairs=trading_pairs,
             domain=domain,

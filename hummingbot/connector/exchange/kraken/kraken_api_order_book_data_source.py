@@ -1,39 +1,31 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional
-)
 import time
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
+from hummingbot.connector.exchange.kraken.kraken_utils import (
+    build_api_factory,
+    build_rate_limits_by_tier,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+)
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
-from hummingbot.connector.exchange.kraken.kraken_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-    build_rate_limits_by_tier,
-    build_api_factory
-)
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 
 
 class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
@@ -50,11 +42,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  trading_pairs: List[str] = None,
                  api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__(trading_pairs)
-        self._api_factory = api_factory or build_api_factory()
+        self._throttler = throttler or self._get_throttler_instance()
+        self._api_factory = api_factory or build_api_factory(throttler=throttler)
         self._rest_assistant = None
         self._ws_assistant = None
         self._order_book_create_function = lambda: OrderBook()
-        self._throttler = throttler or self._get_throttler_instance()
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
@@ -68,7 +60,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(
-        cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
+            cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
         throttler = throttler or cls._get_throttler_instance()
         tasks = [cls._get_last_traded_price(t_pair, throttler) for t_pair in trading_pairs]
@@ -86,7 +78,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             method=RESTMethod.GET,
             url=url
         )
-        rest_assistant = await build_api_factory().get_rest_assistant()
+        rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
 
         async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
             resp = await rest_assistant.call(request)
@@ -96,11 +88,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_snapshot(
-        cls,
-        rest_assistant: RESTAssistant,
-        trading_pair: str,
-        limit: int = 1000,
-        throttler: Optional[AsyncThrottler] = None,
+            cls,
+            rest_assistant: RESTAssistant,
+            trading_pair: str,
+            limit: int = 1000,
+            throttler: Optional[AsyncThrottler] = None,
     ) -> Dict[str, Any]:
         throttler = throttler or cls._get_throttler_instance()
         original_trading_pair: str = trading_pair
@@ -160,7 +152,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     method=RESTMethod.GET,
                     url=url
                 )
-                rest_assistant = await build_api_factory().get_rest_assistant()
+                rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
                 response = await rest_assistant.call(request, timeout=5)
 
                 if response.status == 200:
@@ -282,8 +274,9 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for tp in self._trading_pairs:
             trading_pairs.append(convert_to_exchange_trading_pair(tp, '/'))
 
-        ws_message: WSRequest = WSRequest({"event": "subscribe",
-                                           "pair": trading_pairs,
-                                           "subscription": {"name": subscription_type, "depth": 1000}})
+        ws_message: WSJSONRequest = WSJSONRequest({
+            "event": "subscribe",
+            "pair": trading_pairs,
+            "subscription": {"name": subscription_type, "depth": 1000}})
 
         return ws_message

@@ -27,9 +27,10 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -40,8 +41,6 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -84,7 +83,7 @@ class GateIoExchange(ExchangeBase):
         self._trading_pairs = trading_pairs
         self._gate_io_auth = GateIoAuth(gate_io_api_key, gate_io_secret_key)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._api_factory = build_gate_io_api_factory()
+        self._api_factory = build_gate_io_api_factory(throttler=self._throttler)
         self._rest_assistant: Optional[RESTAssistant] = None
         self._order_book_tracker = GateIoOrderBookTracker(
             self._throttler, trading_pairs, self._api_factory

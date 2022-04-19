@@ -2,10 +2,10 @@ import asyncio
 import json
 import re
 import unittest
-
-from aioresponses import aioresponses
 from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
+
+from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.binance import (
     binance_constants as CONSTANTS,
@@ -145,7 +145,8 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source._current_listen_key = self.listen_key
         result: bool = self.async_run_with_timeout(self.data_source._ping_listen_key())
 
-        self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: {self._error_response()}"))
+        self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: "
+                                                   f"{self._error_response()}"))
         self.assertFalse(result)
 
     @aioresponses()
