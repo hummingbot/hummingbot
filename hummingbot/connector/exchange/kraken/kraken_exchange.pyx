@@ -4,13 +4,7 @@ import logging
 import re
 from collections import defaultdict
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 from libc.stdint cimport int32_t, int64_t
@@ -116,10 +110,10 @@ cdef class KrakenExchange(ExchangeBase):
 
         super().__init__()
         self._trading_required = trading_required
-        self._api_factory = build_api_factory()
-        self._rest_assistant = None
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
+        self._api_factory = build_api_factory(throttler=self._throttler)
+        self._rest_assistant = None
         self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
         self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth, self._api_factory)

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 import time
@@ -16,7 +15,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -48,8 +47,8 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  throttler: Optional[AsyncThrottler] = None,
                  trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
-        self._api_factory = api_factory or build_api_factory()
         self._throttler = throttler or self._get_throttler_instance()
+        self._api_factory = api_factory or build_api_factory(throttler=self._throttler)
         self._trading_pairs: List[str] = trading_pairs
 
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -74,9 +73,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: Dictionary of associations between token pair and its latest price
         """
         result = {}
-
+        throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
         for trading_pair in trading_pairs:
-            api_factory = api_factory or build_api_factory()
+            api_factory = api_factory or build_api_factory(throttler=throttler)
             throttler = throttler or cls._get_throttler_instance()
             rest_assistant = await api_factory.get_rest_assistant()
 
@@ -122,8 +121,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: current order book for the specified trading pair
         """
-        api_factory = api_factory or build_api_factory()
+
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
+        api_factory = api_factory or build_api_factory(throttler=throttler)
         rest_assistant = await api_factory.get_rest_assistant()
 
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}"\
@@ -397,9 +397,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         mapping = bidict()
 
-        api_factory = api_factory or build_api_factory()
-        rest_assistant = await api_factory.get_rest_assistant()
         throttler = throttler or cls._get_throttler_instance()
+        api_factory = api_factory or build_api_factory(throttler=throttler)
+        rest_assistant = await api_factory.get_rest_assistant()
 
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.PRODUCTS_PATH_URL}"
         request = RESTRequest(method=RESTMethod.GET, url=url)
@@ -439,7 +439,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await ws.connect(ws_url=url, ws_headers=headers, ping_timeout=self.HEARTBEAT_PING_INTERVAL)
 
             for payload in subscription_payloads:
-                subscribe_request: WSRequest = WSRequest(payload)
+                subscribe_request: WSJSONRequest = WSJSONRequest(payload)
                 async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                     await ws.send(subscribe_request)
 
@@ -460,5 +460,5 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             payload = {
                 "op": "pong"
             }
-            pong_request: WSRequest = WSRequest(payload)
+            pong_request: WSJSONRequest = WSJSONRequest(payload)
             await ws.send(pong_request)

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional
@@ -9,7 +7,7 @@ from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -42,14 +40,14 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         api_factory: Optional[WebAssistantsFactory] = None
     ):
         super().__init__()
-        self._api_factory = api_factory or bitmart_utils.build_api_factory()
+        self._throttler = throttler or self._get_throttler_instance()
+        self._api_factory = api_factory or bitmart_utils.build_api_factory(throttler=throttler)
         self._rest_assistant = None
         self._ws_assistant = None
         self._bitmart_auth: BitmartAuth = bitmart_auth
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._throttler = throttler or self._get_throttler_instance()
 
     @property
     def last_recv_time(self) -> float:
@@ -69,7 +67,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             auth_payload: Dict[str, Any] = self._bitmart_auth.get_ws_auth_payload(bitmart_utils.get_ms_timestamp())
-            ws_message: WSRequest = WSRequest(auth_payload)
+            ws_message: WSJSONRequest = WSJSONRequest(auth_payload)
 
             await ws.send(ws_message)
             ws_response = await ws.receive()
@@ -93,7 +91,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             # BitMart WebSocket API currently offers only spot/user/order private channel.
             for trading_pair in self._trading_pairs:
-                ws_message: WSRequest = WSRequest({
+                ws_message: WSJSONRequest = WSJSONRequest({
                     "op": "subscribe",
                     "args": [f"spot/user/order:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
                 })

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 import time
@@ -6,9 +5,9 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIoAPIError, build_gate_io_api_factory
+from hummingbot.connector.exchange.gate_io.gate_io_utils import build_gate_io_api_factory, GateIoAPIError
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -101,7 +100,7 @@ class GateIoWebsocket:
         if self._is_private:
             payload["auth"] = self._auth.generate_auth_dict_ws(payload)
 
-        request = WSRequest(payload)
+        request = WSJSONRequest(payload)
         await self._ws_assistant.send(request)
 
         return payload["time"]

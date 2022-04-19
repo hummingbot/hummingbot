@@ -21,7 +21,7 @@ from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_tr
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -89,6 +89,7 @@ class KucoinExchange(ExchangePyBase):
             domain=self._domain)
         self._user_stream_tracker = UserStreamTracker(
             data_source=KucoinAPIUserStreamDataSource(
+                auth=self._auth,
                 domain=self._domain,
                 api_factory=self._api_factory,
                 throttler=self._throttler))
@@ -943,17 +944,16 @@ class KucoinExchange(ExchangePyBase):
                            is_auth_required: bool = False,
                            limit_id: Optional[str] = None) -> Dict[str, Any]:
 
-        return await web_utils.api_request(
-            path=path_url,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        url = web_utils.rest_url(path_url, domain=self._domain)
+
+        return await rest_assistant.execute_request(
+            url=url,
             params=params,
             data=data,
             method=method,
             is_auth_required=is_auth_required,
-            limit_id=limit_id
+            throttler_limit_id=limit_id if limit_id else path_url,
         )
 
     async def _sleep(self, delay: float):

@@ -1,14 +1,12 @@
 import asyncio
 import logging
-
 from typing import Optional
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_utils import build_api_factory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -55,7 +53,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 path_url="/ws/v2",
                 is_ws=True,
             )
-            auth_request: WSRequest = WSRequest(
+            auth_request: WSJSONRequest = WSJSONRequest(
                 {
                     "action": "req",
                     "ch": "auth",
@@ -83,7 +81,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_topic(self, topic: str):
         try:
-            subscribe_request: WSRequest = WSRequest({"action": "sub", "ch": topic})
+            subscribe_request: WSJSONRequest = WSJSONRequest({"action": "sub", "ch": topic})
             await self._ws_assistant.send(subscribe_request)
             resp: WSResponse = await self._ws_assistant.receive()
             sub_response = resp.data
@@ -121,7 +119,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async for ws_response in self._ws_assistant.iter_messages():
                     data = ws_response.data
                     if data["action"] == "ping":
-                        pong_request = WSRequest(payload={"action": "pong", "data": data["data"]})
+                        pong_request = WSJSONRequest(payload={"action": "pong", "data": data["data"]})
                         await self._ws_assistant.send(request=pong_request)
                         continue
                     output.put_nowait(data)
