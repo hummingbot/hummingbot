@@ -1,10 +1,12 @@
+import json
 from asyncio import wait_for
 from copy import deepcopy
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Union
 
+from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTResponse
 from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 
@@ -19,6 +21,7 @@ class RESTAssistant:
     def __init__(
         self,
         connection: RESTConnection,
+        throttler: AsyncThrottlerBase,
         rest_pre_processors: Optional[List[RESTPreProcessorBase]] = None,
         rest_post_processors: Optional[List[RESTPostProcessorBase]] = None,
         auth: Optional[AuthBase] = None,
@@ -27,6 +30,52 @@ class RESTAssistant:
         self._rest_pre_processors = rest_pre_processors or []
         self._rest_post_processors = rest_post_processors or []
         self._auth = auth
+        self._throttler = throttler
+
+    async def execute_request(
+            self,
+            url: str,
+            throttler_limit_id: str,
+            params: Optional[Dict[str, Any]] = None,
+            data: Optional[Dict[str, Any]] = None,
+            method: RESTMethod = RESTMethod.GET,
+            is_auth_required: bool = False,
+            return_err: bool = False,
+            timeout: Optional[float] = None,
+            headers: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any]]:
+
+        headers = headers or {}
+
+        local_headers = {
+            "Content-Type": ("application/json" if method in [RESTMethod.POST, RESTMethod.PUT]
+                             else "application/x-www-form-urlencoded")}
+        local_headers.update(headers)
+
+        data = json.dumps(data) if data is not None else data
+
+        request = RESTRequest(
+            method=method,
+            url=url,
+            params=params,
+            data=data,
+            headers=local_headers,
+            is_auth_required=is_auth_required,
+            throttler_limit_id=throttler_limit_id
+        )
+
+        async with self._throttler.execute_task(limit_id=throttler_limit_id):
+            response = await self.call(request=request, timeout=timeout)
+
+            if response.status != 200:
+                if return_err:
+                    error_response = await response.json()
+                    return error_response
+                else:
+                    error_response = await response.text()
+                    raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
+                                  f"Error: {error_response}")
+
+            return await response.json()
 
     async def call(self, request: RESTRequest, timeout: Optional[float] = None) -> RESTResponse:
         request = deepcopy(request)

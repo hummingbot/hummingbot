@@ -1,5 +1,3 @@
-from libc.stdint cimport int64_t
-
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
@@ -24,6 +22,7 @@ cdef class OkexExchange(ExchangeBase):
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
+        public object _time_synchronizer
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

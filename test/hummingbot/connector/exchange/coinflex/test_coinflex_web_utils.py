@@ -6,9 +6,9 @@ import unittest
 from typing import Awaitable
 from unittest.mock import patch
 
-import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
-import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
 from aioresponses.core import aioresponses
+
+from hummingbot.connector.exchange.coinflex import coinflex_constants as CONSTANTS, coinflex_web_utils as web_utils
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
@@ -26,11 +26,12 @@ class CoinflexUtilTestCases(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.rest_assistant = self.async_run_with_timeout(web_utils.build_api_factory().get_rest_assistant())
         self.logger.setLevel(1)
         self.logger.addHandler(self)
         self.log_records = []
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.rest_assistant = self.async_run_with_timeout(
+            web_utils.build_api_factory(throttler=self.throttler).get_rest_assistant())
 
     def handle(self, record):
         self.log_records.append(record)

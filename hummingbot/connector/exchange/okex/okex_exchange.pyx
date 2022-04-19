@@ -2,13 +2,7 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 import ujson
@@ -19,9 +13,8 @@ from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
 from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
 from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
-from hummingbot.connector.exchange_base import (
-    ExchangeBase,
-    s_decimal_NaN)
+from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock cimport Clock
@@ -50,7 +43,6 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
 hm_logger = None
@@ -114,7 +106,12 @@ cdef class OkexExchange(ExchangeBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        self._okex_auth = OKExAuth(api_key=okex_api_key, secret_key=okex_secret_key, passphrase=okex_passphrase)
+        self._time_synchronizer = TimeSynchronizer()
+        self._okex_auth = OKExAuth(
+            api_key=okex_api_key,
+            secret_key=okex_secret_key,
+            passphrase=okex_passphrase,
+            time_provider=self._time_synchronizer)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -222,7 +219,7 @@ cdef class OkexExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="GET", path_url=OKEX_SERVER_TIME)
+            await self._api_request(method="GET", path_url=OKEX_SERVER_TIME_PATH)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -520,7 +517,7 @@ cdef class OkexExchange(ExchangeBase):
 
                 # stream_message["data"] is a list
                 for data in stream_message["data"]:
-                    if channel == OKEX_WS_CHANNEL_ACCOUNT:
+                    if channel == OKEX_WS_ACCOUNT_CHANNEL:
                         details = data["details"]
                         if details:
                             details=details[0]
@@ -532,7 +529,7 @@ cdef class OkexExchange(ExchangeBase):
                             self._account_available_balances.update({asset_name: Decimal(available_balance)})
                         continue
 
-                    elif channel == OKEX_WS_CHANNEL_ORDERS:
+                    elif channel == OKEX_WS_ORDERS_CHANNEL:
                         order_id = data["ordId"]
                         client_order_id = data["clOrdId"]
                         trading_pair = data["instId"]

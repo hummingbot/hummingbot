@@ -3,19 +3,13 @@ import logging
 import math
 import time
 import unittest
-
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-)
+from typing import Dict, List
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit, TaskLog
-
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
 
 TEST_PATH_URL = "/hummingbot"
 TEST_POOL_ID = "TEST"
@@ -224,3 +218,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(context.acquire(), 1.0)
             )
+
+    def test_within_capacity_returns_true_for_throttler_without_configured_limits(self):
+        throttler = AsyncThrottler(rate_limits=[])
+        context = throttler.execute_task(limit_id="test_limit_id")
+        self.assertTrue(context.within_capacity())
