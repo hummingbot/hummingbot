@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../services/error-handler';
+import { CurveConfig } from './curve/curve.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
 
@@ -20,6 +21,11 @@ export namespace ConnectorsRoutes {
             name: 'pangolin',
             trading_type: PangolinConfig.config.tradingTypes,
             available_networks: PangolinConfig.config.availableNetworks,
+          },
+          {
+            name: 'curve',
+            trading_type: CurveConfig.config.tradingTypes,
+            available_networks: CurveConfig.config.availableNetworks,
           },
         ],
       });
