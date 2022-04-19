@@ -40,41 +40,41 @@ class TestingHL(HummingbotLogger):
         return True
 
 
-async def on_request_start(session, trace_config_ctx, params):
-    print("\nStarting %s request for %s. I will send: %s" % (params.method, params.url, params.headers))
-
-
-async def on_request_end(session, trace_config_ctx, params):
-    print("\nEnding %s request for %s. I sent: %s" % (params.method, params.url, params.headers))
-
-
-async def chunk_sent(session, trace_config_ctx, params):
-    print("\nCHUNK %s %s" % (params.url, params.chunk))
-
-
-request_tracing = aiohttp.TraceConfig()
-request_tracing.on_request_start.append(on_request_start)
-request_tracing.on_request_end.append(on_request_end)
-request_tracing.on_request_chunk_sent.append(chunk_sent)
-
-
 ENABLE_CONNECTION_TRACING = False
 
 
 class RESTConnection(hummingbot.core.web_assistant.connections.rest_connection.RESTConnection):
     def __init__(self, aiohttp_client_session: aiohttp.ClientSession):
         if ENABLE_CONNECTION_TRACING:
+            request_tracing = aiohttp.TraceConfig()
+            request_tracing.on_request_start.append(self.on_request_start)
+            request_tracing.on_request_end.append(self.on_request_end)
+            request_tracing.on_request_chunk_sent.append(self.chunk_sent)
             aiohttp_client_session = aiohttp.ClientSession(trace_configs=[request_tracing])
         self._client_session = aiohttp_client_session
 
+    @staticmethod
+    async def on_request_start(session, trace_config_ctx, params):
+        print("\non_request_start %s %s %s" % (params.method, params.url, params.headers))
 
+    @staticmethod
+    async def on_request_end(session, trace_config_ctx, params):
+        print("\non_request_end %s %s %s" % (params.method, params.url, params.headers))
+
+    @staticmethod
+    async def chunk_sent(session, trace_config_ctx, params):
+        print("\nchunk_sent %s %s" % (params.url, params.chunk))
+
+
+# To add connection tracing
 hummingbot.core.web_assistant.connections.rest_connection.RESTConnection = RESTConnection
 
-# disable triggering of Application instantiation
+# To disable triggering of Application instantiation
 hummingbot.logger.logger.HummingbotLogger = TestingHL
 logging.getLogger().setLevel(logging.DEBUG)
 
 
+# Has to be after connection tracing override of RESTConnection
 from hummingbot.connector.trading_rule import TradingRule  # noqa: E402
 from hummingbot.core.data_type.common import OrderType  # noqa: E402
 from hummingbot.core.event.event_logger import EventLogger  # noqa: E402
@@ -202,28 +202,24 @@ class ExchangeClient(object):
         await asyncio.gather(*tasks)
 
     async def tests(self):
-        # TODO needs to start in the same event loop
         global async_input
         prompt = Prompt()
         async_input = functools.partial(prompt, end='', flush=True)
 
-        # TODO wait for network ready
         r = await self.exchange.check_network()
-        print(r)
+        print(f'\n{r}\n')
 
         global ENABLE_CONNECTION_TRACING
-        ENABLE_CONNECTION_TRACING = True
+        # ENABLE_CONNECTION_TRACING = True
 
-        while True:
-            # order_id = self.exchange.buy(self.pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
-            await asyncio.sleep(3)
-            self.set_test_trading_rules()
-            order_id = self.exchange.buy(self.pair, amount=Decimal(0.001), order_type=OrderType.MARKET)
+        if await proceed("run buy and cancel via web + update order status?"):
+            order_id = self.exchange.buy(self.pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
+            await sleep_yes_no(f"{order_id} should have been placed")
             while await proceed("run update order status?"):
                 await self.exchange._update_order_status()
 
         if await proceed("run two failed orders?"):
-            # this one will fail for the 1% margin:
+            # this one will fail for:
             # "Add 1% as a safety factor in case the prices changed while making the order."
             order_id = self.exchange.buy(self.pair, amount=Decimal(0.1), price=Decimal(1), order_type=OrderType.LIMIT)
             order_id = self.exchange.buy(self.pair, amount=Decimal(1000000), price=Decimal(1), order_type=OrderType.LIMIT)
@@ -235,12 +231,6 @@ class ExchangeClient(object):
             order_id = self.exchange.cancel(self.pair, order_id)
             await sleep_yes_no(f"{order_id} should have been canceled")
 
-        if await proceed("run buy and cancel via web?"):
-            order_id = self.exchange.buy(self.pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
-            await sleep_yes_no(f"{order_id} should have been placed")
-            if await proceed("did you delete it via web?"):
-                await sleep_yes_no(f"{order_id} should have been cancelled")
-
         if await proceed("3 orders and cancel_all?"):
             order_id = self.exchange.buy(self.pair, amount=Decimal(1.1), price=Decimal(1.1), order_type=OrderType.LIMIT)
             order_id = self.exchange.buy(self.pair, amount=Decimal(1.2), price=Decimal(1.2), order_type=OrderType.LIMIT)
@@ -248,9 +238,6 @@ class ExchangeClient(object):
             if await proceed("orders created?"):
                 cancellations = await self.exchange.cancel_all(10)
                 print(cancellations)
-
-        # TODO
-        # compare test buy and cancel via web with development branch
 
         # NOTE
         # test all ws loops, make sure all network loops are tested

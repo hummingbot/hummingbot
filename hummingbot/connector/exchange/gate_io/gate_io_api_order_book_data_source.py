@@ -20,11 +20,10 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
-from .gate_io_order_book import GateIoOrderBook
-from .gate_io_websocket import GateIoWebsocket
 from hummingbot.connector.exchange.gate_io import gate_io_web_utils as web_utils
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.utils import async_ttl_cache
+from .gate_io_order_book import GateIoOrderBook
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
@@ -317,9 +316,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 ws and await ws.disconnect()
 
-    async def _subscribe_to_order_book_streams(self) -> GateIoWebsocket:
+    async def _subscribe_to_order_book_streams(self) -> web_utils.GateIoWebsocket:
         try:
-            ws = GateIoWebsocket(api_factory=self._api_factory)
+            ws = web_utils.GateIoWebsocket(api_factory=self._api_factory)
             await ws.connect()
             await ws.subscribe(
                 CONSTANTS.TRADES_ENDPOINT_NAME,
