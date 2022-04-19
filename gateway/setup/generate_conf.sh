@@ -10,15 +10,18 @@ echo
 
 HOST_CONF_PATH="${1:=(pwd -P)/conf}"
 INFURA_API_KEY="${2:=null}"
+MORALIS_API_KEY="${3:=null}"
 
 echo "HOST_CONF_PATH=$HOST_CONF_PATH"
 echo "INFURA_API_KEY=$INFURA_API_KEY"
+echo "MORALIS_API_KEY=$MORALIS_API_KEY"
 
 mkdir -p $HOST_CONF_PATH
 
 # generate ethereum file
 cp "$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../src/templates/ethereum.yml" "$HOST_CONF_PATH/ethereum.yml"
 sed -i'.bak' -e "/nodeAPIKey:/ s/[^ ][^ ]*$/$INFURA_API_KEY/" "$HOST_CONF_PATH/ethereum.yml"
+sed -i'.bak' -e "/nodeAPIKey:/ s/[^ ][^ ]*$/$MORALIS_API_KEY/" "$HOST_CONF_PATH/avalanche.yml"
 echo "created $HOST_CONF_PATH/ethereum.yml"
 
 # generate ssl file
