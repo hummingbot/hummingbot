@@ -8,12 +8,10 @@ from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod, RESTResponse, EndpointRESTRequest
-)
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest, RESTMethod, RESTResponse
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 CENTRALIZED = True
 
@@ -49,8 +47,8 @@ class GateIoAPIError(IOError):
             self.error_label = error_payload
 
 
-def build_gate_io_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+def build_gate_io_api_factory(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
 
 

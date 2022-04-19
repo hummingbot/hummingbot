@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
@@ -171,6 +172,6 @@ KEYS = {
 }
 
 
-def build_api_factory() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
+def build_api_factory(throttler: AsyncThrottler) -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
