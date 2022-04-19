@@ -15,7 +15,7 @@ import {
   GetTickersResponse,
   Market,
   Order,
-  OrderBook,
+  OrderBook, OrderSide, OrderType,
   Ticker
 } from "./serum.types";
 import {Map as ImmutableMap} from 'immutable';
@@ -163,9 +163,9 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.side,
-    status: input.status,
-    orderType: input.orderType,
+    side: input.sideEnum,
+    status: input.statusEnum,
+    orderType: input.orderTypeEnum,
     fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp,
   }
@@ -179,9 +179,9 @@ export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse 
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.side,
-    status: input.status,
-    orderType: input.orderType,
+    side: input.sideEnum,
+    status: input.statusEnum,
+    orderType: input.orderTypeEnum,
     fee: input.fee
   }
 }
@@ -194,9 +194,9 @@ export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse 
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.side,
-    status: input.status,
-    orderType: input.orderType,
+    side: input.sideEnum,
+    status: input.statusEnum,
+    orderType: input.orderTypeEnum,
     fee: input.fee
   }
 }
@@ -209,9 +209,9 @@ export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderRespons
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.side,
-    status: input.status,
-    orderType: input.orderType,
+    side: input.sideEnum,
+    status: input.statusEnum,
+    orderType: input.orderTypeEnum,
     fee: input.fee
   }
 }
@@ -223,9 +223,9 @@ export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderR
   ownerAddress: input.ownerAddress,
   price: input.price,
   amount: input.amount,
-  side: input.side,
-  status: input.status,
-  orderType: input.orderType,
+  side: input.sideEnum,
+  status: input.statusEnum,
+  orderType: input.orderTypeEnum,
   fee: input.fee
 })
 
@@ -237,10 +237,25 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.side,
-    status: input.status,
-    orderType: input.orderType,
+    side: input.sideEnum,
+    status: input.statusEnum,
+    orderType: input.orderTypeEnum,
     fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp
   }
+}
+
+export const convertOrderSideToSerumSide = (input: OrderSide): 'buy' | 'sell' => {
+  return input.toLowerCase() as 'buy' | 'sell'
+}
+
+export const convertOrderTypeToSerumType = (input?: OrderType): 'limit' | 'ioc' | 'postOnly' => {
+  if (!input)
+    return 'limit'
+  else if (['limit', 'ioc'].includes(input.toLowerCase()))
+    return input.toLowerCase() as 'limit' | 'ioc' | 'postOnly'
+  else if (['post_only', 'postOnly'].includes(input.toLowerCase()))
+    return 'postOnly'
+  else
+    throw new Error(`Invalid order type: ${input}`)
 }

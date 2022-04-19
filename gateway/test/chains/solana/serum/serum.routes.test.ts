@@ -1,6 +1,7 @@
 import express from 'express';
 import {Express} from 'express-serve-static-core';
 import request from 'supertest';
+import 'jest-extended';
 import {MARKETS} from '@project-serum/serum';
 import {Serum} from '../../../../src/connectors/serum/serum';
 import {unpatch} from '../../../services/patch';
@@ -8,10 +9,13 @@ import {Solana} from '../../../../src/chains/solana/solana';
 import {default as config} from './fixtures/getSerumConfig';
 import {StatusCodes} from 'http-status-codes';
 import {
+  CreateOrdersRequest,
   GetMarketResponse,
   GetOrderBookResponse,
+  GetOrderResponse,
   GetTickerResponse,
   OrderSide,
+  OrderStatus,
   Ticker
 } from '../../../../src/connectors/serum/serum.types';
 import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
@@ -25,7 +29,7 @@ beforeAll(async () => {
   app = express();
   app.use(express.json());
 
-  await Solana.getInstance(config.solana.network).init();
+  await Solana.getInstance(config.solana.network);
 
   await Serum.getInstance(config.serum.chain, config.serum.network);
 
@@ -202,13 +206,13 @@ describe(`${routePrefix}/markets`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
         .then((response) => {
-            expect(response.error).not.toBeFalsy()
-            if (response.error) {
-              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`
-              );
-            }
-          });
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`
+            );
+          }
+        });
     });
 
     it('Fail when trying to get a map of markets but including a non existing market name', async () => {
@@ -225,13 +229,13 @@ describe(`${routePrefix}/markets`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
-            expect(response.error).not.toBeFalsy()
-            if (response.error) {
-              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `Market "${marketNames[1]}" not found.`
-              );
-            }
-          });
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Market "${marketNames[1]}" not found.`
+            );
+          }
+        });
     });
   });
 });
@@ -378,13 +382,13 @@ describe(`${routePrefix}/orderBooks`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
         .then((response) => {
-            expect(response.error).not.toBeFalsy()
-            if (response.error) {
-              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
-              );
-            }
-          });
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
+            );
+          }
+        });
     });
 
     it('Fail when trying to get a map of order books but including a non existing market name', async () => {
@@ -401,13 +405,13 @@ describe(`${routePrefix}/orderBooks`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
-            expect(response.error).not.toBeFalsy()
-            if (response.error) {
-              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `Market "${marketNames[1]}" not found.`
-              );
-            }
-          });
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Market "${marketNames[1]}" not found.`
+            );
+          }
+        });
     });
   });
 });
@@ -547,13 +551,13 @@ describe(`${routePrefix}/tickers`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.BAD_REQUEST)
         .then((response) => {
-            expect(response.error).not.toBeFalsy()
-            if (response.error) {
-              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
-              );
-            }
-          });
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
+            );
+          }
+        });
     });
 
     it('Fail when trying to get a map of tickers but including a non existing market name', async () => {
@@ -570,46 +574,281 @@ describe(`${routePrefix}/tickers`, () => {
         .set('Accept', 'application/json')
         .expect(StatusCodes.NOT_FOUND)
         .then((response) => {
-            expect(response.error).not.toBeFalsy()
-            if (response.error) {
-              expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-                `Market "${marketNames[1]}" not found.`
-              );
-            }
-          });
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Market "${marketNames[1]}" not found.`
+            );
+          }
+        });
     });
   });
 });
 
 describe(`${routePrefix}/orders`, () => {
+  describe(`POST ${routePrefix}/orders`, () => {
+    describe('Single order', () => {
+      it('Create an order and receive a response with the new information', async () => {
+        const candidateOrder = {
+          id: '',
+          marketName: 'BTC/USDT',
+          ownerAddress: '0x0000000000000000000000000000000000000000',
+          price: 0.00000000000000001,
+          amount: 0.0000000000000001,
+          side: 'BUY',
+          orderType: 'LIMIT'
+        } as CreateOrdersRequest;
+
+        await request(app)
+          .post(`${routePrefix}/orders`)
+          .send({
+            chain: config.serum.chain,
+            network: config.serum.network,
+            connector: config.serum.connector,
+            order: candidateOrder
+          })
+          .set('Accept', 'application/json')
+          .expect(StatusCodes.OK)
+          .then((response) => {
+            const order = response.body as GetOrderResponse;
+
+            expect(order.id).toBeGreaterThan(0);
+            expect(order.exchangeId).toBeGreaterThan(0);
+            expect(order.marketName).toBe(candidateOrder.marketName);
+            expect(order.ownerAddress).toBe(candidateOrder.ownerAddress)
+            expect(order.price).toBe(candidateOrder.price);
+            expect(order.amount).toBe(candidateOrder.amount);
+            expect(order.side).toBe(candidateOrder.side);
+            expect(order.status).toBe(OrderStatus.PENDING);
+            expect(order.orderType).toBe(candidateOrder.orderType);
+          });
+      });
+
+      it('Fail when trying to create an order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create an order without informing some of its required parameters', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Create multiple orders and receive a response as a map with the new information', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
+        console.log('');
+      });
+    });
+  });
+
   describe(`GET ${routePrefix}/orders`, () => {
     it('Fail when trying to get one or more orders without informing any parameters', async () => {
-      console.log('');
+       await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No order(s) was/were informed.`
+            );
+          }
+        });
     });
 
     describe('Single order', () => {
-      it('Get a specific order by its id', async () => {
-        console.log('');
+      it('Get a specific order by its id and owner address', async () => {
+        const orderId = '';
+        const ownerAddress = config.solana.wallet.address;
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            id: orderId,
+            ownerAddress: ownerAddress,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const order = response.body as GetOrderResponse;
+
+          expect(order).toBeDefined();
+        });
       });
 
-      it('Get a specific order by its id and market name', async () => {
-        console.log('');
+      it('Get a specific order by its id, owner address and market name', async () => {
+        const orderId = '';
+        const marketName = 'BTC/USDT';
+        const ownerAddress = config.solana.wallet.address;
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            id: orderId,
+            marketName: marketName,
+            ownerAddress: ownerAddress,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const order = response.body as GetOrderResponse;
+
+          expect(order).toBeDefined();
+        });
       });
 
-      it('Get a specific order by its exchange id', async () => {
-        console.log('');
+      it('Get a specific order by its exchange id and owner address', async () => {
+        const exchangeId = '';
+        const ownerAddress = config.solana.wallet.address;
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            id: exchangeId,
+            ownerAddress: ownerAddress,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const order = response.body as GetOrderResponse;
+
+          expect(order).toBeDefined();
+        });
       });
 
-      it('Get a specific order by its exchange id and market name', async () => {
-        console.log('');
+      it('Get a specific order by its exchange id, owner address and market name', async () => {
+        const exchangeId = '';
+        const marketName = 'BTC/USDT';
+        const ownerAddress = config.solana.wallet.address;
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            id: exchangeId,
+            marketName: marketName,
+            ownerAddress: ownerAddress,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const order = response.body as GetOrderResponse;
+
+          expect(order).toBeDefined();
+        });
       });
 
-      it('Fail when trying to get an order without informing the order parameter', async () => {
-        console.log('');
+      it('Fail when trying to get an order without informing its owner address', async () => {
+        const exchangeId = '';
+        const marketName = 'BTC/USDT';
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            exchangeId: exchangeId,
+            marketName: marketName,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No clientId or exchangeId provided.`
+            );
+          }
+        });
       });
 
       it('Fail when trying to get an order without informing its id and exchange id', async () => {
-        console.log('');
+        const marketName = 'BTC/USDT';
+        const ownerAddress = config.solana.wallet.address;
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            marketName: marketName,
+            ownerAddress: ownerAddress,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No clientId or exchangeId provided.`
+            );
+          }
+        });
+      });
+
+      it('Fail when trying to get a non existing order', async () => {
+        const orderId = '-1';
+        const ownerAddress = config.solana.wallet.address;
+
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          order: {
+            id: orderId,
+            ownerAddress: ownerAddress,
+          }
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `Order "${orderId}" not found.`
+            );
+          }
+        });
       });
     });
 
@@ -641,34 +880,8 @@ describe(`${routePrefix}/orders`, () => {
       it('Fail when trying to get a map of orders without informing the id or exchange id of one of them', async () => {
         console.log('');
       });
-    });
-  });
 
-  describe(`POST ${routePrefix}/orders`, () => {
-    describe('Single order', () => {
-      it('Create an order and receive a response with the new information', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create an order without informing the order parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create an order without informing some of its required parameters', async () => {
-        console.log('');
-      });
-    });
-
-    describe('Multiple orders', () => {
-      it('Create multiple orders and receive a response as a map with the new information', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
+      it('Fail when trying to get a map of orders informing an id of a non existing one', async () => {
         console.log('');
       });
     });
@@ -701,6 +914,10 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Fail when trying to cancel an order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel a non existing order', async () => {
         console.log('');
       });
     });
@@ -737,6 +954,10 @@ describe(`${routePrefix}/orders`, () => {
       it('Fail when trying to cancel multiple orders without informing some of their ids and exchange ids', async () => {
         console.log('');
       });
+
+      it('Fail when trying to cancel multiple orders informing an id of a non existing one', async () => {
+        console.log('');
+      });
     });
   });
 });
@@ -769,6 +990,10 @@ describe(`${routePrefix}/openOrders`, () => {
       });
 
       it('Fail when trying to get an open order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to get a non existing open order', async () => {
         console.log('');
       });
     });
@@ -809,6 +1034,10 @@ describe(`${routePrefix}/openOrders`, () => {
       it('Fail when trying to get a map of open orders without informing some of their owner addresses', async () => {
         console.log('');
       });
+
+      it('Fail when trying to get a map of multiple open orders informing an id of a non existing one', async () => {
+        console.log('');
+      });
     });
   });
 
@@ -839,6 +1068,10 @@ describe(`${routePrefix}/openOrders`, () => {
       });
 
       it('Fail when trying to cancel an open order without informing its id and exchange id', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel a non existing open order', async () => {
         console.log('');
       });
     });
@@ -877,6 +1110,10 @@ describe(`${routePrefix}/openOrders`, () => {
       });
 
       it('Fail when trying to cancel multiple open orders without informing some of their owner addresses', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to cancel multiple open orders informing an id of a non existing one', async () => {
         console.log('');
       });
     });
