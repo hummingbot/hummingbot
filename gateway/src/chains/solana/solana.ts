@@ -1,9 +1,9 @@
-import { logger } from '../../services/logger';
-import { SolanaConfig } from './solana.config';
-import { countDecimals, TokenValue, walletPath } from '../../services/base';
+import {logger} from '../../services/logger';
+import {SolanaConfig} from './solana.config';
+import {countDecimals, TokenValue, walletPath} from '../../services/base';
 import NodeCache from 'node-cache';
 import bs58 from 'bs58';
-import { BigNumber } from 'ethers';
+import {BigNumber} from 'ethers';
 import {
   Account,
   AccountInfo,
@@ -18,14 +18,12 @@ import {
   TokenAmount,
   TransactionResponse,
 } from '@solana/web3.js';
-import {
-  AccountInfo as TokenAccount,
-  Token as TokenProgram,
-} from '@solana/spl-token';
-import { TokenInfo, TokenListProvider } from '@solana/spl-token-registry';
-import { TransactionResponseStatusCode } from './solana.requests';
+import {AccountInfo as TokenAccount, Token as TokenProgram,} from '@solana/spl-token';
+import {TokenInfo, TokenListProvider} from '@solana/spl-token-registry';
+import {TransactionResponseStatusCode} from './solana.requests';
 import fse from 'fs-extra';
-import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
+import {ConfigManagerCertPassphrase} from '../../services/config-manager-cert-passphrase';
+
 const crypto = require('crypto').webcrypto;
 
 export type Solanaish = Solana;
@@ -52,8 +50,7 @@ export class Solana implements Solanaish {
   private readonly _metricsLogInterval: number;
   // there are async values set in the constructor
   private _ready: boolean = false;
-  private _initializing: boolean = false;
-  private _initPromise: Promise<void> = Promise.resolve();
+  private initializing: boolean = false;
 
   constructor(network?: string) {
     this._cluster = network || SolanaConfig.config.network.slug;
@@ -98,12 +95,14 @@ export class Solana implements Solanaish {
   }
 
   // TODO Change to use caching method and async implementation!!!
-  public static getInstance(network: string): Solana {
+  public static async getInstance(network: string): Promise<Solana> {
     if (Solana._instances === undefined) {
       Solana._instances = {};
     }
     if (!(network in Solana._instances)) {
       Solana._instances[network] = new Solana(network);
+
+      await Solana._instances[network].init();
     }
 
     return Solana._instances[network];
@@ -111,10 +110,6 @@ export class Solana implements Solanaish {
 
   public static getConnectedInstances(): { [name: string]: Solana } {
     return Solana._instances;
-  }
-
-  ready(): boolean {
-    return this._ready;
   }
 
   public get connection() {
@@ -130,14 +125,16 @@ export class Solana implements Solanaish {
   }
 
   async init(): Promise<void> {
-    if (!this.ready() && !this._initializing) {
-      this._initializing = true;
-      this._initPromise = this.loadTokens().then(() => {
-        this._ready = true;
-        this._initializing = false;
-      });
+    if (!this.ready && !this.initializing) {
+      this.initializing = true;
+      await this.loadTokens();
+      this._ready = true;
+      this.initializing = false;
     }
-    return this._initPromise;
+  }
+
+  ready(): boolean {
+    return this._ready;
   }
 
   async loadTokens(): Promise<void> {

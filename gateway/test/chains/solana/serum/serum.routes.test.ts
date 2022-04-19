@@ -465,7 +465,7 @@ describe(`${routePrefix}/tickers`, () => {
         });
     });
 
-    it(async () => {
+    it('Get a map with all tickers', async () => {
       await request(app)
         .get(`${routePrefix}/tickers`)
         .send({
@@ -482,12 +482,9 @@ describe(`${routePrefix}/tickers`, () => {
           expect(tickersMap.size).toBe(MARKETS.length);
           for (const [_marketName, ticker] of tickersMap) {
             expect(ticker.price).toBeGreaterThan(0);
-            expect(ticker.amount).toBeGreaterThan(0);
-            expect(ticker.side).toBe(OrderSide.BUY || OrderSide.SELL);
-            expect((new Date(ticker.timestamp))).toBeValidDate()
           }
         });
-    }, 'Get a map with all tickers');
+    });
 
     it('Fail when trying to get a ticker without informing its market name', async () => {
       const marketName = '';

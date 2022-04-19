@@ -42,7 +42,7 @@ export namespace SerumRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) =>
-    await Solana.getInstance(request.body.chain); // TODO the Serum and the Solana network are always the same?
+    await Solana.getInstance(request.body.chain); // TODO the Serum and the Solana network are always the same?!!!
 
   export const getSerum = async (request: Request) =>
     await Serum.getInstance(request.body.chain, request.body.network);
