@@ -11,10 +11,7 @@ from weakref import (
 )
 
 import path_util  # noqa: F401
-from hummingbot import (
-    chdir_to_data_directory,
-    init_logging,
-)
+from hummingbot import chdir_to_data_directory, init_logging
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
     read_system_configs_from_yml,

@@ -6,22 +6,22 @@ import sys
 import time
 import unittest
 from os.path import join, realpath
-from typing import List, Iterator, NamedTuple, Dict
+from typing import Dict, Iterator, List, NamedTuple
 
 import pandas as pd
 
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
-from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.clock import (
-    ClockMode,
     Clock,
+    ClockMode,
 )
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -144,9 +144,11 @@ class PaperTradeExchangeTest(unittest.TestCase):
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: PaperTradeExchange = PaperTradeExchange(
-            order_book_tracker=BinanceOrderBookTracker(trading_pairs=["ETH-USDT", "BTC-USDT"]),
-            config=MarketConfig.default_config(),
-            target_market=BinanceExchange
+            order_book_tracker=OrderBookTracker(
+                data_source=BinanceAPIOrderBookDataSource(trading_pairs=["ETH-USDT", "BTC-USDT"]),
+                trading_pairs=["ETH-USDT", "BTC-USDT"]),
+            target_market=BinanceExchange,
+            exchange_name="binance",
         )
         print("Initializing PaperTrade execute orders market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
