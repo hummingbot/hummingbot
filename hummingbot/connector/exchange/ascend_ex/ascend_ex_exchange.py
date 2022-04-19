@@ -8,8 +8,7 @@ from enum import Enum
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
-from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
@@ -110,9 +109,9 @@ class AscendExExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)
-        self._api_factory = build_api_factory(auth=self._ascend_ex_auth)
-        self._rest_assistant = None
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._api_factory = build_api_factory(throttler=self._throttler, auth=self._ascend_ex_auth)
+        self._rest_assistant = None
         self._order_book_tracker = AscendExOrderBookTracker(
             api_factory=self._api_factory, throttler=self._throttler, trading_pairs=self._trading_pairs
         )

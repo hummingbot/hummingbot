@@ -56,6 +56,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             auth=self.auth)
 
         self.data_source = KucoinAPIUserStreamDataSource(
+            auth=self.auth,
             throttler=self.throttler,
             api_factory=self.api_factory)
 
@@ -268,7 +269,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("ERROR",
-                            "Unexpected error occurred when listening to user streams. Retrying in 5 seconds..."))
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -293,7 +294,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error occurred when listening to user streams. Retrying in 5 seconds..."))
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
 import time
@@ -15,15 +13,15 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker_
     CoinbaseProOrderBookTrackerEntry
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
+    build_coinbase_pro_web_assistant_factory,
     CoinbaseProRESTRequest,
-    build_coinbase_pro_web_assistant_factory
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -204,7 +202,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "product_ids": trading_pairs,
                     "channels": [CONSTANTS.FULL_CHANNEL_NAME]
                 }
-                subscribe_request = WSRequest(payload=subscribe_payload)
+                subscribe_request = WSJSONRequest(payload=subscribe_payload)
                 await ws_assistant.subscribe(subscribe_request)
                 async for msg in self._iter_messages(ws_assistant):
                     msg_type: str = msg.get("type", None)

@@ -9,26 +9,25 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.connector.exchange.gate_io.gate_io_active_order_tracker import GateIoActiveOrderTracker
+from hummingbot.connector.exchange.gate_io.gate_io_order_book import GateIoOrderBook
+from hummingbot.connector.exchange.gate_io.gate_io_utils import (
+    api_call_with_retries,
+    build_gate_io_api_factory,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    GateIoAPIError,
+    GateIORESTRequest,
+)
+from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
-
-from .gate_io_active_order_tracker import GateIoActiveOrderTracker
-from .gate_io_order_book import GateIoOrderBook
-from .gate_io_utils import (
-    GateIoAPIError,
-    GateIORESTRequest,
-    api_call_with_retries,
-    build_gate_io_api_factory,
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair
-)
-from .gate_io_websocket import GateIoWebsocket
 
 
 class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -47,9 +46,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(trading_pairs)
-        self._api_factory = api_factory or build_gate_io_api_factory()
-        self._rest_assistant: Optional[RESTAssistant] = None
         self._throttler = throttler or self._get_throttler_instance()
+        self._api_factory = api_factory or build_gate_io_api_factory(throttler=self._throttler)
+        self._rest_assistant: Optional[RESTAssistant] = None
         self._trading_pairs: List[str] = trading_pairs
 
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -62,7 +61,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         throttler = cls._get_throttler_instance()
-        api_factory = build_gate_io_api_factory()
+        api_factory = build_gate_io_api_factory(throttler=throttler)
         rest_assistant = await api_factory.get_rest_assistant()
         results = {}
         ticker_param = None
@@ -86,7 +85,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def fetch_trading_pairs(cls) -> List[str]:
         throttler = cls._get_throttler_instance()
-        api_factory = build_gate_io_api_factory()
+        api_factory = build_gate_io_api_factory(throttler=throttler)
         rest_assistant = await api_factory.get_rest_assistant()
         try:
             async with throttler.execute_task(CONSTANTS.SYMBOL_PATH_URL):
@@ -119,7 +118,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         throttler = throttler or cls._get_throttler_instance()
-        api_factory = build_gate_io_api_factory()
+        api_factory = build_gate_io_api_factory(throttler=throttler)
         rest_assistant = rest_assistant or await api_factory.get_rest_assistant()
         logger = logger or logging.getLogger()
         try:
