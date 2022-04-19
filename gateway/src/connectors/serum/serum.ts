@@ -136,7 +136,7 @@ export class Serum {
     if (!this._ready && !this.initializing) {
       this.initializing = true;
 
-      this.solana = Solana.getInstance(this.network);
+      this.solana = await Solana.getInstance(this.network);
       await this.solana.init();
 
       await this.getAllMarkets();

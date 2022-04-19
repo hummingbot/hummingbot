@@ -1,45 +1,40 @@
-/* eslint-disable @typescript-eslint/ban-types */
-import { NextFunction, Router, Request, Response } from 'express';
-import { Solana } from './solana';
-import { SolanaConfig } from './solana.config';
-import { verifySolanaIsAvailable } from './solana-middlewares';
-import { asyncHandler } from '../../services/error-handler';
-import {
-  token,
-  balances,
-  poll,
-  getOrCreateTokenAccount,
-} from './solana.controllers';
+import {NextFunction, Request, Response, Router} from 'express';
+import {Solana} from './solana';
+import {SolanaConfig} from './solana.config';
+import {verifySolanaIsAvailable} from './solana-middlewares';
+import {asyncHandler} from '../../services/error-handler';
+import {balances, getOrCreateTokenAccount, poll, token,} from './solana.controllers';
 import {
   SolanaBalanceRequest,
   SolanaBalanceResponse,
   SolanaPollRequest,
   SolanaPollResponse,
-  SolanaTokenResponse,
   SolanaTokenRequest,
+  SolanaTokenResponse,
 } from './solana.requests';
 import {
-  validateSolanaGetTokenRequest,
   validateSolanaBalanceRequest,
-  validateSolanaPostTokenRequest,
+  validateSolanaGetTokenRequest,
   validateSolanaPollRequest,
+  validateSolanaPostTokenRequest,
 } from './solana.validators';
 
 export namespace SolanaRoutes {
   export const router = Router();
-  export const solana = Solana.getInstance();
-  export const reload = (): void => {
-    // Solana = Solana.reload();
-  };
+
+  export const getSolana = async (request: Request) =>
+    await Solana.getInstance(request.body.chain);
 
   router.use(asyncHandler(verifySolanaIsAvailable));
 
   router.get(
     '/',
-    asyncHandler(async (_req: Request, res: Response) => {
+    asyncHandler(async (request: Request, response: Response) => {
+      const solana = await getSolana(request);
+
       const rpcUrl = solana.rpcUrl;
 
-      res.status(200).json({
+      response.status(200).json({
         network: SolanaConfig.config.network.slug,
         rpcUrl: rpcUrl,
         connection: true,
@@ -53,12 +48,14 @@ export namespace SolanaRoutes {
     '/balances',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaBalanceRequest>,
-        res: Response<SolanaBalanceResponse | string, {}>,
+        request: Request<{}, {}, SolanaBalanceRequest>,
+        response: Response<SolanaBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
-        validateSolanaBalanceRequest(req.body);
-        res.status(200).json(await balances(solana, req.body));
+        const solana = await getSolana(request);
+
+        validateSolanaBalanceRequest(request.body);
+        response.status(200).json(await balances(solana, request.body));
       }
     )
   );
@@ -68,12 +65,14 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaTokenRequest>,
-        res: Response<SolanaTokenResponse | string, {}>,
+        request: Request<{}, {}, SolanaTokenRequest>,
+        response: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
-        validateSolanaGetTokenRequest(req.body);
-        res.status(200).json(await token(solana, req.body));
+        const solana = await getSolana(request);
+
+        validateSolanaGetTokenRequest(request.body);
+        response.status(200).json(await token(solana, request.body));
       }
     )
   );
@@ -83,12 +82,14 @@ export namespace SolanaRoutes {
     '/token',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaTokenRequest>,
-        res: Response<SolanaTokenResponse | string, {}>,
+        request: Request<{}, {}, SolanaTokenRequest>,
+        response: Response<SolanaTokenResponse | string, {}>,
         _next: NextFunction
       ) => {
-        validateSolanaPostTokenRequest(req.body);
-        res.status(200).json(await getOrCreateTokenAccount(solana, req.body));
+        const solana = await getSolana(request);
+
+        validateSolanaPostTokenRequest(request.body);
+        response.status(200).json(await getOrCreateTokenAccount(solana, request.body));
       }
     )
   );
@@ -98,11 +99,13 @@ export namespace SolanaRoutes {
     '/poll',
     asyncHandler(
       async (
-        req: Request<{}, {}, SolanaPollRequest>,
-        res: Response<SolanaPollResponse, {}>
+        request: Request<{}, {}, SolanaPollRequest>,
+        response: Response<SolanaPollResponse, {}>
       ) => {
-        validateSolanaPollRequest(req.body);
-        res.status(200).json(await poll(solana, req.body));
+        const solana = await getSolana(request);
+
+        validateSolanaPollRequest(request.body);
+        response.status(200).json(await poll(solana, request.body));
       }
     )
   );
