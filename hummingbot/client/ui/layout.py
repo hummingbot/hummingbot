@@ -229,9 +229,10 @@ def get_strategy_file():
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    gateway_status = "ON" if hb._gateway_monitor.current_status is GatewayStatus.ONLINE else "OFF"
+    gateway_status = "RUNNING" if hb._gateway_monitor.current_status is GatewayStatus.ONLINE else "STOPPED"
+    gateway_conn_status = hb._gateway_monitor.current_connector_conn_status.name
     style = "class:log-field"
-    return [(style, f"Gateway: {gateway_status}")]
+    return [(style, f"Gateway: {gateway_status}, {gateway_conn_status}")]
 
 
 def generate_layout(input_field: TextArea,
