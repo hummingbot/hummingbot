@@ -1,0 +1,72 @@
+{
+  "info": {
+    "_postman_id": "b3877e64-9eb4-4f67-94bc-536b8979477a",
+    "name": "Uniswap-GatewayV2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "eth/uniswap",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://localhost:{{port}}/eth/uniswap",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "{{port}}",
+          "path": ["eth", "uniswap"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "eth/uniswap/trade",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"base\": \"WETH\",\r\n    \"quote\": \"DAI\",\r\n    \"amount\": \"0.01\",\r\n    \"side\": \"buy\",\r\n    \"privateKey\": \"{{privateKey}}\",\r\n    \"nonce\": 51\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://localhost:{{port}}/eth/uniswap/trade",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "{{port}}",
+          "path": ["eth", "uniswap", "trade"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "eth/uniswap/price",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"base\": \"WETH\",\r\n    \"quote\": \"DAI\",\r\n    \"amount\": \"0.01\",\r\n    \"side\": \"buy\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://localhost:{{port}}/eth/uniswap/price",
+          "protocol": "https",
+          "host": ["localhost"],
+          "port": "{{port}}",
+          "path": ["eth", "uniswap", "price"]
+        }
+      },
+      "response": []
+    }
+  ]
+}
