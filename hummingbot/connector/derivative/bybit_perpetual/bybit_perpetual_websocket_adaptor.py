@@ -1,6 +1,7 @@
-import aiohttp
 import asyncio
-from typing import AsyncIterable, Dict, Any, Optional, List
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 
