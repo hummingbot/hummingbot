@@ -1,14 +1,20 @@
+from decimal import Decimal
+import zlib
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-import zlib
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.1"),
+    taker_percent_fee_decimal=Decimal("0.15"),
+)
 
 CENTRALIZED = True
 
 
 EXAMPLE_PAIR = "BTC-USDT"
 
-
-DEFAULT_FEES = [0.1, 0.15]
 
 
 KEYS = {
