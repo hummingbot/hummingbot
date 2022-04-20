@@ -29,7 +29,7 @@ def list_encrypted_file_paths():
 
 
 def encrypted_file_path(config_key: str):
-    return "%s%s%s%s" % (get_key_file_path(), ENCYPTED_CONF_PREFIX, config_key, ENCYPTED_CONF_POSTFIX)
+    return os.path.join(get_key_file_path(), f"{ENCYPTED_CONF_PREFIX}{config_key}{ENCYPTED_CONF_POSTFIX}")
 
 
 def secure_config_key(encrypted_file_path: str):

@@ -20,6 +20,3 @@ binance_percent_fee_token:  # BNB
 binance_maker_percent_fee:  # 0.75
 binance_taker_percent_fee:  # 0.75
 binance_buy_percent_fee_deducted_from_returns:  # True
-
-balancer_maker_fixed_fees:  # [[ETH, 0.0002]]
-balancer_taker_fixed_fees:  # [[ETH, 0.0002]]
