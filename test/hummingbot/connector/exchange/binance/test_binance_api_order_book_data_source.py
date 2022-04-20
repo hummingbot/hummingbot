@@ -2,25 +2,19 @@ import asyncio
 import json
 import re
 import unittest
-
-from typing import (
-    Any,
-    Awaitable,
-    Dict,
-    List,
-)
-from unittest.mock import AsyncMock, patch, MagicMock
+from typing import Any, Awaitable, Dict, List
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
 from bidict import bidict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_utils as utils
+import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -43,11 +37,14 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
+        self.time_synchronizer = TimeSynchronizer()
+        self.time_synchronizer.add_time_offset_ms_sample(1000)
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.data_source = BinanceAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
                                                          throttler=self.throttler,
-                                                         domain=self.domain)
+                                                         domain=self.domain,
+                                                         time_synchronizer=self.time_synchronizer)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -133,7 +130,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_last_trade_prices(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
         url = f"{url}?symbol={self.base_asset}{self.quote_asset}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -165,7 +162,8 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         result: Dict[str, float] = self.async_run_with_timeout(
             self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair],
-                                                    throttler=self.throttler)
+                                                    throttler=self.throttler,
+                                                    time_synchronizer=self.time_synchronizer)
         )
 
         self.assertEqual(1, len(result))
@@ -173,7 +171,15 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_all_mid_prices(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"serverTime": 1640000003000}
+
+        mock_api.get(regex_url,
+                     body=json.dumps(response))
+
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
 
         mock_response: List[Dict[str, Any]] = [
             {
@@ -202,7 +208,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
         BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
 
         mock_response: Dict[str, Any] = {
             "timezone": "UTC",
@@ -299,7 +305,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_api.get(url, body=json.dumps(mock_response))
 
         result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs()
+            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
         )
 
         self.assertEqual(2, len(result))
@@ -311,23 +317,20 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_fetch_trading_pairs_exception_raised(self, mock_api):
         BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
 
-        url = utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception)
 
         result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs()
+            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
         )
 
         self.assertEqual(0, len(result))
 
-    def test_get_throttler_instance(self):
-        self.assertIsInstance(BinanceAPIOrderBookDataSource._get_throttler_instance(), AsyncThrottler)
-
     @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
@@ -340,7 +343,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_snapshot_catch_exception(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -351,7 +354,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response: Dict[str, Any] = {
@@ -577,7 +580,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -594,7 +597,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception)
@@ -610,7 +613,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
@@ -621,4 +624,4 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(12345, msg.update_id)
+        self.assertEqual(1027024, msg.update_id)

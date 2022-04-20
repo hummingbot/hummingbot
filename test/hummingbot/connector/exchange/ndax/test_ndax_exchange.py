@@ -434,10 +434,8 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.client_order_id, buy_event.order_id)
         self.assertEqual(inflight_order.base_asset, buy_event.base_asset)
         self.assertEqual(inflight_order.quote_asset, buy_event.quote_asset)
-        self.assertEqual(inflight_order.fee_asset, buy_event.fee_asset)
         self.assertEqual(inflight_order.executed_amount_base, buy_event.base_asset_amount)
         self.assertEqual(inflight_order.executed_amount_quote, buy_event.quote_asset_amount)
-        self.assertEqual(inflight_order.fee_paid, buy_event.fee_amount)
         self.assertEqual(inflight_order.order_type, buy_event.order_type)
         self.assertEqual(inflight_order.exchange_order_id, buy_event.exchange_order_id)
 
@@ -512,10 +510,8 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.client_order_id, buy_event.order_id)
         self.assertEqual(inflight_order.base_asset, buy_event.base_asset)
         self.assertEqual(inflight_order.quote_asset, buy_event.quote_asset)
-        self.assertEqual(inflight_order.fee_asset, buy_event.fee_asset)
         self.assertEqual(inflight_order.executed_amount_base, buy_event.base_asset_amount)
         self.assertEqual(inflight_order.executed_amount_quote, buy_event.quote_asset_amount)
-        self.assertEqual(inflight_order.fee_paid, buy_event.fee_amount)
         self.assertEqual(inflight_order.order_type, buy_event.order_type)
         self.assertEqual(inflight_order.exchange_order_id, buy_event.exchange_order_id)
 

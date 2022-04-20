@@ -222,24 +222,6 @@ cdef class FtxExchange(ExchangeBase):
                     self.logger().warning(
                         f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
                         f"The complete update will be processed with estimated fees.")
-                    fee_asset = tracked_order.quote_asset
-                    fee = self.get_fee(
-                        base,
-                        quote,
-                        tracked_order.order_type,
-                        tracked_order.trade_type,
-                        new_amount,
-                        new_price)
-                    fee_amount = fee.fee_amount_in_token(
-                        tracked_order.trading_pair,
-                        new_price,
-                        tracked_order.amount,
-                        token=tracked_order.quote_asset,
-                        exchange=self
-                    )
-                else:
-                    fee_asset = tracked_order.fee_asset
-                    fee_amount = tracked_order.fee_paid
 
                 self.logger().info(f"The market {tracked_order.trade_type.name.lower()} order "
                                    f"{tracked_order.client_order_id} has completed according to user stream.")
@@ -249,10 +231,8 @@ cdef class FtxExchange(ExchangeBase):
                                 tracked_order.client_order_id,
                                 base,
                                 quote,
-                                fee_asset,
                                 tracked_order.executed_amount_base,
                                 tracked_order.executed_amount_quote,
-                                fee_amount,
                                 tracked_order.order_type))
             # Complete the order if relevant
             if tracked_order.is_done:
