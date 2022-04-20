@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'altmarkets': 'yellow',
+    'altmarkets': 'green',
     'ascend_ex': 'yellow',
     'balancer': 'green',
     'beaxy': 'green',
@@ -18,6 +18,7 @@ connector_status = {
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
     'coinflex': 'yellow',
+    'coinflex_test': 'yellow',
     'coinzoom': 'yellow',
     'crypto_com': 'yellow',
     'digifinex': "yellow",
@@ -29,6 +30,7 @@ connector_status = {
     'huobi': 'green',
     'kraken': 'yellow',
     'kucoin': 'yellow',
+    'kucoin_testnet': 'yellow',
     'k2': 'red',
     'liquid': 'yellow',
     'loopring': 'yellow',
