@@ -281,7 +281,6 @@ class MarketsRecorder:
             self._ev_loop.call_soon_threadsafe(self._did_complete_funding_payment, event_tag, market, evt)
             return
 
-        session: Session = self.session
         timestamp: float = evt.timestamp
 
         with self._sql_manager.get_new_session() as session:

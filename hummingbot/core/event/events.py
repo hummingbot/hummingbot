@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
 
@@ -41,6 +41,11 @@ class TokenApprovalEvent(Enum):
 
 class HummingbotUIEvent(Enum):
     Start = 1
+
+
+class AccountEvent(Enum):
+    PositionModeChangeSucceeded = 400
+    PositionModeChangeFailed = 401
 
 
 class FundingInfo(NamedTuple):
@@ -284,3 +289,11 @@ class LimitOrderStatus(Enum):
     CANCELED = 4
     COMPLETED = 5
     FAILED = 6
+
+
+@dataclass
+class PositionModeChangeEvent:
+    timestamp: float
+    trading_pair: str
+    position_mode: PositionMode
+    message: Optional[str] = None
