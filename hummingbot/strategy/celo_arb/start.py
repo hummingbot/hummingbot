@@ -19,7 +19,7 @@ def start(self):
         secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_exchange,
                                                                            [secondary_trading_pair])[0]
     except ValueError as e:
-        self._notify(str(e))
+        self.notify(str(e))
         return
 
     market_names: List[Tuple[str, List[str]]] = [(secondary_exchange, [secondary_trading_pair])]
