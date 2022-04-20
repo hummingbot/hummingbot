@@ -940,7 +940,7 @@ class CoinflexPerpetualDerivative(ExchangeBase, PerpetualTrading):
             unrealized_pnl = Decimal(position.get("positionPnl"))
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("quantity").replace("-", ""))
-            leverage = Decimal(position.get("leverage"))
+            leverage = Decimal('1')
             pos_key = self.position_key(trading_pair, position_side)
             if amount != 0:
                 self._account_positions[pos_key] = Position(
