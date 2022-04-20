@@ -1,24 +1,11 @@
-import logging
+from typing import Any, Dict, Optional
 
-from typing import Any, Dict, List, Optional
-
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.logger import HummingbotLogger
-
-_logger = None
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class GateIoOrderBook(OrderBook):
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global _logger
-        if _logger is None:
-            _logger = logging.getLogger(__name__)
-        return _logger
-
     @classmethod
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
@@ -83,22 +70,12 @@ class GateIoOrderBook(OrderBook):
             "amount": msg.get("amount"),
         })
         # TODO should we use timestamp coming from the message?
+        # }, timestamp=ts * 1e-3)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["side"] == "sell" else float(TradeType.BUY.value),
             "trade_id": msg["trade_id"],
-            # "update_id": ts,
             "update_id": timestamp,
             "price": msg["price"],
             "amount": msg["amount"]
         }, timestamp=timestamp)
-        # }, timestamp=ts * 1e-3)
-
-    # TODO
-    @classmethod
-    def __from_snapshot(cls, snapshot: OrderBookMessage):
-        raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book needs to retain individual order data.")
-
-    @classmethod
-    def __restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
-        raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book needs to retain individual order data.")
