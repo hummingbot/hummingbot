@@ -20,7 +20,7 @@ class ExportCommand:
     def export(self,  # type: HummingbotApplication
                option):
         if option is None or option not in ("keys", "trades"):
-            self._notify("Invalid export option.")
+            self.notify("Invalid export option.")
             return
         elif option == "keys":
             safe_ensure_future(self.export_keys())
@@ -30,23 +30,23 @@ class ExportCommand:
     async def export_keys(self,  # type: HummingbotApplication
                           ):
         if not Security.any_encryped_files() and not Security.any_wallets():
-            self._notify("There are no keys to export.")
+            self.notify("There are no keys to export.")
             return
         await Security.wait_til_decryption_done()
         self.placeholder_mode = True
         self.app.hide_input = True
         if await self.check_password():
             await Security.wait_til_decryption_done()
-            self._notify("\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
-                         "assets held in your account.")
+            self.notify("\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
+                        "assets held in your account.")
             if Security.all_decrypted_values():
-                self._notify("\nAPI keys:")
+                self.notify("\nAPI keys:")
             for key, value in Security.all_decrypted_values().items():
-                self._notify(f"{key}: {value}")
+                self.notify(f"{key}: {value}")
             if Security.private_keys():
-                self._notify("\nEthereum wallets:")
+                self.notify("\nEthereum wallets:")
             for key, value in Security.private_keys().items():
-                self._notify(f"Public address: {key}\nPrivate Key: {value.hex()}")
+                self.notify(f"Public address: {key}\nPrivate Key: {value.hex()}")
         self.app.change_prompt(prompt=">>> ")
         self.app.hide_input = False
         self.placeholder_mode = False
@@ -55,13 +55,13 @@ class ExportCommand:
                                           path):
         input = await self.app.prompt(prompt="Enter a new csv file name >>> ")
         if input is None or input == "":
-            self._notify("Value is required.")
+            self.notify("Value is required.")
             return await self.prompt_new_export_file_name(path)
         if "." not in input:
             input = input + ".csv"
         file_path = os.path.join(path, input)
         if os.path.exists(file_path):
-            self._notify(f"{input} file already exists, please enter a new name.")
+            self.notify(f"{input} file already exists, please enter a new name.")
             return await self.prompt_new_export_file_name(path)
         else:
             return input
@@ -73,7 +73,7 @@ class ExportCommand:
                 int(self.init_time * 1e3),
                 session=session)
             if len(trades) == 0:
-                self._notify("No past trades to export.")
+                self.notify("No past trades to export.")
                 return
             self.placeholder_mode = True
             self.app.hide_input = True
@@ -85,9 +85,9 @@ class ExportCommand:
             try:
                 df: pd.DataFrame = TradeFill.to_pandas(trades)
                 df.to_csv(file_path, header=True)
-                self._notify(f"Successfully exported trades to {file_path}")
+                self.notify(f"Successfully exported trades to {file_path}")
             except Exception as e:
-                self._notify(f"Error exporting trades to {path}: {e}")
+                self.notify(f"Error exporting trades to {path}: {e}")
             self.app.change_prompt(prompt=">>> ")
             self.placeholder_mode = False
             self.app.hide_input = False
