@@ -34,9 +34,11 @@ class GateIoOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None):
         """
         Convert json diff data into standard OrderBookMessage format
+
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: GateIoOrderBookMessage
+
+        :return: OrderBookMessage
         """
 
         extra_data = metadata or {}
@@ -49,7 +51,6 @@ class GateIoOrderBook(OrderBook):
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
-        # TODO should we use timestamp coming from the message?
 
     @classmethod
     def trade_message_from_exchange(cls,
@@ -69,8 +70,6 @@ class GateIoOrderBook(OrderBook):
             "price": msg.get("price"),
             "amount": msg.get("amount"),
         })
-        # TODO should we use timestamp coming from the message?
-        # }, timestamp=ts * 1e-3)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["side"] == "sell" else float(TradeType.BUY.value),

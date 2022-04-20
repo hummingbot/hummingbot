@@ -14,14 +14,9 @@ from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source im
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.core.event.events import (
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-)
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
-from hummingbot.core.data_type.in_flight_order import TradeUpdate
+from hummingbot.core.data_type.in_flight_order import TradeUpdate, OrderUpdate, OrderState
 from hummingbot.core.utils.async_utils import safe_gather
 
 
@@ -78,7 +73,6 @@ class GateIoExchange(ExchangeBaseV2):
     def name(self) -> str:
         return "gate_io"
 
-    # TODO link to example
     async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> Dict[str, TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
@@ -86,22 +80,8 @@ class GateIoExchange(ExchangeBaseV2):
         :param raw_trading_pair_info: The json API response
         :return A dictionary of trading rules.
 
-        Response Example:
-        [
-            {
-                "id": "ETH_USDT",
-                "base": "ETH",
-                "quote": "USDT",
-                "fee": "0.2",
-                "min_base_amount": "0.001",
-                "min_quote_amount": "1.0",
-                "amount_precision": 3,
-                "precision": 6,
-                "trade_status": "tradable",
-                "sell_start": 1516378650,
-                "buy_start": 1516378650
-            }
-        ]
+        Example raw_trading_pair_info:
+        https://www.gate.io/docs/apiv4/en/#list-all-currency-pairs-supported
         """
         result = []
         for rule in raw_trading_pair_info:
@@ -219,8 +199,6 @@ class GateIoExchange(ExchangeBaseV2):
         trades_tasks = []
         reviewed_orders = []
         tracked_orders = list(self.in_flight_orders.values())
-
-        print(tracked_orders)
         if len(tracked_orders) <= 0:
             return
 
@@ -230,8 +208,9 @@ class GateIoExchange(ExchangeBaseV2):
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 reviewed_orders.append(tracked_order)
             except asyncio.TimeoutError:
-                self.logger().network(f"Skipped order status update for {tracked_order.client_order_id} "
-                                      "- waiting for exchange order id.")
+                self.logger().network(
+                    f"Skipped order status update for {tracked_order.client_order_id} "
+                    "- waiting for exchange order id.")
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
                 continue
 
@@ -336,37 +315,64 @@ class GateIoExchange(ExchangeBaseV2):
                     "Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
+    def _normalise_order_message_state(self, order_msg: Dict[str, Any], tracked_order):
+        state = None
+        # we do not handle:
+        #   "failed" because it is handled by create order
+        #   "put" as the exchange order id is returned in the create order response
+        #   "open" for same reason
+
+        # same field for both WS and REST
+        amount_left = Decimal(order_msg.get("left"))
+
+        # WS
+        if "event" in order_msg:
+            event_type = order_msg.get("event")
+            if event_type == "update":
+                state = OrderState.FILLED
+                if amount_left > 0:
+                    state = OrderState.PARTIALLY_FILLED
+            if event_type == "finish":
+                state = OrderState.FILLED
+                if amount_left > 0:
+                    state = OrderState.CANCELLED
+        else:
+            status = order_msg.get("status")
+            if status == "closed":
+                state = OrderState.FILLED
+                if amount_left > 0:
+                    state = OrderState.PARTIALLY_FILLED
+            if status == "cancelled":
+                state = OrderState.CANCELLED
+        return state
+
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
+
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
+
         Example Order:
         https://www.gate.io/docs/apiv4/en/#list-orders
         """
+        state = None
         client_order_id = str(order_msg.get("text", ""))
         tracked_order = self.in_flight_orders.get(client_order_id, None)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        state = order_msg.get("status", order_msg.get("event"))
-        if state == "cancelled":
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-            self.trigger_event(
-                MarketEvent.OrderCancelled,
-                OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
-            self.stop_tracking_order(tracked_order.client_order_id)
-
-        # TODO is_cancelled was not working above for:
-        # tracked_order.last_state = order_msg.get("status", order_msg.get("event"))
-        # if tracked_order.is_cancelled:
-        #
-        elif tracked_order.is_failure:
-            self.logger().info(f"Order {tracked_order.client_order_id} failed according to order status API. ")
-            self.trigger_event(
-                MarketEvent.OrderFailure,
-                MarketOrderFailureEvent(self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
+        state = self._normalise_order_message_state(order_msg, tracked_order)
+        if state:
+            order_update = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=order_msg["update_time"],
+                new_state=state,
+                client_order_id=client_order_id,
+                exchange_order_id=str(order_msg["id"]),
+            )
+            self._order_tracker.process_order_update(order_update=order_update)
+            self.logger().info(f"Successfully updated order {tracked_order.client_order_id}.")
 
     def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
@@ -381,10 +387,6 @@ class GateIoExchange(ExchangeBaseV2):
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        # TODO review
-        # {'id': '3286836540', 'create_time': '1650444945', 'create_time_ms': '1650444945003.509000',
-        # 'currency_pair': 'ETH_USDT', 'side': 'buy', 'role': 'taker', 'amount': '0.001', 'price': '3100.4',
-        # 'order_id': '146053117298', 'fee': '0.0000018', 'fee_currency': 'ETH', 'point_fee': '0', 'gt_fee': '0'}
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=tracked_order.trade_type,
@@ -401,8 +403,7 @@ class GateIoExchange(ExchangeBaseV2):
             trading_pair=tracked_order.trading_pair,
             fee=fee,
             fill_base_amount=Decimal(trade["amount"]),
-            # TODO should this be calculated from amount * price?
-            fill_quote_amount=Decimal(trade["amount"]),
+            fill_quote_amount=Decimal(trade["amount"]) * Decimal(trade["price"]),
             fill_price=Decimal(trade["price"]),
             fill_timestamp=trade["create_time"],
         )
