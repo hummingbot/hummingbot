@@ -50,9 +50,15 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui.completer import load_completer
+from enum import Enum
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
+
+class Chain(Enum):
+    ETHEREUM = 0
+    AVALANCHE = 1
 
 
 @contextmanager
@@ -137,74 +143,87 @@ class GatewayCommand:
         self.notify(f"Gateway SSL certification files are created in {cert_path}.")
         GatewayHttpClient.get_instance().reload_certs()
 
-    async def _generate_gateway_confs(
-            self,       # type: HummingbotApplication
-            container_id: str, conf_path: str = "/usr/src/app/conf"
-    ):
+    async def _test_evm_node(self, url_with_api_key: str) -> bool:
+        """
+        Verify that the Infura API Key is valid. If it is an empty string,
+        ignore it, but let the user know they cannot connect to ethereum.
+        """
+        async with aiohttp.ClientSession() as tmp_client:
+            headers = {"Content-Type": "application/json"}
+            data = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "eth_blockNumber",
+                "params": []
+            }
+
+            resp = await tmp_client.post(url=url_with_api_key,
+                                         data=json.dumps(data),
+                                         headers=headers)
+            success = resp.status != 200
+            if not success:
+                self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
+                return success
+
+    async def _get_api_key(self, chain: Chain) -> str:
+        """
+        Generalize getting and testing the API key from user input
+        """
         with begin_placeholder_mode(self):
             while True:
-                infura_api_key: str = await self.app.prompt(prompt="Enter Infura API Key (required for Ethereum node, if you do not have one, make an account at infura.io):  >>> ")
-                self.app.clear_input()
+                if chain == Chain.ETHEREUM:
+                    service = 'Infura'
+                    chain = 'Ethereum'
+                    service_url = 'infura.io'
+                elif chain == Chain.AVALANCHE:
+                    service = 'Infura'
+                    chain = 'Ethereum'
+                    service_url = 'infura.io'
 
-                moralis_api_key: str = await self.app.prompt(prompt="Enter Moralis API Key (required for Avalanche node, if you do not have one, make an account at moralis.io):  >>> ")
+                api_key: str = await self.app.prompt(prompt=f"Enter {service} API Key (required for {chain} node, if you do not have one, make an account at {service_url}):  >>> ")
+
                 self.app.clear_input()
 
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
-                    return
+                    return ''
                 try:
-                    # Verifies that the Infura API Key/Project ID is valid by sending a request
-                    async with aiohttp.ClientSession() as tmp_client:
-                        headers = {"Content-Type": "application/json"}
-                        data = {
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "eth_blockNumber",
-                            "params": []
-                        }
-                        try:
-                            resp = await tmp_client.post(url=f"https://mainnet.infura.io/v3/{infura_api_key}",
-                                                         data=json.dumps(data),
-                                                         headers=headers)
-                            if resp.status != 200:
-                                self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
-                                continue
-                        except Exception:
-                            raise
+                    api_key = api_key.strip()  # help check for an empty string which is valid input
+                    if api_key == "":
+                        self.notify("Setting up gateway without an {chain} node.")
+                    else:
+                        if chain == Chain.ETHEREUM:
+                            api_url = f"https://mainnet.infura.io/v3/{api_key}"
+                        elif chain == Chain.AVALANCHE:
+                            api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
 
-                    # if moralis_api_key is not empty string
-                    # Verifies that the Moralis API Key/Project ID is valid by sending a request
-                    async with aiohttp.ClientSession() as tmp_client:
-                        headers = {"Content-Type": "application/json"}
-                        data = {
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "eth_blockNumber",
-                            "params": []
-                        }
-                        try:
-                            resp = await tmp_client.post(url=f"https://speedy-nodes-nyc.moralis.io/{moralis_api_key}/avalanche/mainnet",
-                                                         data=json.dumps(data),
-                                                         headers=headers)
-                            if resp.status != 200:
-                                self.notify("Error occured verifying Moralis Node API Key. Please check your API Key and try again.")
-                                continue
-                        except Exception:
-                            raise
-
-                    exec_info = await docker_ipc(method_name="exec_create",
-                                                 container=container_id,
-                                                 cmd=f"./setup/generate_conf.sh {conf_path} {infura_api_key} {moralis_api_key}",
-                                                 user="hummingbot")
-
-                    await docker_ipc(method_name="exec_start",
-                                     exec_id=exec_info["Id"],
-                                     detach=True)
-                    return
-                except asyncio.CancelledError:
-                    raise
+                        # if this throws an error, it will give the user a chance to enter another key
+                        self._test_evm_node(api_url)
+                    continue
                 except Exception:
                     raise
+
+    async def _generate_gateway_confs(
+            self,       # type: HummingbotApplication
+            container_id: str, conf_path: str = "/usr/src/app/conf"
+    ):
+        infura_api_key: str = await self._get_api_key(Chain.ETHEREUM)
+        moralis_api_key: str = await self._get_api_key(Chain.AVALANCHE)
+
+        try:
+            exec_info = await docker_ipc(method_name="exec_create",
+                                         container=container_id,
+                                         cmd=f"./setup/generate_conf.sh {conf_path} {infura_api_key} {moralis_api_key}",
+                                         user="hummingbot")
+
+            await docker_ipc(method_name="exec_start",
+                             exec_id=exec_info["Id"],
+                             detach=True)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
 
     async def _create_gateway(self):
         gateway_paths: GatewayPaths = get_gateway_paths()
