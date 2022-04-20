@@ -6,7 +6,7 @@ import {MARKETS} from '@project-serum/serum';
 import {Serum} from '../../../../src/connectors/serum/serum';
 import {unpatch} from '../../../services/patch';
 import {Solana} from '../../../../src/chains/solana/solana';
-import {default as config} from './fixtures/getSerumConfig';
+import {default as config} from './fixtures/serumConfig';
 import {StatusCodes} from 'http-status-codes';
 import {
   CreateOrdersRequest,
@@ -20,8 +20,11 @@ import {
 } from '../../../../src/connectors/serum/serum.types';
 import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
 import {ClobRoutes} from '../../../../src/clob/clob.routes';
+import {getNewOrderTemplate} from "./fixtures/dummy";
+import {convertToGetOrderResponse} from "../../../../src/connectors/serum/serum.convertors";
 
 let app: Express;
+let serum: Serum;
 
 jest.setTimeout(1000000);
 
@@ -31,7 +34,7 @@ beforeAll(async () => {
 
   await Solana.getInstance(config.solana.network);
 
-  await Serum.getInstance(config.serum.chain, config.serum.network);
+  serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
   app.use(`/clob`, ClobRoutes.router);
   app.use('/serum', SerumRoutes.router);
@@ -586,71 +589,9 @@ describe(`${routePrefix}/tickers`, () => {
 });
 
 describe(`${routePrefix}/orders`, () => {
-  describe(`POST ${routePrefix}/orders`, () => {
-    describe('Single order', () => {
-      it('Create an order and receive a response with the new information', async () => {
-        const candidateOrder = {
-          id: '',
-          marketName: 'BTC/USDT',
-          ownerAddress: '0x0000000000000000000000000000000000000000',
-          price: 0.00000000000000001,
-          amount: 0.0000000000000001,
-          side: 'BUY',
-          orderType: 'LIMIT'
-        } as CreateOrdersRequest;
-
-        await request(app)
-          .post(`${routePrefix}/orders`)
-          .send({
-            chain: config.serum.chain,
-            network: config.serum.network,
-            connector: config.serum.connector,
-            order: candidateOrder
-          })
-          .set('Accept', 'application/json')
-          .expect(StatusCodes.OK)
-          .then((response) => {
-            const order = response.body as GetOrderResponse;
-
-            expect(order.id).toBeGreaterThan(0);
-            expect(order.exchangeId).toBeGreaterThan(0);
-            expect(order.marketName).toBe(candidateOrder.marketName);
-            expect(order.ownerAddress).toBe(candidateOrder.ownerAddress)
-            expect(order.price).toBe(candidateOrder.price);
-            expect(order.amount).toBe(candidateOrder.amount);
-            expect(order.side).toBe(candidateOrder.side);
-            expect(order.status).toBe(OrderStatus.PENDING);
-            expect(order.orderType).toBe(candidateOrder.orderType);
-          });
-      });
-
-      it('Fail when trying to create an order without informing the order parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create an order without informing some of its required parameters', async () => {
-        console.log('');
-      });
-    });
-
-    describe('Multiple orders', () => {
-      it('Create multiple orders and receive a response as a map with the new information', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
-        console.log('');
-      });
-
-      it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
-        console.log('');
-      });
-    });
-  });
-
   describe(`GET ${routePrefix}/orders`, () => {
     it('Fail when trying to get one or more orders without informing any parameters', async () => {
-       await request(app)
+      await request(app)
         .get(`${routePrefix}/orders`)
         .send({
           chain: config.serum.chain,
@@ -670,9 +611,15 @@ describe(`${routePrefix}/orders`, () => {
     });
 
     describe('Single order', () => {
+      let target: OrderPair;
+
+      beforeAll(async () =>{
+        target = await createNewOrder();
+      });
+
       it('Get a specific order by its id and owner address', async () => {
-        const orderId = '';
-        const ownerAddress = config.solana.wallet.address;
+        const orderId = target.order.id;
+        const ownerAddress = target.order.ownerAddress;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -695,9 +642,9 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Get a specific order by its id, owner address and market name', async () => {
-        const orderId = '';
-        const marketName = 'BTC/USDT';
-        const ownerAddress = config.solana.wallet.address;
+        const orderId = target.order.id;
+        const marketName = target.order.marketName;
+        const ownerAddress = target.order.ownerAddress;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -721,8 +668,8 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Get a specific order by its exchange id and owner address', async () => {
-        const exchangeId = '';
-        const ownerAddress = config.solana.wallet.address;
+        const exchangeId = target.order.exchangeId;
+        const ownerAddress = target.order.ownerAddress;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -745,9 +692,9 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Get a specific order by its exchange id, owner address and market name', async () => {
-        const exchangeId = '';
-        const marketName = 'BTC/USDT';
-        const ownerAddress = config.solana.wallet.address;
+        const exchangeId = target.order.exchangeId;
+        const marketName = target.order.marketName;
+        const ownerAddress = target.order.ownerAddress;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -771,8 +718,8 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Fail when trying to get an order without informing its owner address', async () => {
-        const exchangeId = '';
-        const marketName = 'BTC/USDT';
+        const exchangeId = target.order.exchangeId;
+        const marketName = target.order.marketName;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -791,15 +738,15 @@ describe(`${routePrefix}/orders`, () => {
           expect(response.error).not.toBeFalsy()
           if (response.error) {
             expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
-              `No clientId or exchangeId provided.`
+              `No owner address provided for order "${target.order.id} / ${target.order.exchangeId}".`
             );
           }
         });
       });
 
       it('Fail when trying to get an order without informing its id and exchange id', async () => {
-        const marketName = 'BTC/USDT';
-        const ownerAddress = config.solana.wallet.address;
+        const marketName = target.order.marketName;
+        const ownerAddress = target.order.ownerAddress;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -825,8 +772,8 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Fail when trying to get a non existing order', async () => {
-        const orderId = '-1';
-        const ownerAddress = config.solana.wallet.address;
+        const orderId = target.order.id;
+        const ownerAddress = target.order.ownerAddress;
 
         await request(app)
         .get(`${routePrefix}/orders`)
@@ -853,24 +800,176 @@ describe(`${routePrefix}/orders`, () => {
     });
 
     describe('Multiple orders', () => {
-      it('Get a map of orders by their ids', async () => {
-        console.log('');
+      let targets: OrderPair[];
+
+      beforeAll(async () => {
+        targets = await createNewOrders(3);
       });
 
-      it('Get a map of orders by their ids and market names', async () => {
-        console.log('');
+      it('Get a map of orders by their ids and owner addresses', async () => {
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          orders: targets.map(item => ({
+            id: item.order.id,
+            ownerAddress: item.order.ownerAddress,
+          }))
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const orders = new Map<string, GetOrderResponse>(Object.entries(response.body));
+
+          for (const [orderId, order] of orders) {
+            const found = targets.find(item => item.order.id === orderId);
+
+            expect(found).not.toBeUndefined();
+            expect(order.id).toEqual(orderId);
+            expect(order.exchangeId).toBeGreaterThan(0);
+            expect(order.marketName).toEqual(found?.order.marketName);
+            expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
+            expect(order.price).toEqual(found?.order.price);
+            expect(order.amount).toEqual(found?.order.amount);
+            expect(order.side).toEqual(found?.order.side);
+            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.type).toEqual(found?.order.type);
+            expect(order.fee).toBeGreaterThanOrEqual(0);
+          }
+        });
       });
 
-      it('Get a map of orders by their exchange ids', async () => {
-        console.log('');
+      it('Get a map of orders by their ids, owner addresses and market names', async () => {
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          orders: targets.map(item => ({
+            id: item.order.id,
+            ownerAddress: item.order.ownerAddress,
+            marketName: item.order.marketName,
+          }))
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const orders = new Map<string, GetOrderResponse>(Object.entries(response.body));
+
+          for (const [orderId, order] of orders) {
+            const found = targets.find(item => item.order.id === orderId);
+
+            expect(found).not.toBeUndefined();
+            expect(order.id).toEqual(orderId);
+            expect(order.exchangeId).toBeGreaterThan(0);
+            expect(order.marketName).toEqual(found?.order.marketName);
+            expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
+            expect(order.price).toEqual(found?.order.price);
+            expect(order.amount).toEqual(found?.order.amount);
+            expect(order.side).toEqual(found?.order.side);
+            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.type).toEqual(found?.order.type);
+            expect(order.fee).toBeGreaterThanOrEqual(0);
+          }
+        });
       });
 
-      it('Get a map of orders by their exchange ids and market names', async () => {
-        console.log('');
+      it('Get a map of orders by their exchange ids and owner addresses', async () => {
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          orders: targets.map(item => ({
+            exchangeId: item.order.exchangeId,
+            ownerAddress: item.order.ownerAddress,
+          }))
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const orders = new Map<string, GetOrderResponse>(Object.entries(response.body));
+
+          for (const [orderId, order] of orders) {
+            const found = targets.find(item => item.order.id === orderId);
+
+            expect(found).not.toBeUndefined();
+            expect(order.id).toEqual(orderId);
+            expect(order.exchangeId).toBeGreaterThan(0);
+            expect(order.marketName).toEqual(found?.order.marketName);
+            expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
+            expect(order.price).toEqual(found?.order.price);
+            expect(order.amount).toEqual(found?.order.amount);
+            expect(order.side).toEqual(found?.order.side);
+            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.type).toEqual(found?.order.type);
+            expect(order.fee).toBeGreaterThanOrEqual(0);
+          }
+        });
       });
 
-      it('Fail when trying to get a map of orders without informing the orders parameter', async () => {
-        console.log('');
+      it('Get a map of orders by their exchange ids, owner addresses and market names', async () => {
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          orders: targets.map(item => ({
+            exchangeId: item.order.exchangeId,
+            ownerAddress: item.order.ownerAddress,
+            marketName: item.order.marketName,
+          }))
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.OK)
+        .then((response) => {
+          const orders = new Map<string, GetOrderResponse>(Object.entries(response.body));
+
+          for (const [orderId, order] of orders) {
+            const found = targets.find(item => item.order.id === orderId);
+
+            expect(found).not.toBeUndefined();
+            expect(order.id).toEqual(orderId);
+            expect(order.exchangeId).toBeGreaterThan(0);
+            expect(order.marketName).toEqual(found?.order.marketName);
+            expect(order.ownerAddress).toEqual(found?.order.ownerAddress);
+            expect(order.price).toEqual(found?.order.price);
+            expect(order.amount).toEqual(found?.order.amount);
+            expect(order.side).toEqual(found?.order.side);
+            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.type).toEqual(found?.order.type);
+            expect(order.fee).toBeGreaterThanOrEqual(0);
+          }
+        });
+      });
+
+      it('Fail when trying to get a map of orders without informing their owner addresses', async () => {
+        await request(app)
+        .get(`${routePrefix}/orders`)
+        .send({
+          chain: config.serum.chain,
+          network: config.serum.network,
+          connector: config.serum.connector,
+          orders: targets.map(item => ({
+            exchangeId: item.order.exchangeId,
+            marketName: item.order.marketName,
+          }))
+        })
+        .set('Accept', 'application/json')
+        .expect(StatusCodes.BAD_REQUEST)
+        .then((response) => {
+          expect(response.error).not.toBeFalsy()
+          if (response.error) {
+            expect(response.error.text.replace(/&quot;/gi, '"')).toContain(
+              `No owner address provided for order "${targets[0].order.id} / ${targets[0].order.exchangeId}".`
+            );
+          }
+        });
       });
 
       it('Fail when trying to get a map of orders without informing any orders within the orders parameter', async () => {
@@ -882,6 +981,68 @@ describe(`${routePrefix}/orders`, () => {
       });
 
       it('Fail when trying to get a map of orders informing an id of a non existing one', async () => {
+        console.log('');
+      });
+    });
+  });
+
+  describe(`POST ${routePrefix}/orders`, () => {
+    describe('Single order', () => {
+      it('Create an order and receive a response with the new information', async () => {
+        const candidateOrder = {
+          id: '',
+          marketName: 'BTC/USDT',
+          ownerAddress: '0x0000000000000000000000000000000000000000',
+          price: 0.00000000000000001,
+          amount: 0.0000000000000001,
+          side: 'BUY',
+          type: 'LIMIT'
+        } as CreateOrdersRequest;
+
+        await request(app)
+          .post(`${routePrefix}/orders`)
+          .send({
+            chain: config.serum.chain,
+            network: config.serum.network,
+            connector: config.serum.connector,
+            order: candidateOrder
+          })
+          .set('Accept', 'application/json')
+          .expect(StatusCodes.OK)
+          .then((response) => {
+            const order = response.body as GetOrderResponse;
+
+            expect(order.id).toBeGreaterThan(0);
+            expect(order.exchangeId).toBeGreaterThan(0);
+            expect(order.marketName).toBe(candidateOrder.marketName);
+            expect(order.ownerAddress).toBe(candidateOrder.ownerAddress)
+            expect(order.price).toBe(candidateOrder.price);
+            expect(order.amount).toBe(candidateOrder.amount);
+            expect(order.side).toBe(candidateOrder.side);
+            expect(order.status).toBe(OrderStatus.PENDING);
+            expect(order.type).toBe(candidateOrder.type);
+          });
+      });
+
+      it('Fail when trying to create an order without informing the order parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create an order without informing some of its required parameters', async () => {
+        console.log('');
+      });
+    });
+
+    describe('Multiple orders', () => {
+      it('Create multiple orders and receive a response as a map with the new information', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create multiple orders without informing the orders parameter', async () => {
+        console.log('');
+      });
+
+      it('Fail when trying to create multiple orders without informing some of their required parameters', async () => {
         console.log('');
       });
     });
@@ -1191,3 +1352,24 @@ describe(`${routePrefix}/filledOrders`, () => {
     });
   });
 });
+
+interface OrderPair { candidate: CreateOrdersRequest; order: GetOrderResponse };
+
+const createNewOrder = async (): Promise<OrderPair> => {
+  const candidate = getNewOrderTemplate();
+
+  return {
+    candidate: candidate,
+    order: convertToGetOrderResponse(await serum.createOrder(candidate)),
+  };
+};
+
+const createNewOrders = async(quantity: number) => {
+  const orders = [];
+
+  for (let i = 0; i < quantity; i++) {
+    orders.push(await createNewOrder());
+  }
+
+  return orders;
+};

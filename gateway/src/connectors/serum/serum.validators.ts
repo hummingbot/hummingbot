@@ -1,8 +1,11 @@
-import {
-  mkValidator,
-  mkRequestValidator,
-  RequestValidator,
-  Validator,
-} from '../../services/validators';
+import {mkRequestValidator, mkValidator, RequestValidator} from '../../services/validators';
 
-export const validateGetMarket: RequestValidator = mkRequestValidator([]);
+// TODO fill or remove these validators!!!
+export const requestExample: RequestValidator = mkRequestValidator([]);
+
+export const itemExample: RequestValidator = mkValidator(
+  'key',
+  'Error message.',
+  (target) => target,
+  false
+);

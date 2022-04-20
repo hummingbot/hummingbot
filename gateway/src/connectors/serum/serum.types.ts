@@ -1,8 +1,7 @@
-import {Account, PublicKey} from '@solana/web3.js';
+import {PublicKey} from '@solana/web3.js';
 import {Market as SerumMarket, Orderbook as SerumOrderBook} from '@project-serum/serum';
 import {Order as SerumOrder} from '@project-serum/serum/lib/market';
 import {Map as ImmutableMap} from 'immutable';
-import BN from "bn.js";
 
 export enum OrderSide {
   BUY = 'BUY',
@@ -56,31 +55,20 @@ export interface Ticker {
   ticker: any;
 }
 
-// TODO The OrderSide is using uppercase but the SerumOrderParams use a union type, check!!!
 export interface Order {
-  id: string; // client-side id
-  exchangeId: string;
+  id?: string; // client id
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
-  sideEnum: OrderSide; // TODO check how to handle collision!!!
-  statusEnum: OrderStatus;
-  orderTypeEnum: OrderType; // // TODO create enum, check how to handle collision!!!
-  fee: number; // TODO  fee: string; // can be positive, when paying, or negative, when rebated probably remove, show how much fees were paid for the order!!!
-  fillmentTimestamp: number;
-  order: SerumOrder;
-
-  side: 'buy' | 'sell'; // TODO remove this!!!
-  owner: Account;
-  payer: PublicKey;
-  size: number; // TODO same as amount?!!!
-  clientId?: BN;
-  openOrdersAddressKey?: PublicKey;
-  openOrdersAccount?: Account;
-  feeDiscountPubkey?: PublicKey | null;
-  selfTradeBehavior?: 'decrementTake' | 'cancelProvide' | 'abortTransaction' | undefined;
-  programId?: PublicKey;
+  side: OrderSide;
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number;
+  fillmentTimestamp?: number;
+  signature?: string;
+  order?: SerumOrder;
 }
 
 export interface Fee {
@@ -132,153 +120,153 @@ export interface GetTickerResponse {
 export type GetTickersResponse = ImmutableMap<string, GetTickerResponse> | GetTickerResponse;
 
 export interface GetOrdersRequest {
-  marketName?: string;
-  clientId?: string;
+  id?: string;
   exchangeId?: string;
+  marketName?: string;
   ownerAddress: string;
 }
 
 export interface GetOrderResponse {
-  id: string;
-  exchangeId: string;
+  id?: string;
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
-  status: OrderStatus;
-  orderType: OrderType;
-  fee: number;
-  fillmentTimestamp: number;
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number;
+  fillmentTimestamp?: number;
 }
 
 export type GetOrdersResponse = ImmutableMap<string, GetOrderResponse> | GetOrderResponse;
 
 export interface CreateOrdersRequest {
-  id: string;
+  id?: string;
   marketName: string;
   ownerAddress: string;
   payerAddress: string;
   side: OrderSide;
   price: number;
   amount: number;
-  orderType?: OrderType;
+  type?: OrderType;
 }
 
 export interface CreateOrderResponse {
-  id: string;
-  exchangeId: string;
+  id?: string;
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
-  status: OrderStatus;
-  orderType: OrderType;
-  fee: number
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number
 }
 
 export type CreateOrdersResponse = ImmutableMap<string, CreateOrderResponse> | CreateOrderResponse;
 
 export interface CancelOrdersRequest {
-  marketName?: string;
-  clientId?: string;
+  id?: string;
   exchangeId?: string;
+  marketName?: string;
   ownerAddress: string;
 }
 
 export interface CancelOrderResponse {
-  id: string;
-  exchangeId: string;
+  id?: string;
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
-  status: OrderStatus;
-  orderType: OrderType;
-  fee: number
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number
 }
 
 export type CancelOrdersResponse = ImmutableMap<string, CancelOrderResponse> | CancelOrderResponse;
 
 export interface GetOpenOrderRequest {
-  marketName?: string;
-  clientId?: string;
+  id?: string;
   exchangeId?: string;
+  marketName?: string;
   ownerAddress: string;
 }
 
 export interface GetOpenOrdersRequest {
-  marketName?: string;
-  clientIds?: string[];
+  ids?: string[];
   exchangeIds?: string[];
+  marketName?: string;
   ownerAddress: string;
 }
 
 export interface GetOpenOrderResponse {
-  id: string;
-  exchangeId: string;
+  id?: string;
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
-  status: OrderStatus;
-  orderType: OrderType;
-  fee: number
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number
 }
 
 export type GetOpenOrdersResponse = ImmutableMap<string, GetOpenOrderResponse> | GetOpenOrderResponse;
 
 export interface CancelOpenOrdersRequest {
-  marketName?: string;
-  clientId?: string;
+  id?: string;
   exchangeId?: string;
+  marketName?: string;
   ownerAddress: string;
 }
 
 export interface CancelOpenOrderResponse {
-  id: string;
-  exchangeId: string;
+  id?: string;
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
-  status: OrderStatus;
-  orderType: OrderType;
-  fee: number
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number
 }
 
 export type CancelOpenOrdersResponse = ImmutableMap<string, CancelOpenOrderResponse> | CancelOpenOrderResponse;
 
 export interface GetFilledOrderRequest {
-  marketName?: string;
-  clientId?: string;
+  id?: string;
   exchangeId?: string;
+  marketName?: string;
   ownerAddress: string;
 }
 
 export interface GetFilledOrdersRequest {
-  marketName?: string;
-  clientIds?: string[];
+  ids?: string[];
   exchangeIds?: string[];
+  marketName?: string;
   ownerAddress?: string;
 }
 
 export interface GetFilledOrderResponse {
-  id: string;
-  exchangeId: string;
+  id?: string;
+  exchangeId?: string;
   marketName: string;
   ownerAddress: string;
   price: number;
   amount: number;
   side: OrderSide;
-  status: OrderStatus;
-  orderType: OrderType;
-  fee: number;
-  fillmentTimestamp: number;
+  status?: OrderStatus;
+  type?: OrderType;
+  fee?: number;
+  fillmentTimestamp?: number;
 }
 
 export type GetFilledOrdersResponse = ImmutableMap<string, GetFilledOrderResponse> | GetFilledOrderResponse;
