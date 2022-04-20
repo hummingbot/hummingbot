@@ -49,7 +49,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Subscribe to active orders via web socket
         """
-
         try:
             self._ws = web_utils.GateIoWebsocket(self._auth, self._api_factory)
             await self._ws.connect()
@@ -76,7 +75,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             if self._ws is not None:
                 await self._ws.disconnect()
-            await asyncio.sleep(5)
+            await self._sleep(5)
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
@@ -99,4 +98,4 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error(
                     f"Unexpected error with {CONSTANTS.EXCHANGE_NAME} WebSocket connection. "
                     "Retrying after 30 seconds...", exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30)

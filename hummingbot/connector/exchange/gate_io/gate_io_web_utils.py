@@ -131,9 +131,10 @@ async def api_request(path: Optional[str] = None,
                 time_sleep = retry_sleep_time(retries)
                 retry_logger.info(
                     f"Error fetching data from {request.url}. HTTP status is {response.status}."
-                    f" Retrying in {time_sleep:.0f}s."
+                    f" Retrying {retries}/{CONSTANTS.API_MAX_RETRIES} in {time_sleep:.0f}s."
                 )
                 await _sleep(time_sleep)
+                continue
 
             if return_err:
                 error_response = await response.json()
@@ -155,7 +156,7 @@ async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
-    # TODO
+    # TODO gate io supports server time?
     return time.time()
 
 
@@ -190,7 +191,7 @@ def retry_sleep_time(try_count: int) -> float:
 
 async def _sleep(delay):
     """
-    Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+    To facilitate patching the sleep in unit tests without affecting the asyncio module
     """
     await asyncio.sleep(delay)
 
