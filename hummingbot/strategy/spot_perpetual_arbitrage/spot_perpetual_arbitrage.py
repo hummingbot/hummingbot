@@ -99,9 +99,10 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._ready_to_start = False
         self._last_arb_op_reported_ts = 0
         self._position_mode_ready = False
+        self._strategy_initialized = False
 
-        perp_market_info.market.set_leverage(perp_market_info.trading_pair, self._perp_leverage)
-        perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
+    def all_markets_ready(self):
+        return all([market.ready for market in self._sb_markets])
 
     @property
     def strategy_state(self) -> StrategyState:
@@ -138,11 +139,17 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param timestamp: current tick timestamp
         """
         if not self._all_markets_ready:
-            self._all_markets_ready = all([market.ready for market in self.active_markets])
+            self._all_markets_ready = self.all_markets_ready()
             if not self._all_markets_ready:
                 return
             else:
                 self.logger().info("Markets are ready.")
+                if not self._strategy_initialized:
+                    self._perp_market_info.market.set_leverage(self._perp_market_info.trading_pair, self._perp_leverage)
+                    self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
+                    self._strategy_initialized = True
+                    return
+
                 self.logger().info("Trading started.")
 
                 if not self.check_budget_available():
