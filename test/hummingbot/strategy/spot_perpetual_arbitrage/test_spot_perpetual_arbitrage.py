@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import unittest
 from decimal import Decimal
 
@@ -8,6 +7,7 @@ import pandas as pd
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide
 from hummingbot.core.event.event_logger import EventLogger
@@ -22,11 +22,7 @@ from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage impor
     SpotPerpetualArbitrageStrategy,
     StrategyState,
 )
-from test.mock.mock_paper_exchange import MockPaperExchange
 from test.mock.mock_perp_connector import MockPerpConnector
-
-logging.basicConfig(level=logging.ERROR)
-
 
 trading_pair = "HBOT-USDT"
 base_asset = trading_pair.split("-")[0]
@@ -423,4 +419,4 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         event_class = BuyOrderCompletedEvent if is_buy else SellOrderCompletedEvent
         connector.trigger_event(event_tag,
                                 event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
-                                            quote_asset, amount, amount * price, Decimal("0"), OrderType.LIMIT))
+                                            amount, amount * price, OrderType.LIMIT))

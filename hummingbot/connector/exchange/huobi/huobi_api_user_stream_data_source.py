@@ -107,7 +107,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().error("Unexpected error occurred subscribing to private user streams...", exc_info=True)
             raise
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
             try:
                 # Initialize Websocket Connection

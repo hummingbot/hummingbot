@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20211201"
+    version = "20220330"
     packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [
@@ -72,6 +72,8 @@ def main():
         "hexbytes",
         "importlib-metadata",
         "mypy-extensions",
+        "nose",
+        "nose-exclude",
         "numpy",
         "pandas",
         "pip",
@@ -104,8 +106,6 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if os.path.exists('test'):
-        cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {

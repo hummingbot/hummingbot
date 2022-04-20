@@ -226,8 +226,6 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        # todo: get fee
-        # self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.event_logger.event_log]))
 

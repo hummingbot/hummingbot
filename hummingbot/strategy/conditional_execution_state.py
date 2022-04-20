@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from datetime import time
-from typing import (
-    Union,
-)
+from typing import Union
 
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -35,7 +33,7 @@ class ConditionalExecutionState(ABC):
         self._closing_time = value
 
     @abstractmethod
-    def process_tick(self, strategy: StrategyBase):
+    def process_tick(self, timestamp: float, strategy: StrategyBase):
         pass
 
 

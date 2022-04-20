@@ -19,7 +19,8 @@ cdef class ExchangePyBase(ExchangeBase):
         return ExchangePyBase.quantize_value(price, price_quantum)
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_NaN):
-        return self.quantize_order_amount(trading_pair, amount)
+        amount = self.quantize_order_amount(trading_pair, amount)
+        return amount
 
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
