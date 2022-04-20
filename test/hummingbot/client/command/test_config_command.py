@@ -35,7 +35,7 @@ class ConfigCommandTest(unittest.TestCase):
             global_config_map[key] = value
 
     @patch("hummingbot.client.hummingbot_application.get_strategy_config_map")
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_configs(self, notify_mock, get_strategy_config_map_mock):
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)
