@@ -20,6 +20,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 | logo | id | name | ver | doc | status | referral |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| <img src="assets/altmarkets_logo1.png" alt="AltMarkets.io" width="90" /> | altmarkets | [AltMarkets.io](https://altmarkets.io/) | 2 | [API](https://altmarkets.io/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/ascendex-logo.jpg" alt="AscendEx" width="90" /> | ascend_ex | [AscendEx](https://ascendex.com/en/global-digital-asset-platform) | 1 | [API](https://ascendex.github.io/ascendex-pro-api/#ascendex-pro-api-documentation) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW)
 | <img src="assets/beaxy-logo.png" alt="Beaxy" width="90" /> | beaxy | [Beaxy](https://beaxy.com/) | 2 | [API](https://beaxyapiv2trading.docs.apiary.io/) |![GREEN](https://via.placeholder.com/15/008000/?text=+)|
 | <img src="assets/binance_futures-logo.jpg" alt="Binance Perpetual" width="90" /> | binance_perpetual | [Binance Futures](https://www.binance.com/) | 1 | [API](https://binance-docs.github.io/apidocs/futures/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) | [54499305](https://www.binance.com/en/futures/ref/hummingbot)

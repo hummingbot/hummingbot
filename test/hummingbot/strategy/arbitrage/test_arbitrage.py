@@ -1,25 +1,19 @@
-#!/usr/bin/env python
+import unittest
 from decimal import Decimal
+from typing import List
+
+import pandas as pd
 from nose.plugins.attrib import attr
 
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-import logging; logging.basicConfig(level=logging.ERROR)
-import pandas as pd
-from typing import List
-import unittest
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent
-)
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 @attr('stable')
