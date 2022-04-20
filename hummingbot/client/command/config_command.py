@@ -75,7 +75,7 @@ class ConfigCommand:
             return
         else:
             if key not in self.config_able_keys():
-                self._notify("Invalid key, please choose from the list.")
+                self.notify("Invalid key, please choose from the list.")
                 return
             safe_ensure_future(self._config_single_key(key, value), loop=self.ev_loop)
 
@@ -85,23 +85,23 @@ class ConfigCommand:
         data = [[cv.key, cv.value] for cv in global_config.global_config_map.values()
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-        self._notify("\nGlobal Configurations:")
+        self.notify("\nGlobal Configurations:")
         lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
-        self._notify("\n".join(lines))
+        self.notify("\n".join(lines))
 
         data = [[cv.key, cv.value] for cv in global_config.global_config_map.values()
                 if cv.key in color_settings_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-        self._notify("\nColor Settings:")
+        self.notify("\nColor Settings:")
         lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
-        self._notify("\n".join(lines))
+        self.notify("\n".join(lines))
 
         if self.strategy_name is not None:
             data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-            self._notify("\nStrategy Configurations:")
+            self.notify("\nStrategy Configurations:")
             lines = ["    " + line for line in format_df_for_printout(df, max_col_width=50).split("\n")]
-            self._notify("\n".join(lines))
+            self.notify("\n".join(lines))
 
     def config_able_keys(self  # type: HummingbotApplication
                          ) -> List[str]:
@@ -118,7 +118,7 @@ class ConfigCommand:
                              ):
         password = await self.app.prompt(prompt="Enter your password >>> ", is_password=True)
         if password != Security.password:
-            self._notify("Invalid password, please try again.")
+            self.notify("Invalid password, please try again.")
             return False
         else:
             return True
@@ -155,7 +155,7 @@ class ConfigCommand:
                 file_path = join(CONF_FILE_PATH, self.strategy_file_name)
             config_var = config_map[key]
             if input_value is None:
-                self._notify("Please follow the prompt to complete configurations: ")
+                self.notify("Please follow the prompt to complete configurations: ")
             if config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
             elif config_var.key == "inventory_price":
@@ -168,20 +168,20 @@ class ConfigCommand:
             await self.update_all_secure_configs()
             missings = missing_required_configs(config_map)
             if missings:
-                self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
+                self.notify("\nThere are other configuration required, please follow the prompt to complete them.")
             missings = await self._prompt_missing_configs(config_map)
             save_to_yml(file_path, config_map)
-            self._notify("\nNew configuration saved:")
-            self._notify(f"{key}: {str(config_var.value)}")
+            self.notify("\nNew configuration saved:")
+            self.notify(f"{key}: {str(config_var.value)}")
             self.app.app.style = load_style()
             for config in missings:
-                self._notify(f"{config.key}: {str(config.value)}")
+                self.notify(f"{config.key}: {str(config.value)}")
             if isinstance(self.strategy, PureMarketMakingStrategy) or \
                isinstance(self.strategy, PerpetualMarketMakingStrategy):
                 updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
                 if updated:
-                    self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
-                                 f"to reflect the new configuration.")
+                    self.notify(f"\nThe current {self.strategy_name} strategy has been updated "
+                                f"to reflect the new configuration.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -279,7 +279,7 @@ class ConfigCommand:
                 quote_volume = balances[base_asset] * cvar.value
             except TypeError:
                 # TypeError: unsupported operand type(s) for *: 'decimal.Decimal' and 'NoneType' - bad input / no input
-                self._notify("Inventory price not updated due to bad input")
+                self.notify("Inventory price not updated due to bad input")
                 return
 
             with self.trade_fill_db.get_new_session() as session:
