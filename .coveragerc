@@ -36,6 +36,7 @@ omit =
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py
         hummingbot/core/utils/wallet_setup.py
+        hummingbot/connector/mock*
         hummingbot/strategy/aroon_oscillator*
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
@@ -44,7 +45,7 @@ dynamic_context = test_function
 branch = true
 
 [report]
-fail_under = 65
+fail_under = 70
 precision = 2
 skip_empty = true
 

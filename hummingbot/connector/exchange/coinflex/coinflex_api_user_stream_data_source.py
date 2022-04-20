@@ -1,10 +1,6 @@
 import asyncio
 import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 from hummingbot.connector.exchange.coinflex import coinflex_web_utils as web_utils
@@ -79,7 +75,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             )
             raise
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Connects to the user private channel in the exchange using a websocket connection. With the established
         connection listens to all balance events and order updates provided by the exchange, and stores them in the

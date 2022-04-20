@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 
 class TickerCommandTest(unittest.TestCase):

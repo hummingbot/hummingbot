@@ -72,11 +72,10 @@ class AltmarketsAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.disconnect()
             await asyncio.sleep(5)
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
 

@@ -1,23 +1,22 @@
-#!/usr/bin/env python
-import time
+import asyncio
 from abc import (
     ABCMeta,
     abstractmethod,
 )
-import asyncio
 
 
 class UserStreamTrackerDataSource(metaclass=ABCMeta):
-    @abstractmethod
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        raise NotImplementedError
 
-    @staticmethod
-    async def wait_til_next_tick(seconds: float = 1.0):
-        now: float = time.time()
-        current_tick: int = int(now // seconds)
-        delay_til_next_tick: float = (current_tick + 1) * seconds - now
-        await asyncio.sleep(delay_til_next_tick)
+    @abstractmethod
+    async def listen_for_user_stream(self, output: asyncio.Queue):
+        """
+        Connects to the user private channel in the exchange using a websocket connection. With the established
+        connection listens to all balance events and order updates provided by the exchange, and stores them in the
+        output queue
+
+        :param output: the queue to use to store the received messages
+        """
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -27,5 +26,7 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
     async def _sleep(self, delay):
         """
         Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+
+        :param delay: number of seconds to sleep
         """
         await asyncio.sleep(delay)
