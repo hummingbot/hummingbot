@@ -160,10 +160,12 @@ class GatewayCommand:
             resp = await tmp_client.post(url=url_with_api_key,
                                          data=json.dumps(data),
                                          headers=headers)
-            success = resp.status != 200
-            if not success:
-                self.notify("Error occured verifying Infura Node API Key. Please check your API Key and try again.")
-                return success
+            success = resp.status == 200
+            if success:
+                self.notify("The API Key works.")
+            else:
+                self.notify("Error occured verifying the API Key. Please check your API Key and try again.")
+            return success
 
     async def _get_api_key(self, chain: Chain) -> str:
         """
@@ -173,14 +175,14 @@ class GatewayCommand:
             while True:
                 if chain == Chain.ETHEREUM:
                     service = 'Infura'
-                    chain = 'Ethereum'
+                    chain_name = 'Ethereum'
                     service_url = 'infura.io'
                 elif chain == Chain.AVALANCHE:
-                    service = 'Infura'
-                    chain = 'Ethereum'
-                    service_url = 'infura.io'
+                    service = 'Moralis'
+                    chain_name = 'Avalanche'
+                    service_url = 'moralis.io'
 
-                api_key: str = await self.app.prompt(prompt=f"Enter {service} API Key (required for {chain} node, if you do not have one, make an account at {service_url}):  >>> ")
+                api_key: str = await self.app.prompt(prompt=f"Enter {service} API Key (required for {chain_name} node, if you do not have one, make an account at {service_url}), otherwise configure gateway after creation:  >>> ")
 
                 self.app.clear_input()
 
@@ -189,18 +191,18 @@ class GatewayCommand:
                     return ''
                 try:
                     api_key = api_key.strip()  # help check for an empty string which is valid input
-                    if api_key == "":
-                        self.notify("Setting up gateway without an {chain} node.")
+                    if api_key is None or api_key == "":
+                        self.notify(f"Setting up gateway without an {chain_name} node.")
                     else:
                         if chain == Chain.ETHEREUM:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
                         elif chain == Chain.AVALANCHE:
                             api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
-
                         # if this throws an error, it will give the user a chance to enter another key
-                        self._test_evm_node(api_url)
-                    continue
+                        await self._test_evm_node(api_url)
+                    return api_key
                 except Exception:
+                    self.notify(f"Error occur calling the API route: {api_url}.")
                     raise
 
     async def _generate_gateway_confs(
