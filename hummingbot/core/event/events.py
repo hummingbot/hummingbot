@@ -33,6 +33,12 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class TokenApprovalEvent(Enum):
+    ApprovalSuccessful = 1101
+    ApprovalFailed = 1102
+    ApprovalCancelled = 1103
+
+
 class HummingbotUIEvent(Enum):
     Start = 1
 
@@ -95,6 +101,27 @@ class OrderCancelledEvent:
 class OrderExpiredEvent(NamedTuple):
     timestamp: float
     order_id: str
+
+
+@dataclass
+class TokenApprovalSuccessEvent:
+    timestamp: float
+    connector: str
+    token_symbol: str
+
+
+@dataclass
+class TokenApprovalFailureEvent:
+    timestamp: float
+    connector: str
+    token_symbol: str
+
+
+@dataclass
+class TokenApprovalCancelledEvent:
+    timestamp: float
+    connector: str
+    token_symbol: str
 
 
 @dataclass

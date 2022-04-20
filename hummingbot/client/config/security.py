@@ -76,7 +76,7 @@ class Security:
     @classmethod
     def unlock_wallet(cls, public_key):
         if public_key not in cls._private_keys:
-            cls._private_keys[public_key] = unlock_wallet(public_key=public_key, password=Security.password)
+            cls._private_keys[public_key] = unlock_wallet(wallet_address=public_key, password=Security.password)
         return cls._private_keys[public_key]
 
     @classmethod
@@ -103,7 +103,7 @@ class Security:
 
     @classmethod
     def add_private_key(cls, private_key) -> str:
-        # Add private key and return public key
+        # Add private key and return the account address
         account = import_and_save_wallet(cls.password, private_key)
         cls._private_keys[account.address] = account.privateKey
         return account.address

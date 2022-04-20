@@ -110,6 +110,14 @@ execute_docker () {
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
    --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_certs,destination=/certs/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/gateway_conf,destination=/gateway_conf/" \
+   --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
+   -e CONF_FOLDER="${FOLDERS[$j]}/hummingbot_conf" \
+   -e LOGS_FOLDER="${FOLDERS[$j]}/hummingbot_logs" \
+   -e DATA_FOLDER="${FOLDERS[$j]}/hummingbot_data" \
+   -e SCRIPTS_FOLDER="${FOLDERS[$j]}/hummingbot_scripts" \
+   -e CERTS_FOLDER="${FOLDERS[$j]}/hummingbot_certs" \
+   -e GATEWAY_CONF_FOLDER="${FOLDERS[$j]}/gateway_conf" \
    coinalpha/hummingbot:$TAG
    j=$[$j+1]
  done
