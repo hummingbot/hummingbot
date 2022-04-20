@@ -12,10 +12,7 @@ DEFAULT_FEES = TradeFeeSchema(
 
 CENTRALIZED = True
 
-
 EXAMPLE_PAIR = "BTC-USDT"
-
-
 
 KEYS = {
     "okex_api_key":
