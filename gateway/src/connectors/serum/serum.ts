@@ -17,7 +17,7 @@ import {
   OrderNotFoundError,
   OrderSide,
   OrderStatus,
-  Ticker,
+  Ticker, TickerNotFoundError,
 } from './serum.types';
 import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
 
@@ -178,7 +178,7 @@ export class Serum {
 
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
     // TODO change the code to use a background task and load in parallel (using batches) the markets!!!
-    for (const market of MARKETS.filter(market => ['BTC/USDT', 'ETH/USDT'].includes(market.name))) {
+    for (const market of MARKETS.filter(market => ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'].includes(market.name))) {
       const serumMarket = await SerumMarket.load(
         this.connection,
         new PublicKey(market.address),
@@ -232,11 +232,13 @@ export class Serum {
   async getTicker(marketName: string): Promise<Ticker> {
     const market = await this.getMarket(marketName);
 
-    const lastFilledOrder = (await market.market.loadFills(this.connection, 10));
+    const filledOrders = await market.market.loadFills(this.connection);
+    if (!filledOrders || !filledOrders.length)
+      throw new TickerNotFoundError(`Ticker not found for market "${marketName}".`);
 
-    console.log(JSON.stringify(lastFilledOrder, null, 2));
+    const mostRecentFilledOrder = filledOrders[0];
 
-    return convertFilledOrderToTicker(lastFilledOrder[0]);
+    return convertFilledOrderToTicker(Date.now(), mostRecentFilledOrder);
   }
 
   async getTickers(marketNames: string[]): Promise<ImmutableMap<string, Ticker>> {
