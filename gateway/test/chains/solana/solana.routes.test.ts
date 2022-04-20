@@ -16,7 +16,7 @@ import { default as config } from './fixtures/getSolanaConfig';
 
 let solana: Solana;
 beforeAll(async () => {
-  solana = Solana.getInstance(config.solana.network);
+  solana = await Solana.getInstance(config.solana.network);
   solana.getTokenList = jest
     .fn()
     .mockReturnValue([

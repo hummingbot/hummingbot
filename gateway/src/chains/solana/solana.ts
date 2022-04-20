@@ -60,6 +60,9 @@ export class Solana implements Solanaish {
         case 'mainnet-beta':
           this.rpcUrl = 'https://api.mainnet-beta.solana.com';
           break;
+        case 'serum-mainnet':
+          this.rpcUrl = 'https://solana-api.projectserum.com';
+          break;
         case 'devnet':
           this.rpcUrl = 'https://api.devnet.solana.com';
           break;
@@ -125,7 +128,7 @@ export class Solana implements Solanaish {
   }
 
   async init(): Promise<void> {
-    if (!this.ready && !this.initializing) {
+    if (!this.ready() && !this.initializing) {
       this.initializing = true;
       await this.loadTokens();
       this._ready = true;
@@ -198,8 +201,7 @@ export class Solana implements Solanaish {
       })
     ).value.map((item) => item.pubkey)[0];
 
-    return (
-      await PublicKey.findProgramAddress(
+    const programAddress = (await PublicKey.findProgramAddress(
         [
           walletAddress.toBuffer(),
           tokenProgramId.toBuffer(),
@@ -208,6 +210,9 @@ export class Solana implements Solanaish {
         splAssociatedTokenAccountProgramId
       )
     )[0];
+
+    return programAddress;
+
   }
 
   async getKeypair(address: string): Promise<Keypair> {
