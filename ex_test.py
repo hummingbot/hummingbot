@@ -145,6 +145,7 @@ class ExchangeClient(object):
     # level is required to receive logs from the data source logger
     level = 0
     log_records = []
+    DEBUG = False
 
     def handle(self, record):
         fmt = '%(levelname)s\t[%(filename)s]\t[%(funcName)s] |\t%(message)s'
@@ -152,12 +153,20 @@ class ExchangeClient(object):
         print(formatter.format(record))
 
     def initialize_exchange_loggers(self):
-        self.exchange.logger().setLevel(self.level)
-        self.exchange.logger().addHandler(self)
-        self.exchange._time_synchronizer.logger().setLevel(self.level)
-        self.exchange._time_synchronizer.logger().addHandler(self)
-        self.exchange._order_tracker.logger().setLevel(self.level)
-        self.exchange._order_tracker.logger().addHandler(self)
+        def config_logger(obj):
+            obj.logger().setLevel(self.level)
+            obj.logger().addHandler(self)
+        objs = (
+            self.exchange,
+            self.exchange._time_synchronizer,
+            self.exchange._order_tracker,
+            self.exchange._user_stream_tracker,
+            self.exchange._order_book_tracker,
+            self.exchange._userstream_ds,
+            self.exchange._orderbook_ds,
+        )
+        for obj in objs:
+            config_logger(obj)
 
     def initialize_event_loggers(self):
         self.event_logger = EventLogger()
@@ -173,12 +182,19 @@ class ExchangeClient(object):
         self.exchange_trading_pair = f"{self.base}{self.quote}"
         self.symbol = f"{self.base}{self.quote}"
 
+    def debug(self, msg):
+        if self.DEBUG:
+            print(msg)
+
     async def loop_clock(self):
         """ This will trigger _status_polling_loop via self._poll_notifier.wait() """
         while True:
             ts = time.time()
-            # print(f'ticking {ts}')
             self.exchange.tick(ts)
+            debug_msg = f"ticking {ts}\n" \
+                        f"UST recv time: {self.exchange._user_stream_tracker.last_recv_time}\n" \
+                        f"OBT recv time: {self.exchange._user_stream_tracker.last_recv_time}\n"
+            self.debug(debug_msg)
             await asyncio.sleep(1)
 
     def set_test_trading_rules(self):
@@ -225,7 +241,8 @@ class ExchangeClient(object):
             print(f'\n{r}')
             await asyncio.sleep(3)
             if r == NetworkStatus.CONNECTED:
-                print(self.exchange.status_dict)
+                print("Exchange status: ", self.exchange.status_dict)
+                print("Trading pair symbol map from OB DS: ", self.exchange._orderbook_ds._trading_pair_symbol_map)
                 print('\n')
                 break
 

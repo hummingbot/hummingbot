@@ -334,7 +334,7 @@ class GateIoExchange(ExchangeBaseV2):
             except Exception:
                 self.logger().error(
                     "Unexpected error in user stream listener loop.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """

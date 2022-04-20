@@ -141,7 +141,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
         `trading_pair_associated_to_exchange_symbol`
 
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
@@ -309,9 +309,10 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error occurred when listening to order book streams. "
-                                    "Retrying in 5 seconds...",
-                                    exc_info=True)
+                self.logger().error(
+                    "Unexpected error occurred when listening to order book streams. "
+                    "Retrying in 5 seconds...",
+                    exc_info=True)
                 await self._sleep(5.0)
             finally:
                 ws and await ws.disconnect()
@@ -325,13 +326,15 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs],
             )
             for pair in self._trading_pairs:
-                await ws.subscribe(CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
-                                   [web_utils.convert_to_exchange_trading_pair(pair), '100ms'])
-                self.logger().info(f"Subscribed to {self._trading_pairs} orderbook data streams...")
+                await ws.subscribe(
+                    CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
+                    [web_utils.convert_to_exchange_trading_pair(pair), '100ms']
+                )
+                self.logger().info(f"Subscribed to {self._trading_pairs} orderbook data streams.")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error("Unexpected error occurred subscribing to order book data streams...")
+            self.logger().error("Unexpected error occurred subscribing to order book data streams.")
             raise
         return ws
 
