@@ -1,11 +1,16 @@
 import {
   CancelOpenOrderResponse,
-  CancelOpenOrdersResponse, CancelOrderResponse,
-  CancelOrdersResponse, CreateOrderResponse,
-  CreateOrdersResponse, GetFilledOrderResponse,
+  CancelOpenOrdersResponse,
+  CancelOrderResponse,
+  CancelOrdersResponse,
+  CreateOrderResponse,
+  CreateOrdersRequest,
+  CreateOrdersResponse,
+  GetFilledOrderResponse,
   GetFilledOrdersResponse,
   GetMarketResponse,
-  GetMarketsResponse, GetOpenOrderResponse,
+  GetMarketsResponse,
+  GetOpenOrderResponse,
   GetOpenOrdersResponse,
   GetOrderBookResponse,
   GetOrderBooksResponse,
@@ -15,10 +20,14 @@ import {
   GetTickersResponse,
   Market,
   Order,
-  OrderBook, OrderSide, OrderType,
+  OrderBook,
+  OrderSide,
+  OrderStatus,
+  OrderType,
   Ticker
 } from "./serum.types";
 import {Map as ImmutableMap} from 'immutable';
+import {Market as SerumMarket, Order as SerumOrder, OrderParams} from "@project-serum/serum/lib/market";
 
 export enum Types {
   GetMarketsResponse = 'GetMarketsResponse',
@@ -125,6 +134,59 @@ export const convertSingle = <O extends Output>(input: SingleInput, type: Types)
   throw new Error(`Unsupported input type "${type}".`);
 };
 
+export const convertSerumMarketToMarket = (
+  market: SerumMarket,
+  extraInfo: Record<string, unknown>,
+): Market => {
+  return {
+    name: extraInfo.name,
+    address: extraInfo.address,
+    programId: extraInfo.programId,
+    deprecated: extraInfo.deprecated,
+    minimumOrderSize: market.minOrderSize,
+    tickSize: market.tickSize,
+    minimumBaseIncrement: market.baseSizeLotsToNumber(market.decoded.baseLotSize), // TODO is this correct?
+    fees: market.decoded.fee,
+    market: market
+  } as Market;
+}
+
+export const convertFilledOrderToTicker = (fill: any): Ticker => {
+  return {
+    ...fill,
+    ticker: fill
+  };
+}
+
+export const convertSerumOrderToOrder = (
+  market: Market,
+  order?: SerumOrder, // | Record<string, unknown>,
+  candidate?: CreateOrdersRequest,
+  orderParameters?: OrderParams,
+  status?: OrderStatus,
+  signature?: string,
+): Order => {
+  // TODO Add clientId and exchangeId!!!
+  // TODO convert the loadFills and placeOrder returns too!!!
+  // TODO return the clientOrderId and status pending when creating a new order (the exchangeOrderId will not be sent)!!!
+
+  return {
+    id: order?.clientId?.toString() || candidate?.id || undefined,
+    exchangeId: order?.orderId.toString() || undefined,
+    marketName: market.name,
+    ownerAddress: order?.openOrdersAddress.toString() || candidate!.ownerAddress,
+    price: order?.price || candidate!.price,
+    amount: order?.size || candidate!.amount,
+    side: order ? convertSerumSideToOrderSide(order?.side) : candidate!.side,
+    status: status,
+    type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!): undefined,
+    fee: order?.feeTier || undefined, //TODO order.feeTier?!!!
+    fillmentTimestamp: undefined,
+    signature: signature,
+    order: order
+  };
+};
+
 export const convertToGetMarketResponse = (input: Market): GetMarketResponse => {
   return {
     name: input.name,
@@ -163,9 +225,9 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.sideEnum,
-    status: input.statusEnum,
-    orderType: input.orderTypeEnum,
+    side: input.side,
+    status: input.status,
+    type: input.type,
     fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp,
   }
@@ -179,9 +241,9 @@ export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse 
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.sideEnum,
-    status: input.statusEnum,
-    orderType: input.orderTypeEnum,
+    side: input.side,
+    status: input.status,
+    type: input.type,
     fee: input.fee
   }
 }
@@ -194,9 +256,9 @@ export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse 
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.sideEnum,
-    status: input.statusEnum,
-    orderType: input.orderTypeEnum,
+    side: input.side,
+    status: input.status,
+    type: input.type,
     fee: input.fee
   }
 }
@@ -209,9 +271,9 @@ export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderRespons
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.sideEnum,
-    status: input.statusEnum,
-    orderType: input.orderTypeEnum,
+    side: input.side,
+    status: input.status,
+    type: input.type,
     fee: input.fee
   }
 }
@@ -223,9 +285,9 @@ export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderR
   ownerAddress: input.ownerAddress,
   price: input.price,
   amount: input.amount,
-  side: input.sideEnum,
-  status: input.statusEnum,
-  orderType: input.orderTypeEnum,
+  side: input.side,
+  status: input.status,
+  type: input.type,
   fee: input.fee
 })
 
@@ -237,9 +299,9 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
     ownerAddress: input.ownerAddress,
     price: input.price,
     amount: input.amount,
-    side: input.sideEnum,
-    status: input.statusEnum,
-    orderType: input.orderTypeEnum,
+    side: input.side,
+    status: input.status,
+    type: input.type,
     fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp
   }
@@ -247,6 +309,12 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
 
 export const convertOrderSideToSerumSide = (input: OrderSide): 'buy' | 'sell' => {
   return input.toLowerCase() as 'buy' | 'sell'
+}
+
+export const convertSerumSideToOrderSide = (input: 'buy' | 'sell'): OrderSide => {
+  if (input == 'buy') return OrderSide.BUY;
+  if (input == 'sell') return OrderSide.SELL;
+  throw new Error(`Invalid order side: ${input}`);
 }
 
 export const convertOrderTypeToSerumType = (input?: OrderType): 'limit' | 'ioc' | 'postOnly' => {
@@ -258,4 +326,11 @@ export const convertOrderTypeToSerumType = (input?: OrderType): 'limit' | 'ioc' 
     return 'postOnly'
   else
     throw new Error(`Invalid order type: ${input}`)
+}
+
+export const convertSerumTypeToOrderType = (input: 'limit' | 'ioc' | 'postOnly'): OrderType => {
+  if (input == 'limit') return OrderType.LIMIT;
+  if (input == 'ioc') return OrderType.IOC;
+  if (input == 'postOnly') return OrderType.POST_ONLY;
+  throw new Error(`Invalid order type: ${input}`);
 }

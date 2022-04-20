@@ -1,6 +1,6 @@
 import {Account, Connection, PublicKey} from '@solana/web3.js';
 import {Market as SerumMarket, MARKETS, Orderbook as SerumOrderBook,} from '@project-serum/serum';
-import { Map as ImmutableMap } from 'immutable';
+import {Map as ImmutableMap} from 'immutable';
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
@@ -16,6 +16,7 @@ import {
   OrderBook,
   OrderNotFoundError,
   OrderSide,
+  OrderStatus,
   Ticker,
 } from './serum.types';
 import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
@@ -23,7 +24,13 @@ import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-se
 import {Cache, CacheContainer} from 'node-ts-cache';
 import {MemoryStorage} from 'node-ts-cache-storage-memory';
 import BN from "bn.js";
-import {convertOrderSideToSerumSide, convertOrderTypeToSerumType} from "./serum.convertors";
+import {
+  convertFilledOrderToTicker,
+  convertOrderSideToSerumSide,
+  convertOrderTypeToSerumType,
+  convertSerumMarketToMarket,
+  convertSerumOrderToOrder
+} from "./serum.convertors";
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
@@ -77,16 +84,6 @@ export class Serum {
     return instance;
   }
 
-  private parseToMarket(
-    info: Record<string, unknown>,
-    market: SerumMarket
-  ): Market {
-    return {
-      ...info,
-      market: market,
-    } as Market;
-  }
-
   private parseToOrderBook(
     market: Market,
     asks: SerumOrderBook,
@@ -94,8 +91,8 @@ export class Serum {
   ): OrderBook {
     return {
       market: market,
-      asks: this.parseToMapOfOrders(asks),
-      bids: this.parseToMapOfOrders(bids),
+      asks: this.parseToMapOfOrders(market, asks),
+      bids: this.parseToMapOfOrders(market, bids),
       orderBook: {
         asks: asks,
         bids: bids,
@@ -103,32 +100,17 @@ export class Serum {
     } as OrderBook;
   }
 
-  private parseToOrder(order: SerumOrder | Record<string, unknown>): Order {
-    // TODO convert the loadFills and placeOrder returns too!!!
-    // TODO return the clientOrderId and status pending when creating a new order (the exchangeOrderId will not be sent)!!!
-    return {
-      ...order,
-      order: order,
-    } as Order;
-  }
-
   private parseToMapOfOrders(
+    market: Market,
     orders: SerumOrder[] | SerumOrderBook | any[]
   ): ImmutableMap<string, Order> {
     const result = ImmutableMap<string, Order>().asMutable();
 
     for (const order of orders) {
-      result.set(order.id, this.parseToOrder(order));
+      result.set(order.orderId, convertSerumOrderToOrder(market, order));
     }
 
     return result;
-  }
-
-  private parseToTicker(ticker: any): Ticker {
-    return {
-      ...ticker,
-      ticker: ticker,
-    } as Ticker;
   }
 
   /**
@@ -197,16 +179,18 @@ export class Serum {
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
     // TODO change the code to use a background task and load in parallel (using batches) the markets!!!
     for (const market of MARKETS.filter(market => ['BTC/USDT', 'ETH/USDT'].includes(market.name))) {
+      const serumMarket = await SerumMarket.load(
+        this.connection,
+        new PublicKey(market.address),
+        {},
+        new PublicKey(market.programId)
+      );
+
       allMarkets.set(
         market.name,
-        this.parseToMarket(
-          market,
-          await SerumMarket.load(
-            this.connection,
-            new PublicKey(market.address),
-            {},
-            new PublicKey(market.programId)
-          )
+        convertSerumMarketToMarket(
+          serumMarket,
+          market
         )
       );
     }
@@ -217,10 +201,13 @@ export class Serum {
   async getOrderBook(marketName: string): Promise<OrderBook> {
     const market = await this.getMarket(marketName);
 
+    const asks = await market.market.loadAsks(this.connection);
+    const bids = await market.market.loadBids(this.connection);
+
     return this.parseToOrderBook(
       market,
-      await market.market.loadAsks(this.connection),
-      await market.market.loadBids(this.connection)
+      asks,
+      bids
     );
   }
 
@@ -245,10 +232,11 @@ export class Serum {
   async getTicker(marketName: string): Promise<Ticker> {
     const market = await this.getMarket(marketName);
 
-    // TODO check the returned order of loadFills!!!
-    return this.parseToTicker(
-      (await market.market.loadFills(this.connection, 1))[0]
-    );
+    const lastFilledOrder = (await market.market.loadFills(this.connection, 10));
+
+    console.log(JSON.stringify(lastFilledOrder, null, 2));
+
+    return convertFilledOrderToTicker(lastFilledOrder[0]);
   }
 
   async getTickers(marketNames: string[]): Promise<ImmutableMap<string, Ticker>> {
@@ -270,11 +258,11 @@ export class Serum {
   }
 
   async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
-    if (!target.clientId && !target.exchangeId)
-      throw new OrderNotFoundError('No clientId or exchangeId provided.');
+    if (!target.id && !target.exchangeId)
+      throw new OrderNotFoundError('No client id or exchange id provided.');
 
     if (!target.ownerAddress)
-      throw new OrderNotFoundError('No ownerAddress provided.');
+      throw new OrderNotFoundError(`No owner address provided for order "${target.id} / ${target.exchangeId}".`);
 
     const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(
       target.ownerAddress
@@ -282,7 +270,7 @@ export class Serum {
     for (const mapOfOpenOrdersForMarket of mapOfOpenOrdersForMarkets.values()) {
       for (const openOrder of mapOfOpenOrdersForMarket.values()) {
         if (
-          openOrder.id === target.clientId ||
+          openOrder.id === target.id ||
           openOrder.exchangeId === target.exchangeId
         ) {
           return openOrder;
@@ -290,29 +278,29 @@ export class Serum {
       }
     }
 
-    throw new OrderNotFoundError(`Order ${target.clientId} not found.`);
+    throw new OrderNotFoundError(`Order ${target.id} not found.`);
   }
 
   async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
-    if (!target.clientId && !target.exchangeId)
-      throw new OrderNotFoundError('No clientId or exchangeId provided.');
+    if (!target.id && !target.exchangeId)
+      throw new OrderNotFoundError('No client id or exchange id provided.');
 
     const mapOfFilledOrders = await this.getAllFilledOrders();
     for (const filledOrder of mapOfFilledOrders.values()) {
       if (
-        filledOrder.id === target.clientId ||
+        filledOrder.id === target.id ||
         filledOrder.exchangeId === target.exchangeId
       ) {
         return filledOrder;
       }
     }
 
-    throw new OrderNotFoundError(`Order "${target.clientId}" not found.`);
+    throw new OrderNotFoundError(`Order "${target.id}" not found.`);
   }
 
   async getOrder(target: GetOrdersRequest): Promise<Order> {
-    if (!target.clientId && !target.exchangeId)
-      throw new OrderNotFoundError('No clientId or exchangeId provided.');
+    if (!target.id && !target.exchangeId)
+      throw new OrderNotFoundError('No client id or exchange id provided.');
 
     try {
       return await this.getOpenOrder(target);
@@ -331,7 +319,7 @@ export class Serum {
     for (const target of targets) {
       const order = await this.getOrder(target);
 
-      orders.set(order.id, order);
+      orders.set(order.exchangeId!, order);
     }
 
     return orders;
@@ -345,7 +333,7 @@ export class Serum {
     for (const target of targets) {
       const order = await this.getOpenOrder(target);
 
-      orders.set(order.id, order);
+      orders.set(order.exchangeId!, order);
     }
 
     return orders;
@@ -364,7 +352,7 @@ export class Serum {
       owner.publicKey
     );
 
-    return this.parseToMapOfOrders(serumOpenOrders);
+    return this.parseToMapOfOrders(market, serumOpenOrders);
   }
 
   async getAllOpenOrdersForMarkets(
@@ -408,7 +396,7 @@ export class Serum {
       side: convertOrderSideToSerumSide(candidate.side),
       price: candidate.price,
       size: candidate.amount,
-      orderType: convertOrderTypeToSerumType(candidate.orderType),
+      orderType: convertOrderTypeToSerumType(candidate.type),
       clientId: candidate.id ? new BN(candidate.id) : undefined,
       owner: owner,
       payer: await this.solana.findAssociatedTokenAddress(
@@ -422,11 +410,14 @@ export class Serum {
       serumOrderParams
     );
 
-    // TODO Add clientId and exchangeId!!!
-    return this.parseToOrder({
-      ...candidate,
-      signature: signature,
-    });
+    return convertSerumOrderToOrder(
+      market,
+      undefined,
+      candidate,
+      serumOrderParams,
+      OrderStatus.PENDING,
+      signature
+    );
   }
 
   async createOrders(
@@ -438,7 +429,7 @@ export class Serum {
     for (const candidateOrder of candidates) {
       const createdOrder = await this.createOrder(candidateOrder);
 
-      createdOrders.set(createdOrder.id, createdOrder);
+      createdOrders.set(createdOrder.exchangeId!, createdOrder);
     }
 
     return createdOrders;
@@ -452,7 +443,7 @@ export class Serum {
 
     const order = await this.getOrder({ ...target });
 
-    await market.market.cancelOrder(this.connection, owner, order.order);
+    await market.market.cancelOrder(this.connection, owner, order.order!);
   }
 
   async cancelOrders(
@@ -466,7 +457,7 @@ export class Serum {
       const canceledOrder = await this.cancelOrder({
         marketName: target.marketName,
         ownerAddress: target.ownerAddress,
-        clientId: target.clientId,
+        id: target.id,
         exchangeId: target.exchangeId,
       });
 
@@ -486,11 +477,11 @@ export class Serum {
         await this.cancelOrder({
           marketName: order.marketName,
           ownerAddress: order.ownerAddress,
-          clientId: order.id,
+          id: order.id,
           exchangeId: order.exchangeId,
         });
 
-        canceledOrders.set(order.id, order);
+        canceledOrders.set(order.exchangeId!, order);
       }
     }
 
@@ -519,7 +510,7 @@ export class Serum {
         // TODO check if -1 would also work!!!
         const orders = await market.market.loadFills(this.connection, 0);
 
-        result = ImmutableMap([...result, ...this.parseToMapOfOrders(orders)]).asMutable();
+        result = ImmutableMap([...result, ...this.parseToMapOfOrders(market, orders)]).asMutable();
       }
     }
 
