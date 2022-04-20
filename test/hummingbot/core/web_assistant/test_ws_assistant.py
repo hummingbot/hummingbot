@@ -15,10 +15,14 @@ from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAs
 
 
 class WSAssistantTest(unittest.TestCase):
+    ev_loop: asyncio.AbstractEventLoop
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
+        for task in asyncio.all_tasks(cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()
