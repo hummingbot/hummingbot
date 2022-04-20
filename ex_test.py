@@ -227,6 +227,10 @@ class ExchangeClient(object):
         ]
         await asyncio.gather(*tasks)
 
+    async def update_order_status(self):
+        print("ORDERS: ", [o.to_json() for o in self.exchange.in_flight_orders.values()])
+        await self.exchange._update_order_status()
+
     async def tests(self):
         global async_input
         prompt = Prompt()
@@ -250,7 +254,7 @@ class ExchangeClient(object):
             order_id = self.exchange.buy(self.pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
             await sleep_yes_no(f"{order_id} should have been placed")
             while await proceed("run update order status?"):
-                await self.exchange._update_order_status()
+                await self.update_order_status()
 
         if await proceed("(will spend USDT) buy LIMIT with last_trade_price and run update order status?"):
             trade_price = self.exchange.get_order_book(self.pair).last_trade_price
@@ -260,7 +264,7 @@ class ExchangeClient(object):
                 price=Decimal(trade_price),
                 order_type=OrderType.LIMIT)
             while await proceed("run update order status?"):
-                await self.exchange._update_order_status()
+                await self.update_order_status()
 
         if await proceed("run two failed orders?"):
             # this one will fail for:

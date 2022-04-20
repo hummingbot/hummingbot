@@ -254,20 +254,23 @@ class GateIoWebsocket:
             while True:
                 try:
                     msg = await self._get_message()
-
                     data = msg.data
+
                     # Raise API error for login failures.
                     if data.get("error", None) is not None:
                         err_msg = data.get("error", {}).get("message", data["error"])
-                        raise APIError(
-                            {"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."}
-                        )
+                        raise APIError({
+                            "label": "WSS_ERROR",
+                            "message": f"Error received via websocket - {err_msg}."
+                        })
 
                     if data.get("channel") == "spot.pong":
                         continue
 
                     yield data
+
                 except ValueError:
+                    self.logger().debug("Unexpected error during _messages", exc_info=True)
                     continue
         except ConnectionError:
             if not self._closed:
