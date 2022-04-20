@@ -1,8 +1,10 @@
 import {CreateOrdersRequest, OrderSide, OrderType} from "../../../../../src/connectors/serum/serum.types";
 import {default as config} from './serumConfig';
+// @ts-ignore
 import {MARKETS} from "@project-serum/serum";
 
-const marketNames = MARKETS.map(item => item.name);
+// const marketNames = MARKETS.map(item => item.name);
+const marketNames = ['BTC/USDT', 'ETH/USDT'];
 
 const getRandomChoice = (array: any[]) => array[Math.floor(Math.random() * array.length)];
 

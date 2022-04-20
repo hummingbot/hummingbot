@@ -151,9 +151,12 @@ export const convertSerumMarketToMarket = (
   } as Market;
 }
 
-export const convertFilledOrderToTicker = (fill: any): Ticker => {
+export const convertFilledOrderToTicker = (timestamp: number, fill: any): Ticker => {
   return {
-    ...fill,
+    price: fill.price,
+    amount: fill.size,
+    side: convertSerumSideToOrderSide(fill.side),
+    timestamp: timestamp,
     ticker: fill
   };
 }

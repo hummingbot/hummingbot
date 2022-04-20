@@ -279,4 +279,6 @@ export class SerumishError extends Error {}
 
 export class MarketNotFoundError extends SerumishError {}
 
+export class TickerNotFoundError extends SerumishError {}
+
 export class OrderNotFoundError extends SerumishError {}
