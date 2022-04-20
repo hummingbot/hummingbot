@@ -17,6 +17,12 @@ class ExpectedException(Exception):
 
 
 class InterfaceUtilsTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        for task in asyncio.all_tasks(ev_loop):
+            task.cancel()
+
     def setUp(self) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
