@@ -5,12 +5,12 @@ from typing import List
 import pandas as pd
 
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.event.events import OrderType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class MockScriptStrategy(ScriptStrategyBase):
