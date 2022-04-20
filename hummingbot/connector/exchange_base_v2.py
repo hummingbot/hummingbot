@@ -617,6 +617,10 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
         exchange_order_id = ""
         trading_rule = self._trading_rules[trading_pair]
 
+        # TODO what should happen here? start_tracking_order and then fail like for the trading
+        # rule check below?
+        # if order_type not in self.SUPPORTED_ORDER_TYPES:
+
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
             price = self.quantize_order_price(trading_pair, price)
             amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=price)
@@ -672,8 +676,7 @@ class ExchangeBaseV2(ExchangeApiMixin, ExchangeBase):
         except Exception:
             self.logger().network(
                 f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
+                f"{amount} {trading_pair} {price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
             )

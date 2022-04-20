@@ -11,6 +11,7 @@ import aiohttp
 # from async_timeout import timeout
 
 import hummingbot.core.web_assistant.connections.rest_connection
+from hummingbot.core.network_iterator import NetworkStatus
 import hummingbot.logger.logger
 from hummingbot.logger.logger import HummingbotLogger
 
@@ -32,6 +33,13 @@ class Prompt:
 
 
 async_input = None
+
+
+class PrintingQueue(asyncio.Queue):
+    def _get(self):
+        elem = self._queue.popleft()
+        print(f"\nPrintingQueue _user_stream_event_listener event_message: {elem}")
+        return elem
 
 
 class TestingHL(HummingbotLogger):
@@ -134,13 +142,14 @@ def get_gate_io(ec):
 
 
 class ExchangeClient(object):
-    # the level is required to receive logs from the data source logger
+    # level is required to receive logs from the data source logger
     level = 0
     log_records = []
 
-    def handle(self, log):
-        print('LOG   ', log)
-        # self.log_records.append(log)
+    def handle(self, record):
+        fmt = '%(levelname)s\t[%(filename)s]\t[%(funcName)s] |\t%(message)s'
+        formatter = logging.Formatter(fmt)
+        print(formatter.format(record))
 
     def initialize_exchange_loggers(self):
         self.exchange.logger().setLevel(self.level)
@@ -190,6 +199,7 @@ class ExchangeClient(object):
         # self.exchange = get_binance(self)
         self.exchange = get_gate_io(self)
         self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+        self.exchange._user_stream_tracker._user_stream = PrintingQueue()
 
         self.initialize_exchange_loggers()
         self.initialize_event_loggers()
@@ -206,15 +216,32 @@ class ExchangeClient(object):
         prompt = Prompt()
         async_input = functools.partial(prompt, end='', flush=True)
 
-        r = await self.exchange.check_network()
-        print(f'\n{r}\n')
-
         global ENABLE_CONNECTION_TRACING
         # ENABLE_CONNECTION_TRACING = True
+
+        # wait for network init
+        while True:
+            r = await self.exchange.check_network()
+            print(f'\n{r}')
+            await asyncio.sleep(3)
+            if r == NetworkStatus.CONNECTED:
+                print(self.exchange.status_dict)
+                print('\n')
+                break
 
         if await proceed("run buy and cancel via web + update order status?"):
             order_id = self.exchange.buy(self.pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
             await sleep_yes_no(f"{order_id} should have been placed")
+            while await proceed("run update order status?"):
+                await self.exchange._update_order_status()
+
+        if await proceed("(will spend USDT) buy LIMIT with last_trade_price and run update order status?"):
+            trade_price = self.exchange.get_order_book(self.pair).last_trade_price
+            order_id = self.exchange.buy(
+                self.pair,
+                amount=Decimal(0.001),
+                price=Decimal(trade_price),
+                order_type=OrderType.LIMIT)
             while await proceed("run update order status?"):
                 await self.exchange._update_order_status()
 
@@ -238,21 +265,6 @@ class ExchangeClient(object):
             if await proceed("orders created?"):
                 cancellations = await self.exchange.cancel_all(10)
                 print(cancellations)
-
-        # NOTE
-        # test all ws loops, make sure all network loops are tested
-        # maybe this can be done by substituting the queue(s) with a print queue,
-        # that prints all things that get passed to it, if queue.print = True
-
-        return
-
-        # check ws create order update and balance update
-        if await proceed(""):
-            pass
-
-        # ws order book and make sure updates are received
-
-        # to check no methods were left untested, run test pure mm strategy
 
 
 if __name__ == '__main__':

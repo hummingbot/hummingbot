@@ -1,6 +1,5 @@
 import time
 import asyncio
-import math
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 import json
@@ -13,19 +12,16 @@ from hummingbot.connector.exchange.gate_io import (
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
 )
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
+from hummingbot.core.data_type.in_flight_order import TradeUpdate
 from hummingbot.core.utils.async_utils import safe_gather
 
 
@@ -82,6 +78,7 @@ class GateIoExchange(ExchangeBaseV2):
     def name(self) -> str:
         return "gate_io"
 
+    # TODO link to example
     async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> Dict[str, TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
@@ -266,8 +263,9 @@ class GateIoExchange(ExchangeBaseV2):
                     for trade_fills in response:
                         self._process_trade_message(trade_fills, tracked_order.client_order_id)
             else:
-                self.logger().warning(f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
-                                      f"Response: {response}")
+                self.logger().warning(
+                    f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
+                    f"Response: {response}")
                 if 'ORDER_NOT_FOUND' in str(response):
                     self._order_tracker.stop_tracking_order(client_order_id=tracked_order.client_order_id)
 
@@ -278,8 +276,9 @@ class GateIoExchange(ExchangeBaseV2):
             if not isinstance(response, Exception):
                 self._process_order_message(response)
             else:
-                self.logger().warning(f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
-                                      f"Response: {response}")
+                self.logger().warning(
+                    f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
+                    f"Response: {response}")
                 if 'ORDER_NOT_FOUND' in str(response):
                     self._order_tracker.stop_tracking_order(client_order_id=tracked_order.client_order_id)
 
@@ -298,7 +297,7 @@ class GateIoExchange(ExchangeBaseV2):
         """
         Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
         """
-        # TODO can we get fees from gate io?
+        # TODO can we get fees from gate io API?
         # NOTE this same call is done by _init_trading_pair_symbols( in OB data source
         pass
 
@@ -312,7 +311,6 @@ class GateIoExchange(ExchangeBaseV2):
             CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
         ]
-
         async for event_message in self._iter_user_event_queue():
             channel: str = event_message.get("channel", None)
             results: str = event_message.get("result", None)
@@ -370,68 +368,45 @@ class GateIoExchange(ExchangeBaseV2):
                 MarketOrderFailureEvent(self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
-    def _process_trade_message(self, trade_msg: Dict[str, Any], client_order_id: Optional[str] = None):
+    def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         Example Trade:
         https://www.gate.io/docs/apiv4/en/#retrieve-market-trades
         """
-        client_order_id = client_order_id or str(trade_msg["text"])
+        client_order_id = client_order_id or str(trade["text"])
         tracked_order = self.in_flight_orders.get(client_order_id, None)
         if not tracked_order:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        updated = tracked_order.update_with_trade_update(trade_msg)
-        if updated:
-            self._trigger_order_fill(
-                tracked_order=tracked_order,
-                update_msg=trade_msg
-            )
-
-    def _trigger_order_fill(self,
-                            tracked_order: InFlightOrder,
-                            update_msg: Dict[str, Any]):
-        self.trigger_event(
-            MarketEvent.OrderFilled,
-            OrderFilledEvent(
-                self.current_timestamp,
-                tracked_order.client_order_id,
-                tracked_order.trading_pair,
-                tracked_order.trade_type,
-                tracked_order.order_type,
-                Decimal(str(update_msg.get("fill_price", update_msg.get("price", "0")))),
-                tracked_order.executed_amount_base,
-                AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, tracked_order.fee_paid)]),
-                str(update_msg.get("update_time_ms", update_msg.get("id")))
-            )
+        # TODO review
+        # {'id': '3286836540', 'create_time': '1650444945', 'create_time_ms': '1650444945003.509000',
+        # 'currency_pair': 'ETH_USDT', 'side': 'buy', 'role': 'taker', 'amount': '0.001', 'price': '3100.4',
+        # 'order_id': '146053117298', 'fee': '0.0000018', 'fee_currency': 'ETH', 'point_fee': '0', 'gt_fee': '0'}
+        fee = TradeFeeBase.new_spot_fee(
+            fee_schema=self.trade_fee_schema(),
+            trade_type=tracked_order.trade_type,
+            percent_token=trade["fee_currency"],
+            flat_fees=[TokenAmount(
+                amount=Decimal(trade["fee"]),
+                token=trade["fee_currency"]
+            )]
         )
-        if tracked_order.is_done or \
-           tracked_order.executed_amount_base >= tracked_order.amount or \
-           math.isclose(tracked_order.executed_amount_base, tracked_order.amount):
-
-            tracked_order.last_state = "FILLED"
-            self.logger().info(
-                f"The {tracked_order.trade_type.name} order {tracked_order.client_order_id} has completed"
-                " according to order status API.")
-            event_tag = MarketEvent.BuyOrderCompleted
-            event_class = BuyOrderCompletedEvent
-            if tracked_order.trade_type is TradeType.SELL:
-                event_tag = MarketEvent.SellOrderCompleted
-                event_class = SellOrderCompletedEvent
-            self.trigger_event(
-                event_tag,
-                event_class(
-                    self.current_timestamp,
-                    tracked_order.client_order_id,
-                    tracked_order.base_asset,
-                    tracked_order.quote_asset,
-                    tracked_order.executed_amount_base,
-                    tracked_order.executed_amount_quote,
-                    tracked_order.order_type,
-                    tracked_order.exchange_order_id))
-            self.stop_tracking_order(tracked_order.client_order_id)
+        trade_update = TradeUpdate(
+            trade_id=str(trade["id"]),
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            fee=fee,
+            fill_base_amount=Decimal(trade["amount"]),
+            # TODO should this be calculated from amount * price?
+            fill_quote_amount=Decimal(trade["amount"]),
+            fill_price=Decimal(trade["price"]),
+            fill_timestamp=trade["create_time"],
+        )
+        self._order_tracker.process_trade_update(trade_update)
 
     def _process_balance_message(self, balance_update):
         local_asset_names = set(self._account_balances.keys())
