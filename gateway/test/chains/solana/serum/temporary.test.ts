@@ -1,20 +1,28 @@
-// noinspection JSUnusedLocalSymbols,ES6UnusedImports
+// @ts-nocheck
 
 import 'jest-extended';
 import {Serum} from '../../../../src/connectors/serum/serum';
 import {unpatch} from '../../../services/patch';
 import {Solana} from '../../../../src/chains/solana/solana';
 import {default as config} from './fixtures/serumConfig';
-// @ts-ignore
 import {createOrders, getMarkets, getOrderBooks, getTickers} from "../../../../src/clob/clob.controllers";
 import {getNewOrderTemplate} from "./fixtures/dummy";
+import {addWallet} from "../../../../src/services/wallet/wallet.controllers";
+import {getOrCreateTokenAccount} from "../../../../src/chains/solana/solana.controllers";
+
+export const publicKey = '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr';
+export const privateKey =
+  '5K23ZvkHuNoakyMKGNoaCvky6a2Yu5yfeoRz2wQLKYAczMKzACN5ZZb9ixu6QcsQvrvh91CNfqu8U1LqC1nvnyfp';
 
 jest.setTimeout(1000000);
 
-beforeAll(async () => {
-  await Solana.getInstance(config.solana.network);
+let solana: Solana;
+let serum: Serum;
 
-  await Serum.getInstance(config.serum.chain, config.serum.network);
+beforeAll(async () => {
+  solana = await Solana.getInstance(config.solana.network);
+
+  serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 });
 
 afterEach(() => {
@@ -22,7 +30,6 @@ afterEach(() => {
 });
 
 it('Temporary', async () => {
-  // @ts-ignore
   const marketName = 'BTC/USDT';
 
   const commonParameters = {
@@ -30,6 +37,23 @@ it('Temporary', async () => {
     network: config.serum.network,
     connector: config.serum.connector,
   }
+
+  const wallet = addWallet({
+    chain: config.serum.chain,
+    network: config.serum.network,
+    privateKey: privateKey,
+  });
+  console.log('wallet/add', JSON.stringify(wallet, null, 2));
+
+  const tokenAccount = await getOrCreateTokenAccount(
+    solana,
+    {
+      address: config.solana.wallet.owner.address,
+      token: 'BTC',
+    }
+  );
+  console.log('token', JSON.stringify(tokenAccount, null, 2));
+
 
   // const market = (await getMarkets({
   //   ...commonParameters,

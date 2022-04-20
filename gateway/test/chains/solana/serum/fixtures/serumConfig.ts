@@ -3,10 +3,10 @@ export default {
     network: 'mainnet-beta',
     wallet: {
       owner: {
-        address: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        address: '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr',
       },
       payer: {
-        address: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        address: '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr',
       },
     }
   },

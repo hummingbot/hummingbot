@@ -21,6 +21,8 @@ import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
+import {ClobRoutes} from "./clob/clob.routes";
+import {SerumRoutes} from "./connectors/serum/serum.routes";
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -41,8 +43,10 @@ gatewayApp.use('/evm', EVMRoutes.router);
 gatewayApp.use('/connectors', ConnectorsRoutes.router);
 
 gatewayApp.use('/amm', AmmRoutes.router);
+gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
+gatewayApp.use('/serum', SerumRoutes.router);
 
 // a simple route to test that the server is running
 gatewayApp.get('/', (_req: Request, res: Response) => {
