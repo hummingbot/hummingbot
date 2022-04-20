@@ -587,7 +587,7 @@ cdef class StrategyBase(TimeIterator):
         :param msg: The message to be notified
         """
         from hummingbot.client.hummingbot_application import HummingbotApplication
-        HummingbotApplication.main_application()._notify(msg)
+        HummingbotApplication.main_application().notify(msg)
 
     def notify_hb_app_with_timestamp(self, msg: str):
         """

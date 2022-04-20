@@ -1,15 +1,13 @@
-#!/usr/bin/env python
-
 from os.path import (
     isdir,
     join,
-    realpath,
+    exists,
 )
 from os import listdir
-import logging; logging.basicConfig(level=logging.INFO)
 import unittest
 import ruamel.yaml
 
+from hummingbot import root_path
 from hummingbot.client.config.config_helpers import (
     get_strategy_template_path,
     get_strategy_config_map,
@@ -22,8 +20,7 @@ yaml_parser = ruamel.yaml.YAML()
 class ConfigTemplatesUnitTest(unittest.TestCase):
 
     def test_global_config_template_complete(self):
-        global_config_template_path: str = realpath(join(__file__,
-                                                         "../../../../../hummingbot/templates/conf_global_TEMPLATE.yml"))
+        global_config_template_path: str = join(root_path(), "hummingbot/templates/conf_global_TEMPLATE.yml")
 
         with open(global_config_template_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -38,9 +35,12 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
                 self.assertTrue(key in template_data, f"{key} not in {global_config_template_path}")
 
     def test_strategy_config_template_complete(self):
-        folder = realpath(join(__file__, "../../../../../hummingbot/strategy"))
+        folder: str = join(root_path(), "hummingbot/strategy")
         # Only include valid directories
-        strategies = [d for d in listdir(folder) if isdir(join(folder, d)) and not d.startswith("__")]
+        strategies = [
+            d for d in listdir(folder)
+            if isdir(join(folder, d)) and not d.startswith("__") and exists(join(folder, d, "__init__.py"))
+        ]
         strategies.sort()
 
         for strategy in strategies:

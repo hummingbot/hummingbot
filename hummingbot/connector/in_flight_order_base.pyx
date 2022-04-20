@@ -41,6 +41,8 @@ cdef class InFlightOrderBase:
         self.fee_paid = s_decimal_0
         self.last_state = initial_state
         self.exchange_order_id_update_event = asyncio.Event()
+        if self.exchange_order_id is not None:
+            self.exchange_order_id_update_event.set()
         self.completely_filled_event = asyncio.Event()
         self._creation_timestamp = creation_timestamp
 
