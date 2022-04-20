@@ -25,6 +25,13 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         super().setUpClass()
         cls.auth = HuobiAuth("somKey", "someSecretKey")
         cls.ev_loop = asyncio.get_event_loop()
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        for task in asyncio.all_tasks(loop=cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()

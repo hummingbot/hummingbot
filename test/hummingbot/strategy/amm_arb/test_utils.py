@@ -41,7 +41,7 @@ class AmmArbUtilsUnitTest(unittest.TestCase):
     async def _test_create_arb_proposals(self):
         market_info1 = MarketTradingPairTuple(MockConnector1(), trading_pair, base, quote)
         market_info2 = MarketTradingPairTuple(MockConnector2(), trading_pair, base, quote)
-        arb_proposals = await utils.create_arb_proposals(market_info1, market_info2, Decimal("1"))
+        arb_proposals = await utils.create_arb_proposals(market_info1, market_info2, [], [], Decimal("1"))
         # there are 2 proposal combination possible - (buy_1, sell_2) and (buy_2, sell_1)
         self.assertEqual(2, len(arb_proposals))
         # Each proposal has a buy and a sell proposal sides

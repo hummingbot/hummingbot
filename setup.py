@@ -58,6 +58,7 @@ def main():
         "cryptography",
         "cython",
         "cytoolz",
+        "docker",
         "diff-cover",
         "dydx-python",
         "dydx-v3-python",
