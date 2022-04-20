@@ -11,8 +11,8 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
 # Fees have to be expressed as percent value
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("-0.025"),
-    taker_percent_fee_decimal=Decimal("0.075"),
+    maker_percent_fee_decimal=Decimal("-0.00025"),
+    taker_percent_fee_decimal=Decimal("0.00075"),
 )
 
 CENTRALIZED = True

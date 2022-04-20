@@ -19,8 +19,8 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.2"),
-    taker_percent_fee_decimal=Decimal("0.2"),
+    maker_percent_fee_decimal=Decimal("0.002"),
+    taker_percent_fee_decimal=Decimal("0.002"),
 )
 
 CENTRALIZED = True

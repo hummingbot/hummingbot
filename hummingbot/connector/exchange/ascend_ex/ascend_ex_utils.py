@@ -13,8 +13,8 @@ from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBa
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.1"),
-    taker_percent_fee_decimal=Decimal("0.1"),
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
 )
 
 CENTRALIZED = True
