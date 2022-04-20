@@ -161,16 +161,14 @@ export class ConfigurationNamespace {
       deepCopy(configCandidate, configTemplateCandidate);
       if (!this.#validator(configTemplateCandidate)) {
         for (const err of this.#validator.errors as DefinedError[]) {
-          switch (err.keyword) {
-            case 'additionalProperties':
-              throw new Error(
-                `${this.id} config file seems to be outdated/broken due to additional property "${err.params.additionalProperty}". Kindly fix manually.`
-              );
-              break;
-            default:
-              throw new Error(
-                `${this.id} config file seems to be outdated/broken due to "${err.keyword}" - ${err.message}. Kindly fix manually.`
-              );
+          if (err.keyword === 'additionalProperties') {
+            throw new Error(
+              `${this.id} config file seems to be outdated/broken due to additional property "${err.params.additionalProperty}". Kindly fix manually.`
+            );
+          } else {
+            throw new Error(
+              `${this.id} config file seems to be outdated/broken due to "${err.keyword}" - ${err.message}. Kindly fix manually.`
+            );
           }
         }
       }
