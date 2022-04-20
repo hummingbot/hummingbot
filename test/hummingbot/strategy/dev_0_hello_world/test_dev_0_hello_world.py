@@ -1,14 +1,12 @@
-
 import asyncio
 import unittest
+
 import pandas as pd
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.strategy.dev_0_hello_world import HelloWorldStrategy
+
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.strategy.dev_0_hello_world import HelloWorldStrategy
 
 
 class Dev0HelloWorldUnitTest(unittest.TestCase):

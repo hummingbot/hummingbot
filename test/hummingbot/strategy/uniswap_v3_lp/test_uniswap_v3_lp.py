@@ -1,20 +1,17 @@
-"""
-Unit tests for hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp
-"""
-
-from decimal import Decimal
-import pandas as pd
-import numpy as np
-from typing import Dict, List
-import unittest.mock
 import asyncio
+import unittest.mock
+from decimal import Decimal
+from typing import Dict, List
 
+import numpy as np
+import pandas as pd
+
+from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
-from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class ExtendedMockPaperExchange(MockPaperExchange):
