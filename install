@@ -41,6 +41,9 @@ fi
 
 source "${CONDA_BIN}/activate" hummingbot
 
+# Add the project directory to module search paths.
+conda develop .
+
 # For some reason, this needs to be installed outside of the environment file,
 # or it'll give you the graphviz install error.
 pip install objgraph

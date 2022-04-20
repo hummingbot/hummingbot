@@ -1,0 +1,10 @@
+paths:
+  /connectors:
+    get:
+      tags:
+        - 'system'
+      summary: 'Show list of available connectors and networks'
+      operationId: 'get'
+      produces:
+        - 'application/json'
+      responses: '200'

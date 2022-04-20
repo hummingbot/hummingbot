@@ -34,7 +34,7 @@ class RateCommand:
             msg = await RateCommand.oracle_rate_msg(pair)
         except OracleRateUnavailable:
             msg = "Rate is not available."
-        self._notify(msg)
+        self.notify(msg)
 
     @staticmethod
     async def oracle_rate_msg(pair: str,
@@ -50,9 +50,9 @@ class RateCommand:
                                token: str
                                ):
         token = token.upper()
-        self._notify(f"Source: {RateOracle.source.name}")
+        self.notify(f"Source: {RateOracle.source.name}")
         rate = await RateOracle.global_rate(token)
         if rate is None:
-            self._notify("Rate is not available.")
+            self.notify("Rate is not available.")
             return
-        self._notify(f"1 {token} = {RateOracle.global_token_symbol} {rate} {RateOracle.global_token}")
+        self.notify(f"1 {token} = {RateOracle.global_token_symbol} {rate} {RateOracle.global_token}")
