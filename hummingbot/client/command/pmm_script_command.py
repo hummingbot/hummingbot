@@ -7,6 +7,6 @@ class PMMScriptCommand:
         if self._pmm_script_iterator is not None:
             self._pmm_script_iterator.request_command(cmd, args)
         else:
-            self._notify('No PMM script is active, command ignored')
+            self.notify('No PMM script is active, command ignored')
 
         return True

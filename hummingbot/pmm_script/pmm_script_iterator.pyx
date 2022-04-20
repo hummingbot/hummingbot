@@ -130,7 +130,7 @@ cdef class PMMScriptIterator(TimeIterator):
                 elif isinstance(item, CallNotify) and not self._is_unit_testing_mode:
                     # ignore this on unit testing as the below import will mess up unit testing.
                     from hummingbot.client.hummingbot_application import HummingbotApplication
-                    HummingbotApplication.main_application()._notify(item.msg)
+                    HummingbotApplication.main_application().notify(item.msg)
                 elif isinstance(item, CallLog):
                     self.logger().info(f"script - {item.msg}")
                 elif isinstance(item, ScriptError):
