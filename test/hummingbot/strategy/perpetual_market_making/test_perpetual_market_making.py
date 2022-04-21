@@ -89,6 +89,7 @@ class PerpetualMarketMakingTests(TestCase):
             time_between_stop_loss_orders=10.0,
             stop_loss_slippage_buffer=self.stop_loss_slippage_buffer,
         )
+        new_strategy._position_mode_ready = True
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
 
@@ -583,6 +584,7 @@ class PerpetualMarketMakingTests(TestCase):
             stop_loss_slippage_buffer=self.stop_loss_slippage_buffer,
             order_override={"buy": ["buy", "10", "50"], "sell": ["sell", "20", "40"]}
         )
+        new_strategy._position_mode_ready = True
 
         self.clock.remove_iterator(self.strategy)
         self._configure_strategy(new_strategy)
