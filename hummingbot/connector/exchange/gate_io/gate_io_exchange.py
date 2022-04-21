@@ -276,8 +276,6 @@ class GateIoExchange(ExchangeBaseV2):
         """
         Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
         """
-        # TODO can we get fees from gate io API?
-        # NOTE this same call is done by _init_trading_pair_symbols( in OB data source
         pass
 
     async def _user_stream_event_listener(self):

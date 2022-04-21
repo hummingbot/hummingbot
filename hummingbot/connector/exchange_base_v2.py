@@ -41,6 +41,8 @@ class ExchangeBaseV2(ExchangeBase):
     # SYMBOLS_PATH_URL = ""
     # FEE_PATH_URL = ""
     # CHECK_NETWORK_URL = ""
+    # ORDERBOOK_DS_CLASS = None
+    # USERSTREAM_DS_CLASS = None
 
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 120.0
@@ -494,11 +496,9 @@ class ExchangeBaseV2(ExchangeBase):
                 self.logger().warning(
                     f"Failed to cancel the order {order_id} because it does not have an exchange order id yet")
                 await self._order_tracker.process_order_not_found(order_id)
-            except Exception as e:
-                self.logger().network(
-                    f"Failed to cancel order {order_id}: {str(e)}", exc_info=True,
-                    app_warning_msg=f"Failed to cancel the order {order_id} on {self.name_cap}. "
-                                    f"Check API key and network connection.")
+            except Exception:
+                self.logger().error(
+                    f"Failed to cancel order {order_id}", exc_info=True)
         return None
 
     # Order Tracking

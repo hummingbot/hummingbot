@@ -103,7 +103,7 @@ class KucoinExchange(ExchangeBaseV2):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> (str, int):
+                           price: Decimal) -> (str, float):
         path_url = CONSTANTS.ORDERS_PATH_URL
         side = trade_type.name.lower()
         order_type_str = "market" if order_type == OrderType.MARKET else "limit"
@@ -224,7 +224,7 @@ class KucoinExchange(ExchangeBaseV2):
                 self.logger().exception("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
-    async def _status_polling_loop_updates(self):
+    async def _status_polling_loop_fetch_updates(self):
         "Called by _status_polling_loop to sync with exchange"
         return await safe_gather(
             self._update_balances(),

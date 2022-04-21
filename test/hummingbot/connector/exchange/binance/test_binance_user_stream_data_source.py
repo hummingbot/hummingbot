@@ -50,6 +50,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source = BinanceAPIUserStreamDataSource(
             auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
             domain=self.domain,
+            trading_pairs=[self.trading_pair],
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer,
         )
