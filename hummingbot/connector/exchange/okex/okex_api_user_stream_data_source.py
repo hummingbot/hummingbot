@@ -59,7 +59,7 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         return ws
 
-    async def _subscribe_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         try:
             payload = {
                 "op": "subscribe",
@@ -79,9 +79,9 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
-                await ws.send(subscribe_account_request)
+                await websocket_assistant.send(subscribe_account_request)
             async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
-                await ws.send(subscribe_orders_request)
+                await websocket_assistant.send(subscribe_orders_request)
             self.logger().info("Subscribed to private account and orders channels...")
         except asyncio.CancelledError:
             raise

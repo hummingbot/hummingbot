@@ -50,10 +50,11 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant.last_recv_time
         return 0
 
-    async def _subscribe_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
-        :param ws: the websocket assistant used to connect to the exchange
+
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
             payload: Dict[str, str] = {
@@ -62,7 +63,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             }
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            await ws.send(subscribe_request)
+            await websocket_assistant.send(subscribe_request)
 
             self.logger().info("Subscribing to private channels...")
         except asyncio.CancelledError:
@@ -88,7 +89,7 @@ class CoinflexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     ws_url=web_utils.websocket_url(domain=self._domain),
                     ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
                 await ws.send(WSJSONRequest({}, is_auth_required=True))
-                await self._subscribe_channels(ws)
+                await self._subscribe_channels(websocket_assistant=ws)
                 await ws.ping()  # to update last_recv_timestamp
 
                 async for ws_response in ws.iter_messages():

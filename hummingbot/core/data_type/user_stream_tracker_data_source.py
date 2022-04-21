@@ -40,20 +40,20 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
 
         :param output: the queue to use to store the received messages
         """
-        ws: Optional[WSAssistant] = None
         while True:
             try:
-                ws: WSAssistant = await self._connected_websocket_assistant()
-                await self._subscribe_channels(ws)
-                await ws.ping()  # to update last_recv_timestamp
-                await self._process_websocket_messages(websocket_assistant=ws, queue=output)
+                self._ws_assistant = await self._connected_websocket_assistant()
+                await self._subscribe_channels(websocket_assistant=self._ws_assistant)
+                await self._ws_assistant.ping()  # to update last_recv_timestamp
+                await self._process_websocket_messages(websocket_assistant=self._ws_assistant, queue=output)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
                 await self._sleep(5.0)
             finally:
-                await self._on_user_stream_interruption(websocket_assistant=ws)
+                await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
+                self._ws_assistant = None
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -61,11 +61,11 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
         """
         raise NotImplementedError
 
-    async def _subscribe_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
 
-        :param ws: the websocket assistant used to connect to the exchange
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         raise NotImplementedError
 
