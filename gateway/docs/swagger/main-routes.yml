@@ -1,0 +1,24 @@
+paths:
+  /:
+    get:
+      tags:
+        - 'system'
+      summary: 'Ping the server to see that it is running'
+      produces:
+        - 'application/json'
+      responses: '200'
+  /config/update:
+    post:
+      tags:
+        - 'system'
+      summary: 'Updates Gateway configuration'
+      operationId: 'update'
+      consumes:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/ConfigUpdateRequest'
+      responses: '200'
