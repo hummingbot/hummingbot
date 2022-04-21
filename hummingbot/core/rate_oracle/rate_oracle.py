@@ -6,10 +6,9 @@ from typing import Dict, List, Optional
 
 import aiohttp
 
-import hummingbot.client.settings  # noqa
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import convert_from_exchange_trading_pair as \
-    ascend_ex_convert_from_exchange_pair
+import hummingbot.client.settings # noqa
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -47,8 +46,8 @@ class RateOracle(NetworkBase):
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
     binance_us_price_url = "https://api.binance.us/api/v3/ticker/bookTicker"
-    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
-                              "&per_page=250&page={}&sparkline=false"
+    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?order=market_cap_desc&page={}" \
+                              "&per_page=250&sparkline=false&vs_currency={}"
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
     kucoin_price_url = "https://api.kucoin.com/api/v1/market/allTickers"
     ascend_ex_price_url = "https://ascendex.com/api/pro/v1/ticker"
@@ -288,7 +287,7 @@ class RateOracle(NetworkBase):
         async with client.request("GET", cls.ascend_ex_price_url) as resp:
             records = await resp.json(content_type=None)
             for record in records["data"]:
-                pair = ascend_ex_convert_from_exchange_pair(record["symbol"])
+                pair = await AscendExAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(record["symbol"])
                 if Decimal(record["ask"][0]) > 0 and Decimal(record["bid"][0]) > 0:
                     results[pair] = (Decimal(str(record["ask"][0])) + Decimal(str(record["bid"][0]))) / Decimal("2")
         return results
@@ -333,7 +332,7 @@ class RateOracle(NetworkBase):
         """
         results = {}
         client = await cls._http_client()
-        async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
+        async with client.request("GET", cls.coingecko_usd_price_url.format(page_no, vs_currency)) as resp:
             records = await resp.json(content_type=None)
             for record in records:
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
@@ -349,6 +348,8 @@ class RateOracle(NetworkBase):
         if self._fetch_price_task is not None:
             self._fetch_price_task.cancel()
             self._fetch_price_task = None
+        # Reset stored prices so that they are not used if they are not being updated
+        self._prices = {}
 
     async def check_network(self) -> NetworkStatus:
         try:
