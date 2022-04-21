@@ -16,6 +16,7 @@ from .ticker_command import TickerCommand
 from .gateway_command import GatewayCommand
 from .script_command import ScriptCommand
 from .rate_command import RateCommand
+from .previous_strategy_command import PreviousCommand
 
 
 __all__ = [
@@ -37,4 +38,5 @@ __all__ = [
     GatewayCommand,
     ScriptCommand,
     RateCommand,
+    PreviousCommand
 ]

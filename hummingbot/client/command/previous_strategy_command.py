@@ -26,7 +26,7 @@ class PreviousCommand:
         if previous_strategy_file is not None:
             safe_ensure_future(self.prompt_for_previous_strategy(previous_strategy_file))
         else:
-            self._notify("No previous strategy found.")
+            self.notify("No previous strategy found.")
 
     async def prompt_for_previous_strategy(
         self,  # type: HummingbotApplication
