@@ -772,10 +772,11 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.strategy.did_change_position_mode_succeed(
             PositionModeChangeEvent(
-                    timestamp=self.start_timestamp + 11,
-                    trading_pair=self.trading_pair,
-                    position_mode=PositionMode.ONEWAY,
-                ))
+                timestamp=self.start_timestamp + 11,
+                trading_pair=self.trading_pair,
+                position_mode=PositionMode.ONEWAY,
+            )
+        )
 
         self.assertTrue(self.strategy._position_mode_ready)
 
@@ -797,10 +798,11 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.strategy.did_change_position_mode_fail(
             PositionModeChangeEvent(
-                    timestamp=self.start_timestamp + 11,
-                    trading_pair=self.trading_pair,
-                    position_mode=PositionMode.ONEWAY,
-                    message="Error message",
-                ))
+                timestamp=self.start_timestamp + 11,
+                trading_pair=self.trading_pair,
+                position_mode=PositionMode.ONEWAY,
+                message="Error message",
+            )
+        )
 
         self.assertFalse(self.strategy._position_mode_ready)
