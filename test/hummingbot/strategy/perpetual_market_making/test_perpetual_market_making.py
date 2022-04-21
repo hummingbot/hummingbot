@@ -17,6 +17,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
+    PositionModeChangeEvent,
     SellOrderCompletedEvent,
 )
 from hummingbot.strategy.data_types import Proposal, PriceSize
@@ -752,3 +753,56 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(PriceType.Custom, self.strategy.get_price_type("custom"))
 
         self.assertRaises(ValueError, self.strategy.get_price_type, "invalid_text")
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_success(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+
+        self.strategy.did_change_position_mode_succeed(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=self.trading_pair,
+                position_mode=PositionMode.ONEWAY,
+            )
+        )
+
+        self.assertTrue(self.strategy._position_mode_ready)
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_failure(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+
+        self.strategy.did_change_position_mode_fail(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=self.trading_pair,
+                position_mode=PositionMode.ONEWAY,
+                message="Error message",
+            )
+        )
+
+        self.assertFalse(self.strategy._position_mode_ready)
