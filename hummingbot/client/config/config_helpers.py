@@ -476,3 +476,8 @@ def secondary_market_conversion_rate(strategy) -> Decimal:
     else:
         return Decimal("1")
     return quote_rate / base_rate
+
+
+def save_previous_strategy_value(file_name: str):
+    global_config_map["previous_strategy"].value = file_name
+    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
