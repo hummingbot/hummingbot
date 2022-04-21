@@ -144,41 +144,40 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info("Markets are ready.")
-                if not self._strategy_initialized:
-                    self._perp_market_info.market.set_leverage(self._perp_market_info.trading_pair, self._perp_leverage)
-                    self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
-                    self._strategy_initialized = True
-                    return
+            if not self._strategy_initialized:
+                self._perp_market_info.market.set_leverage(self._perp_market_info.trading_pair, self._perp_leverage)
+                self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
+                self._strategy_initialized = True
 
-                self.logger().info("Trading started.")
+            self.logger().info("Trading started.")
 
-                if not self.check_budget_available():
-                    self.logger().info("Trading not possible.")
-                    return
+            if not self.check_budget_available():
+                self.logger().info("Trading not possible.")
+                return
 
-                if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or \
-                        len(self.perp_positions) > 1:
-                    self.logger().info("This strategy supports only Oneway position mode. Attempting to switch ...")
-                    self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
-                    return
+            if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or \
+                    len(self.perp_positions) > 1:
+                self.logger().info("This strategy supports only Oneway position mode. Attempting to switch ...")
+                self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
+                return
 
-                if len(self.perp_positions) == 1:
-                    adj_perp_amount = self._perp_market_info.market.quantize_order_amount(
-                        self._perp_market_info.trading_pair, self._order_amount)
-                    if abs(self.perp_positions[0].amount) == adj_perp_amount:
-                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                           f"{self.perp_positions[0].position_side.name} position. The bot resumes "
-                                           f"operation to close out the arbitrage position")
-                        self._strategy_state = StrategyState.Opened
-                        self._ready_to_start = True
-                    else:
-                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                           f"{self.perp_positions[0].position_side.name} position with unmatched "
-                                           f"position amount. Please manually close out the position before starting "
-                                           f"this strategy.")
-                        return
-                else:
+            if len(self.perp_positions) == 1:
+                adj_perp_amount = self._perp_market_info.market.quantize_order_amount(
+                    self._perp_market_info.trading_pair, self._order_amount)
+                if abs(self.perp_positions[0].amount) == adj_perp_amount:
+                    self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                       f"{self.perp_positions[0].position_side.name} position. The bot resumes "
+                                       f"operation to close out the arbitrage position")
+                    self._strategy_state = StrategyState.Opened
                     self._ready_to_start = True
+                else:
+                    self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                       f"{self.perp_positions[0].position_side.name} position with unmatched "
+                                       f"position amount. Please manually close out the position before starting "
+                                       f"this strategy.")
+                    return
+            else:
+                self._ready_to_start = True
         if self._ready_to_start and (self._main_task is None or self._main_task.done()):
             self._main_task = safe_ensure_future(self.main(timestamp))
 
