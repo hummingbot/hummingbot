@@ -102,6 +102,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             min_closing_arbitrage_pct=Decimal("0.01"),
             next_arbitrage_opening_delay=10,
         )
+        self.strategy._strategy_initialized = True
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
         self._last_tick = 0
