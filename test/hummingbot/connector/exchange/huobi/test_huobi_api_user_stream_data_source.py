@@ -163,7 +163,8 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         self.assertIsNotNone(self.data_source._ws_assistant)
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._subscribe_channels())
+            self.async_run_with_timeout(
+                self.data_source._subscribe_channels(websocket_assistant=self.data_source._ws_assistant))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_subscribe_channels_subscribe_topic_fail(self, ws_connect_mock):
@@ -182,7 +183,8 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "Error subscribing to topic: "):
-            self.async_run_with_timeout(self.data_source._subscribe_channels())
+            self.async_run_with_timeout(
+                self.data_source._subscribe_channels(websocket_assistant=self.data_source._ws_assistant))
 
         self._is_logged("ERROR", f"Cannot subscribe to user stream topic: {CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC}")
 
@@ -211,7 +213,8 @@ class HuobiAPIUserStreamDataSourceTests(unittest.TestCase):
             ws_connect_mock.return_value, message=json.dumps(successful_sub_account_response)
         )
 
-        result = self.async_run_with_timeout(self.data_source._subscribe_channels())
+        result = self.async_run_with_timeout(
+            self.data_source._subscribe_channels(websocket_assistant=self.data_source._ws_assistant))
 
         self.assertIsNone(result)
 
