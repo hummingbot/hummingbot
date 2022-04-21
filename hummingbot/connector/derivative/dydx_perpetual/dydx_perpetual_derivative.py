@@ -1229,6 +1229,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                         f" (dYdX only supports the ONEWAY position mode)")
                 else:
                     self._position_mode = PositionMode.ONEWAY
+                    super().set_position_mode(PositionMode.ONEWAY)
                     self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
                                        PositionModeChangeEvent(
                                            self.current_timestamp,
@@ -1237,7 +1238,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        ))
                     self.logger().debug(f"dYdX switching position mode to "
                                         f"{position_mode} for {trading_pair} succeeded.")
-        super().set_position_mode(position_mode)
 
     # ==========================================================
     # Miscellaneous

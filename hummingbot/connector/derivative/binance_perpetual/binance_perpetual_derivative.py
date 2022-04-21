@@ -1140,6 +1140,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     )
                     if response["msg"] == "success" and response["code"] == 200:
                         self._position_mode = position_mode
+                        super().set_position_mode(position_mode)
                         self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
                                            PositionModeChangeEvent(
                                                self.current_timestamp,
@@ -1149,6 +1150,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         self.logger().info(f"Using {position_mode.name} position mode.")
                     else:
                         self._position_mode = initial_mode
+                        super().set_position_mode(initial_mode)
                         self.trigger_event(AccountEvent.PositionModeChangeFailed,
                                            PositionModeChangeEvent(
                                                self.current_timestamp,
@@ -1166,8 +1168,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                            position_mode
                                        ))
                     self._position_mode = position_mode
+                    super().set_position_mode(position_mode)
                     self.logger().info(f"Using {position_mode.name} position mode.")
-        super().set_position_mode(position_mode)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
