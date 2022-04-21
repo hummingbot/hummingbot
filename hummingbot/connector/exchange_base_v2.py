@@ -591,13 +591,14 @@ class ExchangeBaseV2(ExchangeBase):
     #
 
     # overridden in implementation of exchanges
+    #
     web_utils = None
 
     async def start_network(self):
         """
         Start all required tasks to update the status of the connector. Those tasks include:
         - The order book tracker
-        - The polling loop to update the trading rules
+        - The polling loops to update the trading rules and trading fees
         - The polling loop to update order status and balance status using REST API (backup for main update process)
         - The background task to process the events received through the user stream tracker (websocket connection)
         """
@@ -674,7 +675,8 @@ class ExchangeBaseV2(ExchangeBase):
 
     async def _trading_fees_polling_loop(self):
         """
-        Currently used only by kucoin. If _update_trading_fees() is not defined, we just exit the loop
+        Only some exchanges provide a fee endpoint.
+        If _update_trading_fees() is not defined, we just exit the loop
         """
         while True:
             try:
@@ -716,7 +718,8 @@ class ExchangeBaseV2(ExchangeBase):
                 raise
             except Exception:
                 self.logger().network(
-                    "Unexpected error while fetching account updates.", exc_info=True,
+                    "Unexpected error while fetching account updates.",
+                    exc_info=True,
                     app_warning_msg=f"Could not fetch account updates from {self.name_cap}. "
                                     "Check API key and network connection.")
                 await self._sleep(0.5)

@@ -13,8 +13,10 @@ class GateIoOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None):
         """
         Convert json snapshot data into standard OrderBookMessage format
+
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
+
         :return: GateIoOrderBookMessage
         """
         extra_data = metadata or {}

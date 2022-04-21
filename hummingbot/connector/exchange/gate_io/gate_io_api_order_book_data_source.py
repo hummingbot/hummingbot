@@ -97,7 +97,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
         required by the market price strategy.
-        :param domain: Domain to use for the connection with the exchange (either "com" or "us"). Default value is "com"
+        :param domain: Domain to use for the connection with the exchange.
         :return: Dictionary with the trading pair as key, and the mid price as value
         """
         resp_json = await web_utils.api_request(
@@ -123,7 +123,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used.
         :return: True if the mapping has been initialized, False otherwise
         """
         return domain in cls._trading_pair_symbol_map and len(cls._trading_pair_symbol_map[domain]) > 0
@@ -173,7 +173,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Used to translate a trading pair from the client notation to the exchange notation
 
         :param trading_pair: trading pair in client notation
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used.
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
@@ -199,7 +199,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Used to translate a trading pair from the exchange notation to the client notation
 
         :param symbol: trading pair in exchange notation
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used.
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
@@ -220,14 +220,6 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             throttler: Optional[AsyncThrottler] = None,
             api_factory: Optional[WebAssistantsFactory] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None) -> List[str]:
-
-        mapping = await GateIoAPIOrderBookDataSource.trading_pair_symbol_map(
-            domain=domain,
-            throttler=throttler,
-            api_factory=api_factory,
-            time_synchronizer=time_synchronizer,
-        )
-        return list(mapping.values())
 
         try:
             symbols = await web_utils.api_request(

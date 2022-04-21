@@ -18,19 +18,15 @@ class GateIoOrderBookTests(TestCase):
             "asks": [],
             "bids": []
         }
-
         message = GateIoOrderBook.snapshot_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["current"] * 1e-3,
         )
-
         equal_message = GateIoOrderBook.snapshot_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["current"] * 1e-3,
         )
-
         self.assertEqual(message, equal_message)
-        self.assertEqual(hash(message), hash(equal_message))
 
         message_dict = {
             "id": id_b,
@@ -83,14 +79,11 @@ class GateIoOrderBookTests(TestCase):
             msg=message_dict,
             timestamp=message_dict["t"] * 1e-3,
         )
-
         equal_message = GateIoOrderBook.diff_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["t"] * 1e-3,
         )
-
         self.assertEqual(message, equal_message)
-        self.assertEqual(hash(message), hash(equal_message))
 
         message_dict = {
             "t": timestamp_a,
@@ -153,14 +146,11 @@ class GateIoOrderBookTests(TestCase):
             msg=message_dict,
             timestamp=message_dict["create_time"],
         )
-
         equal_message = GateIoOrderBook.trade_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["create_time"],
         )
-
         self.assertEqual(message, equal_message)
-        self.assertEqual(hash(message), hash(equal_message))
 
         message_dict = {
             "id": 5736713,
@@ -278,7 +268,6 @@ class GateIoOrderBookTests(TestCase):
         )
 
         self.assertLess(message, greater_id_message)
-
         message_dict = {
             "id": id_a,
             "current": timestamp_b,
@@ -286,12 +275,10 @@ class GateIoOrderBookTests(TestCase):
             "asks": [],
             "bids": []
         }
-
         equal_id_greater_timestamp_message = GateIoOrderBook.snapshot_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["current"] * 1e-3,
         )
-
         self.assertLess(message, equal_id_greater_timestamp_message)
 
         message_dict = {

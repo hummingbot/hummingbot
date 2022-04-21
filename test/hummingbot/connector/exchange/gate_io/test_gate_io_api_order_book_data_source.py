@@ -34,7 +34,9 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         api_factory = WebAssistantsFactory()
         self.data_source = GateIoAPIOrderBookDataSource(
-            self.throttler, trading_pairs=[self.trading_pair], api_factory=api_factory
+            [self.trading_pair],
+            throttler=self.throttler,
+            api_factory=api_factory
         )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -180,10 +182,10 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
 
         ret = self.async_run_with_timeout(coroutine=GateIoAPIOrderBookDataSource.fetch_trading_pairs())
 
-        self.assertTrue(self.trading_pair in ret)
+        self.assertTrue(self.trading_pair in ret, msg=f'{self.trading_pair} {ret}')
         self.assertTrue("SOME-PAIR" in ret)
 
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_web_utils.retry_sleep_time")
     @aioresponses()
     def test_get_order_book_data_raises(self, retry_sleep_time_mock, mock_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -362,7 +364,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         msg = output_queue.get_nowait()
 
         self.assertTrue(isinstance(msg, OrderBookMessage))
-        self.assertEqual(asks, msg.content["a"][0])
+        self.assertEqual(asks, msg.content["asks"][0], msg=f"{msg}")
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_snapshot_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
@@ -406,7 +408,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
     @patch(
         "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep",
         new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_utils._sleep", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_web_utils._sleep", new_callable=AsyncMock)
     def test_listen_for_order_book_snapshots_logs_error_when_exception_happens(
             self,
             mock_api,
