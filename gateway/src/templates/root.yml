@@ -28,6 +28,10 @@ configurations:
     configurationPath: ssl.yml
     schemaPath: ssl-schema.json
 
+  $namespace curve:
+    configurationPath: curve.yml
+    schemaPath: curve-schema.json
+
   $namespace pangolin:
     configurationPath: pangolin.yml
     schemaPath: pangolin-schema.json

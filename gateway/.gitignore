@@ -2,3 +2,4 @@
 /.idea
 /certs
 /package-lock.json
+/node_modules
