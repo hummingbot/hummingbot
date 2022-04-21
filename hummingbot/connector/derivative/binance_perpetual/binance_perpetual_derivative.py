@@ -1154,7 +1154,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                self.current_timestamp,
                                                trading_pair,
                                                position_mode,
-                                               response['ret_msg']
+                                               response['msg']
                                            ))
                         self.logger().error(f"Unable to set postion mode to {position_mode.name}.")
                         self.logger().info(f"Using {initial_mode.name} position mode.")
