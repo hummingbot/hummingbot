@@ -106,14 +106,14 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.strategy.logger().addHandler(self)
         self._last_tick = 0
 
-    def test_strategy_starts_with_unsupported_position_mode(self):
+    def test_strategy_fails_to_initialize_position_mode(self):
         self.clock.add_iterator(self.strategy)
+        self.strategy._strategy_initialized = True
         self.perp_connector.set_position_mode(PositionMode.HEDGE)
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
-        self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Please update your "
-                                                "position mode before starting this strategy."))
+        self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Attempting to switch ..."))
         # assert the strategy stopped here
         # self.assertIsNone(self.strategy.clock)
 
@@ -136,11 +136,9 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             self.perp_connector.get_leverage(trading_pair)
         )
         self.clock.add_iterator(self.strategy)
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
-        self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Please update your "
-                                                "position mode before starting this strategy."))
         # self.assertIsNone(self.strategy.clock)
 
     def test_strategy_starts_with_existing_position(self):
@@ -157,7 +155,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             Decimal("-1"),
             self.perp_connector.get_leverage(trading_pair)
         )
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {trading_pair} "
@@ -180,7 +178,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             Decimal("-10"),
             self.perp_connector.get_leverage(trading_pair)
         )
-        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.backtest_til(self.start_timestamp + 2)
         self.assertTrue(self._is_logged("INFO", "Markets are ready."))
         self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {trading_pair} "
@@ -288,7 +286,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
     def test_arbitrage_buy_spot_sell_perp(self):
         self.clock.add_iterator(self.strategy)
         self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
-        self.turn_clock(1)
+        self.turn_clock(2)
         # self.clock.backtest_til(self.start_timestamp + 1)
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
@@ -386,7 +384,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
                                                     volume_step_size=10)
         self.clock.add_iterator(self.strategy)
         self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
-        self.turn_clock(1)
+        self.turn_clock(2)
         # self.clock.backtest_til(self.start_timestamp + 1)
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
