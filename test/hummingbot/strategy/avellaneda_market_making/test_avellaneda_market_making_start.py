@@ -43,7 +43,7 @@ class AvellanedaStartTest(unittest.TestCase):
         if self.raise_exception_for_market_initialization:
             raise Exception("Exception for testing")
 
-    def _notify(self, message):
+    def notify(self, message):
         self.notifications.append(message)
 
     def logger(self):
