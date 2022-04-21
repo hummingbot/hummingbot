@@ -32,7 +32,9 @@ def is_linear_perpetual(trading_pair: str) -> bool:
 
 
 def get_rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str:
-    if trading_pair and is_linear_perpetual(trading_pair):
+    # The default selection should be linear because general requests such as setting position mode
+    # exists only for linear market and is without a trading pair
+    if trading_pair is None or is_linear_perpetual(trading_pair):
         market = CONSTANTS.LINEAR_MARKET
     else:
         market = CONSTANTS.NON_LINEAR_MARKET
@@ -146,6 +148,13 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
     rate_limits = [
         RateLimit(  # same for linear and non-linear
             limit_id=CONSTANTS.GET_WALLET_BALANCE_PATH_URL[CONSTANTS.NON_LINEAR_MARKET],
+            limit=120,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
+                           LinkedLimitWeightPair(CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID)],
+        ),
+        RateLimit(  # same for linear and non-linear
+            limit_id=CONSTANTS.SET_POSITION_MODE_URL[CONSTANTS.LINEAR_MARKET],
             limit=120,
             time_interval=60,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
