@@ -241,9 +241,9 @@ class ExchangeClient(object):
 
         # wait for network init
         while True:
+            await asyncio.sleep(1.5)
             r = await self.exchange.check_network()
             print(f'\n{r}')
-            await asyncio.sleep(3)
             if r == NetworkStatus.CONNECTED:
                 print("Exchange status: ", self.exchange.status_dict)
                 print("Trading pair symbol map from OB DS: ", self.exchange._orderbook_ds._trading_pair_symbol_map)

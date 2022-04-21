@@ -9,6 +9,7 @@ import numpy as np
 
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -24,8 +25,8 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        gate_io_auth = GateIoAuth(api_key="someKey", secret_key="someSecret")
-        self.data_source = GateIoAPIUserStreamDataSource(gate_io_auth, trading_pairs=[self.trading_pair])
+        gate_io_auth = GateIoAuth(api_key="someKey", secret_key="someSecret", time_provider=TimeSynchronizer())
+        self.data_source = GateIoAPIUserStreamDataSource(gate_io_auth, trading_pairs=[self.trading_pair], domain="")
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))

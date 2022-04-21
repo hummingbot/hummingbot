@@ -11,9 +11,9 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
-from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
@@ -123,15 +123,15 @@ class TestGateIoExchange(unittest.TestCase):
         }
         return order_create_resp_mock
 
-    def get_in_flight_order(self, client_order_id: str, exchange_order_id: str = "someExchId") -> GateIoInFlightOrder:
-        order = GateIoInFlightOrder(
+    def get_in_flight_order(self, client_order_id: str, exchange_order_id: str = "someExchId") -> InFlightOrder:
+        order = InFlightOrder(
             client_order_id,
             exchange_order_id,
             self.trading_pair,
             OrderType.LIMIT,
             TradeType.BUY,
             price=Decimal("5.1"),
-            amount=Decimal("1"),
+            # TODO amount=Decimal("1"),
             creation_timestamp=1640001112.0
         )
         return order
@@ -186,7 +186,7 @@ class TestGateIoExchange(unittest.TestCase):
         return open_orders
 
     def get_order_trade_response(
-        self, order: GateIoInFlightOrder, is_completely_filled: bool = False
+        self, order: InFlightOrder, is_completely_filled: bool = False
     ) -> Dict[str, Any]:
         order_amount = order.amount
         if not is_completely_filled:
@@ -212,18 +212,18 @@ class TestGateIoExchange(unittest.TestCase):
             }
         ]
 
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_web_utils.retry_sleep_time")
     @aioresponses()
     def test_check_network_not_connected(self, retry_sleep_time_mock, mock_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.NETWORK_CHECK_PATH_URL}"
         resp = ""
-        for i in range(CONSTANTS.API_MAX_RETRIES):
+        for i in range(CONSTANTS.API_MAX_RETRIES + 1):
             mock_api.get(url, status=500, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
 
-        self.assertEqual(ret, NetworkStatus.NOT_CONNECTED)
+        self.assertEqual(ret, NetworkStatus.NOT_CONNECTED, msg=f"{ret}")
 
     @aioresponses()
     def test_check_network(self, mock_api):

@@ -2,13 +2,13 @@ import asyncio
 import json
 import time
 import unittest
-from collections import Awaitable
+from collections.abc import Awaitable
 from unittest.mock import patch, AsyncMock
 
 import aiohttp
 import numpy as np
 
-from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
+from hummingbot.connector.exchange.gate_io.gate_io_web_utils import GateIoWebsocket
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 

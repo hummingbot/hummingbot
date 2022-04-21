@@ -79,6 +79,8 @@ async def api_request(path: Optional[str] = None,
     close_session = False
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
+    if retry and return_err:
+        raise ValueError("Both retry and return_err are True")
 
     # If api_factory is not provided a default one is created
     # The default instance has no authentication capabilities and all authenticated requests will fail
@@ -114,9 +116,11 @@ async def api_request(path: Optional[str] = None,
             await api_factory._connections_factory._shared_client.close()
 
     retries = 0
+    if not retry:
+        retries = CONSTANTS.API_MAX_RETRIES - 1
+
     while retries < CONSTANTS.API_MAX_RETRIES:
-        if not retry:
-            retries = CONSTANTS.API_MAX_RETRIES
+        retries += 1
 
         async with throttler.execute_task(limit_id=limit_id if limit_id else path):
             response = await rest_assistant.call(request=request, timeout=timeout)
@@ -125,16 +129,17 @@ async def api_request(path: Optional[str] = None,
                 await close_session_if()
                 return j
 
-            # handling of error cases and retries
+            # handling of retries
             if retry and not return_err:
-                retries += 1
-                time_sleep = retry_sleep_time(retries)
-                retry_logger.info(
-                    f"Error fetching data from {request.url}. HTTP status is {response.status}."
-                    f" Retrying {retries}/{CONSTANTS.API_MAX_RETRIES} in {time_sleep:.0f}s."
-                )
-                await _sleep(time_sleep)
-                continue
+                # if retries is == max, we continue and raise exception
+                if retries < CONSTANTS.API_MAX_RETRIES:
+                    time_sleep = retry_sleep_time(retries)
+                    retry_logger.info(
+                        f"Error fetching data from {request.url}. HTTP status is {response.status}."
+                        f" Retrying {retries}/{CONSTANTS.API_MAX_RETRIES} in {time_sleep:.0f}s."
+                    )
+                    await _sleep(time_sleep)
+                    continue
 
             if return_err:
                 error_response = await response.json()

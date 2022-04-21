@@ -4,7 +4,6 @@ from hummingbot.connector.exchange.gate_io.gate_io_order_book import GateIoOrder
 
 
 class GateIoOrderBookTests(TestCase):
-
     def test_snapshot_message_creation_from_exchange(self):
         message_dict = {
             "id": 123456,
@@ -31,12 +30,11 @@ class GateIoOrderBookTests(TestCase):
                 ]
             ]
         }
-
         message = GateIoOrderBook.snapshot_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["current"] * 1e-3,
+            metadata={"trading_pair": "X_Y"},
         )
-
         self.assertEqual(message_dict["id"], message.update_id)
         self.assertEqual(message_dict["current"] * 1e-3, message.timestamp)
 
@@ -65,11 +63,10 @@ class GateIoOrderBookTests(TestCase):
                 ]
             ]
         }
-
         message = GateIoOrderBook.diff_message_from_exchange(
             msg=message_dict,
             timestamp=message_dict["t"] * 1e-3,
+            metadata={"trading_pair": "X_Y"}
         )
-
         self.assertEqual(message_dict["u"], message.update_id)
         self.assertEqual(message_dict["t"] * 1e-3, message.timestamp)
