@@ -7,6 +7,7 @@ from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoade
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.connector.constants import NaN, s_decimal_NaN, s_decimal_0
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.event_logger import EventLogger
