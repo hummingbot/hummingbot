@@ -138,6 +138,10 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     script_parser.add_argument("args", nargs="*", default=None, help="Arguments")
     script_parser.set_defaults(func=hummingbot.script_command)
 
+    previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
+    previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
+    previous_strategy_parser.set_defaults(func=hummingbot.previous_statrategy)
+
     # add shortcuts so they appear in command help
     shortcuts = global_config_map.get("command_shortcuts").value
     if shortcuts is not None:
