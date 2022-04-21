@@ -251,7 +251,7 @@ export class Pangolin implements Uniswapish {
 
     const contract = new Contract(pangolinRouter, abi, wallet);
     if (!nonce) {
-      nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
+      nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
     }
     let tx;
     if (maxFeePerGas || maxPriorityFeePerGas) {

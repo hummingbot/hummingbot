@@ -121,7 +121,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._auto_approve_task = None
         self._get_gas_estimate_task = None
         self._poll_notifier = None
-        self._nonce = None
+        self._nonce: Optional[int] = None
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
 
@@ -297,22 +297,22 @@ class GatewayEVMAMM(ConnectorBase):
         :param token_symbol: token to approve.
         """
         order_id: str = self.create_approval_order_id(token_symbol)
-        await self._update_nonce()
         resp: Dict[str, Any] = await GatewayHttpClient.get_instance().approve_token(
             self.chain,
             self.network,
             self.address,
             token_symbol,
             self.connector_name,
-            self._nonce,
             **request_args
         )
+        self.start_tracking_order(order_id, None, token_symbol)
 
-        transaction_hash: Optional[str] = resp.get("approval").get("hash")
-        nonce: Optional[int] = resp.get("nonce")
-        if transaction_hash is not None and nonce is not None:
-            self.start_tracking_order(order_id, transaction_hash, token_symbol)
+        if "hash" in resp.get("approval", {}).keys():
+            nonce: int = resp.get("nonce")
+            await self._update_nonce(nonce)
+            hash = resp["approval"]["hash"]
             tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order.update_exchange_order_id(hash)
             tracked_order.nonce = nonce
             self.logger().info(
                 f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}."
@@ -508,7 +508,6 @@ class GatewayEVMAMM(ConnectorBase):
                                   trade_type=trade_type,
                                   price=price,
                                   amount=amount)
-        await self._update_nonce()
         try:
             order_result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
                 self.chain,
@@ -520,11 +519,11 @@ class GatewayEVMAMM(ConnectorBase):
                 trade_type,
                 amount,
                 price,
-                self._nonce,
                 **request_args
             )
             transaction_hash: str = order_result.get("txHash")
             nonce: int = order_result.get("nonce")
+            await self._update_nonce(nonce)
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
             gas_limit: int = int(order_result.get("gasLimit"))
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
@@ -874,12 +873,15 @@ class GatewayEVMAMM(ConnectorBase):
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
-    async def _update_nonce(self):
+    async def _update_nonce(self, new_nonce: Optional[int] = None):
         """
         Call the gateway API to get the current nonce for self.address
         """
-        resp_json = await GatewayHttpClient.get_instance().get_evm_nonce(self.chain, self.network, self.address)
-        self._nonce = resp_json['nonce']
+        if not new_nonce:
+            resp_json: Dict[str, Any] = await GatewayHttpClient.get_instance().get_evm_nonce(self.chain, self.network, self.address)
+            new_nonce: int = resp_json.get("nonce")
+
+        self._nonce = new_nonce
 
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)

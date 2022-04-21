@@ -8,8 +8,8 @@ import {
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { CurrencyAmount, Token, Trade } from '@uniswap/sdk';
-import { Trade as UniswapV3Trade } from '@uniswap/v3-sdk';
+import { CurrencyAmount, Token } from '@uniswap/sdk';
+import { Trade } from '@uniswap/router-sdk';
 import {
   TradeType,
   Currency,
@@ -26,9 +26,8 @@ import {
 
 export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
 export type UniswapishTrade =
-  | Trade
   | TradePangolin
-  | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
+  | Trade<Currency, Currency, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
