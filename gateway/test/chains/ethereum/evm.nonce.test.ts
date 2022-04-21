@@ -54,15 +54,6 @@ describe('unitiated EVMNodeService', () => {
     );
   });
 
-  it('commitNonce (txNonce null) throws error', async () => {
-    await expect(nonceManager.commitNonce(exampleAddress)).rejects.toThrow(
-      new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.commitNonce'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      )
-    );
-  });
-
   it('commitNonce (txNonce not null) throws error', async () => {
     await expect(nonceManager.commitNonce(exampleAddress, 87)).rejects.toThrow(
       new InitializationError(
@@ -116,20 +107,12 @@ describe('EVMNodeService', () => {
     }
   };
 
-  it('commitNonce without will increment the network value by one', async () => {
-    patch(nonceManager._provider, 'getTransactionCount', () => 111);
-    await nonceManager.commitNonce(exampleAddress);
-    const nonce = await nonceManager.getNonce(exampleAddress);
-
-    await expect(nonce).toEqual(112);
-  });
-
-  it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
+  it('commitNonce with a provided txNonce should not increase the nonce by 1', async () => {
     patchGetTransactionCount();
     await nonceManager.commitNonce(exampleAddress, 10);
     const nonce = await nonceManager.getNonce(exampleAddress);
 
-    await expect(nonce).toEqual(11);
+    await expect(nonce).toEqual(10);
   });
 
   it('mergeNonceFromEVMNode should update with nonce from node (local<node)', async () => {

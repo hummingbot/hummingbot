@@ -26,9 +26,10 @@ export class UniswapV3Helper {
 
   constructor(network: string) {
     this.ethereum = Ethereum.getInstance(network);
-    this._router = UniswapConfig.config.uniswapV3RouterAddress(network);
+    this._router =
+      UniswapConfig.config.uniswapV3SmartOrderRouterAddress(network);
     this._nftManager = UniswapConfig.config.uniswapV3NftManagerAddress(network);
-    this._ttl = UniswapConfig.config.ttl(3);
+    this._ttl = UniswapConfig.config.ttl;
     this._routerAbi =
       require('@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json').abi;
     this._nftAbi =
@@ -83,7 +84,7 @@ export class UniswapV3Helper {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = UniswapConfig.config.allowedSlippage(3);
+    const allowedSlippage = UniswapConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(

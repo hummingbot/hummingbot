@@ -16,6 +16,11 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { logger } from './logger';
+import {
+  HttpException,
+  INVALID_NONCE_ERROR_MESSAGE,
+  INVALID_NONCE_ERROR_CODE,
+} from './error-handler';
 
 // information about an Ethereum token
 export interface TokenInfo {
@@ -65,7 +70,6 @@ export class EthereumBase {
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
     this._nonceManager = new EVMNonceManager(chainName, chainId);
-    this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._txStorage = new EvmTxStorage('transactions.level');
   }
@@ -95,6 +99,7 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
+      await this._nonceManager.init(this.provider);
       this._initPromise = this.loadTokens(
         this.tokenListSource,
         this.tokenListType
@@ -284,7 +289,20 @@ export class EthereumBase {
         '.'
     );
     if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
+      nonce = await this.nonceManager.getNextNonce(wallet.address);
+    } else {
+      const isValid: boolean = await this.nonceManager.isValidNonce(
+        wallet.address,
+        nonce
+      );
+
+      if (!isValid) {
+        throw new HttpException(
+          500,
+          INVALID_NONCE_ERROR_MESSAGE + nonce,
+          INVALID_NONCE_ERROR_CODE
+        );
+      }
     }
     const params: any = {
       gasLimit: '100000',
