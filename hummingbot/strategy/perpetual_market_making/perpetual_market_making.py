@@ -9,7 +9,6 @@ import pandas as pd
 
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.derivative_base import DerivativeBase
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import (
     OrderType,
