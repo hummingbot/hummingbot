@@ -102,7 +102,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._strategy_initialized = False
 
     def all_markets_ready(self):
-        return all([market.ready for market in self._sb_markets])
+        return all([market.ready for market in self.active_markets])
 
     @property
     def strategy_state(self) -> StrategyState:
