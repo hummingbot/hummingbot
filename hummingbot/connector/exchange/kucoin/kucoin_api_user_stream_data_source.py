@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Optional
+from typing import Optional, List
 
 from hummingbot.connector.exchange.kucoin import (
     kucoin_constants as CONSTANTS,
@@ -23,6 +23,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: kucoin_auth.KucoinAuth,  # unused
+                 trading_pairs: List[str],
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None):

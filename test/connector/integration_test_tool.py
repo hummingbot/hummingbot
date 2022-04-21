@@ -134,9 +134,8 @@ def get_gate_io(ec):
         gate_io_secret_key=creds.s,
         trading_pairs=[ec.pair],
     )
-    # TODO
     exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
-        "com": bidict({f"{ec.base}{ec.quote}": ec.pair})
+        exchange.DEFAULT_DOMAIN: bidict({f"{ec.base}{ec.quote}": ec.pair})
     }
     return exchange
 

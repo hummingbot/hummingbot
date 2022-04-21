@@ -112,8 +112,7 @@ async def api_request(path: str,
                     raise IOError(f"The request to Binance failed. Error: {error_response}. Request: {request}")
                 else:
                     raise IOError(f"Error executing request {method.name} {path}. "
-                                  f"HTTP status is {response.status}. "
-                                  f"Error: {error_response}")
+                                  f"HTTP status is {response.status}.")
 
         return await response.json()
 

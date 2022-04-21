@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, AsyncIterable, List
 
 import hummingbot.connector.exchange.gate_io.gate_io_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import (
@@ -44,16 +43,7 @@ def build_api_factory(
         time_synchronizer: Optional[TimeSynchronizer] = None,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-    time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time(
-        throttler=throttler,
-        domain=domain,
-    ))
-    api_factory = WebAssistantsFactory(
-        auth=auth,
-        rest_pre_processors=[
-            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
-        ])
+    api_factory = WebAssistantsFactory(auth=auth)
     return api_factory
 
 
@@ -161,7 +151,6 @@ async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
-    # TODO gate io supports server time?
     return time.time()
 
 

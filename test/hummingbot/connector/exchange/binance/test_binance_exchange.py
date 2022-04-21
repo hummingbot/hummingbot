@@ -423,8 +423,9 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was an error when requesting cancellation of order {order.client_order_id}"
-            )
+                f"Failed to cancel order {order.client_order_id}"
+            ),
+            msg=f"{self.log_records}"
         )
 
     @aioresponses()
