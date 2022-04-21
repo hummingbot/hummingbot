@@ -2,11 +2,21 @@
 Unit tests for hummingbot.core.utils.ssl_cert
 """
 
-from hummingbot import set_cert_path
-from hummingbot.core.utils.ssl_cert import generate_private_key, generate_public_key, generate_csr, sign_csr, create_self_sign_certs, certs_files_exist
 import os
+from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from hummingbot.core.gateway import GatewayPaths
+from hummingbot.core.utils.ssl_cert import (
+    generate_private_key,
+    generate_public_key,
+    generate_csr,
+    sign_csr,
+    create_self_sign_certs,
+    certs_files_exist,
+)
 
 
 class SslCertTest(unittest.TestCase):
@@ -85,20 +95,27 @@ class SslCertTest(unittest.TestCase):
             with open(verified_public_key_file_path2, "rb") as verified_public_key2:
                 self.assertNotEqual(verified_public_key, verified_public_key2)
 
-    def test_create_self_sign_certs(self):
+    @patch("hummingbot.core.gateway.get_gateway_container_name", return_value="test_container_abc")
+    def test_create_self_sign_certs(self, _):
         """
         Unit tests for create_self_sign_certs and certs_files_exist
         """
 
         # setup global cert_path and make sure it is empty
         with tempfile.TemporaryDirectory() as tempdir:
-            cp = tempdir + "/certs"
-            set_cert_path(cp)
-            if not os.path.exists(cp):
-                os.mkdir(cp)
+            temppath: Path = Path(tempdir)
+            mock_gateway_paths: GatewayPaths = GatewayPaths(
+                local_conf_path=temppath.joinpath("conf"),
+                local_certs_path=temppath.joinpath("certs"),
+                local_logs_path=temppath.joinpath("logs"),
+                mount_conf_path=temppath.joinpath("conf"),
+                mount_certs_path=temppath.joinpath("certs"),
+                mount_logs_path=temppath.joinpath("logs"),
+            )
 
-            self.assertEqual(certs_files_exist(), False)
+            with patch("hummingbot.core.utils.ssl_cert.get_gateway_paths", return_value=mock_gateway_paths):
+                self.assertEqual(certs_files_exist(), False)
 
-            # generate all necessary certs then confirm they exist in the expected place
-            create_self_sign_certs("abc123")
-            self.assertEqual(certs_files_exist(), True)
+                # generate all necessary certs then confirm they exist in the expected place
+                create_self_sign_certs("abc123")
+                self.assertEqual(certs_files_exist(), True)
