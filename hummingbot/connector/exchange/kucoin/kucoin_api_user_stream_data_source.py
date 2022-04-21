@@ -56,7 +56,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.connect(ws_url=f"{ws_url}?token={token}", message_timeout=self._ping_interval)
         return ws
 
-    async def _subscribe_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to order events and balance events.
 
@@ -81,8 +81,8 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
             }
             subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
 
-            await ws.send(subscribe_order_change_request)
-            await ws.send(subscribe_balance_request)
+            await websocket_assistant.send(subscribe_order_change_request)
+            await websocket_assistant.send(subscribe_balance_request)
 
             self._last_ws_message_sent_timestamp = self._time()
             self.logger().info("Subscribed to private order changes and balance updates channels...")

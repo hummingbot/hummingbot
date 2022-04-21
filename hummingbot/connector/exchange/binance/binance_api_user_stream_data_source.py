@@ -54,13 +54,13 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return ws
 
-    async def _subscribe_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
 
         Binance does not require any channel subscription.
 
-        :param ws: the websocket assistant used to connect to the exchange
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         pass
 

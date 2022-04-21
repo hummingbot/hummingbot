@@ -94,7 +94,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().error(f"Cannot subscribe to user stream topic: {topic}")
             raise
 
-    async def _subscribe_channels(self):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         try:
             await self._subscribe_topic(CONSTANTS.HUOBI_TRADE_DETAILS_TOPIC)
             await self._subscribe_topic(CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC)
@@ -114,7 +114,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._ws_assistant.connect(ws_url=CONSTANTS.WS_PRIVATE_URL, ping_timeout=self.HEARTBEAT_INTERVAL)
 
                 await self._authenticate_client()
-                await self._subscribe_channels()
+                await self._subscribe_channels(websocket_assistant=self._ws_assistant)
 
                 async for ws_response in self._ws_assistant.iter_messages():
                     data = ws_response.data

@@ -145,7 +145,8 @@ class KucoinExchange(ExchangePyBase):
 
     @property
     def ready(self) -> bool:
-        return all(self.status_dict.values())
+        current_status = self.status_dict
+        return all(current_status.values())
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """
