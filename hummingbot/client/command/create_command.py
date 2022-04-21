@@ -12,7 +12,8 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml,
     get_strategy_template_path,
     format_config_file_name,
-    parse_config_default_to_text
+    parse_config_default_to_text,
+    save_previous_strategy_value
 )
 from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.config.global_config_map import global_config_map
@@ -76,6 +77,7 @@ class CreateCommand:
 
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
+            save_previous_strategy_value(file_name)
             if self.app.to_stop_config:
                 self.stop_config(config_map, config_map_backup)
                 self.app.set_text("")
