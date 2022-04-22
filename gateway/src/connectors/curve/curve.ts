@@ -6,10 +6,10 @@ import {
     Transaction,
     Wallet,
   } from 'ethers';
-import { percentRegexp } from '../../services/config-manager-v2';
+// import { percentRegexp } from '../../services/config-manager-v2';
 import { ExpectedTrade, Tokenish, Uniswapish, UniswapishTrade } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
-import curve from '@curvefi/api';
+// import curve from '@curvefi/api';
 
 
 export class Curve implements Uniswapish {

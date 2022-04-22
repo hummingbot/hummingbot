@@ -27,6 +27,11 @@ export namespace ConnectorsRoutes {
             trading_type: CurveConfig.config.tradingTypes,
             available_networks: CurveConfig.config.availableNetworks,
           },
+          {
+            name: 'sushiswap',
+            trading_type: UniswapConfig.config.tradingTypes('v2'),
+            available_networks: UniswapConfig.config.availableNetworks,
+          },
         ],
       });
     })
