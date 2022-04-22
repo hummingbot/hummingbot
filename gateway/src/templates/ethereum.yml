@@ -22,5 +22,5 @@ networks:
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
 nodeAPIKey: ''
-gasLimit: 300000
+gasLimit: 3000000
 manualGasPrice: 110
