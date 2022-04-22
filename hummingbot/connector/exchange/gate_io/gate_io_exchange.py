@@ -39,7 +39,7 @@ class GateIoExchange(ExchangeBaseV2):
 
     INTERVAL_TRADING_RULES = CONSTANTS.INTERVAL_TRADING_RULES
     # Using 120 seconds here as Gate.io websocket is quiet
-    TICK_INTERVAL_LIMIT = 10.0  # 120.0
+    TICK_INTERVAL_LIMIT = 120.0
 
     web_utils = web_utils
 
