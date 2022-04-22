@@ -63,6 +63,7 @@ gatewayApp.get(
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
       curve: CurveConfig.config.availableNetworks,
+      
     });
   })
 );
