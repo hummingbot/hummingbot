@@ -85,27 +85,59 @@ class RateOracleTest(unittest.TestCase):
 
     @aioresponses()
     def test_get_rate_coingecko(self, mock_api):
-        url = RateOracle.coingecko_usd_price_url.format(1, "USD")
+        url = RateOracle.coingecko_usd_price_url.format("cryptocurrency", 1, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage1), repeat=True)
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoCryptocurrencyPage1), repeat=True)
 
-        url = RateOracle.coingecko_usd_price_url.format(2, "USD")
+        url = RateOracle.coingecko_usd_price_url.format("cryptocurrency", 2, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage2), repeat=True)
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoCryptocurrencyPage2), repeat=True)
 
-        url = RateOracle.coingecko_usd_price_url.format(3, "USD")
+        url = RateOracle.coingecko_usd_price_url.format("decentralized-exchange", 1, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage3), repeat=True)
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoDEXPage1), repeat=True)
 
-        url = RateOracle.coingecko_usd_price_url.format(4, "USD")
+        url = RateOracle.coingecko_usd_price_url.format("decentralized-exchange", 2, "USD")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoPage4), repeat=True)
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoDEXPage2), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("decentralized-finance-defi", 1, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoDEFIPage1), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("decentralized-finance-defi", 2, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoDEFIPage2), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("smart-contract-platform", 1, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoSmartContractPage1), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("smart-contract-platform", 2, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoSmartContractPage2), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("stablecoins", 1, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoStableCoinsPage1), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("stablecoins", 2, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoStableCoinsPage2), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("wrapped-tokens", 1, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoWrappedTokensPage1), repeat=True)
+
+        url = RateOracle.coingecko_usd_price_url.format("wrapped-tokens", 2, "USD")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoWrappedTokensPage2), repeat=True)
 
         url = RateOracle.coingecko_supported_vs_tokens_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.CoinGeckoVSCurrencies), repeat=True)
 
-        rates = self.async_run_with_timeout(RateOracle.get_coingecko_prices_by_page("USD", 1))
+        rates = self.async_run_with_timeout(RateOracle.get_coingecko_prices_by_page("USD", 1, "cryptocurrency"))
         self._assert_rate_dict(rates)
         rates = self.async_run_with_timeout(RateOracle.get_coingecko_prices("USD"))
         self._assert_rate_dict(rates)
