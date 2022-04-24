@@ -1,28 +1,24 @@
-import aiohttp
 import asyncio
 import copy
 import logging
-import pandas as pd
-
 from collections import defaultdict
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional, Any,
-)
+from typing import Any, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
-    bybit_perpetual_utils
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import \
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
     BybitPerpetualWebSocketAdaptor
+)
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):

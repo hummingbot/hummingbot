@@ -22,13 +22,14 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger.logger import HummingbotLogger
 from hummingbot.model import get_declarative_base
 from hummingbot.model.metadata import Metadata as LocalMetadata
+from hummingbot.model.transaction_base import TransactionBase
 
 
 class SQLConnectionType(Enum):
     TRADE_FILLS = 1
 
 
-class SQLConnectionManager:
+class SQLConnectionManager(TransactionBase):
     _scm_logger: Optional[HummingbotLogger] = None
     _scm_trade_fills_instance: Optional["SQLConnectionManager"] = None
 
