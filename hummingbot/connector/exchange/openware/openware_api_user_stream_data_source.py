@@ -1,102 +1,92 @@
 #!/usr/bin/env python
 
-import hashlib
-import hmac
 import time
 import asyncio
-from abc import ABC
-
-# import aiohttp
 import logging
 from typing import (
+    Any,
     AsyncIterable,
-    Dict,
-    Optional
+    List,
+    Optional,
 )
-import ujson
-import websockets
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-# from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
+from .openware_constants import Constants
+from .openware_auth import OpenwareAuth
+from .openware_websocket import OpenwareWebsocket
 
 
-class OpenwareAPIUserStreamDataSource(UserStreamTrackerDataSource, ABC):
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
+class OpenwareAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
-    _bausds_logger: Optional[HummingbotLogger] = None
+    _logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bausds_logger is None:
-            cls._bausds_logger = logging.getLogger(__name__)
-        return cls._bausds_logger
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
-    def __init__(self):
-        self._header = None
-        self._openware_api_url = global_config_map.get("openware_api_url").value
-        self._openware_ranger_url = global_config_map.get("openware_ranger_url").value
-        timestamp = str(time.time() * 1000)
-        self._openware_api_key = global_config_map.get("openware_api_key").value
-        self._openware_api_secret = global_config_map.get("openware_api_secret").value
-        signature = self._generate_signature(timestamp)
-        self._private_header = {
-            'X-Auth-Apikey': self._openware_api_key,
-            'X-Auth-Nonce': timestamp,
-            'X-Auth-Signature': signature
-        }
+    def __init__(self,
+                 throttler: AsyncThrottler,
+                 openware_auth: OpenwareAuth,
+                 trading_pairs: Optional[List[str]] = []):
+        self._openware_auth: OpenwareAuth = openware_auth
+        self._trading_pairs = trading_pairs
+        self._current_listen_key = None
+        self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
+        self._throttler = throttler
+        self._ws: OpenwareWebsocket = None
         super().__init__()
 
-    def _generate_signature(self, timestamp):
-        query_string = "%s%s" % (timestamp, self._openware_api_key)
-        m = hmac.new(self._openware_api_secret.encode('utf-8'), query_string.encode('utf-8'), hashlib.sha256)
-        return m.hexdigest()
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        try:
-            while True:
-                yield await ws.recv()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().warning("Message recv() failed. Going to reconnect...", exc_info=True)
-            return
+    @property
+    def is_connected(self):
+        return self._ws.is_connected if self._ws is not None else False
 
-    async def messages(self) -> AsyncIterable[str]:
+    async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
+        """
+        Subscribe to active orders via web socket
+        """
+
         try:
-            async with (await self.get_ws_connection()) as ws:
-                async for msg in self._inner_messages(ws):
+            self._ws = OpenwareWebsocket(self._openware_auth, throttler=self._throttler)
+
+            await self._ws.connect()
+
+            await self._ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
+
+            async for msg in self._ws.on_message():
+                # print(f"user msg: {msg}")
+                self._last_recv_time = time.time()
+                if msg is not None:
                     yield msg
-        except asyncio.CancelledError:
-            return
 
-    async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
-        stream_url: str = f"{self._openware_ranger_url}/private?stream=trade&stream=order"
-        self.logger().info(f"Reconnecting to {stream_url}.")
+        except Exception as e:
+            raise e
+        finally:
+            await self._ws.disconnect()
+            await asyncio.sleep(5)
 
-        # Create the WS connection.
-        return websockets.connect(stream_url, header=self._header)
+    async def listen_for_user_stream(self, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to user stream via web socket, and keep the connection open for incoming messages
+        :param output: an async queue where the incoming messages are stored
+        """
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                await self.wait_til_next_tick(seconds=60.0)
+                async for msg in self._listen_to_orders_trades_balances():
+                    output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                    "5 seconds...", exc_info=True)
-                await asyncio.sleep(5)
-
-    async def log_user_stream(self, output: asyncio.Queue):
-        while True:
-            try:
-                async for message in self.messages():
-                    decoded: Dict[str, any] = ujson.loads(message)
-                    output.put_nowait(decoded)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error. Retrying after 5 seconds...", exc_info=True)
-                await asyncio.sleep(5.0)
+                self.logger().error(
+                    f"Unexpected error with {Constants.EXCHANGE_NAME} WebSocket connection. "
+                    "Retrying after 30 seconds...", exc_info=True)
+                await asyncio.sleep(30.0)
