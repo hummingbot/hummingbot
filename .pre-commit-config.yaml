@@ -18,3 +18,9 @@ repos:
     -   id: detect-wallet-private-key
         types: [file]
         exclude: .json
+-   repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        files: "\\.(py)$"
+        args: [--settings-path=pyproject.toml]
