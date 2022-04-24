@@ -7,6 +7,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef:
         object _market_info
+        object _price_delegate
         object _minimum_spread
         object _order_amount
         double _order_refresh_time
@@ -54,6 +55,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _optimal_ask
         str _debug_csv_path
         object _avg_vol
+        int _trading_intensity_buffer_size
         object _trading_intensity
         bint _should_wait_order_cancel_confirmation
 

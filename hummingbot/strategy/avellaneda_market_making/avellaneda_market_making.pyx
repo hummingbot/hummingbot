@@ -12,7 +12,11 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import (
+    OrderType,
+    PriceType,
+    TradeType
+)
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -55,6 +59,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def init_params(self,
                     market_info: MarketTradingPairTuple,
+                    price_delegate: AssetPriceDelegate,
                     order_amount: Decimal,
                     order_refresh_time: float = 30.0,
                     max_order_age: float = 1800,
@@ -87,6 +92,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     ):
         self._sb_order_tracker = OrderTracker()
         self._market_info = market_info
+        self._price_delegate = price_delegate
         self._order_amount = order_amount
         self._order_optimization_enabled = order_optimization_enabled
         self._order_refresh_time = order_refresh_time
@@ -117,7 +123,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self.c_add_markets([market_info.market])
         self._ticks_to_be_ready = max(volatility_buffer_size, trading_intensity_buffer_size)
         self._avg_vol = InstantVolatilityIndicator(sampling_length=volatility_buffer_size)
-        self._trading_intensity = TradingIntensityIndicator(trading_intensity_buffer_size)
+        self._trading_intensity_buffer_size = trading_intensity_buffer_size
+        self._trading_intensity = None      # Wait for network to be initialized
         self._last_sampling_timestamp = 0
         self._alpha = None
         self._kappa = None
@@ -417,7 +424,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
-        price = self._market_info.get_mid_price()
+        price = self._price_delegate.get_price_by_type(PriceType.MidPrice)
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
@@ -592,6 +599,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
+            if self._trading_intensity is None:
+                self._trading_intensity = TradingIntensityIndicator(
+                    order_book=self.market_info.order_book,
+                    price_delegate=self._price_delegate,
+                    sampling_length=self._trading_intensity_buffer_size)
+
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
                 if self._create_timestamp <= self._current_timestamp:
@@ -650,7 +663,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         snapshot = self.get_order_book_snapshot()
         trades = self.get_recent_trades()
         self._avg_vol.add_sample(price)
-        self._trading_intensity.add_sample(timestamp, snapshot, trades)
+        self._trading_intensity.calculate()
         # Calculate adjustment factor to have 0.01% of inventory resolution
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)

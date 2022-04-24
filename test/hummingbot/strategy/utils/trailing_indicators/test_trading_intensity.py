@@ -3,7 +3,16 @@ import math
 import numpy as np
 import pandas as pd
 import unittest
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.event.events import (
+    OrderBookTradeEvent,
+)
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 
 
 class TradingIntensityTest(unittest.TestCase):
@@ -13,8 +22,43 @@ class TradingIntensityTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     start_timestamp: float = start.timestamp()
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.trading_pair: str = "COINALPHA-HBOT"
+        cls.base_asset, cls.quote_asset = cls.trading_pair.split("-")
+        cls.initial_mid_price: int = 100
+
     def setUp(self) -> None:
         np.random.seed(self.INITIAL_RANDOM_SEED)
+
+        trade_fee_schema = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
+        )
+        self.market: MockPaperExchange = MockPaperExchange(trade_fee_schema)
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
+            self.market, self.trading_pair, *self.trading_pair.split("-")
+        )
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.initial_mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
+        self.market.set_balance("COINALPHA", 1)
+        self.market.set_balance("HBOT", 500)
+        self.market.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair.split("-")[0], 6, 6, 6, 6
+            )
+        )
+
+        self.price_delegate = OrderBookAssetPriceDelegate(self.market_info.market, self.trading_pair)
+
+        self.indicator = TradingIntensityIndicator(
+            order_book=self.market_info.order_book,
+            price_delegate=self.price_delegate,
+            sampling_length=self.BUFFER_LENGTH)
 
     @staticmethod
     def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
@@ -83,7 +127,7 @@ class TradingIntensityTest(unittest.TestCase):
 
         for bid_df, ask_df in zip(bids_df, asks_df):
 
-            trades += [pd.DataFrame(columns=['trading_pair', 'timestamp', 'type', 'price', 'amount'])]
+            trades += [[]]
 
             bid = bid_df["price"].iloc[0]
             ask = ask_df["price"].iloc[0]
@@ -95,24 +139,24 @@ class TradingIntensityTest(unittest.TestCase):
                     if row['price'] == bid:
                         if bid_df["amount"].iloc[0] < row['amount']:
                             amount = row['amount'] - bid_df["amount"].iloc[0]
-                            new_trade = {
-                                'trading_pair': "ETHUSDT",
-                                'timestamp': timestamp,
-                                'type': "SELL",
-                                'price': row['price'],
-                                'amount': amount
-                            }
-                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                            new_trade = OrderBookTradeEvent(
+                                trading_pair="COINALPHAHBOT",
+                                timestamp=timestamp,
+                                price=row['price'],
+                                amount=amount,
+                                type=TradeType.SELL
+                            )
+                            trades[-1] += [new_trade]
                     else:
                         amount = row['amount']
-                        new_trade = {
-                            'trading_pair': "ETHUSDT",
-                            'timestamp': timestamp,
-                            'type': "SELL",
-                            'price': row['price'],
-                            'amount': amount
-                        }
-                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                        new_trade = OrderBookTradeEvent(
+                            trading_pair="COINALPHAHBOT",
+                            timestamp=timestamp,
+                            price=row['price'],
+                            amount=amount,
+                            type=TradeType.SELL
+                        )
+                        trades[-1] += [new_trade]
 
                 # Lower asks were filled - someone matched them - a determined buyer
                 # Equal asks - if amount lower - partially filled
@@ -120,24 +164,24 @@ class TradingIntensityTest(unittest.TestCase):
                     if row['price'] == ask:
                         if ask_df["amount"].iloc[0] < row['amount']:
                             amount = row['amount'] - ask_df["amount"].iloc[0]
-                            new_trade = {
-                                'trading_pair': "ETHUSDT",
-                                'timestamp': timestamp,
-                                'type': "BUY",
-                                'price': row['price'],
-                                'amount': amount
-                            }
-                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                            new_trade = OrderBookTradeEvent(
+                                trading_pair="COINALPHAHBOT",
+                                timestamp=timestamp,
+                                price=row['price'],
+                                amount=amount,
+                                type=TradeType.BUY
+                            )
+                            trades[-1] += [new_trade]
                     else:
                         amount = row['amount']
-                        new_trade = {
-                            'trading_pair': "ETHUSDT",
-                            'timestamp': timestamp,
-                            'type': "BUY",
-                            'price': row['price'],
-                            'amount': amount
-                        }
-                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                        new_trade = OrderBookTradeEvent(
+                            trading_pair="COINALPHAHBOT",
+                            timestamp=timestamp,
+                            price=row['price'],
+                            amount=amount,
+                            type=TradeType.BUY
+                        )
+                        trades[-1] += [new_trade]
 
             # Store previous values
             bid_df_prev = bid_df
@@ -153,8 +197,6 @@ class TradingIntensityTest(unittest.TestCase):
     def test_calculate_trading_intensity(self):
         N_SAMPLES = 300
 
-        self.indicator = TradingIntensityIndicator(self.BUFFER_LENGTH)
-
         original_price_mid = 100
         original_spread = Decimal("10")
         volatility = Decimal("5") / Decimal("100")
@@ -168,10 +210,15 @@ class TradingIntensityTest(unittest.TestCase):
         trades = TradingIntensityTest.make_trades(bids_df, asks_df)
 
         timestamp = self.start_timestamp
-        for bid_df, ask_df, trade in zip(bids_df, asks_df, trades):
-            snapshot = (bid_df, ask_df)
-            self.indicator.add_sample(timestamp, snapshot, trade)
+        for bid_df, ask_df, trades_tick in zip(bids_df, asks_df, trades):
+            bid = bid_df["price"].iloc[0]
+            ask = ask_df["price"].iloc[0]
+            mid = (bid + ask) / 2
+            for trade in trades_tick:
+                self.indicator.register_trade(trade)
+            self.indicator.calculate()
+            self.indicator.last_price = mid
             timestamp += 1
 
-        self.assertAlmostEqual(self.indicator.current_value[0], 1.0023826912651235, 4)
-        self.assertAlmostEqual(self.indicator.current_value[1], 0.00010734018225339922, 4)
+        self.assertAlmostEqual(self.indicator.current_value[0], 1.0032422566402444, 4)
+        self.assertAlmostEqual(self.indicator.current_value[1], 0.0001595577045670909, 4)
