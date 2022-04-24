@@ -19,6 +19,7 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSch
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
+    OrderBookTradeEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent
 )
@@ -27,6 +28,7 @@ from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -98,9 +100,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             )
         )
 
+        self.price_delegate = OrderBookAssetPriceDelegate(self.market_info.market, self.trading_pair)
+
         self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
+            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
@@ -110,7 +115,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(sampling_length=100,
                                                                                         processing_length=1)
 
-        self.trading_intensity_indicator: TradingIntensityIndicator = TradingIntensityIndicator(sampling_length=20)
+        self.trading_intensity_indicator: TradingIntensityIndicator = TradingIntensityIndicator(
+            order_book=self.market_info.order_book,
+            price_delegate=self.price_delegate,
+            sampling_length=20)
 
         self.strategy.avg_vol = self.avg_vol_indicator
         self.strategy.trading_intensity = self.trading_intensity_indicator
@@ -205,9 +213,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             trading_intensity_indicator = strategy.trading_intensity
 
             timestamp = self.start_timestamp
-            for bid_df, ask_df, trade in zip(bids_df, asks_df, trades):
-                snapshot = (bid_df, ask_df)
-                trading_intensity_indicator.add_sample(timestamp, snapshot, trade)
+            for bid_df, ask_df, trades_tick in zip(bids_df, asks_df, trades):
+                bid = bid_df["price"].iloc[0]
+                ask = ask_df["price"].iloc[0]
+                mid = (bid + ask) / 2
+                for trade in trades_tick:
+                    trading_intensity_indicator.register_trade(trade)
+                trading_intensity_indicator.calculate()
+                trading_intensity_indicator.last_price = mid
                 timestamp += 1
 
             self.trading_intensity_indicator_low_liq = trading_intensity_indicator
@@ -238,9 +251,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             trading_intensity_indicator = strategy.trading_intensity
 
             timestamp = self.start_timestamp
-            for bid_df, ask_df, trade in zip(bids_df, asks_df, trades):
-                snapshot = (bid_df, ask_df)
-                trading_intensity_indicator.add_sample(timestamp, snapshot, trade)
+            for bid_df, ask_df, trades_tick in zip(bids_df, asks_df, trades):
+                bid = bid_df["price"].iloc[0]
+                ask = ask_df["price"].iloc[0]
+                mid = (bid + ask) / 2
+                for trade in trades_tick:
+                    trading_intensity_indicator.register_trade(trade)
+                trading_intensity_indicator.calculate()
+                trading_intensity_indicator.last_price = mid
                 timestamp += 1
 
             self.trading_intensity_indicator_high_liq = trading_intensity_indicator
@@ -315,7 +333,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         for bid_df, ask_df in zip(bids_df, asks_df):
 
-            trades += [pd.DataFrame(columns=['trading_pair', 'timestamp', 'type', 'price', 'amount'])]
+            trades += [[]]
 
             bid = bid_df["price"].iloc[0]
             ask = ask_df["price"].iloc[0]
@@ -327,24 +345,24 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                     if row['price'] == bid:
                         if bid_df["amount"].iloc[0] < row['amount']:
                             amount = row['amount'] - bid_df["amount"].iloc[0]
-                            new_trade = {
-                                'trading_pair': "ETHUSDT",
-                                'timestamp': timestamp,
-                                'type': "SELL",
-                                'price': row['price'],
-                                'amount': amount
-                            }
-                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                            new_trade = OrderBookTradeEvent(
+                                trading_pair="COINALPHAHBOT",
+                                timestamp=timestamp,
+                                price=row['price'],
+                                amount=amount,
+                                type=TradeType.SELL
+                            )
+                            trades[-1] += [new_trade]
                     else:
                         amount = row['amount']
-                        new_trade = {
-                            'trading_pair': "ETHUSDT",
-                            'timestamp': timestamp,
-                            'type': "SELL",
-                            'price': row['price'],
-                            'amount': amount
-                        }
-                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                        new_trade = OrderBookTradeEvent(
+                            trading_pair="COINALPHAHBOT",
+                            timestamp=timestamp,
+                            price=row['price'],
+                            amount=amount,
+                            type=TradeType.SELL
+                        )
+                        trades[-1] += [new_trade]
 
                 # Lower asks were filled - someone matched them - a determined buyer
                 # Equal asks - if amount lower - partially filled
@@ -352,24 +370,24 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                     if row['price'] == ask:
                         if ask_df["amount"].iloc[0] < row['amount']:
                             amount = row['amount'] - ask_df["amount"].iloc[0]
-                            new_trade = {
-                                'trading_pair': "ETHUSDT",
-                                'timestamp': timestamp,
-                                'type': "BUY",
-                                'price': row['price'],
-                                'amount': amount
-                            }
-                            trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                            new_trade = OrderBookTradeEvent(
+                                trading_pair="COINALPHAHBOT",
+                                timestamp=timestamp,
+                                price=row['price'],
+                                amount=amount,
+                                type=TradeType.BUY
+                            )
+                            trades[-1] += [new_trade]
                     else:
                         amount = row['amount']
-                        new_trade = {
-                            'trading_pair': "ETHUSDT",
-                            'timestamp': timestamp,
-                            'type': "BUY",
-                            'price': row['price'],
-                            'amount': amount
-                        }
-                        trades[-1] = trades[-1].append(new_trade, ignore_index=True)
+                        new_trade = OrderBookTradeEvent(
+                            trading_pair="COINALPHAHBOT",
+                            timestamp=timestamp,
+                            price=row['price'],
+                            amount=amount,
+                            type=TradeType.BUY
+                        )
+                        trades[-1] += [new_trade]
 
             # Store previous values
             bid_df_prev = bid_df
@@ -698,15 +716,15 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(112.78451379967403, alpha, 4)
-        self.assertAlmostEqual(2.337349643261438, kappa, 4)
+        self.assertAlmostEqual(118.53441791741469, alpha, 4)
+        self.assertAlmostEqual(3.3607256761562003, kappa, 4)
 
         # Simulate high liquidity
         self.simulate_low_liquidity(self.strategy)
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(1.0095482106417624, alpha, 4)
+        self.assertAlmostEqual(1.008218217934538, alpha, 4)
         self.assertAlmostEqual(0.0006894160253319163, kappa, 4)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
@@ -727,9 +745,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Check reservation_price, optimal_ask and optimal_bid
         self.assertAlmostEqual(Decimal("100.0326907301569683694926933"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("0.7860626006639657442408037805"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("100.4257220304889512416130952"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("99.63965942982498549737229141"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("0.5839922263432378129408529925"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.3246868433285872759631198"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.74069461698534946302226680"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
@@ -748,9 +766,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Check reservation_price, optimal_ask and optimal_bid
         self.assertAlmostEqual(Decimal("100.0368705177791277118658666"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("0.7750196181220796732957702464"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("100.4243803268401675485137517"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("99.64936070871808787521798148"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("0.5836641014510773004537887908"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.3287025685046663620927610"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.74503846705358906163897220"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
@@ -785,6 +803,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
+            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             order_levels=4,
             level_distances=1,
@@ -792,7 +811,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             execution_timeframe="infinite",
             inventory_target_base_pct=self.inventory_target_base_pct,
         )
-        self.strategy.start(self.clock, self.start_timestamp)
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+        self.clock.add_iterator(self.strategy)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
         # Simulate low volatility.
         # Note: bid/ask_level_spreads Requires volatility, optimal_bid, optimal_ask to be defined
@@ -805,8 +833,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.006770071564337964594388892810'), Decimal('0.01015510734650694689158333922')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.006770071564337964594388892810'), Decimal('0.01015510734650694689158333922')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07680749440342730936221062482'), Decimal('0.1152112416051409640433159372')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07680749440342730936221062482'), Decimal('0.1152112416051409640433159372')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -1372,6 +1400,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
+            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
@@ -1389,6 +1418,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.avg_vol = self.avg_vol_indicator
         self.clock.add_iterator(self.strategy)
 
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
 
@@ -1399,7 +1430,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
 
         buy_order = self.strategy.active_buys[0]
         sell_order = self.strategy.active_sells[0]
@@ -1439,6 +1470,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
+            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
@@ -1456,6 +1488,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.strategy.avg_vol = self.avg_vol_indicator
 
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
 
@@ -1466,7 +1500,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
 
         buy_order = self.strategy.active_buys[0]
         sell_order = self.strategy.active_sells[0]
