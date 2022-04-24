@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsA
 from hummingbot.connector.exchange.altmarkets.altmarkets_websocket import AltmarketsWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
-from hummingbot.connector.exchange.altmarkets.altmarkets_utils import aiohttp_response_with_errors
+from hummingbot.connector.exchange.altmarkets.altmarkets_http_utils import aiohttp_response_with_errors
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
