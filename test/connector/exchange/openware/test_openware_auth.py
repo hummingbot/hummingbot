@@ -4,10 +4,11 @@ import asyncio
 import unittest
 import aiohttp
 import conf
+import traceback
 import logging
 from async_timeout import timeout
 from os.path import join, realpath
-from typing import Dict, Any
+from typing import Any, Tuple
 from hummingbot.connector.exchange.openware.openware_auth import OpenwareAuth
 from hummingbot.connector.exchange.openware.openware_websocket import OpenwareWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -26,7 +27,7 @@ class TestAuth(unittest.TestCase):
         secret_key = conf.openware_secret_key
         cls.auth = OpenwareAuth(api_key, secret_key)
 
-    async def rest_auth(self) -> Dict[Any, Any]:
+    async def rest_auth(self) -> Tuple[Any, Any]:
         endpoint = Constants.ENDPOINT['USER_BALANCES']
         headers = self.auth.get_headers()
         http_client = aiohttp.ClientSession()
@@ -34,10 +35,10 @@ class TestAuth(unittest.TestCase):
         await http_client.close()
         return response, request_errors
 
-    async def ws_auth(self) -> Dict[Any, Any]:
+    async def ws_auth(self) -> bool:
         ws = OpenwareWebsocket(self.auth)
         await ws.connect()
-        async with timeout(30):
+        async with timeout(60):
             await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
             async for response in ws.on_message():
                 if ws.is_subscribed:
@@ -58,7 +59,9 @@ class TestAuth(unittest.TestCase):
         try:
             subscribed = self.ev_loop.run_until_complete(self.ws_auth())
             no_errors = True
-        except Exception:
+        except Exception as ex:
+            traceback.print_exc()
             no_errors = False
+            print(ex)
         assert no_errors is True
         assert subscribed is True
