@@ -174,7 +174,7 @@ class BinanceExchangeTests(TestCase):
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
 
     @aioresponses()
-    def test_create_order_successfully(self, mock_api):
+    def test_create_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -227,6 +227,60 @@ class BinanceExchangeTests(TestCase):
             self._is_logged(
                 "INFO",
                 f"Created LIMIT BUY order OID1 for {Decimal('100.000000')} {self.trading_pair}."
+            )
+        )
+
+    @aioresponses()
+    def test_create_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        creation_response = {
+            "symbol": self.exchange_trading_pair,
+            "orderId": 28,
+            "orderListId": -1,
+            "clientOrderId": "OID1",
+            "transactTime": 1507725176595
+        }
+
+        mock_api.post(regex_url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        self.test_task = asyncio.get_event_loop().create_task(
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.MARKET))
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        self._validate_auth_credentials_for_post_request(order_request[1][0])
+        request_data = order_request[1][0].kwargs["data"]
+        self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
+        self.assertEqual(CONSTANTS.SIDE_BUY, request_data["side"])
+        self.assertEqual(BinanceExchange.binance_order_type(OrderType.MARKET), request_data["type"])
+        self.assertEqual(Decimal("100"), Decimal(request_data["quantity"]))
+        self.assertEqual("OID1", request_data["newClientOrderId"])
+
+        self.assertIn("OID1", self.exchange.in_flight_orders)
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual("OID1", create_event.order_id)
+        self.assertEqual("28", create_event.exchange_order_id)
+
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"Created MARKET BUY order OID1 for {Decimal('100')} {self.trading_pair}."
             )
         )
 

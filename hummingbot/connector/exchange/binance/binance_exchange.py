@@ -463,7 +463,8 @@ class BinanceExchange(ExchangeBase):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         price = self.quantize_order_price(trading_pair, price)
         quantize_amount_price = Decimal("0") if price.is_nan() else price
-        amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
+        if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
 
         self.start_tracking_order(
             order_id=order_id,
@@ -501,10 +502,10 @@ class BinanceExchange(ExchangeBase):
                       "side": side_str,
                       "quantity": amount_str,
                       "type": type_str,
-                      "newClientOrderId": order_id,
-                      "price": price_str}
+                      "newClientOrderId": order_id}
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+            api_params["price"] = price_str
 
         try:
             order_result = await self._api_request(
