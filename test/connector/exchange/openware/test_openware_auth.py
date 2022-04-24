@@ -9,10 +9,10 @@ from async_timeout import timeout
 from os.path import join, realpath
 from typing import Dict, Any
 from hummingbot.connector.exchange.openware.openware_auth import OpenwareAuth
-from hummingbot.connector.exchange.altmarkets.altmarkets_websocket import AltmarketsWebsocket
+from hummingbot.connector.exchange.openware.openware_websocket import OpenwareWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
-from hummingbot.connector.exchange.altmarkets.altmarkets_http_utils import aiohttp_response_with_errors
+from hummingbot.connector.exchange.openware.openware_constants import Constants
+from hummingbot.connector.exchange.openware.openware_http_utils import aiohttp_response_with_errors
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -35,7 +35,7 @@ class TestAuth(unittest.TestCase):
         return response, request_errors
 
     async def ws_auth(self) -> Dict[Any, Any]:
-        ws = AltmarketsWebsocket(self.auth)
+        ws = OpenwareWebsocket(self.auth)
         await ws.connect()
         async with timeout(30):
             await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])

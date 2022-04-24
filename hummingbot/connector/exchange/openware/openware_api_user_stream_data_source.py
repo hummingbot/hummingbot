@@ -61,7 +61,7 @@ class OpenwareAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
 
             async for msg in self._ws.on_message():
-                # print(f"user msg: {msg}")
+                print(f"user msg: {msg}")
                 self._last_recv_time = time.time()
                 if msg is not None:
                     yield msg
