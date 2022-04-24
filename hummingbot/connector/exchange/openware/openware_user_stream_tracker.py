@@ -7,6 +7,7 @@ from typing import Optional
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.connector.exchange.openware.openware_constants import Constants
 
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -32,16 +33,33 @@ class OpenwareUserStreamTracker(UserStreamTracker):
         # self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
     @property
+    def is_connected(self) -> float:
+        return self._data_source.is_connected if self._data_source is not None else False
+
+    @property
     def data_source(self) -> UserStreamTrackerDataSource:
+        """
+        *required
+        Initializes a user stream data source (user specific order diffs from live socket stream)
+        :return: OrderBookTrackerDataSource
+        """
         if not self._data_source:
             self._data_source = OpenwareAPIUserStreamDataSource()
         return self._data_source
 
     @property
     def exchange_name(self) -> str:
-        return "openware"
+        """
+        *required
+        Name of the current exchange
+        """
+        return Constants.EXCHANGE_NAME
 
     async def start(self):
+        """
+        *required
+        Start all listeners and tasks
+        """
         self._user_stream_tracking_task = safe_ensure_future(
             self.data_source.listen_for_user_stream(self._user_stream)
         )
