@@ -1,30 +1,30 @@
 import asyncio
 import traceback
-from multiprocessing import Queue
-from typing import List, Optional, Dict, Any, Callable
 from decimal import Decimal
-from statistics import mean, median
+from multiprocessing import Queue
 from operator import itemgetter
+from statistics import mean, median
+from typing import Any, Callable, Dict, List, Optional
 
-from .script_interface import (
-    OnTick,
-    OnStatus,
-    OnCommand,
-    PMMParameters,
-    CallNotify,
-    CallLog,
-    PmmMarketInfo,
-    ScriptError
-)
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
+from .pmm_script_interface import (
+    CallLog,
+    CallNotify,
+    OnCommand,
+    OnStatus,
+    OnTick,
+    PMMParameters,
+    PMMMarketInfo,
+    ScriptError
+)
 
 
-class ScriptBase:
+class PMMScriptBase:
     """
-    ScriptBase provides functionality which a script can use to interact with the main HB application.
+    PMMScriptBase provides functionality which a script can use to interact with the main HB application.
     A user defined script should derive from this base class to get all its functionality.
     """
     def __init__(self):
@@ -34,7 +34,7 @@ class ScriptBase:
         self.mid_prices: List[Decimal] = []
         self.max_mid_prices_length: int = 86400  # 60 * 60 * 24 = 1 day of prices
         self.pmm_parameters: PMMParameters = None
-        self.pmm_market_info: PmmMarketInfo = None
+        self.pmm_market_info: PMMMarketInfo = None
         # all_total_balances stores balances in {exchange: {token: balance}} format
         # for example {"binance": {"BTC": Decimal("0.1"), "ETH": Decimal("20"}}
         self.all_total_balances: Dict[str, Dict[str, Decimal]] = None
@@ -86,7 +86,7 @@ class ScriptBase:
                         self.notify(f"Script status: {status_msg}")
                 elif isinstance(item, OnCommand):
                     self.on_command(item.cmd, item.args)
-                elif isinstance(item, PmmMarketInfo):
+                elif isinstance(item, PMMMarketInfo):
                     self.pmm_market_info = item
             except asyncio.CancelledError:
                 raise

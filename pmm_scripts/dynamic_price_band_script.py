@@ -1,10 +1,11 @@
 from decimal import Decimal
-from hummingbot.script.script_base import ScriptBase
+
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 s_decimal_1 = Decimal("1")
 
 
-class DynamicPriceBandScript(ScriptBase):
+class DynamicPriceBandPMMScript(PMMScriptBase):
     """
     Demonstrates how to set a band around a mid price moving average, the strategy is to stop buying when the mid price
     reaches the upper bound of the band and to stop selling when the mid price breaches the lower bound.
