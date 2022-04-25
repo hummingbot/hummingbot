@@ -44,6 +44,30 @@ describe('validateAllowedSlippage', () => {
     ).toEqual([]);
   });
 
+  it('invalid when req.avalanche.allowedSlippage is too large (number)', () => {
+    expect(
+      validateAllowedSlippage({ 'avalanche.allowedSlippage': 1.005 })
+    ).toEqual([invalidAllowedSlippage]);
+  });
+
+  it('invalid when req.avalanche.allowedSlippage is too large (fraction)', () => {
+    expect(
+      validateAllowedSlippage({ 'avalanche.allowedSlippage': '3/2' })
+    ).toEqual([invalidAllowedSlippage]);
+  });
+
+  it('invalid when req.avalanche.allowedSlippage is too small (number)', () => {
+    expect(
+      validateAllowedSlippage({ 'avalanche.allowedSlippage': -1.005 })
+    ).toEqual([invalidAllowedSlippage]);
+  });
+
+  it('invalid when req.avalanche.allowedSlippage is too small (fraction)', () => {
+    expect(
+      validateAllowedSlippage({ 'avalanche.allowedSlippage': '-1/5' })
+    ).toEqual([invalidAllowedSlippage]);
+  });
+
   it('invalid when req.allowedSlippage does not exist', () => {
     expect(validateAllowedSlippage({ hello: 'world' })).toEqual([
       missingParameter('allowedSlippage'),
