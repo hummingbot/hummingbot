@@ -3,7 +3,6 @@ import {
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
-import { logger } from '../../services/logger';
 import { UniswapConfig } from './uniswap.config';
 import { Contract, ContractInterface } from '@ethersproject/contracts';
 import {
@@ -70,6 +69,10 @@ export class UniswapLPHelper {
 
   public ready(): boolean {
     return this._ready;
+  }
+
+  public get alphaRouter(): AlphaRouter {
+    return this._alphaRouter;
   }
 
   public get router(): string {
@@ -214,46 +217,6 @@ export class UniswapLPHelper {
         },
       ],
     };
-  }
-
-  async getPairs(firstToken: Token, secondToken: Token): Promise<uniV3.Pool[]> {
-    const poolDataRequests = [];
-    const pools: uniV3.Pool[] = [];
-    try {
-      for (const tier of Object.values(uniV3.FeeAmount)) {
-        if (typeof tier !== 'string') {
-          const poolAddress = uniV3.Pool.getAddress(
-            firstToken,
-            secondToken,
-            tier
-          );
-          poolDataRequests.push(this.getPoolState(poolAddress, tier));
-        }
-      }
-      const poolDataRaw = await Promise.allSettled(poolDataRequests);
-      const poolDataRes = (
-        poolDataRaw.filter(
-          (r) => r.status === 'fulfilled'
-        ) as PromiseFulfilledResult<any>[]
-      ).map((r) => r.value);
-
-      for (const poolData of poolDataRes) {
-        pools.push(
-          new uniV3.Pool(
-            firstToken,
-            secondToken,
-            poolData.fee,
-            poolData.sqrtPriceX96.toString(),
-            poolData.liquidity.toString(),
-            poolData.tick,
-            poolData.tickProvider
-          )
-        );
-      }
-    } catch (err) {
-      logger.error(err);
-    }
-    return pools;
   }
 
   async poolPrice(
@@ -430,7 +393,7 @@ export class UniswapLPHelper {
     });
 
     const autorouterRoute: SwapToRatioResponse =
-      await this._alphaRouter.routeToRatio(
+      await this.alphaRouter.routeToRatio(
         CurrencyAmount.fromRawAmount(
           token0,
           utils.parseUnits(amount0, token0.decimals).toString()

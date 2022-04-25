@@ -59,7 +59,6 @@ export class UniswapLP extends UniswapLPHelper {
       this.collectFees(this.ethereum.provider, tokenId), // static call to calculate earned fees
     ];
     const positionInfoReq = await Promise.allSettled(requests);
-    console.log(positionInfoReq);
     const rejected = positionInfoReq.filter(
       (r) => r.status === 'rejected'
     ) as PromiseRejectedResult[];
