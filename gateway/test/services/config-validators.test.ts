@@ -2,7 +2,7 @@ import {
   invalidAllowedSlippage,
   validateAllowedSlippage,
   updateAllowedSlippageToFraction,
-} from '../../src/services/config/config-validators';
+} from '../../src/services/config/config.validators';
 import 'jest-extended';
 
 describe('validateAllowedSlippage', () => {
@@ -114,26 +114,29 @@ describe('validateAllowedSlippage', () => {
 
 describe('updateAllowedSlippageToFraction', () => {
   it('update when req.uniswap.versions.v2.allowedSlippage is a number', () => {
-    let body = { configPath: 'avalanche.allowedSlippage', configValue: 0.1 };
-    body = updateAllowedSlippageToFraction(body);
+    const body = { configPath: 'avalanche.allowedSlippage', configValue: 0.1 };
+    updateAllowedSlippageToFraction(body);
     expect(body.configValue).toEqual('1/10');
   });
 
   it('update when req.uniswap.versions.v2.allowedSlippage is a number string', () => {
-    let body = { configPath: 'avalanche.allowedSlippage', configValue: 0.25 };
-    body = updateAllowedSlippageToFraction(body);
+    const body = { configPath: 'avalanche.allowedSlippage', configValue: 0.25 };
+    updateAllowedSlippageToFraction(body);
     expect(body.configValue).toEqual('1/4');
   });
 
   it('do nothing when req.uniswap.versions.v2.allowedSlippage is a fraction', () => {
-    let body = { configPath: 'avalanche.allowedSlippage', configValue: '1/5' };
-    body = updateAllowedSlippageToFraction(body);
+    const body = {
+      configPath: 'avalanche.allowedSlippage',
+      configValue: '1/5',
+    };
+    updateAllowedSlippageToFraction(body);
     expect(body.configValue).toEqual('1/5');
   });
 
   it('do nothing when the configPath is not allowedSlippage', () => {
-    let body = { configPath: 'hellow', configValue: 'goodbye' };
-    body = updateAllowedSlippageToFraction(body);
+    const body = { configPath: 'hellow', configValue: 'goodbye' };
+    updateAllowedSlippageToFraction(body);
     expect(body.configValue).toEqual('goodbye');
   });
 });
