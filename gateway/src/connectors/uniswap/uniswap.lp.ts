@@ -1,14 +1,18 @@
-import {
-  InitializationError,
-  SERVICE_UNITIALIZED_ERROR_CODE,
-  SERVICE_UNITIALIZED_ERROR_MESSAGE,
-} from '../../services/error-handler';
 import { logger } from '../../services/logger';
+import { PositionInfo } from '../../services/common-interfaces';
 import { UniswapConfig } from './uniswap.config';
 import { Token } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
-import { BigNumber, Transaction, Wallet, utils } from 'ethers';
-import { UniswapV3Helper } from './uniswap.v3.helper';
+import {
+  BigNumber,
+  Transaction,
+  Wallet,
+  utils,
+  constants,
+  providers,
+} from 'ethers';
+import { UniswapLPHelper } from './uniswap.lp.helper';
+import { AddPosReturn } from './uniswap.lp.interfaces';
 
 const MaxUint128 = BigNumber.from(2).pow(128).sub(1);
 
@@ -21,40 +25,24 @@ export type Overrides = {
   maxPriorityFeePerGas?: BigNumber;
 };
 
-export class UniswapV3 extends UniswapV3Helper {
-  private static _instances: { [name: string]: UniswapV3 };
-  private _chain: string;
+export class UniswapLP extends UniswapLPHelper {
+  private static _instances: { [name: string]: UniswapLP };
   private _gasLimit: number;
-  private _ready: boolean = false;
 
   private constructor(chain: string, network: string) {
-    super(network);
-    this._chain = chain;
+    super(chain, network);
     this._gasLimit = UniswapConfig.config.gasLimit;
   }
 
-  public static getInstance(chain: string, network: string): UniswapV3 {
-    if (UniswapV3._instances === undefined) {
-      UniswapV3._instances = {};
+  public static getInstance(chain: string, network: string): UniswapLP {
+    if (UniswapLP._instances === undefined) {
+      UniswapLP._instances = {};
     }
-    if (!(chain + network in UniswapV3._instances)) {
-      UniswapV3._instances[chain + network] = new UniswapV3(chain, network);
+    if (!(chain + network in UniswapLP._instances)) {
+      UniswapLP._instances[chain + network] = new UniswapLP(chain, network);
     }
 
-    return UniswapV3._instances[chain + network];
-  }
-
-  public async init() {
-    if (this._chain == 'ethereum' && !this.ethereum.ready())
-      throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      );
-    this._ready = true;
-  }
-
-  public ready(): boolean {
-    return this._ready;
+    return UniswapLP._instances[chain + network];
   }
 
   /**
@@ -64,30 +52,19 @@ export class UniswapV3 extends UniswapV3Helper {
     return this._gasLimit;
   }
 
-  async getPosition(
-    wallet: Wallet,
-    tokenId: number
-  ): Promise<{
-    token0: string | undefined;
-    token1: string | undefined;
-    fee: string | undefined;
-    lowerPrice: string;
-    upperPrice: string;
-    amount0: string;
-    amount1: string;
-    unclaimedToken0: string;
-    unclaimedToken1: string;
-  }> {
-    const contract = this.getContract('nft', wallet);
+  async getPosition(tokenId: number): Promise<PositionInfo> {
+    const contract = this.getContract('nft', this.ethereum.provider);
     const requests = [
       contract.positions(tokenId),
-      this.collectFees(wallet, tokenId, true),
+      this.collectFees(this.ethereum.provider, tokenId), // static call to calculate earned fees
     ];
     const positionInfoReq = await Promise.allSettled(requests);
+    console.log(positionInfoReq);
     const rejected = positionInfoReq.filter(
       (r) => r.status === 'rejected'
     ) as PromiseRejectedResult[];
-    if (rejected.length > 0) throw 'Unable to fetch position';
+    if (rejected.length > 0)
+      throw new Error(`Unable to fetch position with id ${tokenId}`);
     const positionInfo = (
       positionInfoReq.filter(
         (r) => r.status === 'fulfilled'
@@ -97,9 +74,12 @@ export class UniswapV3 extends UniswapV3Helper {
     const feeInfo = positionInfo[1];
     const token0 = this.getTokenByAddress(position.token0);
     const token1 = this.getTokenByAddress(position.token1);
+    if (!token0 || !token1) {
+      throw new Error(`One of the tokens in this position isn't recognized.`);
+    }
     const fee = position.fee;
     const poolAddress = uniV3.Pool.getAddress(token0, token1, fee);
-    const poolData = await this.getPoolState(poolAddress, fee, wallet);
+    const poolData = await this.getPoolState(poolAddress, fee);
     const positionInst = new uniV3.Position({
       pool: new uniV3.Pool(
         token0,
@@ -116,13 +96,11 @@ export class UniswapV3 extends UniswapV3Helper {
     return {
       token0: token0.symbol,
       token1: token1.symbol,
-      fee: Object.keys(uniV3.FeeAmount).find(
-        (key) => uniV3.FeeAmount[Number(key)] === position.fee
-      ),
+      fee: uniV3.FeeAmount[position.fee],
       lowerPrice: positionInst.token0PriceLower.toFixed(8),
       upperPrice: positionInst.token0PriceUpper.toFixed(8),
-      amount0: positionInst.amount0.toFixed(8),
-      amount1: positionInst.amount1.toFixed(8),
+      amount0: positionInst.amount0.toFixed(),
+      amount1: positionInst.amount1.toFixed(),
       unclaimedToken0: utils.formatUnits(
         feeInfo.amount0.toString(),
         token0.decimals
@@ -136,8 +114,8 @@ export class UniswapV3 extends UniswapV3Helper {
 
   async addPosition(
     wallet: Wallet,
-    tokenIn: Token,
-    tokenOut: Token,
+    token0: Token,
+    token1: Token,
     amount0: string,
     amount1: string,
     fee: uniV3.FeeAmount,
@@ -150,10 +128,10 @@ export class UniswapV3 extends UniswapV3Helper {
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
   ): Promise<Transaction> {
-    const { calldata, value } = await this.addPositionHelper(
+    const addLiquidityResponse: AddPosReturn = await this.addPositionHelper(
       wallet,
-      tokenIn,
-      tokenOut,
+      token0,
+      token1,
       amount0,
       amount1,
       fee,
@@ -161,8 +139,50 @@ export class UniswapV3 extends UniswapV3Helper {
       upperPrice,
       tokenId
     );
-    const nftContract = this.getContract('nft', wallet);
-    const tx = await nftContract.multicall(
+
+    if (nonce === undefined) {
+      nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
+    }
+
+    const tx = await wallet.sendTransaction({
+      data: addLiquidityResponse.calldata,
+      to: addLiquidityResponse.swapRequired ? this.router : this.nftManager,
+      ...this.generateOverrides(
+        gasLimit,
+        gasPrice,
+        nonce,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        addLiquidityResponse.value
+      ),
+    });
+    logger.info(`Uniswap V3 Add position Tx Hash: ${tx.hash}`);
+    return tx;
+  }
+
+  async reducePosition(
+    wallet: Wallet,
+    tokenId: number,
+    decreasePercent: number = 100,
+    gasLimit: number,
+    gasPrice: number,
+    nonce?: number,
+    maxFeePerGas?: BigNumber,
+    maxPriorityFeePerGas?: BigNumber
+  ): Promise<Transaction> {
+    // Reduce position and burn
+    const contract = this.getContract('nft', wallet);
+    const { calldata, value } = await this.reducePositionHelper(
+      wallet,
+      tokenId,
+      decreasePercent
+    );
+
+    if (nonce === undefined) {
+      nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
+    }
+
+    const tx = await contract.multicall(
       [calldata],
       this.generateOverrides(
         gasLimit,
@@ -173,53 +193,13 @@ export class UniswapV3 extends UniswapV3Helper {
         value
       )
     );
-    logger.info(`Uniswap V3 Add position Tx Hash: ${tx.hash}`);
+    logger.info(`Uniswap V3 Remove position Tx Hash: ${tx.hash}`);
     return tx;
   }
 
-  async reducePosition(
-    wallet: Wallet,
-    tokenId: number,
-    decreasePercent: number = 100,
-    getFee: boolean = false,
-    gasLimit: number,
-    gasPrice: number,
-    nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
-  ): Promise<BigNumber | Transaction> {
-    // Reduce position and burn
-    const contract = this.getContract('nft', wallet);
-    const { calldata, value } = await this.reducePositionHelper(
-      wallet,
-      tokenId,
-      decreasePercent
-    );
-    if (getFee) {
-      return await contract.estimateGas.multicall([calldata], {
-        value: value,
-      });
-    } else {
-      const tx = await contract.multicall(
-        [calldata],
-        this.generateOverrides(
-          gasLimit,
-          gasPrice,
-          nonce,
-          maxFeePerGas,
-          maxPriorityFeePerGas,
-          value
-        )
-      );
-      logger.info(`Uniswap V3 Remove position Tx Hash: ${tx.hash}`);
-      return tx;
-    }
-  }
-
   async collectFees(
-    wallet: Wallet,
+    wallet: Wallet | providers.StaticJsonRpcProvider,
     tokenId: number,
-    isStatic: boolean = false,
     gasLimit: number = this.gasLimit,
     gasPrice: number = 0,
     nonce?: number,
@@ -229,22 +209,29 @@ export class UniswapV3 extends UniswapV3Helper {
     const contract = this.getContract('nft', wallet);
     const collectData = {
       tokenId: tokenId,
-      recipient: wallet.address,
+      recipient: constants.AddressZero,
       amount0Max: MaxUint128,
       amount1Max: MaxUint128,
     };
-    return isStatic
-      ? await contract.callStatic.collect(collectData)
-      : await contract.collect(
-          collectData,
-          this.generateOverrides(
-            gasLimit,
-            gasPrice,
-            nonce,
-            maxFeePerGas,
-            maxPriorityFeePerGas
-          )
-        );
+
+    if (wallet instanceof providers.StaticJsonRpcProvider) {
+      return await contract.callStatic.collect(collectData);
+    } else {
+      collectData.recipient = wallet.address;
+      if (nonce === undefined) {
+        nonce = await this.ethereum.nonceManager.getNextNonce(wallet.address);
+      }
+      return await contract.collect(
+        collectData,
+        this.generateOverrides(
+          gasLimit,
+          gasPrice,
+          nonce,
+          maxFeePerGas,
+          maxPriorityFeePerGas
+        )
+      );
+    }
   }
 
   generateOverrides(
