@@ -31,7 +31,7 @@ class CoinflexPerpetualOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["marketCode"],
+            "trading_pair": msg["trading_pair"],
             "update_id": int(msg["timestamp"]),
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -53,7 +53,7 @@ class CoinflexPerpetualOrderBook(OrderBook):
         if metadata:
             data.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": data["instrumentId"],
+            "trading_pair": data["trading_pair"],
             "first_update_id": int(data["seqNum"]),
             "update_id": int(data["timestamp"]),
             "bids": data["bids"],
@@ -72,7 +72,7 @@ class CoinflexPerpetualOrderBook(OrderBook):
             msg.update(metadata)
         ts = int(msg["timestamp"])
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["marketCode"],
+            "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["side"] == TradeType.SELL.name.upper() else float(TradeType.BUY.value),
             "trade_id": msg["tradeId"],
             "update_id": ts,
