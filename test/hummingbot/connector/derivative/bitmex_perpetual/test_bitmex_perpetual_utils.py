@@ -56,4 +56,4 @@ class BitmexPerpetualUtilsUnitTests(unittest.TestCase):
         ]
         mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
         size_currency = self._ev_loop.run_until_complete(utils.get_trading_pair_size_currency("COINALPHAHBOT"))
-        self.asserTrue(size_currency.is_base)
+        self.assertTrue(size_currency.is_base)

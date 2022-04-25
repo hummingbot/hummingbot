@@ -35,15 +35,16 @@ class BitmexPerpetualUserStreamTracker(UserStreamTracker):
                  throttler: Optional[AsyncThrottler] = None,
                  api_factory: Optional[WebAssistantsFactory] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
-        super().__init__()
-        self._auth: BitmexPerpetualAuth = auth
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        self._auth: BitmexPerpetualAuth = auth
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory
         self._time_synchronizer = time_synchronizer
+
+        super().__init__(self.data_source)
+        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
+        self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
