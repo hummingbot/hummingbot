@@ -10,9 +10,9 @@ import {getNewOrderTemplate} from "./fixtures/dummy";
 import {addWallet} from "../../../../src/services/wallet/wallet.controllers";
 import {getOrCreateTokenAccount} from "../../../../src/chains/solana/solana.controllers";
 
-export const publicKey = '3xgEFpNpz1hPU7iHN9P3WPgLTWfZXu6wSUuGw8kigNQr';
+export const publicKey = '8wvTyrdGmrjFUAdg4yHoBtPu9eE41t8fxruxTh7ufMkQ';
 export const privateKey =
-  '5K23ZvkHuNoakyMKGNoaCvky6a2Yu5yfeoRz2wQLKYAczMKzACN5ZZb9ixu6QcsQvrvh91CNfqu8U1LqC1nvnyfp';
+  '5kjvMapUoarexP1MLRTVWBQDE95eKvsaozWCxRTkQVPRw48LFnPAQoLmUU6hkPJNsE9r75sPC8ginF7QXEszm7DN';
 
 jest.setTimeout(1000000);
 
@@ -30,7 +30,9 @@ afterEach(() => {
 });
 
 it('Temporary', async () => {
-  const marketName = 'BTC/USDT';
+  const baseCurrency = 'SOL';
+  const quoteCurrency = 'USDT';
+  const marketName = `${baseCurrency}/${quoteCurrency}`;
 
   const commonParameters = {
     chain: config.serum.chain,
@@ -49,11 +51,10 @@ it('Temporary', async () => {
     solana,
     {
       address: config.solana.wallet.owner.address,
-      token: 'BTC',
+      token: baseCurrency,
     }
   );
   console.log('token', JSON.stringify(tokenAccount, null, 2));
-
 
   // const market = (await getMarkets({
   //   ...commonParameters,

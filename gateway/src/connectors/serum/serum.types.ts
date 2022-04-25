@@ -21,7 +21,7 @@ export enum OrderStatus {
 
 export enum OrderType {
   LIMIT = 'LIMIT',
-  IOC = 'IOC',
+  IOC = 'IOC',// Immediate or Cancel
   POST_ONLY = 'POST_ONLY',
 }
 

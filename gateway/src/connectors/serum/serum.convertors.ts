@@ -145,7 +145,7 @@ export const convertSerumMarketToMarket = (
     deprecated: extraInfo.deprecated,
     minimumOrderSize: market.minOrderSize,
     tickSize: market.tickSize,
-    minimumBaseIncrement: market.baseSizeLotsToNumber(market.decoded.baseLotSize), // TODO is this correct?
+    minimumBaseIncrement: market.baseSizeLotsToNumber(market.decoded.baseLotSize), // TODO is this correct?!!!
     fees: market.decoded.fee,
     market: market
   } as Market;
