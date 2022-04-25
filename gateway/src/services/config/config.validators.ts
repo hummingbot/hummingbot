@@ -57,21 +57,17 @@ export const validateAllowedSlippage: Validator = mkConfigValidator(
     isAllowedPercentage(val)
 );
 
+// this mutates the input value in place
 export const updateAllowedSlippageToFraction = (
   body: ConfigUpdateRequest
-): ConfigUpdateRequest => {
-  const updatedBody = {
-    configPath: body.configPath,
-    configValue: body.configValue,
-  };
+): void => {
   if (body.configPath.endsWith('allowedSlippage')) {
     if (
       typeof body.configValue === 'number' ||
       (typeof body.configValue == 'string' &&
         !isFractionString(body.configValue))
     ) {
-      updatedBody.configValue = toFractionString(body.configValue);
+      body.configValue = toFractionString(body.configValue);
     }
   }
-  return updatedBody;
 };

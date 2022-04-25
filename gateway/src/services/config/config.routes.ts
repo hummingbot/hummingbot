@@ -3,7 +3,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../error-handler';
 import { ConfigUpdateRequest } from './config.requests';
-import { validateAllowedSlippage } from './config-validators';
+import { validateAllowedSlippage } from './config.validators';
 import { ConfigManagerV2 } from '../config-manager-v2';
 
 export namespace ConfigRoutes {
