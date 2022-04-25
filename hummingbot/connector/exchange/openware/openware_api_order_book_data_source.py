@@ -1,252 +1,263 @@
 #!/usr/bin/env python
-
 import asyncio
-from abc import ABC
-
-import aiohttp
 import logging
-import pandas as pd
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional
-)
 import time
-import ujson
-import websockets
-from websockets.exceptions import ConnectionClosed
+import pandas as pd
+from decimal import Decimal
+from typing import Optional, List, Dict, Any
 
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import hummingbot.connector.exchange.openware.openware_http_utils as http_utils
+from .openware_utils import (
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair,
+    OpenwareAPIError,
+)
+
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+# from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.openware.openware_order_book import OpenwareOrderBook
+from .openware_constants import Constants
+from .openware_active_order_tracker import OpenwareActiveOrderTracker
+from .openware_order_book import OpenwareOrderBook
+from .openware_websocket import OpenwareWebsocket
 
 
-# Must Implements
-# fetch_trading_pairs - not implemented
-# get_new_order_book - not implemented
-# listen_for_order_book_diffs - DONE
-# listen_for_order_book_snapshots - DONE
-# listen_for_trades - DONE
-# get_active_exchange_markets - NEED to replace
-
-
-class OpenwareAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
-
-    _baobds_logger: Optional[HummingbotLogger] = None
+class OpenwareAPIOrderBookDataSource(OrderBookTrackerDataSource):
+    _logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._baobds_logger is None:
-            cls._baobds_logger = logging.getLogger(__name__)
-        return cls._baobds_logger
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
-    def __init__(self, openware_api_url: str, openware_ranger_url: str, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._openware_api_url = openware_api_url
-        self._openware_ranger_url = openware_ranger_url
-        self._trading_pairs: Optional[List[str]] = trading_pairs
-        self._order_book_create_function = lambda: OrderBook()
+    def __init__(self,
+                 throttler: Optional[AsyncThrottler] = None,
+                 trading_pairs: List[str] = None,
+                 ):
+        super().__init__(trading_pairs)
+        self._throttler: AsyncThrottler = throttler or self._get_throttler_instance()
+        self._trading_pairs: List[str] = trading_pairs
+        self._snapshot_msg: Dict[str, any] = {}
+
+    def _time(self):
+        """ Function created to enable patching during unit tests execution.
+        :return: current time
+        """
+        return time.time()
+
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
 
     @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(Constants.RATE_LIMITS)
+        return throttler
+
+    @classmethod
+    async def get_last_traded_prices(cls,
+                                     trading_pairs: List[str],
+                                     throttler: Optional[AsyncThrottler] = None) -> Dict[str, Decimal]:
+        throttler = throttler or cls._get_throttler_instance()
+        results = {}
+        if len(trading_pairs) > 3:
+            tickers: List[Dict[Any]] = await http_utils.api_call_with_retries(method="GET",
+                                                                              endpoint=Constants.ENDPOINT["TICKER"],
+                                                                              throttler=throttler,
+                                                                              limit_id=Constants.RL_ID_TICKER,
+                                                                              logger=cls.logger())
+        for trading_pair in trading_pairs:
+            ex_pair: str = convert_to_exchange_trading_pair(trading_pair)
+            if len(trading_pairs) > 3:
+                ticker: Dict[Any] = tickers[ex_pair]
+            else:
+                url_endpoint = Constants.ENDPOINT["TICKER_SINGLE"].format(trading_pair=ex_pair)
+                ticker: Dict[Any] = await http_utils.api_call_with_retries(method="GET",
+                                                                           endpoint=url_endpoint,
+                                                                           throttler=throttler,
+                                                                           limit_id=Constants.RL_ID_TICKER,
+                                                                           logger=cls.logger())
+            results[trading_pair]: Decimal = Decimal(str(ticker["ticker"]["last"]))
+        return results
+
+    @classmethod
+    async def fetch_trading_pairs(cls, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+        throttler = throttler or cls._get_throttler_instance()
+        try:
+            symbols: List[Dict[str, Any]] = await http_utils.api_call_with_retries(method="GET",
+                                                                                   endpoint=Constants.ENDPOINT["SYMBOL"],
+                                                                                   throttler=throttler,
+                                                                                   logger=cls.logger())
+            return [
+                symbol["name"].replace("/", "-") for symbol in symbols
+                if symbol['state'] == "enabled"
+            ]
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for huobi trading pairs
+            pass
+        return []
+
+    @classmethod
+    async def get_order_book_data(cls,
+                                  trading_pair: str,
+                                  throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
         """
-        Returned data frame should have trading_pair as index and include usd volume, baseAsset and quoteAsset
+        Get whole orderbook
         """
-        async with aiohttp.ClientSession() as client:
-            openware_api_url = global_config_map.get("openware_api_url").value
-            uri_market = "%s/public/markets" % openware_api_url
-            uri_ticker = "%s/public/markets/tickers" % openware_api_url
-            market_response, exchange_response = await safe_gather(
-                client.get(uri_market),
-                client.get(uri_ticker)
-            )
+        throttler = throttler or cls._get_throttler_instance()
+        try:
+            ex_pair = convert_to_exchange_trading_pair(trading_pair)
+            endpoint = Constants.ENDPOINT["ORDER_BOOK"].format(trading_pair=ex_pair)
+            orderbook_response: Dict[Any] = await http_utils.api_call_with_retries(method="GET",
+                                                                                   endpoint=endpoint,
+                                                                                   params={"limit": 300},
+                                                                                   throttler=throttler,
+                                                                                   limit_id=Constants.RL_ID_ORDER_BOOK,
+                                                                                   logger=cls.logger())
+            return orderbook_response
+        except OpenwareAPIError as e:
+            err = e.error_payload.get('errors', e.error_payload)
+            raise IOError(
+                f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
+                f"HTTP status is {e.error_payload['status']}. Error is {err.get('message', str(err))}.")
 
-            if market_response.status != 200:
-                raise IOError(f"Error fetching Openware markets information. "
-                              f"HTTP status is {market_response.status}.")
-            if exchange_response.status != 200:
-                raise IOError(f"Error fetching Openware exchange information. "
-                              f"HTTP status is {exchange_response.status}.")
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
+        snapshot_timestamp: float = self._time()
+        snapshot_msg: OrderBookMessage = OpenwareOrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair})
+        order_book = self.order_book_create_function()
+        active_order_tracker: OpenwareActiveOrderTracker = OpenwareActiveOrderTracker()
+        bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        return order_book
 
-            market_data = await market_response.json()
-            exchange_data = await exchange_response.json()
-
-            # TODO: Perhaps this will help to return trading pairs
-            # trading_pairs: Dict[str, Any] = {item["id"]: {k: item[k] for k in ["base_unit", "quote_unit"]}
-            #                                  for item in market_data}
-
-            market_data: List[Dict[str, Any]] = [{**item, **exchange_data[item["id"]]["ticker"]}
-                                                 for item in market_data]
-
-            # Build the data frame.
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="id")
-
-            return all_markets.sort_values("last", ascending=False)
-
-    async def get_trading_pairs(self) -> List[str]:
-        if not self._trading_pairs:
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        Listen for trades using websocket trade channel
+        """
+        while True:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.index.tolist()
+                ws = OpenwareWebsocket(throttler=self._throttler)
+
+                await ws.connect()
+
+                ws_streams = [
+                    Constants.WS_SUB['TRADES'].format(trading_pair=convert_to_exchange_trading_pair(trading_pair))
+                    for trading_pair in self._trading_pairs
+                ]
+                await ws.subscribe(ws_streams)
+
+                async for response in ws.on_message():
+                    if response is not None:
+                        for msg_key in list(response.keys()):
+                            split_key = msg_key.split(Constants.WS_METHODS['TRADES_UPDATE'], 1)
+                            if len(split_key) != 2:
+                                # Debug log output for pub WS messages
+                                self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
+                                continue
+                            trading_pair = convert_from_exchange_trading_pair(split_key[0])
+                            for trade in response[msg_key]["trades"]:
+                                trade_timestamp: int = int(trade.get('date', self._time()))
+                                trade_msg: OrderBookMessage = OpenwareOrderBook.trade_message_from_exchange(
+                                    trade,
+                                    trade_timestamp,
+                                    metadata={"trading_pair": trading_pair})
+                                output.put_nowait(trade_msg)
+            except asyncio.CancelledError:
+                raise
             except Exception:
-                self._trading_pairs = []
+                self.logger().error("Trades: Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await self._sleep(Constants.MESSAGE_TIMEOUT)
+            finally:
+                await ws.disconnect()
+
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        Listen for orderbook diffs using websocket book channel
+        """
+        while True:
+            try:
+                ws = OpenwareWebsocket(throttler=self._throttler)
+                await ws.connect()
+
+                ws_streams = [
+                    Constants.WS_SUB['ORDERS'].format(trading_pair=convert_to_exchange_trading_pair(trading_pair))
+                    for trading_pair in self._trading_pairs
+                ]
+                await ws.subscribe(ws_streams)
+
+                async for response in ws.on_message():
+                    if response is not None:
+                        for msg_key in list(response.keys()):
+                            # split_key = msg_key.split(Constants.WS_METHODS['TRADES_UPDATE'], 1)
+                            if Constants.WS_METHODS['ORDERS_UPDATE'] in msg_key:
+                                order_book_msg_cls = OpenwareOrderBook.diff_message_from_exchange
+                                split_key = msg_key.split(Constants.WS_METHODS['ORDERS_UPDATE'], 1)
+                            elif Constants.WS_METHODS['ORDERS_SNAPSHOT'] in msg_key:
+                                order_book_msg_cls = OpenwareOrderBook.snapshot_message_from_exchange
+                                split_key = msg_key.split(Constants.WS_METHODS['ORDERS_SNAPSHOT'], 1)
+                            else:
+                                # Debug log output for pub WS messages
+                                self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
+                                continue
+                            order_book_data: str = response.get(msg_key, None)
+                            timestamp: int = int(self._time())
+                            trading_pair: str = convert_from_exchange_trading_pair(split_key[0])
+
+                            orderbook_msg: OrderBookMessage = order_book_msg_cls(
+                                order_book_data,
+                                timestamp,
+                                metadata={"trading_pair": trading_pair})
+                            output.put_nowait(orderbook_msg)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
                 self.logger().network(
-                    "Error getting active exchange information.",
-                    exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection."
-                )
-        return self._trading_pairs
+                    "Unexpected error with WebSocket connection.", exc_info=True,
+                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                                    "Check network connection.")
+                await self._sleep(30.0)
+            finally:
+                await ws.disconnect()
 
-    @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
-        params: Dict = {"limit": str(limit)} if limit != 0 else {}
-        openware_api_url = global_config_map.get("openware_api_url").value
-        uri = "%s/public/markets/%s/depth" % (openware_api_url, trading_pair)
-        async with client.get(uri, params=params) as response:
-            response: aiohttp.ClientResponse = response
-            if response.status != 200:
-                raise IOError(f"Error fetching Openware market snapshot for {trading_pair}. "
-                              f"HTTP status is {response.status}.")
-            data: Dict[str, Any] = await response.json()
-
-            return data
-
-    async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
-        async with aiohttp.ClientSession() as client:
-            trading_pairs: List[str] = await self.get_trading_pairs()
-            retval: Dict[str, OrderBookTrackerEntry] = {}
-
-            number_of_pairs: int = len(trading_pairs)
-            for index, trading_pair in enumerate(trading_pairs):
-                try:
-                    snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
-                    snapshot_timestamp: float = time.time()
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        Listen for orderbook snapshots by fetching orderbook
+        """
+        while True:
+            try:
+                for trading_pair in self._trading_pairs:
+                    snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair,
+                                                                              throttler=self._throttler)
+                    snapshot_timestamp: int = int(snapshot["timestamp"])
                     snapshot_msg: OrderBookMessage = OpenwareOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"trading_pair": trading_pair}
                     )
-                    order_book: OrderBook = self.order_book_create_function()
-                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
-                    self.logger().info(f"Initialized order book for {trading_pair}. "
-                                       f"{index + 1}/{number_of_pairs} completed.")
-                    await asyncio.sleep(1.0)
-                except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
-                    await asyncio.sleep(5)
-            return retval
-
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        try:
-            while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
-        finally:
-            await ws.close()
-
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                ws_path: str = "&stream=".join([f"{trading_pair.lower()}.trades" for trading_pair in trading_pairs])
-                stream_url: str = f"{self._openware_ranger_url}/public/?stream={ws_path}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        for key in msg:
-                            t_pairs = key.split('.')[0]
-                            for key1 in msg[key]:
-                                if 'trades' in msg[key][key1]:
-                                    trades = msg[key][key1]
-                                    for item in trades:
-                                        pairs_ = {"trade": item, "trading_pair": t_pairs}
-                                        trade_msg: OrderBookMessage = OpenwareOrderBook.trade_message_from_exchange(
-                                            pairs_)
-                                        output.put_nowait(trade_msg)
+                    output.put_nowait(snapshot_msg)
+                    self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                delta: float = next_hour.timestamp() - self._time()
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                # self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                #                     exc_info=True)
-                await asyncio.sleep(30.0)
-
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                ws_path: str = "&stream=".join([f"{trading_pair.lower()}.update" for trading_pair in trading_pairs])
-                stream_url: str = f"{self._openware_ranger_url}/public/?stream={ws_path}"
-
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if "success" in msg:
-                            pass
-                        # else:
-                        #    order_book_message: OrderBookMessage = OpenwareOrderBook.diff_message_from_exchange(
-                        #        msg, time.time())
-                        #    output.put_nowait(order_book_message)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
-
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                async with aiohttp.ClientSession() as client:
-                    for trading_pair in trading_pairs:
-                        try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                            snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = OpenwareOrderBook.snapshot_message_from_exchange(
-                                snapshot,
-                                snapshot_timestamp,
-                                {"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(snapshot_msg)
-                            await asyncio.sleep(5.0)
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
-                            await asyncio.sleep(5.0)
-                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                    delta: float = next_hour.timestamp() - time.time()
-                    await asyncio.sleep(delta)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                self.logger().error("Unexpected error occurred listening for orderbook snapshots. Retrying in 5 secs...")
+                self.logger().network(
+                    "Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs...", exc_info=True,
+                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                    "Check network connection.")
+                await self._sleep(5.0)

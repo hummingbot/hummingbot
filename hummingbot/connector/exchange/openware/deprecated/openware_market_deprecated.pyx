@@ -1,6 +1,5 @@
 from collections import defaultdict
 from libc.stdint cimport int64_t
-import json
 import aiohttp
 from aiokafka import (
     AIOKafkaConsumer,
@@ -57,7 +56,7 @@ from hummingbot.market.market_base import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.connector.exchange.openware.openware_order_book_tracker_deprecated import OpenwareOrderBookTracker
+from connector.exchange.openware.deprecated.openware_order_book_tracker_deprecated import OpenwareOrderBookTracker
 from hummingbot.connector.exchange.openware.openware_user_stream_tracker import OpenwareUserStreamTracker
 from hummingbot.connector.exchange.openware.openware_time import OpenwareTime
 from hummingbot.connector.exchange.openware.openware_in_flight_order import OpenwareInFlightOrder
