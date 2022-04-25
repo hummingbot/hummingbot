@@ -1,4 +1,10 @@
-import { Validator, isFloatString, isFractionString } from '../validators';
+import {
+  RequestValidator,
+  Validator,
+  isFloatString,
+  isFractionString,
+  mkRequestValidator,
+} from '../validators';
 import { fromFractionString, toFractionString } from '../base';
 import { ConfigUpdateRequest } from './config.requests';
 
@@ -57,6 +63,10 @@ export const validateAllowedSlippage: Validator = mkConfigValidator(
     isAllowedPercentage(val)
 );
 
+export const validateConfigUpdateRequest: RequestValidator = mkRequestValidator(
+  [validateAllowedSlippage]
+);
+
 // this mutates the input value in place
 export const updateAllowedSlippageToFraction = (
   body: ConfigUpdateRequest
@@ -67,7 +77,10 @@ export const updateAllowedSlippageToFraction = (
       (typeof body.configValue == 'string' &&
         !isFractionString(body.configValue))
     ) {
+      console.log('update configValue');
+      console.log(body.configValue);
       body.configValue = toFractionString(body.configValue);
+      console.log(body.configValue);
     }
   }
 };

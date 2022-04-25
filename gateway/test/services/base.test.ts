@@ -64,6 +64,7 @@ test('toFractionString', () => {
   expect(toFractionString('1/100')).toEqual('1/100');
   expect(toFractionString('2/100')).toEqual('1/50');
   expect(toFractionString('3/100')).toEqual('3/100');
+  expect(toFractionString('0.2')).toEqual('1/5');
   expect(toFractionString('hello')).toEqual(null);
   expect(toFractionString('0abc')).toEqual(null);
 });
