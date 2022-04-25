@@ -1,10 +1,30 @@
 import { Validator, isFloatString, isFractionString } from './validators';
+import { fromFractionString } from './base';
 
 export const invalidAllowedSlippage: string =
-  'allowedSlippage should be a number or a string of a fraction.';
+  'allowedSlippage should be a number between 0.0 and 1.0 or a string of a fraction.';
 
 export const missingParameter = (key: string): string => {
   return `The request is missing a key that ends with: ${key}`;
+};
+
+// only permit percentages 0.0 (inclusive) to less one
+export const isAllowedPercentage = (val: string | number): boolean => {
+  if (typeof val === 'string') {
+    if (isFloatString(val)) {
+      const num: number = parseFloat(val);
+      return num >= 0.0 && num < 1.0;
+    } else {
+      const num: number | null = fromFractionString(val); // this checks if it is a fraction string
+      if (num !== null) {
+        return num >= 0.0 && num < 1.0;
+      } else {
+        return false;
+      }
+    }
+  } else {
+    return val >= 0.0 && val < 1.0;
+  }
 };
 
 // This is a specialized version of mkValidator. Since config parameters are a
@@ -52,6 +72,8 @@ export const validateAllowedSlippage: Validator = mkConfigValidator(
   'allowedSlippage',
   invalidAllowedSlippage,
   (val) =>
-    typeof val === 'number' ||
-    (typeof val === 'string' && (isFractionString(val) || isFloatString(val)))
+    (typeof val === 'number' ||
+      (typeof val === 'string' &&
+        (isFractionString(val) || isFloatString(val)))) &&
+    isAllowedPercentage(val)
 );
