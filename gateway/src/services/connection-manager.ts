@@ -2,6 +2,7 @@ import { Ethereum } from '../chains/ethereum/ethereum';
 import { Avalanche } from '../chains/avalanche/avalanche';
 import { Harmony } from '../chains/harmony/harmony';
 import { Uniswap } from '../connectors/uniswap/uniswap';
+import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
 import { Ethereumish } from './common-interfaces';
 
@@ -26,6 +27,8 @@ export async function getConnector(
   let connectorInstance: any;
   if (chain === 'ethereum' && connector === 'uniswap')
     connectorInstance = Uniswap.getInstance(chain, network);
+  else if (chain === 'ethereum' && connector === 'uniswapLP')
+    connectorInstance = UniswapLP.getInstance(chain, network);
   else if (chain === 'avalanche' && connector === 'pangolin')
     connectorInstance = Pangolin.getInstance(chain, network);
   else throw new Error('unsupported chain or connector');
