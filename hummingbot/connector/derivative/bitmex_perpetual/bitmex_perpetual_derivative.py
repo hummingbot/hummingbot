@@ -237,11 +237,14 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         }
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
-        """
-        Restore in-flight orders from saved tracking states; this is such that the connector can pick up
-        on where it left off should it crash unexpectedly.
-        """
-        self._client_order_tracker.restore_tracking_states(tracking_states=saved_states)
+        for order_id, in_flight_repr in saved_states.items():
+            if isinstance(in_flight_repr, dict):
+                in_flight_json: Dict[str, Any] = in_flight_repr
+            else:
+                in_flight_json: Dict[str, Any] = json.loads(in_flight_repr)
+            order = BitmexPerpetualInFlightOrder.from_json(in_flight_json)
+            if not order.is_done:
+                self._in_flight_orders[order_id] = order
 
     def supported_order_types(self) -> List[OrderType]:
         """

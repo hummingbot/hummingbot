@@ -4,7 +4,6 @@ from hummingbot.connector.derivative.bitmex_perpetual.bitmex_perpetual_order_sta
 
 
 class BitmexPerpetualOrderStatusUnitTests(unittest.TestCase):
-    @classmethod
     def test_ge(self):
         status_1 = BitmexPerpetualOrderStatus.New
         status_2 = BitmexPerpetualOrderStatus.PartiallyFilled

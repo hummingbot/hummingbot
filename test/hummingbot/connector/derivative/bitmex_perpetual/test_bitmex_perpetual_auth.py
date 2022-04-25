@@ -50,7 +50,7 @@ class BitmexPerpetualAuthUnitTests(unittest.TestCase):
         payload = self._get_test_payload()
         signature = self.auth.generate_signature_from_payload(payload)
 
-        self.assertEqual(signature, self._get_signature_from_test_payload())
+        self.assertEqual(signature, self._get_signature_from_test_payload(payload))
 
     @patch("time.time")
     def test_rest_authenticate_no_parameters_provided(self, mock_ts):

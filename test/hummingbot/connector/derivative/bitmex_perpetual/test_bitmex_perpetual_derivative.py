@@ -403,18 +403,6 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
     @aioresponses()
-    def test_set_position_initial_mode_unchanged(self, mock_api):
-        self.exchange._position_mode = PositionMode.ONEWAY
-        url = web_utils.rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
-
-        mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
-        self.exchange.set_position_mode(PositionMode.ONEWAY)
-
-        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
-
-    @aioresponses()
     def test_update_trading_rules(self, mock_api):
         self.exchange._trading_pairs.append("XBT-USD")
         url = web_utils.rest_url(
@@ -932,7 +920,7 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
                                                               position_action=PositionAction.OPEN,
                                                               price=Decimal("10000")))
 
-        self.assertTrue("OID1" in self.exchange.in_flight_orders)
+        self.assertTrue("OID1" in self.exchange._in_flight_orders)
 
     @aioresponses()
     def test_create_order_exception(self, req_mock):
@@ -941,7 +929,11 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.post(regex_url, exception=Exception())
+        create_response = {"updateTime": int(self.start_timestamp),
+                           "ordStatus": "Canceled",
+                           "orderID": "8886774"}
+
+        req_mock.post(regex_url, body=json.dumps(create_response))
 
         margin_asset = self.quote_asset
         mocked_response = self._get_exchange_info_mock_response(margin_asset)
@@ -955,7 +947,7 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
                                                                position_action=PositionAction.OPEN,
                                                                price=Decimal("1010")))
 
-        self.assertTrue("OID1" not in self.exchange._client_order_tracker._in_flight_orders)
+        self.assertTrue("OID1" not in self.exchange._in_flight_orders)
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
@@ -1000,7 +992,7 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=BitmexPerpetualOrderStatus.FAILED
+            initial_state=BitmexPerpetualOrderStatus.FAILURE
         ))
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
@@ -1087,6 +1079,4 @@ class BitmexPerpetualDerivativeUnitTest(unittest.TestCase):
         trading_rules = self.async_run_with_timeout(task)
         self.exchange._trading_rules["XBT-USD"] = trading_rules[1]
         base, quote = self.exchange.adjust_quote_based_amounts("XBT-USD", Decimal('1000'), Decimal('10'))
-        print(base)
-        print(quote)
-        self.exchange.trading_pairs.remove("XBT-USD")
+        self.exchange._trading_pairs.remove("XBT-USD")
