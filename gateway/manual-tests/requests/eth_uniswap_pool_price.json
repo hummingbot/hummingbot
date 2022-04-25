@@ -1,0 +1,10 @@
+{
+  "token0": "COIN1",
+  "token1": "COIN3",
+  "fee": "LOW",
+  "period": 120,
+  "interval": 60,
+  "chain": "ethereum",
+  "network": "kovan",
+  "connector": "uniswapLP"
+}
