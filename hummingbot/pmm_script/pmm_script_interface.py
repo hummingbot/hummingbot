@@ -1,5 +1,5 @@
-from typing import Dict, List
 from decimal import Decimal
+from typing import Dict, List
 
 child_queue = None
 
@@ -102,7 +102,7 @@ class PMMParameters:
         return f"{self.__class__.__name__} {str(self.__dict__)}"
 
 
-class PmmMarketInfo:
+class PMMMarketInfo:
     def __init__(self, exchange: str,
                  trading_pair: str,):
         self.exchange = exchange
