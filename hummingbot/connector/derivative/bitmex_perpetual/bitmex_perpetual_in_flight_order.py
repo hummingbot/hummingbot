@@ -48,7 +48,7 @@ class BitmexPerpetualInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.state in [BitmexPerpetualOrderStatus.Canceled, BitmexPerpetualOrderStatus.Filled]
+        return self.state in [BitmexPerpetualOrderStatus.Canceled, BitmexPerpetualOrderStatus.Filled, BitmexPerpetualOrderStatus.FAILURE]
 
     @property
     def is_failure(self) -> bool:
@@ -78,17 +78,15 @@ class BitmexPerpetualInFlightOrder(InFlightOrderBase):
             getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
             Decimal(data["amount"]),
+            float(data["created_at"] if "created_at" in data else 0),
             data["leverage"],
             data["position"],
-            float(data["created_at"] if "created_at" in data else 0),
-            data["last_state"]
+            data["last_state"],
         )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        retval.state = BitmexPerpetualOrderStatus[retval.last_state]
+        retval.executed_amount_base = Decimal(data.get("executed_amount_base", '0'))
+        retval.executed_amount_quote = Decimal(data.get("executed_amount_quote", '0'))
+        last_state = int(data["last_state"])
+        retval.state = BitmexPerpetualOrderStatus(last_state)
         return retval
 
     def update(self, data: Dict[str, Any]) -> List[Any]:
