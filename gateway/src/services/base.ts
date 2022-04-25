@@ -1,6 +1,6 @@
 import { BigNumber } from 'ethers';
 import { format, fraction, number } from 'mathjs';
-import { isFractionString } from './validators';
+import { isFractionString, isFloatString } from './validators';
 
 // the type of information source for tokens
 export type TokenListType = 'FILE' | 'URL';
@@ -102,7 +102,7 @@ export const toFractionString = (value: number | string): string | null => {
   if (typeof value === 'number') {
     return format(fraction(value), { fraction: 'ratio' });
   } else {
-    if (isFractionString(value)) {
+    if (isFractionString(value) || isFloatString(value)) {
       return format(fraction(value), { fraction: 'ratio' });
     } else {
       return null;

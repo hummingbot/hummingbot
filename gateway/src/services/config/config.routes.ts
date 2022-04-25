@@ -4,7 +4,7 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../error-handler';
 import { ConfigUpdateRequest } from './config.requests';
 import {
-  validateAllowedSlippage,
+  validateConfigUpdateRequest,
   updateAllowedSlippageToFraction,
 } from './config.validators';
 import { ConfigManagerV2 } from '../config-manager-v2';
@@ -19,6 +19,7 @@ export namespace ConfigRoutes {
         req: Request<unknown, unknown, ConfigUpdateRequest>,
         res: Response
       ) => {
+        validateConfigUpdateRequest(req.body);
         const config = ConfigManagerV2.getInstance().get(req.body.configPath);
         if (typeof req.body.configValue == 'string')
           switch (typeof config) {
@@ -32,7 +33,6 @@ export namespace ConfigRoutes {
           }
 
         if (req.body.configPath.endsWith('allowedSlippage')) {
-          validateAllowedSlippage(req.body);
           updateAllowedSlippageToFraction(req.body);
         }
 
