@@ -17,7 +17,8 @@ import {
   OrderNotFoundError,
   OrderSide,
   OrderStatus,
-  Ticker, TickerNotFoundError,
+  Ticker,
+  TickerNotFoundError,
 } from './serum.types';
 import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
 
@@ -35,9 +36,9 @@ import {
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
 
-  market: new CacheContainer(new MemoryStorage()),
-  markets: new CacheContainer(new MemoryStorage()),
-  allMarkets: new CacheContainer(new MemoryStorage()),
+  // market: new CacheContainer(new MemoryStorage()),
+  // markets: new CacheContainer(new MemoryStorage()),
+  // allMarkets: new CacheContainer(new MemoryStorage()),
 };
 
 export type Serumish = Serum;
@@ -138,7 +139,7 @@ export class Serum {
    *
    * @param name
    */
-  @Cache(caches.market, { isCachedForever: true })
+  // @Cache(caches.market, { isCachedForever: true })
   async getMarket(name?: string): Promise<Market> {
     if (!name) throw new MarketNotFoundError(`No market informed.`);
 
@@ -156,7 +157,7 @@ export class Serum {
    *
    * @param names
    */
-  @Cache(caches.markets, { ttl: 60 * 60 })
+  // @Cache(caches.markets, { ttl: 60 * 60 })
   async getMarkets(names: string[]): Promise<ImmutableMap<string, Market>> {
     const markets = ImmutableMap<string, Market>().asMutable();
 
@@ -172,13 +173,14 @@ export class Serum {
   /**
    *
    */
-  @Cache(caches.allMarkets, { ttl: 60 * 60 })
+  // @Cache(caches.allMarkets, { ttl: 60 * 60 })
   async getAllMarkets(): Promise<ImmutableMap<string, Market>> {
     const allMarkets = ImmutableMap<string, Market>().asMutable();
 
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
     // TODO change the code to use a background task and load in parallel (using batches) the markets!!!
-    for (const market of MARKETS.filter(market => ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'].includes(market.name))) {
+    // TODO Start using the https://www.npmjs.com/package/decimal library!!!
+    for (const market of MARKETS.filter(market => ['SOL/USDT'].includes(market.name))) {
       const serumMarket = await SerumMarket.load(
         this.connection,
         new PublicKey(market.address),
@@ -411,6 +413,9 @@ export class Serum {
       this.connection,
       serumOrderParams
     );
+
+    // TODO remove this!!!
+    console.log('createOrder - signature: ', signature);
 
     return convertSerumOrderToOrder(
       market,
