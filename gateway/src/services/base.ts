@@ -82,6 +82,7 @@ export const latency = (startTime: number, endTime: number): number => {
 
 export const walletPath = './conf/wallets';
 
+// convert a fraction string to a number
 export const fromFractionString = (value: string): number | null => {
   if (isFractionString(value)) {
     const num = number(fraction(value)); // this can return different mathematical values, control for number
