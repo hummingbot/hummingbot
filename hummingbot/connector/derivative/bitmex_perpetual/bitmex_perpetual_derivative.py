@@ -817,8 +817,8 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         params = {
             "symbol": symbol,
             "side": order_side,
-            "orderQty": float(amount),
-            "price": float(price),
+            "orderQty": str(float(amount)),
+            "price": str(float(price)),
             "clOrdID": client_order_id,
             "ordType": bitmex_order_type
         }
