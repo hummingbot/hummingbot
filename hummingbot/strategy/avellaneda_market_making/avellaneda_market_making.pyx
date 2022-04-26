@@ -381,12 +381,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef object c_get_order_book_snapshot(self):
         return self._market_info.order_book.snapshot
 
-    def get_recent_trades(self) -> float:
-        return self.c_get_recent_trades()
-
-    cdef object c_get_recent_trades(self):
-        return self._market_info.order_book.trades
-
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
@@ -661,7 +655,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         price = self.get_price()
         snapshot = self.get_order_book_snapshot()
-        trades = self.get_recent_trades()
         self._avg_vol.add_sample(price)
         self._trading_intensity.calculate()
         # Calculate adjustment factor to have 0.01% of inventory resolution
