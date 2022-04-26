@@ -2,16 +2,14 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.binance import (
-    binance_constants as CONSTANTS,
-    binance_web_utils as web_utils
-)
-from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS
 from hummingbot.connector.exchange.binance import binance_utils
+from hummingbot.connector.exchange.binance import binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -21,7 +19,7 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 
 
-class BinanceExchange(ExchangeBaseV2):
+class BinanceExchange(ExchangePyBase):
     DEFAULT_DOMAIN = CONSTANTS.DEFAULT_DOMAIN
     RATE_LIMITS = CONSTANTS.RATE_LIMITS
     SUPPORTED_ORDER_TYPES = [

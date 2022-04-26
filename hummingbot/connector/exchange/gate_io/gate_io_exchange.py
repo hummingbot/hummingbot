@@ -1,26 +1,24 @@
-import time
 import asyncio
+import json
+import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-import json
 
-from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
-from hummingbot.connector.exchange.gate_io import (
-    gate_io_constants as CONSTANTS,
-    gate_io_web_utils as web_utils
-)
-from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io import gate_io_web_utils as web_utils
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
+from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase, TokenAmount
-from hummingbot.core.data_type.in_flight_order import TradeUpdate, OrderUpdate, OrderState
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.utils.async_utils import safe_gather
 
 
-class GateIoExchange(ExchangeBaseV2):
+class GateIoExchange(ExchangePyBase):
     DEFAULT_DOMAIN = ""
     RATE_LIMITS = CONSTANTS.RATE_LIMITS
     SUPPORTED_ORDER_TYPES = [

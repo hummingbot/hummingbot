@@ -2,27 +2,24 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_constants as CONSTANTS,
-    kucoin_utils as utils,
-    kucoin_web_utils as web_utils
-)
+from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.connector.exchange.kucoin import kucoin_utils as utils
+from hummingbot.connector.exchange.kucoin import kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.core.data_type.in_flight_order import OrderUpdate, OrderState, TradeUpdate
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 
-from hummingbot.connector.exchange_base_v2 import ExchangeBaseV2
 
-
-class KucoinExchange(ExchangeBaseV2):
+class KucoinExchange(ExchangePyBase):
     DEFAULT_DOMAIN = CONSTANTS.DEFAULT_DOMAIN
     RATE_LIMITS = CONSTANTS.RATE_LIMITS
     SUPPORTED_ORDER_TYPES = [
