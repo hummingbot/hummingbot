@@ -4,11 +4,13 @@ channels:
   - conda-canary
   - defaults
 dependencies:
+  - aiounittest=1.4.1
   - bidict
   - certifi=2021.5.30
   - coverage=5.5
   - nomkl=1.0
   - nose=1.3.7
+  - nose-exclude
   - numpy=1.20.1
   - numpy-base=1.20.1
   - pandas=1.2.1
@@ -31,6 +33,7 @@ dependencies:
     - 0x-order-utils==4.0.0
     - aiohttp==3.7.4.post0
     - aiokafka==0.7.1
+    - aioprocessing==2.0.0
     - aioresponses==0.7.2
     - appdirs==1.4.3
     - async-timeout==3.0.1
@@ -40,6 +43,7 @@ dependencies:
     - cython==3.0a7
     - cytoolz==0.11.0
     - diff-cover==5.1.2
+    - docker==5.0.3
     - dydx-python==0.11.3
     - dydx-v3-python==1.0.10
     - eth-abi==2.1.1
@@ -53,7 +57,7 @@ dependencies:
     - hexbytes==0.2.0
     - importlib-metadata==0.23
     - mypy-extensions==0.4.3
-    - pre-commit==2.1.1
+    - pre-commit==2.18.1
     - psutil==5.7.2
     - ptpython==3.0.20
     - pyjwt==1.7.1
