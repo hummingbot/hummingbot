@@ -143,7 +143,7 @@ class BinanceExchange(ExchangeBaseV2):
             return True
         return False
 
-    async def _status_polling_loop_updates(self):
+    async def _status_polling_loop_fetch_updates(self):
         "Called by _status_polling_loop to sync with exchange"
         await safe_gather(
             self._update_balances(),
