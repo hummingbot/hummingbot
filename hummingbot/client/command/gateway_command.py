@@ -1,81 +1,51 @@
 #!/usr/bin/env python
-import aiohttp
 import asyncio
-from contextlib import contextmanager
-import docker
 import itertools
-import json
-import pandas as pd
-from typing import (
-    Dict,
-    Any,
-    TYPE_CHECKING,
-    List,
-    Generator,
-)
+from typing import TYPE_CHECKING, Any, Dict, List
 
+import pandas as pd
+
+import docker
+from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager, begin_placeholder_mode
+from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     GLOBAL_CONFIG_PATH,
-    GatewayConnectionSetting
+    AllConnectorSettings,
+    GatewayConnectionSetting,
 )
+from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
-    docker_ipc,
-    docker_ipc_with_generator,
-    get_gateway_container_name,
-    get_gateway_paths,
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
     GatewayPaths,
+    docker_ipc,
+    docker_ipc_with_generator,
     get_default_gateway_port,
+    get_gateway_container_name,
+    get_gateway_paths,
     start_gateway,
-    stop_gateway
+    stop_gateway,
 )
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
-    search_configs,
     build_config_dict_display,
     build_connector_display,
     build_wallet_display,
     native_tokens,
+    search_configs,
 )
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot.client.config.config_helpers import (
-    save_to_yml,
-    refresh_trade_fees_config,
-)
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.client.ui.completer import load_completer
-from enum import Enum
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class Chain(Enum):
-    ETHEREUM = 0
-    AVALANCHE = 1
-
-
-@contextmanager
-def begin_placeholder_mode(hb: "HummingbotApplication") -> Generator["HummingbotApplication", None, None]:
-    hb.app.clear_input()
-    hb.placeholder_mode = True
-    hb.app.hide_input = True
-    try:
-        yield hb
-    finally:
-        hb.app.to_stop_config = False
-        hb.placeholder_mode = False
-        hb.app.hide_input = False
-        hb.app.change_prompt(prompt=">>> ")
-
-
-class GatewayCommand:
+class GatewayCommand(GatewayChainApiManager):
     def create_gateway(self):
         safe_ensure_future(self._create_gateway(), loop=self.ev_loop)
 
@@ -143,79 +113,16 @@ class GatewayCommand:
         self.notify(f"Gateway SSL certification files are created in {cert_path}.")
         GatewayHttpClient.get_instance().reload_certs()
 
-    async def _test_evm_node(self, url_with_api_key: str) -> bool:
-        """
-        Verify that the Infura API Key is valid. If it is an empty string,
-        ignore it, but let the user know they cannot connect to ethereum.
-        """
-        async with aiohttp.ClientSession() as tmp_client:
-            headers = {"Content-Type": "application/json"}
-            data = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "eth_blockNumber",
-                "params": []
-            }
-
-            resp = await tmp_client.post(url=url_with_api_key,
-                                         data=json.dumps(data),
-                                         headers=headers)
-            success = resp.status == 200
-            if success:
-                self.notify("The API Key works.")
-            else:
-                self.notify("Error occured verifying the API Key. Please check your API Key and try again.")
-            return success
-
-    async def _get_api_key(self, chain: Chain) -> str:
-        """
-        Generalize getting and testing the API key from user input
-        """
-        with begin_placeholder_mode(self):
-            while True:
-                if chain == Chain.ETHEREUM:
-                    service = 'Infura'
-                    chain_name = 'Ethereum'
-                    service_url = 'infura.io'
-                elif chain == Chain.AVALANCHE:
-                    service = 'Moralis'
-                    chain_name = 'Avalanche'
-                    service_url = 'moralis.io'
-
-                api_key: str = await self.app.prompt(prompt=f"Enter {service} API Key (required for {chain_name} node, if you do not have one, make an account at {service_url}), otherwise configure gateway after creation:  >>> ")
-
-                self.app.clear_input()
-
-                if self.app.to_stop_config:
-                    self.app.to_stop_config = False
-                    return ''
-                try:
-                    api_key = api_key.strip()  # help check for an empty string which is valid input
-                    if api_key is None or api_key == "":
-                        self.notify(f"Setting up gateway without an {chain_name} node.")
-                    else:
-                        if chain == Chain.ETHEREUM:
-                            api_url = f"https://mainnet.infura.io/v3/{api_key}"
-                        elif chain == Chain.AVALANCHE:
-                            api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
-                        # if this throws an error, it will give the user a chance to enter another key
-                        await self._test_evm_node(api_url)
-                    return api_key
-                except Exception:
-                    self.notify(f"Error occur calling the API route: {api_url}.")
-                    raise
-
     async def _generate_gateway_confs(
             self,       # type: HummingbotApplication
             container_id: str, conf_path: str = "/usr/src/app/conf"
     ):
         infura_api_key: str = await self._get_api_key(Chain.ETHEREUM)
-        moralis_api_key: str = await self._get_api_key(Chain.AVALANCHE)
 
         try:
             exec_info = await docker_ipc(method_name="exec_create",
                                          container=container_id,
-                                         cmd=f"./setup/generate_conf.sh {conf_path} {infura_api_key} {moralis_api_key}",
+                                         cmd=f"./setup/generate_conf.sh {conf_path} {infura_api_key}",
                                          user="hummingbot")
 
             await docker_ipc(method_name="exec_start",
