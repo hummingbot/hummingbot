@@ -2,6 +2,7 @@ import logging
 import asyncio
 from typing import Any, AsyncIterable, Dict, List, Optional
 from decimal import Decimal
+from abc import abstractmethod
 
 from async_timeout import timeout
 
@@ -108,7 +109,6 @@ class ExchangeBaseV2(ExchangeBase):
         return cls._logger
 
     # Price logic
-    # TODO trading rules creation should have logic to ensure Decimal
     #
     @staticmethod
     def quantize_value(value: Decimal, quantum: Decimal) -> Decimal:
@@ -799,17 +799,26 @@ class ExchangeBaseV2(ExchangeBase):
 
     # Methods tied to specific API data formats
     #
+    @abstractmethod
     async def _update_trading_fees(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _user_stream_event_listener(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _format_trading_rules(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _update_order_status(self):
         raise NotImplementedError
 
+    @abstractmethod
     def _update_balances(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _status_polling_loop_fetch_updates(self):
         raise NotImplementedError

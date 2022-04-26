@@ -323,3 +323,12 @@ class GateIoWebsocket:
     async def on_message(self) -> AsyncIterable[Any]:
         async for msg in self._messages():
             yield msg
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return exchange_info.get("trade_status", None) == "tradable"

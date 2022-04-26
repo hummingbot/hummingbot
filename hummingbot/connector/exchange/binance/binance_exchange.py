@@ -1,5 +1,4 @@
 import asyncio
-import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -78,25 +77,6 @@ class BinanceExchange(ExchangeBaseV2):
     @staticmethod
     def to_hb_order_type(binance_type: str) -> OrderType:
         return OrderType[binance_type]
-
-    def tick(self, timestamp: float):
-        """
-        Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
-        the execution of the status update polling loop using an event.
-        """
-        # TODO uses now, why?
-        # kucoin uses passed timestamp
-        now = time.time()
-        poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 60.0
-                         else self.LONG_POLL_INTERVAL)
-        last_tick = int(self._last_timestamp / poll_interval)
-        current_tick = int(timestamp / poll_interval)
-
-        if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
-        self._last_timestamp = timestamp
 
     def _get_fee(self,
                  base_currency: str,
