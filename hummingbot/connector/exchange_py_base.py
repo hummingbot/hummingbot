@@ -1,33 +1,33 @@
-import logging
 import asyncio
-from typing import Any, AsyncIterable, Dict, List, Optional
-from decimal import Decimal
+import logging
 from abc import abstractmethod
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.constants import s_decimal_NaN, s_decimal_0, MINUTE, TWELVE_HOURS
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.constants import MINUTE, TWELVE_HOURS, s_decimal_0, s_decimal_NaN
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.logger import HummingbotLogger
 
 
-class ExchangeBaseV2(ExchangeBase):
+class ExchangePyBase(ExchangeBase):
     _logger = None
 
     # The following class vars MUST be redefined in the child class
@@ -118,7 +118,7 @@ class ExchangeBaseV2(ExchangeBase):
         if price.is_nan():
             return price
         price_quantum = self.get_order_price_quantum(trading_pair, price)
-        return ExchangeBaseV2.quantize_value(price, price_quantum)
+        return ExchangePyBase.quantize_value(price, price_quantum)
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         """
