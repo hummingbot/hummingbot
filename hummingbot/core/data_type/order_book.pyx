@@ -39,7 +39,6 @@ NaN = float("nan")
 
 cdef class OrderBook(PubSub):
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
-    TRADES_DATAFRAME_MAX_LENGTH = 1000
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -57,7 +56,6 @@ cdef class OrderBook(PubSub):
         self._last_applied_trade = -1000.0
         self._last_trade_price_rest_updated = -1000
         self._dex = dex
-        self._trades = pd.DataFrame(columns=OrderBookTradeEvent._fields)
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
         cdef:
@@ -149,9 +147,6 @@ cdef class OrderBook(PubSub):
             'price': trade_event.price,
             'amount': trade_event.amount
         }
-        self._trades = self._trades.append(trade_event_dict, ignore_index=True)
-        if len(self._trades) > self.TRADES_DATAFRAME_MAX_LENGTH:
-            self._trades = self._trades.iloc[-self.TRADES_DATAFRAME_MAX_LENGTH:]
         self.c_trigger_event(self.ORDER_BOOK_TRADE_EVENT_TAG, trade_event)
 
     @property
@@ -189,10 +184,6 @@ cdef class OrderBook(PubSub):
         bids_df = pd.DataFrame(data=bids_rows, columns=OrderBookRow._fields, dtype="float64")
         asks_df = pd.DataFrame(data=asks_rows, columns=OrderBookRow._fields, dtype="float64")
         return bids_df, asks_df
-
-    @property
-    def trades(self) -> pd.DataFrame:
-        return self._trades
 
     def apply_diffs(self, bids: List[OrderBookRow], asks: List[OrderBookRow], update_id: int):
         cdef:
