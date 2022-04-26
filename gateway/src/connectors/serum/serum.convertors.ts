@@ -55,12 +55,16 @@ type InputMap =
   | ImmutableMap<string, Order>
 ;
 
+type InputMapMap =
+  ImmutableMap<string, InputMap>
+
 type Input =
   SingleInput
   | InputMap
+  | InputMapMap
 ;
 
-type Output =
+type SingleOutput =
   GetMarketsResponse
   | GetOrderBooksResponse
   | GetTickersResponse
@@ -70,7 +74,11 @@ type Output =
   | GetOpenOrdersResponse
   | CancelOpenOrdersResponse
   | GetFilledOrdersResponse
-  ;
+;
+
+type Output =
+  SingleOutput
+;
 
 export const convert =
   <
@@ -82,10 +90,31 @@ export const convert =
   ):
 O => {
   if (ImmutableMap.isMap(input)) {
-    return convertMap<O>(input as InputMap, type);
+    if (ImmutableMap.isMap(input.first())) {
+      return convertMapMap(input as InputMapMap, type);
+    }
+
+    return convertMap(input as InputMap, type);
   }
 
   return convertSingle<O>(input as SingleInput, type);
+}
+
+export const convertMapMap = <O extends Output>(
+  input: InputMapMap,
+  type: Types
+): O => {
+  const output = ImmutableMap<string, O>().asMutable();
+
+  if (ImmutableMap.isMap(input)) {
+    if (ImmutableMap.isMap(input.first())) {
+      input.forEach((value: InputMap, key: string) => {
+        output.set(key, convert<InputMap, O>(value, type));
+      });
+    }
+  }
+
+  return output as unknown as O;
 }
 
 export const convertMap = <O extends Output>(
@@ -95,7 +124,7 @@ export const convertMap = <O extends Output>(
   const output = ImmutableMap<string, O>().asMutable();
 
   if (ImmutableMap.isMap(input)) {
-    input.forEach((value, key) => {
+    input.forEach((value: SingleInput, key: string) => {
       output.set(key, convert<Input, O>(value, type));
     });
   }
@@ -167,6 +196,7 @@ export const convertSerumOrderToOrder = (
   order?: SerumOrder, // | Record<string, unknown>,
   candidate?: CreateOrdersRequest,
   orderParameters?: OrderParams,
+  ownerAddress?: string,
   status?: OrderStatus,
   signature?: string,
 ): Order => {
@@ -177,8 +207,9 @@ export const convertSerumOrderToOrder = (
   return {
     id: order?.clientId?.toString() || candidate?.id || undefined,
     exchangeId: order?.orderId.toString() || undefined,
+    address: order?.openOrdersAddress.toString(),
     marketName: market.name,
-    ownerAddress: order?.openOrdersAddress.toString() || candidate!.ownerAddress,
+    ownerAddress: ownerAddress || candidate?.ownerAddress,
     price: order?.price || candidate!.price,
     amount: order?.size || candidate!.amount,
     side: order ? convertSerumSideToOrderSide(order?.side) : candidate!.side,
@@ -227,7 +258,7 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress,
+    ownerAddress: input.ownerAddress!,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -243,7 +274,7 @@ export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse 
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress,
+    ownerAddress: input.ownerAddress!,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -258,7 +289,7 @@ export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse 
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress,
+    ownerAddress: input.ownerAddress!,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -273,7 +304,7 @@ export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderRespons
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress,
+    ownerAddress: input.ownerAddress!,
     price: input.price,
     amount: input.amount,
     side: input.side,
@@ -287,7 +318,7 @@ export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderR
   id: input.id,
   exchangeId: input.exchangeId,
   marketName: input.marketName,
-  ownerAddress: input.ownerAddress,
+  ownerAddress: input.ownerAddress!,
   price: input.price,
   amount: input.amount,
   side: input.side,
@@ -301,7 +332,7 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
     id: input.id,
     exchangeId: input.exchangeId,
     marketName: input.marketName,
-    ownerAddress: input.ownerAddress,
+    ownerAddress: input.ownerAddress!,
     price: input.price,
     amount: input.amount,
     side: input.side,

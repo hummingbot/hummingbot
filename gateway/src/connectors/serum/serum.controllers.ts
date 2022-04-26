@@ -431,10 +431,11 @@ export async function getOpenOrders(
     }
   }
 
-  throw new HttpException(
-    StatusCodes.BAD_REQUEST,
-    `No order(s) was/were informed.`
-  );
+  response.body = convert<ImmutableMap<string, ImmutableMap<string, Order>>, SerumGetOpenOrdersResponse>(await serum.getAllOpenOrders(request.ownerAddress), Types.GetOpenOrdersResponse);
+
+  response.status = StatusCodes.OK;
+
+  return response;
 }
 
 /**
@@ -474,7 +475,7 @@ export async function cancelOpenOrders(
     return response;
   }
 
-  response.body = convert<ImmutableMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelAllOpenOrders(request), Types.CancelOpenOrdersResponse);
+  response.body = convert<ImmutableMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelAllOpenOrders(request.ownerAddress), Types.CancelOpenOrdersResponse);
 
   response.status = StatusCodes.OK;
 

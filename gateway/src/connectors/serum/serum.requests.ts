@@ -99,6 +99,7 @@ export type SerumCancelOrdersResponse = CancelOrdersResponse;
 
 export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
   (
+    | { ownerAddress: string }
     | { order: GetOpenOrderRequest }
     | {
         orders: GetOpenOrdersRequest[];
@@ -114,6 +115,7 @@ export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
 
 export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
   (
+    | { ownerAddress: string }
     | { order: CancelOpenOrdersRequest }
     | {
         orders: CancelOpenOrdersRequest[];

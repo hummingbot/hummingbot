@@ -181,11 +181,13 @@ export class Solana implements Solanaish {
   // returns Keypair for a private key, which should be encoded in Base58
   getKeypairFromPrivateKey(privateKey: string): Keypair {
     const decoded = bs58.decode(privateKey);
+
     return Keypair.fromSecretKey(decoded);
   }
 
   async getAccount(address: string): Promise<Account> {
     const keypair = await this.getKeypair(address);
+
     return new Account(keypair.secretKey);
   }
 

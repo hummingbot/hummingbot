@@ -1,6 +1,6 @@
 import {Account, Connection, PublicKey} from '@solana/web3.js';
 import {Market as SerumMarket, MARKETS, Orderbook as SerumOrderBook,} from '@project-serum/serum';
-import {Map as ImmutableMap} from 'immutable';
+import {Map as ImmutableMap} from 'immutable'; // TODO create a type for this import!!!
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
@@ -15,7 +15,6 @@ import {
   Order,
   OrderBook,
   OrderNotFoundError,
-  OrderSide,
   OrderStatus,
   Ticker,
   TickerNotFoundError,
@@ -92,8 +91,8 @@ export class Serum {
   ): OrderBook {
     return {
       market: market,
-      asks: this.parseToMapOfOrders(market, asks),
-      bids: this.parseToMapOfOrders(market, bids),
+      asks: this.parseToMapOfOrders(market, asks, undefined),
+      bids: this.parseToMapOfOrders(market, bids, undefined),
       orderBook: {
         asks: asks,
         bids: bids,
@@ -103,12 +102,22 @@ export class Serum {
 
   private parseToMapOfOrders(
     market: Market,
-    orders: SerumOrder[] | SerumOrderBook | any[]
+    orders: SerumOrder[] | SerumOrderBook | any[],
+    address?: string
   ): ImmutableMap<string, Order> {
     const result = ImmutableMap<string, Order>().asMutable();
 
     for (const order of orders) {
-      result.set(order.orderId, convertSerumOrderToOrder(market, order));
+      result.set(
+        order.orderId,
+        convertSerumOrderToOrder(
+          market,
+          order,
+          undefined,
+          undefined,
+          address
+        )
+      );
     }
 
     return result;
@@ -180,7 +189,7 @@ export class Serum {
     // TODO use fetch to retrieve the markets instead of using the JSON!!!
     // TODO change the code to use a background task and load in parallel (using batches) the markets!!!
     // TODO Start using the https://www.npmjs.com/package/decimal library!!!
-    for (const market of MARKETS.filter(market => ['SOL/USDT'].includes(market.name))) {
+    for (const market of MARKETS.filter(market => ['SOL/USDT', 'SOL/USDC', 'BTC/USDT'].includes(market.name))) {
       const serumMarket = await SerumMarket.load(
         this.connection,
         new PublicKey(market.address),
@@ -357,7 +366,7 @@ export class Serum {
       owner.publicKey
     );
 
-    return this.parseToMapOfOrders(market, serumOpenOrders);
+    return this.parseToMapOfOrders(market, serumOpenOrders, address);
   }
 
   async getAllOpenOrdersForMarkets(
@@ -389,13 +398,23 @@ export class Serum {
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.ownerAddress);
+    const payer = owner.publicKey;
 
-    let mintAddress: PublicKey;
-    if (candidate.side.toLowerCase() == OrderSide.BUY.toLowerCase()) {
-      mintAddress = market.market.quoteMintAddress;
-    } else {
-      mintAddress = market.market.baseMintAddress;
-    }
+    // TODO: remove if is incorrect!!!
+    // let mintAddress: PublicKey;
+    // if (candidate.side.toLowerCase() == OrderSide.BUY.toLowerCase()) {
+    //   // mintAddress = market.market.quoteMintAddress;
+    //   mintAddress = market.market.baseMintAddress;
+    // } else {
+    //   // mintAddress = market.market.baseMintAddress;
+    //   mintAddress = market.market.quoteMintAddress;
+    // }
+    //
+    // // TODO check if it's correct!!!
+    // let payer = await this.solana.findAssociatedTokenAddress(
+    //   owner.publicKey,
+    //   mintAddress
+    // );
 
     const serumOrderParams: SerumOrderParams<Account> = {
       side: convertOrderSideToSerumSide(candidate.side),
@@ -404,10 +423,7 @@ export class Serum {
       orderType: convertOrderTypeToSerumType(candidate.type),
       clientId: candidate.id ? new BN(candidate.id) : undefined,
       owner: owner,
-      payer: await this.solana.findAssociatedTokenAddress(
-        owner.publicKey,
-        mintAddress
-      ),
+      payer: payer
     };
 
     const signature = await market.market.placeOrder(
@@ -415,14 +431,12 @@ export class Serum {
       serumOrderParams
     );
 
-    // TODO remove this!!!
-    console.log('createOrder - signature: ', signature);
-
     return convertSerumOrderToOrder(
       market,
       undefined,
       candidate,
       serumOrderParams,
+      candidate.ownerAddress,
       OrderStatus.PENDING,
       signature
     );
@@ -443,7 +457,7 @@ export class Serum {
     return createdOrders;
   }
 
-  async cancelOrder(target: CancelOrdersRequest): Promise<any> {
+  async cancelOrder(target: CancelOrdersRequest): Promise<Order> {
     // TODO Add validation!!!
     const market = await this.getMarket(target.marketName);
 
@@ -451,7 +465,14 @@ export class Serum {
 
     const order = await this.getOrder({ ...target });
 
-    await market.market.cancelOrder(this.connection, owner, order.order!);
+    const signature = await market.market.cancelOrder(this.connection, owner, order.order!);
+
+    order.signature = signature;
+
+    // TODO what about the status of the order?!!!
+    // TODO Important! Probably we need to call the settle funds api function!!!
+
+    return order;
   }
 
   async cancelOrders(
@@ -469,7 +490,7 @@ export class Serum {
         exchangeId: target.exchangeId,
       });
 
-      canceledOrders.set(canceledOrder.id, canceledOrder);
+      canceledOrders.set(canceledOrder.exchangeId!, canceledOrder);
     }
 
     return canceledOrders;
@@ -482,14 +503,14 @@ export class Serum {
 
     for (const mapOfOrders of mapOfMapOfOrders.values()) {
       for (const order of mapOfOrders.values()) {
-        await this.cancelOrder({
+        const canceledOrder = await this.cancelOrder({
           marketName: order.marketName,
-          ownerAddress: order.ownerAddress,
+          ownerAddress: order.ownerAddress!,
           id: order.id,
           exchangeId: order.exchangeId,
         });
 
-        canceledOrders.set(order.exchangeId!, order);
+        canceledOrders.set(canceledOrder.exchangeId!, canceledOrder);
       }
     }
 
@@ -515,10 +536,10 @@ export class Serum {
 
       for (const market of marketsMap.values()) {
         // TODO will not work properly because we are loading the fills for everyone and not just for the owner orders!!!
-        // TODO check if -1 would also work!!!
+        // TODO check if -1 would also work and which limit is the correct one here!!!
         const orders = await market.market.loadFills(this.connection, 0);
 
-        result = ImmutableMap([...result, ...this.parseToMapOfOrders(market, orders)]).asMutable();
+        result = ImmutableMap([...result, ...this.parseToMapOfOrders(market, orders, target.ownerAddress!)]).asMutable();
       }
     }
 
