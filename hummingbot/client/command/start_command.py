@@ -121,7 +121,7 @@ class StartCommand(GatewayChainApiManager):
                     if api_key is None:
                         api_key = await self._get_api_key(chain, required=True)
                         await self._update_gateway_api_key(chain, api_key)
-                        self.notify("Please wait for gateway to restart")
+                        self.notify("Please wait for gateway to restart.")
                         # wait for gateway to restart, config update causes gateway to restart
                         await self._gateway_monitor.wait_for_online_status()
                         if self._gateway_monitor.current_status == Status.OFFLINE:
