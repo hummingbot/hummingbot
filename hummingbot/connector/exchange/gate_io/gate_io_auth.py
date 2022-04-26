@@ -50,7 +50,7 @@ class GateIoAuth(AuthBase):
 
     def _get_auth_headers(self, request: RESTRequest) -> Dict[str, Any]:
         """
-        Generates authn for Gate.io REST API
+        Generates authentication headers for Gate.io REST API
 
         :return: a dictionary with headers
         """

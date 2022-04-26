@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Optional, List
+from typing import List, Optional
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
