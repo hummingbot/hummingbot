@@ -6,7 +6,7 @@ from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
-from .gate_io_utils import convert_from_exchange_trading_pair
+from .gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 
 
 class GateIoOrderBookMessage(OrderBookMessage):
@@ -38,7 +38,8 @@ class GateIoOrderBookMessage(OrderBookMessage):
         if "trading_pair" in self.content:
             return self.content["trading_pair"]
         elif "currency_pair" in self.content:
-            return convert_from_exchange_trading_pair(self.content["currency_pair"])
+            return GateIoAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
+                self.content["currency_pair"])
 
     # The `asks` and `bids` properties are only used in the methods below.
     # They are all replaced or unused in this connector:

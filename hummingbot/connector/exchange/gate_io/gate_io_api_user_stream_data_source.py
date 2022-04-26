@@ -12,6 +12,7 @@ from hummingbot.logger import HummingbotLogger
 
 from .gate_io_auth import GateIoAuth
 from . import gate_io_web_utils as web_utils
+from .gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 
 
 class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -57,10 +58,12 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
                 CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
             ]
-            await self._ws.subscribe(CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-                                     [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
-            await self._ws.subscribe(CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-                                     [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+            pairs = [
+                await GateIoAPIOrderBookDataSource.exchange_symbol_associated_to_pair(pair)
+                for pair in self._trading_pairs
+            ]
+            await self._ws.subscribe(CONSTANTS.USER_TRADES_ENDPOINT_NAME, pairs)
+            await self._ws.subscribe(CONSTANTS.USER_ORDERS_ENDPOINT_NAME, pairs)
             await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
 
             async for msg in self._ws.on_message():
