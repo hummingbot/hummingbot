@@ -488,7 +488,7 @@ class OpenwareExchange(ExchangeBase, ABC):
                 f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
                 f"{amount} {trading_pair} {price} - {error_reason}.",
                 exc_info=True,
-                app_warning_msg=(f"Error submitting order to {Constants.EXCHANGE_NAME} - {error_reason}.")
+                app_warning_msg=f"Error submitting order to {Constants.EXCHANGE_NAME} - {error_reason}."
             )
 
     def start_tracking_order(self,

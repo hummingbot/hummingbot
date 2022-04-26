@@ -5,10 +5,8 @@ import time
 import unittest
 from typing import Dict, List, Optional
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
-    AltmarketsAPIOrderBookDataSource,
-)
-from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_tracker import AltmarketsOrderBookTracker
+from hummingbot.connector.exchange.openware.openware_api_order_book_data_source import OpenwareAPIOrderBookDataSource
+from hummingbot.connector.exchange.openware.openware_order_book_tracker import OpenwareOrderBookTracker
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_logger import EventLogger
@@ -18,8 +16,8 @@ from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class AltmarketsOrderBookTrackerUnitTest(unittest.TestCase):
-    order_book_tracker: Optional[AltmarketsOrderBookTracker] = None
+class OpenwareOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[OpenwareOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
@@ -31,7 +29,7 @@ class AltmarketsOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: AltmarketsOrderBookTracker = AltmarketsOrderBookTracker(trading_pairs=cls.trading_pairs)
+        cls.order_book_tracker: OpenwareOrderBookTracker = OpenwareOrderBookTracker(trading_pairs=cls.trading_pairs)
         cls.order_book_tracker.start()
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -96,7 +94,7 @@ class AltmarketsOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            AltmarketsAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "ROGER-BTC"]))
+            OpenwareAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "ROGER-BTC"]))
         print("\n")
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")

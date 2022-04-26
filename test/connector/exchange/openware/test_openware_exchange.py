@@ -10,7 +10,7 @@ from os.path import join, realpath
 from typing import List
 
 import conf
-from hummingbot.connector.exchange.altmarkets.altmarkets_exchange import AltmarketsExchange
+from hummingbot.connector.exchange.openware.openware_exchange import OpenwareExchange
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType
@@ -24,23 +24,20 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
+from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
-API_KEY = conf.altmarkets_api_key
-API_SECRET = conf.altmarkets_secret_key
+API_KEY = conf.openware_api_key
+API_SECRET = conf.openware_secret_key
 
 
-class AltmarketsExchangeUnitTest(unittest.TestCase):
+class OpenwareExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -51,7 +48,7 @@ class AltmarketsExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
-    connector: AltmarketsExchange
+    connector: OpenwareExchange
     event_logger: EventLogger
     trading_pair = "ROGER-BTC"
     base_token, quote_token = trading_pair.split("-")
@@ -64,9 +61,9 @@ class AltmarketsExchangeUnitTest(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.connector: AltmarketsExchange = AltmarketsExchange(
-            altmarkets_api_key=API_KEY,
-            altmarkets_secret_key=API_SECRET,
+        cls.connector: OpenwareExchange = OpenwareExchange(
+            openware_api_key=API_KEY,
+            openware_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
@@ -352,7 +349,7 @@ class AltmarketsExchangeUnitTest(unittest.TestCase):
                 self.connector.remove_listener(event_tag, self.event_logger)
             # Clear the event loop
             self.event_logger.clear()
-            new_connector = AltmarketsExchange(API_KEY, API_SECRET, [self.trading_pair], True)
+            new_connector = OpenwareExchange(API_KEY, API_SECRET, [self.trading_pair], True)
             for event_tag in self.events:
                 new_connector.add_listener(event_tag, self.event_logger)
             recorder.stop()
