@@ -10,10 +10,6 @@ import {getNewOrderTemplate} from "./fixtures/dummy";
 import {addWallet} from "../../../../src/services/wallet/wallet.controllers";
 import {getOrCreateTokenAccount} from "../../../../src/chains/solana/solana.controllers";
 
-export const publicKey = '8wvTyrdGmrjFUAdg4yHoBtPu9eE41t8fxruxTh7ufMkQ';
-export const privateKey =
-  '5kjvMapUoarexP1MLRTVWBQDE95eKvsaozWCxRTkQVPRw48LFnPAQoLmUU6hkPJNsE9r75sPC8ginF7QXEszm7DN';
-
 jest.setTimeout(1000000);
 
 let solana: Solana;
@@ -40,17 +36,35 @@ it('Temporary', async () => {
     connector: config.serum.connector,
   }
 
-  const wallet = addWallet({
+  let wallet: any;
+
+  wallet = addWallet({
     chain: config.serum.chain,
     network: config.serum.network,
-    privateKey: privateKey,
+    privateKey: '',
   });
   console.log('wallet/add', JSON.stringify(wallet, null, 2));
 
-  const tokenAccount = await getOrCreateTokenAccount(
+  let tokenAccount = await getOrCreateTokenAccount(
     solana,
     {
       address: config.solana.wallet.owner.address,
+      token: baseCurrency,
+    }
+  );
+  console.log('token', JSON.stringify(tokenAccount, null, 2));
+
+  wallet = addWallet({
+    chain: config.serum.chain,
+    network: config.serum.network,
+    privateKey: '',
+  });
+  console.log('wallet/add', JSON.stringify(wallet, null, 2));
+
+  tokenAccount = await getOrCreateTokenAccount(
+    solana,
+    {
+      address: config.solana.wallet.payer.address,
       token: baseCurrency,
     }
   );
