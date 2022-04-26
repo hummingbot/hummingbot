@@ -297,7 +297,8 @@ class InFlightOrder:
                 price=trade_update.fill_price,
                 order_amount=trade_update.fill_base_amount,
                 token=token,
-                exchange=exchange)
+                exchange=exchange
+            )
 
         return total_fee_in_token
 
