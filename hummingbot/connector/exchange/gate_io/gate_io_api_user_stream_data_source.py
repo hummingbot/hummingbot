@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import logging
-from typing import Any, AsyncIterable, Optional, List
+from typing import Any, AsyncIterable, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
