@@ -2,26 +2,24 @@
 import asyncio
 import logging
 import time
-import pandas as pd
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import pandas as pd
+
 import hummingbot.connector.exchange.openware.openware_http_utils as http_utils
-from .openware_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-    OpenwareAPIError,
-)
-
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+
 # from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from .openware_constants import Constants
+
 from .openware_active_order_tracker import OpenwareActiveOrderTracker
+from .openware_constants import Constants
 from .openware_order_book import OpenwareOrderBook
+from .openware_utils import OpenwareAPIError, convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 from .openware_websocket import OpenwareWebsocket
 
 
@@ -162,7 +160,7 @@ class OpenwareAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             split_key = msg_key.split(Constants.WS_METHODS['TRADES_UPDATE'], 1)
                             if len(split_key) != 2:
                                 # Debug log output for pub WS messages
-                                self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
+                                self.logger().info(f"Unrecognized message received from Centralex websocket: {response}")
                                 continue
                             trading_pair = convert_from_exchange_trading_pair(split_key[0])
                             for trade in response[msg_key]["trades"]:
@@ -208,7 +206,7 @@ class OpenwareAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 split_key = msg_key.split(Constants.WS_METHODS['ORDERS_SNAPSHOT'], 1)
                             else:
                                 # Debug log output for pub WS messages
-                                self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
+                                self.logger().info(f"Unrecognized message received from Centralex websocket: {response}")
                                 continue
                             order_book_data: str = response.get(msg_key, None)
                             timestamp: int = int(self._time())

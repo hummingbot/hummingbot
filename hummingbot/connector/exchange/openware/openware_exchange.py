@@ -5,13 +5,7 @@ import time
 import traceback
 from abc import ABC
 from decimal import Decimal
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
 from async_timeout import timeout
@@ -59,7 +53,7 @@ s_decimal_0 = Decimal(0)
 
 class OpenwareExchange(ExchangeBase, ABC):
     """
-    AltmarketsExchange connects with AltMarkets.io exchange and provides order book pricing, user account tracking and
+    OpenwareExchange connects with exchange.centralex exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
@@ -74,14 +68,14 @@ class OpenwareExchange(ExchangeBase, ABC):
         return ctce_logger
 
     def __init__(self,
-                 altmarkets_api_key: str,
-                 altmarkets_secret_key: str,
+                 openware_api_key: str,
+                 openware_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param altmarkets_api_key: The API key to connect to private AltMarkets.io APIs.
-        :param altmarkets_secret_key: The API secret.
+        :param openware_api_key: The API key to connect to private Exchange.Centralex APIs.
+        :param openware_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
@@ -90,17 +84,17 @@ class OpenwareExchange(ExchangeBase, ABC):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
-        self._altmarkets_auth = OpenwareAuth(altmarkets_api_key, altmarkets_secret_key)
+        self._openware_auth = OpenwareAuth(openware_api_key, openware_secret_key)
         self._order_book_tracker = OpenwareOrderBookTracker(throttler=self._throttler,
                                                             trading_pairs=trading_pairs)
         self._user_stream_tracker = OpenwareUserStreamTracker(throttler=self._throttler,
-                                                              openware_auth=self._altmarkets_auth,
+                                                              openware_auth=self._openware_auth,
                                                               trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, AltmarketsInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, OpenwareInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._order_not_created_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
@@ -111,7 +105,7 @@ class OpenwareExchange(ExchangeBase, ABC):
 
     @property
     def name(self) -> str:
-        return "altmarkets"
+        return "centralex"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -342,7 +336,7 @@ class OpenwareExchange(ExchangeBase, ABC):
         parsed_response = await http_utils.api_call_with_retries(
             method=method,
             endpoint=endpoint,
-            auth_headers=self._altmarkets_auth.get_headers if is_auth_required else None,
+            auth_headers=self._openware_auth.get_headers if is_auth_required else None,
             params=params,
             shared_client=shared_client,
             throttler=self._throttler,
@@ -534,7 +528,7 @@ class OpenwareExchange(ExchangeBase, ABC):
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
-        :param trading_pair: The market trading pair (Unused during cancel on AltMarkets.io)
+        :param trading_pair: The market trading pair (Unused during cancel on Exchange.Centralex)
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
@@ -926,7 +920,7 @@ class OpenwareExchange(ExchangeBase, ABC):
     async def _user_stream_event_listener(self):
         """
         Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        AltmarketsAPIUserStreamDataSource.
+        OpenwareAPIUserStreamDataSource.
         """
         async for event_message in self._iter_user_event_queue():
             try:

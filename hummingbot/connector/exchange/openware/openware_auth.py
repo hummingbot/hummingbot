@@ -1,7 +1,8 @@
 import hashlib
 import hmac
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
+
 from hummingbot.connector.exchange.openware.openware_constants import Constants
 
 
@@ -36,7 +37,7 @@ class OpenwareAuth:
 
     def get_headers(self) -> (Dict[str, Any]):
         """
-        Generates authentication headers required by AltMarkets.io
+        Generates authentication headers required by exchange.centralex
         :return: a dictionary of auth headers
         """
         # Must use UTC timestamps for nonce, can't use tracking nonce
