@@ -1,9 +1,11 @@
 import json
 from contextlib import contextmanager
 from enum import Enum
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
 import aiohttp
+
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -12,6 +14,23 @@ if TYPE_CHECKING:
 class Chain(Enum):
     ETHEREUM = 0
     AVALANCHE = 1
+
+    @staticmethod
+    def from_str(label: str) -> "Chain":
+        label = label.lower()
+        if label == "ethereum":
+            return Chain.ETHEREUM
+        elif label == "avalanche":
+            return Chain.AVALANCHE
+        else:
+            raise NotImplementedError
+
+    @staticmethod
+    def to_str(chain: "Chain") -> str:
+        if chain == Chain.ETHEREUM:
+            return "ethereum"
+        else:
+            return "avalanche"
 
 
 @contextmanager
@@ -58,9 +77,9 @@ class GatewayChainApiManager:
                 self.notify("Error occured verifying the API Key. Please check your API Key and try again.")
             return success
 
-    async def _get_api_key(self, chain: Chain) -> str:
+    async def _get_api_key(self, chain: Chain, required=False) -> str:
         """
-        Generalize getting and testing the API key from user input
+        Get the API key from user input, then check that it is valid
         """
         with begin_placeholder_mode(self):
             while True:
@@ -84,7 +103,7 @@ class GatewayChainApiManager:
                     return ''
                 try:
                     api_key = api_key.strip()  # help check for an empty string which is valid input
-                    if api_key is None or api_key == "":
+                    if not required and (api_key is None or api_key == ""):
                         self.notify(f"Setting up gateway without an {chain_name} node.")
                     else:
                         if chain == Chain.ETHEREUM:
@@ -97,3 +116,22 @@ class GatewayChainApiManager:
                 except Exception:
                     self.notify(f"Error occur calling the API route: {api_url}.")
                     raise
+
+    @staticmethod
+    async def _update_gateway_api_key(chain: Chain, api_key: str):
+        """
+        Update a chain's API key in gateway
+        """
+        await GatewayHttpClient.get_instance().update_config(f"{Chain.to_str(chain)}.nodeAPIKey", api_key)
+
+    @staticmethod
+    async def _get_api_key_from_gateway_config(chain: Chain) -> Optional[str]:
+        """
+        Check if gateway has an API key for gateway
+        """
+        config_dict: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
+        api_key: Optional[str] = config_dict.get(f"{Chain.to_str(chain)}.nodeAPIKey")
+        if api_key == "":
+            return None
+        else:
+            return api_key

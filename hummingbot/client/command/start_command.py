@@ -3,14 +3,14 @@ import platform
 import threading
 import time
 from os.path import dirname, exists, join
-from typing import Any, Callable, Dict, List, Optional
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
 import hummingbot.client.config.global_config_map as global_config
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
+from hummingbot.client.command.gateway_api_manager import Chain, GatewayChainApiManager
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class StartCommand:
+class StartCommand(GatewayChainApiManager):
     async def _run_clock(self):
         with self.clock as clock:
             await clock.run()
@@ -113,6 +113,14 @@ class StartCommand:
                         ["network", connector_details['network']],
                         ["wallet_address", connector_details['wallet_address']]
                     ]
+
+                    # check for API keys
+                    chain: Chain = Chain.from_str(connector_details['chain'])
+                    api_key: Optional[str] = await self._get_api_key_from_gateway_config(chain)
+                    if api_key is None:
+                        api_key = await self._get_api_key(chain, required=True)
+                        await self._update_gateway_api_key(chain, connector_details['network'], api_key)
+
                     await UserBalances.instance().update_exchange_balance(connector)
                     balances: List[str] = [
                         f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
