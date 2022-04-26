@@ -60,7 +60,7 @@ jobs:
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
-          pre-commit run --all-files 
+          pre-commit run
 
       - name: Run stable tests and calculate coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
