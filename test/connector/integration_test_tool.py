@@ -6,16 +6,17 @@ from distutils.util import strtobool
 import functools
 
 from decimal import Decimal
-from bidict import bidict
 import aiohttp
-# from async_timeout import timeout
 
+# from hummingbot.user.user_balances import UserBalances
 import hummingbot.core.web_assistant.connections.rest_connection
 from hummingbot.core.network_iterator import NetworkStatus
 import hummingbot.logger.logger
 from hummingbot.logger.logger import HummingbotLogger
 
 from certs import creds
+
+this_loop = asyncio.get_event_loop()
 
 
 class Prompt:
@@ -122,9 +123,9 @@ def get_binance(ec):
         binance_api_secret=creds.s,
         trading_pairs=[ec.pair],
     )
-    exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
-        "com": bidict({f"{ec.base}{ec.quote}": ec.pair})
-    }
+    # exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
+    #    "com": bidict({f"{ec.base}{ec.quote}": ec.pair})
+    # }
     return exchange
 
 
@@ -134,9 +135,9 @@ def get_gate_io(ec):
         gate_io_secret_key=creds.s,
         trading_pairs=[ec.pair],
     )
-    exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
-        exchange.DEFAULT_DOMAIN: bidict({f"{ec.base}{ec.quote}": ec.pair})
-    }
+    # exchange.ORDERBOOK_DS_CLASS._trading_pair_symbol_map = {
+    #    exchange.DEFAULT_DOMAIN: bidict({f"{ec.base}{ec.quote}": ec.pair})
+    # }
     return exchange
 
 
@@ -178,8 +179,6 @@ class ExchangeClient(object):
         self.base = base
         self.quote = quote
         self.pair = f"{self.base}-{self.quote}"
-        self.exchange_trading_pair = f"{self.base}{self.quote}"
-        self.symbol = f"{self.base}{self.quote}"
 
     def debug(self, msg):
         if self.DEBUG:
@@ -240,14 +239,20 @@ class ExchangeClient(object):
 
         # wait for network init
         while True:
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(5)
+
             r = await self.exchange.check_network()
             print(f'\n{r}')
             if r == NetworkStatus.CONNECTED:
                 print("Exchange status: ", self.exchange.status_dict)
-                print("Trading pair symbol map from OB DS: ", self.exchange._orderbook_ds._trading_pair_symbol_map)
+                # print("Trading pair symbol map from OB DS: ", self.exchange._orderbook_ds._trading_pair_symbol_map)
+                # api_keys = { "gate_io_api_key": creds.k, "gate_io_secret_key": creds.s, }
+                # Can be used to test for invalid keys
+                # await UserBalances.instance().add_exchange(self.exchange.name, **api_keys)
                 print('\n')
                 break
+
+        self.exchange.supported_order_types()
 
         if await proceed("run buy and cancel via web + update order status?"):
             order_id = self.exchange.buy(self.pair, amount=Decimal(1.5), price=Decimal(1.5), order_type=OrderType.LIMIT)
@@ -290,6 +295,7 @@ class ExchangeClient(object):
 if __name__ == '__main__':
     ec = ExchangeClient()
     try:
-        asyncio.run(ec.start())
+        # asyncio.run(ec.start())
+        this_loop.run_until_complete(ec.start())
     except KeyboardInterrupt as e:
         print(e)

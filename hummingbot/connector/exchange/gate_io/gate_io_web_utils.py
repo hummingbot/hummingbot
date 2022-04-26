@@ -163,20 +163,6 @@ def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         return None
 
 
-def convert_from_exchange_trading_pair(ex_trading_pair: str) -> Optional[str]:
-    regex_match = split_trading_pair(ex_trading_pair)
-    if regex_match is None:
-        return None
-    # Gate.io uses uppercase with underscore split (BTC_USDT)
-    base_asset, quote_asset = split_trading_pair(ex_trading_pair)
-    return f"{base_asset.upper()}-{quote_asset.upper()}"
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    # Gate.io uses uppercase with underscore split (BTC_USDT)
-    return hb_trading_pair.replace("-", "_").upper()
-
-
 def retry_sleep_time(try_count: int) -> float:
     random.seed()
     randSleep = 1 + float(random.randint(1, 10) / 100)

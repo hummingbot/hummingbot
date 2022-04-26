@@ -66,7 +66,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = {}
         ticker_param = None
         if len(trading_pairs) == 1:
-            ticker_param = {'currency_pair': web_utils.convert_to_exchange_trading_pair(trading_pairs[0])}
+            ticker_param = {'currency_pair': await cls.exchange_symbol_associated_to_pair(trading_pairs[0])}
 
         tickers = await web_utils.api_request(
             path=CONSTANTS.TICKER_PATH_URL,
@@ -76,7 +76,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             limit_id=CONSTANTS.TICKER_PATH_URL
         )
         for trading_pair in trading_pairs:
-            ex_pair = web_utils.convert_to_exchange_trading_pair(trading_pair)
+            ex_pair = await cls.exchange_symbol_associated_to_pair(trading_pair)
             ticker = list([tic for tic in tickers if tic['currency_pair'] == ex_pair])[0]
             results[trading_pair] = Decimal(str(ticker["last"]))
         return results
@@ -194,7 +194,10 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 limit_id=CONSTANTS.SYMBOL_PATH_URL,
                 retry=True
             )
-            trading_pairs = list([web_utils.convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
+            trading_pairs = list([
+                await GateIoAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(sym["id"])
+                for sym in symbols
+            ])
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
         except Exception:
@@ -216,7 +219,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
             params = {
-                "currency_pair": web_utils.convert_to_exchange_trading_pair(trading_pair),
+                "currency_pair": await cls.exchange_symbol_associated_to_pair(trading_pair),
                 "with_id": json.dumps(True)
             }
             if not logger:
@@ -275,16 +278,17 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             ws = web_utils.GateIoWebsocket(api_factory=self._api_factory)
             await ws.connect()
-            await ws.subscribe(
-                CONSTANTS.TRADES_ENDPOINT_NAME,
-                [web_utils.convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs],
-            )
-            for pair in self._trading_pairs:
+            pairs = [
+                await self.exchange_symbol_associated_to_pair(pair)
+                for pair in self._trading_pairs
+            ]
+            await ws.subscribe(CONSTANTS.TRADES_ENDPOINT_NAME, pairs)
+            for pair in pairs:
                 await ws.subscribe(
                     CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
-                    [web_utils.convert_to_exchange_trading_pair(pair), '100ms']
+                    [pair, '100ms']
                 )
-                self.logger().info(f"Subscribed to {self._trading_pairs} orderbook data streams.")
+            self.logger().info(f"Subscribed to {pairs} orderbook data streams.")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -303,7 +307,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg = await msg_queue.get()
                 trade_data: Dict[Any] = msg.get("result", None)
 
-                pair: str = web_utils.convert_from_exchange_trading_pair(trade_data.get("currency_pair", None))
+                pair: str = await self.trading_pair_associated_to_exchange_symbol(trade_data.get("currency_pair", None))
 
                 if pair is None:
                     continue
@@ -335,7 +339,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 order_book_data: str = msg.get("result", None)
 
                 timestamp: float = (order_book_data["t"]) * 1e-3
-                pair: str = web_utils.convert_from_exchange_trading_pair(order_book_data["s"])
+                pair: str = await self.trading_pair_associated_to_exchange_symbol(order_book_data["s"])
 
                 orderbook_msg: OrderBookMessage = GateIoOrderBook.diff_message_from_exchange(
                     order_book_data,

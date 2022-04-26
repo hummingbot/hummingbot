@@ -86,7 +86,10 @@ class GateIoExchange(ExchangeBaseV2):
         result = []
         for rule in raw_trading_pair_info:
             try:
-                trading_pair = web_utils.convert_from_exchange_trading_pair(rule["id"])
+                if not web_utils.is_exchange_information_valid(rule):
+                    continue
+
+                trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(rule["id"])
 
                 min_amount_inc = Decimal(f"1e-{rule['amount_precision']}")
                 min_price_inc = Decimal(f"1e-{rule['precision']}")
@@ -116,7 +119,8 @@ class GateIoExchange(ExchangeBaseV2):
                            price: Decimal) -> str:
 
         order_type_str = order_type.name.lower().split("_")[0]
-        symbol = web_utils.convert_to_exchange_trading_pair(trading_pair)
+        symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(trading_pair)
+
         data = {
             "text": order_id,
             "currency_pair": symbol,
@@ -149,7 +153,7 @@ class GateIoExchange(ExchangeBaseV2):
         exchange_order_id = await tracked_order.get_exchange_order_id()
         try:
             params = {
-                'currency_pair': web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
+                'currency_pair': await self._orderbook_ds.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
             }
             resp = await self._api_delete(
                 path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(order_id=exchange_order_id),
@@ -189,6 +193,7 @@ class GateIoExchange(ExchangeBaseV2):
             self.logger().network(
                 f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
                 app_warning_msg=(f"Could not fetch balance update from {self.name_cap}"))
+            raise e
         return account_info
 
     async def _update_order_status(self):
@@ -214,7 +219,8 @@ class GateIoExchange(ExchangeBaseV2):
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
                 continue
 
-            trading_pair = web_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
+            trading_pair = await self._orderbook_ds.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
+
             trades_tasks.append(self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
