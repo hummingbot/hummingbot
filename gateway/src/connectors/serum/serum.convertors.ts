@@ -104,31 +104,31 @@ export const convertMap = <O extends Output>(
 }
 
 export const convertSingle = <O extends Output>(input: SingleInput, type: Types): O => {
-  if (type == Types.GetMarketsResponse)
+  if (type === Types.GetMarketsResponse)
     return convertToGetMarketResponse(input as Market) as O;
 
-  if (type as Types.GetOrderBooksResponse)
+  if (type === Types.GetOrderBooksResponse)
     return convertToGetOrderBookResponse(input as OrderBook) as O;
 
-  if (type as Types.GetTickersResponse)
+  if (type === Types.GetTickersResponse)
     return convertToGetTickerResponse(input as Ticker) as O;
 
-  if (type as Types.GetOrdersResponse)
+  if (type === Types.GetOrdersResponse)
     return convertToGetOrderResponse(input as Order) as O;
 
-  if (type as Types.CreateOrdersResponse)
+  if (type === Types.CreateOrdersResponse)
     return convertToCreateOrderResponse(input as Order) as O;
 
-  if (type as Types.CancelOrdersResponse)
+  if (type === Types.CancelOrdersResponse)
     return convertToCancelOrderResponse(input as Order) as O;
 
-  if (type as Types.GetOpenOrdersResponse)
+  if (type === Types.GetOpenOrdersResponse)
     return convertToGetOpenOrderResponse(input as Order) as O;
 
-  if (type as Types.CancelOpenOrdersResponse)
+  if (type === Types.CancelOpenOrdersResponse)
     return convertToCancelOpenOrderResponse(input as Order) as O;
 
-  if (type as Types.GetFilledOrdersResponse)
+  if (type === Types.GetFilledOrdersResponse)
     return convertToGetFilledOrderResponse(input as Order) as O;
 
   throw new Error(`Unsupported input type "${type}".`);
@@ -156,6 +156,7 @@ export const convertFilledOrderToTicker = (timestamp: number, fill: any): Ticker
     price: fill.price,
     amount: fill.size,
     side: convertSerumSideToOrderSide(fill.side),
+    fee: fill.fee,
     timestamp: timestamp,
     ticker: fill
   };
@@ -216,6 +217,7 @@ export const convertToGetTickerResponse = (input: Ticker): GetTickerResponse => 
     price: input.price,
     amount: input.amount,
     side: input.side,
+    fee: input.fee,
     timestamp: input.timestamp
   }
 }

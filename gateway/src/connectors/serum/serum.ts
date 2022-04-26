@@ -234,9 +234,10 @@ export class Serum {
   async getTicker(marketName: string): Promise<Ticker> {
     const market = await this.getMarket(marketName);
 
+    // TODO change the mechanism to retrieve ticker information, this approach is not always available!!!
     const filledOrders = await market.market.loadFills(this.connection);
     if (!filledOrders || !filledOrders.length)
-      throw new TickerNotFoundError(`Ticker not found for market "${marketName}".`);
+      throw new TickerNotFoundError(`Ticker data is currently not available for market "${marketName}".`);
 
     const mostRecentFilledOrder = filledOrders[0];
 

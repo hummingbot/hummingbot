@@ -51,6 +51,7 @@ export interface Ticker {
   price: number;
   amount: number;
   side: OrderSide;
+  fee: number;
   timestamp: number;
   ticker: any;
 }
@@ -114,6 +115,7 @@ export interface GetTickerResponse {
   price: number;
   amount: number;
   side: OrderSide;
+  fee: number;
   timestamp: number;
 }
 

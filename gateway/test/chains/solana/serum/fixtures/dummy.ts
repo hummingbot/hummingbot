@@ -12,7 +12,7 @@ export const getNewOrderTemplate = (): CreateOrdersRequest => {
   // const side = getRandomChoice(Object.values(OrderSide));
   const side = OrderSide.SELL;
   const price = side == OrderSide.BUY ? 0.1 : 9999;
-  const amount = side == OrderSide.BUY ? 0.1 : 0.1;
+  const amount = side == OrderSide.BUY ? 0.1 : 0.5;
   // const type = getRandomChoice(Object.values(OrderType));
   const type = OrderType.LIMIT;
 
