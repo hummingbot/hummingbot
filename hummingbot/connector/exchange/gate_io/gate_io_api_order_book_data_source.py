@@ -22,17 +22,7 @@ from hummingbot.logger import HummingbotLogger
 
 from hummingbot.connector.exchange.gate_io import gate_io_web_utils as web_utils
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.utils import async_ttl_cache
 from .gate_io_order_book import GateIoOrderBook
-
-
-def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
-    """
-    Verifies if a trading pair is enabled to operate with based on its exchange information
-    :param exchange_info: the exchange information for a trading pair
-    :return: True if the trading pair is enabled, False otherwise
-    """
-    return exchange_info.get("trade_status", None) == "tradable"
 
 
 class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -90,34 +80,6 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             ticker = list([tic for tic in tickers if tic['currency_pair'] == ex_pair])[0]
             results[trading_pair] = Decimal(str(ticker["last"]))
         return results
-
-    @staticmethod
-    @async_ttl_cache(ttl=2, maxsize=1)
-    async def get_all_mid_prices(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> Dict[str, Decimal]:
-        """
-        Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
-        required by the market price strategy.
-        :param domain: Domain to use for the connection with the exchange.
-        :return: Dictionary with the trading pair as key, and the mid price as value
-        """
-        resp_json = await web_utils.api_request(
-            path=CONSTANTS.TICKER_PATH_URL,
-            domain=domain,
-            method=RESTMethod.GET,
-        )
-        ret_val = {}
-        for record in resp_json:
-            try:
-                pair = await GateIoAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    symbol=record["symbol"],
-                    domain=domain)
-                ret_val[pair] = ((Decimal(record.get("bidPrice", "0")) +
-                                  Decimal(record.get("askPrice", "0")))
-                                 / Decimal("2"))
-            except KeyError:
-                # Ignore results for pairs that are not tracked
-                continue
-        return ret_val
 
     @classmethod
     def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
@@ -448,7 +410,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 method=RESTMethod.GET,
             )
             for sd in data:
-                if not is_exchange_information_valid(sd):
+                if not web_utils.is_exchange_information_valid(sd):
                     continue
                 mapping[sd["id"]] = combine_to_hb_trading_pair(
                     base=sd["base"],
