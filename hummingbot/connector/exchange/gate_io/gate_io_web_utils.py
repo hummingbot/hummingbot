@@ -1,20 +1,16 @@
-import time
+import asyncio
 import logging
 import random
-import asyncio
-from typing import Any, Callable, Dict, Optional, Tuple, AsyncIterable, List
+import time
+from typing import Any, AsyncIterable, Callable, Dict, List, Optional
 
 import hummingbot.connector.exchange.gate_io.gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod,
-    RESTRequest,
-)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -152,15 +148,6 @@ async def get_current_server_time(
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     return time.time()
-
-
-def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    try:
-        m = trading_pair.split('_')
-        return m[0], m[1]
-    # Exceptions are now logged as warnings in trading pair fetcher
-    except Exception:
-        return None
 
 
 def retry_sleep_time(try_count: int) -> float:

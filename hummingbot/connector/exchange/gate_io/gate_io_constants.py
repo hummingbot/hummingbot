@@ -1,31 +1,11 @@
 # A single source of truth for constant variables related to the exchange
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
 
 EXCHANGE_NAME = "gate_io"
 DEFAULT_DOMAIN = ""
-CENTRALIZED = True
-EXAMPLE_PAIR = "BTC-USDT"
-DEFAULT_FEES = [0.2, 0.2]
 HBOT_BROKER_ID = "hummingbot"
 HBOT_ORDER_ID = "t-HBOT"
 MAX_ID_LEN = 30
-
-KEYS = {
-    "gate_io_api_key": ConfigVar(
-        key="gate_io_api_key",
-        prompt=f"Enter your {EXCHANGE_NAME} API key >>> ",
-        required_if=using_exchange(EXCHANGE_NAME),
-        is_secure=True,
-        is_connect_key=True),
-    "gate_io_secret_key": ConfigVar(
-        key="gate_io_secret_key",
-        prompt=f"Enter your {EXCHANGE_NAME} secret key >>> ",
-        required_if=using_exchange(EXCHANGE_NAME),
-        is_secure=True,
-        is_connect_key=True),
-}
 
 REST_URL = "https://api.gateio.ws/api/v4"
 REST_URL_AUTH = "/api/v4"
