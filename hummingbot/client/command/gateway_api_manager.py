@@ -74,7 +74,7 @@ class GatewayChainApiManager:
             if success:
                 self.notify("The API Key works.")
             else:
-                self.notify("Error occured verifying the API Key. Please check your API Key and try again.")
+                self.notify("Error occurred verifying the API Key. Please check your API Key and try again.")
             return success
 
     async def _get_api_key(self, chain: Chain, required=False) -> str:
@@ -130,8 +130,12 @@ class GatewayChainApiManager:
         Check if gateway has an API key for gateway
         """
         config_dict: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
-        api_key: Optional[str] = config_dict.get(f"{Chain.to_str(chain)}.nodeAPIKey")
-        if api_key == "":
-            return None
+        chain_config: Optional[Dict[str, Any]] = config_dict.get(Chain.to_str(chain))
+        if chain_config is not None:
+            api_key: Optional[str] = chain_config.get("nodeAPIKey")
+            if api_key is None or api_key == "":
+                return None
+            else:
+                return api_key
         else:
-            return api_key
+            return None
