@@ -70,6 +70,7 @@ class GatewayChainApiManager:
             resp = await tmp_client.post(url=url_with_api_key,
                                          data=json.dumps(data),
                                          headers=headers)
+
             success = resp.status == 200
             if success:
                 self.notify("The API Key works.")
@@ -110,8 +111,10 @@ class GatewayChainApiManager:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
                         elif chain == Chain.AVALANCHE:
                             api_url = f"https://speedy-nodes-nyc.moralis.io/{api_key}/avalanche/mainnet"
-                        # if this throws an error, it will give the user a chance to enter another key
-                        await self._test_evm_node(api_url)
+                        success: bool = await self._test_evm_node(api_url)
+                        if not success:
+                            # the API key test was unsuccessful, try again
+                            continue
                     return api_key
                 except Exception:
                     self.notify(f"Error occur calling the API route: {api_url}.")
