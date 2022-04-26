@@ -18,6 +18,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
@@ -117,10 +118,14 @@ class StartCommand(GatewayChainApiManager):
                     # check for API keys
                     chain: Chain = Chain.from_str(connector_details['chain'])
                     api_key: Optional[str] = await self._get_api_key_from_gateway_config(chain)
-                    self.notify(f"api_key {api_key}")
                     if api_key is None:
                         api_key = await self._get_api_key(chain, required=True)
                         await self._update_gateway_api_key(chain, api_key)
+                        self.notify("Please wait for gateway to restart")
+                        # wait for gateway to restart, config update causes gateway to restart
+                        await self._gateway_monitor.wait_for_online_status()
+                        if self._gateway_monitor.current_status == Status.OFFLINE:
+                            raise Exception("Lost contact with gateway after updating the config.")
 
                     await UserBalances.instance().update_exchange_balance(connector)
                     balances: List[str] = [
