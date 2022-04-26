@@ -117,6 +117,7 @@ class StartCommand(GatewayChainApiManager):
                     # check for API keys
                     chain: Chain = Chain.from_str(connector_details['chain'])
                     api_key: Optional[str] = await self._get_api_key_from_gateway_config(chain)
+                    self.notify(f"api_key {api_key}")
                     if api_key is None:
                         api_key = await self._get_api_key(chain, required=True)
                         await self._update_gateway_api_key(chain, connector_details['network'], api_key)
