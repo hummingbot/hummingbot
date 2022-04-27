@@ -29,7 +29,7 @@ cdef class TradingIntensityIndicator:
     def __init__(self, order_book: OrderBook, price_delegate: AssetPriceDelegate, sampling_length: int = 30):
         self._alpha = 0
         self._kappa = 0
-        self._trade_samples = []
+        self._trade_samples = {}
         self._current_trade_sample = []
         self._trades_forwarder = TradesForwarder(self)
         self._order_book = order_book
@@ -37,6 +37,7 @@ cdef class TradingIntensityIndicator:
         self._price_delegate = price_delegate
         self._sampling_length = sampling_length
         self._samples_length = 0
+        self._last_quotes = []
 
         warnings.simplefilter("ignore", OptimizeWarning)
 
@@ -46,43 +47,81 @@ cdef class TradingIntensityIndicator:
 
     @property
     def is_sampling_buffer_full(self) -> bool:
-        return len(self._trade_samples) == self._sampling_length
+        return len(self._trade_samples.keys()) == self._sampling_length
 
     @property
     def is_sampling_buffer_changed(self) -> bool:
-        is_changed = self._samples_length != len(self._trade_samples)
-        self._samples_length = len(self._trade_samples)
+        is_changed = self._samples_length != len(self._trade_samples.keys())
+        self._samples_length = len(self._trade_samples.keys())
         return is_changed
 
     @property
     def sampling_length(self) -> int:
         return self._sampling_length
 
+    # A helper method to be used in unit tests
     @property
-    def last_price(self) -> float:
-        return self._last_price
+    def last_quotes(self) -> list:
+        return self._last_quotes
 
-    @last_price.setter
-    def last_price(self, value):
-        self._last_price = value
+    # A helper method to be used in unit tests
+    @last_quotes.setter
+    def last_quotes(self, value):
+        self._last_quotes = value
 
-    def calculate(self):
-        self.c_calculate()
+    # A helper method to be used in unit tests
+    def calculate(self, timestamp):
+        self.c_calculate(timestamp)
 
-    cdef c_calculate(self):
-        self._last_price = self._price_delegate.get_price_by_type(PriceType.MidPrice)
-        self._trade_samples.append(self._current_trade_sample)
-        if len(self._trade_samples) > self._sampling_length:
-            self._trade_samples = self._trade_samples[-self._sampling_length:]
-        self._current_trade_sample = []
+    cdef c_calculate(self, timestamp):
+        price = self._price_delegate.get_price_by_type(PriceType.MidPrice)
+        # Descending order of price-timestamp quotes
+        self._last_quotes = [{'timestamp': timestamp, 'price': price}] + self._last_quotes
+
+        trade_sample_rem = []
+        latest_processed_quote_idx = None
+        for trade in self._current_trade_sample:
+            is_processed = False
+            for i, quote in enumerate(self._last_quotes):
+                if quote["timestamp"] < trade.timestamp:
+                    is_processed = True
+                    if latest_processed_quote_idx is None or i < latest_processed_quote_idx:
+                        latest_processed_quote_idx = i
+                    trade = {"price_level": abs(trade.price - float(quote["price"])), "amount": trade.amount}
+
+                    if quote["timestamp"]+1 not in self._trade_samples.keys():
+                        self._trade_samples[quote["timestamp"]+1] = []
+
+                    self._trade_samples[quote["timestamp"]+1] += [trade]
+                    break
+            if not is_processed:
+                trade_sample_rem += [trade]
+
+        # Store unprocessed remainder for future processing
+        self._current_trade_sample = trade_sample_rem
+        # Store quotes that happened after the latest trade + one before
+        if latest_processed_quote_idx is not None:
+            self._last_quotes = self._last_quotes[0:latest_processed_quote_idx+1]
+        
+        if len(self._trade_samples.keys()) > self._sampling_length:
+            timestamps = list(self._trade_samples.keys())
+            timestamps.sort()
+            timestamps = timestamps[-self._sampling_length:]
+
+            trade_samples = {}
+            for timestamp in timestamps:
+                trade_samples[timestamp] = self._trade_samples[timestamp]
+            self._trade_samples = trade_samples
+
         if self.is_sampling_buffer_full:
             self.c_estimate_intensity()
 
+    # A helper method to be used in unit tests
     def register_trade(self, trade):
         self.c_register_trade(trade)
 
     cdef c_register_trade(self, object trade):
-        self._current_trade_sample.append({"price_level": abs(trade.price - self._last_price), "amount": trade.amount})
+        self._current_trade_sample.append(trade)
 
     def _estimate_intensity(self):
         self.c_estimate_intensity()
@@ -98,7 +137,8 @@ cdef class TradingIntensityIndicator:
 
         trades_consolidated = {}
         price_levels = []
-        for tick in self._trade_samples:
+        for timestamp in self._trade_samples.keys():
+            tick = self._trade_samples[timestamp]
             for trade in tick:
                 if trade['price_level'] not in trades_consolidated.keys():
                     trades_consolidated[trade['price_level']] = 0
