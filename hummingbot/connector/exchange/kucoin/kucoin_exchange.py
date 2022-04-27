@@ -18,7 +18,7 @@ from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -89,6 +89,7 @@ class KucoinExchange(ExchangePyBase):
             domain=self._domain))
         self._user_stream_tracker = UserStreamTracker(
             data_source=KucoinAPIUserStreamDataSource(
+                auth=self._auth,
                 domain=self._domain,
                 api_factory=self._api_factory))
         self._poll_notifier = asyncio.Event()

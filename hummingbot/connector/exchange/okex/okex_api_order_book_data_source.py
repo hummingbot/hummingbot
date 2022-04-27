@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils as web_utils
 from hummingbot.core.data_type.common import TradeType

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,7 +11,6 @@ from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_
 from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OkexAPIUserStreamDataSource
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class OkexUserStreamDataSourceUnitTests(unittest.TestCase):
