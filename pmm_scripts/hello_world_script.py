@@ -1,7 +1,7 @@
-from hummingbot.script.script_base import ScriptBase
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 
-class HelloWorldScript(ScriptBase):
+class HelloWorldPMMScript(PMMScriptBase):
     """
     Demonstrates how to send messages using notify and log functions. It also shows how errors and commands are handled.
     """
