@@ -1,10 +1,7 @@
 import asyncio
 from typing import Any, Dict, Optional
 
-from hummingbot.connector.exchange.kucoin import (
-    kucoin_constants as CONSTANTS,
-    kucoin_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory

@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,7 +17,6 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):

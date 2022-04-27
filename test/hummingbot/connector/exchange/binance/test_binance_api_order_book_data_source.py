@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,7 +14,6 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
