@@ -3,16 +3,16 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from typing import Awaitable, Dict
+from typing import Awaitable
+from typing import Dict
+from unittest.mock import patch
 
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
-from hummingbot.connector.exchange.kucoin import kucoin_constants as KUCOIN_CONSTANTS
-from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from .fixture import Fixture
 
@@ -23,16 +23,16 @@ class RateOracleTest(unittest.TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {"ETHBTC": "ETH-BTC",
-                 "LTCBTC": "LTC-BTC",
-                 "BTCUSDT": "BTC-USDT",
-                 "SCRTBTC": "SCRT-BTC"}),
-            "us": bidict(
-                {"BTCUSD": "BTC-USD",
-                 "ETHUSD": "ETH-USD"})
-        }
+        cls._binance_connector = RateOracle._binance_connector_without_private_keys(domain="com")
+        cls._binance_connector._set_trading_pair_symbol_map(bidict(
+            {"ETHBTC": "ETH-BTC",
+             "LTCBTC": "LTC-BTC",
+             "BTCUSDT": "BTC-USDT",
+             "SCRTBTC": "SCRT-BTC"}))
+        cls._binance_connector_us = RateOracle._binance_connector_without_private_keys(domain="us")
+        cls._binance_connector_us._set_trading_pair_symbol_map(bidict(
+            {"BTCUSD": "BTC-USD",
+             "ETHUSD": "ETH-USD"}))
         AscendExAPIOrderBookDataSource._trading_pair_symbol_map = bidict(
             {"ETH/BTC": "ETH-BTC",
              "LTC/BTC": "LTC-BTC",
@@ -41,18 +41,15 @@ class RateOracleTest(unittest.TestCase):
              "MAPS/USDT": "MAPS-USDT",
              "QTUM/BTC": "QTUM-BTC"}
         )
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {
-            KUCOIN_CONSTANTS.DEFAULT_DOMAIN: bidict(
-                {"SHA-USDT": "SHA-USDT",
-                 "LOOM-BTC": "LOOM-BTC",
-                 })
-        }
+        cls._kucoin_connector = RateOracle._kucoin_connector_without_private_keys()
+        cls._kucoin_connector._set_trading_pair_symbol_map(bidict(
+            {"SHA-USDT": "SHA-USDT",
+             "LOOM-BTC": "LOOM-BTC",
+             }))
 
     @classmethod
     def tearDownClass(cls) -> None:
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         AscendExAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDownClass()
 
     def setUp(self) -> None:
@@ -68,7 +65,10 @@ class RateOracleTest(unittest.TestCase):
         return ret
 
     @aioresponses()
-    def test_find_rate_from_source(self, mock_api):
+    @patch("hummingbot.core.rate_oracle.rate_oracle.RateOracle._binance_connector_without_private_keys")
+    def test_find_rate_from_source(self, mock_api, connector_creator_mock):
+        connector_creator_mock.side_effect = [self._binance_connector, self._binance_connector_us]
+
         url = RateOracle.binance_price_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.Binance), repeat=True)
@@ -143,7 +143,9 @@ class RateOracleTest(unittest.TestCase):
         self._assert_rate_dict(rates)
 
     @aioresponses()
-    def test_rate_oracle_network(self, mock_api):
+    @patch("hummingbot.core.rate_oracle.rate_oracle.RateOracle._binance_connector_without_private_keys")
+    def test_rate_oracle_network(self, mock_api, connector_creator_mock):
+        connector_creator_mock.side_effect = [self._binance_connector, self._binance_connector_us]
         url = RateOracle.binance_price_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.Binance))
@@ -179,7 +181,14 @@ class RateOracleTest(unittest.TestCase):
         self.assertEqual(rate, Decimal("75"))
 
     @aioresponses()
-    def test_get_binance_prices(self, mock_api):
+    @patch("hummingbot.core.rate_oracle.rate_oracle.RateOracle._binance_connector_without_private_keys")
+    def test_get_binance_prices(self, mock_api, connector_creator_mock):
+        connector_creator_mock.side_effect = [
+            self._binance_connector,
+            self._binance_connector_us,
+            self._binance_connector,
+            self._binance_connector_us]
+
         url = RateOracle.binance_price_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.Binance), repeat=True)
@@ -205,7 +214,9 @@ class RateOracleTest(unittest.TestCase):
         self.assertGreater(len(combined_prices), len(com_prices))
 
     @aioresponses()
-    def test_get_kucoin_prices(self, mock_api):
+    @patch("hummingbot.core.rate_oracle.rate_oracle.RateOracle._kucoin_connector_without_private_keys")
+    def test_get_kucoin_prices(self, mock_api, connector_creator_mock):
+        connector_creator_mock.side_effect = [self._kucoin_connector]
         url = RateOracle.kucoin_price_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, body=json.dumps(Fixture.Kucoin), repeat=True)

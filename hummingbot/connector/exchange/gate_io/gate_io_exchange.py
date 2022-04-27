@@ -9,6 +9,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 from async_timeout import timeout
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
@@ -85,9 +86,9 @@ class GateIoExchange(ExchangeBase):
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._api_factory = build_gate_io_api_factory(throttler=self._throttler)
         self._rest_assistant: Optional[RESTAssistant] = None
-        self._order_book_tracker = GateIoOrderBookTracker(
+        self._set_order_book_tracker(GateIoOrderBookTracker(
             self._throttler, trading_pairs, self._api_factory
-        )
+        ))
         self._user_stream_tracker = GateIoUserStreamTracker(
             self._gate_io_auth, trading_pairs, self._api_factory
         )
@@ -112,7 +113,7 @@ class GateIoExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -128,7 +129,7 @@ class GateIoExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -205,7 +206,7 @@ class GateIoExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -225,7 +226,7 @@ class GateIoExchange(ExchangeBase):
         self._update_balances_queued = False
         self._update_balances_finished = asyncio.Event()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -349,9 +350,9 @@ class GateIoExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -1014,3 +1015,11 @@ class GateIoExchange(ExchangeBase):
                     )
                 )
         return ret_val
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await GateIoAPIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await GateIoAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

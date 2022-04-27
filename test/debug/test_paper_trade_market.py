@@ -14,10 +14,7 @@ from hummingbot.connector.exchange.binance.binance_api_order_book_data_source im
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange, QueuedOrder
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode,
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -33,10 +30,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 logging.basicConfig(level=logging.INFO)
 sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -143,9 +137,17 @@ class PaperTradeExchangeTest(unittest.TestCase):
         global MAINNET_RPC_URL
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
+        connector = BinanceExchange(
+            binance_api_key="",
+            binance_api_secret="",
+            trading_pairs=["ETH-USDT", "BTC-USDT"],
+            trading_required=False)
         cls.market: PaperTradeExchange = PaperTradeExchange(
             order_book_tracker=OrderBookTracker(
-                data_source=BinanceAPIOrderBookDataSource(trading_pairs=["ETH-USDT", "BTC-USDT"]),
+                data_source=BinanceAPIOrderBookDataSource(
+                    trading_pairs=["ETH-USDT", "BTC-USDT"],
+                    connector=connector,
+                    api_factory=connector._api_factory),
                 trading_pairs=["ETH-USDT", "BTC-USDT"]),
             target_market=BinanceExchange,
             exchange_name="binance",
@@ -389,6 +391,7 @@ class PaperTradeExchangeTest(unittest.TestCase):
         self.assertAlmostEqual(self.market.get_available_balance(trading_pair.base_asset),
                                starting_base_balance - base_quantity)
 
+        self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent, timeout_seconds=10))
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, SellOrderCreatedEvent, {
             "type": OrderType.LIMIT,
             "amount": base_quantity,

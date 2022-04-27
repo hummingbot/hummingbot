@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 from decimal import Decimal
-from typing import Awaitable, NamedTuple, Optional
+from typing import Awaitable, NamedTuple, Optional, List, Dict, Any
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
@@ -10,7 +10,6 @@ from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -65,14 +64,10 @@ class BinanceExchangeTests(TestCase):
 
         self._initialize_event_loggers()
 
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
+        self.exchange._set_trading_pair_symbol_map(bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def _initialize_event_loggers(self):
@@ -136,6 +131,164 @@ class BinanceExchangeTests(TestCase):
         request_headers = request_call_tuple.kwargs["headers"]
         self.assertIn("X-MBX-APIKEY", request_headers)
         self.assertEqual("testAPIKey", request_headers["X-MBX-APIKEY"])
+
+    @aioresponses()
+    def test_all_trading_pairs(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(None)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
+
+        mock_response: Dict[str, Any] = {
+            "timezone": "UTC",
+            "serverTime": 1639598493658,
+            "rateLimits": [],
+            "exchangeFilters": [],
+            "symbols": [
+                {
+                    "symbol": "ETHBTC",
+                    "status": "TRADING",
+                    "baseAsset": "ETH",
+                    "baseAssetPrecision": 8,
+                    "quoteAsset": "BTC",
+                    "quotePrecision": 8,
+                    "quoteAssetPrecision": 8,
+                    "baseCommissionPrecision": 8,
+                    "quoteCommissionPrecision": 8,
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
+                    "icebergAllowed": True,
+                    "ocoAllowed": True,
+                    "quoteOrderQtyMarketAllowed": True,
+                    "isSpotTradingAllowed": True,
+                    "isMarginTradingAllowed": True,
+                    "filters": [],
+                    "permissions": [
+                        "SPOT",
+                        "MARGIN"
+                    ]
+                },
+                {
+                    "symbol": "LTCBTC",
+                    "status": "TRADING",
+                    "baseAsset": "LTC",
+                    "baseAssetPrecision": 8,
+                    "quoteAsset": "BTC",
+                    "quotePrecision": 8,
+                    "quoteAssetPrecision": 8,
+                    "baseCommissionPrecision": 8,
+                    "quoteCommissionPrecision": 8,
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
+                    "icebergAllowed": True,
+                    "ocoAllowed": True,
+                    "quoteOrderQtyMarketAllowed": True,
+                    "isSpotTradingAllowed": True,
+                    "isMarginTradingAllowed": True,
+                    "filters": [],
+                    "permissions": [
+                        "SPOT",
+                        "MARGIN"
+                    ]
+                },
+                {
+                    "symbol": "BNBBTC",
+                    "status": "TRADING",
+                    "baseAsset": "BNB",
+                    "baseAssetPrecision": 8,
+                    "quoteAsset": "BTC",
+                    "quotePrecision": 8,
+                    "quoteAssetPrecision": 8,
+                    "baseCommissionPrecision": 8,
+                    "quoteCommissionPrecision": 8,
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
+                    "icebergAllowed": True,
+                    "ocoAllowed": True,
+                    "quoteOrderQtyMarketAllowed": True,
+                    "isSpotTradingAllowed": True,
+                    "isMarginTradingAllowed": True,
+                    "filters": [],
+                    "permissions": [
+                        "MARGIN"
+                    ]
+                },
+            ]
+        }
+
+        mock_api.get(url, body=json.dumps(mock_response))
+
+        result: Dict[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
+
+        self.assertEqual(2, len(result))
+        self.assertIn("ETH-BTC", result)
+        self.assertIn("LTC-BTC", result)
+        self.assertNotIn("BNB-BTC", result)
+
+    @aioresponses()
+    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(None)
+
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=Exception)
+
+        result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
+
+        self.assertEqual(0, len(result))
+
+    @aioresponses()
+    def test_get_last_trade_prices(self, mock_api):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.exchange._domain)
+        url = f"{url}?symbol={self.base_asset}{self.quote_asset}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "symbol": "BNBBTC",
+            "priceChange": "-94.99999800",
+            "priceChangePercent": "-95.960",
+            "weightedAvgPrice": "0.29628482",
+            "prevClosePrice": "0.10002000",
+            "lastPrice": "100.0",
+            "lastQty": "200.00000000",
+            "bidPrice": "4.00000000",
+            "bidQty": "100.00000000",
+            "askPrice": "4.00000200",
+            "askQty": "100.00000000",
+            "openPrice": "99.00000000",
+            "highPrice": "100.00000000",
+            "lowPrice": "0.10000000",
+            "volume": "8913.30000000",
+            "quoteVolume": "15.30000000",
+            "openTime": 1499783499040,
+            "closeTime": 1499869899040,
+            "firstId": 28385,
+            "lastId": 28460,
+            "count": 76,
+        }
+
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        result: Dict[str, float] = self.async_run_with_timeout(
+            self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
+        )
+
+        self.assertEqual(1, len(result))
+        self.assertEqual(100, result[self.trading_pair])
 
     def test_supported_order_types(self):
         supported_types = self.exchange.supported_order_types()
@@ -1072,9 +1225,9 @@ class BinanceExchangeTests(TestCase):
                 {
                     "symbol": self.exchange_trading_pair,
                     "status": "TRADING",
-                    "baseAsset": "ETH",
+                    "baseAsset": self.base_asset,
                     "baseAssetPrecision": 8,
-                    "quoteAsset": "BTC",
+                    "quoteAsset": self.quote_asset,
                     "quotePrecision": 8,
                     "quoteAssetPrecision": 8,
                     "orderTypes": ["LIMIT", "LIMIT_MAKER"],
@@ -1121,6 +1274,8 @@ class BinanceExchangeTests(TestCase):
                          trading_rule.min_base_amount_increment)
         self.assertEqual(Decimal(order_status["symbols"][0]["filters"][2]["minNotional"]),
                          trading_rule.min_notional_size)
+        trading_pairs = self.async_run_with_timeout(self.exchange.trading_pair_symbol_map())
+        self.assertEqual(self.trading_pair, trading_pairs[self.exchange_trading_pair])
 
     @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):

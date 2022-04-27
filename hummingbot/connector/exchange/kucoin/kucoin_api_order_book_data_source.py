@@ -1,14 +1,10 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from hummingbot.connector.exchange.kucoin import (
     kucoin_constants as CONSTANTS,
-    kucoin_utils as utils,
     kucoin_web_utils as web_utils,
 )
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -16,6 +12,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJ
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 
 
 class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -25,91 +24,20 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(
             self,
             trading_pairs: List[str],
+            connector: 'KucoinExchange',
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None,
+            api_factory: Optional[WebAssistantsFactory] = None
     ):
         super().__init__(trading_pairs)
-        self._time_synchronizer = time_synchronizer
+        self._connector = connector
         self._domain = domain
-        self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-        )
+        self._api_factory = api_factory
         self._last_ws_message_sent_timestamp = 0
         self._ping_interval = 0
 
     @classmethod
     def _default_domain(cls):
         return CONSTANTS.DEFAULT_DOMAIN
-
-    @classmethod
-    async def _get_last_traded_price(cls,
-                                     trading_pair: str,
-                                     api_factory: Optional[WebAssistantsFactory] = None,
-                                     throttler: Optional[AsyncThrottler] = None,
-                                     domain: Optional[str] = None,
-                                     time_synchronizer: Optional[TimeSynchronizer] = None) -> float:
-        domain = domain or cls._default_domain()
-        throttler = throttler or web_utils.create_throttler()
-        api_factory = api_factory or web_utils.build_api_factory(
-            throttler=throttler,
-            time_synchronizer=time_synchronizer,
-            domain=domain,
-        )
-        rest_assistant = await api_factory.get_rest_assistant()
-        params = {"symbol": await cls.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=domain,
-            api_factory=api_factory,
-            throttler=throttler,
-            time_synchronizer=time_synchronizer)}
-
-        ticker_data = await rest_assistant.execute_request(
-            url=web_utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL),
-            params=params,
-            method=RESTMethod.GET,
-            throttler_limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-        )
-
-        return float(ticker_data["data"]["price"])
-
-    @classmethod
-    async def _exchange_symbols_and_trading_pairs(
-            cls,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None):
-        """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
-        """
-        api_factory = api_factory or web_utils.build_api_factory(
-            throttler=throttler,
-            time_synchronizer=time_synchronizer,
-        )
-        mapping = {}
-        rest_assistant = await api_factory.get_rest_assistant()
-
-        try:
-            data = await rest_assistant.execute_request(
-                url=web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL),
-                method=RESTMethod.GET,
-                throttler_limit_id=CONSTANTS.EXCHANGE_INFO_PATH_URL,
-            )
-
-            pairs_info = data.get("data", [])
-            for symbol_data in filter(utils.is_pair_information_valid, pairs_info):
-                mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
-                                                                            quote=symbol_data["quoteCurrency"])
-
-        except Exception as ex:
-            cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
-
-        return mapping
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
@@ -138,11 +66,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair,
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler)
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -158,11 +82,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trade_data: Dict[str, Any] = raw_message["data"]
         timestamp: float = int(trade_data["time"]) * 1e-9
-        trading_pair = await self.trading_pair_associated_to_exchange_symbol(
-            symbol=trade_data["symbol"],
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade_data["symbol"])
         message_content = {
             "trade_id": trade_data["tradeId"],
             "update_id": trade_data["sequence"],
@@ -184,11 +104,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         timestamp: float = self._time()
         update_id: int = diff_data["sequenceEnd"]
 
-        trading_pair = await self.trading_pair_associated_to_exchange_symbol(
-            symbol=diff_data["symbol"],
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=diff_data["symbol"])
 
         order_book_message_content = {
             "trading_pair": trading_pair,
@@ -206,12 +122,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
-            symbols = ",".join([await self.exchange_symbol_associated_to_pair(
-                trading_pair=pair,
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer) for pair in self._trading_pairs])
+            symbols = ",".join([await self._connector.exchange_symbol_associated_to_pair(trading_pair=pair)
+                                for pair in self._trading_pairs])
 
             trades_payload = {
                 "id": web_utils.next_message_id(),

@@ -16,6 +16,7 @@ import aiohttp
 import ujson
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
+from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
     NdaxInFlightOrder,
@@ -29,8 +30,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
@@ -99,9 +99,9 @@ class NdaxExchange(ExchangeBase):
                               account_name=ndax_account_name)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._shared_client = aiohttp.ClientSession()
-        self._order_book_tracker = NdaxOrderBookTracker(
+        self._set_order_book_tracker(NdaxOrderBookTracker(
             throttler=self._throttler, shared_client=self._shared_client, trading_pairs=trading_pairs, domain=domain
-        )
+        ))
         self._user_stream_tracker = NdaxUserStreamTracker(
             throttler=self._throttler, shared_client=self._shared_client, auth_assistant=self._auth, domain=domain
         )
@@ -144,7 +144,7 @@ class NdaxExchange(ExchangeBase):
         """
         return {
             "account_id_initialized": self.account_id if self._trading_required else True,
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -162,7 +162,7 @@ class NdaxExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -252,7 +252,7 @@ class NdaxExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -263,7 +263,7 @@ class NdaxExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -372,9 +372,9 @@ class NdaxExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     async def _create_order(self,
                             trade_type: TradeType,
@@ -394,7 +394,7 @@ class NdaxExchange(ExchangeBase):
         """
         trading_rule: TradingRule = self._trading_rules[trading_pair]
 
-        trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
+        trading_pair_ids: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
 
         try:
             amount: Decimal = self.quantize_order_amount(trading_pair, amount)
@@ -594,7 +594,7 @@ class NdaxExchange(ExchangeBase):
                                                                     params=query_params,
                                                                     is_auth_required=True)
 
-        trading_pair_id_map: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
+        trading_pair_id_map: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
         id_trading_pair_map: Dict[int, str] = {instrument_id: trading_pair
                                                for trading_pair, instrument_id in trading_pair_id_map.items()}
 
@@ -814,7 +814,7 @@ class NdaxExchange(ExchangeBase):
                            for order_status in parsed_status_responses])
 
         trade_history_tasks = []
-        trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
+        trading_pair_ids: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
 
         for trading_pair in self._trading_pairs:
             body_params = {
@@ -1043,3 +1043,18 @@ class NdaxExchange(ExchangeBase):
                                                    tracked_order.order_type,
                                                    tracked_order.exchange_order_id))
                     self.stop_tracking_order(tracked_order.client_order_id)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await NdaxAPIOrderBookDataSource.fetch_trading_pairs(
+            domain=self._domain,
+            throttler=self._throttler,
+        )
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await NdaxAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            domain=self._domain,
+            throttler=self._throttler,
+            shared_client=self._shared_client)

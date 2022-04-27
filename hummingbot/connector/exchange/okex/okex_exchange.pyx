@@ -3,28 +3,31 @@ import logging
 import time
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
+from urllib.parse import urljoin
 
 import aiohttp
 import ujson
+from bidict import bidict
 from libc.stdint cimport int64_t
 
-from hummingbot.connector.exchange.okex.constants import *
+from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_utils, okex_web_utils as web_utils
+from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
+from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OkexAPIUserStreamDataSource
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
-from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
-from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.connector.utils import get_new_client_order_id, combine_to_hb_trading_pair
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -38,11 +41,9 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.logger import HummingbotLogger
 
 hm_logger = None
@@ -97,27 +98,37 @@ cdef class OkexExchange(ExchangeBase):
                  okex_secret_key: str,
                  okex_passphrase: str,
                  poll_interval: float = 5.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
         super().__init__()
         # self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
+        self._throttler = web_utils.create_throttler()
         self._time_synchronizer = TimeSynchronizer()
         self._okex_auth = OKExAuth(
             api_key=okex_api_key,
             secret_key=okex_secret_key,
             passphrase=okex_passphrase,
             time_provider=self._time_synchronizer)
+        self._api_factory = web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            auth=self._okex_auth)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = OkexOrderBookTracker(
-            trading_pairs=trading_pairs
-        )
+        self._set_order_book_tracker(OrderBookTracker(
+            data_source=OkexAPIOrderBookDataSource(
+                trading_pairs=trading_pairs,
+                connector=self,
+                api_factory=self._api_factory),
+            trading_pairs=trading_pairs))
+        self._user_stream_tracker = UserStreamTracker(
+            data_source=OkexAPIUserStreamDataSource(
+                auth=self._okex_auth,
+                api_factory=self._api_factory))
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._shared_client = None
@@ -126,20 +137,18 @@ cdef class OkexExchange(ExchangeBase):
         self._trading_rules = {}
         self._trading_rules_polling_task = None
         self._tx_tracker = OkexExchangeTransactionTracker(self)
-        self._user_stream_tracker = OkexUserStreamTracker(okex_auth=self._okex_auth,
-                                                          trading_pairs=trading_pairs)
 
     @property
     def name(self) -> str:
         return "okex"
 
     @property
-    def order_book_tracker(self) -> OkexOrderBookTracker:
-        return self._order_book_tracker
+    def order_book_tracker(self) -> OrderBookTracker:
+        return self.order_book_tracker
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -174,7 +183,7 @@ cdef class OkexExchange(ExchangeBase):
         return self._shared_client
 
     @property
-    def user_stream_tracker(self) -> OkexUserStreamTracker:
+    def user_stream_tracker(self) -> UserStreamTracker:
         return self._user_stream_tracker
 
     @shared_client.setter
@@ -191,7 +200,7 @@ cdef class OkexExchange(ExchangeBase):
 
     async def start_network(self):
         self._stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
 
         if self._trading_required:
@@ -201,7 +210,7 @@ cdef class OkexExchange(ExchangeBase):
             await self._update_balances()
 
     def _stop_network(self):
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -219,7 +228,7 @@ cdef class OkexExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="GET", path_url=OKEX_SERVER_TIME_PATH)
+            await self._api_request(method="GET", path_url=CONSTANTS.OKEX_SERVER_TIME_PATH)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -255,7 +264,7 @@ cdef class OkexExchange(ExchangeBase):
                            is_auth_required: bool = False) -> Dict[str, Any]:
 
         headers = {"Content-Type": "application/json"}
-        url = urljoin(OKEX_BASE_URL, path_url)
+        url = urljoin(CONSTANTS.OKEX_BASE_URL, path_url)
         client = await self._http_client()
         text_data = ujson.dumps(data) if data else None
 
@@ -281,7 +290,7 @@ cdef class OkexExchange(ExchangeBase):
 
     async def _update_balances(self):
         cdef:
-            str path_url = OKEX_BALANCE_URL
+            str path_url = CONSTANTS.OKEX_BALANCE_URL
             # list data
             list balances
             dict new_available_balances = {}
@@ -321,7 +330,7 @@ cdef class OkexExchange(ExchangeBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request("GET", path_url=OKEX_INSTRUMENTS_URL)
+            exchange_info = await self._api_request("GET", path_url=CONSTANTS.OKEX_INSTRUMENTS_URL)
             trading_rules_list = self._format_trading_rules(exchange_info["data"])
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -350,8 +359,9 @@ cdef class OkexExchange(ExchangeBase):
 
     async def get_order_status(self, exchange_order_id: str, trading_pair: str) -> Dict[str, Any]:
         msg = await self._api_request("GET",
-                                      path_url=OKEX_ORDER_DETAILS_URL.format(ordId=exchange_order_id,
-                                                                             trading_pair=trading_pair),
+                                      path_url=CONSTANTS.OKEX_ORDER_DETAILS_URL.format(
+                                          ordId=exchange_order_id,
+                                          trading_pair=trading_pair),
                                       is_auth_required=True)
         if msg['data']:
             return msg['data'][0]
@@ -510,14 +520,14 @@ cdef class OkexExchange(ExchangeBase):
                 args = stream_message.get("arg", None)
                 if args:
                     channel = args.get("channel", None)
-                if channel not in OKEX_WS_CHANNELS:
+                if channel not in CONSTANTS.OKEX_WS_CHANNELS:
                     continue
                 if "data" not in stream_message:
                     continue
 
                 # stream_message["data"] is a list
                 for data in stream_message["data"]:
-                    if channel == OKEX_WS_ACCOUNT_CHANNEL:
+                    if channel == CONSTANTS.OKEX_WS_ACCOUNT_CHANNEL:
                         details = data["details"]
                         if details:
                             details=details[0]
@@ -529,7 +539,7 @@ cdef class OkexExchange(ExchangeBase):
                             self._account_available_balances.update({asset_name: Decimal(available_balance)})
                         continue
 
-                    elif channel == OKEX_WS_ORDERS_CHANNEL:
+                    elif channel == CONSTANTS.OKEX_WS_ORDERS_CHANNEL:
                         order_id = data["ordId"]
                         client_order_id = data["clOrdId"]
                         trading_pair = data["instId"]
@@ -621,7 +631,7 @@ cdef class OkexExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
@@ -652,7 +662,7 @@ cdef class OkexExchange(ExchangeBase):
 
         exchange_order_id = await self._api_request(
             "POST",
-            path_url=OKEX_PLACE_ORDER,
+            path_url=CONSTANTS.OKEX_PLACE_ORDER,
             params={},
             data=data,
             is_auth_required=True
@@ -734,8 +744,8 @@ cdef class OkexExchange(ExchangeBase):
             str order_id = get_new_client_order_id(
                 is_buy=True,
                 trading_pair=trading_pair,
-                hbot_order_id_prefix=CLIENT_ID_PREFIX,
-                max_id_len=MAX_ID_LEN,
+                hbot_order_id_prefix=CONSTANTS.CLIENT_ID_PREFIX,
+                max_id_len=CONSTANTS.MAX_ID_LEN,
             )
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -809,8 +819,8 @@ cdef class OkexExchange(ExchangeBase):
             str order_id = get_new_client_order_id(
                 is_buy=False,
                 trading_pair=trading_pair,
-                hbot_order_id_prefix=CLIENT_ID_PREFIX,
-                max_id_len=MAX_ID_LEN,
+                hbot_order_id_prefix=CONSTANTS.CLIENT_ID_PREFIX,
+                max_id_len=CONSTANTS.MAX_ID_LEN,
             )
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
@@ -826,7 +836,7 @@ cdef class OkexExchange(ExchangeBase):
                 "clOrdId": order_id,
                 "instId": trading_pair
             }
-            response = await self._api_request("POST", path_url=OKEX_ORDER_CANCEL, data=params, is_auth_required=True)
+            response = await self._api_request("POST", path_url=CONSTANTS.OKEX_ORDER_CANCEL, data=params, is_auth_required=True)
 
             if not response['code']=='0':
                 raise OKExAPIError("Order could not be canceled")
@@ -880,7 +890,7 @@ cdef class OkexExchange(ExchangeBase):
             try:
                 cancel_all_results = await self._api_request(
                     "POST",
-                    path_url=OKEX_BATCH_ORDER_CANCEL,
+                    path_url=CONSTANTS.OKEX_BATCH_ORDER_CANCEL,
                     data=data,
                     is_auth_required=True
                 )
@@ -998,3 +1008,33 @@ cdef class OkexExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def _initialize_trading_pair_symbol_map(self):
+        try:
+            exchange_info = await self._api_request(
+                method=RESTMethod.GET.name,
+                path_url=CONSTANTS.OKEX_INSTRUMENTS_PATH,
+                params={"instType": "SPOT"},
+            )
+            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        except Exception:
+            self.logger().exception(f"There was an error requesting exchange info.")
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(okex_utils.is_exchange_information_valid, exchange_info["data"]):
+            mapping[symbol_data["instId"]] = combine_to_hb_trading_pair(base=symbol_data["baseCcy"],
+                                                                        quote=symbol_data["quoteCcy"])
+        self._set_trading_pair_symbol_map(mapping)
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        params = {"instId": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
+
+        resp_json = await self._api_request(
+            method=RESTMethod.GET.name,
+            path_url=CONSTANTS.OKEX_TICKER_PATH,
+            params=params,
+        )
+
+        ticker_data, *_ = resp_json["data"]
+        return float(ticker_data["last"])

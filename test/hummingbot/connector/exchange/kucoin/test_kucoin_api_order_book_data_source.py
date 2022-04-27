@@ -13,8 +13,7 @@ from hummingbot.connector.exchange.kucoin import (
     kucoin_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -41,25 +40,26 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
         self.async_task = None
 
         self.mocking_assistant = NetworkMockingAssistant()
-        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self.time_synchronnizer = TimeSynchronizer()
-        self.time_synchronnizer.add_time_offset_ms_sample(1000)
+
+        self.connector = KucoinExchange(
+            kucoin_api_key="",
+            kucoin_passphrase="",
+            kucoin_secret_key="",
+            trading_pairs=[],
+            trading_required=False)
+
         self.ob_data_source = KucoinAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronnizer)
+            connector=self.connector,
+            api_factory=self.connector._api_factory)
 
         self.ob_data_source.logger().setLevel(1)
         self.ob_data_source.logger().addHandler(self)
 
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {
-            CONSTANTS.DEFAULT_DOMAIN: bidict(
-                {self.trading_pair: self.trading_pair})
-        }
+        self.connector._set_trading_pair_symbol_map(bidict({self.trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def handle(self, record):
@@ -85,107 +85,6 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
             }
         }
         return snapshot
-
-    @aioresponses()
-    def test_get_last_traded_prices(self, mock_api):
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map[CONSTANTS.DEFAULT_DOMAIN]["TKN1-TKN2"] = "TKN1-TKN2"
-
-        url1 = web_utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
-        url1 = f"{url1}?symbol={self.trading_pair}"
-        regex_url = re.compile(f"^{url1}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {
-            "code": "200000",
-            "data": {
-                "sequence": "1550467636704",
-                "bestAsk": "0.03715004",
-                "size": "0.17",
-                "price": "100",
-                "bestBidSize": "3.803",
-                "bestBid": "0.03710768",
-                "bestAskSize": "1.788",
-                "time": 1550653727731
-            }
-        }
-        mock_api.get(regex_url, body=json.dumps(resp))
-
-        url2 = web_utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
-        url2 = f"{url2}?symbol=TKN1-TKN2"
-        regex_url = re.compile(f"^{url2}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {
-            "code": "200000",
-            "data": {
-                "sequence": "1550467636704",
-                "bestAsk": "0.03715004",
-                "size": "0.17",
-                "price": "200",
-                "bestBidSize": "3.803",
-                "bestBid": "0.03710768",
-                "bestAskSize": "1.788",
-                "time": 1550653727731
-            }
-        }
-        mock_api.get(regex_url, body=json.dumps(resp))
-
-        ret = self.async_run_with_timeout(
-            coroutine=KucoinAPIOrderBookDataSource.get_last_traded_prices([self.trading_pair, "TKN1-TKN2"])
-        )
-
-        ticker_requests = [(key, value) for key, value in mock_api.requests.items()
-                           if key[1].human_repr().startswith(url1) or key[1].human_repr().startswith(url2)]
-
-        request_params = ticker_requests[0][1][0].kwargs["params"]
-        self.assertEqual(f"{self.base_asset}-{self.quote_asset}", request_params["symbol"])
-        request_params = ticker_requests[1][1][0].kwargs["params"]
-        self.assertEqual("TKN1-TKN2", request_params["symbol"])
-
-        self.assertEqual(ret[self.trading_pair], 100)
-        self.assertEqual(ret["TKN1-TKN2"], 200)
-
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
-
-        resp = {
-            "data": [
-                {
-                    "symbol": self.trading_pair,
-                    "name": self.trading_pair,
-                    "baseCurrency": self.base_asset,
-                    "quoteCurrency": self.quote_asset,
-                    "enableTrading": True,
-                },
-                {
-                    "symbol": "SOME-PAIR",
-                    "name": "SOME-PAIR",
-                    "baseCurrency": "SOME",
-                    "quoteCurrency": "PAIR",
-                    "enableTrading": False,
-                }
-            ]
-        }
-        mock_api.get(url, body=json.dumps(resp))
-
-        ret = self.async_run_with_timeout(coroutine=KucoinAPIOrderBookDataSource.fetch_trading_pairs(
-            throttler=self.throttler,
-            time_synchronizer=self.time_synchronnizer,
-        ))
-
-        self.assertEqual(1, len(ret))
-        self.assertEqual(self.trading_pair, ret[0])
-
-    @aioresponses()
-    def test_fetch_trading_pairs_exception_raised(self, mock_api):
-        KucoinAPIOrderBookDataSource._trading_pair_symbol_map = {}
-
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, exception=Exception)
-
-        result: Dict[str] = self.async_run_with_timeout(self.ob_data_source.fetch_trading_pairs())
-
-        self.assertEqual(0, len(result))
 
     @aioresponses()
     def test_get_new_order_book(self, mock_api):
@@ -466,12 +365,9 @@ class TestKucoinAPIOrderBookDataSource(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        try:
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
-            )
-        except asyncio.CancelledError:
-            pass
+        self.listening_task = self.ev_loop.create_task(
+            self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 

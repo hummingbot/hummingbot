@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
+from bidict import bidict
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import (
@@ -78,21 +79,18 @@ class KucoinExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._trading_pairs = trading_pairs
-        self._order_book_tracker = OrderBookTracker(
+        self._set_order_book_tracker(OrderBookTracker(
             data_source=KucoinAPIOrderBookDataSource(
                 trading_pairs=trading_pairs,
+                connector=self,
                 domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer),
+                api_factory=self._api_factory,),
             trading_pairs=trading_pairs,
-            domain=self._domain)
+            domain=self._domain))
         self._user_stream_tracker = UserStreamTracker(
             data_source=KucoinAPIUserStreamDataSource(
-                auth=self._auth,
                 domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler))
+                api_factory=self._api_factory))
         self._poll_notifier = asyncio.Event()
         self._status_polling_task = None
         self._user_stream_tracker_task = None
@@ -110,7 +108,7 @@ class KucoinExchange(ExchangePyBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
@@ -134,9 +132,8 @@ class KucoinExchange(ExchangePyBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "symbols_mapping_initialized": KucoinAPIOrderBookDataSource.trading_pair_symbol_map_ready(
-                domain=self._domain),
-            "order_books_initialized": self._order_book_tracker.ready,
+            "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": not self._trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -159,7 +156,7 @@ class KucoinExchange(ExchangePyBase):
 
     async def start_network(self):
         self._stop_network()
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self._trading_required:
@@ -174,7 +171,7 @@ class KucoinExchange(ExchangePyBase):
         self._last_timestamp = 0
         self._poll_notifier = asyncio.Event()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -331,9 +328,9 @@ class KucoinExchange(ExchangePyBase):
 
         :param trading_pair: the pair of tokens for which the order book should be retrieved
         """
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(self,
                              order_id: str,
@@ -469,6 +466,22 @@ class KucoinExchange(ExchangePyBase):
             )
         return fee
 
+    async def _initialize_trading_pair_symbol_map(self):
+        try:
+            exchange_info = await self._api_request(
+                method=RESTMethod.GET,
+                path_url=CONSTANTS.SYMBOLS_PATH_URL)
+            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        except Exception:
+            self.logger().exception("There was an error requesting exchange info.")
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(utils.is_pair_information_valid, exchange_info.get("data", [])):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
+                                                                        quote=symbol_data["quoteCurrency"])
+        self._set_trading_pair_symbol_map(mapping)
+
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
@@ -567,11 +580,7 @@ class KucoinExchange(ExchangePyBase):
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
-            "symbol": await KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair,
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler),
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
@@ -805,14 +814,11 @@ class KucoinExchange(ExchangePyBase):
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _update_trading_fees(self):
-        trading_symbols = [await KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
+        trading_symbols = [await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                           for trading_pair in self._trading_pairs]
 
         params = {"symbols": ",".join(trading_symbols)}
 
@@ -825,13 +831,7 @@ class KucoinExchange(ExchangePyBase):
 
         fees_json = resp["data"]
         for fee_json in fees_json:
-            trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                symbol=fee_json["symbol"],
-                domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer,
-            )
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
 
     async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> List[TradingRule]:
@@ -840,11 +840,7 @@ class KucoinExchange(ExchangePyBase):
         for info in raw_trading_pair_info["data"]:
             if utils.is_pair_information_valid(info):
                 try:
-                    trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                        symbol=info.get("symbol"),
-                        domain=self._domain,
-                        api_factory=self._api_factory,
-                        throttler=self._throttler)
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=info.get("symbol"))
                     trading_rules.append(
                         TradingRule(trading_pair=trading_pair,
                                     min_order_size=Decimal(info["baseMinSize"]),
@@ -936,6 +932,19 @@ class KucoinExchange(ExchangePyBase):
         except Exception:
             self.logger().exception("Error requesting time from Kucoin server")
             raise
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+
+        resp_json = await self._api_request(
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            method=RESTMethod.GET,
+            params=params
+        )
+
+        return float(resp_json["data"]["price"])
 
     async def _api_request(self,
                            path_url,

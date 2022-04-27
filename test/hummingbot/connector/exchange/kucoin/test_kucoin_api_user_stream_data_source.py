@@ -55,10 +55,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
             time_synchronizer=self.time_synchronizer,
             auth=self.auth)
 
-        self.data_source = KucoinAPIUserStreamDataSource(
-            auth=self.auth,
-            throttler=self.throttler,
-            api_factory=self.api_factory)
+        self.data_source = KucoinAPIUserStreamDataSource(api_factory=self.api_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)

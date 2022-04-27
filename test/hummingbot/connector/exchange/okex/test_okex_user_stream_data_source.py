@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aiohttp import WSMessage, WSMsgType
 
-from hummingbot.connector.exchange.okex import constants as CONSTANTS
+from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils
 from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OkexAPIUserStreamDataSource
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -48,10 +48,14 @@ class OkexUserStreamDataSourceUnitTests(unittest.TestCase):
             passphrase="TEST_PASSPHRASE",
             time_provider=self.time_synchronizer)
 
-        self.data_source = OkexAPIUserStreamDataSource(
-            auth=self.auth,
+        self.api_factory = okex_web_utils.build_api_factory(
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer,
+            auth=self.auth)
+
+        self.data_source = OkexAPIUserStreamDataSource(
+            auth=self.auth,
+            api_factory=self.api_factory
         )
 
         self.data_source.logger().setLevel(1)
