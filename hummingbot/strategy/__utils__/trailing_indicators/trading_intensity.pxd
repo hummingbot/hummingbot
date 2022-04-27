@@ -12,16 +12,16 @@ cdef class TradingIntensityIndicator:
     cdef:
         double _alpha
         double _kappa
-        list _trade_samples
+        dict _trade_samples
         list _current_trade_sample
         object _trades_forwarder
         OrderBook _order_book
         object _price_delegate
-        double _last_price
+        list _last_quotes
         int _sampling_length
         int _samples_length
 
-    cdef c_calculate(self)
+    cdef c_calculate(self, timestamp)
     cdef c_register_trade(self, object trade)
     cdef c_estimate_intensity(self)
 

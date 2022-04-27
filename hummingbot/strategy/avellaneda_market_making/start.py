@@ -13,7 +13,6 @@ from hummingbot.strategy.conditional_execution_state import (
     RunAlwaysExecutionState,
     RunInTimeConditionalExecutionState
 )
-from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.avellaneda_market_making import (
     AvellanedaMarketMakingStrategy,
@@ -68,9 +67,6 @@ def start(self):
         if execution_timeframe == "infinite":
             execution_state = RunAlwaysExecutionState()
 
-        market_info = MarketTradingPairTuple(*maker_data)
-        price_delegate = OrderBookAssetPriceDelegate(market_info.market, trading_pair)
-
         min_spread = c_map.get("min_spread").value
         volatility_buffer_size = c_map.get("volatility_buffer_size").value
         trading_intensity_buffer_size = c_map.get("trading_intensity_buffer_size").value
@@ -81,8 +77,7 @@ def start(self):
 
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
-            market_info=market_info,
-            price_delegate=price_delegate,
+            market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
             order_optimization_enabled=order_optimization_enabled,
             inventory_target_base_pct=inventory_target_base_pct,

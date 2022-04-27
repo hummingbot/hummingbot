@@ -140,13 +140,6 @@ cdef class OrderBook(PubSub):
     cdef c_apply_trade(self, object trade_event):
         self._last_trade_price = trade_event.price
         self._last_applied_trade = time.perf_counter()
-        trade_event_dict = {
-            'trading_pair': trade_event.trading_pair,
-            'timestamp': trade_event.timestamp,
-            'type': trade_event.type.name,
-            'price': trade_event.price,
-            'amount': trade_event.amount
-        }
         self.c_trigger_event(self.ORDER_BOOK_TRADE_EVENT_TAG, trade_event)
 
     @property
