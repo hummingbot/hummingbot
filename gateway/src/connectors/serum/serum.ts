@@ -4,11 +4,13 @@ import {Map as ImmutableMap} from 'immutable'; // TODO create a type for this im
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
+  CancelOrderRequest,
   CancelOrdersRequest,
   CreateOrdersRequest,
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
   GetOpenOrderRequest,
+  GetOrderRequest,
   GetOrdersRequest,
   Market,
   MarketNotFoundError,
@@ -142,6 +144,11 @@ export class Serum {
 
   ready(): boolean {
     return this._ready;
+  }
+
+  // TODO remove this accessor!!!
+  getConnection(): Connection {
+    return this.connection;
   }
 
   /**
@@ -312,7 +319,7 @@ export class Serum {
     throw new OrderNotFoundError(`Order "${target.id}" not found.`);
   }
 
-  async getOrder(target: GetOrdersRequest): Promise<Order> {
+  async getOrder(target: GetOrderRequest): Promise<Order> {
     if (!target.id && !target.exchangeId)
       throw new OrderNotFoundError('No client id or exchange id provided.');
 
@@ -457,7 +464,7 @@ export class Serum {
     return createdOrders;
   }
 
-  async cancelOrder(target: CancelOrdersRequest): Promise<Order> {
+  async cancelOrder(target: CancelOrderRequest): Promise<Order> {
     // TODO Add validation!!!
     const market = await this.getMarket(target.marketName);
 
@@ -465,9 +472,7 @@ export class Serum {
 
     const order = await this.getOrder({ ...target });
 
-    const signature = await market.market.cancelOrder(this.connection, owner, order.order!);
-
-    order.signature = signature;
+    order.signature = await market.market.cancelOrder(this.connection, owner, order.order!);
 
     // TODO what about the status of the order?!!!
     // TODO Important! Probably we need to call the settle funds api function!!!
@@ -483,14 +488,21 @@ export class Serum {
     const canceledOrders = ImmutableMap<string, Order>().asMutable();
 
     for (const target of targets) {
-      const canceledOrder = await this.cancelOrder({
-        marketName: target.marketName,
-        ownerAddress: target.ownerAddress,
-        id: target.id,
-        exchangeId: target.exchangeId,
-      });
+      // TODO Add validation!!!
+      const market = await this.getMarket(target.marketName);
 
-      canceledOrders.set(canceledOrder.exchangeId!, canceledOrder);
+      const owner = await this.solana.getAccount(target.ownerAddress);
+
+      const orders = await this.getOrders([target]);
+
+      for (const order of orders.values()) {
+        order.signature = await market.market.cancelOrder(this.connection, owner, order.order!);
+
+        // TODO what about the status of the order?!!!
+        // TODO Important! Probably we need to call the settle funds api function!!!
+
+        canceledOrders.set(order.exchangeId!, order);
+      }
     }
 
     return canceledOrders;
@@ -540,6 +552,14 @@ export class Serum {
         const orders = await market.market.loadFills(this.connection, 0);
 
         result = ImmutableMap([...result, ...this.parseToMapOfOrders(market, orders, target.ownerAddress!)]).asMutable();
+        result = result.filter((order) => {
+          order.ownerAddress === target.ownerAddress
+          && order.marketName === target.marketName
+          && (
+            target.ids?.includes(order.id!)
+            || target.exchangeIds?.includes(order.exchangeId!)
+          )
+        });
       }
     }
 

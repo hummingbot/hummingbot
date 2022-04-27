@@ -1,4 +1,4 @@
-// // @ts-ignore
+// // @ts-ignore // @ts-expect-error
 //
 // import 'jest-extended';
 // import {Serum} from '../../../../src/connectors/serum/serum';
