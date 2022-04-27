@@ -1,7 +1,9 @@
 import {NetworkSelectionRequest} from '../../services/common-interfaces';
 import {
+  CancelOpenOrderRequest,
   CancelOpenOrdersRequest,
   CancelOpenOrdersResponse,
+  CancelOrderRequest,
   CancelOrdersRequest,
   CancelOrdersResponse,
   CreateOrdersRequest,
@@ -16,6 +18,7 @@ import {
   GetOpenOrdersResponse,
   GetOrderBooksRequest,
   GetOrderBooksResponse,
+  GetOrderRequest,
   GetOrdersRequest,
   GetOrdersResponse,
   GetTickersRequest,
@@ -55,7 +58,8 @@ export type SerumGetTickersResponse = GetTickersResponse;
 
 export type SerumGetOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: GetOrdersRequest }
+    | { ownerAddress: string }
+    | { order: GetOrderRequest }
     | {
         orders: GetOrdersRequest[];
       }
@@ -84,7 +88,8 @@ export type SerumCreateOrdersResponse = CreateOrdersResponse;
 
 export type SerumCancelOrdersRequest = NetworkSelectionRequest &
   (
-    | { order: CancelOrdersRequest }
+    | { ownerAddress: string }
+    | { order: CancelOrderRequest }
     | {
         orders: CancelOrdersRequest[];
       }
@@ -116,7 +121,7 @@ export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
 export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
   (
     | { ownerAddress: string }
-    | { order: CancelOpenOrdersRequest }
+    | { order: CancelOpenOrderRequest }
     | {
         orders: CancelOpenOrdersRequest[];
       }
@@ -130,6 +135,7 @@ export type SerumCancelOpenOrdersResponse = CancelOpenOrdersResponse;
 
 export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
   (
+    | { ownerAddress: string }
     | { order: GetFilledOrderRequest }
     | {
         orders: GetFilledOrdersRequest[];

@@ -27,6 +27,7 @@ import {HttpException} from '../../services/error-handler';
 import {Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker} from './serum.types';
 import {convert, Types} from "./serum.convertors";
 
+// TODO Should we need to create settle funds and unwrap token endpoints?!!!
 /**
  * Get the all or the informed markets and their configurations.
  *

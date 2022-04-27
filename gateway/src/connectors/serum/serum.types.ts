@@ -127,9 +127,16 @@ export interface GetTickerResponse {
 
 export type GetTickersResponse = ImmutableMap<string, GetTickerResponse> | GetTickerResponse;
 
-export interface GetOrdersRequest {
+export interface GetOrderRequest {
   id?: string;
   exchangeId?: string;
+  marketName?: string;
+  ownerAddress: string;
+}
+
+export interface GetOrdersRequest {
+  ids?: string[];
+  exchangeIds?: string[];
   marketName?: string;
   ownerAddress: string;
 }
@@ -176,9 +183,16 @@ export interface CreateOrderResponse {
 
 export type CreateOrdersResponse = ImmutableMap<string, CreateOrderResponse> | CreateOrderResponse;
 
-export interface CancelOrdersRequest {
+export interface CancelOrderRequest {
   id?: string;
   exchangeId?: string;
+  marketName?: string;
+  ownerAddress: string;
+}
+
+export interface CancelOrdersRequest {
+  ids?: string[];
+  exchangeIds?: string[];
   marketName?: string;
   ownerAddress: string;
 }
@@ -227,9 +241,16 @@ export interface GetOpenOrderResponse {
 
 export type GetOpenOrdersResponse = ImmutableMap<string, ImmutableMap<string, GetOpenOrderResponse>> | ImmutableMap<string, GetOpenOrderResponse> | GetOpenOrderResponse;
 
-export interface CancelOpenOrdersRequest {
+export interface CancelOpenOrderRequest {
   id?: string;
   exchangeId?: string;
+  marketName?: string;
+  ownerAddress: string;
+}
+
+export interface CancelOpenOrdersRequest {
+  ids?: string[];
+  exchangeIds?: string[];
   marketName?: string;
   ownerAddress: string;
 }
