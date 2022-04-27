@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import itertools
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -83,7 +83,7 @@ class GatewayCommand(GatewayChainApiManager):
     async def _test_connection(self):
         # test that the gateway is running
         if await GatewayHttpClient.get_instance().ping_gateway():
-            self.notify("\nSuccesfully pinged gateway.")
+            self.notify("\nSuccessfully pinged gateway.")
         else:
             self.notify("\nUnable to ping gateway.")
 
@@ -117,12 +117,18 @@ class GatewayCommand(GatewayChainApiManager):
             self,       # type: HummingbotApplication
             container_id: str, conf_path: str = "/usr/src/app/conf"
     ):
-        infura_api_key: str = await self._get_api_key(Chain.ETHEREUM)
+        infura_api_key: Optional[str] = await self._get_api_key(Chain.ETHEREUM)
 
         try:
+            # generate_conf alters the ethereum.yml file if a second value is
+            # passed to generate_conf.sh
+            if infura_api_key is None:
+                cmd: str = f"./setup/generate_conf.sh {conf_path}"
+            else:
+                cmd: str = f"./setup/generate_conf.sh {conf_path} {infura_api_key}"
             exec_info = await docker_ipc(method_name="exec_create",
                                          container=container_id,
-                                         cmd=f"./setup/generate_conf.sh {conf_path} {infura_api_key}",
+                                         cmd=cmd,
                                          user="hummingbot")
 
             await docker_ipc(method_name="exec_start",

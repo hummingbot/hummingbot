@@ -78,7 +78,7 @@ class GatewayChainApiManager:
                 self.notify("Error occurred verifying the API Key. Please check your API Key and try again.")
             return success
 
-    async def _get_api_key(self, chain: Chain, required=False) -> str:
+    async def _get_api_key(self, chain: Chain, required=False) -> Optional[str]:
         """
         Get the API key from user input, then check that it is valid
         """
@@ -101,11 +101,12 @@ class GatewayChainApiManager:
 
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
-                    return ''
+                    return None
                 try:
                     api_key = api_key.strip()  # help check for an empty string which is valid input
                     if not required and (api_key is None or api_key == ""):
                         self.notify(f"Setting up gateway without an {chain_name} node.")
+                        return None
                     else:
                         if chain == Chain.ETHEREUM:
                             api_url = f"https://mainnet.infura.io/v3/{api_key}"
@@ -115,7 +116,7 @@ class GatewayChainApiManager:
                         if not success:
                             # the API key test was unsuccessful, try again
                             continue
-                    return api_key
+                        return api_key
                 except Exception:
                     self.notify(f"Error occur calling the API route: {api_url}.")
                     raise
