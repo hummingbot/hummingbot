@@ -3,18 +3,17 @@ import unittest
 from collections import Awaitable
 from copy import deepcopy
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
+from test.mock.mock_cli import CLIMockingAssistant
+from unittest.mock import MagicMock, patch
 
 from pydantic import Field
 
 from hummingbot.client.command.config_command import color_settings_to_display, global_configs_to_display
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap, ClientFieldData
-from hummingbot.client.config.config_helpers import \
-    read_system_configs_from_yml, ClientConfigAdapter
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class ConfigCommandTest(unittest.TestCase):
@@ -44,7 +43,7 @@ class ConfigCommandTest(unittest.TestCase):
             global_config_map[key] = value
 
     @patch("hummingbot.client.hummingbot_application.get_strategy_config_map")
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_configs(self, notify_mock, get_strategy_config_map_mock):
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)
@@ -113,7 +112,7 @@ class ConfigCommandTest(unittest.TestCase):
         self.assertEqual(df_str_expected, captures[5])
 
     @patch("hummingbot.client.hummingbot_application.get_strategy_config_map")
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_configs_pydantic_model(self, notify_mock, get_strategy_config_map_mock):
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)
@@ -172,7 +171,7 @@ class ConfigCommandTest(unittest.TestCase):
         self.assertEqual(df_str_expected, captures[5])
 
     @patch("hummingbot.client.hummingbot_application.get_strategy_config_map")
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_config_non_configurable_key_fails(self, notify_mock, get_strategy_config_map_mock):
         class DummyModel(BaseStrategyConfigMap):
             strategy: str = Field(default="pure_market_making", client_data=None)
@@ -200,7 +199,7 @@ class ConfigCommandTest(unittest.TestCase):
 
     @patch("hummingbot.client.command.config_command.save_to_yml")
     @patch("hummingbot.client.hummingbot_application.get_strategy_config_map")
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_config_single_keys(self, _, get_strategy_config_map_mock, save_to_yml_mock):
         class NestedModel(BaseClientModel):
             nested_attr: str = Field(

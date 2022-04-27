@@ -49,12 +49,12 @@ def save_wallet(acct: Account, password: str) -> Account:
     return acct
 
 
-def unlock_wallet(public_key: str, password: str) -> str:
+def unlock_wallet(wallet_address: str, password: str) -> str:
     """
     Search get_key_file_path() by a public key for an account file, then decrypt the private key from the file with the
     provided password
     """
-    file_path: str = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, public_key, KEYFILE_POSTFIX)
+    file_path: str = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, wallet_address, KEYFILE_POSTFIX)
     with open(file_path, 'r') as f:
         encrypted = f.read()
     private_key: str = Account.decrypt(encrypted, password)

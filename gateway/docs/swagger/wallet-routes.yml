@@ -1,0 +1,46 @@
+paths:
+  /wallet:
+    get:
+      tags:
+        - 'wallet'
+      summary: 'Get list of all added wallets and chains'
+      operationId: 'get'
+      produces:
+        - 'application/json'
+      responses:
+        '200':
+          description: 'Wallet list'
+          schema:
+            $ref: '#/definitions/GetWalletResponse'
+
+  /wallet/add:
+    post:
+      tags:
+        - 'wallet'
+      summary: 'Add wallet to gateway'
+      operationId: 'add'
+      consumes:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/AddWalletRequest'
+      responses: '200'
+
+  /wallet/remove:
+    delete:
+      tags:
+        - 'wallet'
+      summary: 'Removes a wallet from gateway'
+      operationId: 'delete'
+      consumes:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/RemoveWalletRequest'
+      responses: '200'

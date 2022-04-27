@@ -2,7 +2,7 @@ import asyncio
 import copy
 import os
 import shutil
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
 
 from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
@@ -15,7 +15,7 @@ from hummingbot.client.config.config_helpers import (
     parse_config_default_to_text,
     parse_cvar_value,
     save_to_yml,
-    save_to_yml_legacy
+    save_to_yml_legacy,
 )
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
@@ -34,7 +34,7 @@ class CreateCommand:
         if file_name is not None:
             file_name = format_config_file_name(file_name)
             if os.path.exists(os.path.join(CONF_FILE_PATH, file_name)):
-                self._notify(f"{file_name} already exists.")
+                self.notify(f"{file_name} already exists.")
                 return
 
         safe_ensure_future(self.prompt_for_configuration(file_name))
@@ -54,8 +54,8 @@ class CreateCommand:
             return
 
         config_map = get_strategy_config_map(strategy)
-        self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
-                     f"while setting up these below configuration.")
+        self.notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
+                    f"while setting up these below configuration.")
 
         if isinstance(config_map, ClientConfigAdapter):
             await self.prompt_for_model_config(config_map)
@@ -74,7 +74,7 @@ class CreateCommand:
         self.strategy_config_map = config_map
         # Reload completer here otherwise the new file will not appear
         self.app.input_field.completer = load_completer(self)
-        self._notify(f"A new config file has been created: {self.strategy_file_name}")
+        self.notify(f"A new config file has been created: {self.strategy_file_name}")
         self.placeholder_mode = False
         self.app.hide_input = False
 
@@ -168,7 +168,7 @@ class CreateCommand:
                 setattr(model, config, input_value)
                 new_config_value = getattr(model, config)
             except ConfigValidationError as e:
-                self._notify(str(e))
+                self.notify(str(e))
                 new_config_value = await self.prompt_a_config(model, config)
 
         if not self.app.to_stop_config and isinstance(new_config_value, ClientConfigAdapter):
@@ -194,7 +194,8 @@ class CreateCommand:
         value = parse_cvar_value(config, input_value)
         err_msg = await config.validate(input_value)
         if err_msg is not None:
-            self._notify(err_msg)
+            self.notify(err_msg)
+            config.value = None
             await self.prompt_a_config_legacy(config)
         else:
             config.value = value
@@ -222,10 +223,10 @@ class CreateCommand:
         input = format_config_file_name(input)
         file_path = os.path.join(CONF_FILE_PATH, input)
         if input is None or input == "":
-            self._notify("Value is required.")
+            self.notify("Value is required.")
             return await self.prompt_new_file_name(strategy)
         elif os.path.exists(file_path):
-            self._notify(f"{input} file already exists, please enter a new name.")
+            self.notify(f"{input} file already exists, please enter a new name.")
             return await self.prompt_new_file_name(strategy)
         else:
             return input
@@ -245,13 +246,13 @@ class CreateCommand:
             timeout = float(global_config_map["create_command_timeout"].value)
             all_status_go = await asyncio.wait_for(self.status_check_all(), timeout)
         except asyncio.TimeoutError:
-            self._notify("\nA network error prevented the connection check to complete. See logs for more details.")
+            self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
             self.strategy_file_name = None
             self.strategy_name = None
             self.strategy_config = None
             raise
         if all_status_go:
-            self._notify("\nEnter \"start\" to start market making.")
+            self.notify("\nEnter \"start\" to start market making.")
 
     @staticmethod
     def restore_config_legacy(config_map: Dict[str, ConfigVar], config_map_backup: Dict[str, ConfigVar]):
