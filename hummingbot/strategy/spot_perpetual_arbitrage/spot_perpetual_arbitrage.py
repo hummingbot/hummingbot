@@ -182,6 +182,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     return
             else:
                 self._ready_to_start = True
+
         if self._ready_to_start and (self._main_task is None or self._main_task.done()):
             self._main_task = safe_ensure_future(self.main(timestamp))
 
