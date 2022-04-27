@@ -43,15 +43,19 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
-
+        self.auth = BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        self.data_source = BinanceAPIUserStreamDataSource(
-            auth=BinanceAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
-            domain=self.domain,
+        self.api_factory = web_utils.build_api_factory(
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer,
+            auth=self.auth)
+
+        self.data_source = BinanceAPIUserStreamDataSource(
+            auth=self.auth,
+            api_factory=self.api_factory,
+            domain=self.domain
         )
 
         self.data_source.logger().setLevel(1)

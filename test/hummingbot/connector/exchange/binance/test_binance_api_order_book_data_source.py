@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from typing import Any, Awaitable, Dict, List
+from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
@@ -10,8 +10,7 @@ from bidict import bidict
 
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -36,27 +35,26 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
-        self.time_synchronizer = TimeSynchronizer()
-        self.time_synchronizer.add_time_offset_ms_sample(1000)
 
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.connector = BinanceExchange(
+            binance_api_key="",
+            binance_api_secret="",
+            trading_pairs=[],
+            trading_required=False,
+            domain=self.domain)
         self.data_source = BinanceAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                         throttler=self.throttler,
-                                                         domain=self.domain,
-                                                         time_synchronizer=self.time_synchronizer)
+                                                         connector=self.connector,
+                                                         api_factory=self.connector._api_factory,
+                                                         domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
 
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "com": bidict(
-                {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
-        }
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def handle(self, record):
@@ -126,206 +124,6 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             ]
         }
         return resp
-
-    @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
-        url = f"{url}?symbol={self.base_asset}{self.quote_asset}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = {
-            "symbol": "BNBBTC",
-            "priceChange": "-94.99999800",
-            "priceChangePercent": "-95.960",
-            "weightedAvgPrice": "0.29628482",
-            "prevClosePrice": "0.10002000",
-            "lastPrice": "100.0",
-            "lastQty": "200.00000000",
-            "bidPrice": "4.00000000",
-            "bidQty": "100.00000000",
-            "askPrice": "4.00000200",
-            "askQty": "100.00000000",
-            "openPrice": "99.00000000",
-            "highPrice": "100.00000000",
-            "lowPrice": "0.10000000",
-            "volume": "8913.30000000",
-            "quoteVolume": "15.30000000",
-            "openTime": 1499783499040,
-            "closeTime": 1499869899040,
-            "firstId": 28385,
-            "lastId": 28460,
-            "count": 76,
-        }
-
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        result: Dict[str, float] = self.async_run_with_timeout(
-            self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair],
-                                                    throttler=self.throttler,
-                                                    time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(1, len(result))
-        self.assertEqual(100, result[self.trading_pair])
-
-    @aioresponses()
-    def test_get_all_mid_prices(self, mock_api):
-        url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"serverTime": 1640000003000}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response))
-
-        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
-
-        mock_response: List[Dict[str, Any]] = [
-            {
-                # Truncated Response
-                "symbol": self.ex_trading_pair,
-                "bidPrice": "99",
-                "askPrice": "101",
-            },
-            {
-                # Truncated Response for unrecognized pair
-                "symbol": "BCCBTC",
-                "bidPrice": "99",
-                "askPrice": "101",
-            }
-        ]
-
-        mock_api.get(url, body=json.dumps(mock_response))
-
-        result: Dict[str, float] = self.async_run_with_timeout(
-            self.data_source.get_all_mid_prices()
-        )
-
-        self.assertEqual(1, len(result))
-        self.assertEqual(100, result[self.trading_pair])
-
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
-
-        mock_response: Dict[str, Any] = {
-            "timezone": "UTC",
-            "serverTime": 1639598493658,
-            "rateLimits": [],
-            "exchangeFilters": [],
-            "symbols": [
-                {
-                    "symbol": "ETHBTC",
-                    "status": "TRADING",
-                    "baseAsset": "ETH",
-                    "baseAssetPrecision": 8,
-                    "quoteAsset": "BTC",
-                    "quotePrecision": 8,
-                    "quoteAssetPrecision": 8,
-                    "baseCommissionPrecision": 8,
-                    "quoteCommissionPrecision": 8,
-                    "orderTypes": [
-                        "LIMIT",
-                        "LIMIT_MAKER",
-                        "MARKET",
-                        "STOP_LOSS_LIMIT",
-                        "TAKE_PROFIT_LIMIT"
-                    ],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "quoteOrderQtyMarketAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "filters": [],
-                    "permissions": [
-                        "SPOT",
-                        "MARGIN"
-                    ]
-                },
-                {
-                    "symbol": "LTCBTC",
-                    "status": "TRADING",
-                    "baseAsset": "LTC",
-                    "baseAssetPrecision": 8,
-                    "quoteAsset": "BTC",
-                    "quotePrecision": 8,
-                    "quoteAssetPrecision": 8,
-                    "baseCommissionPrecision": 8,
-                    "quoteCommissionPrecision": 8,
-                    "orderTypes": [
-                        "LIMIT",
-                        "LIMIT_MAKER",
-                        "MARKET",
-                        "STOP_LOSS_LIMIT",
-                        "TAKE_PROFIT_LIMIT"
-                    ],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "quoteOrderQtyMarketAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "filters": [],
-                    "permissions": [
-                        "SPOT",
-                        "MARGIN"
-                    ]
-                },
-                {
-                    "symbol": "BNBBTC",
-                    "status": "TRADING",
-                    "baseAsset": "BNB",
-                    "baseAssetPrecision": 8,
-                    "quoteAsset": "BTC",
-                    "quotePrecision": 8,
-                    "quoteAssetPrecision": 8,
-                    "baseCommissionPrecision": 8,
-                    "quoteCommissionPrecision": 8,
-                    "orderTypes": [
-                        "LIMIT",
-                        "LIMIT_MAKER",
-                        "MARKET",
-                        "STOP_LOSS_LIMIT",
-                        "TAKE_PROFIT_LIMIT"
-                    ],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "quoteOrderQtyMarketAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "filters": [],
-                    "permissions": [
-                        "MARGIN"
-                    ]
-                },
-            ]
-        }
-
-        mock_api.get(url, body=json.dumps(mock_response))
-
-        result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(2, len(result))
-        self.assertIn("ETH-BTC", result)
-        self.assertIn("LTC-BTC", result)
-        self.assertNotIn("BNB-BTC", result)
-
-    @aioresponses()
-    def test_fetch_trading_pairs_exception_raised(self, mock_api):
-        BinanceAPIOrderBookDataSource._trading_pair_symbol_map = {}
-
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, exception=Exception)
-
-        result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(0, len(result))
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):

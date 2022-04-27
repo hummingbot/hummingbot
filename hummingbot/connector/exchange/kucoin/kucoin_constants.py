@@ -16,7 +16,6 @@ BASE_PATH_URL = {
 PUBLIC_WS_DATA_PATH_URL = "/api/v1/bullet-public"
 PRIVATE_WS_DATA_PATH_URL = "/api/v1/bullet-private"
 TICKER_PRICE_CHANGE_PATH_URL = "/api/v1/market/orderbook/level1"
-EXCHANGE_INFO_PATH_URL = "/api/v1/symbols"
 SNAPSHOT_NO_AUTH_PATH_URL = "/api/v1/market/orderbook/level2_100"
 ACCOUNTS_PATH_URL = "/api/v1/accounts"
 SERVER_TIME_PATH_URL = "/api/v1/timestamp"
@@ -45,7 +44,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_WS_DATA_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=PRIVATE_WS_DATA_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=NO_LIMIT, time_interval=1),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=SYMBOLS_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=SNAPSHOT_NO_AUTH_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=NO_LIMIT, time_interval=1),

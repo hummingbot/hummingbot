@@ -1,10 +1,7 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_utils, okex_web_utils as web_utils
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils as web_utils
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -13,6 +10,9 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
+
 
 class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
@@ -20,86 +20,15 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 api_factory: Optional[WebAssistantsFactory] = None,
-                 throttler: Optional[AsyncThrottler] = None,
-                 time_synchronizer: Optional[TimeSynchronizer] = None):
+                 connector: 'OkexExchange',
+                 api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
-        self._time_synchronizer = time_synchronizer
-        self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-        )
+        self._connector = connector
+        self._api_factory = api_factory
 
     @classmethod
     def _default_domain(cls):
         return ""
-
-    @classmethod
-    async def _get_last_traded_price(cls,
-                                     trading_pair: str,
-                                     api_factory: Optional[WebAssistantsFactory] = None,
-                                     throttler: Optional[AsyncThrottler] = None,
-                                     domain: Optional[str] = None,
-                                     time_synchronizer: Optional[TimeSynchronizer] = None) -> float:
-        throttler = throttler or web_utils.create_throttler()
-        api_factory = api_factory or web_utils.build_api_factory(
-            throttler=throttler,
-            time_synchronizer=time_synchronizer,
-        )
-        rest_assistant = await api_factory.get_rest_assistant()
-        params = {
-            "instId": await cls.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair,
-                domain=domain,
-                api_factory=api_factory,
-                throttler=throttler,
-                time_synchronizer=time_synchronizer)
-        }
-
-        resp_json = await rest_assistant.execute_request(
-            url=web_utils.rest_url(path_url=CONSTANTS.OKEX_TICKER_PATH),
-            params=params,
-            method=RESTMethod.GET,
-            throttler_limit_id=CONSTANTS.OKEX_TICKER_PATH,
-        )
-
-        ticker_data, *_ = resp_json["data"]
-        return float(ticker_data["last"])
-
-    @classmethod
-    async def _exchange_symbols_and_trading_pairs(
-            cls,
-            domain: Optional[str] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None) -> Dict[str, str]:
-        """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
-        """
-        api_factory = api_factory or web_utils.build_api_factory(
-            throttler=throttler,
-            time_synchronizer=time_synchronizer,
-        )
-        mapping = {}
-        rest_assistant = await api_factory.get_rest_assistant()
-
-        try:
-            data = await rest_assistant.execute_request(
-                url=web_utils.rest_url(path_url=CONSTANTS.OKEX_INSTRUMENTS_PATH),
-                params={"instType": "SPOT"},
-                method=RESTMethod.GET,
-                throttler_limit_id=CONSTANTS.OKEX_INSTRUMENTS_PATH,
-            )
-
-            for symbol_data in filter(okex_utils.is_exchange_information_valid, data["data"]):
-                mapping[symbol_data["instId"]] = combine_to_hb_trading_pair(base=symbol_data["baseCcy"],
-                                                                            quote=symbol_data["quoteCcy"])
-
-        except Exception as ex:
-            cls.logger().error(f"There was an error requesting exchange info ({str(ex)})")
-
-        return mapping
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
@@ -129,12 +58,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
-            "instId": await self.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair,
-                domain=self._default_domain(),
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer),
+            "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "sz": "400"
         }
 
@@ -152,12 +76,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trade_updates = raw_message["data"]
 
         for trade_data in trade_updates:
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(
-                symbol=trade_data["instId"],
-                domain=self._default_domain(),
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer)
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade_data["instId"])
             message_content = {
                 "trade_id": trade_data["tradeId"],
                 "trading_pair": trading_pair,
@@ -179,12 +98,8 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for diff_data in diff_updates:
             timestamp: float = int(diff_data["ts"]) * 1e-3
             update_id: int = int(timestamp)
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(
-                symbol=raw_message["arg"]["instId"],
-                domain=self._default_domain(),
-                api_factory=self._api_factory,
-                throttler=self._throttler,
-                time_synchronizer=self._time_synchronizer)
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                symbol=raw_message["arg"]["instId"])
 
             order_book_message_content = {
                 "trading_pair": trading_pair,
@@ -202,12 +117,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
             for trading_pair in self._trading_pairs:
-                symbol = await self.exchange_symbol_associated_to_pair(
-                    trading_pair=trading_pair,
-                    domain=self._default_domain(),
-                    api_factory=self._api_factory,
-                    throttler=self._throttler,
-                    time_synchronizer=self._time_synchronizer)
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
                 payload = {
                     "op": "subscribe",
@@ -230,9 +140,9 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-                async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+                async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
                     await ws.send(subscribe_trade_request)
-                async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+                async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
                     await ws.send(subscribe_orderbook_request)
 
             self.logger().info("Subscribed to public order book and trade channels...")
@@ -263,7 +173,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        async with self._throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
             await ws.connect(
                 ws_url=CONSTANTS.OKEX_WS_URI_PUBLIC,
                 message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)

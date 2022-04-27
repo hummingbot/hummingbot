@@ -9,6 +9,8 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS, crypto_com_utils
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import \
+    CryptoComAPIOrderBookDataSource
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
@@ -77,13 +79,15 @@ class CryptoComExchange(ExchangeBase):
         self._shared_client = aiohttp.ClientSession()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-        self._order_book_tracker = CryptoComOrderBookTracker(shared_client=self._shared_client,
-                                                             throttler=self._throttler,
-                                                             trading_pairs=trading_pairs,
-                                                             )
-        self._user_stream_tracker = CryptoComUserStreamTracker(crypto_com_auth=self._crypto_com_auth,
-                                                               shared_client=self._shared_client,
-                                                               )
+        self._set_order_book_tracker(CryptoComOrderBookTracker(
+            shared_client=self._shared_client,
+            throttler=self._throttler,
+            trading_pairs=trading_pairs,
+        ))
+        self._user_stream_tracker = CryptoComUserStreamTracker(
+            crypto_com_auth=self._crypto_com_auth,
+            shared_client=self._shared_client,
+        )
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -101,7 +105,7 @@ class CryptoComExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -117,7 +121,7 @@ class CryptoComExchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -186,7 +190,7 @@ class CryptoComExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -197,7 +201,7 @@ class CryptoComExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -363,9 +367,9 @@ class CryptoComExchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -844,3 +848,13 @@ class CryptoComExchange(ExchangeBase):
                 )
             )
         return ret_val
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await CryptoComAPIOrderBookDataSource.fetch_trading_pairs(throttler=self._throttler)
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await CryptoComAPIOrderBookDataSource.get_last_traded_prices(
+            trading_pairs=trading_pairs,
+            throttler=self._throttler)

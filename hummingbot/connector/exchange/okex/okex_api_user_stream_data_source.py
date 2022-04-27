@@ -1,10 +1,8 @@
 import asyncio
 from typing import Any, Dict, Optional
 
-from hummingbot.connector.exchange.okex import constants as CONSTANTS, okex_web_utils as web_utils
+from hummingbot.connector.exchange.okex import constants as CONSTANTS
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSPlainTextRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -19,17 +17,10 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
             self,
             auth: OKExAuth,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None):
+            api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__()
         self._auth: OKExAuth = auth
-        self._time_synchronizer = time_synchronizer
-        self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            auth=self._auth)
+        self._api_factory = api_factory
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -48,7 +39,7 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         login_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.WS_LOGIN_LIMIT_ID):
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_LOGIN_LIMIT_ID):
             await ws.send(login_request)
 
         response: WSResponse = await ws.receive()
@@ -78,9 +69,9 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             }
             subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
                 await websocket_assistant.send(subscribe_account_request)
-            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
                 await websocket_assistant.send(subscribe_orders_request)
             self.logger().info("Subscribed to private account and orders channels...")
         except asyncio.CancelledError:

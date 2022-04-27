@@ -695,7 +695,7 @@ class MexcExchangeTests(TestCase):
 
     def test_get_order_book_for_valid_trading_pair(self):
         dummy_order_book = MexcOrderBook()
-        self.exchange._order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
+        self.exchange.order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
         self.assertEqual(dummy_order_book, self.exchange.get_order_book("BTC-USDT"))
 
     def test_get_order_book_for_invalid_trading_pair_raises_error(self):
@@ -989,7 +989,7 @@ class MexcExchangeTests(TestCase):
 
         # Simulate all components initialized
         self.exchange._account_id = 1
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {
             self.base_asset: Decimal(str(10.0))
         }
@@ -1003,7 +1003,7 @@ class MexcExchangeTests(TestCase):
 
         # Simulate all components but account_id not initialized
         self.exchange._account_id = None
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {}
         self._simulate_trading_rules_initialized()
         self.exchange._user_stream_tracker.data_source._last_recv_time = 0
@@ -1015,7 +1015,7 @@ class MexcExchangeTests(TestCase):
 
         # Simulate all components but account_id not initialized
         self.exchange._account_id = None
-        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange.order_book_tracker._order_books_initialized.set()
         self.exchange._account_balances = {}
         self._simulate_trading_rules_initialized()
         self.exchange._user_stream_tracker.data_source._last_recv_time = 0

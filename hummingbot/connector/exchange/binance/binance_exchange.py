@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
+from bidict import bidict
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.binance import (
@@ -17,7 +18,7 @@ from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id, TradeFillOrderDetails
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id, TradeFillOrderDetails
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -66,21 +67,19 @@ class BinanceExchange(ExchangeBase):
             domain=self._domain,
             auth=self._auth)
         self._rest_assistant = None
-        self._order_book_tracker = OrderBookTracker(
+        self._set_order_book_tracker(OrderBookTracker(
             data_source=BinanceAPIOrderBookDataSource(
                 trading_pairs=trading_pairs,
+                connector=self,
                 domain=self._domain,
-                api_factory=self._api_factory,
-                throttler=self._throttler),
+                api_factory=self._api_factory),
             trading_pairs=trading_pairs,
-            domain=self._domain)
+            domain=self._domain))
         self._user_stream_tracker = UserStreamTracker(
             data_source=BinanceAPIUserStreamDataSource(
                 auth=self._auth,
                 domain=self._domain,
-                throttler=self._throttler,
-                api_factory=self._api_factory,
-                time_synchronizer=self._binance_time_synchronizer))
+                api_factory=self._api_factory))
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -112,7 +111,7 @@ class BinanceExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
@@ -142,9 +141,8 @@ class BinanceExchange(ExchangeBase):
         The key of each entry is the condition name, and the value is True if condition is ready, False otherwise.
         """
         return {
-            "symbols_mapping_initialized": BinanceAPIOrderBookDataSource.trading_pair_symbol_map_ready(
-                domain=self._domain),
-            "order_books_initialized": self._order_book_tracker.ready,
+            "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0,
@@ -177,7 +175,7 @@ class BinanceExchange(ExchangeBase):
         - The polling loop to update order status and balance status using REST API (backup for main update process)
         - The background task to process the events received through the user stream tracker (websocket connection)
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -194,7 +192,7 @@ class BinanceExchange(ExchangeBase):
         self._last_timestamp = 0
         self._poll_notifier = asyncio.Event()
 
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -250,9 +248,9 @@ class BinanceExchange(ExchangeBase):
         Returns the current order book for a particular market
         :param trading_pair: the pair of tokens for which the order book should be retrieved
         """
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(self,
                              order_id: str,
@@ -445,6 +443,22 @@ class BinanceExchange(ExchangeBase):
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
+    async def _initialize_trading_pair_symbol_map(self):
+        try:
+            exchange_info = await self._api_request(
+                method=RESTMethod.GET,
+                path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
+            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        except Exception:
+            self.logger().exception("There was an error requesting exchange info.")
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(binance_utils.is_exchange_information_valid, exchange_info["symbols"]):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                        quote=symbol_data["quoteAsset"])
+        self._set_trading_pair_symbol_map(mapping)
+
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
@@ -492,12 +506,7 @@ class BinanceExchange(ExchangeBase):
         price_str = f"{price:f}"
         type_str = BinanceExchange.binance_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._binance_time_synchronizer)
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,
                       "side": side_str,
                       "quantity": amount_str,
@@ -552,12 +561,7 @@ class BinanceExchange(ExchangeBase):
         tracked_order = self._order_tracker.fetch_tracked_order(order_id)
         if tracked_order is not None:
             try:
-                symbol = await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                    trading_pair=trading_pair,
-                    domain=self._domain,
-                    api_factory=self._api_factory,
-                    throttler=self._throttler,
-                    time_synchronizer=self._binance_time_synchronizer)
+                symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 api_params = {
                     "symbol": symbol,
                     "origClientOrderId": order_id,
@@ -640,6 +644,7 @@ class BinanceExchange(ExchangeBase):
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -671,12 +676,7 @@ class BinanceExchange(ExchangeBase):
         retval = []
         for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await BinanceAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
-                    symbol=rule.get("symbol"),
-                    domain=self._domain,
-                    api_factory=self._api_factory,
-                    throttler=self._throttler,
-                    time_synchronizer=self._binance_time_synchronizer)
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
@@ -787,15 +787,10 @@ class BinanceExchange(ExchangeBase):
                 order_by_exchange_id_map[order.exchange_order_id] = order
 
             tasks = []
-            trading_pairs = self._order_book_tracker._trading_pairs
+            trading_pairs = self.order_book_tracker._trading_pairs
             for trading_pair in trading_pairs:
                 params = {
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                        trading_pair=trading_pair,
-                        domain=self._domain,
-                        api_factory=self._api_factory,
-                        throttler=self._throttler,
-                        time_synchronizer=self._binance_time_synchronizer)
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 }
                 if self._last_poll_timestamp > 0:
                     params["startTime"] = query_time
@@ -881,12 +876,7 @@ class BinanceExchange(ExchangeBase):
                 method=RESTMethod.GET,
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params={
-                    "symbol": await BinanceAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                        trading_pair=o.trading_pair,
-                        domain=self._domain,
-                        api_factory=self._api_factory,
-                        throttler=self._throttler,
-                        time_synchronizer=self._binance_time_synchronizer),
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=o.trading_pair),
                     "origClientOrderId": o.client_order_id},
                 is_auth_required=True) for o in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -966,6 +956,19 @@ class BinanceExchange(ExchangeBase):
         except Exception:
             self.logger().exception("Error requesting time from Binance server")
             raise
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+
+        resp_json = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            params=params
+        )
+
+        return float(resp_json["lastPrice"])
 
     async def _api_request(self,
                            method: RESTMethod,

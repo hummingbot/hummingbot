@@ -3,25 +3,16 @@ import logging
 import time
 from abc import ABCMeta
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-from bidict import bidict
-
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 
 class OrderBookTrackerDataSource(metaclass=ABCMeta):
     FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 60 * 60
-
-    _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
-    _mapping_initialization_lock = asyncio.Lock()
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -39,167 +30,6 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    @classmethod
-    async def fetch_trading_pairs(
-            cls,
-            domain: Optional[str] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None) -> List[str]:
-        """
-        Returns a list of all known trading pairs enabled to operate with
-        Used by public order book fetchers.
-
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
-        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
-        :param throttler: the throttler instance to use in case the symbols information has to be requested
-        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
-            exchange
-
-        :return: list of trading pairs in client notation
-        """
-        domain = domain or cls._default_domain()
-        mapping = await cls.trading_pair_symbol_map(
-            domain=domain,
-            throttler=throttler,
-            api_factory=api_factory,
-            time_synchronizer=time_synchronizer,
-        )
-        return list(mapping.values())
-
-    @classmethod
-    async def get_last_traded_prices(cls,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None,
-                                     api_factory: Optional[WebAssistantsFactory] = None,
-                                     throttler: Optional[AsyncThrottler] = None,
-                                     time_synchronizer: Optional[TimeSynchronizer] = None) -> Dict[str, float]:
-        """
-        Return a dictionary the trading_pair as key and the current price as value for each trading pair passed as
-        parameter
-
-        :param trading_pairs: list of trading pairs to get the prices for
-        :param domain: which domain we are connecting to
-        :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
-            If no instance is provided then a new one will be created.
-        :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
-        the function will create a new one.
-        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
-            exchange
-
-        :return: Dictionary of associations between token pair and its latest price
-        """
-        tasks = [cls._get_last_traded_price(
-            trading_pair=t_pair,
-            domain=domain,
-            api_factory=api_factory,
-            throttler=throttler,
-            time_synchronizer=time_synchronizer) for t_pair in
-            trading_pairs]
-        results = await safe_gather(*tasks)
-        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
-
-    @classmethod
-    def trading_pair_symbol_map_ready(cls, domain: Optional[str] = None):
-        """
-        Checks if the mapping from exchange symbols to client trading pairs has been initialized
-        :param domain: the domain of the exchange being used
-        :return: True if the mapping has been initialized, False otherwise
-        """
-        domain = domain or cls._default_domain()
-        return domain in cls._trading_pair_symbol_map and len(cls._trading_pair_symbol_map[domain]) > 0
-
-    @classmethod
-    async def trading_pair_symbol_map(
-            cls,
-            domain: Optional[str] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None,
-    ) -> Dict[str, str]:
-        """
-        Returns the internal map used to translate trading pairs from and to the exchange notation.
-        In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
-        `trading_pair_associated_to_exchange_symbol`
-
-        :param domain: the domain of the exchange being used
-        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
-        :param throttler: the throttler instance to use in case the symbols information has to be requested
-        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
-            exchange
-
-        :return: bidirectional mapping between trading pair exchange notation and client notation
-        """
-        domain = domain or cls._default_domain()
-        if not cls.trading_pair_symbol_map_ready(domain=domain):
-            async with cls._mapping_initialization_lock:
-                # Check condition again (could have been initialized while waiting for the lock to be released)
-                if not cls.trading_pair_symbol_map_ready(domain=domain):
-                    await cls._init_trading_pair_symbols(
-                        domain=domain,
-                        api_factory=api_factory,
-                        throttler=throttler,
-                        time_synchronizer=time_synchronizer)
-
-        return cls._trading_pair_symbol_map[domain]
-
-    @classmethod
-    async def exchange_symbol_associated_to_pair(
-            cls,
-            trading_pair: str,
-            domain: Optional[str] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None,
-    ) -> str:
-        """
-        Used to translate a trading pair from the client notation to the exchange notation
-
-        :param trading_pair: trading pair in client notation
-        :param domain: the domain of the exchange being used
-        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
-        :param throttler: the throttler instance to use in case the symbols information has to be requested
-        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
-            exchange
-
-        :return: trading pair in exchange notation
-        """
-        domain = domain or cls._default_domain()
-        symbol_map = await cls.trading_pair_symbol_map(
-            domain=domain,
-            api_factory=api_factory,
-            throttler=throttler,
-            time_synchronizer=time_synchronizer)
-        return symbol_map.inverse[trading_pair]
-
-    @classmethod
-    async def trading_pair_associated_to_exchange_symbol(
-            cls,
-            symbol: str,
-            domain: Optional[str] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None) -> str:
-        """
-        Used to translate a trading pair from the exchange notation to the client notation
-
-        :param symbol: trading pair in exchange notation
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
-        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
-        :param throttler: the throttler instance to use in case the symbols information has to be requested
-        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
-            exchange
-
-        :return: trading pair in client notation
-        """
-        domain = domain or cls._default_domain()
-        symbol_map = await cls.trading_pair_symbol_map(
-            domain=domain,
-            api_factory=api_factory,
-            throttler=throttler,
-            time_synchronizer=time_synchronizer)
-        return symbol_map[symbol]
-
     @property
     def order_book_create_function(self) -> Callable[[], OrderBook]:
         return self._order_book_create_function
@@ -207,13 +37,6 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     @order_book_create_function.setter
     def order_book_create_function(self, func: Callable[[], OrderBook]):
         self._order_book_create_function = func
-
-    async def get_trading_pairs(self) -> List[str]:
-        """
-        `fetch_trading_pairs()` and `get_trading_pairs()` are used by public order book fetchers,
-        do not remove.
-        """
-        return await self.fetch_trading_pairs()
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         """
@@ -313,25 +136,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                 self.logger().exception("Unexpected error when processing public trade updates from exchange")
 
     @classmethod
-    async def _get_last_traded_price(cls,
-                                     trading_pair: str,
-                                     api_factory: Optional[WebAssistantsFactory] = None,
-                                     throttler: Optional[AsyncThrottler] = None,
-                                     domain: Optional[str] = None,
-                                     time_synchronizer: Optional[TimeSynchronizer] = None) -> float:
-        raise NotImplementedError
-
-    @classmethod
     def _default_domain(cls):
-        raise NotImplementedError
-
-    @classmethod
-    async def _exchange_symbols_and_trading_pairs(
-            cls,
-            domain: Optional[str] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None) -> Dict[str, str]:
         raise NotImplementedError
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -351,26 +156,6 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         :param message_queue: queue where the parsed messages should be stored in
         """
         raise NotImplementedError
-
-    @classmethod
-    async def _init_trading_pair_symbols(
-            cls,
-            domain: Optional[str] = None,
-            api_factory: Optional[WebAssistantsFactory] = None,
-            throttler: Optional[AsyncThrottler] = None,
-            time_synchronizer: Optional[TimeSynchronizer] = None):
-        """
-        Initialize mapping of trade symbols in exchange notation to trade symbols in client notation
-        """
-        mapping = bidict()
-        mapping.update(await cls._exchange_symbols_and_trading_pairs(
-            domain=domain,
-            api_factory=api_factory,
-            throttler=throttler,
-            time_synchronizer=time_synchronizer
-        ))
-
-        cls._trading_pair_symbol_map[domain] = mapping
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         raise NotImplementedError

@@ -9,6 +9,8 @@ cdef class OkexExchange(ExchangeBase):
         object _data_source_type
         object _ev_loop
         object _okex_auth  # TODO
+        object _throttler
+        object _api_factory
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp

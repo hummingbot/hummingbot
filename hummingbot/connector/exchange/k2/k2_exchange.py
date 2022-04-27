@@ -8,6 +8,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 
 from hummingbot.connector.exchange.k2 import k2_constants as constants, k2_utils
+from hummingbot.connector.exchange.k2.k2_api_order_book_data_source import K2APIOrderBookDataSource
 from hummingbot.connector.exchange.k2.k2_auth import K2Auth
 from hummingbot.connector.exchange.k2.k2_in_flight_order import K2InFlightOrder
 from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker
@@ -72,7 +73,7 @@ class K2Exchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._k2_auth = K2Auth(k2_api_key, k2_secret_key)
-        self._order_book_tracker = K2OrderBookTracker(trading_pairs=trading_pairs)
+        self._set_order_book_tracker(K2OrderBookTracker(trading_pairs=trading_pairs))
         self._user_stream_tracker = K2UserStreamTracker(self._k2_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -93,7 +94,7 @@ class K2Exchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
+        return self.order_book_tracker.order_books
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -109,7 +110,7 @@ class K2Exchange(ExchangeBase):
         A dictionary of statuses of various connector's components.
         """
         return {
-            "order_books_initialized": self._order_book_tracker.ready,
+            "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
@@ -178,7 +179,7 @@ class K2Exchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        self._order_book_tracker.start()
+        self.order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -189,7 +190,7 @@ class K2Exchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
-        self._order_book_tracker.stop()
+        self.order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -350,9 +351,9 @@ class K2Exchange(ExchangeBase):
         return Decimal(trading_rule.min_base_amount_increment)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self._order_book_tracker.order_books:
+        if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self._order_book_tracker.order_books[trading_pair]
+        return self.order_book_tracker.order_books[trading_pair]
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -857,3 +858,11 @@ class K2Exchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def all_trading_pairs(self) -> List[str]:
+        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
+        return await K2APIOrderBookDataSource.fetch_trading_pairs()
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        # This method should be removed and instead we should implement _get_last_traded_price
+        return await K2APIOrderBookDataSource.get_last_traded_prices(trading_pairs=trading_pairs)

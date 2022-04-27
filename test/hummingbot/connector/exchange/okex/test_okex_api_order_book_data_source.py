@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import unittest
-from typing import Any, Awaitable, Dict
+from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
@@ -11,6 +11,7 @@ from bidict import bidict
 import hummingbot.connector.exchange.okex.constants as CONSTANTS
 import hummingbot.connector.exchange.okex.okex_web_utils as web_utils
 from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
+from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
@@ -40,18 +41,28 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer.add_time_offset_ms_sample(1000)
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.api_factory = web_utils.build_api_factory(
+            throttler=self.throttler,
+            time_synchronizer=self.time_synchronizer,
+        )
+        self.connector = OkexExchange(
+            okex_api_key="",
+            okex_secret_key="",
+            okex_passphrase="",
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+
+        )
         self.data_source = OkexAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                      throttler=self.throttler,
-                                                      time_synchronizer=self.time_synchronizer)
+                                                      connector=self.connector,
+                                                      api_factory=self.api_factory)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
 
-        OkexAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "": bidict(
-                {f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
-        }
+        self.connector._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -72,156 +83,6 @@ class OkexAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-
-    @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_TICKER_PATH)
-        url = f"{url}?instId={self.base_asset}-{self.quote_asset}"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = {
-            "code": "0",
-            "msg": "",
-            "data": [
-                {
-                    "instType": "SPOT",
-                    "instId": self.trading_pair,
-                    "last": "9999.99",
-                    "lastSz": "0.1",
-                    "askPx": "9999.99",
-                    "askSz": "11",
-                    "bidPx": "8888.88",
-                    "bidSz": "5",
-                    "open24h": "9000",
-                    "high24h": "10000",
-                    "low24h": "8888.88",
-                    "volCcy24h": "2222",
-                    "vol24h": "2222",
-                    "sodUtc0": "2222",
-                    "sodUtc8": "2222",
-                    "ts": "1597026383085"
-                }
-            ]
-        }
-
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        result: Dict[str, float] = self.async_run_with_timeout(
-            self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair],
-                                                    throttler=self.throttler,
-                                                    time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(1, len(result))
-        self.assertEqual(9999.99, result[self.trading_pair])
-
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        OkexAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_INSTRUMENTS_PATH)
-        url = url + "?instType=SPOT"
-
-        mock_response: Dict[str, Any] = {
-            "code": "0",
-            "data": [
-                {
-                    "alias": "",
-                    "baseCcy": "BTC",
-                    "category": "1",
-                    "ctMult": "",
-                    "ctType": "",
-                    "ctVal": "",
-                    "ctValCcy": "",
-                    "expTime": "",
-                    "instId": "BTC-USDT",
-                    "instType": "SPOT",
-                    "lever": "10",
-                    "listTime": "1548133413000",
-                    "lotSz": "0.00000001",
-                    "minSz": "0.00001",
-                    "optType": "",
-                    "quoteCcy": "USDT",
-                    "settleCcy": "",
-                    "state": "live",
-                    "stk": "",
-                    "tickSz": "0.1",
-                    "uly": ""
-                },
-                {
-                    "alias": "",
-                    "baseCcy": "ETH",
-                    "category": "1",
-                    "ctMult": "",
-                    "ctType": "",
-                    "ctVal": "",
-                    "ctValCcy": "",
-                    "expTime": "",
-                    "instId": "ETH-USDT",
-                    "instType": "SPOT",
-                    "lever": "10",
-                    "listTime": "1548133413000",
-                    "lotSz": "0.000001",
-                    "minSz": "0.001",
-                    "optType": "",
-                    "quoteCcy": "USDT",
-                    "settleCcy": "",
-                    "state": "live",
-                    "stk": "",
-                    "tickSz": "0.01",
-                    "uly": ""
-                },
-                {
-                    "alias": "",
-                    "baseCcy": "OKB",
-                    "category": "1",
-                    "ctMult": "",
-                    "ctType": "",
-                    "ctVal": "",
-                    "ctValCcy": "",
-                    "expTime": "",
-                    "instId": "OKB-USDT",
-                    "instType": "OPTION",
-                    "lever": "10",
-                    "listTime": "1548133413000",
-                    "lotSz": "0.000001",
-                    "minSz": "0.1",
-                    "optType": "",
-                    "quoteCcy": "USDT",
-                    "settleCcy": "",
-                    "state": "live",
-                    "stk": "",
-                    "tickSz": "0.001",
-                    "uly": ""
-                },
-            ]
-        }
-
-        mock_api.get(url, body=json.dumps(mock_response))
-
-        result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(2, len(result))
-        self.assertIn("BTC-USDT", result)
-        self.assertIn("ETH-USDT", result)
-        self.assertNotIn("OKB-USDT", result)
-
-    @aioresponses()
-    def test_fetch_trading_pairs_exception_raised(self, mock_api):
-        OkexAPIOrderBookDataSource._trading_pair_symbol_map = {}
-
-        url = web_utils.rest_url(path_url=CONSTANTS.OKEX_INSTRUMENTS_PATH)
-        url = url + "?instType=SPOT"
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, exception=Exception)
-
-        result: Dict[str] = self.async_run_with_timeout(
-            self.data_source.fetch_trading_pairs(time_synchronizer=self.time_synchronizer)
-        )
-
-        self.assertEqual(0, len(result))
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
