@@ -1,6 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -14,6 +15,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
+    PositionModeChangeEvent,
     SellOrderCompletedEvent,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -418,3 +420,48 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         connector.trigger_event(event_tag,
                                 event_class(connector.current_timestamp, order_id, base_asset, quote_asset,
                                             amount, amount * price, OrderType.LIMIT))
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_success(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.strategy.did_change_position_mode_succeed(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=trading_pair,
+                position_mode=PositionMode.ONEWAY,
+            )
+        )
+
+        self.assertTrue(self.strategy._position_mode_ready)
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_failure(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.strategy.did_change_position_mode_fail(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=trading_pair,
+                position_mode=PositionMode.ONEWAY,
+                message="Error message",
+            )
+        )
+
+        self.assertFalse(self.strategy._position_mode_ready)
