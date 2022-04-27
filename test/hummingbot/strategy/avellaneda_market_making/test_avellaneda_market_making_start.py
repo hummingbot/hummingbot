@@ -1,7 +1,8 @@
 import datetime
 import logging
-from decimal import Decimal
 import unittest.mock
+from decimal import Decimal
+
 import hummingbot.strategy.avellaneda_market_making.start as strategy_start
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -59,7 +60,7 @@ class AvellanedaStartTest(unittest.TestCase):
         if self.raise_exception_for_market_initialization:
             raise Exception("Exception for testing")
 
-    def _notify(self, message):
+    def notify(self, message):
         self.notifications.append(message)
 
     def logger(self):

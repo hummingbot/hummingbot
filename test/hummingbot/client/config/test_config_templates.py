@@ -1,18 +1,14 @@
-#!/usr/bin/env python
-
-from os.path import (
-    join,
-    realpath,
-)
-import logging; logging.basicConfig(level=logging.INFO)
 import unittest
+from os.path import join
+
 import ruamel.yaml
 
-from hummingbot.client.config.config_helpers import (
-    get_strategy_template_path,
-    get_strategy_config_map,
-)
+from hummingbot import root_path
+from hummingbot.client.config.config_helpers import get_strategy_config_map, get_strategy_template_path
 from hummingbot.client.config.global_config_map import global_config_map
+
+import logging; logging.basicConfig(level=logging.INFO)
+
 
 yaml_parser = ruamel.yaml.YAML()
 
@@ -20,8 +16,7 @@ yaml_parser = ruamel.yaml.YAML()
 class ConfigTemplatesUnitTest(unittest.TestCase):
 
     def test_global_config_template_complete(self):
-        global_config_template_path: str = realpath(join(__file__,
-                                                         "../../../../../hummingbot/templates/conf_global_TEMPLATE.yml"))
+        global_config_template_path: str = join(root_path(), "hummingbot/templates/conf_global_TEMPLATE.yml")
 
         with open(global_config_template_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -53,7 +48,6 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
             "pure_market_making",
             "spot_perpetual_arbitrage",
             "twap",
-            "uniswap_v3_lp",
         ]
 
         for strategy in strategies:

@@ -6,7 +6,7 @@ from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     load_strategy_config_map_from_file,
     short_strategy_name,
-    validate_strategy_file
+    validate_strategy_file,
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
@@ -45,7 +45,7 @@ class ImportCommand:
             else config_map.get("strategy").value  # legacy
         )
         self.strategy_config_map = config_map
-        self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
+        self.notify(f"Configuration from {self.strategy_file_name} file is imported.")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -57,7 +57,7 @@ class ImportCommand:
             self.strategy_config_map = None
             raise
         if all_status_go:
-            self._notify("\nEnter \"start\" to start market making.")
+            self.notify("\nEnter \"start\" to start market making.")
             autofill_import = global_config_map.get("autofill_import").value
             if autofill_import is not None:
                 self.app.set_text(autofill_import)
@@ -71,7 +71,7 @@ class ImportCommand:
         file_path = os.path.join(CONF_FILE_PATH, file_name)
         err_msg = validate_strategy_file(file_path)
         if err_msg is not None:
-            self._notify(f"Error: {err_msg}")
+            self.notify(f"Error: {err_msg}")
             return await self.prompt_a_file_name()
         else:
             return file_name
