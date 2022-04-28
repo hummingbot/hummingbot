@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 
 class TickerCommandTest(unittest.TestCase):
@@ -33,7 +33,7 @@ class TickerCommandTest(unittest.TestCase):
         for key, value in self.global_config_backup.items():
             global_config_map[key] = value
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._notify")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_show_ticker(self, notify_mock):
         global_config_map["tables_format"].value = "psql"
 

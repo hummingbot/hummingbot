@@ -2,9 +2,8 @@ import hashlib
 import hmac
 import json
 import time
-
 from decimal import Decimal
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 

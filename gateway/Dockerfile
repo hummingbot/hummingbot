@@ -1,0 +1,36 @@
+FROM node:16.3.0
+
+# Set labels
+LABEL application="gateway-v2"
+LABEL branch=${BRANCH}
+LABEL commit=${COMMIT}
+LABEL date=${BUILD_DATE}
+
+# Set ENV variables
+ENV COMMIT_BRANCH=${BRANCH}
+ENV COMMIT_SHA=${COMMIT}
+ENV BUILD_DATE=${DATE}
+
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
+
+# Install gosu
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y gosu && \
+    rm -rf /var/lib/apt/lists/*
+
+# app directory
+WORKDIR /usr/src/app
+
+# copy pwd file to container
+COPY . .
+
+# install dependencies
+RUN yarn
+
+EXPOSE 5000
+
+RUN yarn build
+
+CMD ["bin/docker-start.sh"]
