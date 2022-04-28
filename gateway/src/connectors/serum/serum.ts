@@ -1,6 +1,6 @@
 import {Account, Connection, PublicKey} from '@solana/web3.js';
 import {Market as SerumMarket, MARKETS, Orderbook as SerumOrderBook,} from '@project-serum/serum';
-import {Map as ImmutableMap} from 'immutable'; // TODO create a type for this import!!!
+import axios from 'axios';
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
@@ -13,12 +13,14 @@ import {
   GetOpenOrdersRequest,
   GetOrderRequest,
   GetOrdersRequest,
+  IMap,
   Market,
   MarketNotFoundError,
   Order,
   OrderBook,
   OrderNotFoundError,
   OrderStatus,
+  BasicSerumMarket,
   Ticker,
   TickerNotFoundError,
 } from './serum.types';
@@ -34,16 +36,40 @@ import {
   convertSerumMarketToMarket,
   convertSerumOrderToOrder
 } from "./serum.convertors";
+import {sleep} from "@blockworks-foundation/mango-client";
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
 
-  // market: new CacheContainer(new MemoryStorage()),
-  // markets: new CacheContainer(new MemoryStorage()),
-  // allMarkets: new CacheContainer(new MemoryStorage()),
+  market: new CacheContainer(new MemoryStorage()),
+  markets: new CacheContainer(new MemoryStorage()),
+  allMarkets: new CacheContainer(new MemoryStorage()),
 };
 
 export type Serumish = Serum;
+
+/**
+ * Same as Promise.all(items.map(item => task(item))), but it waits for
+ * the first {batchSize} promises to finish before starting the next batch.
+ *
+ * @template A
+ * @template B
+ * @param {function(A): B} task The task to run for each item.
+ * @param {A[]} items Arguments to pass to the task for each call.
+ * @param {int} batchSize
+ * @returns {B[]}
+ */
+export const promiseAllInBatches = async (task: any, items: any[], batchSize: number, delay: number = 0): Promise<any[]> =>{
+    let position = 0;
+    let results: any[] = [];
+    while (position < items.length) {
+        const itemsForBatch = items.slice(position, position + batchSize);
+        results = [...results, ...await Promise.all(itemsForBatch.map(item => task(item)))];
+        sleep(delay);
+        position += batchSize;
+    }
+    return results;
+}
 
 // TODO create a documentation saying how many requests we are sending through the Solana/Serum connection!!!
 export class Serum {
@@ -107,8 +133,8 @@ export class Serum {
     market: Market,
     orders: SerumOrder[] | SerumOrderBook | any[],
     address?: string
-  ): ImmutableMap<string, Order> {
-    const result = ImmutableMap<string, Order>().asMutable();
+  ): IMap<string, Order> {
+    const result = IMap<string, Order>().asMutable();
 
     for (const order of orders) {
       result.set(
@@ -175,8 +201,8 @@ export class Serum {
    * @param names
    */
   // @Cache(caches.markets, { ttl: 60 * 60 })
-  async getMarkets(names: string[]): Promise<ImmutableMap<string, Market>> {
-    const markets = ImmutableMap<string, Market>().asMutable();
+  async getMarkets(names: string[]): Promise<IMap<string, Market>> {
+    const markets = IMap<string, Market>().asMutable();
 
     for (const name of names) {
       const market = await this.getMarket(name);
@@ -190,14 +216,25 @@ export class Serum {
   /**
    *
    */
-  // @Cache(caches.allMarkets, { ttl: 60 * 60 })
-  async getAllMarkets(): Promise<ImmutableMap<string, Market>> {
-    const allMarkets = ImmutableMap<string, Market>().asMutable();
+  @Cache(caches.allMarkets, { ttl: 60 * 60 })
+  async getAllMarkets(): Promise<IMap<string, Market>> {
+    const allMarkets = IMap<string, Market>().asMutable();
 
-    // TODO use fetch to retrieve the markets instead of using the JSON!!!
-    // TODO change the code to use a background task and load in parallel (using batches) the markets!!!
+    const marketsURL =
+      this.config.marketsURL
+      || 'https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json';
+
+    let marketsInformation: BasicSerumMarket[];
+
+    try {
+      marketsInformation = (await axios.get(marketsURL)).data;
+    } catch (e) {
+      marketsInformation = MARKETS;
+    }
+
     // TODO Start using the https://www.npmjs.com/package/decimal library!!!
-    for (const market of MARKETS.filter(market => ['SOL/USDT', 'SOL/USDC', 'BTC/USDT'].includes(market.name))) {
+
+    const loadMarket = async(market: BasicSerumMarket): Promise<void> => {
       const serumMarket = await SerumMarket.load(
         this.connection,
         new PublicKey(market.address),
@@ -213,6 +250,8 @@ export class Serum {
         )
       );
     }
+
+    await promiseAllInBatches(loadMarket, marketsInformation, 100, 1500);
 
     return allMarkets;
   }
@@ -230,8 +269,8 @@ export class Serum {
     );
   }
 
-  async getOrderBooks(marketNames: string[]): Promise<ImmutableMap<string, OrderBook>> {
-    const orderBooks = ImmutableMap<string, OrderBook>().asMutable();
+  async getOrderBooks(marketNames: string[]): Promise<IMap<string, OrderBook>> {
+    const orderBooks = IMap<string, OrderBook>().asMutable();
 
     for (const marketName of marketNames) {
       const orderBook = await this.getOrderBook(marketName);
@@ -242,7 +281,7 @@ export class Serum {
     return orderBooks;
   }
 
-  async getAllOrderBooks(): Promise<ImmutableMap<string, OrderBook>> {
+  async getAllOrderBooks(): Promise<IMap<string, OrderBook>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return this.getOrderBooks(marketNames);
@@ -261,8 +300,8 @@ export class Serum {
     return convertFilledOrderToTicker(Date.now(), mostRecentFilledOrder);
   }
 
-  async getTickers(marketNames: string[]): Promise<ImmutableMap<string, Ticker>> {
-    const tickers = ImmutableMap<string, Ticker>().asMutable();
+  async getTickers(marketNames: string[]): Promise<IMap<string, Ticker>> {
+    const tickers = IMap<string, Ticker>().asMutable();
 
     for (const marketName of marketNames) {
       const ticker = await this.getTicker(marketName);
@@ -273,7 +312,7 @@ export class Serum {
     return tickers;
   }
 
-  async getAllTickers(): Promise<ImmutableMap<string, Ticker>> {
+  async getAllTickers(): Promise<IMap<string, Ticker>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return await this.getTickers(marketNames);
@@ -335,9 +374,9 @@ export class Serum {
     }
   }
 
-  async getOrders(targets: GetOrdersRequest[]): Promise<ImmutableMap<string, Order>> {
-    const orders = ImmutableMap<string, Order>().asMutable();
-    const temporary = ImmutableMap<string, Order>().asMutable();
+  async getOrders(targets: GetOrdersRequest[]): Promise<IMap<string, Order>> {
+    const orders = IMap<string, Order>().asMutable();
+    const temporary = IMap<string, Order>().asMutable();
 
     const ownerAddresses = targets.map(target => target.ownerAddress);
 
@@ -371,9 +410,9 @@ export class Serum {
 
   async getOpenOrders(
     targets: GetOpenOrdersRequest[]
-  ): Promise<ImmutableMap<string, Order>> {
-    const orders = ImmutableMap<string, Order>().asMutable();
-    const temporary = ImmutableMap<string, Order>().asMutable();
+  ): Promise<IMap<string, Order>> {
+    const orders = IMap<string, Order>().asMutable();
+    const temporary = IMap<string, Order>().asMutable();
 
     const ownerAddresses = targets.map(target => target.ownerAddress);
 
@@ -408,7 +447,7 @@ export class Serum {
   async getAllOpenOrdersForMarket(
     marketName: string,
     address: string
-  ): Promise<ImmutableMap<string, Order>> {
+  ): Promise<IMap<string, Order>> {
     const market = await this.getMarket(marketName);
 
     const owner = await this.solana.getAccount(address);
@@ -424,8 +463,8 @@ export class Serum {
   async getAllOpenOrdersForMarkets(
     marketNames: string[],
     address: string
-  ): Promise<ImmutableMap<string, ImmutableMap<string, Order>>> {
-    const result = ImmutableMap<string, ImmutableMap<string, Order>>().asMutable();
+  ): Promise<IMap<string, IMap<string, Order>>> {
+    const result = IMap<string, IMap<string, Order>>().asMutable();
 
     for (const marketName of marketNames) {
       result.set(
@@ -439,7 +478,7 @@ export class Serum {
 
   async getAllOpenOrders(
     address: string
-  ): Promise<ImmutableMap<string, ImmutableMap<string, Order>>> {
+  ): Promise<IMap<string, IMap<string, Order>>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return await this.getAllOpenOrdersForMarkets(marketNames, address);
@@ -496,10 +535,10 @@ export class Serum {
 
   async createOrders(
     candidates: CreateOrdersRequest[]
-  ): Promise<ImmutableMap<string, Order>> {
+  ): Promise<IMap<string, Order>> {
     // TODO improve to use transactions in the future!!!
 
-    const createdOrders = ImmutableMap<string, Order>().asMutable();
+    const createdOrders = IMap<string, Order>().asMutable();
     for (const candidateOrder of candidates) {
       const createdOrder = await this.createOrder(candidateOrder);
 
@@ -528,10 +567,10 @@ export class Serum {
 
   async cancelOrders(
     targets: CancelOrdersRequest[]
-  ): Promise<ImmutableMap<string, Order>> {
+  ): Promise<IMap<string, Order>> {
     // TODO improve to use transactions in the future
 
-    const canceledOrders = ImmutableMap<string, Order>().asMutable();
+    const canceledOrders = IMap<string, Order>().asMutable();
 
     for (const target of targets) {
       // TODO Add validation!!!
@@ -554,10 +593,10 @@ export class Serum {
     return canceledOrders;
   }
 
-  async cancelAllOpenOrders(address: string): Promise<ImmutableMap<string, Order>> {
+  async cancelAllOpenOrders(address: string): Promise<IMap<string, Order>> {
     const mapOfMapOfOrders = await this.getAllOpenOrders(address);
 
-    const canceledOrders = ImmutableMap<string, Order>().asMutable();
+    const canceledOrders = IMap<string, Order>().asMutable();
 
     for (const mapOfOrders of mapOfMapOfOrders.values()) {
       for (const order of mapOfOrders.values()) {
@@ -577,11 +616,11 @@ export class Serum {
 
   async getFilledOrders(
     targets: GetFilledOrdersRequest[]
-  ): Promise<ImmutableMap<string, Order>> {
-    let result = ImmutableMap<string, Order>().asMutable();
+  ): Promise<IMap<string, Order>> {
+    let result = IMap<string, Order>().asMutable();
 
     for (const target of targets) {
-      let marketsMap = ImmutableMap<string, Market>().asMutable();
+      let marketsMap = IMap<string, Market>().asMutable();
 
       if (!target.marketName) {
         marketsMap = await this.getAllMarkets();
@@ -597,7 +636,7 @@ export class Serum {
         // TODO check if -1 would also work and which limit is the correct one here!!!
         const orders = await market.market.loadFills(this.connection, 0);
 
-        result = ImmutableMap([...result, ...this.parseToMapOfOrders(market, orders, target.ownerAddress!)]).asMutable();
+        result = IMap([...result, ...this.parseToMapOfOrders(market, orders, target.ownerAddress!)]).asMutable();
         result = result.filter((order) => {
           order.ownerAddress === target.ownerAddress
           && order.marketName === target.marketName
@@ -612,7 +651,7 @@ export class Serum {
     return result;
   }
 
-  async getAllFilledOrders(): Promise<ImmutableMap<string, Order>> {
+  async getAllFilledOrders(): Promise<IMap<string, Order>> {
     return await this.getFilledOrders([]);
   }
 }
