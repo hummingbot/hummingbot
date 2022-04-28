@@ -89,7 +89,6 @@ class KucoinExchange(ExchangePyBase):
             domain=self._domain))
         self._user_stream_tracker = UserStreamTracker(
             data_source=KucoinAPIUserStreamDataSource(
-                auth=self._auth,
                 domain=self._domain,
                 api_factory=self._api_factory))
         self._poll_notifier = asyncio.Event()
