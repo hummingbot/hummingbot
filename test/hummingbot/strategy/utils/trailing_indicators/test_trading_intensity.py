@@ -216,8 +216,8 @@ class TradingIntensityTest(unittest.TestCase):
             mid = (bid + ask) / 2
             for trade in trades_tick:
                 self.indicator.register_trade(trade)
-            self.indicator.calculate()
-            self.indicator.last_price = mid
+            self.indicator.calculate(timestamp)
+            self.indicator.last_quotes = [{"timestamp": timestamp, "price": mid}] + self.indicator.last_quotes
             timestamp += 1
 
         self.assertAlmostEqual(self.indicator.current_value[0], 1.0032422566402444, 4)

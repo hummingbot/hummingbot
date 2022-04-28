@@ -105,7 +105,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
-            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
@@ -219,8 +218,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 mid = (bid + ask) / 2
                 for trade in trades_tick:
                     trading_intensity_indicator.register_trade(trade)
-                trading_intensity_indicator.calculate()
-                trading_intensity_indicator.last_price = mid
+                trading_intensity_indicator.calculate(timestamp)
+                trading_intensity_indicator.last_quotes = [{"timestamp": timestamp, "price": mid}] + trading_intensity_indicator.last_quotes
                 timestamp += 1
 
             self.trading_intensity_indicator_low_liq = trading_intensity_indicator
@@ -257,8 +256,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 mid = (bid + ask) / 2
                 for trade in trades_tick:
                     trading_intensity_indicator.register_trade(trade)
-                trading_intensity_indicator.calculate()
-                trading_intensity_indicator.last_price = mid
+                trading_intensity_indicator.calculate(timestamp)
+                trading_intensity_indicator.last_quotes = [{"timestamp": timestamp, "price": mid}] + trading_intensity_indicator.last_quotes
                 timestamp += 1
 
             self.trading_intensity_indicator_high_liq = trading_intensity_indicator
@@ -724,8 +723,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(1.008218217934538, alpha, 4)
-        self.assertAlmostEqual(0.0006894160253319163, kappa, 4)
+        self.assertAlmostEqual(118.45210662343376, alpha, 4)
+        self.assertAlmostEqual(3.3468695409821243, kappa, 4)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
@@ -803,7 +802,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
-            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             order_levels=4,
             level_distances=1,
@@ -855,8 +853,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.1170211083866360679794947748'), Decimal('0.2340422167732721359589895496'), Decimal('0.3510633251599082039384843244')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.1170211083866360679794947748'), Decimal('0.2340422167732721359589895496'), Decimal('0.3510633251599082039384843244')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03909242377646942266258131591'), Decimal('0.07818484755293884532516263182'), Decimal('0.1172772713294082679877439477')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03909242377646942266258131591'), Decimal('0.07818484755293884532516263182'), Decimal('0.1172772713294082679877439477')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -1400,7 +1398,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
-            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
@@ -1470,7 +1467,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
             market_info=self.market_info,
-            price_delegate=self.price_delegate,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
