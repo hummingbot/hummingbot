@@ -722,7 +722,7 @@ class ProbitExchange(ExchangeBase):
 
         # NOTE: In ProBit partially-filled orders will retain "filled" status when canceled.
         if tracked_order.is_cancelled or Decimal(str(order_msg["cancelled_quantity"])) > Decimal("0"):
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
