@@ -1296,7 +1296,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            HummingbotApplication.main_application().notify(msg)
 
     def get_price_type(self, price_type_str: str) -> PriceType:
         if price_type_str == "mid_price":
