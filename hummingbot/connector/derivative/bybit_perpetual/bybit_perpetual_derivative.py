@@ -356,7 +356,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                             params=params,
                                             )
         elif method == "POST":
-
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
