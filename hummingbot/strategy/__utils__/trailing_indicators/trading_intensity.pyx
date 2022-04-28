@@ -78,13 +78,10 @@ cdef class TradingIntensityIndicator:
         # Descending order of price-timestamp quotes
         self._last_quotes = [{'timestamp': timestamp, 'price': price}] + self._last_quotes
 
-        trade_sample_rem = []
         latest_processed_quote_idx = None
         for trade in self._current_trade_sample:
-            is_processed = False
             for i, quote in enumerate(self._last_quotes):
                 if quote["timestamp"] < trade.timestamp:
-                    is_processed = True
                     if latest_processed_quote_idx is None or i < latest_processed_quote_idx:
                         latest_processed_quote_idx = i
                     trade = {"price_level": abs(trade.price - float(quote["price"])), "amount": trade.amount}
@@ -94,11 +91,9 @@ cdef class TradingIntensityIndicator:
 
                     self._trade_samples[quote["timestamp"] + 1] += [trade]
                     break
-            if not is_processed:
-                trade_sample_rem += [trade]
 
-        # Store unprocessed remainder for future processing
-        self._current_trade_sample = trade_sample_rem
+        # THere are no trades left to process
+        self._current_trade_sample = []
         # Store quotes that happened after the latest trade + one before
         if latest_processed_quote_idx is not None:
             self._last_quotes = self._last_quotes[0:latest_processed_quote_idx + 1]
