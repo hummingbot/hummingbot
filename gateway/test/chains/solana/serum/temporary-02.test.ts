@@ -3,17 +3,9 @@ import {Serum} from '../../../../src/connectors/serum/serum';
 import {unpatch} from '../../../services/patch';
 import {Solana} from '../../../../src/chains/solana/solana';
 import {default as config} from './fixtures/serumConfig';
-import {
-  cancelOpenOrders,
-  cancelOrders,
-  createOrders,
-  getFilledOrders,
-  getMarkets,
-  getOpenOrders,
-  getOrderBooks,
-  getOrders,
-  getTickers
-} from '../../../../src/clob/clob.controllers';
+// @ts-ignore
+import { cancelOpenOrders, cancelOrders, createOrders, getFilledOrders, getMarkets, getOpenOrders, getOrderBooks, getOrders, getTickers } from '../../../../src/clob/clob.controllers';
+// @ts-ignore
 import {getNewOrderTemplate} from "./fixtures/dummy";
 import BN from "bn.js";
 import {Account} from "@solana/web3.js";
@@ -30,7 +22,7 @@ beforeAll(async () => {
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
-  await reset();
+  // await reset();
 });
 
 afterEach(() => {
@@ -43,6 +35,7 @@ const commonParameters = {
   connector: config.serum.connector,
 }
 
+// @ts-ignore
 const reset = async () => {
   const connection = serum.getConnection();
   const markets = await (await Serum.getInstance(commonParameters.chain, commonParameters.network)).getAllMarkets();
@@ -93,6 +86,7 @@ it('Temporary 01', async () => {
   // @ts-ignore
   const marketName = marketNames[0];
 
+  // @ts-ignore
   const orderIds = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
   // @ts-ignore
@@ -115,265 +109,265 @@ it('Temporary 01', async () => {
   })).body;
   console.log('markets:', JSON.stringify(result, null, 2));
 
-  result = (await getOrderBooks({
-    ...commonParameters,
-    marketName: marketName,
-  })).body;
-  console.log('order books:', JSON.stringify(result, null, 2));
-
-  result = (await getOrderBooks({
-    ...commonParameters,
-    marketNames: marketNames,
-  })).body;
-  console.log('order books::', JSON.stringify(result, null, 2));
-
-  result = (await getOrderBooks({
-    ...commonParameters
-  })).body;
-  console.log('order books::', JSON.stringify(result, null, 2));
-
-  result = (await getTickers({
-    ...commonParameters,
-    marketName: marketName,
-  })).body;
-  console.log('tickers:', JSON.stringify(result, null, 2));
-
-  result = (await getTickers({
-    ...commonParameters,
-    marketNames: marketNames,
-  })).body;
-  console.log('tickers:', JSON.stringify(result, null, 2));
-
-  result = (await getTickers({
-    ...commonParameters
-  })).body;
-  console.log('tickers:', JSON.stringify(result, null, 2));
-
-  result = await createOrders({
-    ...commonParameters,
-    order: (() => { const order = getNewOrderTemplate(); order.id = orderIds[0]; return order; })()
-  });
-  console.log('create order:', JSON.stringify(result, null, 2));
-
-  result = await createOrders({
-    ...commonParameters,
-    orders: [
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[1]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[2]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[3]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[4]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[5]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[6]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[7]; return order; })(),
-      // (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
-    ]
-  });
-  console.log('create orders:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[0],
-      ownerAddress: config.solana.wallet.owner.address
-    },
-  });
-  console.log('get open order:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[1],
-      ownerAddress: config.solana.wallet.owner.address
-    },
-  });
-  console.log('get order:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(2, 4),
-      ownerAddress: config.solana.wallet.owner.address
-    }],
-  });
-  console.log('get open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(4, 6),
-      ownerAddress: config.solana.wallet.owner.address
-    }],
-  });
-  console.log('get orders:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all orders:', JSON.stringify(result, null, 2));
-
-  result = await cancelOpenOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[0],
-      ownerAddress: config.solana.wallet.owner.address,
-      marketName: marketName
-    },
-  });
-  console.log('cancel open order:', JSON.stringify(result, null, 2));
-
-  result = await cancelOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[1],
-      ownerAddress: config.solana.wallet.owner.address,
-      marketName: marketName
-    },
-  });
-  console.log('cancel order:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[0],
-      ownerAddress: config.solana.wallet.owner.address
-    },
-  });
-  console.log('get open order:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[1],
-      ownerAddress: config.solana.wallet.owner.address
-    },
-  });
-  console.log('get order:', JSON.stringify(result, null, 2));
-
-  result = await getFilledOrders({
-    ...commonParameters,
-    order: {
-      id: orderIds[2],
-      ownerAddress: config.solana.wallet.owner.address
-    },
-  });
-  console.log('get filled order:', JSON.stringify(result, null, 2));
-
-  result = await getFilledOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(3, 5),
-      ownerAddress: config.solana.wallet.owner.address
-    }],
-  });
-  console.log('get filled orders:', JSON.stringify(result, null, 2));
-
-  result = await getFilledOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all filled orders:', JSON.stringify(result, null, 2));
-
-  result = await cancelOpenOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(2, 4),
-      ownerAddress: config.solana.wallet.owner.address,
-      marketName: marketName
-    }],
-  });
-  console.log('cancel open orders:', JSON.stringify(result, null, 2));
-
-  result = await cancelOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(4, 6),
-      ownerAddress: config.solana.wallet.owner.address,
-      marketName: marketName
-    }],
-  });
-  console.log('cancel orders:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(2, 4),
-      ownerAddress: config.solana.wallet.owner.address
-    }],
-  });
-  console.log('get open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    orders: [{
-      ids: orderIds.slice(4, 6),
-      ownerAddress: config.solana.wallet.owner.address
-    }],
-  });
-  console.log('get orders:', JSON.stringify(result, null, 2));
-
-  result = await cancelOpenOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('cancel all open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all orders:', JSON.stringify(result, null, 2));
-
-  result = await createOrders({
-    ...commonParameters,
-    orders: [
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
-      (() => { const order = getNewOrderTemplate(); order.id = orderIds[9]; return order; })(),
-    ]
-  });
-  console.log('create orders:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all orders:', JSON.stringify(result, null, 2));
-
-  result = await cancelOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('cancel all orders:', JSON.stringify(result, null, 2));
-
-  result = await getOpenOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all open orders:', JSON.stringify(result, null, 2));
-
-  result = await getOrders({
-    ...commonParameters,
-    ownerAddress: config.solana.wallet.owner.address,
-  });
-  console.log('get all orders:', JSON.stringify(result, null, 2));
+  // result = (await getOrderBooks({
+  //   ...commonParameters,
+  //   marketName: marketName,
+  // })).body;
+  // console.log('order books:', JSON.stringify(result, null, 2));
+  //
+  // result = (await getOrderBooks({
+  //   ...commonParameters,
+  //   marketNames: marketNames,
+  // })).body;
+  // console.log('order books::', JSON.stringify(result, null, 2));
+  //
+  // result = (await getOrderBooks({
+  //   ...commonParameters
+  // })).body;
+  // console.log('order books::', JSON.stringify(result, null, 2));
+  //
+  // result = (await getTickers({
+  //   ...commonParameters,
+  //   marketName: marketName,
+  // })).body;
+  // console.log('tickers:', JSON.stringify(result, null, 2));
+  //
+  // result = (await getTickers({
+  //   ...commonParameters,
+  //   marketNames: marketNames,
+  // })).body;
+  // console.log('tickers:', JSON.stringify(result, null, 2));
+  //
+  // result = (await getTickers({
+  //   ...commonParameters
+  // })).body;
+  // console.log('tickers:', JSON.stringify(result, null, 2));
+  //
+  // result = await createOrders({
+  //   ...commonParameters,
+  //   order: (() => { const order = getNewOrderTemplate(); order.id = orderIds[0]; return order; })()
+  // });
+  // console.log('create order:', JSON.stringify(result, null, 2));
+  //
+  // result = await createOrders({
+  //   ...commonParameters,
+  //   orders: [
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[1]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[2]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[3]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[4]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[5]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[6]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[7]; return order; })(),
+  //     // (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
+  //   ]
+  // });
+  // console.log('create orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[0],
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   },
+  // });
+  // console.log('get open order:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[1],
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   },
+  // });
+  // console.log('get order:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(2, 4),
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   }],
+  // });
+  // console.log('get open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(4, 6),
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   }],
+  // });
+  // console.log('get orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await cancelOpenOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[0],
+  //     ownerAddress: config.solana.wallet.owner.address,
+  //     marketName: marketName
+  //   },
+  // });
+  // console.log('cancel open order:', JSON.stringify(result, null, 2));
+  //
+  // result = await cancelOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[1],
+  //     ownerAddress: config.solana.wallet.owner.address,
+  //     marketName: marketName
+  //   },
+  // });
+  // console.log('cancel order:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[0],
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   },
+  // });
+  // console.log('get open order:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[1],
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   },
+  // });
+  // console.log('get order:', JSON.stringify(result, null, 2));
+  //
+  // result = await getFilledOrders({
+  //   ...commonParameters,
+  //   order: {
+  //     id: orderIds[2],
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   },
+  // });
+  // console.log('get filled order:', JSON.stringify(result, null, 2));
+  //
+  // result = await getFilledOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(3, 5),
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   }],
+  // });
+  // console.log('get filled orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getFilledOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all filled orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await cancelOpenOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(2, 4),
+  //     ownerAddress: config.solana.wallet.owner.address,
+  //     marketName: marketName
+  //   }],
+  // });
+  // console.log('cancel open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await cancelOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(4, 6),
+  //     ownerAddress: config.solana.wallet.owner.address,
+  //     marketName: marketName
+  //   }],
+  // });
+  // console.log('cancel orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(2, 4),
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   }],
+  // });
+  // console.log('get open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   orders: [{
+  //     ids: orderIds.slice(4, 6),
+  //     ownerAddress: config.solana.wallet.owner.address
+  //   }],
+  // });
+  // console.log('get orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await cancelOpenOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('cancel all open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await createOrders({
+  //   ...commonParameters,
+  //   orders: [
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
+  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[9]; return order; })(),
+  //   ]
+  // });
+  // console.log('create orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await cancelOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('cancel all orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOpenOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all open orders:', JSON.stringify(result, null, 2));
+  //
+  // result = await getOrders({
+  //   ...commonParameters,
+  //   ownerAddress: config.solana.wallet.owner.address,
+  // });
+  // console.log('get all orders:', JSON.stringify(result, null, 2));
 
   /*
   create order [0]

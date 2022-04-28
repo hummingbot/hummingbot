@@ -18,15 +18,16 @@ import {
   GetOrdersResponse,
   GetTickerResponse,
   GetTickersResponse,
+  IMap,
   Market,
   Order,
   OrderBook,
   OrderSide,
   OrderStatus,
   OrderType,
+  BasicSerumMarket,
   Ticker
 } from "./serum.types";
-import {Map as ImmutableMap} from 'immutable';
 import {Market as SerumMarket, Order as SerumOrder, OrderParams} from "@project-serum/serum/lib/market";
 
 export enum Types {
@@ -49,14 +50,14 @@ type SingleInput =
 ;
 
 type InputMap =
-  ImmutableMap<string, Market>
-  | ImmutableMap<string, OrderBook>
-  | ImmutableMap<string, Ticker>
-  | ImmutableMap<string, Order>
+  IMap<string, Market>
+  | IMap<string, OrderBook>
+  | IMap<string, Ticker>
+  | IMap<string, Order>
 ;
 
 type InputMapMap =
-  ImmutableMap<string, InputMap>
+  IMap<string, InputMap>
 
 type Input =
   SingleInput
@@ -89,8 +90,8 @@ export const convert =
     type: Types
   ):
 O => {
-  if (ImmutableMap.isMap(input)) {
-    if (ImmutableMap.isMap(input.first())) {
+  if (IMap.isMap(input)) {
+    if (IMap.isMap(input.first())) {
       return convertMapMap(input as InputMapMap, type);
     }
 
@@ -104,10 +105,10 @@ export const convertMapMap = <O extends Output>(
   input: InputMapMap,
   type: Types
 ): O => {
-  const output = ImmutableMap<string, O>().asMutable();
+  const output = IMap<string, O>().asMutable();
 
-  if (ImmutableMap.isMap(input)) {
-    if (ImmutableMap.isMap(input.first())) {
+  if (IMap.isMap(input)) {
+    if (IMap.isMap(input.first())) {
       input.forEach((value: InputMap, key: string) => {
         output.set(key, convert<InputMap, O>(value, type));
       });
@@ -121,9 +122,9 @@ export const convertMap = <O extends Output>(
   input: InputMap,
   type: Types
 ): O => {
-  const output = ImmutableMap<string, O>().asMutable();
+  const output = IMap<string, O>().asMutable();
 
-  if (ImmutableMap.isMap(input)) {
+  if (IMap.isMap(input)) {
     input.forEach((value: SingleInput, key: string) => {
       output.set(key, convert<Input, O>(value, type));
     });
@@ -165,7 +166,7 @@ export const convertSingle = <O extends Output>(input: SingleInput, type: Types)
 
 export const convertSerumMarketToMarket = (
   market: SerumMarket,
-  extraInfo: Record<string, unknown>,
+  extraInfo: Record<string, unknown> | BasicSerumMarket,
 ): Market => {
   return {
     name: extraInfo.name,
@@ -174,7 +175,7 @@ export const convertSerumMarketToMarket = (
     deprecated: extraInfo.deprecated,
     minimumOrderSize: market.minOrderSize,
     tickSize: market.tickSize,
-    minimumBaseIncrement: market.baseSizeLotsToNumber(market.decoded.baseLotSize), // TODO is this correct?!!!
+    minimumBaseIncrement: market.decoded.baseLotSize, // TODO is this correct?!!!
     fees: market.decoded.fee,
     market: market
   } as Market;

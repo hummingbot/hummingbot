@@ -3,6 +3,7 @@ import { ConfigManagerV2 } from '../../services/config-manager-v2';
 export namespace SerumConfig {
   export interface Config {
     network: NetworkConfig;
+    marketsURL: string;
   }
 
   export interface NetworkConfig {
@@ -20,6 +21,7 @@ export function getSerumConfig(network: string): SerumConfig.Config {
   return {
     network: {
       rpcURL: configManager.get(`${prefix}.networks.${targetNetwork}.rpcURL`),
-    }
+    },
+    marketsURL: configManager.get(`${prefix}.marketsURL`),
   };
 }

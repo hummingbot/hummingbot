@@ -2,6 +2,26 @@ import {PublicKey} from '@solana/web3.js';
 import {Market as SerumMarket, Orderbook as SerumOrderBook} from '@project-serum/serum';
 import {Order as SerumOrder} from '@project-serum/serum/lib/market';
 import {Map as ImmutableMap} from 'immutable';
+import BN from "bn.js";
+
+export type IMap<K, V> = ImmutableMap<K, V>;
+export const IMap = ImmutableMap;
+
+interface PlainBasicSerumMarket {
+  address: string;
+  deprecated: boolean;
+  name: string;
+  programId: string;
+}
+
+interface FatBasicSerumMarket {
+    address: PublicKey;
+    name: string;
+    programId: PublicKey;
+    deprecated: boolean;
+}
+
+export type BasicSerumMarket = PlainBasicSerumMarket | FatBasicSerumMarket;
 
 export enum OrderSide {
   BUY = 'BUY',
@@ -32,15 +52,15 @@ export interface Market {
   deprecated: boolean;
   minimumOrderSize: number;
   tickSize: number;
-  minimumBaseIncrement?: number;
+  minimumBaseIncrement?: BN;
   fees: Fee;
   market: SerumMarket;
 }
 
 export interface OrderBook {
   market: Market;
-  bids: ImmutableMap<string, Order>;
-  asks: ImmutableMap<string, Order>;
+  bids: IMap<string, Order>;
+  asks: IMap<string, Order>;
   orderBook: {
     asks: SerumOrderBook;
     bids: SerumOrderBook;
@@ -93,11 +113,11 @@ export interface GetMarketResponse {
   deprecated: boolean;
   minimumOrderSize: number;
   tickSize: number;
-  minimumBaseIncrement?: number;
+  minimumBaseIncrement?: BN;
   fees: Fee;
 }
 
-export type GetMarketsResponse = ImmutableMap<string, GetMarketResponse> | GetMarketResponse;
+export type GetMarketsResponse = IMap<string, GetMarketResponse> | GetMarketResponse;
 
 export type GetOrderBooksRequest =
   {}
@@ -106,10 +126,10 @@ export type GetOrderBooksRequest =
 
 export interface GetOrderBookResponse {
   market: GetMarketResponse;
-  bids: ImmutableMap<string, GetOrderResponse>;
-  asks: ImmutableMap<string, GetOrderResponse>;
+  bids: IMap<string, GetOrderResponse>;
+  asks: IMap<string, GetOrderResponse>;
 }
-export type GetOrderBooksResponse = ImmutableMap<string, GetOrderBookResponse> | GetOrderBookResponse;
+export type GetOrderBooksResponse = IMap<string, GetOrderBookResponse> | GetOrderBookResponse;
 
 export type GetTickersRequest =
   {}
@@ -124,7 +144,7 @@ export interface GetTickerResponse {
   timestamp: number;
 }
 
-export type GetTickersResponse = ImmutableMap<string, GetTickerResponse> | GetTickerResponse;
+export type GetTickersResponse = IMap<string, GetTickerResponse> | GetTickerResponse;
 
 export interface GetOrderRequest {
   id?: string;
@@ -154,7 +174,7 @@ export interface GetOrderResponse {
   fillmentTimestamp?: number;
 }
 
-export type GetOrdersResponse = ImmutableMap<string, ImmutableMap<string, GetOrderResponse>> | ImmutableMap<string, GetOrderResponse> | GetOrderResponse;
+export type GetOrdersResponse = IMap<string, IMap<string, GetOrderResponse>> | IMap<string, GetOrderResponse> | GetOrderResponse;
 
 export interface CreateOrdersRequest {
   id?: string;
@@ -180,7 +200,7 @@ export interface CreateOrderResponse {
   fee?: number
 }
 
-export type CreateOrdersResponse = ImmutableMap<string, CreateOrderResponse> | CreateOrderResponse;
+export type CreateOrdersResponse = IMap<string, CreateOrderResponse> | CreateOrderResponse;
 
 export interface CancelOrderRequest {
   id?: string;
@@ -209,7 +229,7 @@ export interface CancelOrderResponse {
   fee?: number
 }
 
-export type CancelOrdersResponse = ImmutableMap<string, CancelOrderResponse> | CancelOrderResponse;
+export type CancelOrdersResponse = IMap<string, CancelOrderResponse> | CancelOrderResponse;
 
 export interface GetOpenOrderRequest {
   id?: string;
@@ -238,7 +258,7 @@ export interface GetOpenOrderResponse {
   fee?: number
 }
 
-export type GetOpenOrdersResponse = ImmutableMap<string, ImmutableMap<string, GetOpenOrderResponse>> | ImmutableMap<string, GetOpenOrderResponse> | GetOpenOrderResponse;
+export type GetOpenOrdersResponse = IMap<string, IMap<string, GetOpenOrderResponse>> | IMap<string, GetOpenOrderResponse> | GetOpenOrderResponse;
 
 export interface CancelOpenOrderRequest {
   id?: string;
@@ -267,7 +287,7 @@ export interface CancelOpenOrderResponse {
   fee?: number
 }
 
-export type CancelOpenOrdersResponse = ImmutableMap<string, ImmutableMap<string, CancelOpenOrderResponse>> | ImmutableMap<string, CancelOpenOrderResponse> | CancelOpenOrderResponse;
+export type CancelOpenOrdersResponse = IMap<string, IMap<string, CancelOpenOrderResponse>> | IMap<string, CancelOpenOrderResponse> | CancelOpenOrderResponse;
 
 export interface GetFilledOrderRequest {
   id?: string;
@@ -297,7 +317,7 @@ export interface GetFilledOrderResponse {
   fillmentTimestamp?: number;
 }
 
-export type GetFilledOrdersResponse = ImmutableMap<string, ImmutableMap<string, GetFilledOrderResponse>> | ImmutableMap<string, GetFilledOrderResponse> | GetFilledOrderResponse;
+export type GetFilledOrdersResponse = IMap<string, IMap<string, GetFilledOrderResponse>> | IMap<string, GetFilledOrderResponse> | GetFilledOrderResponse;
 
 //
 //  Errors
