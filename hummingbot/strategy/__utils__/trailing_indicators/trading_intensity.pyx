@@ -12,6 +12,7 @@ from scipy.optimize import OptimizeWarning
 from hummingbot.core.data_type.common import (
     PriceType,
 )
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.event.events import TradeType, OrderBookEvent
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate

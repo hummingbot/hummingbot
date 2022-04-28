@@ -6,6 +6,7 @@ import unittest
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.event.events import (
     OrderBookTradeEvent,
@@ -194,7 +195,7 @@ class TradingIntensityTest(unittest.TestCase):
 
         return trades
 
-    def test_calculate_trading_intensity(self):
+    def test_calculate_trading_intensity_random(self):
         N_SAMPLES = 300
 
         original_price_mid = 100
@@ -222,3 +223,36 @@ class TradingIntensityTest(unittest.TestCase):
 
         self.assertAlmostEqual(self.indicator.current_value[0], 1.0032422566402444, 4)
         self.assertAlmostEqual(self.indicator.current_value[1], 0.0001595577045670909, 4)
+
+    def test_calculate_trading_intensity_deterministic(self):
+        def curve_fn(t_, a_, b_):  # see curve fit in `TradingIntensityIndicator.c_estimate_intensity`
+            return a_*np.exp(-b_*t_)
+
+        last_price = 1
+        trade_price_levels = [2, 3, 4, 5]
+        a = 2
+        b = 0.1
+        ts = [curve_fn(p - last_price, a, b) for p in trade_price_levels]
+
+        timestamp = self.start_timestamp
+
+        trading_intensity_indicator = TradingIntensityIndicator(OrderBook(), self.price_delegate, 1)
+        trading_intensity_indicator.last_quotes = [{"timestamp": timestamp, "price": last_price}]
+
+        timestamp += 1
+
+        for p, t in zip(trade_price_levels, ts):
+            new_trade = OrderBookTradeEvent(
+                trading_pair="COINALPHAHBOT",
+                timestamp=timestamp,
+                price=p,
+                amount=t,
+                type=TradeType.SELL,
+            )
+            trading_intensity_indicator.register_trade(new_trade)
+
+        trading_intensity_indicator.calculate(timestamp)
+        alpha, kappa = trading_intensity_indicator.current_value
+
+        self.assertAlmostEqual(a, alpha, 10)
+        self.assertAlmostEqual(b, kappa, 10)
