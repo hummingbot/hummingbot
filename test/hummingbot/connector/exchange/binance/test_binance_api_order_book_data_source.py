@@ -341,7 +341,8 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [self._order_diff_event(), asyncio.CancelledError()]
+        diff_event = self._order_diff_event()
+        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
         self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -351,7 +352,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(12345, msg.update_id)
+        self.assertEqual(diff_event["u"], msg.update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
