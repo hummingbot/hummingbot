@@ -287,6 +287,7 @@ export async function getOrders(
     }
   }
 
+  // TODO Think about accepting to get all orders!!!
   throw new HttpException(
     StatusCodes.BAD_REQUEST,
     `No order(s) was/were informed.`
@@ -373,10 +374,11 @@ export async function cancelOrders(
     return response;
   }
 
-  throw new HttpException(
-    StatusCodes.BAD_REQUEST,
-    `No order(s) was/were informed.`
-  );
+  response.body = convert<ImmutableMap<string, Order>, SerumCancelOrdersResponse>(await serum.cancelAllOpenOrders(request.ownerAddress), Types.CancelOpenOrdersResponse);
+
+  response.status = StatusCodes.OK;
+
+  return response;
 }
 
 /**

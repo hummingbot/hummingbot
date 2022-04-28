@@ -206,8 +206,7 @@ export const convertSerumOrderToOrder = (
 
   return {
     id: order?.clientId?.toString() || candidate?.id || undefined,
-    exchangeId: order?.orderId.toString() || undefined,
-    address: order?.openOrdersAddress.toString(),
+    exchangeId: order?.orderId.toString() || undefined, // TODO check how to retrieve this after place a new order!!!
     marketName: market.name,
     ownerAddress: ownerAddress || candidate?.ownerAddress,
     price: order?.price || candidate!.price,
