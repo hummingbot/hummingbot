@@ -715,16 +715,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(118.53441791741469, alpha, 4)
-        self.assertAlmostEqual(3.3607256761562003, kappa, 4)
+        self.assertAlmostEqual(118.53441791741469, alpha, 3)
+        self.assertAlmostEqual(3.3607256761562003, kappa, 3)
 
         # Simulate high liquidity
         self.simulate_low_liquidity(self.strategy)
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(118.45210662343376, alpha, 4)
-        self.assertAlmostEqual(3.3468695409821243, kappa, 4)
+        self.assertAlmostEqual(118.45210662343376, alpha, 3)
+        self.assertAlmostEqual(3.3468695409821243, kappa, 3)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
