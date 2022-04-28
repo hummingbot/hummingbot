@@ -104,7 +104,7 @@ class GatewayChainApiManager:
                     return None
                 try:
                     api_key = api_key.strip()  # help check for an empty string which is valid input
-                    if not required and (api_key is None or api_key == ""):
+                    if not required and (api_key is None or api_key == "" or api_key == "''" or api_key == "\"\""):
                         self.notify(f"Setting up gateway without an {chain_name} node.")
                         return None
                     else:
@@ -137,7 +137,7 @@ class GatewayChainApiManager:
         chain_config: Optional[Dict[str, Any]] = config_dict.get(Chain.to_str(chain))
         if chain_config is not None:
             api_key: Optional[str] = chain_config.get("nodeAPIKey")
-            if api_key is None or api_key == "":
+            if api_key is None or api_key == "" or api_key == "''" or api_key == "\"\"":
                 return None
             else:
                 return api_key
