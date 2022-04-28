@@ -59,18 +59,18 @@ cdef class TradingIntensityIndicator:
     def sampling_length(self) -> int:
         return self._sampling_length
 
-    # A helper method to be used in unit tests
     @property
     def last_quotes(self) -> list:
+        '''A helper method to be used in unit tests'''
         return self._last_quotes
 
-    # A helper method to be used in unit tests
     @last_quotes.setter
     def last_quotes(self, value):
+        '''A helper method to be used in unit tests'''
         self._last_quotes = value
 
-    # A helper method to be used in unit tests
     def calculate(self, timestamp):
+        '''A helper method to be used in unit tests'''
         self.c_calculate(timestamp)
 
     cdef c_calculate(self, timestamp):
@@ -116,8 +116,8 @@ cdef class TradingIntensityIndicator:
         if self.is_sampling_buffer_full:
             self.c_estimate_intensity()
 
-    # A helper method to be used in unit tests
     def register_trade(self, trade):
+        '''A helper method to be used in unit tests'''
         self.c_register_trade(trade)
 
     cdef c_register_trade(self, object trade):
