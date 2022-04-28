@@ -59,7 +59,6 @@ export interface Ticker {
 export interface Order {
   id?: string; // client id
   exchangeId?: string;
-  address?: string;
   marketName: string;
   ownerAddress?: string;
   price: number;
@@ -186,14 +185,14 @@ export type CreateOrdersResponse = ImmutableMap<string, CreateOrderResponse> | C
 export interface CancelOrderRequest {
   id?: string;
   exchangeId?: string;
-  marketName?: string;
+  marketName: string;
   ownerAddress: string;
 }
 
 export interface CancelOrdersRequest {
   ids?: string[];
   exchangeIds?: string[];
-  marketName?: string;
+  marketName: string;
   ownerAddress: string;
 }
 
@@ -205,7 +204,7 @@ export interface CancelOrderResponse {
   price: number;
   amount: number;
   side: OrderSide;
-  status?: OrderStatus;
+  status?: OrderStatus; // TODO fill status!!!
   type?: OrderType;
   fee?: number
 }
@@ -244,14 +243,14 @@ export type GetOpenOrdersResponse = ImmutableMap<string, ImmutableMap<string, Ge
 export interface CancelOpenOrderRequest {
   id?: string;
   exchangeId?: string;
-  marketName?: string;
+  marketName: string;
   ownerAddress: string;
 }
 
 export interface CancelOpenOrdersRequest {
   ids?: string[];
   exchangeIds?: string[];
-  marketName?: string;
+  marketName: string;
   ownerAddress: string;
 }
 
@@ -263,7 +262,7 @@ export interface CancelOpenOrderResponse {
   price: number;
   amount: number;
   side: OrderSide;
-  status?: OrderStatus;
+  status?: OrderStatus; // TODO fill this status!!!
   type?: OrderType;
   fee?: number
 }

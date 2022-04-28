@@ -10,6 +10,7 @@ import {
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
   GetOpenOrderRequest,
+  GetOpenOrdersRequest,
   GetOrderRequest,
   GetOrdersRequest,
   Market,
@@ -336,25 +337,69 @@ export class Serum {
 
   async getOrders(targets: GetOrdersRequest[]): Promise<ImmutableMap<string, Order>> {
     const orders = ImmutableMap<string, Order>().asMutable();
+    const temporary = ImmutableMap<string, Order>().asMutable();
+
+    const ownerAddresses = targets.map(target => target.ownerAddress);
+
+    const listOfMapOfMarketsOfOpenOrders = await Promise.all(ownerAddresses.flatMap(async (ownerAddress) => {
+      return (await this.getAllOpenOrders(ownerAddress)); // TODO this method is not the correct one!!!
+    }));
+
+    for(const mapOfMarkets of listOfMapOfMarketsOfOpenOrders) {
+        for(const mapOfOrders of mapOfMarkets.values()) {
+        for (const order of mapOfOrders.values()) {
+          temporary.set(order.exchangeId!, order);
+        }
+      }
+    }
 
     for (const target of targets) {
-      const order = await this.getOrder(target);
-
-      orders.set(order.exchangeId!, order);
+      orders.concat(
+        temporary.filter((openOrder: Order) => {
+          return (openOrder.ownerAddress === target.ownerAddress
+          && (target.marketName ? openOrder.marketName === target.marketName : true)
+          && (
+            target.ids?.includes(openOrder.id!)
+            || target.exchangeIds?.includes(openOrder.exchangeId!)
+          ));
+        })
+      );
     }
 
     return orders;
   }
 
   async getOpenOrders(
-    targets: GetOpenOrderRequest[]
+    targets: GetOpenOrdersRequest[]
   ): Promise<ImmutableMap<string, Order>> {
     const orders = ImmutableMap<string, Order>().asMutable();
+    const temporary = ImmutableMap<string, Order>().asMutable();
+
+    const ownerAddresses = targets.map(target => target.ownerAddress);
+
+    const listOfMapOfMarketsOfOpenOrders = await Promise.all(ownerAddresses.flatMap(async (ownerAddress) => {
+      return (await this.getAllOpenOrders(ownerAddress));
+    }));
+
+    for(const mapOfMarkets of listOfMapOfMarketsOfOpenOrders) {
+        for(const mapOfOrders of mapOfMarkets.values()) {
+        for (const order of mapOfOrders.values()) {
+          temporary.set(order.exchangeId!, order);
+        }
+      }
+    }
 
     for (const target of targets) {
-      const order = await this.getOpenOrder(target);
-
-      orders.set(order.exchangeId!, order);
+      orders.concat(
+        temporary.filter((openOrder: Order) => {
+          return (openOrder.ownerAddress === target.ownerAddress
+          && (target.marketName ? openOrder.marketName === target.marketName : true)
+          && (
+            target.ids?.includes(openOrder.id!)
+            || target.exchangeIds?.includes(openOrder.exchangeId!)
+          ));
+        })
+      );
     }
 
     return orders;
@@ -452,13 +497,14 @@ export class Serum {
   async createOrders(
     candidates: CreateOrdersRequest[]
   ): Promise<ImmutableMap<string, Order>> {
-    // TODO improve to use transactions in the future
+    // TODO improve to use transactions in the future!!!
 
     const createdOrders = ImmutableMap<string, Order>().asMutable();
     for (const candidateOrder of candidates) {
       const createdOrder = await this.createOrder(candidateOrder);
 
-      createdOrders.set(createdOrder.exchangeId!, createdOrder);
+      // TODO use signature here? the client id is not always available, the exchange id is not available in the response!!!
+      createdOrders.set(createdOrder.signature!, createdOrder);
     }
 
     return createdOrders;
