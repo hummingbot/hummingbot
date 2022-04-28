@@ -39,6 +39,7 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import (
+    AccountEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     FundingInfo,
@@ -48,6 +49,7 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
+    PositionModeChangeEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
@@ -1206,15 +1208,36 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         # size of orders allowable.
 
     async def _get_position_mode(self):
-        self._position_mode = PositionMode.ONEWAY
-
         return self._position_mode
 
     def supported_position_modes(self):
         return [PositionMode.ONEWAY]
 
     def set_position_mode(self, position_mode: PositionMode):
-        self._position_mode = PositionMode.ONEWAY
+        if self._trading_pairs is not None:
+            for trading_pair in self._trading_pairs:
+                if position_mode != PositionMode.ONEWAY:
+                    self.trigger_event(AccountEvent.PositionModeChangeFailed,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           trading_pair,
+                                           position_mode,
+                                           "dYdX only supports the ONEWAY position mode."
+                                       ))
+                    self.logger().debug(f"dYdX encountered a problem switching position mode to "
+                                        f"{position_mode} for {trading_pair}"
+                                        f" (dYdX only supports the ONEWAY position mode)")
+                else:
+                    self._position_mode = PositionMode.ONEWAY
+                    super().set_position_mode(PositionMode.ONEWAY)
+                    self.trigger_event(AccountEvent.PositionModeChangeSucceeded,
+                                       PositionModeChangeEvent(
+                                           self.current_timestamp,
+                                           trading_pair,
+                                           position_mode
+                                       ))
+                    self.logger().debug(f"dYdX switching position mode to "
+                                        f"{position_mode} for {trading_pair} succeeded.")
 
     # ==========================================================
     # Miscellaneous
