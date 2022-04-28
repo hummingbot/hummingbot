@@ -89,10 +89,10 @@ cdef class TradingIntensityIndicator:
                         latest_processed_quote_idx = i
                     trade = {"price_level": abs(trade.price - float(quote["price"])), "amount": trade.amount}
 
-                    if quote["timestamp"]+1 not in self._trade_samples.keys():
-                        self._trade_samples[quote["timestamp"]+1] = []
+                    if quote["timestamp"] + 1 not in self._trade_samples.keys():
+                        self._trade_samples[quote["timestamp"] + 1] = []
 
-                    self._trade_samples[quote["timestamp"]+1] += [trade]
+                    self._trade_samples[quote["timestamp"] + 1] += [trade]
                     break
             if not is_processed:
                 trade_sample_rem += [trade]
@@ -101,7 +101,7 @@ cdef class TradingIntensityIndicator:
         self._current_trade_sample = trade_sample_rem
         # Store quotes that happened after the latest trade + one before
         if latest_processed_quote_idx is not None:
-            self._last_quotes = self._last_quotes[0:latest_processed_quote_idx+1]
+            self._last_quotes = self._last_quotes[0:latest_processed_quote_idx + 1]
         
         if len(self._trade_samples.keys()) > self._sampling_length:
             timestamps = list(self._trade_samples.keys())
