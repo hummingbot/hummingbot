@@ -71,7 +71,7 @@ cdef class FtxExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -196,9 +196,9 @@ cdef class FtxExchange(ExchangeBase):
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             base, quote = self.split_trading_pair(tracked_order.trading_pair)
             if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
 
@@ -838,11 +838,11 @@ cdef class FtxExchange(ExchangeBase):
         try:
             cancel_result = await self._api_request("DELETE", path_url=path_url)
 
-            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancellation"]):
-                self.logger().info(f"Requested cancellation of order {order_id}.")
+            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancelation"]):
+                self.logger().info(f"Requested cancelation of order {order_id}.")
                 return order_id
             else:
-                self.logger().info(f"Could not request cancellation of order {order_id} as FTX returned: {cancel_result}")
+                self.logger().info(f"Could not request cancelation of order {order_id} as FTX returned: {cancel_result}")
                 return order_id
         except Exception as e:
             self.logger().network(
@@ -873,7 +873,7 @@ cdef class FtxExchange(ExchangeBase):
                         successful_cancellation.append(CancellationResult(order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 app_warning_msg="Failed to cancel order on ftx. Check API key and network connection."
             )
 
