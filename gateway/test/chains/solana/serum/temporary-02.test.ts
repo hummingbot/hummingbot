@@ -6,9 +6,9 @@ import {default as config} from './fixtures/serumConfig';
 // @ts-ignore
 import { cancelOpenOrders, cancelOrders, createOrders, getFilledOrders, getMarkets, getOpenOrders, getOrderBooks, getOrders, getTickers } from '../../../../src/clob/clob.controllers';
 // @ts-ignore
-import {getNewOrderTemplate} from "./fixtures/dummy";
-import BN from "bn.js";
-import {Account} from "@solana/web3.js";
+import {getNewOrderTemplate} from './fixtures/dummy';
+import BN from 'bn.js';
+import {Account} from '@solana/web3.js';
 
 jest.setTimeout(1000000);
 

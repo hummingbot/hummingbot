@@ -10,5 +10,6 @@ networks: # Serum and Solana networks need to have the same name
     rpcURL: https://api.devnet.solana.com
 # how much the execution price is allowed to move unfavorably from the trade
 # execution price. It uses a rational number for precision.
+marketsURL: https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json
 allowedSlippage: '1/100'
 timeToLive: 20

@@ -28,7 +28,12 @@ import {
   BasicSerumMarket,
   Ticker
 } from "./serum.types";
-import {Market as SerumMarket, Order as SerumOrder, OrderParams} from "@project-serum/serum/lib/market";
+import {
+  Market as SerumMarket,
+  Order as SerumOrder,
+  Orderbook as SerumOrderBook,
+  OrderParams
+} from "@project-serum/serum/lib/market";
 
 export enum Types {
   GetMarketsResponse = 'GetMarketsResponse',
@@ -179,6 +184,45 @@ export const convertSerumMarketToMarket = (
     fees: market.decoded.fee,
     market: market
   } as Market;
+}
+
+export const convertMarketBidsAndAsksToOrderBook = (
+  market: Market,
+  asks: SerumOrderBook,
+  bids: SerumOrderBook
+): OrderBook => {
+  return {
+    market: market,
+    asks: convertArrayOfSerumOrdersToMapOfOrders(market, asks, undefined),
+    bids: convertArrayOfSerumOrdersToMapOfOrders(market, bids, undefined),
+    orderBook: {
+      asks: asks,
+      bids: bids,
+    },
+  } as OrderBook;
+}
+
+export const convertArrayOfSerumOrdersToMapOfOrders = (
+  market: Market,
+  orders: SerumOrder[] | SerumOrderBook | any[],
+  address?: string
+): IMap<string, Order> => {
+  const result = IMap<string, Order>().asMutable();
+
+  for (const order of orders) {
+    result.set(
+      order.orderId,
+      convertSerumOrderToOrder(
+        market,
+        order,
+        undefined,
+        undefined,
+        address
+      )
+    );
+  }
+
+  return result;
 }
 
 export const convertFilledOrderToTicker = (timestamp: number, fill: any): Ticker => {

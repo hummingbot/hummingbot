@@ -1,9 +1,24 @@
+import {Market as SerumMarket, MARKETS,} from '@project-serum/serum';
+import {OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
 import {Account, Connection, PublicKey} from '@solana/web3.js';
-import {Market as SerumMarket, MARKETS, Orderbook as SerumOrderBook,} from '@project-serum/serum';
 import axios from 'axios';
+import BN from "bn.js";
+import {Cache, CacheContainer} from 'node-ts-cache';
+import {MemoryStorage} from 'node-ts-cache-storage-memory';
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
+  convertArrayOfSerumOrdersToMapOfOrders,
+  convertFilledOrderToTicker,
+  convertMarketBidsAndAsksToOrderBook,
+  convertOrderSideToSerumSide,
+  convertOrderTypeToSerumType,
+  convertSerumMarketToMarket,
+  convertSerumOrderToOrder
+} from "./serum.convertors";
+import {promiseAllInBatches} from "./serum.helpers";
+import {
+  BasicSerumMarket,
   CancelOrderRequest,
   CancelOrdersRequest,
   CreateOrdersRequest,
@@ -20,57 +35,20 @@ import {
   OrderBook,
   OrderNotFoundError,
   OrderStatus,
-  BasicSerumMarket,
   Ticker,
   TickerNotFoundError,
 } from './serum.types';
-import {Order as SerumOrder, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
-
-import {Cache, CacheContainer} from 'node-ts-cache';
-import {MemoryStorage} from 'node-ts-cache-storage-memory';
-import BN from "bn.js";
-import {
-  convertFilledOrderToTicker,
-  convertOrderSideToSerumSide,
-  convertOrderTypeToSerumType,
-  convertSerumMarketToMarket,
-  convertSerumOrderToOrder
-} from "./serum.convertors";
-import {sleep} from "@blockworks-foundation/mango-client";
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
-
-  market: new CacheContainer(new MemoryStorage()),
   markets: new CacheContainer(new MemoryStorage()),
-  allMarkets: new CacheContainer(new MemoryStorage()),
 };
+
+// const ordersMap = IMap<string, Order>().asMutable();
 
 export type Serumish = Serum;
 
-/**
- * Same as Promise.all(items.map(item => task(item))), but it waits for
- * the first {batchSize} promises to finish before starting the next batch.
- *
- * @template A
- * @template B
- * @param {function(A): B} task The task to run for each item.
- * @param {A[]} items Arguments to pass to the task for each call.
- * @param {int} batchSize
- * @returns {B[]}
- */
-export const promiseAllInBatches = async (task: any, items: any[], batchSize: number, delay: number = 0): Promise<any[]> =>{
-    let position = 0;
-    let results: any[] = [];
-    while (position < items.length) {
-        const itemsForBatch = items.slice(position, position + batchSize);
-        results = [...results, ...await Promise.all(itemsForBatch.map(item => task(item)))];
-        sleep(delay);
-        position += batchSize;
-    }
-    return results;
-}
-
+// TODO Start using the https://www.npmjs.com/package/decimal library!!!
 // TODO create a documentation saying how many requests we are sending through the Solana/Serum connection!!!
 export class Serum {
   private initializing: boolean = false;
@@ -87,7 +65,8 @@ export class Serum {
   /**
    *
    * @param chain
-   * @param config
+   * @param network
+   * @private
    */
   private constructor(chain: string, network: string) {
     this.chain = chain;
@@ -111,45 +90,6 @@ export class Serum {
     await instance.init();
 
     return instance;
-  }
-
-  private parseToOrderBook(
-    market: Market,
-    asks: SerumOrderBook,
-    bids: SerumOrderBook
-  ): OrderBook {
-    return {
-      market: market,
-      asks: this.parseToMapOfOrders(market, asks, undefined),
-      bids: this.parseToMapOfOrders(market, bids, undefined),
-      orderBook: {
-        asks: asks,
-        bids: bids,
-      },
-    } as OrderBook;
-  }
-
-  private parseToMapOfOrders(
-    market: Market,
-    orders: SerumOrder[] | SerumOrderBook | any[],
-    address?: string
-  ): IMap<string, Order> {
-    const result = IMap<string, Order>().asMutable();
-
-    for (const order of orders) {
-      result.set(
-        order.orderId,
-        convertSerumOrderToOrder(
-          market,
-          order,
-          undefined,
-          undefined,
-          address
-        )
-      );
-    }
-
-    return result;
   }
 
   /**
@@ -182,13 +122,11 @@ export class Serum {
    *
    * @param name
    */
-  // @Cache(caches.market, { isCachedForever: true })
   async getMarket(name?: string): Promise<Market> {
     if (!name) throw new MarketNotFoundError(`No market informed.`);
 
     const markets = await this.getAllMarkets();
 
-    // TODO Change to load the market directly instead of using the map for performance reasons!!!
     const market = markets.get(name);
 
     if (!market) throw new MarketNotFoundError(`Market "${name}" not found.`);
@@ -200,15 +138,17 @@ export class Serum {
    *
    * @param names
    */
-  // @Cache(caches.markets, { ttl: 60 * 60 })
   async getMarkets(names: string[]): Promise<IMap<string, Market>> {
     const markets = IMap<string, Market>().asMutable();
 
-    for (const name of names) {
+    const getMarket = async(name: string): Promise<void> => {
       const market = await this.getMarket(name);
 
       markets.set(name, market);
     }
+
+    // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
+    await promiseAllInBatches(getMarket, names, 100, 10000);
 
     return markets;
   }
@@ -216,7 +156,7 @@ export class Serum {
   /**
    *
    */
-  @Cache(caches.allMarkets, { ttl: 60 * 60 })
+  @Cache(caches.markets, { ttl: 60 * 60 })
   async getAllMarkets(): Promise<IMap<string, Market>> {
     const allMarkets = IMap<string, Market>().asMutable();
 
@@ -231,8 +171,6 @@ export class Serum {
     } catch (e) {
       marketsInformation = MARKETS;
     }
-
-    // TODO Start using the https://www.npmjs.com/package/decimal library!!!
 
     const loadMarket = async(market: BasicSerumMarket): Promise<void> => {
       const serumMarket = await SerumMarket.load(
@@ -251,7 +189,9 @@ export class Serum {
       );
     }
 
-    await promiseAllInBatches(loadMarket, marketsInformation, 100, 1500);
+    // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
+    // It takes on average about 44s to load all the markets
+    await promiseAllInBatches(loadMarket, marketsInformation, 100, 10000);
 
     return allMarkets;
   }
@@ -262,7 +202,7 @@ export class Serum {
     const asks = await market.market.loadAsks(this.connection);
     const bids = await market.market.loadBids(this.connection);
 
-    return this.parseToOrderBook(
+    return convertMarketBidsAndAsksToOrderBook(
       market,
       asks,
       bids
@@ -272,11 +212,14 @@ export class Serum {
   async getOrderBooks(marketNames: string[]): Promise<IMap<string, OrderBook>> {
     const orderBooks = IMap<string, OrderBook>().asMutable();
 
-    for (const marketName of marketNames) {
+    const getOrderBook = async(marketName: string): Promise<void> => {
       const orderBook = await this.getOrderBook(marketName);
 
       orderBooks.set(marketName, orderBook);
     }
+
+    // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
+    await promiseAllInBatches(getOrderBook, marketNames, 100, 10000);
 
     return orderBooks;
   }
@@ -303,11 +246,14 @@ export class Serum {
   async getTickers(marketNames: string[]): Promise<IMap<string, Ticker>> {
     const tickers = IMap<string, Ticker>().asMutable();
 
-    for (const marketName of marketNames) {
+    const getTicker = async(marketName: string): Promise<void> => {
       const ticker = await this.getTicker(marketName);
 
       tickers.set(marketName, ticker);
     }
+
+    // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
+    await promiseAllInBatches(getTicker, marketNames, 100, 10000);
 
     return tickers;
   }
@@ -325,9 +271,19 @@ export class Serum {
     if (!target.ownerAddress)
       throw new OrderNotFoundError(`No owner address provided for order "${target.id} / ${target.exchangeId}".`);
 
-    const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(
-      target.ownerAddress
-    );
+    if (target.marketName) {
+      const openOrder = ((await this.getOpenOrdersForMarket(target.marketName, target.ownerAddress)).find(order =>
+        order.id === target.id || order.exchangeId === target.exchangeId
+      ));
+
+      if (!openOrder)
+        throw new OrderNotFoundError(`No open order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
+
+      return openOrder;
+    }
+
+    const mapOfOpenOrdersForMarkets = await this.getAllOpenOrders(target.ownerAddress);
+
     for (const mapOfOpenOrdersForMarket of mapOfOpenOrdersForMarkets.values()) {
       for (const openOrder of mapOfOpenOrdersForMarket.values()) {
         if (
@@ -339,24 +295,184 @@ export class Serum {
       }
     }
 
-    throw new OrderNotFoundError(`Order ${target.id} not found.`);
+    throw new OrderNotFoundError(`No open order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
+  }
+
+  // TODO check if the implementation returns the correct results!!!
+  async getOpenOrders(
+    targets: GetOpenOrdersRequest[]
+  ): Promise<IMap<string, Order>> {
+    const orders = IMap<string, Order>().asMutable();
+    let temporary = IMap<string, Order>().asMutable();
+
+    const getOrders = async (target: GetOrdersRequest) => {
+      if (target.marketName) {
+        temporary.concat(await this.getOpenOrdersForMarket(target.marketName, target.ownerAddress));
+      } else {
+        (await this.getAllOpenOrders(target.ownerAddress)).reduce((acc: IMap<string, Order>, mapOfOrders: IMap<string, Order>) => {
+          return acc.concat(mapOfOrders);
+        }, temporary);
+      }
+    };
+
+    await promiseAllInBatches(getOrders, targets, 100, 10000);
+
+    for (const target of targets) {
+      orders.concat(
+        temporary.filter((order: Order) => {
+          return (order.ownerAddress === target.ownerAddress
+          && (target.marketName ? order.marketName === target.marketName : true)
+          && (
+            target.ids?.includes(order.id!)
+            || target.exchangeIds?.includes(order.exchangeId!)
+          ));
+        })
+      );
+    }
+
+    return orders;
+  }
+
+  async getOpenOrdersForMarket(
+    marketName: string,
+    ownerAddress: string
+  ): Promise<IMap<string, Order>> {
+    const market = await this.getMarket(marketName);
+
+    const owner = await this.solana.getAccount(ownerAddress);
+
+    const serumOpenOrders = await market.market.loadOrdersForOwner(
+      this.connection,
+      owner.publicKey
+    );
+
+    return convertArrayOfSerumOrdersToMapOfOrders(market, serumOpenOrders, ownerAddress);
+  }
+
+  async getOpenOrdersForMarkets(
+    marketNames: string[],
+    ownerAddress: string
+  ): Promise<IMap<string, IMap<string, Order>>> {
+    const result = IMap<string, IMap<string, Order>>().asMutable();
+
+    const markets = await this.getMarkets(marketNames);
+
+    const getOpenOrders = async (market: Market): Promise<void> => {
+      result.set(market.name, await this.getOpenOrdersForMarket(market.name, ownerAddress));
+    }
+
+    await promiseAllInBatches<Market, Promise<void>>(
+      getOpenOrders, Array.from(markets.values()), 100, 10000
+    );
+
+    return result;
+  }
+
+  async getAllOpenOrders(
+    ownerAddress: string
+  ): Promise<IMap<string, IMap<string, Order>>> {
+    const marketNames = Array.from((await this.getAllMarkets()).keys());
+
+    return await this.getOpenOrdersForMarkets(marketNames, ownerAddress);
   }
 
   async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
     if (!target.id && !target.exchangeId)
       throw new OrderNotFoundError('No client id or exchange id provided.');
 
-    const mapOfFilledOrders = await this.getAllFilledOrders();
-    for (const filledOrder of mapOfFilledOrders.values()) {
-      if (
-        filledOrder.id === target.id ||
-        filledOrder.exchangeId === target.exchangeId
-      ) {
-        return filledOrder;
+    if (!target.ownerAddress)
+      throw new OrderNotFoundError(`No owner address provided for order "${target.id} / ${target.exchangeId}".`);
+
+    if (target.marketName) {
+      const filledOrder = ((await this.getFilledOrdersForMarket(target.marketName)).find(order =>
+        order.id === target.id || order.exchangeId === target.exchangeId
+      ));
+
+      if (!filledOrder)
+        throw new OrderNotFoundError(`No open order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
+
+      return filledOrder;
+    }
+
+    const mapOfFilledOrdersForMarkets = await this.getAllFilledOrders();
+
+    for (const mapOfFilledOrdersForMarket of mapOfFilledOrdersForMarkets.values()) {
+      for (const filledOrder of mapOfFilledOrdersForMarket.values()) {
+        if (
+          filledOrder.id === target.id ||
+          filledOrder.exchangeId === target.exchangeId
+        ) {
+          return filledOrder;
+        }
       }
     }
 
-    throw new OrderNotFoundError(`Order "${target.id}" not found.`);
+    throw new OrderNotFoundError(`No filled order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
+  }
+
+  // TODO check if the implementation returns the correct results!!!
+  async getFilledOrders(
+    targets: GetFilledOrdersRequest[]
+  ): Promise<IMap<string, Order>> {
+    const orders = IMap<string, Order>().asMutable();
+    let temporary = IMap<string, Order>().asMutable();
+
+    const getOrders = async (target: GetOrdersRequest) => {
+      if (target.marketName) {
+        temporary.concat(await this.getFilledOrdersForMarket(target.marketName));
+      } else {
+        (await this.getAllFilledOrders()).reduce((acc: IMap<string, Order>, mapOfOrders: IMap<string, Order>) => {
+          return acc.concat(mapOfOrders);
+        }, temporary);
+      }
+    };
+
+    await promiseAllInBatches(getOrders, targets, 100, 10000);
+
+    for (const target of targets) {
+      orders.concat(
+        temporary.filter((order: Order) => {
+          return (order.ownerAddress === target.ownerAddress
+          && (target.marketName ? order.marketName === target.marketName : true)
+          && (
+            target.ids?.includes(order.id!)
+            || target.exchangeIds?.includes(order.exchangeId!)
+          ));
+        })
+      );
+    }
+
+    return orders;
+  }
+
+  async getFilledOrdersForMarket(marketName: string): Promise<IMap<string, Order>> {
+    const market = await this.getMarket(marketName);
+
+    const orders = await market.market.loadFills(this.connection, 0);
+
+    return convertArrayOfSerumOrdersToMapOfOrders(market, orders);
+  }
+
+  async getFilledOrdersForMarkets(marketNames: string[]): Promise<IMap<string, IMap<string, Order>>> {
+    const result = IMap<string, IMap<string, Order>>().asMutable();
+
+    const markets = await this.getMarkets(marketNames);
+
+    const getFilledOrders = async (market: Market): Promise<void> => {
+      result.set(market.name, await this.getFilledOrdersForMarket(market.name));
+    }
+
+    await promiseAllInBatches<Market, Promise<void>>(
+      getFilledOrders, Array.from(markets.values()), 100, 10000
+    );
+
+    return result;
+  }
+
+  async getAllFilledOrders(): Promise<IMap<string, IMap<string, Order>>> {
+    const marketNames = Array.from((await this.getAllMarkets()).keys());
+
+    return await this.getFilledOrdersForMarkets(marketNames);
   }
 
   async getOrder(target: GetOrderRequest): Promise<Order> {
@@ -374,32 +490,37 @@ export class Serum {
     }
   }
 
+  // TODO check if the implementation returns the correct results!!!
   async getOrders(targets: GetOrdersRequest[]): Promise<IMap<string, Order>> {
     const orders = IMap<string, Order>().asMutable();
-    const temporary = IMap<string, Order>().asMutable();
+    let temporary = IMap<string, Order>().asMutable();
 
-    const ownerAddresses = targets.map(target => target.ownerAddress);
+    const getOrders = async (target: GetOrdersRequest) => {
+      if (target.marketName) {
+        const openOrders = await this.getOpenOrdersForMarket(target.marketName, target.ownerAddress);
+        const filledOrders = await this.getFilledOrdersForMarket(target.marketName);
+        temporary.concat(openOrders).concat(filledOrders);
+      } else {
+        (await this.getAllOpenOrders(target.ownerAddress)).reduce((acc: IMap<string, Order>, mapOfOrders: IMap<string, Order>) => {
+          return acc.concat(mapOfOrders);
+        }, temporary);
 
-    const listOfMapOfMarketsOfOpenOrders = await Promise.all(ownerAddresses.flatMap(async (ownerAddress) => {
-      return (await this.getAllOpenOrders(ownerAddress)); // TODO this method is not the correct one!!!
-    }));
-
-    for(const mapOfMarkets of listOfMapOfMarketsOfOpenOrders) {
-        for(const mapOfOrders of mapOfMarkets.values()) {
-        for (const order of mapOfOrders.values()) {
-          temporary.set(order.exchangeId!, order);
-        }
+        (await this.getAllFilledOrders()).reduce((acc: IMap<string, Order>, mapOfOrders: IMap<string, Order>) => {
+          return acc.concat(mapOfOrders);
+        }, temporary);
       }
-    }
+    };
+
+    await promiseAllInBatches(getOrders, targets, 100, 10000);
 
     for (const target of targets) {
       orders.concat(
-        temporary.filter((openOrder: Order) => {
-          return (openOrder.ownerAddress === target.ownerAddress
-          && (target.marketName ? openOrder.marketName === target.marketName : true)
+        temporary.filter((order: Order) => {
+          return (order.ownerAddress === target.ownerAddress
+          && (target.marketName ? order.marketName === target.marketName : true)
           && (
-            target.ids?.includes(openOrder.id!)
-            || target.exchangeIds?.includes(openOrder.exchangeId!)
+            target.ids?.includes(order.id!)
+            || target.exchangeIds?.includes(order.exchangeId!)
           ));
         })
       );
@@ -408,80 +529,36 @@ export class Serum {
     return orders;
   }
 
-  async getOpenOrders(
-    targets: GetOpenOrdersRequest[]
-  ): Promise<IMap<string, Order>> {
-    const orders = IMap<string, Order>().asMutable();
-    const temporary = IMap<string, Order>().asMutable();
-
-    const ownerAddresses = targets.map(target => target.ownerAddress);
-
-    const listOfMapOfMarketsOfOpenOrders = await Promise.all(ownerAddresses.flatMap(async (ownerAddress) => {
-      return (await this.getAllOpenOrders(ownerAddress));
-    }));
-
-    for(const mapOfMarkets of listOfMapOfMarketsOfOpenOrders) {
-        for(const mapOfOrders of mapOfMarkets.values()) {
-        for (const order of mapOfOrders.values()) {
-          temporary.set(order.exchangeId!, order);
-        }
-      }
-    }
-
-    for (const target of targets) {
-      orders.concat(
-        temporary.filter((openOrder: Order) => {
-          return (openOrder.ownerAddress === target.ownerAddress
-          && (target.marketName ? openOrder.marketName === target.marketName : true)
-          && (
-            target.ids?.includes(openOrder.id!)
-            || target.exchangeIds?.includes(openOrder.exchangeId!)
-          ));
-        })
-      );
-    }
+  // TODO check if the implementation returns the correct results!!!
+  async getOrdersForMarket(marketName: string, ownerAddress: string): Promise<IMap<string, Order>> {
+    const orders = (await this.getOpenOrdersForMarket(marketName, ownerAddress));
+    orders.concat(await this.getFilledOrdersForMarket(marketName));
 
     return orders;
   }
 
-  async getAllOpenOrdersForMarket(
-    marketName: string,
-    address: string
-  ): Promise<IMap<string, Order>> {
-    const market = await this.getMarket(marketName);
-
-    const owner = await this.solana.getAccount(address);
-
-    const serumOpenOrders = await market.market.loadOrdersForOwner(
-      this.connection,
-      owner.publicKey
-    );
-
-    return this.parseToMapOfOrders(market, serumOpenOrders, address);
-  }
-
-  async getAllOpenOrdersForMarkets(
-    marketNames: string[],
-    address: string
-  ): Promise<IMap<string, IMap<string, Order>>> {
+  // TODO check if the implementation returns the correct results!!!
+  async getOrdersForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, IMap<string, Order>>> {
     const result = IMap<string, IMap<string, Order>>().asMutable();
 
-    for (const marketName of marketNames) {
-      result.set(
-        marketName,
-        await this.getAllOpenOrdersForMarket(marketName, address)
-      );
+    const markets = await this.getMarkets(marketNames);
+
+    const getOrders = async (market: Market): Promise<void> => {
+      result.set(market.name, await this.getOrdersForMarket(market.name, ownerAddress));
     }
+
+    await promiseAllInBatches<Market, Promise<void>>(
+      getOrders, Array.from(markets.values()), 100, 10000
+    );
 
     return result;
   }
 
-  async getAllOpenOrders(
-    address: string
-  ): Promise<IMap<string, IMap<string, Order>>> {
+  // TODO check if the implementation returns the correct results!!!
+  async getAllOrders(ownerAddress: string): Promise<IMap<string, IMap<string, Order>>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
-    return await this.getAllOpenOrdersForMarkets(marketNames, address);
+    return await this.getOrdersForMarkets(marketNames, ownerAddress);
   }
 
   async createOrder(candidate: CreateOrdersRequest): Promise<Order> {
@@ -593,8 +670,8 @@ export class Serum {
     return canceledOrders;
   }
 
-  async cancelAllOpenOrders(address: string): Promise<IMap<string, Order>> {
-    const mapOfMapOfOrders = await this.getAllOpenOrders(address);
+  async cancelAllOpenOrders(ownerAddress: string): Promise<IMap<string, Order>> {
+    const mapOfMapOfOrders = await this.getAllOpenOrders(ownerAddress);
 
     const canceledOrders = IMap<string, Order>().asMutable();
 
@@ -612,46 +689,5 @@ export class Serum {
     }
 
     return canceledOrders;
-  }
-
-  async getFilledOrders(
-    targets: GetFilledOrdersRequest[]
-  ): Promise<IMap<string, Order>> {
-    let result = IMap<string, Order>().asMutable();
-
-    for (const target of targets) {
-      let marketsMap = IMap<string, Market>().asMutable();
-
-      if (!target.marketName) {
-        marketsMap = await this.getAllMarkets();
-      } else {
-        marketsMap.set(
-          target.marketName,
-          await this.getMarket(target.marketName)
-        );
-      }
-
-      for (const market of marketsMap.values()) {
-        // TODO will not work properly because we are loading the fills for everyone and not just for the owner orders!!!
-        // TODO check if -1 would also work and which limit is the correct one here!!!
-        const orders = await market.market.loadFills(this.connection, 0);
-
-        result = IMap([...result, ...this.parseToMapOfOrders(market, orders, target.ownerAddress!)]).asMutable();
-        result = result.filter((order) => {
-          order.ownerAddress === target.ownerAddress
-          && order.marketName === target.marketName
-          && (
-            target.ids?.includes(order.id!)
-            || target.exchangeIds?.includes(order.exchangeId!)
-          )
-        });
-      }
-    }
-
-    return result;
-  }
-
-  async getAllFilledOrders(): Promise<IMap<string, Order>> {
-    return await this.getFilledOrders([]);
   }
 }
