@@ -58,7 +58,7 @@ class FixtureCoinbasePro:
         "user_id": "5dc62091b2d9e604842cad56", "price": "235.67",
         "order_id": "9d8c39b0-094f-4832-9a73-9b2e43b03780", "remaining_size": "0.02"}
 
-    WS_ORDER_CANCELLED = {
+    WS_ORDER_CANCELED = {
         "type": "done", "side": "buy", "product_id": "ETH-USDC",
         "time": "2020-02-14T07:41:45.450940Z", "sequence": 544392470,
         "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c", "user_id": "5dc62091b2d9e604842cad56",
