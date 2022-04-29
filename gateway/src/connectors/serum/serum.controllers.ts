@@ -286,11 +286,11 @@ export async function getOrders(
     }
   }
 
-  // TODO Think about accepting to get all orders!!!
-  throw new HttpException(
-    StatusCodes.BAD_REQUEST,
-    `No order(s) was/were informed.`
-  );
+  response.body = convert<IMap<string, IMap<string, Order>>, SerumGetOrdersResponse>(await serum.getAllOrders(request.ownerAddress), Types.GetFilledOrdersResponse);
+
+  response.status = StatusCodes.OK;
+
+  return response;
 }
 
 /**
@@ -537,7 +537,8 @@ export async function getFilledOrders(
     }
   }
 
-  response.body = convert<IMap<string, Order>, SerumGetFilledOrdersResponse>(await serum.getAllFilledOrders(), Types.GetFilledOrdersResponse);
+  // TODO check if is still working!!!
+  response.body = convert<IMap<string, IMap<string, Order>>, SerumGetFilledOrdersResponse>(await serum.getAllFilledOrders(), Types.GetFilledOrdersResponse);
 
   response.status = StatusCodes.OK;
 
