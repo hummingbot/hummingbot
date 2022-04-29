@@ -23,22 +23,33 @@ import {
   Trade as TradePangolin,
   Fraction as PangolinFraction,
 } from '@pangolindex/sdk';
+import {
+  Trade as SushiswapTrade,
+  Token as SushiToken,
+  CurrencyAmount as sushiCurrencyAmount,
+  TradeType as SushiTradeType,
+  Currency as SushiCurrency,
+  Fraction as SushiFraction
+} from '@sushiswap/sdk';
 
-export type Tokenish = Token | TokenPangolin | UniswapCoreToken;
+export type Tokenish = Token | TokenPangolin | UniswapCoreToken | SushiToken;
 export type UniswapishTrade =
   | Trade
   | TradePangolin
+  | SushiswapTrade<SushiToken, SushiToken, SushiTradeType.EXACT_INPUT | SushiTradeType.EXACT_OUTPUT>
   | UniswapV3Trade<Currency, UniswapCoreToken, TradeType>;
 export type UniswapishAmount =
   | CurrencyAmount
   | CurrencyAmountPangolin
-  | UniswapCoreCurrencyAmount<Currency>;
-export type Fractionish = UniswapFraction | PangolinFraction;
+  | UniswapCoreCurrencyAmount<Currency>
+  | sushiCurrencyAmount<SushiCurrency | SushiToken>;
+export type Fractionish = UniswapFraction | PangolinFraction | SushiFraction;
 
 export interface ExpectedTrade {
   trade: UniswapishTrade;
   expectedAmount: UniswapishAmount;
 }
+
 
 export interface Uniswapish {
   /**
@@ -149,8 +160,8 @@ export interface NetworkSelectionRequest {
 
 export interface CustomTransactionReceipt
   extends Omit<
-    ethers.providers.TransactionReceipt,
-    'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
+  ethers.providers.TransactionReceipt,
+  'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
   > {
   gasUsed: string;
   cumulativeGasUsed: string;
@@ -159,8 +170,8 @@ export interface CustomTransactionReceipt
 
 export interface CustomTransaction
   extends Omit<
-    Transaction,
-    'maxPriorityFeePerGas' | 'maxFeePerGas' | 'gasLimit' | 'value'
+  Transaction,
+  'maxPriorityFeePerGas' | 'maxFeePerGas' | 'gasLimit' | 'value'
   > {
   maxPriorityFeePerGas: string | null;
   maxFeePerGas: string | null;
@@ -170,8 +181,8 @@ export interface CustomTransaction
 
 export interface CustomTransactionResponse
   extends Omit<
-    ethers.providers.TransactionResponse,
-    'gasPrice' | 'gasLimit' | 'value'
+  ethers.providers.TransactionResponse,
+  'gasPrice' | 'gasLimit' | 'value'
   > {
   gasPrice: string | null;
   gasLimit: string;
