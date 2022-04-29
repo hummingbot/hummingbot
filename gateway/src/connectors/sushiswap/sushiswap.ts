@@ -1,31 +1,34 @@
 import {
     InitializationError,
-    // UniswapishPriceError,
     SERVICE_UNITIALIZED_ERROR_CODE,
     SERVICE_UNITIALIZED_ERROR_MESSAGE,
+    UniswapishPriceError,
 } from '../../services/error-handler';
 import { SushiswapConfig } from './sushiswap.config';
 import routerAbi from './sushiswap_router.json';
 
 import {
-    // Contract,
     ContractInterface,
-    // ContractTransaction,
 } from '@ethersproject/contracts';
 
 import {
-    // Fetcher,
-    // Percent,
-    // Router,
+    Percent,
+    Router,
     Token,
-    // CurrencyAmount,
-    // Trade,
-    // Pair,
-    // SwapParameters,
+    CurrencyAmount,
+    Trade,
+    Pair,
+    // Currency,
+    SwapParameters,
+    TradeType,
 } from '@sushiswap/sdk'
-import { ExpectedTrade, Tokenish, Uniswapish, UniswapishTrade } from '../../services/common-interfaces';
+import IUniswapV2Pair from '@uniswap/v2-core/build/IUniswapV2Pair.json'
+import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
 import { Ethereum } from '../../chains/ethereum/ethereum';
-import { BigNumber, Wallet, Transaction } from 'ethers';
+import { BigNumber, Wallet, Transaction, Contract, ContractTransaction } from 'ethers';
+import { percentRegexp } from '../../services/config-manager-v2';
+import { logger } from '../../services/logger';
+
 
 export class SushiSwap implements Uniswapish {
     private static _instances: { [name: string]: SushiSwap };
@@ -59,6 +62,17 @@ export class SushiSwap implements Uniswapish {
         }
 
         return SushiSwap._instances[chain + network];
+    }
+
+
+    /**
+     * Given a token's address, return the connector's native representation of
+     * the token.
+     *
+     * @param address Token address
+     */
+    public getTokenByAddress(address: string): Token {
+        return this.tokenList[address];
     }
 
 
@@ -112,26 +126,168 @@ export class SushiSwap implements Uniswapish {
         return this._ttl;
     }
 
+    /**
+     * Gets the allowed slippage percent from configuration.
+     */
+    getSlippagePercentage(): Percent {
+        const allowedSlippage = SushiswapConfig.config.allowedSlippage(2);
+        const nd = allowedSlippage.match(percentRegexp);
+        if (nd) return new Percent(nd[1], nd[2]);
+        throw new Error(
+            'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
+        );
+    }
+
+    /**
+     * Given the amount of `baseToken` to put into a transaction, calculate the
+     * amount of `quoteToken` that can be expected from the transaction.
+     *
+     * This is typically used for calculating token sell prices.
+     *
+     * @param baseToken Token input for the transaction
+     * @param quoteToken Output from the transaction
+     * @param amount Amount of `baseToken` to put into the transaction
+     */
+
+    async estimateSellTrade(baseToken: Token, quoteToken: Token, amount: BigNumber): Promise<ExpectedTrade> {
+        const nativeTokenAmount: CurrencyAmount<Token> = CurrencyAmount.fromRawAmount(
+            baseToken,
+            amount.toString()
+        );
+
+        logger.info(
+            `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
+        );
+        // const pair: Pair = await Fetcher.fetchPairData(
+        //   baseToken,
+        //   quoteToken,
+        //   this.ethereum.provider
+        // );
+        const pairAddress = Pair.getAddress(baseToken, quoteToken);
+        const contract = new Contract(pairAddress, IUniswapV2Pair.abi, this.ethereum.provider);
+        const [reserves0, reserves1] = await contract.getReserves();
+        const balances = baseToken.sortsBefore(quoteToken) ? [reserves0, reserves1] : [reserves1, reserves0];
+        const pair = new Pair(CurrencyAmount.fromRawAmount(baseToken, balances[0]), CurrencyAmount.fromRawAmount(quoteToken, balances[1]))
+
+
+        const trades: Trade<Token, Token, TradeType.EXACT_INPUT>[] = Trade.bestTradeExactIn(
+            [pair],
+            nativeTokenAmount,
+            quoteToken,
+            { maxHops: 1 }
+        );
+        if (!trades || trades.length === 0) {
+            throw new UniswapishPriceError(
+                `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
+            );
+        }
+        logger.info(
+            `Best trade for ${baseToken.address}-${quoteToken.address}: ` +
+            `${trades[0].executionPrice.toFixed(6)}` +
+            `${baseToken.name}.`
+        );
+        const expectedAmount = trades[0].minimumAmountOut(
+            this.getSlippagePercentage()
+        );
+
+        return { trade: trades[0], expectedAmount };
+    }
+    async estimateBuyTrade(quoteToken: Token, baseToken: Token, amount: BigNumber): Promise<ExpectedTrade> {
+        const nativeTokenAmount: CurrencyAmount<Token> = CurrencyAmount.fromRawAmount(
+            baseToken,
+            amount.toString()
+        );
+
+        const pairAddress = Pair.getAddress(baseToken, quoteToken);
+        const contract = new Contract(pairAddress, IUniswapV2Pair.abi, this.ethereum.provider);
+        const [reserves0, reserves1] = await contract.getReserves();
+        const balances = quoteToken.sortsBefore(baseToken) ? [reserves0, reserves1] : [reserves1, reserves0];
+        const pair = new Pair(CurrencyAmount.fromRawAmount(quoteToken, balances[1]), CurrencyAmount.fromRawAmount(baseToken, balances[0]))
+
+        const trades: Trade<Token, Token, TradeType.EXACT_OUTPUT>[] = Trade.bestTradeExactOut(
+            [pair],
+            quoteToken,
+            nativeTokenAmount,
+            { maxHops: 1 }
+        );
+        if (!trades || trades.length === 0) {
+            throw new UniswapishPriceError(
+                `priceSwapOut: no trade pair found for ${quoteToken.address} to ${baseToken.address}.`
+            );
+        }
+        logger.info(
+            `Best trade for ${quoteToken.address}-${baseToken.address}: ` +
+            `${trades[0].executionPrice.invert().toFixed(6)} ` +
+            `${baseToken.name}.`
+        );
+
+        const expectedAmount = trades[0].maximumAmountIn(
+            this.getSlippagePercentage()
+        );
+        return { trade: trades[0], expectedAmount };
+
+    }
+
 
 
     /**
-     * Given a token's address, return the connector's native representation of
-     * the token.
+     * Given a wallet and a Uniswap trade, try to execute it on blockchain.
      *
-     * @param address Token address
+     * @param _wallet Wallet
+     * @param _trade Expected trade
+     * @param _gasPrice Base gas price, for pre-EIP1559 transactions
+     * @param uniswapRouter Router smart contract address
+     * @param _ttl How long the swap is valid before expiry, in seconds
+     * @param _abi Router contract ABI
+     * @param _gasLimit Gas limit
+     * @param _nonce (Optional) EVM transaction nonce
+     * @param _maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+     * @param _maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
      */
-    public getTokenByAddress(address: string): Token {
-        return this.tokenList[address];
-    }
 
-    estimateSellTrade(_baseToken: Tokenish, _quoteToken: Tokenish, _amount: BigNumber): Promise<ExpectedTrade> {
-        throw new Error('Method not implemented.');
-    }
-    estimateBuyTrade(_quoteToken: Tokenish, _baseToken: Tokenish, _amount: BigNumber): Promise<ExpectedTrade> {
-        throw new Error('Method not implemented.');
-    }
-    executeTrade(_wallet: Wallet, _trade: UniswapishTrade, _gasPrice: number, _sushiswapRouter: string, _ttl: number, _abi: ContractInterface, _gasLimit: number, _nonce?: number, _maxFeePerGas?: BigNumber, _maxPriorityFeePerGas?: BigNumber): Promise<Transaction> {
-        throw new Error('Method not implemented.');
+    async executeTrade(
+        wallet: Wallet,
+        trade: Trade<Token, Token, TradeType.EXACT_INPUT | TradeType.EXACT_OUTPUT>,
+        gasPrice: number,
+        sushiswapRouter: string,
+        ttl: number,
+        abi: ContractInterface,
+        gasLimit: number,
+        nonce?: number,
+        maxFeePerGas?: BigNumber,
+        maxPriorityFeePerGas?: BigNumber
+    ): Promise<Transaction> {
+
+        const result: SwapParameters = Router.swapCallParameters(trade, {
+            ttl,
+            recipient: wallet.address,
+            allowedSlippage: this.getSlippagePercentage(),
+        });
+        const contract: Contract = new Contract(sushiswapRouter, abi, wallet);
+        if (nonce === undefined) {
+            nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
+        }
+        let tx: ContractTransaction;
+        if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
+            tx = await contract[result.methodName](...result.args, {
+                gasLimit: gasLimit.toFixed(0),
+                value: result.value,
+                nonce: nonce,
+                maxFeePerGas,
+                maxPriorityFeePerGas,
+            });
+        } else {
+            tx = await contract[result.methodName](...result.args, {
+                gasPrice: (gasPrice * 1e9).toFixed(0),
+                gasLimit: gasLimit.toFixed(0),
+                value: result.value,
+                nonce: nonce,
+            });
+        }
+
+        logger.info(tx);
+        await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
+        return tx;
     }
 
 
