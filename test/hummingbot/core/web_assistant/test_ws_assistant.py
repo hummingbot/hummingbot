@@ -41,7 +41,10 @@ class WSAssistantTest(unittest.TestCase):
             self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout)
         )
 
-        connect_mock.assert_called_with(ws_url, ping_timeout, message_timeout)
+        connect_mock.assert_called_with(ws_url=ws_url,
+                                        ws_headers={},
+                                        ping_timeout=ping_timeout,
+                                        message_timeout=message_timeout)
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.disconnect")
     def test_disconnect(self, disconnect_mock):

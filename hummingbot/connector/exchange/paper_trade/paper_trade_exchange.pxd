@@ -39,6 +39,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         object _market_order_filled_listener
         LimitOrderExpirationSet _limit_order_expiration_set
         object _target_market
+        str _exchange_name
 
     cdef c_execute_buy(self, str order_id, str trading_pair, object amount)
     cdef c_execute_sell(self, str order_id, str trading_pair, object amount)
