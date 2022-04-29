@@ -1,12 +1,14 @@
 import random
 import string
 import time
-from typing import Optional, Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from typing import Any, Dict, Optional, Tuple
 
-from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 CENTRALIZED = True
 
@@ -18,28 +20,66 @@ DEFAULT_FEES = [0.1, 0.1]
 HBOT_BROKER_ID = "HMBot"
 
 
+class AscendExRESTPreProcessor(RESTPreProcessorBase):
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        if request.headers is None:
+            request.headers = {}
+        # Generates generic headers required by AscendEx
+        headers_generic = {}
+        headers_generic["Accept"] = "application/json"
+        headers_generic["Content-Type"] = "application/json"
+        # Headers signature to identify user as an HB liquidity provider.
+        request.headers = dict(list(headers_generic.items()) +
+                               list(request.headers.items()) +
+                               list(get_hb_id_headers().items()))
+        return request
+
+
+def build_api_factory(auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    """
+    Builds an API factory with custom REST preprocessors
+
+    :param auth: authentication class for private requests
+
+    :return: API factory
+    """
+    api_factory = WebAssistantsFactory(auth=auth,
+                                       rest_pre_processors=[AscendExRESTPreProcessor()])
+    return api_factory
+
+
 def get_rest_url_private(account_id: int) -> str:
+    """
+    Builds a private REST URL
+
+    :param account_id: account ID
+
+    :return: a complete private REST URL
+    """
     return f"https://ascendex.com/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
 
 
 def get_ws_url_private(account_id: int) -> str:
+    """
+    Builds a private websocket URL
+
+    :param account_id: account ID
+
+    :return: a complete private websocket URL
+    """
     return f"wss://ascendex.com:443/{account_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
 
 
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    return exchange_trading_pair.replace("/", "-")
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "/")
-
-
-def _time():
+def get_hb_id_headers() -> Dict[str, Any]:
     """
-    Private function created just to have a method that can be safely patched during unit tests and make tests
-    independent from real time
+    Headers signature to identify user as an HB liquidity provider.
+
+    :return: a custom HB signature header
     """
-    return time.time()
+    return {
+        "request-source": "hummingbot-liq-mining",
+    }
 
 
 # get timestamp in milliseconds
@@ -54,9 +94,11 @@ def uuid32():
 def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     """
     Server order generator based on user info and input.
+
     :param user_uid: user uid
     :param cl_order_id: user random digital and number id
     :param ts: order timestamp in milliseconds
+
     :return: order id of length 32
     """
     # NOTE: The derived_order_id function details how AscendEx server generates the exchange_order_id
@@ -68,8 +110,10 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
 def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optional[int] = None) -> Tuple[str, int]:
     """
     Generates the exchange order id based on user uid and client order id.
+
     :param user_uid: user uid,
     :param client_order_id: client order id used for local order tracking
+
     :return: order id of length 32
     """
     time = timestamp or get_ms_timestamp()
@@ -81,16 +125,6 @@ def gen_exchange_order_id(userUid: str, client_order_id: str, timestamp: Optiona
         ),
         time
     ]
-
-
-def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    """
-    Generates the client order id.
-    Note: All AscendEx API interactions, after order creation, utilizes the exchange_order_id instead.
-    """
-    side = "B" if is_buy else "S"
-    base, quote = trading_pair.split("-")
-    return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{get_tracking_nonce()}"
 
 
 KEYS = {
@@ -107,3 +141,11 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
+
+
+def _time():
+    """
+    Private function created just to have a method that can be safely patched during unit tests and make tests
+    independent from real time
+    """
+    return time.time()

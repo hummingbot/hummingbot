@@ -2,7 +2,6 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 import zlib
 
-
 CENTRALIZED = True
 
 

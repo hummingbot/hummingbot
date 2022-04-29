@@ -96,7 +96,7 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             return response_json["result"]["token"]
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         ws = None
         while True:
             try:

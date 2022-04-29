@@ -460,6 +460,12 @@ cdef class ConnectorBase(NetworkIterator):
             self._trade_fee_schema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=self.name)
         return self._trade_fee_schema
 
+    async def _update_balances(self):
+        """
+        Update local balances requesting the latest information from the exchange.
+        """
+        raise NotImplementedError
+
     def _time(self) -> float:
         """
         Method created to enable tests to mock the machine time
