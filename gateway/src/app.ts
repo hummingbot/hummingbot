@@ -19,6 +19,7 @@ import { EVMRoutes } from './evm/evm.routes';
 import { AmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
+import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
 
@@ -52,6 +53,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
+  openocean: Array<AvailableNetworks>;
 }
 
 gatewayApp.get(
@@ -60,6 +62,7 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
+      openocean: OpenoceanConfig.config.availableNetworks,
     });
   })
 );

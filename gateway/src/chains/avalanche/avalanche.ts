@@ -5,6 +5,7 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
+import { OpenoceanConfig } from '../../connectors/openocean/openocean.config';
 import { Ethereumish } from '../../services/common-interfaces';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
@@ -65,6 +66,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     let spender: string;
     if (reqSpender === 'pangolin') {
       spender = PangolinConfig.config.routerAddress(this._chain);
+    } else if (reqSpender === 'openocean') {
+      spender = OpenoceanConfig.config.routerAddress(this._chain);
     } else {
       spender = reqSpender;
     }
