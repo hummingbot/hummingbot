@@ -71,7 +71,7 @@
     "@types/app-root-path": "^1.2.4",
     "@types/bs58": "^4.0.1",
     "@types/express": "^4.17.12",
-    "@types/jest": "^27.0.1",
+    "@types/jest": "^27.4.1",
     "@types/js-yaml": "^4.0.2",
     "@types/level": "^6.0.0",
     "@types/mathjs": "^9.4.2",

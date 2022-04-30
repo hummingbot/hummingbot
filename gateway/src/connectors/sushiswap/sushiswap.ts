@@ -30,8 +30,8 @@ import { percentRegexp } from '../../services/config-manager-v2';
 import { logger } from '../../services/logger';
 
 
-export class SushiSwap implements Uniswapish {
-    private static _instances: { [name: string]: SushiSwap };
+export class Sushiswap implements Uniswapish {
+    private static _instances: { [name: string]: Sushiswap };
     private ethereum: Ethereum;
     private _chain: string;
     private _router: string;
@@ -50,18 +50,18 @@ export class SushiSwap implements Uniswapish {
         this._ttl = SushiswapConfig.config.ttl(2);
         this._routerAbi = routerAbi.abi;
         this._gasLimit = SushiswapConfig.config.gasLimit(2);
-        this._router = config.sushiswapRouterAddress(network);
+        this._router = config.sushiswapV2RouterAddress(network);
     }
 
-    public static getInstance(chain: string, network: string): SushiSwap {
-        if (SushiSwap._instances === undefined) {
-            SushiSwap._instances = {};
+    public static getInstance(chain: string, network: string): Sushiswap {
+        if (Sushiswap._instances === undefined) {
+            Sushiswap._instances = {};
         }
-        if (!(chain + network in SushiSwap._instances)) {
-            SushiSwap._instances[chain + network] = new SushiSwap(chain, network);
+        if (!(chain + network in Sushiswap._instances)) {
+            Sushiswap._instances[chain + network] = new Sushiswap(chain, network);
         }
 
-        return SushiSwap._instances[chain + network];
+        return Sushiswap._instances[chain + network];
     }
 
 
@@ -137,6 +137,22 @@ export class SushiSwap implements Uniswapish {
             'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
         );
     }
+    
+  /**
+   * Fetches information about a pair and constructs a pair from the given two tokens.
+   * This is to replace the Fetcher Class 
+   * @param tokenA first token
+   * @param tokenB second token
+   */
+
+    async fetchData(baseToken: Token, quoteToken:Token): Promise<Pair>{
+        const pairAddress = Pair.getAddress(baseToken, quoteToken);
+        const contract = new Contract(pairAddress, IUniswapV2Pair.abi, this.ethereum.provider);
+        const [reserves0, reserves1] = await contract.getReserves();
+        const balances = baseToken.sortsBefore(quoteToken) ? [reserves0, reserves1] : [reserves1, reserves0];
+        const pair = new Pair(CurrencyAmount.fromRawAmount(baseToken, balances[0]), CurrencyAmount.fromRawAmount(quoteToken, balances[1]))
+        return pair
+    }
 
     /**
      * Given the amount of `baseToken` to put into a transaction, calculate the
@@ -158,16 +174,8 @@ export class SushiSwap implements Uniswapish {
         logger.info(
             `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
         );
-        // const pair: Pair = await Fetcher.fetchPairData(
-        //   baseToken,
-        //   quoteToken,
-        //   this.ethereum.provider
-        // );
-        const pairAddress = Pair.getAddress(baseToken, quoteToken);
-        const contract = new Contract(pairAddress, IUniswapV2Pair.abi, this.ethereum.provider);
-        const [reserves0, reserves1] = await contract.getReserves();
-        const balances = baseToken.sortsBefore(quoteToken) ? [reserves0, reserves1] : [reserves1, reserves0];
-        const pair = new Pair(CurrencyAmount.fromRawAmount(baseToken, balances[0]), CurrencyAmount.fromRawAmount(quoteToken, balances[1]))
+        
+        const pair : Pair = await this.fetchData(baseToken,quoteToken)
 
 
         const trades: Trade<Token, Token, TradeType.EXACT_INPUT>[] = Trade.bestTradeExactIn(
@@ -198,11 +206,7 @@ export class SushiSwap implements Uniswapish {
             amount.toString()
         );
 
-        const pairAddress = Pair.getAddress(baseToken, quoteToken);
-        const contract = new Contract(pairAddress, IUniswapV2Pair.abi, this.ethereum.provider);
-        const [reserves0, reserves1] = await contract.getReserves();
-        const balances = quoteToken.sortsBefore(baseToken) ? [reserves0, reserves1] : [reserves1, reserves0];
-        const pair = new Pair(CurrencyAmount.fromRawAmount(quoteToken, balances[1]), CurrencyAmount.fromRawAmount(baseToken, balances[0]))
+        const pair : Pair = await this.fetchData(quoteToken,baseToken)
 
         const trades: Trade<Token, Token, TradeType.EXACT_OUTPUT>[] = Trade.bestTradeExactOut(
             [pair],
@@ -249,7 +253,7 @@ export class SushiSwap implements Uniswapish {
         wallet: Wallet,
         trade: Trade<Token, Token, TradeType.EXACT_INPUT | TradeType.EXACT_OUTPUT>,
         gasPrice: number,
-        sushiswapRouter: string,
+        sushswapRouter: string,
         ttl: number,
         abi: ContractInterface,
         gasLimit: number,
@@ -263,7 +267,7 @@ export class SushiSwap implements Uniswapish {
             recipient: wallet.address,
             allowedSlippage: this.getSlippagePercentage(),
         });
-        const contract: Contract = new Contract(sushiswapRouter, abi, wallet);
+        const contract: Contract = new Contract(sushswapRouter, abi, wallet);
         if (nonce === undefined) {
             nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
         }

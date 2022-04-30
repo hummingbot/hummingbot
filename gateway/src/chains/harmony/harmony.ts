@@ -5,7 +5,6 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
-// import { SushiSwapConfig } from './sushiswap/sushiswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
 
 export class Harmony extends EthereumBase implements Ethereumish {
