@@ -17,10 +17,11 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
-    calculate_bid_ask_ratios_from_base_asset_ratio
+    calculate_bid_ask_ratios_from_base_asset_ratio,
 )
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.strategy.utils import order_age
+
 from .data_types import PriceSize, Proposal
 
 NaN = float("nan")
@@ -43,7 +44,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     market_infos: Dict[str, MarketTradingPairTuple],
                     token: str,
                     order_amount: Decimal,
-                    spread: Decimal,
+                    buy_spread: Decimal,
+                    sell_spread: Decimal,
                     inventory_skew_enabled: bool,
                     target_base_pct: Decimal,
                     order_refresh_time: float,
@@ -60,7 +62,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._market_infos = market_infos
         self._token = token
         self._order_amount = order_amount
-        self._spread = spread
+        self._buy_spread = buy_spread
+        self._sell_spread = sell_spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._inventory_skew_enabled = inventory_skew_enabled
@@ -275,17 +278,20 @@ class LiquidityMiningStrategy(StrategyPyBase):
         """
         proposals = []
         for market, market_info in self._market_infos.items():
-            spread = self._spread
+            buy_spread = self._buy_spread
+            sell_spread = self._sell_spread
             if not self._volatility[market].is_nan():
                 # volatility applies only when it is higher than the spread setting.
-                spread = max(spread, self._volatility[market] * self._volatility_to_spread_multiplier)
+                buy_spread = max(buy_spread, self._volatility[market] * self._volatility_to_spread_multiplier)
+                sell_spread = max(sell_spread, self._volatility[market] * self._volatility_to_spread_multiplier)
             if self._max_spread > s_decimal_zero:
-                spread = min(spread, self._max_spread)
+                buy_spread = min(buy_spread, self._max_spread)
+                sell_spread = min(sell_spread, self._max_spread)
             mid_price = market_info.get_mid_price()
-            buy_price = mid_price * (Decimal("1") - spread)
+            buy_price = mid_price * (Decimal("1") - buy_spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
             buy_size = self.base_order_size(market, buy_price)
-            sell_price = mid_price * (Decimal("1") + spread)
+            sell_price = mid_price * (Decimal("1") + sell_spread)
             sell_price = self._exchange.quantize_order_price(market, sell_price)
             sell_size = self.base_order_size(market, sell_price)
             proposals.append(Proposal(market, PriceSize(buy_price, buy_size), PriceSize(sell_price, sell_size)))
@@ -419,13 +425,19 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     order_type=maker_order_type,
                     price=proposal.sell.price
                 )
-            if proposal.buy.size > 0 or proposal.sell.size > 0:
-                if not self._volatility[proposal.market].is_nan() and spread > self._spread:
+            if proposal.buy.size > 0:
+                if not self._volatility[proposal.market].is_nan() and spread > self._buy_spread:
                     adjusted_vol = self._volatility[proposal.market] * self._volatility_to_spread_multiplier
-                    if adjusted_vol > self._spread:
-                        self.logger().info(f"({proposal.market}) Spread is widened to {spread:.2%} due to high "
+                    if adjusted_vol > self._buy_spread:
+                        self.logger().info(f"({proposal.market}) BUY Spread is widened to {spread:.2%} due to high "
                                            f"market volatility")
-
+                self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
+            elif proposal.sell.size > 0:
+                if not self._volatility[proposal.market].is_nan() and spread > self._sell_spread:
+                    adjusted_vol = self._volatility[proposal.market] * self._volatility_to_spread_multiplier
+                    if adjusted_vol > self._sell_spread:
+                        self.logger().info(f"({proposal.market}) SELL Spread is widened to {spread:.2%} due to high "
+                                           f"market volatility")
                 self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
 
     def is_token_a_quote_token(self):

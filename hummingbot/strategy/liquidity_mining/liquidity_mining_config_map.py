@@ -5,16 +5,10 @@ The configuration parameters for a user made liquidity_mining strategy.
 import re
 from decimal import Decimal
 from typing import Optional
+
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal, validate_exchange, validate_int
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import (
-    validate_exchange,
-    validate_decimal,
-    validate_int,
-    validate_bool
-)
-from hummingbot.client.settings import (
-    required_exchanges,
-)
+from hummingbot.client.settings import required_exchanges
 
 
 def exchange_on_validated(value: str) -> None:
@@ -92,9 +86,16 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
-    "spread":
-        ConfigVar(key="spread",
-                  prompt="How far away from the mid price do you want to place bid and ask orders? "
+    "buy_spread":
+        ConfigVar(key="buy_spread",
+                  prompt="How far away from the mid price do you want to place bid orders? "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  prompt_on_new=True),
+    "sell_spread":
+        ConfigVar(key="sell_spread",
+                  prompt="How far away from the mid price do you want to place ask orders? "
                          "(Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),

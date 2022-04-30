@@ -1,7 +1,8 @@
 from decimal import Decimal
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+
 from hummingbot.strategy.liquidity_mining.liquidity_mining import LiquidityMiningStrategy
 from hummingbot.strategy.liquidity_mining.liquidity_mining_config_map import liquidity_mining_config_map as c_map
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):
@@ -13,7 +14,8 @@ def start(self):
     base_markets = [m for m in el_markets if m.split("-")[0] == token]
     markets = quote_markets if quote_markets else base_markets
     order_amount = c_map.get("order_amount").value
-    spread = c_map.get("spread").value / Decimal("100")
+    buy_spread = c_map.get("buy_spread").value / Decimal("100")
+    sell_spread = c_map.get("sell_spread").value / Decimal("100")
     inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
     target_base_pct = c_map.get("target_base_pct").value / Decimal("100")
     order_refresh_time = c_map.get("order_refresh_time").value
@@ -37,7 +39,8 @@ def start(self):
         market_infos=market_infos,
         token=token,
         order_amount=order_amount,
-        spread=spread,
+        buy_spread=buy_spread,
+        sell_spread=sell_spread,
         inventory_skew_enabled=inventory_skew_enabled,
         target_base_pct=target_base_pct,
         order_refresh_time=order_refresh_time,

@@ -18,8 +18,11 @@ token: null
 # The size of each order in specified token amount
 order_amount: null
 
-# The spread from mid price to place bid and ask orders, enter 1 to indicate 1%
-spread: null
+# The spread from mid price to place bid orders, enter 1 to indicate 1%
+buy_spread: null
+  #
+# The spread from mid price to place ask orders, enter 1 to indicate 1%
+sell_spread: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null
