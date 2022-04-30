@@ -5,7 +5,7 @@ export namespace SushiswapConfig {
     allowedSlippage: (version: number) => string;
     gasLimit: (version: number) => number;
     ttl: (version: number) => number;
-    sushiswapRouterAddress: (network: string) => string;
+    sushiswapV2RouterAddress: (network: string) => string;
     tradingTypes: (network: string) => Array<string>;
     availableNetworks: Array<AvailableNetworks>;
   }
@@ -21,9 +21,9 @@ export namespace SushiswapConfig {
       ),
     ttl: (version: number) =>
       ConfigManagerV2.getInstance().get(`sushiswap.versions.v${version}.ttl`),
-      sushiswapRouterAddress: (network: string) =>
+      sushiswapV2RouterAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(
-        `sushiswap.contractAddresses.${network}.sushiswapRouterAddress`
+        `sushiswap.contractAddresses.${network}.sushiswapV2RouterAddress`
       ),
     tradingTypes: (network: string) =>
       network === 'v2' ? ['EVM_AMM'] : ['EVM_Range_AMM'],

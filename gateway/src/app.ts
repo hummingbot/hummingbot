@@ -19,9 +19,9 @@ import { EVMRoutes } from './evm/evm.routes';
 import { AmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
-import { CurveConfig } from './connectors/curve/curve.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
+import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -53,7 +53,7 @@ gatewayApp.get('/', (_req: Request, res: Response) => {
 interface ConnectorsResponse {
   uniswap: Array<AvailableNetworks>;
   pangolin: Array<AvailableNetworks>;
-  curve:Array<AvailableNetworks>
+  sushiswap:Array<AvailableNetworks>
 }
 
 gatewayApp.get(
@@ -62,7 +62,7 @@ gatewayApp.get(
     res.status(200).json({
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
-      curve: CurveConfig.config.availableNetworks,
+      sushiswap:SushiswapConfig.config.availableNetworks
       
     });
   })

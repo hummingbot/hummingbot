@@ -7,7 +7,7 @@ import { EthereumConfig, getEthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from '../../connectors/uniswap/uniswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
-import { CurveConfig } from '../../connectors/curve/curve.config';
+import { SushiswapConfig } from '../../connectors/sushiswap/sushiswap.config';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
@@ -168,8 +168,8 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     if (reqSpender === 'uniswap') {
       spender = UniswapConfig.config.uniswapV2RouterAddress(this._chain);
     } 
-    else if (reqSpender === 'curve') {
-      spender = CurveConfig.config.routerAddress(this._chain);
+    else if (reqSpender === 'sushiswap') {
+      spender = SushiswapConfig.config.sushiswapV2RouterAddress(this._chain);
     }else {
       spender = reqSpender;
     }
