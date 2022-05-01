@@ -17,6 +17,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
+    PositionModeChangeEvent,
     SellOrderCompletedEvent,
 )
 from hummingbot.strategy.data_types import Proposal, PriceSize
@@ -89,6 +90,7 @@ class PerpetualMarketMakingTests(TestCase):
             time_between_stop_loss_orders=10.0,
             stop_loss_slippage_buffer=self.stop_loss_slippage_buffer,
         )
+        new_strategy._position_mode_ready = True
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
 
@@ -114,6 +116,7 @@ class PerpetualMarketMakingTests(TestCase):
         self.strategy = strategy
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
+        self.strategy._strategy_ready = True
         self.clock.add_iterator(self.strategy)
         self.strategy.start(self.clock, self.start_timestamp)
 
@@ -360,7 +363,7 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertTrue(
-            self._is_logged("INFO", f"Initiated cancellation of buy order {order_id} in favour of take profit order."))
+            self._is_logged("INFO", f"Initiated cancelation of buy order {order_id} in favour of take profit order."))
 
         order_id = self.strategy.sell_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -381,7 +384,7 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertTrue(
-            self._is_logged("INFO", f"Initiated cancellation of sell order {order_id} in favour of take profit order."))
+            self._is_logged("INFO", f"Initiated cancelation of sell order {order_id} in favour of take profit order."))
 
     def test_create_profit_taking_proposal_for_long_position(self):
         position = Position(
@@ -460,7 +463,7 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(order_id, self.cancel_order_logger.event_log[0].order_id)
         self.assertTrue(
             self._is_logged("INFO",
-                            f"Initiated cancellation of previous take profit order {order_id} "
+                            f"Initiated cancelation of previous take profit order {order_id} "
                             f"in favour of new take profit order."))
         self.assertEqual(0, len(self.strategy.active_orders))
 
@@ -493,7 +496,7 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(order_id, self.cancel_order_logger.event_log[0].order_id)
         self.assertTrue(
             self._is_logged("INFO",
-                            f"Initiated cancellation of previous take profit order {order_id} "
+                            f"Initiated cancelation of previous take profit order {order_id} "
                             f"in favour of new take profit order."))
         self.assertEqual(0, len(self.strategy.active_orders))
 
@@ -582,6 +585,7 @@ class PerpetualMarketMakingTests(TestCase):
             stop_loss_slippage_buffer=self.stop_loss_slippage_buffer,
             order_override={"buy": ["buy", "10", "50"], "sell": ["sell", "20", "40"]}
         )
+        new_strategy._position_mode_ready = True
 
         self.clock.remove_iterator(self.strategy)
         self._configure_strategy(new_strategy)
@@ -749,3 +753,56 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(PriceType.Custom, self.strategy.get_price_type("custom"))
 
         self.assertRaises(ValueError, self.strategy.get_price_type, "invalid_text")
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_success(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+
+        self.strategy.did_change_position_mode_succeed(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=self.trading_pair,
+                position_mode=PositionMode.ONEWAY,
+            )
+        )
+
+        self.assertTrue(self.strategy._position_mode_ready)
+
+    @patch("hummingbot.connector.perpetual_trading.PerpetualTrading.set_position_mode")
+    def test_position_mode_change_failure(self, set_position_mode_mock):
+        self.strategy._position_mode_ready = False
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, self.strategy._position_mode_not_ready_counter)
+        self.assertFalse(self.strategy._position_mode_ready)
+
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.assertEqual(0, self.strategy._position_mode_not_ready_counter)
+
+        self.strategy.did_change_position_mode_fail(
+            PositionModeChangeEvent(
+                timestamp=self.start_timestamp + 11,
+                trading_pair=self.trading_pair,
+                position_mode=PositionMode.ONEWAY,
+                message="Error message",
+            )
+        )
+
+        self.assertFalse(self.strategy._position_mode_ready)
