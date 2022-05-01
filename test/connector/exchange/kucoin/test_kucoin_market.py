@@ -360,7 +360,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
         self.market.cancel(trading_pair, order_id)
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
+            resp = FixtureKucoin.GET_CANCELED_ORDER.copy()
             resp["data"]["id"] = exch_order_id
             resp["data"]["clientOid"] = order_id
             self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
@@ -389,7 +389,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
 
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
+            resp = FixtureKucoin.ORDERS_BATCH_CANCELED.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, "/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
@@ -470,7 +470,7 @@ class KucoinExchangeUnitTest(unittest.TestCase):
             # Cancel the order and verify that the change is saved.
             self.market.cancel(trading_pair, order_id)
             if API_MOCK_ENABLED:
-                resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
+                resp = FixtureKucoin.GET_CANCELED_ORDER.copy()
                 resp["data"]["id"] = exch_order_id
                 resp["data"]["clientOid"] = order_id
                 self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
