@@ -238,7 +238,7 @@ class ClientOrderTracker:
 
         if tracked_order.is_cancelled:
             self._trigger_cancelled_event(tracked_order)
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
