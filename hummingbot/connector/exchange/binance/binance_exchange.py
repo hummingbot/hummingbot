@@ -2,13 +2,7 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from async_timeout import timeout
 
@@ -17,9 +11,8 @@ import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.binance import binance_utils
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
-from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.connector.exchange.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
@@ -30,15 +23,10 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import (
-    DeductedFromReturnsTradeFee,
-    TokenAmount,
-    TradeFeeBase,
-)
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -54,8 +42,6 @@ class BinanceExchange(ExchangeBase):
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
-
-    MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES = 3
 
     def __init__(self,
                  binance_api_key: str,
@@ -79,12 +65,21 @@ class BinanceExchange(ExchangeBase):
             domain=self._domain,
             auth=self._auth)
         self._rest_assistant = None
-        self._order_book_tracker = BinanceOrderBookTracker(
+        self._order_book_tracker = OrderBookTracker(
+            data_source=BinanceAPIOrderBookDataSource(
+                trading_pairs=trading_pairs,
+                domain=self._domain,
+                api_factory=self._api_factory,
+                throttler=self._throttler),
             trading_pairs=trading_pairs,
-            domain=domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler)
-        self._user_stream_tracker = BinanceUserStreamTracker(auth=self._auth, domain=domain, throttler=self._throttler)
+            domain=self._domain)
+        self._user_stream_tracker = UserStreamTracker(
+            data_source=BinanceAPIUserStreamDataSource(
+                auth=self._auth,
+                domain=self._domain,
+                throttler=self._throttler,
+                api_factory=self._api_factory,
+                time_synchronizer=self._binance_time_synchronizer))
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -93,6 +88,7 @@ class BinanceExchange(ExchangeBase):
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
         self._status_polling_task = None
+        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
@@ -118,10 +114,6 @@ class BinanceExchange(ExchangeBase):
         return self._order_book_tracker.order_books
 
     @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
-
-    @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._order_tracker.active_orders
 
@@ -141,14 +133,6 @@ class BinanceExchange(ExchangeBase):
             key: value.to_json()
             for key, value in self.in_flight_orders.items()
         }
-
-    @property
-    def order_book_tracker(self) -> BinanceOrderBookTracker:
-        return self._order_book_tracker
-
-    @property
-    def user_stream_tracker(self) -> BinanceUserStreamTracker:
-        return self._user_stream_tracker
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -250,7 +234,7 @@ class BinanceExchange(ExchangeBase):
         """
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self.user_stream_tracker.last_recv_time > 60.0
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
@@ -274,7 +258,7 @@ class BinanceExchange(ExchangeBase):
                              exchange_order_id: Optional[str],
                              trading_pair: str,
                              trade_type: TradeType,
-                             price: Decimal,
+                             price: Optional[Decimal],
                              amount: Decimal,
                              order_type: OrderType):
         """
@@ -285,7 +269,7 @@ class BinanceExchange(ExchangeBase):
         :param trade_type: the type of order (buy or sell)
         :param price: the price for the order
         :param amount: the amount for the order
-        :order type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
         """
         self._order_tracker.start_tracking_order(
             InFlightOrder(
@@ -452,7 +436,7 @@ class BinanceExchange(ExchangeBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
             )
@@ -558,7 +542,7 @@ class BinanceExchange(ExchangeBase):
             )
             self._order_tracker.process_order_update(order_update)
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str):
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> Dict[str, Any]:
         """
         Requests the exchange to cancel an active order
         :param trading_pair: the trading pair the order to cancel operates with
@@ -588,15 +572,15 @@ class BinanceExchange(ExchangeBase):
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
-                return cancel_result
+                    return cancel_result
 
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
+                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
                 raise
 
     async def _status_polling_loop(self):
@@ -618,6 +602,8 @@ class BinanceExchange(ExchangeBase):
                 )
                 await self._update_order_status()
                 self._last_poll_timestamp = self.current_timestamp
+
+                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -625,8 +611,6 @@ class BinanceExchange(ExchangeBase):
                                       app_warning_msg="Could not fetch account updates from Binance. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
-            finally:
-                self._poll_notifier = asyncio.Event()
 
     async def _trading_rules_polling_loop(self):
         """
@@ -918,20 +902,9 @@ class BinanceExchange(ExchangeBase):
                         f"Error fetching status update for the order {client_order_id}: {order_update}.",
                         app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
                     )
-                    self._order_not_found_records[client_order_id] = (
-                        self._order_not_found_records.get(client_order_id, 0) + 1)
-                    if (self._order_not_found_records[client_order_id] >=
-                            self.MAX_ORDER_UPDATE_RETRIEVAL_RETRIES_WITH_FAILURES):
-                        # Wait until the order not found error have repeated a few times before actually treating
-                        # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-
-                        order_update: OrderUpdate = OrderUpdate(
-                            client_order_id=client_order_id,
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=self.current_timestamp,
-                            new_state=OrderState.FAILED,
-                        )
-                        self._order_tracker.process_order_update(order_update)
+                    # Wait until the order not found error have repeated a few times before actually treating
+                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                    await self._order_tracker.process_order_not_found(client_order_id)
 
                 else:
                     # Update order execution status
@@ -953,38 +926,31 @@ class BinanceExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
-                )
+                self.logger().exception("Error while reading user events queue. Retrying after 1 second.")
                 await asyncio.sleep(1.0)
 
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        try:
-            account_info = await self._api_request(
-                method=RESTMethod.GET,
-                path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-                is_auth_required=True)
+        account_info = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            is_auth_required=True)
 
-            balances = account_info["balances"]
-            for balance_entry in balances:
-                asset_name = balance_entry["asset"]
-                free_balance = Decimal(balance_entry["free"])
-                total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
-                self._account_available_balances[asset_name] = free_balance
-                self._account_balances[asset_name] = total_balance
-                remote_asset_names.add(asset_name)
+        balances = account_info["balances"]
+        for balance_entry in balances:
+            asset_name = balance_entry["asset"]
+            free_balance = Decimal(balance_entry["free"])
+            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
+            remote_asset_names.add(asset_name)
 
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
-        except IOError:
-            self.logger().exception("Error getting account balances from server")
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
     async def _update_time_synchronizer(self):
         try:

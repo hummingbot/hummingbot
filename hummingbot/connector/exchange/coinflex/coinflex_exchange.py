@@ -10,16 +10,17 @@ from typing import (
     Optional,
 )
 
+from async_timeout import timeout
+
 import hummingbot.connector.exchange.coinflex.coinflex_constants as CONSTANTS
 import hummingbot.connector.exchange.coinflex.coinflex_web_utils as web_utils
-from async_timeout import timeout
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.coinflex import coinflex_utils
 from hummingbot.connector.exchange.coinflex.coinflex_api_order_book_data_source import CoinflexAPIOrderBookDataSource
 from hummingbot.connector.exchange.coinflex.coinflex_auth import CoinflexAuth
 from hummingbot.connector.exchange.coinflex.coinflex_order_book_tracker import CoinflexOrderBookTracker
 from hummingbot.connector.exchange.coinflex.coinflex_user_stream_tracker import CoinflexUserStreamTracker
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -70,7 +71,11 @@ class CoinflexExchange(ExchangeBase):
             domain=domain,
             api_factory=self._api_factory,
             throttler=self._throttler)
-        self._user_stream_tracker = CoinflexUserStreamTracker(auth=self._auth, domain=domain, throttler=self._throttler)
+        self._user_stream_tracker = CoinflexUserStreamTracker(
+            auth=self._auth,
+            domain=domain,
+            throttler=self._throttler,
+            api_factory=self._api_factory)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -435,7 +440,7 @@ class CoinflexExchange(ExchangeBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with CoinFLEX. Check API key and network connection."
             )
@@ -582,15 +587,15 @@ class CoinflexExchange(ExchangeBase):
                     if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
                         cancel_result = e.error_payload["data"][0]
                     else:
-                        self.logger().error(f"Unhandled error cancelling order: {order_id}. Error: {e.error_payload}", exc_info=True)
+                        self.logger().error(f"Unhandled error canceling order: {order_id}. Error: {e.error_payload}", exc_info=True)
 
-                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
+                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELED_STATES:
                     cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=int(cancelled_timestamp) * 1e-3 if cancelled_timestamp else self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                 else:
@@ -601,7 +606,7 @@ class CoinflexExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
+                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
                 raise
 
     async def _status_polling_loop(self):

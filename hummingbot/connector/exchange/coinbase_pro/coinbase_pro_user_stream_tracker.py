@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-
-import asyncio
 import logging
 from typing import List, Optional
 
@@ -24,16 +21,16 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
         return cls._bust_logger
 
     def __init__(
-        self,
-        trading_pairs: Optional[List[str]] = None,
-        web_assistants_factory: Optional[WebAssistantsFactory] = None,
+            self,
+            trading_pairs: Optional[List[str]] = None,
+            web_assistants_factory: Optional[WebAssistantsFactory] = None,
     ):
-        super().__init__()
         self._trading_pairs: List[str] = trading_pairs or []
         self._web_assistants_factory = web_assistants_factory
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[UserStreamTrackerDataSource] = None
-        self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        super().__init__(data_source=CoinbaseProAPIUserStreamDataSource(
+            trading_pairs=self._trading_pairs,
+            web_assistants_factory=self._web_assistants_factory,
+        ))
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
@@ -63,6 +60,6 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
         Start all listeners and tasks
         """
         self._user_stream_tracking_task = safe_ensure_future(
-            self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
+            self.data_source.listen_for_user_stream(self._user_stream)
         )
         await safe_gather(self._user_stream_tracking_task)
