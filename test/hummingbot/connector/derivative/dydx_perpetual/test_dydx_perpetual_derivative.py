@@ -14,7 +14,11 @@ from requests import Response
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.common import PositionSide
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import (
+    PositionSide,
+    TradeType
+)
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     FundingInfo,
@@ -537,3 +541,96 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         sell_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
         self.assertEqual("OID1", sell_event.order_id)
         self.assertEqual(1640001112.223, sell_event.creation_timestamp)
+
+    def test_cancel_order_no_in_flight_order(self):
+        self._simulate_trading_rules_initialized()
+
+        self.async_run_with_timeout(self.exchange.cancel_order(
+            client_order_id="OID1"
+        ))
+
+        self.check_is_logged(log_level="WARNING", message="Canceled an untracked order OID1")
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
+           ".time_now_s")
+    def test_cancel_order_no_exchange_order_id(self, time_mock):
+        self._simulate_trading_rules_initialized()
+
+        time_mock.return_value = 1640001112.223
+
+        self.exchange.start_tracking_order(
+            order_side=TradeType.BUY,
+            client_order_id="OID1",
+            order_type=OrderType.LIMIT,
+            created_at=1630001112.223,
+            hash="hashcode",
+            trading_pair=self.trading_pair,
+            price=Decimal(1000),
+            amount=Decimal(1),
+            leverage=Decimal(1),
+            position="position",
+        )
+
+        self.assertTrue("OID1" in self.exchange.in_flight_orders)
+
+        self.async_run_with_timeout(self.exchange.cancel_order(
+            client_order_id="OID1"
+        ))
+
+        self.assertFalse("OID1" in self.exchange.in_flight_orders)
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.DydxPerpetualDerivative"
+           ".time_now_s")
+    def test_cancel_order_already_canceled(self, time_mock):
+        self._simulate_trading_rules_initialized()
+
+        resp = Response()
+        resp.status_code = 429
+        resp._content = b'{"errors": [{"msg": "Order with specified id: EOID1 is already canceled"}]}'
+
+        time_mock.return_value = 1640001112.223
+
+        time_mock.side_effect = DydxApiError(resp)
+
+        self.exchange.start_tracking_order(
+            order_side=TradeType.BUY,
+            client_order_id="OID1",
+            order_type=OrderType.LIMIT,
+            created_at=1640001112.223,
+            hash="hashcode",
+            trading_pair=self.trading_pair,
+            price=Decimal(1000),
+            amount=Decimal(1),
+            leverage=Decimal(1),
+            position="position",
+        )
+
+        self.assertTrue("OID1" in self.exchange.in_flight_orders)
+
+        self.async_run_with_timeout(self.exchange.cancel_order(
+            client_order_id="OID1"
+        ))
+
+        self.assertFalse("OID1" in self.exchange.in_flight_orders)
+
+    def test_cancel_all(self):
+        self._simulate_trading_rules_initialized()
+
+        self.exchange.start_tracking_order(
+            order_side=TradeType.BUY,
+            client_order_id="OID1",
+            order_type=OrderType.LIMIT,
+            created_at=1640001112.223,
+            hash="hashcode",
+            trading_pair=self.trading_pair,
+            price=Decimal(1000),
+            amount=Decimal(1),
+            leverage=Decimal(1),
+            position="position",
+        )
+
+        result = self.async_run_with_timeout(self.exchange.cancel_all(
+            timeout_seconds=1
+        ))
+
+        self.assertEqual(result, [CancellationResult(order_id='OID1', success=True)])
