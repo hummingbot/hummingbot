@@ -99,7 +99,7 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 return
 
     # TODO needs testing, paper mode is not connecting for some reason
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """Subscribe to user stream via web socket, and keep the connection open for incoming messages"""
         while True:
             try:

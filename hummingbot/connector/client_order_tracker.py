@@ -238,7 +238,7 @@ class ClientOrderTracker:
 
         if tracked_order.is_cancelled:
             self._trigger_cancelled_event(tracked_order)
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
@@ -303,7 +303,7 @@ class ClientOrderTracker:
                     fill_fee=trade_update.fee,
                     trade_id=trade_update.trade_id)
 
-    def process_order_not_found(self, client_order_id: str):
+    async def process_order_not_found(self, client_order_id: str):
         """
         Increments and checks if the order specified has exceeded the ORDER_NOT_FOUND_COUNT_LIMIT.
         A failed event is triggered if necessary.
@@ -316,11 +316,15 @@ class ClientOrderTracker:
 
         if tracked_order is None:
             self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
-
-        self._order_not_found_records[client_order_id] += 1
-
-        if self._order_not_found_records[client_order_id] > self.ORDER_NOT_FOUND_COUNT_LIMIT:
-            if not tracked_order.is_done:
-                tracked_order.current_state = OrderState.FAILED
-                self.stop_tracking_order(client_order_id=client_order_id)
-                self._trigger_failure_event(tracked_order)
+        else:
+            self._order_not_found_records[client_order_id] += 1
+            if self._order_not_found_records[client_order_id] > self.ORDER_NOT_FOUND_COUNT_LIMIT:
+                # Only mark the order as failed if it has not been marked as done already asynchronously
+                if not tracked_order.is_done:
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=client_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FAILED,
+                    )
+                    await self._process_order_update(order_update)

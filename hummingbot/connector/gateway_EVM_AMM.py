@@ -307,19 +307,19 @@ class GatewayEVMAMM(ConnectorBase):
             self._nonce,
             **request_args
         )
-        self.start_tracking_order(order_id, None, token_symbol)
 
-        if "hash" in resp.get("approval", {}).keys():
-            hash = resp["approval"]["hash"]
+        transaction_hash: Optional[str] = resp.get("approval").get("hash")
+        nonce: Optional[int] = resp.get("nonce")
+        if transaction_hash is not None and nonce is not None:
+            self.start_tracking_order(order_id, transaction_hash, token_symbol)
             tracked_order = self._in_flight_orders.get(order_id)
-            tracked_order.update_exchange_order_id(hash)
-            tracked_order.nonce = resp["nonce"]
+            tracked_order.nonce = nonce
             self.logger().info(
                 f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {hash}."
             )
             return tracked_order
         else:
-            self.stop_tracking_order(order_id)
+            self.logger().info(f"Missing data from approval result. Incomplete return result for ({resp.keys()})")
             self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
             return None
 

@@ -321,7 +321,8 @@ class GatewayHttpClient:
             "base": base_asset,
             "quote": quote_asset,
             "amount": f"{amount:.18f}",
-            "side": side.name
+            "side": side.name,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }, fail_silently=fail_silently)
 
     async def get_transaction_status(
@@ -390,7 +391,8 @@ class GatewayHttpClient:
             "side": side.name,
             "amount": f"{amount:.18f}",
             "limitPrice": str(price),
-            "nonce": nonce
+            "nonce": nonce,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
         if max_fee_per_gas is not None:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
