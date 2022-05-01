@@ -1,7 +1,7 @@
-from hummingbot.script.script_base import ScriptBase
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
 
 
-class PriceBandScript(ScriptBase):
+class PriceBandPMMScript(PMMScriptBase):
     """
     Demonstrates how to set a fixed band, the strategy is to stop buying when the mid price reaches the upper bound
     of the band and to stop selling when the mid price breaches the lower bound.
