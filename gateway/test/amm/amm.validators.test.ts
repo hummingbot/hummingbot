@@ -7,6 +7,8 @@ import {
   validateSide,
   invalidLimitPriceError,
   validateLimitPrice,
+  invalidAllowedSlippageError,
+  validateAllowedSlippage,
 } from '../../src/amm/amm.validators';
 
 import { missingParameter } from '../../src/services/validators';
@@ -138,5 +140,53 @@ describe('validateLimitPrice', () => {
         limitPrice: 'comprar',
       })
     ).toEqual([invalidLimitPriceError]);
+  });
+});
+
+describe('validateAllowedSlippage', () => {
+  it('valid when req.allowedSlippage is a fraction string', () => {
+    expect(
+      validateAllowedSlippage({
+        allowedSlippage: '1/100',
+      })
+    ).toEqual([]);
+
+    expect(
+      validateAllowedSlippage({
+        allowedSlippage: '0/1',
+      })
+    ).toEqual([]);
+  });
+
+  it('pass when req.allowedSlippage does not exist', () => {
+    expect(
+      validateAllowedSlippage({
+        hello: 'world',
+      })
+    ).toEqual([]);
+  });
+
+  it('return error when req.allowedSlippage is a number', () => {
+    expect(
+      validateAllowedSlippage({
+        allowedSlippage: 100,
+      })
+    ).toEqual([invalidAllowedSlippageError]);
+  });
+
+  it('return error when req.allowedSlippage is a non-fraction string', () => {
+    expect(
+      validateAllowedSlippage({
+        allowedSlippage: 'hello',
+      })
+    ).toEqual([invalidAllowedSlippageError]);
+  });
+
+  it('return error when req.allowedSlippage is a non-fraction number string', () => {
+    expect(
+      validateAllowedSlippage({
+        allowedSlippage: '100',
+      })
+    ).toEqual([invalidAllowedSlippageError]);
   });
 });

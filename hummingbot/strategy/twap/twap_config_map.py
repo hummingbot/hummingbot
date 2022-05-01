@@ -152,7 +152,7 @@ twap_config_map = {
                   prompt_on_new=True),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
-                  prompt="How long do you want to wait before cancelling your limit order (in seconds). "
+                  prompt="How long do you want to wait before canceling your limit order (in seconds). "
                          "(Default is 60 seconds) ? >>> ",
                   type_str="float",
                   default=60,
