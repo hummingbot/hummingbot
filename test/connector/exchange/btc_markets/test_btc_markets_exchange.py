@@ -134,11 +134,11 @@ class BtcMarketsExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: AddedToCostTradeFee = self.ev_loop.run_until_complete(self.connector.get_fee(self.base_token, self.quote_token, OrderType.LIMIT, TradeType.BUY, 1, 1))
+        limit_fee: AddedToCostTradeFee = self.connector.get_fee(self.base_token, self.quote_token, OrderType.LIMIT, TradeType.BUY, 1, 1)
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: AddedToCostTradeFee = self.ev_loop.run_until_complete(self.connector.get_fee(self.base_token, self.quote_token, OrderType.MARKET, TradeType.BUY, 1))
+        market_fee: AddedToCostTradeFee = self.connector.get_fee(self.base_token, self.quote_token, OrderType.MARKET, TradeType.BUY, 1)
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)

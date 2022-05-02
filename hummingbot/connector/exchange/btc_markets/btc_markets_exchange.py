@@ -518,8 +518,8 @@ class BtcMarketsExchange(ExchangeBase):
                                    amount,
                                    price,
                                    order_id,
-                                   exchange_order_id,
-                                   tracked_order.creation_timestamp
+                                   tracked_order.creation_timestamp,
+                                   exchange_order_id
                                ))
         except asyncio.CancelledError:
             raise
@@ -676,7 +676,7 @@ class BtcMarketsExchange(ExchangeBase):
                 if "trades" in response:
                     await self._process_trade_message(response)
 
-                self._process_order_message(response)
+                await self._process_order_message(response)
 
     async def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -845,13 +845,27 @@ class BtcMarketsExchange(ExchangeBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    async def get_fee(self,
-                      base_currency: str,
-                      quote_currency: str,
-                      order_type: OrderType,
-                      order_side: TradeType,
-                      amount: Decimal,
-                      price: Decimal = s_decimal_NaN) -> AddedToCostTradeFee:
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN,
+                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+
+        safe_ensure_future(self.async_get_fee(base_currency, quote_currency, order_type, order_side, amount,
+                                              price, is_maker))
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
+
+    async def async_get_fee(self,
+                            base_currency: str,
+                            quote_currency: str,
+                            order_type: OrderType,
+                            order_side: TradeType,
+                            amount: Decimal,
+                            price: Decimal = s_decimal_NaN,
+                            is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
 
         current_timestamp = btc_markets_utils.get_ms_timestamp()
         if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
