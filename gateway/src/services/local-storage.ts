@@ -6,10 +6,9 @@ export class LocalStorage {
   readonly #dbPath: string;
   #db: Level<string, any>;
 
-  protected constructor(dbPath: string) {
+  private constructor(dbPath: string) {
     this.#dbPath = dbPath;
-    // this.#db = new Level(dbPath, { valueEncoding: 'json' });
-    this.#db = new Level(dbPath);
+    this.#db = new Level(dbPath, { valueEncoding: 'json' });
   }
 
   public static getInstance(dbPath: string): LocalStorage {
@@ -27,27 +26,53 @@ export class LocalStorage {
     return this.#dbPath;
   }
 
+  private async assertDbOpen(): Promise<void> {
+    if (this.#db.status === 'open') {
+      // this is the target state, finish!
+      return;
+    } else if (this.#db.status === 'closing') {
+      // do nothing if closing, then try again
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await this.assertDbOpen();
+    } else if (this.#db.status === 'closed') {
+      // reopen the db
+      await this.#db.open({ createIfMissing: true });
+      await this.assertDbOpen();
+    } else if (this.#db.status === 'opening') {
+      // wait for but do not initate the opening of the db
+      await this.#db.open({ passive: true });
+    }
+  }
+
   public async save(key: string, value: any): Promise<void> {
-    return this.#db.put(key, value);
+    await this.assertDbOpen();
+    await this.#db.put(key, value);
   }
 
   public async del(key: string): Promise<void> {
-    return this.#db.del(key);
+    await this.assertDbOpen();
+    await this.#db.del(key);
   }
 
   public async get(
     readFunc: (key: string, string: any) => [string, any] | undefined
   ): Promise<any> {
+    await this.assertDbOpen();
+
     const results: Record<string, any> = {};
-    for await (const [key, value] of this.#db.iterator({
-      keys: true,
-      values: true,
-    })) {
+    const kvs = await this.#db
+      .iterator({
+        keys: true,
+        values: true,
+      })
+      .all();
+    for (const [key, value] of kvs) {
       const data = readFunc(key, value);
       if (data) {
         results[data[0]] = data[1];
       }
     }
+
     return results;
   }
 
