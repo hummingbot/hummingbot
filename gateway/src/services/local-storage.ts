@@ -1,13 +1,26 @@
-import { LevelDB } from 'level';
-const level = require('level-party');
+import { Level } from 'level';
 
 export class LocalStorage {
-  readonly #dbPath: string;
-  #db: LevelDB;
+  private static _instances: { [name: string]: LocalStorage };
 
-  constructor(dbPath: string) {
+  readonly #dbPath: string;
+  #db: Level<string, any>;
+
+  protected constructor(dbPath: string) {
     this.#dbPath = dbPath;
-    this.#db = level(dbPath, { createIfMissing: true });
+    // this.#db = new Level(dbPath, { valueEncoding: 'json' });
+    this.#db = new Level(dbPath);
+  }
+
+  public static getInstance(dbPath: string): LocalStorage {
+    if (LocalStorage._instances === undefined) {
+      LocalStorage._instances = {};
+    }
+    if (!(dbPath in LocalStorage._instances)) {
+      LocalStorage._instances[dbPath] = new LocalStorage(dbPath);
+    }
+
+    return LocalStorage._instances[dbPath];
   }
 
   get dbPath(): string {
@@ -24,26 +37,18 @@ export class LocalStorage {
 
   public async get(
     readFunc: (key: string, string: any) => [string, any] | undefined
-  ): Promise<Record<string, any>> {
-    const stream = this.#db.createReadStream();
-    const result = await new Promise<Record<string, any>>((resolve, reject) => {
-      const results: Record<string, any> = {};
-      stream
-        .on('data', ({ key, value }) => {
-          const data = readFunc(key, value);
-          if (data) {
-            results[data[0]] = data[1];
-          }
-        })
-        .on('error', (err) => {
-          reject(err);
-        })
-        .on('end', () => {
-          resolve(results);
-        });
-    });
-
-    return result;
+  ): Promise<any> {
+    const results: Record<string, any> = {};
+    for await (const [key, value] of this.#db.iterator({
+      keys: true,
+      values: true,
+    })) {
+      const data = readFunc(key, value);
+      if (data) {
+        results[data[0]] = data[1];
+      }
+    }
+    return results;
   }
 
   public async close(): Promise<void> {

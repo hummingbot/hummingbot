@@ -23,7 +23,7 @@ describe('Test local-storage', () => {
     const testKey = 'abc';
     const testValue = 123;
 
-    const db = new LocalStorage(dbPath);
+    const db = LocalStorage.getInstance(dbPath);
 
     // clean up any previous db runs
     await db.del(testKey);
