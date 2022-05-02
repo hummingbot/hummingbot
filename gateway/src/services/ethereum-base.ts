@@ -67,7 +67,7 @@ export class EthereumBase {
     this._nonceManager = new EVMNonceManager(chainName, chainId);
     this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-    this._txStorage = new EvmTxStorage('transactions.level');
+    this._txStorage = EvmTxStorage.getInstance('transactions.level');
   }
 
   ready(): boolean {

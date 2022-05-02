@@ -7,14 +7,36 @@ import {
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from './error-handler';
 
-export class NonceLocalStorage extends LocalStorage {
+export class NonceLocalStorage {
+  private static _instances: { [name: string]: NonceLocalStorage };
+
+  readonly localStorage: LocalStorage;
+
+  private constructor(dbPath: string) {
+    this.localStorage = LocalStorage.getInstance(dbPath);
+  }
+
+  public static getInstance(dbPath: string): NonceLocalStorage {
+    if (NonceLocalStorage._instances === undefined) {
+      NonceLocalStorage._instances = {};
+    }
+    if (!(dbPath in NonceLocalStorage._instances)) {
+      NonceLocalStorage._instances[dbPath] = new NonceLocalStorage(dbPath);
+    }
+
+    return NonceLocalStorage._instances[dbPath];
+  }
+
   public async saveNonce(
     chain: string,
     chainId: number,
     address: string,
     nonce: number
   ): Promise<void> {
-    return this.save(chain + '/' + String(chainId) + '/' + address, nonce);
+    return this.localStorage.save(
+      chain + '/' + String(chainId) + '/' + address,
+      nonce
+    );
   }
 
   public async deleteNonce(
@@ -22,14 +44,14 @@ export class NonceLocalStorage extends LocalStorage {
     chainId: number,
     address: string
   ): Promise<void> {
-    return this.del(chain + '/' + String(chainId) + '/' + address);
+    return this.localStorage.del(chain + '/' + String(chainId) + '/' + address);
   }
 
   public async getNonces(
     chain: string,
     chainId: number
   ): Promise<Record<string, number>> {
-    return this.get((key: string, value: any) => {
+    return this.localStorage.get((key: string, value: any) => {
       const splitKey = key.split('/');
       if (
         splitKey.length === 3 &&
@@ -98,7 +120,7 @@ export class EVMNonceManager {
     this.#chainName = chainName;
     this.#chainId = chainId;
     this.#localNonceTTL = localNonceTTL;
-    this.#db = new NonceLocalStorage(dbPath);
+    this.#db = NonceLocalStorage.getInstance(dbPath);
   }
 
   // init can be called many times and generally should always be called
@@ -226,6 +248,6 @@ export class EVMNonceManager {
   }
 
   async close(): Promise<void> {
-    await this.#db.close();
+    await this.#db.localStorage.close();
   }
 }

@@ -29,7 +29,7 @@ describe('Test local-storage', () => {
       '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487edddddddddddddddd'; // noqa: mock
     const testChain1GasPrice2 = 200300;
 
-    const db = new EvmTxStorage(dbPath);
+    const db = EvmTxStorage.getInstance(dbPath);
 
     // clean up any previous db runs
     await db.deleteTx(testChain1, testChain1Id, testChain1Tx1);
@@ -96,7 +96,7 @@ describe('Test local-storage', () => {
     });
 
     // test db path is as exected place
-    expect(db.dbPath).toStrictEqual(dbPath);
+    expect(db.localStorage.dbPath).toStrictEqual(dbPath);
 
     // delete the recently added key/value pair
     await db.deleteTx(testChain1, testChain1Id, testChain1Tx1);
