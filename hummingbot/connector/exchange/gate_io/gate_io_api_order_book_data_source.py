@@ -239,7 +239,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             OrderBookMessageType.SNAPSHOT,
             {
                 "trading_pair": trading_pair,
-                "update_id": snapshot["update"],
+                "update_id": snapshot["id"],
                 "bids": snapshot["bids"],
                 "asks": snapshot["asks"],
             },
@@ -361,7 +361,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             OrderBookMessageType.SNAPSHOT,
                             {
                                 "trading_pair": trading_pair,
-                                "update_id": snapshot["update"],
+                                "update_id": snapshot["id"],
                                 "bids": snapshot["bids"],
                                 "asks": snapshot["asks"],
                             },
@@ -393,7 +393,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if data.get("error") is not None:
                 err_msg = data.get("error", {}).get("message", data["error"])
                 raise IOError(f"Error event received from the server ({err_msg})")
-            elif data.get("channel") in [
+            elif data.get("event") == "update" and data.get("channel") in [
                 CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
                 CONSTANTS.TRADES_ENDPOINT_NAME,
             ]:

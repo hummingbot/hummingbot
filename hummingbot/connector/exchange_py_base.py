@@ -478,7 +478,7 @@ class ExchangePyBase(ExchangeBase):
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                     return order_id
