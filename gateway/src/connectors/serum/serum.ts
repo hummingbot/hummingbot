@@ -1,5 +1,6 @@
 import {MARKETS} from '@project-serum/serum';
-import {Account, Connection, PublicKey} from '@solana/web3.js';
+import {OpenOrders} from "@project-serum/serum/lib/market";
+import {Account, AccountInfo, Connection, PublicKey} from '@solana/web3.js';
 import axios from 'axios';
 import BN from "bn.js";
 import {Cache, CacheContainer} from 'node-ts-cache';
@@ -38,6 +39,7 @@ import {
   OrderStatus,
   SerumMarket,
   SerumMarketOptions,
+  SerumOpenOrders,
   SerumOrder,
   SerumOrderBook,
   SerumOrderParams,
@@ -200,6 +202,69 @@ export class Serum {
   }
 
   /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param ownerAddress
+   * @param cacheDurationMs
+   * @private
+   */
+  private async serumFindOpenOrdersAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, cacheDurationMs?: number): Promise<SerumOpenOrders[]> {
+    const result = await market.findOpenOrdersAccountsForOwner(connection, ownerAddress, cacheDurationMs);
+
+    return result;
+  }
+
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param ownerAddress
+   * @param includeUnwrappedSol
+   * @private
+   */
+  private async serumFindBaseTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{pubkey: PublicKey; account: AccountInfo<Buffer>;}>> {
+    const result = await market.findBaseTokenAccountsForOwner(connection, ownerAddress, includeUnwrappedSol);
+
+    return result;
+  }
+
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param ownerAddress
+   * @param includeUnwrappedSol
+   * @private
+   */
+  private async serumFindQuoteTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{pubkey: PublicKey; account: AccountInfo<Buffer>;}>> {
+    const result = await market.findQuoteTokenAccountsForOwner(connection, ownerAddress, includeUnwrappedSol);
+
+    return result;
+  }
+
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param owner
+   * @param openOrders
+   * @param baseWallet
+   * @param quoteWallet
+   * @param referrerQuoteWallet
+   * @private
+   */
+  private async serumSettleFunds(market: SerumMarket, connection: Connection, owner: Account, openOrders: OpenOrders, baseWallet: PublicKey, quoteWallet: PublicKey, referrerQuoteWallet?: PublicKey | null): Promise<string> {
+    const result = await market.settleFunds(connection, owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet);
+
+    return result;
+  }
+
+  /**
    * Get the Serum instance for the given chain and network.
    * Is cached forever.
    *
@@ -251,7 +316,7 @@ export class Serum {
   }
 
   /**
-   * 0 or $numberOfAllowedMarkets external API calls.
+   * 0 external API call.
    *
    * @param name
    */
@@ -268,7 +333,7 @@ export class Serum {
   }
 
   /**
-   * 0 or $numberOfAllowedMarkets external API calls.
+   * 0 external API calls.
    *
    * @param names
    */
@@ -288,7 +353,7 @@ export class Serum {
   }
 
   /**
-   * 0 or $numberOfAllowedMarkets external API calls.
+   * $numberOfAllowedMarkets external API calls.
    */
   @Cache(caches.markets, { ttl: serumMarketsTTL })
   async getAllMarkets(): Promise<IMap<string, Market>> {
@@ -338,7 +403,7 @@ export class Serum {
   }
 
   /**
-   * 2 or ($numberOfAllowedMarkets + 2) external API calls.
+   * 2 external API calls.
    *
    * @param marketName
    */
@@ -356,7 +421,7 @@ export class Serum {
   }
 
   /**
-   * 2*$numberOfInformedMarkets or (2*$numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   * 2*$numberOfInformedMarkets external API calls.
    *
    * @param marketNames
    */
@@ -376,7 +441,7 @@ export class Serum {
   }
 
   /**
-   * 2*$numberOfAllowedMarkets or 3*$numberOfAllowedMarkets external API calls.
+   * 2*$numberOfAllowedMarkets external API calls.
    */
   async getAllOrderBooks(): Promise<IMap<string, OrderBook>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
@@ -385,7 +450,7 @@ export class Serum {
   }
 
   /**
-   * 1 or ($numberOfAllowedMarkets + 1) external API calls.
+   * 1 external API call.
    *
    * TODO change the mechanism to retrieve ticker information, this approach is not always available!!!
    *
@@ -404,7 +469,7 @@ export class Serum {
   }
 
   /**
-   * $numberOfInformedMarkets or ($numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   * $numberOfInformedMarkets external API calls.
    *
    * @param marketNames
    */
@@ -424,7 +489,7 @@ export class Serum {
   }
 
   /**
-   * $numberOfAllowedMarkets or 2*$numberOfAllowedMarkets external API calls.
+   * $numberOfAllowedMarkets external API calls.
    */
   async getAllTickers(): Promise<IMap<string, Ticker>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
@@ -433,7 +498,7 @@ export class Serum {
   }
 
   /**
-   * (1 or ($numberOfAllowedMarkets + 1)) or (($numberOfAllowedMarkets + 1) or 2*$numberOfAllowedMarkets) external API calls.
+   * 1 or $numberOfAllowedMarkets external API calls.
    * 
    * @param target
    */
@@ -515,7 +580,7 @@ export class Serum {
   }
 
   /**
-   * 1 or ($numberOfAllowedMarkets + 1) external API calls.
+   * 1 external API call.
    *
    * @param marketName
    * @param ownerAddress
@@ -534,7 +599,7 @@ export class Serum {
   }
 
   /**
-   * $numberOfInformedMarkets or ($numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   * $numberOfInformedMarkets external API calls.
    *
    * @param marketNames
    * @param ownerAddress
@@ -559,7 +624,7 @@ export class Serum {
   }
 
   /**
-   * $numberOfAllowedMarkets or 2*$numberOfAllowedMarkets external API calls.
+   * $numberOfAllowedMarkets external API calls.
    *
    * @param ownerAddress
    */
@@ -572,7 +637,7 @@ export class Serum {
   }
 
   /**
-   * (1 or ($numberOfAllowedMarkets + 1)) or 2*$numberOfAllowedMarkets) external API calls.
+   * 1 or $numberOfAllowedMarkets external API calls.
    *
    * @param target
    */
@@ -654,7 +719,7 @@ export class Serum {
   }
 
   /**
-   * 1 or ($numberOfAllowedMarkets + 1) external API calls.
+   * 1 external API calls.
    *
    * @param marketName
    */
@@ -668,7 +733,7 @@ export class Serum {
   }
 
   /**
-   * $numberOfInformedMarkets or ($numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   * $numberOfInformedMarkets external API calls.
    *
    * @param marketNames
    */
@@ -689,7 +754,7 @@ export class Serum {
   }
 
   /**
-   * $numberOfAllowedMarkets or 2*$numberOfAllowedMarkets external API calls.
+   * $numberOfAllowedMarkets external API calls.
    */
   async getAllFilledOrders(): Promise<IMap<string, IMap<string, Order>>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
@@ -698,8 +763,8 @@ export class Serum {
   }
 
   /**
-   * (1 or 2 or ($numberOfAllowedMarkets + 1) or ($numberOfAllowedMarkets + 2))
-   *  or (2*$numberOfAllowedMarkets or 3*$numberOfAllowedMarkets) external API calls.
+   * (1 or 2) or ($numberOfAllowedMarkets or 2*$numberOfAllowedMarkets) external API calls.
+   *
    * @param target
    */
   async getOrder(target: GetOrderRequest): Promise<Order> {
@@ -724,6 +789,8 @@ export class Serum {
   }
 
   /**
+   * 2*$numberOfTargets or 2*$numberOfTargets*$numberOfAllowedMarkets external API calls.
+   *
    * @param targets
    */
   async getOrders(targets: GetOrdersRequest[]): Promise<IMap<string, Order>> {
@@ -765,6 +832,7 @@ export class Serum {
   }
 
   /**
+   * 2 external API calls.
    *
    * @param marketName
    * @param ownerAddress
@@ -777,6 +845,7 @@ export class Serum {
   }
 
   /**
+   * 2*$numberOfInformedMarkets external API calls.
    *
    * @param marketNames
    * @param ownerAddress
@@ -798,6 +867,7 @@ export class Serum {
   }
 
   /**
+   * 2*$numberOfAllMarkets external API calls.
    *
    * @param ownerAddress
    */
@@ -808,6 +878,8 @@ export class Serum {
   }
 
   /**
+   * 1 external API call.
+   *
    * @param candidate
    */
   async createOrder(candidate: CreateOrdersRequest): Promise<Order> {
@@ -859,6 +931,7 @@ export class Serum {
   }
 
   /**
+   * $numberOfCandidates external API calls.
    *
    * @param candidates
    */
@@ -878,6 +951,7 @@ export class Serum {
   }
 
   /**
+   * 1 external API call.
    *
    * @param target
    */
@@ -908,6 +982,7 @@ export class Serum {
   }
 
   /**
+   * $numberOfTargets external API calls.
    * TODO Add validation!!!
    *
    * @param targets
@@ -938,6 +1013,7 @@ export class Serum {
   }
 
   /**
+   * $numberOfOpenOrders external API calls.
    *
    * @param ownerAddress
    */
@@ -963,6 +1039,7 @@ export class Serum {
   }
 
   /**
+   * 3*$numberOfOpenOrdersAccountsForMarket external API calls.
    *
    * @param marketName
    * @param ownerAddress
@@ -971,17 +1048,20 @@ export class Serum {
     const market = await this.getMarket(marketName);
     const owner = await this.solana.getAccount(ownerAddress);
 
-    for (const openOrders of await market.market.findOpenOrdersAccountsForOwner(
+    for (const openOrders of await this.serumFindOpenOrdersAccountsForOwner(
+      market.market,
       this.connection,
       owner.publicKey,
     )) {
       if (openOrders.baseTokenFree.gt(new BN(0)) || openOrders.quoteTokenFree.gt(new BN(0))) {
-        const base = await market.market.findBaseTokenAccountsForOwner(this.connection, owner.publicKey, true);
+        const base = await this.serumFindBaseTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
         const baseTokenAccount = base[0].pubkey;
-        const quote = await market.market.findQuoteTokenAccountsForOwner(this.connection, owner.publicKey, true);
+
+        const quote = await this.serumFindQuoteTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
         const quoteTokenAccount = quote[0].pubkey;
 
-        await market.market.settleFunds(
+        await this.serumSettleFunds(
+          market.market,
           this.connection,
           owner,
           openOrders,
@@ -993,8 +1073,10 @@ export class Serum {
   }
 
   /**
+   * 3*$numberOfOpenOrdersAccountsForMarket*$numberOfInformedMarkets external API calls.
    *
    * @param marketNames
+   * @param ownerAddress
    */
   async settleFundsForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, Fund>> {
     const funds = IMap<string, Fund>().asMutable();
@@ -1012,7 +1094,9 @@ export class Serum {
   }
 
   /**
+   * 3*$numberOfOpenOrdersAccountsForMarket*$numberOfAllowedMarkets external API calls.
    *
+   * @param ownerAddress
    */
   async settleAllFunds(ownerAddress: string): Promise<IMap<string, Fund>>{
     const marketNames = Array.from((await this.getAllMarkets()).keys());
