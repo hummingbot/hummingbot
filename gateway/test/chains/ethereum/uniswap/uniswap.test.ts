@@ -32,6 +32,9 @@ const DAI = new Token(
 
 beforeAll(async () => {
   ethereum = Ethereum.getInstance('kovan');
+  patch(ethereum, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
   await ethereum.init();
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
