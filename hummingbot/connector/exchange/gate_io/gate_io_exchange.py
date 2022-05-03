@@ -147,7 +147,7 @@ class GateIoExchange(ExchangePyBase):
         This implementation-specific method is called by _cancel
         returns True if successful
         """
-        cancelled = False
+        canceled = False
         exchange_order_id = await tracked_order.get_exchange_order_id()
         params = {
             'currency_pair': await self._orderbook_ds.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
@@ -158,9 +158,9 @@ class GateIoExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
         )
-        if resp["status"] == "cancelled":
-            cancelled = True
-        return cancelled
+        if resp["status"] == "canceled":
+            canceled = True
+        return canceled
 
     async def _status_polling_loop_fetch_updates(self):
         """
@@ -328,7 +328,7 @@ class GateIoExchange(ExchangePyBase):
             if event_type == "finish":
                 state = OrderState.FILLED
                 if amount_left > 0:
-                    state = OrderState.CANCELLED
+                    state = OrderState.CANCELED
         else:
             status = order_msg.get("status")
             if status == "closed":
@@ -336,12 +336,12 @@ class GateIoExchange(ExchangePyBase):
                 if amount_left > 0:
                     state = OrderState.PARTIALLY_FILLED
             if status == "cancelled":
-                state = OrderState.CANCELLED
+                state = OrderState.CANCELED
         return state
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers cancellation or failure event if needed.
+        Updates in-flight order and triggers cancelation or failure event if needed.
 
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
 

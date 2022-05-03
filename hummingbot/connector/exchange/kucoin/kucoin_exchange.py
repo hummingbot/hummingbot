@@ -197,7 +197,7 @@ class KucoinExchange(ExchangePyBase):
                         elif order_event_type == "filled":
                             updated_status = OrderState.FILLED
                         elif order_event_type == "canceled":
-                            updated_status = OrderState.CANCELLED
+                            updated_status = OrderState.CANCELED
 
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
@@ -336,7 +336,7 @@ class KucoinExchange(ExchangePyBase):
         for update_result, tracked_order in zip(responses, reviewed_orders):
             client_order_id = tracked_order.client_order_id
 
-            # If the order has already been cancelled or has failed do nothing
+            # If the order has already been canceled or has failed do nothing
             if client_order_id in self.in_flight_orders:
                 if isinstance(update_result, Exception):
                     self.logger().network(
@@ -355,7 +355,7 @@ class KucoinExchange(ExchangePyBase):
 
                     new_state = tracked_order.current_state
                     if ordered_canceled or op_type == "CANCEL":
-                        new_state = OrderState.CANCELLED
+                        new_state = OrderState.CANCELED
                     elif not is_active:
                         new_state = OrderState.FILLED
 
