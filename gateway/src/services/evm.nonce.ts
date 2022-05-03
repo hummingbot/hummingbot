@@ -3,18 +3,105 @@ import { logger } from './logger';
 import { LocalStorage } from './local-storage';
 import {
   InitializationError,
+  InvalidNonceError,
+  INVALID_NONCE_ERROR_CODE,
+  INVALID_NONCE_ERROR_MESSAGE,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from './error-handler';
 
+export class NonceInfo {
+  constructor(readonly nonce: number, public expiry: number) {}
+}
+
+NonceInfo.prototype.valueOf = function () {
+  return this.nonce;
+};
+
 export class NonceLocalStorage extends LocalStorage {
-  public async saveNonce(
+  public async saveCurrentNonce(
     chain: string,
     chainId: number,
     address: string,
-    nonce: number
+    nonce: NonceInfo
   ): Promise<void> {
-    return this.save(chain + '/' + String(chainId) + '/' + address, nonce);
+    const nonceValue: string = String(nonce.nonce);
+    const nonceExpiry: string = String(nonce.expiry);
+
+    return this.save(
+      chain + '/' + String(chainId) + '/' + address,
+      `${nonceValue}:${nonceExpiry}`
+    );
+  }
+
+  public async getCurrentNonces(
+    chain: string,
+    chainId: number
+  ): Promise<Record<string, NonceInfo>> {
+    return this.get((key: string, value: any) => {
+      const splitKey: string[] = key.split('/');
+      if (
+        splitKey.length === 3 &&
+        splitKey[0] === chain &&
+        splitKey[1] === String(chainId)
+      ) {
+        const nonceValues: string[] = value.split(':');
+        const address: string = String(splitKey[2]);
+        const nonce: NonceInfo = new NonceInfo(
+          parseInt(nonceValues[0]),
+          parseInt(nonceValues[1])
+        );
+        return [address, nonce];
+      }
+      return;
+    });
+  }
+
+  public async savePendingNonces(
+    chain: string,
+    chainId: number,
+    address: string,
+    nonces: NonceInfo[]
+  ) {
+    let value = '';
+
+    for (const nonce of nonces) {
+      const nonceValue: string = String(nonce.nonce);
+      const nonceExpiry: string = String(nonce.expiry);
+      value = value + ',' + `${nonceValue}:${nonceExpiry}`;
+    }
+
+    return this.save(`${chain}/${String(chainId)}/${address}/pending`, value);
+  }
+
+  public async getPendingNonces(
+    chain: string,
+    chainId: number
+  ): Promise<Record<string, NonceInfo[]>> {
+    return this.get((key: string, value: any) => {
+      const splitKey: string[] = key.split('/');
+
+      if (
+        splitKey.length === 4 &&
+        splitKey[0] === chain &&
+        splitKey[1] === String(chainId) &&
+        splitKey[3] === String('pending')
+      ) {
+        const address: string = String(splitKey[2]);
+        const rawNonceValues: string[] = value.split(',');
+
+        const nonceInfoList = [];
+        for (const values of rawNonceValues) {
+          const nonceValues: string[] = values.split(':');
+          nonceInfoList.push(
+            new NonceInfo(parseInt(nonceValues[0]), parseInt(nonceValues[1]))
+          );
+        }
+        nonceInfoList.splice(0, 1);
+        return [`${address}`, nonceInfoList];
+      }
+      return;
+    });
   }
 
   public async deleteNonce(
@@ -22,24 +109,8 @@ export class NonceLocalStorage extends LocalStorage {
     chainId: number,
     address: string
   ): Promise<void> {
+    // TODO: Determine if this is entirely necessary.
     return this.del(chain + '/' + String(chainId) + '/' + address);
-  }
-
-  public async getNonces(
-    chain: string,
-    chainId: number
-  ): Promise<Record<string, number>> {
-    return this.get((key: string, value: any) => {
-      const splitKey = key.split('/');
-      if (
-        splitKey.length === 3 &&
-        splitKey[0] === chain &&
-        splitKey[1] === String(chainId)
-      ) {
-        return [splitKey[2], parseInt(value)];
-      }
-      return;
-    });
   }
 }
 
@@ -78,13 +149,14 @@ export class NonceLocalStorage extends LocalStorage {
  *    cached nonce back to the specified position.
  */
 export class EVMNonceManager {
-  #addressToNonce: Record<string, [number, Date]> = {};
-  #addressToLeadingNonce: Record<string, [number, Date]> = {};
+  #addressToNonce: Record<string, NonceInfo> = {};
+  #addressToPendingNonces: Record<string, NonceInfo[]> = {};
 
   #initialized: boolean = false;
   #chainId: number;
   #chainName: string;
   #localNonceTTL: number;
+  #pendingNonceTTL: number;
   #db: NonceLocalStorage;
 
   // this should be private but then we cannot mock it
@@ -93,13 +165,15 @@ export class EVMNonceManager {
   constructor(
     chainName: string,
     chainId: number,
-    localNonceTTL: number = 300,
+    localNonceTTL: number = 300 * 1000,
+    pendingNonceTTL: number = 300 * 1000,
     dbPath: string = 'gateway.level'
   ) {
     this.#chainName = chainName;
     this.#chainId = chainId;
     this.#localNonceTTL = localNonceTTL;
     this.#db = new NonceLocalStorage(dbPath);
+    this.#pendingNonceTTL = pendingNonceTTL;
   }
 
   // init can be called many times and generally should always be called
@@ -108,7 +182,16 @@ export class EVMNonceManager {
     if (this.#localNonceTTL < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
-          'EVMNonceManager.init delay must be greater than or equal to zero.'
+          'EVMNonceManager.init localNonceTTL must be greater than or equal to zero.'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
+    }
+
+    if (this.#pendingNonceTTL < 0) {
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.init pendingNonceTTL must be greate than or equal to zero.'
         ),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
@@ -119,14 +202,20 @@ export class EVMNonceManager {
     }
 
     if (!this.#initialized) {
-      const addressToNonce = await this.#db.getNonces(
-        this.#chainName,
-        this.#chainId
-      );
+      const addressToNonce: Record<string, NonceInfo> =
+        await this.#db.getCurrentNonces(this.#chainName, this.#chainId);
 
-      for (const [key, value] of Object.entries(addressToNonce)) {
-        logger.info(key + ':' + String(value));
-        this.#addressToNonce[key] = [value, new Date()];
+      const addressToPendingNonces: Record<string, NonceInfo[]> =
+        await this.#db.getPendingNonces(this.#chainName, this.#chainId);
+
+      for (const [address, nonce] of Object.entries(addressToNonce)) {
+        this.#addressToNonce[address] = nonce;
+      }
+
+      for (const [address, nonceInfoList] of Object.entries(
+        addressToPendingNonces
+      )) {
+        this.#addressToPendingNonces[address] = nonceInfoList;
       }
 
       await Promise.all(
@@ -146,31 +235,44 @@ export class EVMNonceManager {
     call.
     */
     if (this._provider !== null) {
-      const timestamp = this.#addressToNonce[ethAddress][1];
-      const now = new Date();
-      const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
-      if (diffInSeconds < this.#localNonceTTL) {
+      const mergeExpiryTimestamp: number = this.#addressToNonce[ethAddress]
+        ? this.#addressToNonce[ethAddress].expiry
+        : -1;
+      const now: number = new Date().getTime();
+      if (mergeExpiryTimestamp > now) {
         return;
       }
 
-      const externalNonce: number = await this._provider.getTransactionCount(
-        ethAddress
+      const externalNonce: number =
+        (await this._provider.getTransactionCount(ethAddress)) - 1;
+
+      this.#addressToNonce[ethAddress] = new NonceInfo(
+        externalNonce,
+        now + this.#localNonceTTL
       );
 
-      const externalPendingNonce: number =
-        await this._provider.getTransactionCount(ethAddress, 'pending');
-
-      this.#addressToNonce[ethAddress] = [externalNonce, new Date()];
-      this.#addressToLeadingNonce[ethAddress] = [
-        externalPendingNonce,
-        new Date(),
-      ];
-      await this.#db.saveNonce(
+      await this.#db.saveCurrentNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        externalNonce
+        this.#addressToNonce[ethAddress]
       );
+
+      if (
+        this.#addressToPendingNonces[ethAddress] &&
+        this.#addressToPendingNonces[ethAddress].length > 0
+      ) {
+        this.#addressToPendingNonces[ethAddress] = this.#addressToPendingNonces[
+          ethAddress
+        ].filter((nonceInfo) => nonceInfo.nonce > externalNonce);
+
+        await this.#db.savePendingNonces(
+          this.#chainName,
+          this.#chainId,
+          ethAddress,
+          this.#addressToPendingNonces[ethAddress]
+        );
+      }
     } else {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
@@ -192,20 +294,23 @@ export class EVMNonceManager {
     if (this._provider !== null) {
       if (this.#addressToNonce[ethAddress]) {
         await this.mergeNonceFromEVMNode(ethAddress);
-        return this.#addressToNonce[ethAddress][0];
+        return this.#addressToNonce[ethAddress].nonce;
       } else {
-        const nonce: number = await this._provider.getTransactionCount(
-          ethAddress
-        );
+        const externalNonce: number =
+          (await this._provider.getTransactionCount(ethAddress)) - 1;
 
-        this.#addressToNonce[ethAddress] = [nonce, new Date()];
-        await this.#db.saveNonce(
+        const now: number = new Date().getTime();
+        this.#addressToNonce[ethAddress] = new NonceInfo(
+          externalNonce,
+          now + this.#pendingNonceTTL
+        );
+        await this.#db.saveCurrentNonce(
           this.#chainName,
           this.#chainId,
           ethAddress,
-          nonce
+          this.#addressToNonce[ethAddress]
         );
-        return nonce;
+        return this.#addressToNonce[ethAddress].nonce;
       }
     } else {
       logger.error('EVMNonceManager.getNonce called before initiated');
@@ -219,16 +324,50 @@ export class EVMNonceManager {
   async getNextNonce(ethAddress: string): Promise<number> {
     /*
     Retrieves the next available nonce for a given wallet address.
+    This function will automatically increment the leading Nonce of the given wallet address.
     */
-    let newNonce;
+    let newNonce = null;
+    const now: number = new Date().getTime();
     if (this._provider !== null) {
-      if (this.#addressToLeadingNonce[ethAddress]) {
-        newNonce = this.#addressToLeadingNonce[ethAddress][0] + 1;
+      if (this.#addressToPendingNonces[ethAddress]) {
+        await this.mergeNonceFromEVMNode(ethAddress);
+
+        const pendingNonces: NonceInfo[] =
+          this.#addressToPendingNonces[ethAddress];
+
+        for (const nonceInfo of pendingNonces) {
+          if (now > nonceInfo.expiry) {
+            newNonce = nonceInfo;
+            newNonce.expiry = now + this.#pendingNonceTTL;
+            break;
+          }
+        }
+        if (!newNonce) {
+          // All pending nonce have yet to expire.
+          // Use last entry in pendingNonce to determine next nonce.
+          newNonce = new NonceInfo(
+            this.#addressToPendingNonces[ethAddress][
+              this.#addressToPendingNonces[ethAddress].length - 1
+            ].nonce + 1,
+            now + this.#pendingNonceTTL
+          );
+          this.#addressToPendingNonces[ethAddress].push(newNonce);
+        }
       } else {
-        newNonce = (await this.getNonce(ethAddress)) + 1;
+        newNonce = new NonceInfo(
+          (await this.getNonce(ethAddress)) + 1,
+          now + this.#pendingNonceTTL
+        );
+        this.#addressToPendingNonces[ethAddress] = [newNonce];
       }
-      this.#addressToLeadingNonce[ethAddress] = [newNonce, new Date()];
-      return newNonce;
+      await this.#db.savePendingNonces(
+        this.#chainName,
+        this.#chainId,
+        `${ethAddress}`,
+        this.#addressToPendingNonces[ethAddress]
+      );
+
+      return newNonce.nonce;
     } else {
       logger.error('EVMNonceManager.getNextNonce called before initiated');
       throw new InitializationError(
@@ -243,12 +382,43 @@ export class EVMNonceManager {
     Stores the nonce of the last successful transaction.
     */
     if (this._provider !== null) {
-      this.#addressToNonce[ethAddress] = [txNonce, new Date()];
-      await this.#db.saveNonce(
+      const now: number = new Date().getTime();
+
+      if (this.#addressToNonce[ethAddress]) {
+        if (txNonce > this.#addressToNonce[ethAddress].nonce) {
+          const nonce: NonceInfo = new NonceInfo(
+            txNonce,
+            now + this.#localNonceTTL
+          );
+          this.#addressToNonce[ethAddress] = nonce;
+          await this.#db.saveCurrentNonce(
+            this.#chainName,
+            this.#chainId,
+            ethAddress,
+            nonce
+          );
+          return;
+        } else {
+          logger.error('Provided txNonce is < currentNonce');
+          throw new InvalidNonceError(
+            INVALID_NONCE_ERROR_MESSAGE +
+              `txNonce(${txNonce}) < currentNonce(${
+                this.#addressToNonce[ethAddress].nonce
+              })`,
+            INVALID_NONCE_ERROR_CODE
+          );
+        }
+      }
+      const nonce: NonceInfo = new NonceInfo(
+        txNonce,
+        now + this.#localNonceTTL
+      );
+      this.#addressToNonce[ethAddress] = nonce;
+      await this.#db.saveCurrentNonce(
         this.#chainName,
         this.#chainId,
         ethAddress,
-        txNonce
+        nonce
       );
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');

@@ -6,6 +6,7 @@ import {
   approve,
   allowances,
   nonce,
+  nextNonce,
   cancel,
 } from '../chains/ethereum/ethereum.controllers';
 
@@ -29,6 +30,20 @@ import {
 
 export namespace EVMRoutes {
   export const router = Router();
+
+  router.post(
+    '/nextNonce',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, NonceRequest>,
+        res: Response<NonceResponse | string, {}>
+      ) => {
+        validateNonceRequest(req.body);
+        const chain = await getChain(req.body.chain, req.body.network);
+        res.status(200).json(await nextNonce(chain, req.body));
+      }
+    )
+  );
 
   router.post(
     '/nonce',
