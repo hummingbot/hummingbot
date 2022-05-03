@@ -10,19 +10,19 @@ import pandas as pd
 from bidict import bidict
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-
 from hummingbot.connector.exchange.gate_io import gate_io_web_utils as web_utils
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from .gate_io_order_book import GateIoOrderBook
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
 
 
 class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -45,15 +45,10 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._api_factory = api_factory or web_utils.build_api_factory()
         self._rest_assistant: Optional[RESTAssistant] = None
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler = throttler or web_utils.create_throttler()
         self._trading_pairs: List[str] = trading_pairs
 
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
 
     @classmethod
     async def get_last_traded_prices(
@@ -182,36 +177,32 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             throttler: Optional[AsyncThrottler] = None,
             api_factory: Optional[WebAssistantsFactory] = None,
             time_synchronizer: Optional[TimeSynchronizer] = None) -> List[str]:
+        """
+        Returns a list of all known trading pairs enabled to operate with
 
-        try:
-            symbols = await web_utils.api_request(
-                path=CONSTANTS.SYMBOL_PATH_URL,
-                method=RESTMethod.GET,
-                api_factory=api_factory,
-                throttler=throttler,
-                time_synchronizer=time_synchronizer,
-                domain=domain,
-                limit_id=CONSTANTS.SYMBOL_PATH_URL,
-                retry=True
-            )
-            trading_pairs = list([
-                await GateIoAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(sym["id"])
-                for sym in symbols
-            ])
-            # Filter out unmatched pairs so nothing breaks
-            return [sym for sym in trading_pairs if sym is not None]
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for Gate.io trading pairs
-            pass
-        return []
+        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param api_factory: the web assistant factory to use in case the symbols information has to be requested
+        :param throttler: the throttler instance to use in case the symbols information has to be requested
+        :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
+            exchange
+
+        :return: list of trading pairs in client notation
+        """
+        mapping = await GateIoAPIOrderBookDataSource.trading_pair_symbol_map(
+            domain=domain,
+            throttler=throttler,
+            api_factory=api_factory,
+            time_synchronizer=time_synchronizer,
+        )
+        return list(mapping.values())
 
     @classmethod
     async def get_order_book_data(
-        cls,
-        trading_pair: str,
-        throttler: Optional[AsyncThrottler] = None,
-        rest_assistant: Optional[RESTAssistant] = None,
-        logger: Optional[logging.Logger] = None,
+            cls,
+            trading_pair: str,
+            throttler: Optional[AsyncThrottler] = None,
+            rest_assistant: Optional[RESTAssistant] = None,
+            logger: Optional[logging.Logger] = None,
     ) -> Dict[str, any]:
         """
         Get whole orderbook
@@ -229,7 +220,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 method=RESTMethod.GET,
                 params=params,
                 limit_id=endpoint,
-                throttler = throttler or cls._get_throttler_instance(),
+                throttler=throttler or web_utils.create_throttler(),
                 retry=True,
                 retry_logger=logger,
             )
@@ -244,57 +235,43 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trading_pair, self._throttler, rest_assistant, self.logger()
         )
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = GateIoOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair})
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": snapshot["update"],
+                "bids": snapshot["bids"],
+                "asks": snapshot["asks"],
+            },
+            timestamp=snapshot_timestamp)
         order_book = self.order_book_create_function()
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
 
     async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
         ws = None
-
         while True:
             try:
-                ws = await self._subscribe_to_order_book_streams()
-                async for response in ws.on_message():
-                    channel: str = response.get("channel", None)
-                    if response.get("event") in ["subscribe", "unsubscribe"]:
-                        continue
-                    self._message_queue[channel].put_nowait(response)
+                ws: WSAssistant = await self._api_factory.get_ws_assistant()
+                await ws.connect(ws_url=CONSTANTS.WS_URL, ping_timeout=CONSTANTS.PING_TIMEOUT)
+                await self._subscribe_channels(ws)
+
+                await self._process_ws_messages(websocket_assistant=ws)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error occurred when listening to order book streams. "
-                    "Retrying in 5 seconds...",
-                    exc_info=True)
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    exc_info=True,
+                )
                 await self._sleep(5.0)
             finally:
                 ws and await ws.disconnect()
-
-    async def _subscribe_to_order_book_streams(self) -> web_utils.GateIoWebsocket:
-        try:
-            ws = web_utils.GateIoWebsocket(api_factory=self._api_factory)
-            await ws.connect()
-            pairs = [
-                await self.exchange_symbol_associated_to_pair(pair)
-                for pair in self._trading_pairs
-            ]
-            await ws.subscribe(CONSTANTS.TRADES_ENDPOINT_NAME, pairs)
-            for pair in pairs:
-                await ws.subscribe(
-                    CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
-                    [pair, '100ms']
-                )
-            self.logger().info(f"Subscribed to {pairs} orderbook data streams.")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error("Unexpected error occurred subscribing to order book data streams.")
-            raise
-        return ws
 
     async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -313,10 +290,19 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     continue
 
                 trade_timestamp: int = trade_data['create_time']
-                trade_msg: OrderBookMessage = GateIoOrderBook.trade_message_from_exchange(
-                    trade_data,
-                    trade_timestamp,
-                    metadata={"trading_pair": pair})
+                trade_msg: OrderBookMessage = OrderBookMessage(
+                    OrderBookMessageType.TRADE,
+                    {
+                        "trading_pair": pair,
+                        "trade_type": (float(TradeType.SELL.value)
+                                       if trade_data["side"] == "sell"
+                                       else float(TradeType.BUY.value)),
+                        "trade_id": trade_data["id"],
+                        "update_id": trade_timestamp,
+                        "price": trade_data["price"],
+                        "amount": trade_data["amount"],
+                    },
+                    timestamp=trade_timestamp)
                 output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
@@ -341,11 +327,16 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 timestamp: float = (order_book_data["t"]) * 1e-3
                 pair: str = await self.trading_pair_associated_to_exchange_symbol(order_book_data["s"])
 
-                orderbook_msg: OrderBookMessage = GateIoOrderBook.diff_message_from_exchange(
-                    order_book_data,
-                    timestamp,
-                    metadata={"trading_pair": pair}
-                )
+                orderbook_msg: OrderBookMessage = OrderBookMessage(
+                    OrderBookMessageType.DIFF,
+                    {
+                        "trading_pair": pair,
+                        "first_update_id": order_book_data["U"],
+                        "update_id": order_book_data["u"],
+                        "bids": order_book_data["b"],
+                        "asks": order_book_data["a"]
+                    },
+                    timestamp=timestamp)
                 output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
@@ -366,11 +357,15 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, self._throttler)
                         snapshot_timestamp: int = int(time.time())
-                        snapshot_msg: OrderBookMessage = GateIoOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
+                        snapshot_msg: OrderBookMessage = OrderBookMessage(
+                            OrderBookMessageType.SNAPSHOT,
+                            {
+                                "trading_pair": trading_pair,
+                                "update_id": snapshot["update"],
+                                "bids": snapshot["bids"],
+                                "asks": snapshot["asks"],
+                            },
+                            timestamp=snapshot_timestamp)
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
 
@@ -391,6 +386,18 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await self._sleep(5.0)
+
+    async def _process_ws_messages(self, websocket_assistant: WSAssistant):
+        async for ws_response in websocket_assistant.iter_messages():
+            data = ws_response.data
+            if data.get("error") is not None:
+                err_msg = data.get("error", {}).get("message", data["error"])
+                raise IOError(f"Error event received from the server ({err_msg})")
+            elif data.get("channel") in [
+                CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
+                CONSTANTS.TRADES_ENDPOINT_NAME,
+            ]:
+                self._message_queue[data.get("channel")].put_nowait(data)
 
     @classmethod
     async def _init_trading_pair_symbols(
@@ -425,7 +432,51 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         cls._trading_pair_symbol_map[domain] = mapping
 
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+
+        :param ws: the websocket assistant used to connect to the exchange
+        """
+        try:
+            for trading_pair in self._trading_pairs:
+                symbol = await self.exchange_symbol_associated_to_pair(
+                    trading_pair=trading_pair,
+                    api_factory=self._api_factory,
+                    throttler=self._throttler,
+                )
+
+                trades_payload = {
+                    "time": int(self._time()),
+                    "channel": CONSTANTS.TRADES_ENDPOINT_NAME,
+                    "event": "subscribe",
+                    "payload": [symbol]
+                }
+                subscribe_trade_request: WSRequest = WSRequest(payload=trades_payload)
+
+                order_book_payload = {
+                    "time": int(self._time()),
+                    "channel": CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
+                    "event": "subscribe",
+                    "payload": [symbol, "100ms"]
+                }
+                subscribe_orderbook_request: WSRequest = WSRequest(payload=order_book_payload)
+
+                await ws.send(subscribe_trade_request)
+                await ws.send(subscribe_orderbook_request)
+
+                self.logger().info("Subscribed to public order book and trade channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error occurred subscribing to order book data streams.")
+            raise
+        return ws
+
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:
             self._rest_assistant = await self._api_factory.get_rest_assistant()
         return self._rest_assistant
+
+    def _time(self):
+        return time.time()

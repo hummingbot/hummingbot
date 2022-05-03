@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
@@ -114,7 +114,7 @@ class GateIoExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> str:
+                           price: Decimal) -> Tuple[str, float]:
 
         order_type_str = order_type.name.lower().split("_")[0]
         symbol = await self._orderbook_ds.exchange_symbol_associated_to_pair(trading_pair)
@@ -137,7 +137,7 @@ class GateIoExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=endpoint,
         )
-        if order_result.get('status') in {"cancelled", "expired", "failed"}:
+        if order_result.get('status') in {"cancelled"}:
             raise web_utils.APIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, time.time()
@@ -149,20 +149,17 @@ class GateIoExchange(ExchangePyBase):
         """
         cancelled = False
         exchange_order_id = await tracked_order.get_exchange_order_id()
-        try:
-            params = {
-                'currency_pair': await self._orderbook_ds.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
-            }
-            resp = await self._api_delete(
-                path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(order_id=exchange_order_id),
-                params=params,
-                is_auth_required=True,
-                limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
-            )
-            if resp["status"] == "cancelled":
-                cancelled = True
-        except (asyncio.TimeoutError, web_utils.APIError) as e:
-            self.logger().debug(f"Canceling order {order_id} failed: {e}")
+        params = {
+            'currency_pair': await self._orderbook_ds.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
+        }
+        resp = await self._api_delete(
+            path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(order_id=exchange_order_id),
+            params=params,
+            is_auth_required=True,
+            limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
+        )
+        if resp["status"] == "cancelled":
+            cancelled = True
         return cancelled
 
     async def _status_polling_loop_fetch_updates(self):
@@ -202,8 +199,6 @@ class GateIoExchange(ExchangePyBase):
         trades_tasks = []
         reviewed_orders = []
         tracked_orders = list(self.in_flight_orders.values())
-        if len(tracked_orders) <= 0:
-            return
 
         # Prepare requests to update trades and orders
         for tracked_order in tracked_orders:
@@ -242,15 +237,12 @@ class GateIoExchange(ExchangePyBase):
         self.logger().debug(f"Polled trade updates for {len(tracked_orders)} orders: {len(responses)}.")
         for response, tracked_order in zip(responses, reviewed_orders):
             if not isinstance(response, Exception):
-                if len(response) > 0:
-                    for trade_fills in response:
-                        self._process_trade_message(trade_fills, tracked_order.client_order_id)
+                for trade_fills in response:
+                    self._process_trade_message(trade_fills, tracked_order.client_order_id)
             else:
                 self.logger().warning(
                     f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
                     f"Response: {response}")
-                if 'ORDER_NOT_FOUND' in str(response):
-                    self._order_tracker.stop_tracking_order(client_order_id=tracked_order.client_order_id)
 
         # Process order statuses
         responses = await safe_gather(*orders_tasks, return_exceptions=True)
@@ -262,8 +254,7 @@ class GateIoExchange(ExchangePyBase):
                 self.logger().warning(
                     f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
                     f"Response: {response}")
-                if 'ORDER_NOT_FOUND' in str(response):
-                    self._order_tracker.stop_tracking_order(client_order_id=tracked_order.client_order_id)
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     def _get_fee(self,
                  base_currency: str,
@@ -368,7 +359,7 @@ class GateIoExchange(ExchangePyBase):
         if state:
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=order_msg["update_time"],
+                update_timestamp=int(order_msg["update_time"]),
                 new_state=state,
                 client_order_id=client_order_id,
                 exchange_order_id=str(order_msg["id"]),

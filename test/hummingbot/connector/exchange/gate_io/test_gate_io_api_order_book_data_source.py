@@ -3,17 +3,18 @@ import json
 import re
 import unittest
 from decimal import Decimal
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Dict, List
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
+from bidict import bidict
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
@@ -27,9 +28,13 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
+        self.log_records = []
+        self.async_tasks: List[asyncio.Task] = []
+
         self.mocking_assistant = NetworkMockingAssistant()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         api_factory = WebAssistantsFactory()
@@ -41,10 +46,13 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.log_records = []
-        self.async_tasks: List[asyncio.Task] = []
+        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {
+            CONSTANTS.DEFAULT_DOMAIN: bidict(
+                {self.ex_trading_pair: self.trading_pair})
+        }
 
     def tearDown(self) -> None:
+        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {}
         for task in self.async_tasks:
             task.cancel()
         super().tearDown()
@@ -155,7 +163,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         return ob_snapshot
 
     @aioresponses()
-    def test_get_last_trade_instance(self, mock_api):
+    def test_get_last_traded_prices(self, mock_api):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_last_trade_instance_data_mock()
@@ -165,25 +173,65 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
             coroutine=GateIoAPIOrderBookDataSource.get_last_traded_prices(trading_pairs=[self.trading_pair])
         )
 
+        ticker_requests = [(key, value) for key, value in mock_api.requests.items()
+                           if key[1].human_repr().startswith(url)]
+
+        request_params = ticker_requests[0][1][0].kwargs["params"]
+        self.assertEqual(self.ex_trading_pair, request_params["currency_pair"])
+
         self.assertEqual(ret[self.trading_pair], Decimal(resp[0]["last"]))
 
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
+        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {}
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.SYMBOL_PATH_URL}"
         resp = [
             {
-                "id": f"{self.base_asset}_{self.quote_asset}"
+                "id": f"{self.base_asset}_{self.quote_asset}",
+                "base": self.base_asset,
+                "quote": self.quote_asset,
+                "fee": "0.2",
+                "min_base_amount": "0.001",
+                "min_quote_amount": "1.0",
+                "amount_precision": 3,
+                "precision": 6,
+                "trade_status": "tradable",
+                "sell_start": 1516378650,
+                "buy_start": 1516378650
             },
             {
-                "id": "SOME_PAIR"
+                "id": "SOME_PAIR",
+                "base": "SOME",
+                "quote": "PAIR",
+                "fee": "0.2",
+                "min_base_amount": "0.001",
+                "min_quote_amount": "1.0",
+                "amount_precision": 3,
+                "precision": 6,
+                "trade_status": "untradable",
+                "sell_start": 1516378650,
+                "buy_start": 1516378650
             }
         ]
         mock_api.get(url, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=GateIoAPIOrderBookDataSource.fetch_trading_pairs())
 
-        self.assertTrue(self.trading_pair in ret, msg=f'{self.trading_pair} {ret}')
-        self.assertTrue("SOME-PAIR" in ret)
+        self.assertIn(self.trading_pair, ret)
+        self.assertNotIn("SOME-PAIR", ret)
+
+    @aioresponses()
+    def test_fetch_trading_pairs_exception_is_ignored(self, mock_api):
+        GateIoAPIOrderBookDataSource._trading_pair_symbol_map = {}
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.SYMBOL_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=Exception)
+
+        result: Dict[str] = self.async_run_with_timeout(self.data_source.fetch_trading_pairs())
+
+        self.assertEqual(0, len(result))
 
     @patch("hummingbot.connector.exchange.gate_io.gate_io_web_utils.retry_sleep_time")
     @aioresponses()
@@ -266,7 +314,8 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         self.assertTrue(output_queue.empty())
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep")
+    @patch(
+        "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep")
     def test_listen_for_trades_logs_error_when_exception_happens(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         incomplete_response = {
@@ -347,7 +396,8 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_diffs_snapshot(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         asks = ["19080.24", "0.1638"]
-        resp = self.get_order_book_diff_mock(asks=asks, bids=["19079.55", "0.0195"])
+        bids = ["19079.55", "0.0195"]
+        resp = self.get_order_book_diff_mock(asks=asks, bids=bids)
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, json.dumps(resp)
         )
