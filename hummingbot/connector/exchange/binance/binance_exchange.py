@@ -215,7 +215,7 @@ class BinanceExchange(ExchangePyBase):
             try:
                 event_type = event_message.get("e")
                 # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
-                # As per the order update section in Binance the ID of the order being cancelled is under the "C" key
+                # As per the order update section in Binance the ID of the order being canceled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -399,7 +399,7 @@ class BinanceExchange(ExchangePyBase):
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
-                # If the order has already been cancelled or has failed do nothing
+                # If the order has already been canceled or has failed do nothing
                 if client_order_id not in self.in_flight_orders:
                     continue
 
