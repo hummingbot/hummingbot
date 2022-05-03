@@ -1,10 +1,12 @@
 import {Market as SerumMarket, MARKETS,} from '@project-serum/serum';
-import {OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
+import {MarketOptions, Order as SerumOrder, Orderbook, OrderParams, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
 import {Account, Connection, PublicKey} from '@solana/web3.js';
 import axios from 'axios';
 import BN from "bn.js";
 import {Cache, CacheContainer} from 'node-ts-cache';
 import {MemoryStorage} from 'node-ts-cache-storage-memory';
+// @ts-ignore
+import {NodeFsStorage} from "node-ts-cache-storage-node-fs";
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {
@@ -39,12 +41,14 @@ import {
   TickerNotFoundError,
 } from './serum.types';
 
+// TODO change to MemoryStorage!!!
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
   markets: new CacheContainer(new MemoryStorage()),
-};
+  orders: new CacheContainer(new MemoryStorage()),
 
-// const ordersMap = IMap<string, Order>().asMutable();
+  development: new CacheContainer(new NodeFsStorage('/tmp/serum-development.json')),
+};
 
 export type Serumish = Serum;
 
@@ -54,8 +58,9 @@ export class Serum {
   private initializing: boolean = false;
 
   private readonly config: SerumConfig.Config;
-  private solana!: Solana;
   private readonly connection: Connection;
+  // private readonly ordersMap = IMap<string, Order>().asMutable();
+  private solana!: Solana;
   private _ready: boolean = false;
 
   chain: string;
@@ -75,6 +80,57 @@ export class Serum {
     this.config = getSerumConfig(network)
 
     this.connection = new Connection(this.config.network.rpcURL);
+  }
+
+  private async serumLoadMarket(connection: Connection, address: PublicKey, options: MarketOptions | undefined, programId: PublicKey, layoutOverride?: any): Promise<SerumMarket> {
+    const result = await SerumMarket.load(connection,address, options, programId, layoutOverride);
+
+    return result;
+  }
+
+  // @Cache(caches.development, { isCachedForever: true })
+  private async serumMarketLoadBids(market: SerumMarket, connection: Connection): Promise<Orderbook> {
+    const result =  await market.loadBids(connection);
+
+    return result;
+  }
+
+  // @Cache(caches.development, { isCachedForever: true })
+  private async serumMarketLoadAsks(market: SerumMarket, connection: Connection): Promise<Orderbook> {
+    const result =  await market.loadAsks(connection);
+
+    return result;
+  }
+
+  // @Cache(caches.development, { isCachedForever: true })
+  private async serumMarketLoadFills(market: SerumMarket, connection: Connection, limit?: number): Promise<any[]> {
+    const result = await market.loadFills(connection, limit);
+
+    return result;
+  }
+
+  // @Cache(caches.development, { isCachedForever: true })
+  private async serumMarketLoadOrdersForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, cacheDurationMs?: number): Promise<SerumOrder[]> {
+    const result =  await market.loadOrdersForOwner(connection, ownerAddress, cacheDurationMs);
+    
+    return result;
+  }
+
+  // @Cache(caches.development, { isCachedForever: true })
+  private async serumMarketPlaceOrder(market: SerumMarket, connection: Connection, { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }: OrderParams): Promise<string> {
+    const result =  await market.placeOrder(
+      connection,
+      { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }
+    );
+
+    return result;
+  }
+
+  // @Cache(caches.development, { isCachedForever: true })
+  private async serumMarketCancelOrder(market: SerumMarket, connection: Connection, owner: Account, order: SerumOrder): Promise<string> {
+    const result = await market.cancelOrder(connection, owner, order);
+
+    return result;
   }
 
   /**
@@ -154,7 +210,7 @@ export class Serum {
   }
 
   /**
-   *
+   * TODO check the possibility of using the ttl from the config!!!
    */
   @Cache(caches.markets, { ttl: 60 * 60 })
   async getAllMarkets(): Promise<IMap<string, Market>> {
@@ -172,8 +228,15 @@ export class Serum {
       marketsInformation = MARKETS;
     }
 
+    // TODO remove after development!!!
+    marketsInformation = marketsInformation.filter(
+      item =>
+        !item.deprecated
+        && ['SOL/USDT', 'SOL/USDC'].includes(item.name)
+    );
+
     const loadMarket = async(market: BasicSerumMarket): Promise<void> => {
-      const serumMarket = await SerumMarket.load(
+      const serumMarket = await this.serumLoadMarket(
         this.connection,
         new PublicKey(market.address),
         {},
@@ -191,7 +254,7 @@ export class Serum {
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     // It takes on average about 44s to load all the markets
-    await promiseAllInBatches(loadMarket, marketsInformation, 100, 10000);
+    await promiseAllInBatches(loadMarket, marketsInformation, 100, 15000);
 
     return allMarkets;
   }
@@ -199,8 +262,8 @@ export class Serum {
   async getOrderBook(marketName: string): Promise<OrderBook> {
     const market = await this.getMarket(marketName);
 
-    const asks = await market.market.loadAsks(this.connection);
-    const bids = await market.market.loadBids(this.connection);
+    const asks = await this.serumMarketLoadAsks(market.market, this.connection);
+    const bids = await this.serumMarketLoadBids(market.market, this.connection);
 
     return convertMarketBidsAndAsksToOrderBook(
       market,
@@ -234,7 +297,7 @@ export class Serum {
     const market = await this.getMarket(marketName);
 
     // TODO change the mechanism to retrieve ticker information, this approach is not always available!!!
-    const filledOrders = await market.market.loadFills(this.connection);
+    const filledOrders = await this.serumMarketLoadFills(market.market, this.connection);
     if (!filledOrders || !filledOrders.length)
       throw new TickerNotFoundError(`Ticker data is currently not available for market "${marketName}".`);
 
@@ -341,10 +404,7 @@ export class Serum {
 
     const owner = await this.solana.getAccount(ownerAddress);
 
-    const serumOpenOrders = await market.market.loadOrdersForOwner(
-      this.connection,
-      owner.publicKey
-    );
+    const serumOpenOrders = await this.serumMarketLoadOrdersForOwner(market.market, this.connection, owner.publicKey);
 
     return convertArrayOfSerumOrdersToMapOfOrders(market, serumOpenOrders, ownerAddress);
   }
@@ -448,7 +508,7 @@ export class Serum {
   async getFilledOrdersForMarket(marketName: string): Promise<IMap<string, Order>> {
     const market = await this.getMarket(marketName);
 
-    const orders = await market.market.loadFills(this.connection, 0);
+    const orders = await this.serumMarketLoadFills(market.market, this.connection, 0);
 
     return convertArrayOfSerumOrdersToMapOfOrders(market, orders);
   }
@@ -483,7 +543,13 @@ export class Serum {
       return await this.getOpenOrder(target);
     } catch (exception) {
       if (exception instanceof OrderNotFoundError) {
-        return await this.getFilledOrder(target);
+        try {
+          return await this.getFilledOrder(target);
+        } catch (exception2) {
+          if (exception2 instanceof OrderNotFoundError) {
+            throw new OrderNotFoundError(`No order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
+          }
+        }
       }
 
       throw exception;
@@ -566,23 +632,7 @@ export class Serum {
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.ownerAddress);
-    const payer = owner.publicKey;
-
-    // TODO: remove if is incorrect!!!
-    // let mintAddress: PublicKey;
-    // if (candidate.side.toLowerCase() == OrderSide.BUY.toLowerCase()) {
-    //   // mintAddress = market.market.quoteMintAddress;
-    //   mintAddress = market.market.baseMintAddress;
-    // } else {
-    //   // mintAddress = market.market.baseMintAddress;
-    //   mintAddress = market.market.quoteMintAddress;
-    // }
-    //
-    // // TODO check if it's correct!!!
-    // let payer = await this.solana.findAssociatedTokenAddress(
-    //   owner.publicKey,
-    //   mintAddress
-    // );
+    const payer = owner.publicKey; // TODO is this correct? After that the placement started to work!!!
 
     const serumOrderParams: SerumOrderParams<Account> = {
       side: convertOrderSideToSerumSide(candidate.side),
@@ -594,10 +644,7 @@ export class Serum {
       payer: payer
     };
 
-    const signature = await market.market.placeOrder(
-      this.connection,
-      serumOrderParams
-    );
+    const signature = await this.serumMarketPlaceOrder(market.market, this.connection, serumOrderParams);
 
     return convertSerumOrderToOrder(
       market,
@@ -634,7 +681,7 @@ export class Serum {
 
     const order = await this.getOrder({ ...target });
 
-    order.signature = await market.market.cancelOrder(this.connection, owner, order.order!);
+    order.signature = await this.serumMarketCancelOrder(market.market, this.connection, owner, order.order!);
 
     // TODO what about the status of the order?!!!
     // TODO Important! Probably we need to call the settle funds api function!!!
