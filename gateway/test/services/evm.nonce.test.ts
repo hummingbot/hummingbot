@@ -64,7 +64,7 @@ describe('Test EVMNonceManager', () => {
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
-  it('save, get and delete a key value pair in the local db', async () => {
+  it('getNonce reads nonce from node, commits, then reads nonce from memory', async () => {
     const testChain1 = 'ethereum';
     const testChain1Id = 1;
     const address1 = 'A';
@@ -76,12 +76,15 @@ describe('Test EVMNonceManager', () => {
       300,
       dbPath
     );
+
     patch(evmNonceManager, 'mergeNonceFromEVMNode', (_ethAddress: string) => {
-      return; //         return Promise.resolve(return null);
+      return;
     });
+
     patch(evmNonceManager, 'getNonceFromNode', (_ethAddress: string) => {
       return Promise.resolve(12);
     });
+
     await evmNonceManager.init(
       new providers.StaticJsonRpcProvider('https://kovan.infura.io/v3/')
     );
@@ -89,5 +92,11 @@ describe('Test EVMNonceManager', () => {
     const nonce = await evmNonceManager.getNonce(address1);
 
     expect(nonce).toEqual(12);
+
+    await evmNonceManager.commitNonce(address1, nonce);
+
+    const nonce2 = await evmNonceManager.getNonce(address1);
+
+    expect(nonce2).toEqual(13);
   });
 });
