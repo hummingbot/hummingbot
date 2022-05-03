@@ -34,7 +34,7 @@ beforeAll(async () => {
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
-  // await reset();
+  await reset();
 });
 
 afterEach(() => {
