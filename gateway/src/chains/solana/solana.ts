@@ -1,3 +1,5 @@
+import {Cache, CacheContainer} from "node-ts-cache";
+import {MemoryStorage} from "node-ts-cache-storage-memory";
 import {logger} from '../../services/logger';
 import {SolanaConfig} from './solana.config';
 import {countDecimals, TokenValue, walletPath} from '../../services/base';
@@ -25,6 +27,10 @@ import fse from 'fs-extra';
 import {ConfigManagerCertPassphrase} from '../../services/config-manager-cert-passphrase';
 
 const crypto = require('crypto').webcrypto;
+
+const caches = {
+  instances: new CacheContainer(new MemoryStorage()),
+};
 
 export type Solanaish = Solana;
 
@@ -97,18 +103,13 @@ export class Solana implements Solanaish {
     return this._lamportPrice;
   }
 
-  // TODO Change to use caching method and async implementation!!!
+  @Cache(caches.instances, { isCachedForever: true })
   public static async getInstance(network: string): Promise<Solana> {
-    if (Solana._instances === undefined) {
-      Solana._instances = {};
-    }
-    if (!(network in Solana._instances)) {
-      Solana._instances[network] = new Solana(network);
+    const instance = new Solana(network);
 
-      await Solana._instances[network].init();
-    }
+    await instance.init();
 
-    return Solana._instances[network];
+    return instance;
   }
 
   public static getConnectedInstances(): { [name: string]: Solana } {
@@ -191,11 +192,15 @@ export class Solana implements Solanaish {
     return new Account(keypair.secretKey);
   }
 
+  /**
+   *
+   * @param walletAddress
+   * @param tokenMintAddress
+   */
   async findAssociatedTokenAddress(
     walletAddress: PublicKey,
     tokenMintAddress: PublicKey
   ): Promise<PublicKey> {
-    // TODO Check if this implementation is correct!!!
     const tokenProgramId = this._tokenProgramAddress;
     const splAssociatedTokenAccountProgramId = (
       await this.connection.getParsedTokenAccountsByOwner(walletAddress, {

@@ -1,3 +1,4 @@
+import {StatusCodes} from "http-status-codes";
 import { HttpException } from './error-handler';
 
 export const invalidAmountError: string =
@@ -43,9 +44,9 @@ export const isFractionString = (str: string): boolean => {
 
 // throw an error because the request parameter is malformed, collect all the
 // errors related to the request to give the most information possible
-export const throwIfErrorsExist = (errors: Array<string>): void => {
+export const throwIfErrorsExist = (errors: Array<string>, statusCode: number = StatusCodes.NOT_FOUND): void => {
   if (errors.length > 0) {
-    throw new HttpException(404, errors.join(', '));
+    throw new HttpException(statusCode, errors.join(', '));
   }
 };
 
@@ -80,7 +81,7 @@ export const mkBranchingValidator = (
 
 export const mkValidator = (
   key: string,
-  errorMsg: string,
+  errorMsg: string | ((x: any) => string),
   condition: (x: any) => boolean,
   optional: boolean = false
 ): Validator => {
@@ -88,7 +89,11 @@ export const mkValidator = (
     const errors: Array<string> = [];
     if (req[key]) {
       if (!condition(req[key])) {
-        errors.push(errorMsg);
+        if (typeof errorMsg === 'string') {
+          errors.push(errorMsg);
+        } else {
+          errors.push(errorMsg(req[key]));
+        }
       }
     } else {
       if (!optional) {
@@ -101,14 +106,15 @@ export const mkValidator = (
 };
 
 export const mkRequestValidator = (
-  validators: Array<Validator>
+  validators: Array<Validator>,
+  statusCode?: number
 ): RequestValidator => {
   return (req: any) => {
     let errors: Array<string> = [];
     validators.forEach(
       (validator: Validator) => (errors = errors.concat(validator(req)))
     );
-    throwIfErrorsExist(errors);
+    throwIfErrorsExist(errors, statusCode);
   };
 };
 

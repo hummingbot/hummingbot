@@ -2,10 +2,9 @@ import 'jest-extended';
 import {Serum} from '../../../../src/connectors/serum/serum';
 import {unpatch} from '../../../services/patch';
 import {Solana} from '../../../../src/chains/solana/solana';
-import {patch} from "../../../services/patch";
 import {default as config} from './fixtures/serumConfig';
 // @ts-ignore
-import { cancelOpenOrders, cancelOrders, createOrders, getFilledOrders, getMarkets, getOpenOrders, getOrderBooks, getOrders, getTickers } from '../../../../src/clob/clob.controllers';
+import { cancelOpenOrders, cancelOrders, createOrders, getFilledOrders, getMarkets, getOpenOrders, getOrderBooks, getOrders, getTickers, settleFunds } from '../../../../src/clob/clob.controllers';
 // @ts-ignore
 import {getNewOrderTemplate} from './fixtures/dummy';
 import BN from 'bn.js';
@@ -18,23 +17,12 @@ let serum: Serum;
 // @ts-ignore
 let solana: Solana;
 
-// @ts-ignore
-const patches = {
-  serum: {
-    getAllMarkets: () => {
-      patch(serum, 'getAllMarkets', () => {
-        return JSON.parse('');
-      })
-    },
-  },
-};
-
 beforeAll(async () => {
   solana = await Solana.getInstance(config.solana.network);
 
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);
 
-  await reset();
+  // await reset();
 });
 
 afterEach(() => {
@@ -96,6 +84,40 @@ const reset = async () => {
 }
 
 it('Temporary 01', async () => {
+  /*
+  create order [0]
+  create orders [1, 2, 3, 4, 5, 6, 7]
+  get open order [0]
+  get order [1]
+  get open orders [2, 3]
+  get orders [4, 5]
+  get all open orders (0, 1, 2, 3, 4, 5, 6, 7)
+  get all orders (0, 1, 2, 3, 4, 5, 6, 7)
+  cancel open order [0]
+  cancel order [1]
+  get canceled open order [0]
+  get canceled order [1]
+  get filled order [2]
+  get filled orders [3, 4]
+  get all filled orders (),
+  cancel open orders [2, 3]
+  cancel orders [4, 5]
+  get canceled open orders [2, 3]
+  get canceled orders [4, 5]
+  cancel all open orders (6, 7)
+  get all open orders ()
+  get all orders ()
+  create orders [8, 9]
+  get all open orders ()
+  get all orders ()
+  cancel all orders (8, 9)
+  get all open orders ()
+  get all orders ()
+  settle funds for market [SOL/USDT]
+  settle funds for markets [SOL/USDT, SOL/USDC]
+  settle all funds (SOL/USDT, SOL/USDC)
+  */
+
   // @ts-ignore
   const marketName = marketNames[0];
 
@@ -108,65 +130,65 @@ it('Temporary 01', async () => {
   // @ts-ignore
   let response: any;
 
-  // request = {
-  //   ...commonParameters,
-  //   name: marketName,
-  // };
-  // response = (await getMarkets(request)).body;
-  // console.log('markets:', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters,
-  //   names: marketNames,
-  // };
-  // response = (await getMarkets(request)).body;
-  // console.log('markets', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters
-  // };
-  // response = (await getMarkets(request)).body;
-  // console.log('markets', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters,
-  //   marketName: marketName,
-  // };
-  // response = (await getOrderBooks(request)).body;
-  // console.log('order books', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters,
-  //   marketNames: marketNames,
-  // };
-  // response = (await getOrderBooks(request)).body;
-  // console.log('order books:', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters
-  // };
-  // response = (await getOrderBooks(request)).body;
-  // console.log('order books:', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters,
-  //   marketName: marketName,
-  // };
-  // response = (await getTickers(request)).body;
-  // console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters,
-  //   marketNames: marketNames,
-  // };
-  // response = (await getTickers(request)).body;
-  // console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters
-  // };
-  // response = (await getTickers(request)).body;
-  // console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+  request = {
+    ...commonParameters,
+    name: marketName,
+  };
+  response = (await getMarkets(request)).body;
+  console.log('markets:', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    names: marketNames,
+  };
+  response = (await getMarkets(request)).body;
+  console.log('markets', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters
+  };
+  response = (await getMarkets(request)).body;
+  console.log('markets', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    marketName: marketName,
+  };
+  response = (await getOrderBooks(request)).body;
+  console.log('order books', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    marketNames: marketNames,
+  };
+  response = (await getOrderBooks(request)).body;
+  console.log('order books:', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters
+  };
+  response = (await getOrderBooks(request)).body;
+  console.log('order books:', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    marketName: marketName,
+  };
+  response = (await getTickers(request)).body;
+  console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    marketNames: marketNames,
+  };
+  response = (await getTickers(request)).body;
+  console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters
+  };
+  response = (await getTickers(request)).body;
+  console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
 
   request = {
     ...commonParameters,
@@ -175,28 +197,28 @@ it('Temporary 01', async () => {
   response = await getOpenOrders(request);
   console.log('get all open orders', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
 
-  // request = {
-  //   ...commonParameters,
-  //   order: (() => { const order = getNewOrderTemplate(); order.id = orderIds[0]; return order; })()
-  // };
-  // response = await createOrders(request);
-  // console.log('create order', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
-  //
-  // request = {
-  //   ...commonParameters,
-  //   orders: [
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[1]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[2]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[3]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[4]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[5]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[6]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[7]; return order; })(),
-  //     (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
-  //   ]
-  // };
-  // response = await createOrders(request);
-  // console.log('create orders', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+  request = {
+    ...commonParameters,
+    order: (() => { const order = getNewOrderTemplate(); order.id = orderIds[0]; return order; })()
+  };
+  response = await createOrders(request);
+  console.log('create order', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    orders: [
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[1]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[2]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[3]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[4]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[5]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[6]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[7]; return order; })(),
+      (() => { const order = getNewOrderTemplate(); order.id = orderIds[8]; return order; })(),
+    ]
+  };
+  response = await createOrders(request);
+  console.log('create orders', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
 
   request = {
     ...commonParameters,
@@ -429,34 +451,23 @@ it('Temporary 01', async () => {
   response = await getOrders(request);
   console.log('get all orders', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
 
-  /*
-  create order [0]
-  create orders [1, 2, 3, 4, 5, 6, 7]
-  get open order [0]
-  get order [1]
-  get open orders [2, 3]
-  get orders [4, 5]
-  get all open orders (0, 1, 2, 3, 4, 5, 6, 7)
-  get all orders (0, 1, 2, 3, 4, 5, 6, 7)
-  cancel open order [0]
-  cancel order [1]
-  get canceled open order [0]
-  get canceled order [1]
-  get filled order [2]
-  get filled orders [3, 4]
-  get all filled orders (),
-  cancel open orders [2, 3]
-  cancel orders [4, 5]
-  get canceled open orders [2, 3]
-  get canceled orders [4, 5]
-  cancel all open orders (6, 7)
-  get all open orders ()
-  get all orders ()
-  create orders [8, 9]
-  get all open orders ()
-  get all orders ()
-  cancel all orders (8, 9)
-  get all open orders ()
-  get all orders ()
-   */
+  request = {
+    ...commonParameters,
+    marketName: marketName,
+  };
+  response = await settleFunds(request);
+  console.log('settle funds for market', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+    marketNames: marketNames,
+  };
+  response = await settleFunds(request);
+  console.log('settle funds for markets', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
+
+  request = {
+    ...commonParameters,
+  };
+  response = await settleFunds(request);
+  console.log('settle all funds', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
 });

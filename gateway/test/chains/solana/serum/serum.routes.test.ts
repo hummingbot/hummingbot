@@ -1,13 +1,14 @@
+import {MARKETS} from '@project-serum/serum';
 import express from 'express';
 import {Express} from 'express-serve-static-core';
-import request from 'supertest';
-import 'jest-extended';
-import {MARKETS} from '@project-serum/serum';
-import {Serum} from '../../../../src/connectors/serum/serum';
-import {unpatch} from '../../../services/patch';
-import {Solana} from '../../../../src/chains/solana/solana';
-import {default as config} from './fixtures/serumConfig';
 import {StatusCodes} from 'http-status-codes';
+import 'jest-extended';
+import request from 'supertest';
+import {Solana} from '../../../../src/chains/solana/solana';
+import {ClobRoutes} from '../../../../src/clob/clob.routes';
+import {Serum} from '../../../../src/connectors/serum/serum';
+import {convertToGetOrderResponse} from "../../../../src/connectors/serum/serum.convertors";
+import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
 import {
   CreateOrdersRequest,
   GetMarketResponse,
@@ -18,10 +19,9 @@ import {
   OrderStatus,
   Ticker
 } from '../../../../src/connectors/serum/serum.types';
-import {SerumRoutes} from '../../../../src/connectors/serum/serum.routes';
-import {ClobRoutes} from '../../../../src/clob/clob.routes';
+import {unpatch} from '../../../services/patch';
 import {getNewOrderTemplate} from "./fixtures/dummy";
-import {convertToGetOrderResponse} from "../../../../src/connectors/serum/serum.convertors";
+import {default as config} from './fixtures/serumConfig';
 
 let app: Express;
 let serum: Serum;
@@ -834,7 +834,7 @@ describe(`${routePrefix}/orders`, () => {
             expect(order.price).toEqual(found?.order.price);
             expect(order.amount).toEqual(found?.order.amount);
             expect(order.side).toEqual(found?.order.side);
-            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.status).toEqual(OrderStatus.OPEN);
             expect(order.type).toEqual(found?.order.type);
             expect(order.fee).toBeGreaterThanOrEqual(0);
           }
@@ -870,7 +870,7 @@ describe(`${routePrefix}/orders`, () => {
             expect(order.price).toEqual(found?.order.price);
             expect(order.amount).toEqual(found?.order.amount);
             expect(order.side).toEqual(found?.order.side);
-            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.status).toEqual(OrderStatus.OPEN);
             expect(order.type).toEqual(found?.order.type);
             expect(order.fee).toBeGreaterThanOrEqual(0);
           }
@@ -905,7 +905,7 @@ describe(`${routePrefix}/orders`, () => {
             expect(order.price).toEqual(found?.order.price);
             expect(order.amount).toEqual(found?.order.amount);
             expect(order.side).toEqual(found?.order.side);
-            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.status).toEqual(OrderStatus.OPEN);
             expect(order.type).toEqual(found?.order.type);
             expect(order.fee).toBeGreaterThanOrEqual(0);
           }
@@ -941,7 +941,7 @@ describe(`${routePrefix}/orders`, () => {
             expect(order.price).toEqual(found?.order.price);
             expect(order.amount).toEqual(found?.order.amount);
             expect(order.side).toEqual(found?.order.side);
-            expect(order.status).toEqual(OrderStatus.PENDING);
+            expect(order.status).toEqual(OrderStatus.OPEN);
             expect(order.type).toEqual(found?.order.type);
             expect(order.fee).toBeGreaterThanOrEqual(0);
           }
@@ -1019,7 +1019,7 @@ describe(`${routePrefix}/orders`, () => {
             expect(order.price).toBe(candidateOrder.price);
             expect(order.amount).toBe(candidateOrder.amount);
             expect(order.side).toBe(candidateOrder.side);
-            expect(order.status).toBe(OrderStatus.PENDING);
+            expect(order.status).toBe(OrderStatus.OPEN);
             expect(order.type).toBe(candidateOrder.type);
           });
       });

@@ -1,11 +1,70 @@
-import {mkRequestValidator, mkValidator, RequestValidator} from '../../services/validators';
+import {StatusCodes} from "http-status-codes";
+import {
+  isBase58,
+  isFloatString,
+  isNaturalNumberString,
+  mkRequestValidator,
+  mkValidator,
+  RequestValidator,
+  Validator
+} from '../../services/validators';
+import {OrderSide, OrderType} from "./serum.types";
 
-// TODO fill or remove these validators!!!
-export const requestExample: RequestValidator = mkRequestValidator([]);
+export const validateOrderClientId: Validator = mkValidator(
+  'id',
+  (value) => `Invalid client id (${value}), it needs to be in big number format.`,
+  (target) => isNaturalNumberString(target),
+  true
+);
 
-export const itemExample: RequestValidator = mkValidator(
-  'key',
-  'Error message.',
-  (target) => target,
+export const validateOrderMarketName: Validator = mkValidator(
+  'marketName',
+  (value) => `Invalid market name (${value}).`,
+  (target) => target.trim().len,
   false
 );
+
+export const validateOrderOwnerAddress: Validator = mkValidator(
+  'ownerAddress',
+  (value) => `Invalid owner address (${value}).`,
+  (target) => isBase58(target),
+  false
+);
+
+export const validateOrderSide: Validator = mkValidator(
+  '',
+  (value) => `Invalid order side (${value}).`,
+  (target) => Object.values(OrderSide).map(i => i.toLowerCase()).includes(target.toLowerCase()),
+  false
+);
+
+export const validateOrderPrice: Validator = mkValidator(
+  '',
+  (value) => `Invalid order price (${value}).`,
+  (target) => typeof target === 'number' || isFloatString(target),
+  false
+);
+
+export const validateOrderAmount: Validator = mkValidator(
+  '',
+  (value) => `Invalid order amount (${value}).`,
+  (target) => typeof target === 'number' || isFloatString(target),
+  false
+);
+
+export const validateOrderType: Validator = mkValidator(
+  '',
+  (value) => `Invalid  order type (${value}).`,
+  (target) => Object.values(OrderType).map(item => item.toLowerCase()).includes(target.toLowerCase()),
+  true
+);
+
+export const validateCreateOrder: RequestValidator = mkRequestValidator([
+  validateOrderClientId,
+  validateOrderMarketName,
+  validateOrderOwnerAddress,
+  validateOrderSide,
+  validateOrderPrice,
+  validateOrderAmount,
+  validateOrderType
+], StatusCodes.BAD_REQUEST);

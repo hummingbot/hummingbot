@@ -63,7 +63,8 @@
     "tslib": "^2.3.1",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5",
-    "yarn": "^1.22.17"
+    "yarn": "^1.22.17",
+    "web3": "^1.7.3"
   },
   "devDependencies": {
     "@connectis/diff-test-coverage": "^1.5.1",

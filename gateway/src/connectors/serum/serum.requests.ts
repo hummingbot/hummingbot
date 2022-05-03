@@ -22,11 +22,11 @@ import {
   GetOrdersRequest,
   GetOrdersResponse,
   GetTickersRequest,
-  GetTickersResponse,
+  GetTickersResponse, PostSettleFundsRequest, PostSettleFundsResponse,
 } from './serum.types';
 
 //
-// GET /clob/markets
+// GET /serum/markets
 //
 
 export type SerumGetMarketsRequest = NetworkSelectionRequest &
@@ -35,7 +35,7 @@ export type SerumGetMarketsRequest = NetworkSelectionRequest &
 export type SerumGetMarketsResponse = GetMarketsResponse;
 
 //
-// GET /clob/orderBooks
+// GET /serum/orderBooks
 //
 
 export type SerumGetOrderBooksRequest = NetworkSelectionRequest &
@@ -44,7 +44,7 @@ export type SerumGetOrderBooksRequest = NetworkSelectionRequest &
 export type SerumGetOrderBooksResponse = GetOrderBooksResponse;
 
 //
-// GET /clob/tickers
+// GET /serum/tickers
 //
 
 export type SerumGetTickersRequest = NetworkSelectionRequest &
@@ -53,7 +53,7 @@ export type SerumGetTickersRequest = NetworkSelectionRequest &
 export type SerumGetTickersResponse = GetTickersResponse;
 
 //
-// GET /clob/orders
+// GET /serum/orders
 //
 
 export type SerumGetOrdersRequest = NetworkSelectionRequest &
@@ -68,7 +68,7 @@ export type SerumGetOrdersRequest = NetworkSelectionRequest &
 export type SerumGetOrdersResponse = GetOrdersResponse;
 
 //
-// POST /clob/orders
+// POST /serum/orders
 //
 
 export type SerumCreateOrdersRequest = NetworkSelectionRequest &
@@ -79,11 +79,10 @@ export type SerumCreateOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
 export type SerumCreateOrdersResponse = CreateOrdersResponse;
 
 //
-// DELETE /clob/orders
+// DELETE /serum/orders
 //
 
 export type SerumCancelOrdersRequest = NetworkSelectionRequest &
@@ -95,11 +94,10 @@ export type SerumCancelOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
 export type SerumCancelOrdersResponse = CancelOrdersResponse;
 
 //
-// GET /clob/openOrders
+// GET /serum/openOrders
 //
 
 export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
@@ -111,11 +109,10 @@ export type SerumGetOpenOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
 export type SerumGetOpenOrdersResponse = GetOpenOrdersResponse;
 
 //
-// DELETE /clob/openOrders
+// DELETE /serum/openOrders
 //
 
 export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
@@ -130,7 +127,7 @@ export type SerumCancelOpenOrdersRequest = NetworkSelectionRequest &
 export type SerumCancelOpenOrdersResponse = CancelOpenOrdersResponse;
 
 //
-// GET /clob/filledOrders
+// GET /serum/filledOrders
 //
 
 export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
@@ -142,5 +139,13 @@ export type SerumGetFilledOrdersRequest = NetworkSelectionRequest &
       }
   );
 
-// TODO avoid to have in the response fields that needs to do extra calls to the external APIS!!!
 export type SerumGetFilledOrdersResponse = GetFilledOrdersResponse;
+
+//
+// POST /serum/settleFunds
+//
+
+export type SerumPostSettleFundsRequest = NetworkSelectionRequest &
+  PostSettleFundsRequest;
+
+export type SerumPostSettleFundsResponse = PostSettleFundsResponse;

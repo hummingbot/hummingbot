@@ -1,3 +1,5 @@
+import web3 from 'web3';
+
 /**
  *
  * @param milliseconds
@@ -28,6 +30,10 @@ export const promiseAllInBatches = async <I, O>(task: (item: I) => O, items: any
   }
 
   return results;
+}
+
+export const getRandonBN = () => {
+  return web3.utils.toBN(web3.utils.randomHex(32));
 }
 
 /* eslint-disable */
