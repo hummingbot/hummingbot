@@ -17,12 +17,14 @@
       },
       "additionalProperties": false
     },
+    "marketsURL": { "type": "string" },
     "allowedSlippage": { "type": "string" },
     "timeToLive": { "type": "number" }
   },
   "required": [
     "network",
     "networks",
+    "marketsURL",
     "allowedSlippage",
     "timeToLive"
   ],
