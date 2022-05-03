@@ -52,4 +52,39 @@ describe('Test local-storage', () => {
     // the key has been deleted, expect an empty object
     expect(results2).toStrictEqual({});
   });
+
+  it('save, get and delete a key value pair with multiple value entries in the local db', async () => {
+    const testKey = 'abc';
+    const testValue = '123';
+
+    const db = new LocalStorage(dbPath);
+
+    // clean up any previous db runs
+    await db.del(testKey);
+
+    // saves a key with a value
+    await db.save(testKey, testValue);
+
+    // saves a key with another value
+    const anotherValue = '456';
+
+    await db.save(testKey, anotherValue);
+
+    const results: Record<string, any> = await db.get((k: string, v: any) => {
+      return [k, v];
+    });
+
+    // returns with an address as key, the chain/id is known by the parameters you provide
+    expect(results).toStrictEqual({
+      [testKey]: testValue + anotherValue,
+    });
+
+    await db.del(testKey);
+    const results2: Record<string, any> = await db.get((k: string, v: any) => {
+      return [k, v];
+    });
+
+    // the key has been deleted, expect an empty object
+    expect(results2).toStrictEqual({});
+  });
 });
