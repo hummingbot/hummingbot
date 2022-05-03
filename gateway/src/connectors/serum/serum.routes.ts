@@ -13,7 +13,7 @@ import {
   getOrderBooks,
   getOrders,
   getTickers,
-  createOrders,
+  createOrders, settleFunds,
 } from './serum.controllers';
 import {
   SerumCancelOpenOrdersRequest,
@@ -33,7 +33,7 @@ import {
   SerumGetTickersRequest,
   SerumGetTickersResponse,
   SerumCreateOrdersRequest,
-  SerumCreateOrdersResponse,
+  SerumCreateOrdersResponse, SerumPostSettleFundsRequest, SerumPostSettleFundsResponse,
 } from './serum.requests';
 import { Serum } from './serum';
 import { StatusCodes } from 'http-status-codes';
@@ -42,7 +42,7 @@ export namespace SerumRoutes {
   export const router = Router();
 
   export const getSolana = async (request: Request) =>
-    await Solana.getInstance(request.body.chain); // TODO the Serum and the Solana network are always the same?!!!
+    await Solana.getInstance(request.body.chain);
 
   export const getSerum = async (request: Request) =>
     await Serum.getInstance(request.body.chain, request.body.network);
@@ -231,6 +231,25 @@ export namespace SerumRoutes {
         validatePublicKey(request.body);
 
         const result = await getFilledOrders(solana, serum, request.body);
+
+        response.status(result.status).json(result.body);
+      }
+    )
+  );
+
+  router.get(
+    '/settleFunds',
+    asyncHandler(
+      async (
+        request: Request<any, any, SerumPostSettleFundsRequest>,
+        response: Response<SerumPostSettleFundsResponse, any>
+      ) => {
+        const solana = await getSolana(request);
+        const serum = await getSerum(request);
+
+        validatePublicKey(request.body);
+
+        const result = await settleFunds(solana, serum, request.body);
 
         response.status(result.status).json(result.body);
       }

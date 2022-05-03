@@ -1,6 +1,9 @@
 import {StatusCodes} from 'http-status-codes';
 import {Solanaish} from '../../chains/solana/solana';
+import {ResponseWrapper} from '../../services/common-interfaces';
+import {HttpException} from '../../services/error-handler';
 import {Serumish} from './serum';
+import {convert, Types} from "./serum.convertors";
 import {
   SerumCancelOpenOrdersRequest,
   SerumCancelOpenOrdersResponse,
@@ -20,13 +23,11 @@ import {
   SerumGetOrdersResponse,
   SerumGetTickersRequest,
   SerumGetTickersResponse,
+  SerumPostSettleFundsRequest,
+  SerumPostSettleFundsResponse,
 } from './serum.requests';
-import {ResponseWrapper} from '../../services/common-interfaces';
-import {HttpException} from '../../services/error-handler';
-import {IMap, Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker} from './serum.types';
-import {convert, Types} from "./serum.convertors";
+import {Fund, IMap, Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker} from './serum.types';
 
-// TODO Should we need to create settle funds and unwrap token endpoints?!!!
 /**
  * Get the all or the informed markets and their configurations.
  *
@@ -60,10 +61,8 @@ export async function getMarkets(
         throw new HttpException(
           StatusCodes.NOT_FOUND,
           exception.message
-          // TODO should we create new error codes?!!!
         );
       } else {
-        // TODO Ask Mike! Should we throw an HttpException here? or would it be ok to throw the original exception?!!!
         throw exception;
       }
     }
@@ -537,8 +536,76 @@ export async function getFilledOrders(
     }
   }
 
-  // TODO check if is still working!!!
   response.body = convert<IMap<string, IMap<string, Order>>, SerumGetFilledOrdersResponse>(await serum.getAllFilledOrders(), Types.GetFilledOrdersResponse);
+
+  response.status = StatusCodes.OK;
+
+  return response;
+}
+
+/**
+ * Settle funds for one or more markets.
+ *
+ * @param _solana
+ * @param serum
+ * @param request
+ */
+export async function settleFunds(
+  _solana: Solanaish,
+  serum: Serumish,
+  request: SerumPostSettleFundsRequest
+): Promise<ResponseWrapper<SerumPostSettleFundsResponse>> {
+  const response = new ResponseWrapper<SerumPostSettleFundsResponse>();
+
+  if (!request.ownerAddress) throw new HttpException(StatusCodes.BAD_REQUEST, 'The owner address is required.');
+
+  if ('marketName' in request) {
+    if (!request.marketName) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No market name was informed. If you want to settle funds for a market, please inform the parameter "marketName".`
+      );
+    }
+
+    try {
+      response.body = convert<Fund, SerumPostSettleFundsResponse>(await serum.settleFundsForMarket(request.marketName, request.ownerAddress), Types.PostSettleFundsResponse);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception) {
+      if (exception instanceof MarketNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
+  }
+
+  if ('marketNames' in request) {
+    if (!request.marketNames || !request.marketNames.length) {
+      throw new HttpException(
+        StatusCodes.BAD_REQUEST,
+        `No market names were informed. If you want to settle the funds for all markets, please do not inform the parameter "marketNames".`
+      );
+    }
+
+    try {
+      response.body = convert<IMap<string, Fund>, SerumPostSettleFundsResponse>(await serum.settleFundsForMarkets(request.marketNames, request.ownerAddress), Types.PostSettleFundsResponse);
+
+      response.status = StatusCodes.OK;
+
+      return response;
+    } catch (exception: any) {
+      if (exception instanceof MarketNotFoundError) {
+        throw new HttpException(StatusCodes.NOT_FOUND, exception.message);
+      } else {
+        throw exception;
+      }
+    }
+  }
+
+  response.body = convert<IMap<string, Fund>, SerumPostSettleFundsResponse>(await serum.settleAllFunds(request.ownerAddress), Types.PostSettleFundsResponse);
 
   response.status = StatusCodes.OK;
 

@@ -1,11 +1,22 @@
+import {Market as SMarket, Orderbook as SOrderBook} from '@project-serum/serum';
+import {
+  MarketOptions as SMarketOptions,
+  Order as SOrder,
+  OrderParams as SOrderParams
+} from '@project-serum/serum/lib/market';
 import {PublicKey} from '@solana/web3.js';
-import {Market as SerumMarket, Orderbook as SerumOrderBook} from '@project-serum/serum';
-import {Order as SerumOrder} from '@project-serum/serum/lib/market';
-import {Map as ImmutableMap} from 'immutable';
 import BN from "bn.js";
+import {Map as ImmutableMap} from 'immutable';
 
 export type IMap<K, V> = ImmutableMap<K, V>;
 export const IMap = ImmutableMap;
+
+export type SerumOrder = SOrder;
+export type SerumMarket = SMarket;
+export const SerumMarket = SMarket;
+export type SerumOrderBook = SOrderBook;
+export type SerumOrderParams<T> = SOrderParams<T>;
+export type SerumMarketOptions = SMarketOptions;
 
 interface PlainBasicSerumMarket {
   address: string;
@@ -28,16 +39,12 @@ export enum OrderSide {
   SELL = 'SELL',
 }
 
-// TODO the status are not being fully used!!!
 export enum OrderStatus {
   OPEN = 'OPEN',
-  PENDING = 'PENDING',
-  FILLED = 'FILLED',
   CANCELED = 'CANCELED',
-  FAILED = 'FAILED',
-  EXPIRED = 'EXPIRED',
-  TIMED_OUT = 'TIMED_OUT',
-  UNKNOWN = 'UNKNOWN',
+  FILLED = 'FILLED',
+  CREATION_PENDING = 'CREATION_PENDING',
+  CANCELATION_PENDING = 'CANCELATION_PENDING',
 }
 
 export enum OrderType {
@@ -92,6 +99,8 @@ export interface Order {
   signature?: string;
   order?: SerumOrder;
 }
+
+export type Fund = void;
 
 export interface Fee {
   maker: number;
@@ -225,7 +234,7 @@ export interface CancelOrderResponse {
   price: number;
   amount: number;
   side: OrderSide;
-  status?: OrderStatus; // TODO fill status!!!
+  status?: OrderStatus;
   type?: OrderType;
   fee?: number
 }
@@ -283,7 +292,7 @@ export interface CancelOpenOrderResponse {
   price: number;
   amount: number;
   side: OrderSide;
-  status?: OrderStatus; // TODO fill this status!!!
+  status?: OrderStatus;
   type?: OrderType;
   fee?: number
 }
@@ -319,6 +328,15 @@ export interface GetFilledOrderResponse {
 }
 
 export type GetFilledOrdersResponse = IMap<string, IMap<string, GetFilledOrderResponse>> | IMap<string, GetFilledOrderResponse> | GetFilledOrderResponse;
+
+export type PostSettleFundsRequest =
+  { ownerAddress: string }
+  | { marketName: string, ownerAddress: string }
+  | { marketNames: string[], ownerAddress: string };
+
+export type PostSettleFundResponse = Fund;
+
+export type PostSettleFundsResponse = IMap<string, PostSettleFundResponse> | PostSettleFundResponse;
 
 //
 //  Errors

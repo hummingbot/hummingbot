@@ -17,16 +17,24 @@
       },
       "additionalProperties": false
     },
-    "marketsURL": { "type": "string" },
-    "allowedSlippage": { "type": "string" },
-    "timeToLive": { "type": "number" }
+    "markets": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string" },
+        "blacklist": {
+          "type": "array"
+        },
+        "whitelist": {
+          "type": "array"
+        }
+      }
+    }
   },
   "required": [
     "network",
     "networks",
-    "marketsURL",
-    "allowedSlippage",
-    "timeToLive"
+    "markets"
   ],
   "additionalProperties": false
 }

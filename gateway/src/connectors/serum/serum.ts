@@ -1,14 +1,12 @@
-import {Market as SerumMarket, MARKETS,} from '@project-serum/serum';
-import {MarketOptions, Order as SerumOrder, Orderbook, OrderParams, OrderParams as SerumOrderParams,} from '@project-serum/serum/lib/market';
+import {MARKETS} from '@project-serum/serum';
 import {Account, Connection, PublicKey} from '@solana/web3.js';
 import axios from 'axios';
 import BN from "bn.js";
 import {Cache, CacheContainer} from 'node-ts-cache';
 import {MemoryStorage} from 'node-ts-cache-storage-memory';
-// @ts-ignore
-import {NodeFsStorage} from "node-ts-cache-storage-node-fs";
 import {Solana} from '../../chains/solana/solana';
 import {getSerumConfig, SerumConfig} from './serum.config';
+import {promisesBatchSize, promisesDelayInMilliseconds, serumMarketsTTL} from "./serum.constants";
 import {
   convertArrayOfSerumOrdersToMapOfOrders,
   convertFilledOrderToTicker,
@@ -18,12 +16,13 @@ import {
   convertSerumMarketToMarket,
   convertSerumOrderToOrder
 } from "./serum.convertors";
-import {promiseAllInBatches} from "./serum.helpers";
+import {getRandonBN, promiseAllInBatches} from "./serum.helpers";
 import {
   BasicSerumMarket,
   CancelOrderRequest,
   CancelOrdersRequest,
   CreateOrdersRequest,
+  Fund,
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
   GetOpenOrderRequest,
@@ -37,29 +36,32 @@ import {
   OrderBook,
   OrderNotFoundError,
   OrderStatus,
+  SerumMarket,
+  SerumMarketOptions,
+  SerumOrder,
+  SerumOrderBook,
+  SerumOrderParams,
   Ticker,
   TickerNotFoundError,
 } from './serum.types';
+import {validateCreateOrder} from "./serum.validators";
 
-// TODO change to MemoryStorage!!!
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
   markets: new CacheContainer(new MemoryStorage()),
-  orders: new CacheContainer(new MemoryStorage()),
-
-  development: new CacheContainer(new NodeFsStorage('/tmp/serum-development.json')),
 };
 
 export type Serumish = Serum;
 
-// TODO Start using the https://www.npmjs.com/package/decimal library!!!
 // TODO create a documentation saying how many requests we are sending through the Solana/Serum connection!!!
+/**
+ * Serum is a wrapper around the Serum API.
+ */
 export class Serum {
   private initializing: boolean = false;
 
   private readonly config: SerumConfig.Config;
   private readonly connection: Connection;
-  // private readonly ordersMap = IMap<string, Order>().asMutable();
   private solana!: Solana;
   private _ready: boolean = false;
 
@@ -68,6 +70,7 @@ export class Serum {
   readonly connector: string = 'serum';
 
   /**
+   * Creates a new instance of Serum.
    *
    * @param chain
    * @param network
@@ -82,42 +85,97 @@ export class Serum {
     this.connection = new Connection(this.config.network.rpcURL);
   }
 
-  private async serumLoadMarket(connection: Connection, address: PublicKey, options: MarketOptions | undefined, programId: PublicKey, layoutOverride?: any): Promise<SerumMarket> {
+  /**
+   * 1 external API call.
+   *
+   * @param connection
+   * @param address
+   * @param options
+   * @param programId
+   * @param layoutOverride
+   * @private
+   */
+  private async serumLoadMarket(connection: Connection, address: PublicKey, options: SerumMarketOptions | undefined, programId: PublicKey, layoutOverride?: any): Promise<SerumMarket> {
     const result = await SerumMarket.load(connection,address, options, programId, layoutOverride);
 
     return result;
   }
 
-  // @Cache(caches.development, { isCachedForever: true })
-  private async serumMarketLoadBids(market: SerumMarket, connection: Connection): Promise<Orderbook> {
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @private
+   */
+  private async serumMarketLoadBids(market: SerumMarket, connection: Connection): Promise<SerumOrderBook> {
     const result =  await market.loadBids(connection);
 
     return result;
   }
 
-  // @Cache(caches.development, { isCachedForever: true })
-  private async serumMarketLoadAsks(market: SerumMarket, connection: Connection): Promise<Orderbook> {
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @private
+   */
+  private async serumMarketLoadAsks(market: SerumMarket, connection: Connection): Promise<SerumOrderBook> {
     const result =  await market.loadAsks(connection);
 
     return result;
   }
 
-  // @Cache(caches.development, { isCachedForever: true })
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param limit
+   * @private
+   */
   private async serumMarketLoadFills(market: SerumMarket, connection: Connection, limit?: number): Promise<any[]> {
     const result = await market.loadFills(connection, limit);
 
     return result;
   }
 
-  // @Cache(caches.development, { isCachedForever: true })
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param ownerAddress
+   * @param cacheDurationMs
+   * @private
+   */
   private async serumMarketLoadOrdersForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, cacheDurationMs?: number): Promise<SerumOrder[]> {
     const result =  await market.loadOrdersForOwner(connection, ownerAddress, cacheDurationMs);
     
     return result;
   }
 
-  // @Cache(caches.development, { isCachedForever: true })
-  private async serumMarketPlaceOrder(market: SerumMarket, connection: Connection, { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }: OrderParams): Promise<string> {
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param owner
+   * @param payer
+   * @param side
+   * @param price
+   * @param size
+   * @param orderType
+   * @param clientId
+   * @param openOrdersAddressKey
+   * @param openOrdersAccount
+   * @param feeDiscountPubkey
+   * @param maxTs
+   * @param replaceIfExists
+   * @private
+   */
+  private async serumMarketPlaceOrder(market: SerumMarket, connection: Connection, { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }: SerumOrderParams<Account>): Promise<string> {
     const result =  await market.placeOrder(
       connection,
       { owner, payer, side, price, size, orderType, clientId, openOrdersAddressKey, openOrdersAccount, feeDiscountPubkey, maxTs, replaceIfExists, }
@@ -126,7 +184,15 @@ export class Serum {
     return result;
   }
 
-  // @Cache(caches.development, { isCachedForever: true })
+  /**
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param owner
+   * @param order
+   * @private
+   */
   private async serumMarketCancelOrder(market: SerumMarket, connection: Connection, owner: Account, order: SerumOrder): Promise<string> {
     const result = await market.cancelOrder(connection, owner, order);
 
@@ -134,7 +200,10 @@ export class Serum {
   }
 
   /**
-   * Get the Serum instance for the given chain and network
+   * Get the Serum instance for the given chain and network.
+   * Is cached forever.
+   *
+   * $numberOfAllowedMarkets external API calls.
    *
    * @param chain
    * @param network
@@ -150,6 +219,8 @@ export class Serum {
 
   /**
    * Initialize the Serum instance.
+   *
+   * $numberOfAllowedMarkets external API calls.
    */
   async init() {
     if (!this._ready && !this.initializing) {
@@ -165,16 +236,22 @@ export class Serum {
     }
   }
 
+  /**
+   * 0 external API call.
+   */
   ready(): boolean {
     return this._ready;
   }
 
-  // TODO remove this accessor!!!
+  /**
+   * 0 external API call.
+   */
   getConnection(): Connection {
     return this.connection;
   }
 
   /**
+   * 0 or $numberOfAllowedMarkets external API calls.
    *
    * @param name
    */
@@ -191,6 +268,7 @@ export class Serum {
   }
 
   /**
+   * 0 or $numberOfAllowedMarkets external API calls.
    *
    * @param names
    */
@@ -204,20 +282,20 @@ export class Serum {
     }
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(getMarket, names, 100, 10000);
+    await promiseAllInBatches(getMarket, names, promisesBatchSize, 10000);
 
     return markets;
   }
 
   /**
-   * TODO check the possibility of using the ttl from the config!!!
+   * 0 or $numberOfAllowedMarkets external API calls.
    */
-  @Cache(caches.markets, { ttl: 60 * 60 })
+  @Cache(caches.markets, { ttl: serumMarketsTTL })
   async getAllMarkets(): Promise<IMap<string, Market>> {
     const allMarkets = IMap<string, Market>().asMutable();
 
     const marketsURL =
-      this.config.marketsURL
+      this.config.markets.url
       || 'https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json';
 
     let marketsInformation: BasicSerumMarket[];
@@ -228,11 +306,11 @@ export class Serum {
       marketsInformation = MARKETS;
     }
 
-    // TODO remove after development!!!
     marketsInformation = marketsInformation.filter(
       item =>
         !item.deprecated
-        && ['SOL/USDT', 'SOL/USDC'].includes(item.name)
+        && (this.config.markets.blacklist.length ? !this.config.markets.blacklist.includes(item.name) : true)
+        && (this.config.markets.whiteList.length ? this.config.markets.whiteList.includes(item.name) : true)
     );
 
     const loadMarket = async(market: BasicSerumMarket): Promise<void> => {
@@ -254,11 +332,16 @@ export class Serum {
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
     // It takes on average about 44s to load all the markets
-    await promiseAllInBatches(loadMarket, marketsInformation, 100, 15000);
+    await promiseAllInBatches(loadMarket, marketsInformation, promisesBatchSize, promisesDelayInMilliseconds);
 
     return allMarkets;
   }
 
+  /**
+   * 2 or ($numberOfAllowedMarkets + 2) external API calls.
+   *
+   * @param marketName
+   */
   async getOrderBook(marketName: string): Promise<OrderBook> {
     const market = await this.getMarket(marketName);
 
@@ -272,6 +355,11 @@ export class Serum {
     );
   }
 
+  /**
+   * 2*$numberOfInformedMarkets or (2*$numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   *
+   * @param marketNames
+   */
   async getOrderBooks(marketNames: string[]): Promise<IMap<string, OrderBook>> {
     const orderBooks = IMap<string, OrderBook>().asMutable();
 
@@ -282,21 +370,30 @@ export class Serum {
     }
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(getOrderBook, marketNames, 100, 10000);
+    await promiseAllInBatches(getOrderBook, marketNames, promisesBatchSize, promisesDelayInMilliseconds);
 
     return orderBooks;
   }
 
+  /**
+   * 2*$numberOfAllowedMarkets or 3*$numberOfAllowedMarkets external API calls.
+   */
   async getAllOrderBooks(): Promise<IMap<string, OrderBook>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return this.getOrderBooks(marketNames);
   }
 
+  /**
+   * 1 or ($numberOfAllowedMarkets + 1) external API calls.
+   *
+   * TODO change the mechanism to retrieve ticker information, this approach is not always available!!!
+   *
+   * @param marketName
+   */
   async getTicker(marketName: string): Promise<Ticker> {
     const market = await this.getMarket(marketName);
 
-    // TODO change the mechanism to retrieve ticker information, this approach is not always available!!!
     const filledOrders = await this.serumMarketLoadFills(market.market, this.connection);
     if (!filledOrders || !filledOrders.length)
       throw new TickerNotFoundError(`Ticker data is currently not available for market "${marketName}".`);
@@ -306,6 +403,11 @@ export class Serum {
     return convertFilledOrderToTicker(Date.now(), mostRecentFilledOrder);
   }
 
+  /**
+   * $numberOfInformedMarkets or ($numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   *
+   * @param marketNames
+   */
   async getTickers(marketNames: string[]): Promise<IMap<string, Ticker>> {
     const tickers = IMap<string, Ticker>().asMutable();
 
@@ -316,17 +418,25 @@ export class Serum {
     }
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(getTicker, marketNames, 100, 10000);
+    await promiseAllInBatches(getTicker, marketNames, promisesBatchSize, promisesDelayInMilliseconds);
 
     return tickers;
   }
 
+  /**
+   * $numberOfAllowedMarkets or 2*$numberOfAllowedMarkets external API calls.
+   */
   async getAllTickers(): Promise<IMap<string, Ticker>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return await this.getTickers(marketNames);
   }
 
+  /**
+   * (1 or ($numberOfAllowedMarkets + 1)) or (($numberOfAllowedMarkets + 1) or 2*$numberOfAllowedMarkets) external API calls.
+   * 
+   * @param target
+   */
   async getOpenOrder(target: GetOpenOrderRequest): Promise<Order> {
     if (!target.id && !target.exchangeId)
       throw new OrderNotFoundError('No client id or exchange id provided.');
@@ -342,6 +452,8 @@ export class Serum {
       if (!openOrder)
         throw new OrderNotFoundError(`No open order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
 
+      openOrder.status = OrderStatus.OPEN;
+
       return openOrder;
     }
 
@@ -353,6 +465,8 @@ export class Serum {
           openOrder.id === target.id ||
           openOrder.exchangeId === target.exchangeId
         ) {
+          openOrder.status = OrderStatus.OPEN;
+
           return openOrder;
         }
       }
@@ -361,7 +475,11 @@ export class Serum {
     throw new OrderNotFoundError(`No open order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
   }
 
-  // TODO check if the implementation returns the correct results!!!
+  /**
+   * $numberOfTargets or $numberOfTargets*$numberOfAllowedMarkets external API calls.
+   *
+   * @param targets
+   */
   async getOpenOrders(
     targets: GetOpenOrdersRequest[]
   ): Promise<IMap<string, Order>> {
@@ -378,7 +496,7 @@ export class Serum {
       }
     };
 
-    await promiseAllInBatches(getOrders, targets, 100, 10000);
+    await promiseAllInBatches(getOrders, targets, promisesBatchSize, promisesDelayInMilliseconds);
 
     for (const target of targets) {
       orders.concat(
@@ -396,6 +514,12 @@ export class Serum {
     return orders;
   }
 
+  /**
+   * 1 or ($numberOfAllowedMarkets + 1) external API calls.
+   *
+   * @param marketName
+   * @param ownerAddress
+   */
   async getOpenOrdersForMarket(
     marketName: string,
     ownerAddress: string
@@ -406,9 +530,15 @@ export class Serum {
 
     const serumOpenOrders = await this.serumMarketLoadOrdersForOwner(market.market, this.connection, owner.publicKey);
 
-    return convertArrayOfSerumOrdersToMapOfOrders(market, serumOpenOrders, ownerAddress);
+    return convertArrayOfSerumOrdersToMapOfOrders(market, serumOpenOrders, ownerAddress, OrderStatus.OPEN);
   }
 
+  /**
+   * $numberOfInformedMarkets or ($numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   *
+   * @param marketNames
+   * @param ownerAddress
+   */
   async getOpenOrdersForMarkets(
     marketNames: string[],
     ownerAddress: string
@@ -422,12 +552,17 @@ export class Serum {
     }
 
     await promiseAllInBatches<Market, Promise<void>>(
-      getOpenOrders, Array.from(markets.values()), 100, 10000
+      getOpenOrders, Array.from(markets.values()), promisesBatchSize, promisesDelayInMilliseconds
     );
 
     return result;
   }
 
+  /**
+   * $numberOfAllowedMarkets or 2*$numberOfAllowedMarkets external API calls.
+   *
+   * @param ownerAddress
+   */
   async getAllOpenOrders(
     ownerAddress: string
   ): Promise<IMap<string, IMap<string, Order>>> {
@@ -436,6 +571,11 @@ export class Serum {
     return await this.getOpenOrdersForMarkets(marketNames, ownerAddress);
   }
 
+  /**
+   * (1 or ($numberOfAllowedMarkets + 1)) or 2*$numberOfAllowedMarkets) external API calls.
+   *
+   * @param target
+   */
   async getFilledOrder(target: GetFilledOrderRequest): Promise<Order> {
     if (!target.id && !target.exchangeId)
       throw new OrderNotFoundError('No client id or exchange id provided.');
@@ -451,6 +591,8 @@ export class Serum {
       if (!filledOrder)
         throw new OrderNotFoundError(`No open order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
 
+      filledOrder.status = OrderStatus.FILLED;
+
       return filledOrder;
     }
 
@@ -462,6 +604,8 @@ export class Serum {
           filledOrder.id === target.id ||
           filledOrder.exchangeId === target.exchangeId
         ) {
+          filledOrder.status = OrderStatus.FILLED;
+
           return filledOrder;
         }
       }
@@ -470,7 +614,11 @@ export class Serum {
     throw new OrderNotFoundError(`No filled order found with id / exchange id "${target.id} / ${target.exchangeId}".`);
   }
 
-  // TODO check if the implementation returns the correct results!!!
+  /**
+   * $numberOfTargets or $numberOfTargets*$numberOfAllowedMarkets external API calls.
+   *
+   * @param targets
+   */
   async getFilledOrders(
     targets: GetFilledOrdersRequest[]
   ): Promise<IMap<string, Order>> {
@@ -487,7 +635,7 @@ export class Serum {
       }
     };
 
-    await promiseAllInBatches(getOrders, targets, 100, 10000);
+    await promiseAllInBatches(getOrders, targets, promisesBatchSize, promisesDelayInMilliseconds);
 
     for (const target of targets) {
       orders.concat(
@@ -505,14 +653,25 @@ export class Serum {
     return orders;
   }
 
+  /**
+   * 1 or ($numberOfAllowedMarkets + 1) external API calls.
+   *
+   * @param marketName
+   */
   async getFilledOrdersForMarket(marketName: string): Promise<IMap<string, Order>> {
     const market = await this.getMarket(marketName);
 
     const orders = await this.serumMarketLoadFills(market.market, this.connection, 0);
 
-    return convertArrayOfSerumOrdersToMapOfOrders(market, orders);
+    // TODO check if it's possible to get the owner address
+    return convertArrayOfSerumOrdersToMapOfOrders(market, orders, undefined, OrderStatus.FILLED);
   }
 
+  /**
+   * $numberOfInformedMarkets or ($numberOfInformedMarkets + $numberOfAllowedMarkets) external API calls.
+   *
+   * @param marketNames
+   */
   async getFilledOrdersForMarkets(marketNames: string[]): Promise<IMap<string, IMap<string, Order>>> {
     const result = IMap<string, IMap<string, Order>>().asMutable();
 
@@ -523,18 +682,26 @@ export class Serum {
     }
 
     await promiseAllInBatches<Market, Promise<void>>(
-      getFilledOrders, Array.from(markets.values()), 100, 10000
+      getFilledOrders, Array.from(markets.values()), promisesBatchSize, promisesDelayInMilliseconds
     );
 
     return result;
   }
 
+  /**
+   * $numberOfAllowedMarkets or 2*$numberOfAllowedMarkets external API calls.
+   */
   async getAllFilledOrders(): Promise<IMap<string, IMap<string, Order>>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return await this.getFilledOrdersForMarkets(marketNames);
   }
 
+  /**
+   * (1 or 2 or ($numberOfAllowedMarkets + 1) or ($numberOfAllowedMarkets + 2))
+   *  or (2*$numberOfAllowedMarkets or 3*$numberOfAllowedMarkets) external API calls.
+   * @param target
+   */
   async getOrder(target: GetOrderRequest): Promise<Order> {
     if (!target.id && !target.exchangeId)
       throw new OrderNotFoundError('No client id or exchange id provided.');
@@ -556,7 +723,9 @@ export class Serum {
     }
   }
 
-  // TODO check if the implementation returns the correct results!!!
+  /**
+   * @param targets
+   */
   async getOrders(targets: GetOrdersRequest[]): Promise<IMap<string, Order>> {
     const orders = IMap<string, Order>().asMutable();
     let temporary = IMap<string, Order>().asMutable();
@@ -577,7 +746,7 @@ export class Serum {
       }
     };
 
-    await promiseAllInBatches(getOrders, targets, 100, 10000);
+    await promiseAllInBatches(getOrders, targets, promisesBatchSize, promisesDelayInMilliseconds);
 
     for (const target of targets) {
       orders.concat(
@@ -595,7 +764,11 @@ export class Serum {
     return orders;
   }
 
-  // TODO check if the implementation returns the correct results!!!
+  /**
+   *
+   * @param marketName
+   * @param ownerAddress
+   */
   async getOrdersForMarket(marketName: string, ownerAddress: string): Promise<IMap<string, Order>> {
     const orders = (await this.getOpenOrdersForMarket(marketName, ownerAddress));
     orders.concat(await this.getFilledOrdersForMarket(marketName));
@@ -603,7 +776,11 @@ export class Serum {
     return orders;
   }
 
-  // TODO check if the implementation returns the correct results!!!
+  /**
+   *
+   * @param marketNames
+   * @param ownerAddress
+   */
   async getOrdersForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, IMap<string, Order>>> {
     const result = IMap<string, IMap<string, Order>>().asMutable();
 
@@ -614,81 +791,127 @@ export class Serum {
     }
 
     await promiseAllInBatches<Market, Promise<void>>(
-      getOrders, Array.from(markets.values()), 100, 10000
+      getOrders, Array.from(markets.values()), promisesBatchSize, promisesDelayInMilliseconds
     );
 
     return result;
   }
 
-  // TODO check if the implementation returns the correct results!!!
+  /**
+   *
+   * @param ownerAddress
+   */
   async getAllOrders(ownerAddress: string): Promise<IMap<string, IMap<string, Order>>> {
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return await this.getOrdersForMarkets(marketNames, ownerAddress);
   }
 
+  /**
+   * @param candidate
+   */
   async createOrder(candidate: CreateOrdersRequest): Promise<Order> {
-    // TODO Add validation!!!
+    validateCreateOrder(candidate);
+
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.ownerAddress);
-    const payer = owner.publicKey; // TODO is this correct? After that the placement started to work!!!
+    const payer = owner.publicKey; // TODO Check if this is correct!!!
 
     const serumOrderParams: SerumOrderParams<Account> = {
       side: convertOrderSideToSerumSide(candidate.side),
       price: candidate.price,
       size: candidate.amount,
       orderType: convertOrderTypeToSerumType(candidate.type),
-      clientId: candidate.id ? new BN(candidate.id) : undefined,
+      clientId: candidate.id ? new BN(candidate.id) : getRandonBN(),
       owner: owner,
       payer: payer
     };
 
-    const signature = await this.serumMarketPlaceOrder(market.market, this.connection, serumOrderParams);
+    try {
+      const signature = await this.serumMarketPlaceOrder(market.market, this.connection, serumOrderParams);
 
-    return convertSerumOrderToOrder(
-      market,
-      undefined,
-      candidate,
-      serumOrderParams,
-      candidate.ownerAddress,
-      OrderStatus.PENDING,
-      signature
-    );
+      return convertSerumOrderToOrder(
+        market,
+        undefined,
+        candidate,
+        serumOrderParams,
+        candidate.ownerAddress,
+        OrderStatus.OPEN,
+        signature
+      );
+    } catch (exception: any) {
+      // TODO handle timeout!!!
+      if (exception.message.contains('')) {
+        return convertSerumOrderToOrder(
+          market,
+          undefined,
+          candidate,
+          serumOrderParams,
+          candidate.ownerAddress,
+          OrderStatus.CREATION_PENDING,
+          undefined
+        );
+      }
+
+      throw exception;
+    }
   }
 
+  /**
+   *
+   * @param candidates
+   */
   async createOrders(
     candidates: CreateOrdersRequest[]
   ): Promise<IMap<string, Order>> {
-    // TODO improve to use transactions in the future!!!
+    // TODO Improve to use a single transaction
 
     const createdOrders = IMap<string, Order>().asMutable();
     for (const candidateOrder of candidates) {
       const createdOrder = await this.createOrder(candidateOrder);
 
-      // TODO use signature here? the client id is not always available, the exchange id is not available in the response!!!
-      createdOrders.set(createdOrder.signature!, createdOrder);
+      createdOrders.set(createdOrder.id!, createdOrder);
     }
 
     return createdOrders;
   }
 
+  /**
+   *
+   * @param target
+   */
   async cancelOrder(target: CancelOrderRequest): Promise<Order> {
     // TODO Add validation!!!
     const market = await this.getMarket(target.marketName);
 
     const owner = await this.solana.getAccount(target.ownerAddress);
 
-    const order = await this.getOrder({ ...target });
+    const order = await this.getOpenOrder({ ...target });
 
-    order.signature = await this.serumMarketCancelOrder(market.market, this.connection, owner, order.order!);
+    try {
+      order.signature = await this.serumMarketCancelOrder(market.market, this.connection, owner, order.order!);
 
-    // TODO what about the status of the order?!!!
-    // TODO Important! Probably we need to call the settle funds api function!!!
+      order.status = OrderStatus.CANCELED;
 
-    return order;
+      return order;
+    } catch (exception: any) {
+      // TODO handle timeout!!!
+      if (exception.message.contains('')) {
+        order.status = OrderStatus.CANCELATION_PENDING;
+
+        return order;
+      }
+
+      throw exception;
+    }
   }
 
+  /**
+   * TODO Add validation!!!
+   *
+   * @param targets
+   */
   async cancelOrders(
     targets: CancelOrdersRequest[]
   ): Promise<IMap<string, Order>> {
@@ -697,7 +920,6 @@ export class Serum {
     const canceledOrders = IMap<string, Order>().asMutable();
 
     for (const target of targets) {
-      // TODO Add validation!!!
       const market = await this.getMarket(target.marketName);
 
       const owner = await this.solana.getAccount(target.ownerAddress);
@@ -706,9 +928,7 @@ export class Serum {
 
       for (const order of orders.values()) {
         order.signature = await market.market.cancelOrder(this.connection, owner, order.order!);
-
-        // TODO what about the status of the order?!!!
-        // TODO Important! Probably we need to call the settle funds api function!!!
+        order.status = OrderStatus.CANCELED;
 
         canceledOrders.set(order.exchangeId!, order);
       }
@@ -717,6 +937,10 @@ export class Serum {
     return canceledOrders;
   }
 
+  /**
+   *
+   * @param ownerAddress
+   */
   async cancelAllOpenOrders(ownerAddress: string): Promise<IMap<string, Order>> {
     const mapOfMapOfOrders = await this.getAllOpenOrders(ownerAddress);
 
@@ -736,5 +960,63 @@ export class Serum {
     }
 
     return canceledOrders;
+  }
+
+  /**
+   *
+   * @param marketName
+   * @param ownerAddress
+   */
+  async settleFundsForMarket(marketName: string, ownerAddress: string): Promise<Fund> {
+    const market = await this.getMarket(marketName);
+    const owner = await this.solana.getAccount(ownerAddress);
+
+    for (const openOrders of await market.market.findOpenOrdersAccountsForOwner(
+      this.connection,
+      owner.publicKey,
+    )) {
+      if (openOrders.baseTokenFree.gt(new BN(0)) || openOrders.quoteTokenFree.gt(new BN(0))) {
+        const base = await market.market.findBaseTokenAccountsForOwner(this.connection, owner.publicKey, true);
+        const baseTokenAccount = base[0].pubkey;
+        const quote = await market.market.findQuoteTokenAccountsForOwner(this.connection, owner.publicKey, true);
+        const quoteTokenAccount = quote[0].pubkey;
+
+        await market.market.settleFunds(
+          this.connection,
+          owner,
+          openOrders,
+          baseTokenAccount,
+          quoteTokenAccount,
+        );
+      }
+    }
+  }
+
+  /**
+   *
+   * @param marketNames
+   */
+  async settleFundsForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, Fund>> {
+    const funds = IMap<string, Fund>().asMutable();
+
+    const settleFunds = async(marketName: string): Promise<void> => {
+      const fund = await this.settleFundsForMarket(marketName, ownerAddress);
+
+      funds.set(marketName, fund);
+    }
+
+    // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
+    await promiseAllInBatches(settleFunds, marketNames, promisesBatchSize, promisesDelayInMilliseconds);
+
+    return funds;
+  }
+
+  /**
+   *
+   */
+  async settleAllFunds(ownerAddress: string): Promise<IMap<string, Fund>>{
+    const marketNames = Array.from((await this.getAllMarkets()).keys());
+
+    return this.settleFundsForMarkets(marketNames, ownerAddress);
   }
 }

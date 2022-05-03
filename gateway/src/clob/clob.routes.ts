@@ -1,5 +1,20 @@
 import {Request, Response, Router} from 'express';
+import {StatusCodes} from 'http-status-codes';
+import {validatePublicKey} from '../chains/solana/solana.validators';
+import {getConnector} from '../services/connection-manager';
 import {asyncHandler} from '../services/error-handler';
+import {
+  cancelOpenOrders,
+  cancelOrders,
+  createOrders,
+  getFilledOrders,
+  getMarkets,
+  getOpenOrders,
+  getOrderBooks,
+  getOrders,
+  getTickers,
+  settleFunds,
+} from './clob.controllers';
 import {
   ClobDeleteOpenOrdersRequest,
   ClobDeleteOpenOrdersResponse,
@@ -19,21 +34,9 @@ import {
   ClobGetTickersResponse,
   ClobPostOrdersRequest,
   ClobPostOrdersResponse,
+  ClobPostSettleFundsRequest,
+  ClobPostSettleFundsResponse,
 } from './clob.requests';
-import {
-  cancelOpenOrders,
-  cancelOrders,
-  createOrders,
-  getFilledOrders,
-  getMarkets,
-  getOpenOrders,
-  getOrderBooks,
-  getOrders,
-  getTickers,
-} from './clob.controllers';
-import {StatusCodes} from 'http-status-codes';
-import {validatePublicKey} from '../chains/solana/solana.validators';
-import {getConnector} from '../services/connection-manager';
 
 export namespace ClobRoutes {
   export const router = Router();
@@ -194,6 +197,22 @@ export namespace ClobRoutes {
         validatePublicKey(request.body);
 
         const result = await getFilledOrders(request.body);
+
+        response.status(result.status).json(result.body);
+      }
+    )
+  );
+
+  router.get(
+    '/settleFunds',
+    asyncHandler(
+      async (
+        request: Request<any, any, ClobPostSettleFundsRequest>,
+        response: Response<ClobPostSettleFundsResponse, any>
+      ) => {
+        validatePublicKey(request.body);
+
+        const result = await settleFunds(request.body);
 
         response.status(result.status).json(result.body);
       }

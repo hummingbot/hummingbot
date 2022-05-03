@@ -1,3 +1,8 @@
+import {Solanaish} from '../chains/solana/solana';
+import {Serumish} from '../connectors/serum/serum';
+import * as serumControllers from '../connectors/serum/serum.controllers';
+import {ResponseWrapper} from '../services/common-interfaces';
+import {getChain, getConnector} from '../services/connection-manager';
 import {
   ClobDeleteOpenOrdersRequest,
   ClobDeleteOpenOrdersResponse,
@@ -17,12 +22,9 @@ import {
   ClobGetTickersResponse,
   ClobPostOrdersRequest,
   ClobPostOrdersResponse,
+  ClobPostSettleFundsRequest,
+  ClobPostSettleFundsResponse,
 } from './clob.requests';
-import { getChain, getConnector } from '../services/connection-manager';
-import * as serumControllers from '../connectors/serum/serum.controllers';
-import { Solanaish } from '../chains/solana/solana';
-import { Serumish } from '../connectors/serum/serum';
-import { ResponseWrapper } from '../services/common-interfaces';
 
 /**
  * GET /clob/markets
@@ -184,4 +186,24 @@ export async function getFilledOrders(
   );
 
   return serumControllers.getFilledOrders(chain, connector, request);
+}
+
+/**
+ * Settle funds for one or more markets.
+ *
+ * POST /clob/settleFunds
+ *
+ * @param request
+ */
+export async function settleFunds(
+  request: ClobPostSettleFundsRequest
+): Promise<ResponseWrapper<ClobPostSettleFundsResponse>> {
+  const chain: Solanaish = await getChain(request.chain, request.network);
+  const connector: Serumish = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+  );
+
+  return serumControllers.settleFunds(chain, connector, request);
 }

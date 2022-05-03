@@ -3,11 +3,17 @@ import { ConfigManagerV2 } from '../../services/config-manager-v2';
 export namespace SerumConfig {
   export interface Config {
     network: NetworkConfig;
-    marketsURL: string;
+    markets: MarketsConfig;
   }
 
   export interface NetworkConfig {
     rpcURL: string;
+  }
+
+  export interface MarketsConfig {
+    url: string;
+    blacklist: string[];
+    whiteList: string[];
   }
 }
 
@@ -22,6 +28,10 @@ export function getSerumConfig(network: string): SerumConfig.Config {
     network: {
       rpcURL: configManager.get(`${prefix}.networks.${targetNetwork}.rpcURL`),
     },
-    marketsURL: configManager.get(`${prefix}.marketsURL`),
+    markets: {
+      url: configManager.get(`${prefix}.markets.url`),
+      blacklist: configManager.get(`${prefix}.markets.blacklist`),
+      whiteList: configManager.get(`${prefix}.markets.whitelist`),
+    },
   };
 }

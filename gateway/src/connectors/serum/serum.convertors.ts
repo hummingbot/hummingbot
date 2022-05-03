@@ -1,4 +1,11 @@
 import {
+  Market as SerumMarket,
+  Order as SerumOrder,
+  Orderbook as SerumOrderBook,
+  OrderParams
+} from "@project-serum/serum/lib/market";
+import {
+  BasicSerumMarket,
   CancelOpenOrderResponse,
   CancelOpenOrdersResponse,
   CancelOrderResponse,
@@ -6,6 +13,7 @@ import {
   CreateOrderResponse,
   CreateOrdersRequest,
   CreateOrdersResponse,
+  Fund,
   GetFilledOrderResponse,
   GetFilledOrdersResponse,
   GetMarketResponse,
@@ -24,16 +32,9 @@ import {
   OrderBook,
   OrderSide,
   OrderStatus,
-  OrderType,
-  BasicSerumMarket,
+  OrderType, PostSettleFundsResponse,
   Ticker
 } from "./serum.types";
-import {
-  Market as SerumMarket,
-  Order as SerumOrder,
-  Orderbook as SerumOrderBook,
-  OrderParams
-} from "@project-serum/serum/lib/market";
 
 export enum Types {
   GetMarketsResponse = 'GetMarketsResponse',
@@ -45,6 +46,7 @@ export enum Types {
   CreateOrdersResponse = 'CreateOrdersResponse',
   CancelOrdersResponse = 'CancelOrdersResponse',
   CancelOpenOrdersResponse = 'CancelOpenOrdersResponse',
+  PostSettleFundsResponse = 'PostSettleFundsResponse',
 }
 
 type SingleInput =
@@ -52,6 +54,7 @@ type SingleInput =
   | OrderBook
   | Ticker
   | Order
+  | Fund
 ;
 
 type InputMap =
@@ -59,6 +62,7 @@ type InputMap =
   | IMap<string, OrderBook>
   | IMap<string, Ticker>
   | IMap<string, Order>
+  | IMap<string, Fund>
 ;
 
 type InputMapMap =
@@ -80,6 +84,7 @@ type SingleOutput =
   | GetOpenOrdersResponse
   | CancelOpenOrdersResponse
   | GetFilledOrdersResponse
+  | PostSettleFundsResponse
 ;
 
 type Output =
@@ -166,6 +171,9 @@ export const convertSingle = <O extends Output>(input: SingleInput, type: Types)
   if (type === Types.GetFilledOrdersResponse)
     return convertToGetFilledOrderResponse(input as Order) as O;
 
+  if (type === Types.PostSettleFundsResponse)
+    return convertToPostSettleFundsResponse(input as Fund) as O;
+
   throw new Error(`Unsupported input type "${type}".`);
 };
 
@@ -205,7 +213,8 @@ export const convertMarketBidsAndAsksToOrderBook = (
 export const convertArrayOfSerumOrdersToMapOfOrders = (
   market: Market,
   orders: SerumOrder[] | SerumOrderBook | any[],
-  address?: string
+  address?: string,
+  status?: OrderStatus,
 ): IMap<string, Order> => {
   const result = IMap<string, Order>().asMutable();
 
@@ -217,7 +226,8 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
         order,
         undefined,
         undefined,
-        address
+        address,
+        status
       )
     );
   }
@@ -245,13 +255,9 @@ export const convertSerumOrderToOrder = (
   status?: OrderStatus,
   signature?: string,
 ): Order => {
-  // TODO Add clientId and exchangeId!!!
-  // TODO convert the loadFills and placeOrder returns too!!!
-  // TODO return the clientOrderId and status pending when creating a new order (the exchangeOrderId will not be sent)!!!
-
   return {
     id: order?.clientId?.toString() || candidate?.id || undefined,
-    exchangeId: order?.orderId.toString() || undefined, // TODO check how to retrieve this after place a new order!!!
+    exchangeId: order?.orderId.toString() || undefined, // TODO check the possibility to retrieve the exchange id from a new order.
     marketName: market.name,
     ownerAddress: ownerAddress || candidate?.ownerAddress,
     price: order?.price || candidate!.price,
@@ -385,6 +391,10 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
     fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp
   }
+}
+
+export const convertToPostSettleFundsResponse = (input: Fund): PostSettleFundsResponse => {
+  return input;
 }
 
 export const convertOrderSideToSerumSide = (input: OrderSide): 'buy' | 'sell' => {
