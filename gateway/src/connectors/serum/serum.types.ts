@@ -1,6 +1,7 @@
 import {Market as SMarket, Orderbook as SOrderBook} from '@project-serum/serum';
 import {
   MarketOptions as SMarketOptions,
+  OpenOrders as SOpenOrders,
   Order as SOrder,
   OrderParams as SOrderParams
 } from '@project-serum/serum/lib/market';
@@ -17,6 +18,7 @@ export const SerumMarket = SMarket;
 export type SerumOrderBook = SOrderBook;
 export type SerumOrderParams<T> = SOrderParams<T>;
 export type SerumMarketOptions = SMarketOptions;
+export type SerumOpenOrders = SOpenOrders;
 
 interface PlainBasicSerumMarket {
   address: string;
