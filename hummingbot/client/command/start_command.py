@@ -3,8 +3,7 @@ import platform
 import threading
 import time
 from os.path import dirname, exists, join
-from typing import Any, Callable, Dict, List, Optional
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
@@ -175,7 +174,7 @@ class StartCommand:
                     self.markets_recorder.restore_market_states(self.strategy_file_name, market)
                     if len(market.limit_orders) > 0:
                         if restore is False:
-                            self._notify(f"Canceling dangling limit orders on {market.name}...")
+                            self.notify(f"Canceling dangling limit orders on {market.name}...")
                             await market.cancel_all(5.0)
                         else:
                             self.notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")

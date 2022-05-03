@@ -187,6 +187,59 @@ class TestGateIoAPIUserStreamDataSource(unittest.TestCase):
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source.GateIoAPIUserStreamDataSource"
+           "._time")
+    def test_listen_for_user_stream_skips_subscribe_unsubscribe_messages(self, time_mock, ws_connect_mock):
+        time_mock.return_value = 1000
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        result_subscribe_orders = {
+            "time": 1611541000,
+            "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+            "event": "subscribe",
+            "error": None,
+            "result": {
+                "status": "success"
+            }
+        }
+        result_subscribe_trades = {
+            "time": 1611541000,
+            "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+            "event": "subscribe",
+            "error": None,
+            "result": {
+                "status": "success"
+            }
+        }
+        result_subscribe_balance = {
+            "time": 1611541000,
+            "channel": CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+            "event": "subscribe",
+            "error": None,
+            "result": {
+                "status": "success"
+            }
+        }
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_orders))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_trades))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_balance))
+
+        output_queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(output_queue.empty())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_ws):
         mock_pong = {
             "time": 1545404023,

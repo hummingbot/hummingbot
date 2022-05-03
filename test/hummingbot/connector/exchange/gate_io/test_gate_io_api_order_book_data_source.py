@@ -293,15 +293,15 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_trades_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        resp = {"time": 1632223851, "channel": "spot.usertrades", "event": "subscribe", "result": {"status": "success"}}
+        resp1 = {"time": 1632223851, "channel": CONSTANTS.TRADES_ENDPOINT_NAME, "event": "subscribe", "result": {"status": "success"}}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
+            ws_connect_mock.return_value, json.dumps(resp1)
         )
-        resp = {
-            "time": 1632223851, "channel": "spot.usertrades", "event": "unsubscribe", "result": {"status": "success"}
+        resp2 = {
+            "time": 1632223851, "channel": CONSTANTS.TRADES_ENDPOINT_NAME, "event": "unsubscribe", "result": {"status": "success"}
         }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
+            ws_connect_mock.return_value, json.dumps(resp2)
         )
 
         output_queue = asyncio.Queue()
@@ -312,6 +312,18 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(output_queue.empty())
+        self.assertFalse(
+            self._is_logged(
+                "ERROR",
+                f"Unexpected error while parsing ws trades message {resp1}."
+            )
+        )
+        self.assertFalse(
+            self._is_logged(
+                "ERROR",
+                f"Unexpected error while parsing ws trades message {resp2}."
+            )
+        )
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(

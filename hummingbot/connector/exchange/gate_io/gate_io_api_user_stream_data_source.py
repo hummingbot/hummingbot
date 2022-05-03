@@ -133,7 +133,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "label": "WSS_ERROR",
                     "message": f"Error received via websocket - {err_msg}."
                 })
-            elif data.get("channel") in [
+            elif data.get("event") == "update" and data.get("channel") in [
                 CONSTANTS.USER_TRADES_ENDPOINT_NAME,
                 CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
                 CONSTANTS.USER_BALANCE_ENDPOINT_NAME,

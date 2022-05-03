@@ -561,7 +561,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {client_order_id}."
+                f"Successfully canceled order {client_order_id}."
             )
         )
 
@@ -706,7 +706,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -1140,7 +1140,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_partial_fill(self):

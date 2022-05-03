@@ -158,8 +158,7 @@ class GateIoExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
         )
-        if resp["status"] == "canceled":
-            canceled = True
+        canceled = resp.get("status") == "cancelled"
         return canceled
 
     async def _status_polling_loop_fetch_updates(self):
