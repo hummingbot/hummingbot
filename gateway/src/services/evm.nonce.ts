@@ -186,8 +186,8 @@ export class EVMNonceManager {
     }
   }
 
-  async getNonce(ethAddress: string): Promise<number> {
-    if (this._provider !== null) {
+  async getNonceFromMemory(ethAddress: string): Promise<number | null> {
+    if (this.#initialized) {
       if (this.#addressToNonce[ethAddress]) {
         const timestamp = this.#addressToNonce[ethAddress][1];
         const now = new Date();
@@ -198,33 +198,55 @@ export class EVMNonceManager {
 
         return this.#addressToNonce[ethAddress][0];
       } else {
-        const nonce: number = await this._provider.getTransactionCount(
-          ethAddress
-        );
-
-        this.#addressToNonce[ethAddress] = [nonce, new Date()];
-        await this.#db.saveNonce(
-          this.#chainName,
-          this.#chainId,
-          ethAddress,
-          nonce
-        );
-        return nonce;
+        return null;
       }
     } else {
-      logger.error('EVMNonceManager.getNonce called before initiated');
+      logger.error(
+        'EVMNonceManager.getNonceFromMemory called before initiated'
+      );
       throw new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonce'),
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonceFromMemory'),
         SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
+  }
+
+  async getNonceFromNode(ethAddress: string): Promise<number> {
+    if (this._provider !== null) {
+      const nonce: number = await this._provider.getTransactionCount(
+        ethAddress
+      );
+
+      this.#addressToNonce[ethAddress] = [nonce, new Date()];
+      await this.#db.saveNonce(
+        this.#chainName,
+        this.#chainId,
+        ethAddress,
+        nonce
+      );
+      return nonce;
+    } else {
+      logger.error('EVMNonceManager.getNonceFromNode called before initiated');
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonceFromNode'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
+    }
+  }
+
+  async getNonce(ethAddress: string): Promise<number> {
+    let nonce: number | null = await this.getNonceFromMemory(ethAddress);
+    if (nonce === null) {
+      nonce = await this.getNonceFromNode(ethAddress);
+    }
+    return nonce;
   }
 
   async commitNonce(
     ethAddress: string,
     txNonce: number | null = null
   ): Promise<void> {
-    if (this._provider !== null) {
+    if (this.#initialized) {
       let newNonce;
       if (txNonce) {
         newNonce = txNonce + 1;

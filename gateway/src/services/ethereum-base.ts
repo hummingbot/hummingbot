@@ -46,7 +46,7 @@ export class EthereumBase {
   public tokenListSource: string;
   public tokenListType: TokenListType;
   public cache: NodeCache;
-  private _nonceManager: EVMNonceManager;
+  public _nonceManager: EVMNonceManager;
   private _txStorage: EvmTxStorage;
 
   constructor(
@@ -65,7 +65,6 @@ export class EthereumBase {
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
     this._nonceManager = new EVMNonceManager(chainName, chainId);
-    this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
     this._txStorage = EvmTxStorage.getInstance('transactions.level');
   }
@@ -95,10 +94,12 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-      this._initPromise = this.loadTokens(
+      const promise1 = this._nonceManager.init(this.provider);
+      const promise2 = this.loadTokens(
         this.tokenListSource,
         this.tokenListType
-      ).then(() => {
+      );
+      this._initPromise = Promise.all([promise1, promise2]).then(() => {
         this._ready = true;
         this._initializing = false;
       });
