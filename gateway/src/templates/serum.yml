@@ -5,7 +5,7 @@ networks: # Serum and Solana networks need to have the same name
   serum-mainnet:
     rpcURL: https://solana-api.projectserum.com
   testnet:
-    rpcURL: https://api.testnet.solana.com
+    rpcURL: https://testnet.solana.com # The api.testnet... endpoint wasn't working.
   devnet:
     rpcURL: https://api.devnet.solana.com
 # how much the execution price is allowed to move unfavorably from the trade

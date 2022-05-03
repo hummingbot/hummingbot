@@ -28,6 +28,7 @@ export enum OrderSide {
   SELL = 'SELL',
 }
 
+// TODO the status are not being fully used!!!
 export enum OrderStatus {
   OPEN = 'OPEN',
   PENDING = 'PENDING',
@@ -35,7 +36,7 @@ export enum OrderStatus {
   CANCELED = 'CANCELED',
   FAILED = 'FAILED',
   EXPIRED = 'EXPIRED',
-  TIMED_OUT = 'OUT',
+  TIMED_OUT = 'TIMED_OUT',
   UNKNOWN = 'UNKNOWN',
 }
 
