@@ -27,6 +27,7 @@ ORDERS_UPDATE_ENDPOINT_NAME = "spot.order_book_update"
 USER_TRADES_ENDPOINT_NAME = "spot.usertrades"
 USER_ORDERS_ENDPOINT_NAME = "spot.orders"
 USER_BALANCE_ENDPOINT_NAME = "spot.balances"
+PONG_CHANNEL_NAME = "spot.pong"
 
 # Timeouts
 MESSAGE_TIMEOUT = 30.0

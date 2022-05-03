@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from async_timeout import timeout
 
@@ -412,24 +412,15 @@ class ExchangePyBase(ExchangeBase):
             amount=amount
         )
 
-        def order_failed():
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
-            )
-            self._order_tracker.process_order_update(order_update)
-
         if order_type not in self.SUPPORTED_ORDER_TYPES:
             self.logger().error(f"{order_type} not in SUPPORTED_ORDER_TYPES")
-            order_failed()
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
         if amount < trading_rule.min_order_size:
             self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
                                   f" size {trading_rule.min_order_size}. The order will not be created.")
-            order_failed()
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
         try:
@@ -459,14 +450,17 @@ class ExchangePyBase(ExchangeBase):
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
             )
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
-            )
-            self._order_tracker.process_order_update(order_update)
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
         return order_id, exchange_order_id
+
+    def _update_order_after_failure(self, order_id: str, trading_pair: str):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED,
+        )
+        self._order_tracker.process_order_update(order_update)
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
@@ -581,10 +575,24 @@ class ExchangePyBase(ExchangeBase):
     def _place_cancel(self):
         raise NotImplementedError
 
-    def _place_order(self):
+    async def _place_order(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           trade_type: TradeType,
+                           order_type: OrderType,
+                           price: Decimal
+                           ) -> Tuple[str, float]:
         raise NotImplementedError
 
-    def _get_fee(self):
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         raise NotImplementedError
 
     # Network-API-related code
@@ -663,7 +671,7 @@ class ExchangePyBase(ExchangeBase):
         while True:
             try:
                 await safe_gather(self._update_trading_rules())
-                await asyncio.sleep(self.TRADING_RULES_INTERVAL)
+                await self._sleep(self.TRADING_RULES_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -671,7 +679,7 @@ class ExchangePyBase(ExchangeBase):
                     "Unexpected error while fetching trading rules.", exc_info=True,
                     app_warning_msg=f"Could not fetch new trading rules from {self.name_cap}"
                                     " Check network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
 
     async def _trading_fees_polling_loop(self):
         """
@@ -749,7 +757,7 @@ class ExchangePyBase(ExchangeBase):
                 raise
             except Exception:
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
-                await asyncio.sleep(1.0)
+                await self._sleep(1.0)
 
     # Exchange / Trading logic methods
     # that call the API

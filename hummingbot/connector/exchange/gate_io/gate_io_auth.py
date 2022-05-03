@@ -1,10 +1,11 @@
 import hashlib
 import hmac
-import time
 import json
-import six
-from urllib.parse import urlparse
+import time
 from typing import Any, Dict
+from urllib.parse import urlparse
+
+import six
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -18,7 +19,6 @@ class GateIoAuth(AuthBase):
     https://www.gate.io/docs/apiv4/en/#authentication
     """
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
-        self.nonce = None
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
@@ -32,7 +32,8 @@ class GateIoAuth(AuthBase):
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
-        raise NotImplementedError
+        request.payload["auth"] = self._get_auth_headers_ws(payload=request.payload)
+        return request
 
     def _get_auth_headers_ws(self, payload: Dict[str, Any] = None) -> Dict[str, Any]:
         """
