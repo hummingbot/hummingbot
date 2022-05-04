@@ -96,7 +96,6 @@ export interface Order {
   side: OrderSide;
   status?: OrderStatus;
   type?: OrderType;
-  fee?: number;
   fillmentTimestamp?: number;
   signature?: string;
   order?: SerumOrder;

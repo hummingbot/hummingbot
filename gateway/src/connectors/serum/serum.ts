@@ -887,7 +887,7 @@ export class Serum {
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.ownerAddress);
-    const payer = owner.publicKey; // TODO Check if this is correct!!!
+    const payer = owner.publicKey;
 
     const serumOrderParams: SerumOrderParams<Account> = {
       side: convertOrderSideToSerumSide(candidate.side),
