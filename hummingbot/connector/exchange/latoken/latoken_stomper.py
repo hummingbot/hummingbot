@@ -1,21 +1,3 @@
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
-from hummingbot.core.web_assistant.connections.data_types import WSRequest
-from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
-
-
-class LatokenWSConnection(WSConnection):
-    async def send(self, request: WSRequest):
-        self._ensure_connected()
-        await self._connection.send_str(request.payload)
-
-
-class LatokenConnectionsFactory(ConnectionsFactory):
-    async def get_ws_connection(self) -> LatokenWSConnection:
-        shared_client = await self._get_shared_client()
-        connection = LatokenWSConnection(aiohttp_client_session=shared_client)
-        return connection
-
-
 # The version of the protocol we implement.
 STOMP_VERSION = '1.1'
 
