@@ -1,7 +1,6 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-
 DEFAULT_DOMAIN = "bybit_main"
 
 HBOT_ORDER_ID_PREFIX = "BYBIT-"
@@ -34,7 +33,7 @@ SERVER_TIME_PATH_URL = "/spot/v1/time"
 
 # Private API endpoints or BinanceClient function
 ACCOUNTS_PATH_URL = "/spot/v1/account"
-# MY_TRADES_PATH_URL = "/myTrades"
+MY_TRADES_PATH_URL = "/spot/v1/myTrades"
 ORDER_PATH_URL = "/spot/v1/order"
 # BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
 
@@ -45,10 +44,9 @@ ORDER_STATE = {
     "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
     "FILLED": OrderState.FILLED,
     "PENDING_CANCEL": OrderState.OPEN,
-    "CANCELED": OrderState.CANCELLED,
+    "CANCELED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
 }
-
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
@@ -100,6 +98,9 @@ RATE_LIMITS = {
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
 
