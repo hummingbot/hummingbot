@@ -6,19 +6,18 @@ from decimal import Decimal
 from typing import Awaitable, Dict
 from unittest.mock import patch
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic.fields import FieldInfo
 
+from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_data_types import (
     BaseClientModel,
-    BaseStrategyConfigMap,
     BaseTradingStrategyConfigMap,
     ClientConfigEnum,
     ClientFieldData,
 )
-from hummingbot.client.config.config_helpers import (
-    ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
-)
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
+from hummingbot.client.config.security import Security
 
 
 class BaseClientModelTest(unittest.TestCase):
@@ -35,9 +34,10 @@ class BaseClientModelTest(unittest.TestCase):
         schema = DummyModel.schema_json()
         j = json.loads(schema)
         expected = {
-            "is_secure": False,
             "prompt": None,
             "prompt_on_new": True,
+            "is_secure": False,
+            "is_connect_key": False,
         }
         self.assertEqual(expected, j["properties"]["some_attr"]["client_data"])
 
@@ -64,11 +64,20 @@ class BaseClientModelTest(unittest.TestCase):
                 title = "dummy_model"
 
         expected = [
-            ConfigTraversalItem(0, "some_attr", "some_attr", 1, "1", ClientFieldData(), None),
+            ConfigTraversalItem(0, "some_attr", "some_attr", 1, "1", ClientFieldData(), None, int),
             ConfigTraversalItem(
-                0, "nested_model", "nested_model", ClientConfigAdapter(NestedModel()), "nested_model", None, None
+                0,
+                "nested_model",
+                "nested_model",
+                ClientConfigAdapter(NestedModel()),
+                "nested_model",
+                None,
+                None,
+                NestedModel,
             ),
-            ConfigTraversalItem(1, "nested_model.nested_attr", "nested_attr", "some value", "some value", None, None),
+            ConfigTraversalItem(
+                1, "nested_model.nested_attr", "nested_attr", "some value", "some value", None, None, str
+            ),
             ConfigTraversalItem(
                 1,
                 "nested_model.double_nested_model",
@@ -77,9 +86,17 @@ class BaseClientModelTest(unittest.TestCase):
                 "double_nested_model",
                 None,
                 None,
+                DoubleNestedModel,
             ),
             ConfigTraversalItem(
-                2, "nested_model.double_nested_model.double_nested_attr", "double_nested_attr", 3.0, "3.0", None, None
+                2,
+                "nested_model.double_nested_model.double_nested_attr",
+                "double_nested_attr",
+                3.0,
+                "3.0",
+                None,
+                None,
+                float,
             ),
         ]
         cm = ClientConfigAdapter(DummyModel())
@@ -133,7 +150,6 @@ class BaseClientModelTest(unittest.TestCase):
 
         instance = ClientConfigAdapter(DummyModel())
         res_str = instance.generate_yml_output_str_with_comments()
-
         expected_str = """\
 ##############################
 ###   dummy_model config   ###
@@ -162,10 +178,31 @@ date_attr: 2022-01-02
 
         self.assertEqual(expected_str, res_str)
 
+    def test_generate_yml_output_dict_with_secret(self):
+        class DummyModel(BaseClientModel):
+            secret_attr: SecretStr
+
+            class Config:
+                title = "dummy_model"
+
+        Security.secrets_manager = ETHKeyFileSecretManger(password="some-password")
+        secret_value = "some_secret"
+        instance = ClientConfigAdapter(DummyModel(secret_attr=secret_value))
+        res_str = instance.generate_yml_output_str_with_comments()
+        expected_str = """\
+##############################
+###   dummy_model config   ###
+##############################
+
+secret_attr: """
+
+        self.assertTrue(res_str.startswith(expected_str))
+        self.assertNotIn(secret_value, res_str)
+
 
 class BaseStrategyConfigMapTest(unittest.TestCase):
     def test_generate_yml_output_dict_title(self):
-        class DummyStrategy(BaseStrategyConfigMap):
+        class DummyStrategy(BaseClientModel):
             class Config:
                 title = "pure_market_making"
 

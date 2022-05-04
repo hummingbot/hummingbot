@@ -11,6 +11,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
+from hummingbot.connector.other.celo.celo_data_types import KEYS as CELO_KEYS
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.user.user_balances import UserBalances
@@ -117,7 +118,7 @@ class BalanceCommand:
 
         self.notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
 
-        celo_address = global_config_map["celo_address"].value
+        celo_address = CELO_KEYS.celo_address if hasattr("celo_address", CELO_KEYS) else None
         if celo_address is not None:
             try:
                 if not CeloCLI.unlocked:

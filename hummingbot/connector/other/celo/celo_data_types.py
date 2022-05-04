@@ -1,5 +1,9 @@
-from typing import NamedTuple
 from decimal import Decimal
+from typing import NamedTuple
+
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 
 class CeloExchangeRate(NamedTuple):
@@ -44,3 +48,31 @@ class CeloOrder(NamedTuple):
             f"Celo Order - tx_hash: {self.tx_hash}, side: {'buy' if self.is_buy else 'sell'}, "
             f"price: {self.price}, amount: {self.amount}."
         )
+
+
+class CeloConfigMap(BaseConnectorConfigMap):
+    """
+    As Celo is treated as a special case everywhere else in the code,
+    its canfigs cannot be stored and handled the conventional way either (i.e. using celo_utils.py).
+    """
+    connector: str = Field(default="celo", client_data=None)
+    celo_address: str = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Celo account address",
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    celo_password: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Celo account password",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = CeloConfigMap.construct()

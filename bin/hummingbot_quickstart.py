@@ -15,6 +15,7 @@ import path_util  # noqa: F401
 from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
+from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
     all_configs_complete,
     create_yml_files_legacy,
@@ -24,7 +25,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
+from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt
 from hummingbot.core.event.events import HummingbotUIEvent
 from hummingbot.core.gateway import start_existing_gateway_container
@@ -70,14 +71,13 @@ def autofix_permissions(user_group_spec: str):
     os.setuid(uid)
 
 
-async def quick_start(args: argparse.Namespace):
+async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     config_file_name = args.config_file_name
-    password = args.config_password
 
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
 
-    if password is not None and not Security.login(password):
+    if Security.login(secrets_manager):
         logging.getLogger().error("Invalid password.")
         return
 
@@ -93,7 +93,9 @@ async def quick_start(args: argparse.Namespace):
 
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        hb.strategy_name = await load_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
+        hb.strategy_name = await load_strategy_config_map_from_file(
+            STRATEGIES_CONF_DIR_PATH / config_file_name
+        )
 
     # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
     if not global_config_map.get("kill_switch_enabled"):
@@ -128,11 +130,15 @@ def main():
         args.config_password = os.environ["CONFIG_PASSWORD"]
 
     # If no password is given from the command line, prompt for one.
+    secrets_manager_cls = ETHKeyFileSecretManger
     if args.config_password is None:
-        if not login_prompt():
+        secrets_manager = login_prompt(secrets_manager_cls)
+        if not secrets_manager:
             return
+    else:
+        secrets_manager = secrets_manager_cls(args.config_password)
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args))
+    asyncio.get_event_loop().run_until_complete(quick_start(args, secrets_manager))
 
 
 if __name__ == "__main__":

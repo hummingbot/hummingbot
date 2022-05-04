@@ -1,5 +1,4 @@
 import asyncio
-import os
 from typing import TYPE_CHECKING
 
 from hummingbot.client.config.config_helpers import (
@@ -9,7 +8,7 @@ from hummingbot.client.config.config_helpers import (
     validate_strategy_file,
 )
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
+from hummingbot.client.settings import CONF_PREFIX, STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
@@ -36,7 +35,7 @@ class ImportCommand:
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
-        strategy_path = os.path.join(CONF_FILE_PATH, file_name)
+        strategy_path = STRATEGIES_CONF_DIR_PATH / file_name
         config_map = await load_strategy_config_map_from_file(strategy_path)
         self.strategy_file_name = file_name
         self.strategy_name = (
@@ -68,7 +67,7 @@ class ImportCommand:
         file_name = await self.app.prompt(prompt=f'Enter path to your strategy file (e.g. "{example}") >>> ')
         if self.app.to_stop_config:
             return
-        file_path = os.path.join(CONF_FILE_PATH, file_name)
+        file_path = STRATEGIES_CONF_DIR_PATH / file_name
         err_msg = validate_strategy_file(file_path)
         if err_msg is not None:
             self.notify(f"Error: {err_msg}")

@@ -1,71 +1,83 @@
-from eth_account import Account
-from hummingbot.core.utils.wallet_setup import get_key_file_path
+import binascii
 import json
-import os
+from abc import ABC, abstractmethod
+
+from eth_account import Account
 from eth_keyfile.keyfile import (
-    Random,
-    get_default_work_factor_for_kdf,
-    _pbkdf2_hash,
     DKLEN,
-    encode_hex_no_prefix,
-    _scrypt_hash,
-    SCRYPT_R,
     SCRYPT_P,
+    SCRYPT_R,
+    Random,
+    _pbkdf2_hash,
+    _scrypt_hash,
     big_endian_to_int,
+    encode_hex_no_prefix,
     encrypt_aes_ctr,
+    get_default_work_factor_for_kdf,
+    int_to_big_endian,
     keccak,
-    int_to_big_endian
 )
-from hummingbot.client.settings import ENCYPTED_CONF_PREFIX, ENCYPTED_CONF_POSTFIX
+from pydantic import SecretStr
+
+from hummingbot import root_path
+
+PASSWORD_VERIFICATION_WORD = "HummingBot"
+PASSWORD_VERIFICATION_PATH = root_path() / ".password_verification"
 
 
-def list_encrypted_file_paths():
-    file_paths = []
-    for f in sorted(os.listdir(get_key_file_path())):
-        f_path = os.path.join(get_key_file_path(), f)
-        if os.path.isfile(f_path) and f.startswith(ENCYPTED_CONF_PREFIX) and f.endswith(ENCYPTED_CONF_POSTFIX):
-            file_paths.append(f_path)
-    return file_paths
+class BaseSecretsManager(ABC):
+    def __init__(self, password: str):
+        self._password = password
+
+    @property
+    def password(self) -> SecretStr:
+        return SecretStr(self._password)
+
+    @abstractmethod
+    def encrypt_secret_value(self, attr: str, value: str):
+        pass
+
+    @abstractmethod
+    def decrypt_secret_value(self, attr: str, value: str) -> str:
+        pass
 
 
-def encrypted_file_path(config_key: str):
-    return os.path.join(get_key_file_path(), f"{ENCYPTED_CONF_PREFIX}{config_key}{ENCYPTED_CONF_POSTFIX}")
+class ETHKeyFileSecretManger(BaseSecretsManager):
+    def encrypt_secret_value(self, attr: str, value: str):
+        if self._password is None:
+            raise ValueError(f"Could not encrypt secret attribute {attr} because no password was provided.")
+        password_bytes = self._password.encode()
+        value_bytes = value.encode()
+        keyfile_json = _create_v3_keyfile_json(value_bytes, password_bytes)
+        json_str = json.dumps(keyfile_json)
+        encrypted_value = binascii.hexlify(json_str.encode()).decode()
+        return encrypted_value
+
+    def decrypt_secret_value(self, attr: str, value: str) -> str:
+        if self._password is None:
+            raise ValueError(f"Could not decrypt secret attribute {attr} because no password was provided.")
+        value = binascii.unhexlify(value)
+        decrypted_value = Account.decrypt(value.decode(), self._password).decode()
+        return decrypted_value
 
 
-def secure_config_key(encrypted_file_path: str):
-    _, file_name = os.path.split(encrypted_file_path)
-    return file_name[file_name.find(ENCYPTED_CONF_PREFIX) + len(ENCYPTED_CONF_PREFIX):
-                     file_name.find(ENCYPTED_CONF_POSTFIX)]
+def store_password_verification(secrets_manager: BaseSecretsManager):
+    encrypted_word = secrets_manager.encrypt_secret_value(PASSWORD_VERIFICATION_WORD, PASSWORD_VERIFICATION_WORD)
+    with open(PASSWORD_VERIFICATION_PATH, "w") as f:
+        f.write(encrypted_word)
 
 
-def encrypted_file_exists(config_key: str):
-    return os.path.exists(encrypted_file_path(config_key))
-
-
-def encrypt_n_save_config_value(config_key, config_value, password):
-    """
-    encrypt configuration value and store in a file, file name is derived from config_var key (in conf folder)
-    """
-    password_bytes = password.encode()
-    message = config_value.encode()
-    encrypted = _create_v3_keyfile_json(message, password_bytes)
-    file_path = encrypted_file_path(config_key)
-    with open(file_path, 'w+') as f:
-        f.write(json.dumps(encrypted))
-
-
-def decrypt_config_value(config_key, password):
-    if not encrypted_file_exists(config_key):
-        return None
-    file_path = encrypted_file_path(config_key)
-    return decrypt_file(file_path, password)
-
-
-def decrypt_file(file_path, password):
-    with open(file_path, 'r') as f:
-        encrypted = f.read()
-    secured_value = Account.decrypt(encrypted, password)
-    return secured_value.decode()
+def validate_password(secrets_manager: BaseSecretsManager) -> bool:
+    valid = False
+    with open(PASSWORD_VERIFICATION_PATH, "r") as f:
+        encrypted_word = f.read()
+    try:
+        decrypted_word = secrets_manager.decrypt_secret_value(PASSWORD_VERIFICATION_WORD, encrypted_word)
+        valid = decrypted_word == PASSWORD_VERIFICATION_WORD
+    except ValueError as e:
+        if str(e) != "MAC mismatch":
+            raise e
+    return valid
 
 
 def _create_v3_keyfile_json(message_to_encrypt, password, kdf="pbkdf2", work_factor=None):

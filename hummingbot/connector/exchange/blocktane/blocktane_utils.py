@@ -1,10 +1,10 @@
 import re
-import requests
-
 from typing import Optional, Tuple
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+import requests
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 CENTRALIZED = True
 
@@ -12,20 +12,30 @@ EXAMPLE_PAIR = "BTC-BRL"
 
 DEFAULT_FEES = [0.35, 0.45]  # The actual fees
 
-KEYS = {
-    "blocktane_api_key":
-        ConfigVar(key="blocktane_api_key",
-                  prompt="Enter your Blocktane API key >>> ",
-                  required_if=using_exchange("blocktane"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "blocktane_api_secret":
-        ConfigVar(key="blocktane_api_secret",
-                  prompt="Enter your Blocktane API secret >>> ",
-                  required_if=using_exchange("blocktane"),
-                  is_secure=True,
-                  is_connect_key=True)
-}
+
+class BlocktaneConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="blocktane", client_data=None)
+    blocktane_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Blocktane API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    blocktane_api_secret: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Blocktane API secret",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = BlocktaneConfigMap.construct()
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|btc|ETH|eth|BRL|brl|PAX|pax|USDT|usdt|PAXG|paxg|LETH|leth|EURS|eurs|LRC|lrc|BKT|bkt)$")
 MARKET_DATA = None

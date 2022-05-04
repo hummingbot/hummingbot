@@ -1,17 +1,12 @@
+from typing import Any, Dict, List, Tuple
+
 import dateutil.parser
-from typing import (
-    Any,
-    Dict,
-    List,
-    Tuple
-)
+from pydantic import Field, SecretStr
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
@@ -88,17 +83,26 @@ def convert_to_epoch_timestamp(timestamp: str) -> int:
     return int(dateutil.parser.parse(timestamp).timestamp() * 1e3)
 
 
-KEYS = {
-    "k2_api_key":
-        ConfigVar(key="k2_api_key",
-                  prompt="Enter your K2 API key >>> ",
-                  required_if=using_exchange("k2"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "k2_secret_key":
-        ConfigVar(key="k2_secret_key",
-                  prompt="Enter your K2 secret key >>> ",
-                  required_if=using_exchange("k2"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class K2ConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="k2", client_data=None)
+    k2_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your K2 API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    k2_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your K2 secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = K2ConfigMap.construct()

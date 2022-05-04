@@ -4,16 +4,15 @@ import random
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
-from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.config_var import ConfigVar
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import (
-    RESTMethod, RESTResponse, EndpointRESTRequest
-)
-from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest, RESTMethod, RESTResponse
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 CENTRALIZED = True
 
@@ -160,17 +159,26 @@ async def api_call_with_retries(request: GateIORESTRequest,
     return parsed_response
 
 
-KEYS = {
-    "gate_io_api_key":
-        ConfigVar(key="gate_io_api_key",
-                  prompt=f"Enter your {CONSTANTS.EXCHANGE_NAME} API key >>> ",
-                  required_if=using_exchange("gate_io"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "gate_io_secret_key":
-        ConfigVar(key="gate_io_secret_key",
-                  prompt=f"Enter your {CONSTANTS.EXCHANGE_NAME} secret key >>> ",
-                  required_if=using_exchange("gate_io"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class GateIOConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="gate_io", client_data=None)
+    gate_io_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {CONSTANTS.EXCHANGE_NAME} API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    gate_io_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Enter your {CONSTANTS.EXCHANGE_NAME} secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = GateIOConfigMap.construct()

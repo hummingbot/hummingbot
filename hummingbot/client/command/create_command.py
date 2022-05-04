@@ -2,6 +2,7 @@ import asyncio
 import copy
 import os
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
 from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
@@ -19,8 +20,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
+from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -33,7 +33,7 @@ class CreateCommand:
                file_name):
         if file_name is not None:
             file_name = format_config_file_name(file_name)
-            if os.path.exists(os.path.join(CONF_FILE_PATH, file_name)):
+            if (STRATEGIES_CONF_DIR_PATH / file_name).exists():
                 self.notify(f"{file_name} already exists.")
                 return
 
@@ -98,7 +98,7 @@ class CreateCommand:
             client_data = config_map.get_client_data(key)
             if (
                 client_data is not None
-                and (client_data.prompt_on_new and config_map.is_required(key))
+                and (client_data.prompt_on_new or config_map.is_required(key))
             ):
                 await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
@@ -138,10 +138,10 @@ class CreateCommand:
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
-        strategy_path = os.path.join(CONF_FILE_PATH, file_name)
+        strategy_path = STRATEGIES_CONF_DIR_PATH / file_name
         template = get_strategy_template_path(strategy)
         shutil.copy(template, strategy_path)
-        save_to_yml_legacy(strategy_path, config_map)
+        save_to_yml_legacy(str(strategy_path), config_map)
         return file_name
 
     async def prompt_a_config(
@@ -211,7 +211,7 @@ class CreateCommand:
                 self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
-        strategy_path = os.path.join(CONF_FILE_PATH, file_name)
+        strategy_path = Path(STRATEGIES_CONF_DIR_PATH) / file_name
         save_to_yml(strategy_path, config_map)
         return file_name
 
@@ -221,7 +221,7 @@ class CreateCommand:
         self.app.set_text(file_name)
         input = await self.app.prompt(prompt="Enter a new file name for your configuration >>> ")
         input = format_config_file_name(input)
-        file_path = os.path.join(CONF_FILE_PATH, input)
+        file_path = os.path.join(STRATEGIES_CONF_DIR_PATH, input)
         if input is None or input == "":
             self.notify("Value is required.")
             return await self.prompt_new_file_name(strategy)
@@ -230,14 +230,6 @@ class CreateCommand:
             return await self.prompt_new_file_name(strategy)
         else:
             return input
-
-    async def update_all_secure_configs_legacy(
-        self  # type: HummingbotApplication
-    ):
-        await Security.wait_til_decryption_done()
-        Security.update_config_map(global_config_map)
-        if self.strategy_config_map is not None and not isinstance(self.strategy_config_map, ClientConfigAdapter):
-            Security.update_config_map(self.strategy_config_map)
 
     async def verify_status(
         self  # type: HummingbotApplication

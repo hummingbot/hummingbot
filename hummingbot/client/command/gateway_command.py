@@ -1,55 +1,48 @@
 #!/usr/bin/env python
-import aiohttp
 import asyncio
-from contextlib import contextmanager
-import docker
 import itertools
 import json
-import pandas as pd
-from typing import (
-    Dict,
-    Any,
-    TYPE_CHECKING,
-    List,
-    Generator,
-)
+from contextlib import contextmanager
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, Generator, List
 
+import aiohttp
+import pandas as pd
+
+import docker
+from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     GLOBAL_CONFIG_PATH,
-    GatewayConnectionSetting
+    AllConnectorSettings,
+    GatewayConnectionSetting,
 )
+from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
-    docker_ipc,
-    docker_ipc_with_generator,
-    get_gateway_container_name,
-    get_gateway_paths,
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
     GatewayPaths,
+    docker_ipc,
+    docker_ipc_with_generator,
     get_default_gateway_port,
+    get_gateway_container_name,
+    get_gateway_paths,
     start_gateway,
-    stop_gateway
+    stop_gateway,
 )
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.status_monitor import Status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
-    search_configs,
     build_config_dict_display,
     build_connector_display,
     build_wallet_display,
     native_tokens,
+    search_configs,
 )
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
-from hummingbot.client.config.config_helpers import (
-    save_to_yml,
-    refresh_trade_fees_config,
-)
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.client.ui.completer import load_completer
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -262,7 +255,7 @@ class GatewayCommand:
         if global_config_map.get("gateway_api_port").value != gateway_port:
             global_config_map["gateway_api_port"].value = gateway_port
             global_config_map["gateway_api_host"].value = "localhost"
-            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+            save_to_yml(Path(GLOBAL_CONFIG_PATH), global_config_map)
 
         GatewayHttpClient.get_instance().base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                                                     f"{global_config_map['gateway_api_port'].value}"

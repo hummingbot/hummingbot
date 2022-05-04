@@ -4,8 +4,9 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, Type
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic import Field
 
@@ -14,7 +15,6 @@ from hummingbot.client.config.config_data_types import BaseClientModel, BaseTrad
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml, save_to_yml
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from test.mock.mock_cli import CLIMockingAssistant
 
 
 class ImportCommandTest(unittest.TestCase):
@@ -154,10 +154,10 @@ class ImportCommandTest(unittest.TestCase):
         cm = ClientConfigAdapter(dummy_strategy_config_cls(no_default="some value"))
 
         with TemporaryDirectory() as d:
-            import_command.CONF_FILE_PATH = str(d)
             d = Path(d)
+            import_command.STRATEGIES_CONF_DIR_PATH = d
             temp_file_name = d / strategy_file_name
-            save_to_yml(str(temp_file_name), cm)
+            save_to_yml(temp_file_name, cm)
             self.async_run_with_timeout(self.app.import_config_file(strategy_file_name))
 
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
@@ -180,8 +180,8 @@ class ImportCommandTest(unittest.TestCase):
         cm = ClientConfigAdapter(dummy_strategy_config_cls(no_default="some value"))
 
         with TemporaryDirectory() as d:
-            import_command.CONF_FILE_PATH = str(d)
             d = Path(d)
+            import_command.STRATEGIES_CONF_DIR_PATH = d
             temp_file_name = d / strategy_file_name
             cm_yml_str = cm.generate_yml_output_str_with_comments()
             cm_yml_str = cm_yml_str.replace("\nno_default: some value\n", "")
