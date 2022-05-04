@@ -32,9 +32,31 @@ const WAVAX = new Token(
 
 beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
+  patch(avalanche._nonceManager, 'init', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
+
   await avalanche.init();
   pangolin = Pangolin.getInstance('avalanche', 'fuji');
   await pangolin.init();
+});
+
+beforeEach(() => {
+  patch(avalanche._nonceManager, 'init', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
 });
 
 afterEach(() => {
