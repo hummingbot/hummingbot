@@ -800,14 +800,12 @@ class BtcMarketsExchange(ExchangeBase):
             tasks = []
 
             for _, order in tracked_orders:
-                api_params = {
-                    "marketId": order.trading_pair,
-                    "orderId": order.exchange_order_id,
-                }
-                tasks.append(self._api_request(method="DELETE",
-                                               path_url=Constants.ORDERS_URL,
-                                               params=api_params,
-                                               is_auth_required=True))
+                api_params = {}
+                if not order.is_cancelled:
+                    tasks.append(self._api_request(method="DELETE",
+                                                   path_url=f"{Constants.ORDERS_URL}/{order.exchange_order_id}",
+                                                   params=api_params,
+                                                   is_auth_required=True))
 
             await safe_gather(*tasks)
 
