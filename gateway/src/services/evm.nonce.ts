@@ -27,6 +27,10 @@ export class NonceLocalStorage {
     return NonceLocalStorage._instances[dbPath];
   }
 
+  public async init(): Promise<void> {
+    await this.localStorage.init();
+  }
+
   public async saveNonce(
     chain: string,
     chainId: number,
@@ -140,11 +144,11 @@ export class EVMNonceManager {
     }
 
     if (!this.#initialized) {
+      await this.#db.init();
       const addressToNonce = await this.#db.getNonces(
         this.#chainName,
         this.#chainId
       );
-
       for (const [key, value] of Object.entries(addressToNonce)) {
         logger.info(key + ':' + String(value));
         this.#addressToNonce[key] = [value, new Date()];
@@ -155,7 +159,6 @@ export class EVMNonceManager {
           await this.mergeNonceFromEVMNode(address);
         })
       );
-
       this.#initialized = true;
     }
   }

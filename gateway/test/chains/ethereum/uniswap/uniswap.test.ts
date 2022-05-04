@@ -32,12 +32,32 @@ const DAI = new Token(
 
 beforeAll(async () => {
   ethereum = Ethereum.getInstance('kovan');
-  patch(ethereum, 'mergeNonceFromEVMNode', () => {
+  patch(ethereum._nonceManager, 'init', () => {
     return;
+  });
+  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
   });
   await ethereum.init();
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
+});
+
+beforeEach(() => {
+  // jest.setTimeout(100000);
+  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(ethereum._nonceManager, 'init', () => {
+    return;
+  });
+
+  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
 });
 
 afterEach(() => {
