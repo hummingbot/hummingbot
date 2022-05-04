@@ -18,6 +18,7 @@ export class Curve {
   private _chainId;
   private _ethereum: Ethereum;
   private _network: string;
+  private _gasLimit: number;
 
   private _ready: boolean = false;
 
@@ -26,6 +27,7 @@ export class Curve {
     this._chain = chain;
     this._chainId = this._ethereum.chainId;
     this._network = network;
+    this._gasLimit = 200000;
   }
 
   public static getInstance(chain: string, network: string): Curve {
@@ -82,6 +84,10 @@ export class Curve {
     return this._ready;
   }
 
+  public gasLimit(): number {
+    return this._gasLimit;
+  }
+
   async price(
     wallet: Wallet,
     tokenIn: string,
@@ -97,7 +103,7 @@ export class Curve {
     return { route, output };
   }
 
-    // maxSlippage
+  // maxSlippage
   async executeTrade(
     wallet: Wallet,
     tokenIn: string,
@@ -108,23 +114,23 @@ export class Curve {
     await curve.routerExchange(tokenIn, tokenOut, tokenAmount); // returns transaction hash
   }
 
-// export interface TradeResponse {
-//   network: string;
-//   timestamp: number;
-//   latency: number;
-//   base: string;
-//   quote: string;
-//   amount: string;
-//   expectedIn?: string;
-//   expectedOut?: string;
-//   price: string;
-//   gasPrice: number;
-//   gasLimit: number;
-//   gasCost: string;
-//   nonce: number;
-//   txHash: string | undefined;
-// }
-// curve.estimateGas.getBestRouteAndOutput(tokenIn, tokenOut, tokenAmount);
+  // export interface TradeResponse {
+  //   network: string;
+  //   timestamp: number;
+  //   latency: number;
+  //   base: string;
+  //   quote: string;
+  //   amount: string;
+  //   expectedIn?: string;
+  //   expectedOut?: string;
+  //   price: string;
+  //   gasPrice: number;
+  //   gasLimit: number;
+  //   gasCost: string;
+  //   nonce: number;
+  //   txHash: string | undefined;
+  // }
+  // curve.estimateGas.getBestRouteAndOutput(tokenIn, tokenOut, tokenAmount);
 }
 
 // routerExchange
