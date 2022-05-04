@@ -94,12 +94,12 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-      const promise1 = this._nonceManager.init(this.provider);
-      const promise2 = this.loadTokens(
+      await this._nonceManager.init(this.provider);
+
+      this._initPromise = this.loadTokens(
         this.tokenListSource,
         this.tokenListType
-      );
-      this._initPromise = Promise.all([promise1, promise2]).then(() => {
+      ).then(() => {
         this._ready = true;
         this._initializing = false;
       });

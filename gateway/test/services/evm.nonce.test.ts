@@ -61,15 +61,18 @@ describe('Test EVMNonceManager', () => {
 
   afterAll(async () => {
     await fse.emptyDir(dbPath);
-    fs.rmSync(dbPath, { force: true, recursive: true });
+    await fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
-  it('getNonce reads nonce from node, commits, then reads nonce from memory', async () => {
-    const testChain1 = 'ethereum';
-    const testChain1Id = 1;
-    const address1 = 'A';
-    // const address2 = 'B';
+  const testChain1 = 'ethereum';
+  const testChain1Id = 1;
+  // const testChain1Id = 2;
+  const testChain2 = 'avalanche';
+  const testChain2Id = 1;
+  const address1 = 'A';
+  // const address1 = 'B';
 
+  it('getNonce reads nonce from node, commits, then reads nonce from memory', async () => {
     const evmNonceManager = new EVMNonceManager(
       testChain1,
       testChain1Id,
@@ -98,5 +101,64 @@ describe('Test EVMNonceManager', () => {
     const nonce2 = await evmNonceManager.getNonce(address1);
 
     expect(nonce2).toEqual(13);
+  });
+
+  it('commits to the same address on different chains should have separate nonce values', async () => {
+    const ethereumNonceManager = new EVMNonceManager(
+      testChain1,
+      testChain1Id,
+      300,
+      dbPath
+    );
+
+    const avalancheNonceManager = new EVMNonceManager(
+      testChain2,
+      testChain2Id,
+      300,
+      dbPath
+    );
+
+    patch(
+      ethereumNonceManager,
+      'mergeNonceFromEVMNode',
+      (_ethAddress: string) => {
+        return;
+      }
+    );
+
+    patch(ethereumNonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+      return Promise.resolve(30);
+    });
+
+    patch(
+      avalancheNonceManager,
+      'mergeNonceFromEVMNode',
+      (_ethAddress: string) => {
+        return;
+      }
+    );
+
+    patch(avalancheNonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+      return Promise.resolve(51);
+    });
+
+    await ethereumNonceManager.init(new providers.StaticJsonRpcProvider(''));
+
+    await avalancheNonceManager.init(new providers.StaticJsonRpcProvider(''));
+
+    const ethereumNonce1 = await ethereumNonceManager.getNonce(address1);
+    const avalancheNonce1 = await avalancheNonceManager.getNonce(address1);
+
+    expect(ethereumNonce1).toEqual(13); // exists from previous test
+    expect(avalancheNonce1).toEqual(51);
+
+    await ethereumNonceManager.commitNonce(address1, ethereumNonce1);
+    await avalancheNonceManager.commitNonce(address1, avalancheNonce1);
+
+    const ethereumNonce2 = await ethereumNonceManager.getNonce(address1);
+    const avalancheNonce2 = await avalancheNonceManager.getNonce(address1);
+
+    expect(ethereumNonce2).toEqual(14);
+    expect(avalancheNonce2).toEqual(52);
   });
 });
