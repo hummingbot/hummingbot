@@ -20,7 +20,7 @@ export const validateOrderClientId: Validator = mkValidator(
 export const validateOrderMarketName: Validator = mkValidator(
   'marketName',
   (value) => `Invalid market name (${value}).`,
-  (target) => target.trim().len,
+  (target) => target.trim().length,
   false
 );
 
@@ -32,28 +32,28 @@ export const validateOrderOwnerAddress: Validator = mkValidator(
 );
 
 export const validateOrderSide: Validator = mkValidator(
-  '',
+  'side',
   (value) => `Invalid order side (${value}).`,
   (target) => Object.values(OrderSide).map(i => i.toLowerCase()).includes(target.toLowerCase()),
   false
 );
 
 export const validateOrderPrice: Validator = mkValidator(
-  '',
+  'price',
   (value) => `Invalid order price (${value}).`,
   (target) => typeof target === 'number' || isFloatString(target),
   false
 );
 
 export const validateOrderAmount: Validator = mkValidator(
-  '',
+  'amount',
   (value) => `Invalid order amount (${value}).`,
   (target) => typeof target === 'number' || isFloatString(target),
   false
 );
 
 export const validateOrderType: Validator = mkValidator(
-  '',
+  'type',
   (value) => `Invalid  order type (${value}).`,
   (target) => Object.values(OrderType).map(item => item.toLowerCase()).includes(target.toLowerCase()),
   true
