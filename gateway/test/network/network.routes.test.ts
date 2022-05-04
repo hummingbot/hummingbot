@@ -10,13 +10,57 @@ let avalanche: Avalanche;
 let harmony: Harmony;
 beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
+
+  patch(eth._nonceManager, 'init', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
+
   await eth.init();
 
   avalanche = Avalanche.getInstance('fuji');
+
+  patch(avalanche._nonceManager, 'init', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
+
   await avalanche.init();
 
   harmony = Harmony.getInstance('testnet');
   await harmony.init();
+});
+
+beforeEach(() => {
+  patch(eth._nonceManager, 'init', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
+
+  patch(avalanche._nonceManager, 'init', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
 });
 
 afterEach(() => unpatch());
