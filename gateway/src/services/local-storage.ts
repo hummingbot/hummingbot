@@ -38,33 +38,25 @@ export class LocalStorage {
   }
 
   private async assertDbOpen(): Promise<void> {
-    // console.log('assertDbOpen ', this.#db.status);
     if (this.#db.status === 'open') {
-      console.log('open');
       // this is the target state, finish!
       return;
     } else if (this.#db.status === 'closing') {
-      console.log('closing');
       // do nothing if closing, then try again
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await this.assertDbOpen();
     } else if (this.#db.status === 'closed') {
-      console.log('closed');
       // reopen the db
       await this.#db.open({ createIfMissing: true });
       await this.assertDbOpen();
     } else if (this.#db.status === 'opening') {
       // wait for but do not initate the opening of the db
-      console.log('waiting');
       await this.#db.open({ passive: true });
-      console.log('open');
-      // await new Promise((resolve) => setTimeout(resolve, 1000));
-      await this.assertDbOpen();
     }
   }
 
   public async save(key: string, value: any): Promise<void> {
-    // await this.assertDbOpen();
+    await this.assertDbOpen();
     await this.#db.put(key, value);
   }
 
@@ -76,7 +68,7 @@ export class LocalStorage {
   public async get(
     readFunc: (key: string, string: any) => [string, any] | undefined
   ): Promise<any> {
-    // await this.assertDbOpen();
+    await this.assertDbOpen();
 
     const results: Record<string, any> = {};
     const kvs = await this.#db

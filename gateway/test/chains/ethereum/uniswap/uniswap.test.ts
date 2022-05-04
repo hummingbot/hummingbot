@@ -47,14 +47,12 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  // jest.setTimeout(100000);
-  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
   patch(ethereum._nonceManager, 'init', () => {
     return;
   });
-
+  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
   patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
     return Promise.resolve(12);
   });
@@ -90,6 +88,7 @@ const patchTrade = (key: string, error?: Error) => {
     ];
   });
 };
+
 describe('verify Uniswap estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     patchFetchPairData();
