@@ -188,7 +188,7 @@ export const convertSerumMarketToMarket = (
     deprecated: extraInfo.deprecated,
     minimumOrderSize: market.minOrderSize,
     tickSize: market.tickSize,
-    minimumBaseIncrement: market.decoded.baseLotSize, // TODO is this correct?!!!
+    minimumBaseIncrement: market.decoded.baseLotSize,
     fees: market.decoded.fee,
     market: market
   } as Market;
@@ -265,7 +265,6 @@ export const convertSerumOrderToOrder = (
     side: order ? convertSerumSideToOrderSide(order?.side) : candidate!.side,
     status: status,
     type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!): undefined,
-    fee: order?.feeTier || undefined, //TODO order.feeTier?!!!
     fillmentTimestamp: undefined,
     signature: signature,
     order: order
@@ -314,7 +313,6 @@ export const convertToGetOrderResponse = (input: Order): GetOrderResponse => {
     side: input.side,
     status: input.status,
     type: input.type,
-    fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp,
   }
 }
@@ -330,7 +328,6 @@ export const convertToCreateOrderResponse = (input: Order): CreateOrderResponse 
     side: input.side,
     status: input.status,
     type: input.type,
-    fee: input.fee
   }
 }
 
@@ -345,7 +342,6 @@ export const convertToCancelOrderResponse = (input: Order): CancelOrderResponse 
     side: input.side,
     status: input.status,
     type: input.type,
-    fee: input.fee
   }
 }
 
@@ -360,7 +356,6 @@ export const convertToGetOpenOrderResponse = (input: Order): GetOpenOrderRespons
     side: input.side,
     status: input.status,
     type: input.type,
-    fee: input.fee
   }
 }
 
@@ -374,7 +369,6 @@ export const convertToCancelOpenOrderResponse = (input: Order): CancelOpenOrderR
   side: input.side,
   status: input.status,
   type: input.type,
-  fee: input.fee
 })
 
 export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderResponse => {
@@ -388,7 +382,6 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
     side: input.side,
     status: input.status,
     type: input.type,
-    fee: input.fee,
     fillmentTimestamp: input.fillmentTimestamp
   }
 }

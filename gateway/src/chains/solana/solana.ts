@@ -219,7 +219,6 @@ export class Solana implements Solanaish {
     )[0];
 
     return programAddress;
-
   }
 
   async getKeypair(address: string): Promise<Keypair> {
