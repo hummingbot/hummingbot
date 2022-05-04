@@ -314,7 +314,7 @@ class KucoinExchange(ExchangePyBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order. Check API key and network connection."
             )
@@ -621,7 +621,7 @@ class KucoinExchange(ExchangePyBase):
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                     return order_id
@@ -705,7 +705,7 @@ class KucoinExchange(ExchangePyBase):
                         elif order_event_type == "filled":
                             updated_status = OrderState.FILLED
                         elif order_event_type == "canceled":
-                            updated_status = OrderState.CANCELLED
+                            updated_status = OrderState.CANCELED
 
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
@@ -906,7 +906,7 @@ class KucoinExchange(ExchangePyBase):
 
                         new_state = tracked_order.current_state
                         if ordered_canceled or op_type == "CANCEL":
-                            new_state = OrderState.CANCELLED
+                            new_state = OrderState.CANCELED
                         elif not is_active:
                             new_state = OrderState.FILLED
 

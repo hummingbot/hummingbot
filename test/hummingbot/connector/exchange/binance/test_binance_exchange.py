@@ -535,7 +535,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order.client_order_id}."
+                f"Successfully canceled order {order.client_order_id}."
             )
         )
 
@@ -576,7 +576,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                f"There was a an error when requesting cancellation of order {order.client_order_id}"
+                f"There was a an error when requesting cancelation of order {order.client_order_id}"
             )
         )
 
@@ -646,7 +646,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -1111,7 +1111,7 @@ class BinanceExchangeTests(TestCase):
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     @aioresponses()
@@ -1461,7 +1461,7 @@ class BinanceExchangeTests(TestCase):
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1668,7 +1668,7 @@ class BinanceExchangeTests(TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",

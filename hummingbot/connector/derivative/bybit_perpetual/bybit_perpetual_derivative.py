@@ -689,7 +689,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     )
                     self._client_order_tracker.process_order_update(order_update)
                 else:
-                    raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
+                    raise IOError(f"Bybit Perpetual encountered a problem canceling the order"
                                   f" ({response['ret_code']} - {response['ret_msg']})")
 
             return client_order_id
@@ -736,7 +736,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         failed_cancellations.append(CancellationResult(order.client_order_id, False))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with ByBit Perpetual. Check API key and network connection."
             )
