@@ -1,3 +1,5 @@
+import os
+import sys
 from os.path import dirname, join, realpath
 from typing import Optional, Type
 
@@ -7,8 +9,10 @@ from prompt_toolkit.styles import Style
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.global_config_map import color_config_map
 from hummingbot.client.config.security import Security
+from hummingbot.client.settings import CONF_DIR_PATH
+from scripts.conf_migration_script import migrate
 
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
+sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
@@ -24,70 +28,11 @@ dialog_style = Style.from_dict({
 })
 
 
-def show_welcome():
-    message_dialog(
-        title='Welcome to Hummingbot',
-        text="""
-
-    ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
-    ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
-    ███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
-    ██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
-
-    =======================================================================================
-
-    Version: {version}
-    Codebase: https://github.com/hummingbot/hummingbot
-
-
-        """.format(version=version),
-        style=dialog_style).run()
-    message_dialog(
-        title='Important Warning',
-        text="""
-
-
-    PLEASE READ THIS CAREFULLY BEFORE USING HUMMINGBOT:
-
-    Hummingbot is a free and open source software client that helps you build algorithmic
-    crypto trading strategies.
-
-    Algorithmic crypto trading is a risky activity. You will be building a "bot" that
-    automatically places orders and trades based on parameters that you set. Please take
-    the time to understand how each strategy works before you risk real capital with it.
-    You are solely responsible for the trades that you perform using Hummingbot.
-
-    To use Hummingbot, you first need to give it access to your crypto assets by entering
-    API keys and/or private keys. These keys are not shared with anyone, including us.
-
-    On the next screen, you will set a password to protect your use of Hummingbot. Please
-    store this password safely, since only you have access to it and we cannot reset it.
-
-        """,
-        style=dialog_style).run()
-    message_dialog(
-        title='Important Warning',
-        text="""
-
-
-    SET A SECURE PASSWORD:
-
-    To use Hummingbot, you will need to give it access to your crypto assets by entering
-    your exchange API keys and/or wallet private keys. These keys are not shared with
-    anyone, including us.
-
-    On the next screen, you will set a password to protect these keys and other sensitive
-    data. Please store this password safely since there is no way to reset it.
-
-        """,
-        style=dialog_style).run()
-
-
 def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[BaseSecretsManager]:
     err_msg = None
     secrets_manager = None
+    if Security.new_password_required() and legacy_confs_exist():
+        migrate_configs(secrets_manager_cls)
     if Security.new_password_required():
         show_welcome()
         password = input_dialog(
@@ -132,3 +77,95 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
             style=dialog_style).run()
         return login_prompt(secrets_manager_cls)
     return secrets_manager
+
+
+def legacy_confs_exist() -> bool:
+    encrypted_conf_prefix = "encrypted_"
+    encrypted_conf_postfix = ".json"
+    exist = False
+    for f in sorted(os.listdir(CONF_DIR_PATH)):
+        f_path = CONF_DIR_PATH / f
+        if os.path.isfile(f_path) and f.startswith(encrypted_conf_prefix) and f.endswith(encrypted_conf_postfix):
+            exist = True
+            break
+    return exist
+
+
+def migrate_configs(secrets_manager_cls: Type[BaseSecretsManager]):
+    message_dialog(
+        title='Configs Migration',
+        text="""
+
+
+            CONFIGS MIGRATION:
+
+            We have recently refactored the way hummingbot handles configurations.
+            To migrate your legacy configuration files to the new format,
+            please enter your password on the following screen.
+
+                """,
+        style=dialog_style).run()
+    password = input_dialog(
+        title="Input Password",
+        text="\n\nEnter your password:",
+        password=True,
+        style=dialog_style).run()
+    if password is None:
+        raise ValueError("Wrong password.")
+    secrets_manager = secrets_manager_cls(password)
+    migrate(secrets_manager)
+
+
+def show_welcome():
+    message_dialog(
+        title='Welcome to Hummingbot',
+        text="""
+
+    ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
+    ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
+    ███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
+    ██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
+    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
+    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
+
+    =======================================================================================
+
+    Version: {version}
+    Codebase: https://github.com/hummingbot/hummingbot
+
+
+        """.format(version=version),
+        style=dialog_style).run()
+    message_dialog(
+        title='Important Warning',
+        text="""
+
+
+    PLEASE READ THIS CAREFULLY BEFORE USING HUMMINGBOT:
+
+    Hummingbot is a free and open source software client that helps you build algorithmic
+    crypto trading strategies.
+
+    Algorithmic crypto trading is a risky activity. You will be building a "bot" that
+    automatically places orders and trades based on parameters that you set. Please take
+    the time to understand how each strategy works before you risk real capital with it.
+    You are solely responsible for the trades that you perform using Hummingbot.
+
+        """,
+        style=dialog_style).run()
+    message_dialog(
+        title='Important Warning',
+        text="""
+
+
+    SET A SECURE PASSWORD:
+
+    To use Hummingbot, you will need to give it access to your crypto assets by entering
+    your exchange API keys and/or wallet private keys. These keys are not shared with
+    anyone, including us.
+
+    On the next screen, you will set a password to protect these keys and other sensitive
+    data. Please store this password safely since there is no way to reset it.
+
+        """,
+        style=dialog_style).run()

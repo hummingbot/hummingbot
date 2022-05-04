@@ -9,7 +9,11 @@ from typing import List, cast
 import yaml
 
 from hummingbot import root_path
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+from hummingbot.client.config.config_crypt import (
+    BaseSecretsManager,
+    ETHKeyFileSecretManger,
+    store_password_verification,
+)
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
@@ -21,11 +25,12 @@ conf_dir_path = CONF_DIR_PATH
 strategies_conf_dir_path = STRATEGIES_CONF_DIR_PATH
 
 
-def migrate(password: str):
+def migrate(secrets_manager: BaseSecretsManager):
     print("Starting conf migration.")
     backup_existing_dir()
-    migrate_strategy_confs()
-    migrate_connector_confs(password)
+    migrate_strategy_confs_paths()
+    migrate_connector_confs(secrets_manager)
+    store_password_verification(secrets_manager)
 
 
 def backup_existing_dir():
@@ -41,7 +46,7 @@ def backup_existing_dir():
         print(f"\nCreated a backup of your existing conf directory to {backup_path}")
 
 
-def migrate_strategy_confs():
+def migrate_strategy_confs_paths():
     print("\nMigrating strategies...")
     for child in conf_dir_path.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
@@ -53,9 +58,8 @@ def migrate_strategy_confs():
                 print(f"Migrated conf for {conf['strategy']}")
 
 
-def migrate_connector_confs(password: str):
+def migrate_connector_confs(secrets_manager: BaseSecretsManager):
     print("\nMigrating connector secure keys...")
-    secrets_manager = ETHKeyFileSecretManger(password)
     Security.secrets_manager = secrets_manager
     connector_exceptions = ["paper_trade"]
     type_dirs: List[DirEntry] = [
@@ -106,22 +110,24 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap):
             else:
                 missing_fields.append(el.attr)
     if found_one:
+        errors = []
         if len(missing_fields) != 0:
-            raise RuntimeError(
-                f"The migration of {config_keys.connector} failed because of missing fields: {missing_fields}"
-            )
-        errors = cm.validate_model()
+            errors = [f"missing fields: {missing_fields}"]
+        if len(errors) == 0:
+            errors = cm.validate_model()
         if errors:
-            raise RuntimeError(f"The migration of {config_keys.connector} failed with errors: {errors}")
-        Security.update_secure_config(cm.connector, cm)
-        for f in files_to_remove:
-            f.unlink()
-        print(f"Migrated secure keys for {config_keys.connector}")
+            print(f"The migration of {config_keys.connector} failed with errors: {errors}")
+        else:
+            Security.update_secure_config(cm)
+            for f in files_to_remove:
+                f.unlink()
+            print(f"Migrated secure keys for {config_keys.connector}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Migrate the HummingBot confs")
     parser.add_argument("password", type=str, help="Required to migrate all encrypted configs.")
     args = parser.parse_args()
-    migrate(args.password)
+    secrets_manager_ = ETHKeyFileSecretManger(args.password)
+    migrate(secrets_manager_)
     print("\nConf migration done.")
