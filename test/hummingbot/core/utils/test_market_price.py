@@ -1,7 +1,6 @@
 import asyncio
 import re
 import unittest
-
 from decimal import Decimal
 from typing import Any, Awaitable, Dict, List
 
@@ -10,9 +9,8 @@ from aioresponses import aioresponses
 from bidict import bidict
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
-import hummingbot.connector.exchange.binance.binance_utils as utils
+import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 import hummingbot.core.utils.market_price as market_price
-
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 
 
@@ -42,7 +40,7 @@ class MarketPriceUnitTests(unittest.TestCase):
                 {f"{self.base_asset}{self.quote_asset}": self.trading_pair})
         }
 
-        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: List[Dict[str, Any]] = [
             {
@@ -65,7 +63,7 @@ class MarketPriceUnitTests(unittest.TestCase):
                 {f"{self.binance_ex_trading_pair}": self.trading_pair})
         }
 
-        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: Dict[str, Any] = {
             # truncated response

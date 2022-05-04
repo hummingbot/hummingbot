@@ -1,7 +1,5 @@
 import asyncio
 import logging
-# import json
-# import aiohttp
 import math
 import time
 from decimal import Decimal
@@ -9,7 +7,6 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 
 from hummingbot.connector.exchange.digifinex import digifinex_utils
 from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
-# from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_in_flight_order import DigifinexInFlightOrder
 from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker
 from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker import DigifinexUserStreamTracker
@@ -17,7 +14,6 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-# from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -29,11 +25,10 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -404,7 +399,8 @@ class DigifinexExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -438,7 +434,8 @@ class DigifinexExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -559,7 +556,7 @@ class DigifinexExchange(ExchangeBase):
         # Update order execution status
         tracked_order.last_state = str(status)
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
@@ -623,10 +620,8 @@ class DigifinexExchange(ExchangeBase):
                                                tracked_order.client_order_id,
                                                tracked_order.base_asset,
                                                tracked_order.quote_asset,
-                                               tracked_order.fee_asset,
                                                tracked_order.executed_amount_base,
                                                tracked_order.executed_amount_quote,
-                                               tracked_order.fee_paid,
                                                tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -656,7 +651,7 @@ class DigifinexExchange(ExchangeBase):
                 delta_trade_amount,
                 estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
                 # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id='N/A'
+                exchange_trade_id=str(int(self._time() * 1e6))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
@@ -674,10 +669,8 @@ class DigifinexExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 

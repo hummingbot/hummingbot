@@ -1,27 +1,22 @@
-#!/usr/bin/env python
-
 import logging
 import math
-import pandas as pd
 import time
-
 from decimal import Decimal
 from typing import (
     List,
     Set
 )
 
+import pandas as pd
+
 from hummingbot.connector.connector_base import OrderType
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    OrderFilledEvent,
-    PriceType,
-)
+from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-
 
 pts_logger = None
 s_decimal_zero = Decimal('0')
@@ -74,7 +69,7 @@ class PerformTradeStrategy(StrategyPyBase):
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            HummingbotApplication.main_application().notify(msg)
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
@@ -106,7 +101,7 @@ class PerformTradeStrategy(StrategyPyBase):
                     float(order.price),
                     float(order.quantity),
                     f"{spread:.3%}",
-                    pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:]) / 1e6,
+                    pd.Timestamp(int(time.time() - (order.creation_timestamp * 1e-6)),
                                  unit='s').strftime('%H:%M:%S')
                 ])
 

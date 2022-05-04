@@ -16,7 +16,8 @@ from hummingbot.connector.trading_rule import TradingRule
 
 from hummingbot.connector.exchange.bitmart.bitmart_utils import HBOT_BROKER_ID
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.events import TradeType, OrderType, MarketEvent
+from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 
 from hummingbot.core.time_iterator import TimeIterator
@@ -503,7 +504,7 @@ class BitmartExchangeTests(unittest.TestCase):
 
         logged_msg = (
             f"Failed to cancel order {order_id}:"
-            f" Failed to cancel order - {order_id}. Order was already matched or cancelled on the exchange."
+            f" Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange."
         )
         self.assertTrue(self.is_logged("NETWORK", logged_msg))
 

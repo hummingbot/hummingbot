@@ -14,8 +14,8 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order imp
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_utils import (
+    build_coinbase_pro_web_assistant_factory,
     CoinbaseProRESTRequest,
-    build_coinbase_pro_web_assistant_factory
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -33,11 +33,10 @@ from hummingbot.core.event.events import (
     MarketTransactionFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -67,7 +66,7 @@ cdef class CoinbaseProExchangeTransactionTracker(TransactionTracker):
 cdef class CoinbaseProExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -437,7 +436,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                         )
                         self.c_stop_tracking_order(client_order_id)
                         self.c_trigger_event(
-                            self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            self.MARKET_ORDER_CANCELED_EVENT_TAG,
                             OrderCancelledEvent(self._current_timestamp, client_order_id)
                         )
                 except asyncio.CancelledError:
@@ -480,7 +479,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                     ),
                     # Coinbase Pro's websocket stream tags events with order_id rather than trade_id
                     # Using order_id here for easier data validation
-                    exchange_trade_id=exchange_order_id,
+                    exchange_trade_id=str(int(self._time() * 1e6)),
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -501,11 +500,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -515,16 +511,13 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      order_type))
                 else:
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
                                        f"according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id
@@ -619,11 +612,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -633,11 +623,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                     tracked_order.last_state = "filled"
                     self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -645,7 +632,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                 elif content.get("reason") == "canceled":  # reason == "canceled":
                     execute_amount_diff = 0
                     tracked_order.last_state = "canceled"
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
                     execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -714,7 +701,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                       trading_pair,
                                                       decimal_amount,
                                                       decimal_price,
-                                                      order_id))
+                                                      order_id,
+                                                      tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -778,7 +766,8 @@ cdef class CoinbaseProExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -819,17 +808,17 @@ cdef class CoinbaseProExchange(ExchangeBase):
             endpoint = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
             cancelled_id = await self._api_request(RESTMethod.DELETE, endpoint=endpoint)
             if cancelled_id == exchange_order_id:
-                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.logger().info(f"Successfully canceled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except IOError as e:
             if "order not found" in str(e):
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
+                self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancelation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
@@ -877,7 +866,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
                         )
         except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Coinbase Pro. Check API key and network connection."
             )
@@ -995,6 +984,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
             trade_type,
             price,
             amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):

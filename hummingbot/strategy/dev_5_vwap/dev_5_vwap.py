@@ -12,7 +12,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -47,7 +47,7 @@ class Dev5TwapTradeStrategy(StrategyPyBase):
         :param market_infos: list of market trading pairs
         :param order_type: type of order to place
         :param order_price: price to place the order at
-        :param cancel_order_wait_time: how long to wait before cancelling an order
+        :param cancel_order_wait_time: how long to wait before canceling an order
         :param is_buy: if the order is to buy
         :param time_delay: how long to wait between placing trades
         :param num_individual_orders: how many individual orders to split the order into

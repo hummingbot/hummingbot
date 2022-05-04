@@ -1,59 +1,52 @@
-import aiohttp
 import asyncio
-import binascii
-import json
-import time
-import uuid
-import traceback
-import urllib
 import hashlib
+import json
+import logging
+import time
+import urllib
+from decimal import *
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
-    Optional
+    Optional,
 )
-import math
-import logging
-from decimal import *
+
+import aiohttp
+from ethsnarks_loopring import FQ, poseidon, PoseidonEdDSA, poseidon_params, SNARK_SCALAR_FIELD
 from libc.stdint cimport int64_t
+
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import \
+    LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
+from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
+from hummingbot.connector.exchange.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.event_listener cimport EventListener
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
-from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
-from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
-from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
-from hummingbot.connector.exchange.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
-    MarketOrderFailureEvent,
-    BuyOrderCreatedEvent,
+    SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
-    OrderType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
-from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-
-from ethsnarks_loopring import PoseidonEdDSA
-from ethsnarks_loopring import FQ, SNARK_SCALAR_FIELD
-from ethsnarks_loopring import poseidon_params, poseidon
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -70,7 +63,7 @@ def now():
 
 BUY_ORDER_COMPLETED_EVENT = MarketEvent.BuyOrderCompleted.value
 SELL_ORDER_COMPLETED_EVENT = MarketEvent.SellOrderCompleted.value
-ORDER_CANCELLED_EVENT = MarketEvent.OrderCancelled.value
+ORDER_CANCELED_EVENT = MarketEvent.OrderCancelled.value
 ORDER_EXPIRED_EVENT = MarketEvent.OrderExpired.value
 ORDER_FILLED_EVENT = MarketEvent.OrderFilled.value
 ORDER_FAILURE_EVENT = MarketEvent.OrderFailure.value
@@ -362,8 +355,15 @@ cdef class LoopringExchange(ExchangeBase):
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
-            created_at: int = int(time.time())
-            in_flight_order = LoopringInFlightOrder.from_loopring_order(self, order_side, client_order_id, created_at, None, trading_pair, price, amount)
+            created_at = time.time()
+            in_flight_order = LoopringInFlightOrder.from_loopring_order(
+                order_side,
+                client_order_id,
+                created_at,
+                None,
+                trading_pair,
+                price,
+                amount)
             self.start_tracking(in_flight_order)
 
             try:
@@ -415,8 +415,16 @@ cdef class LoopringExchange(ExchangeBase):
                           order_type: OrderType,
                           price: Optional[Decimal] = Decimal('NaN')):
         if await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price):
+            tracked_order = self.in_flight_orders[order_id]
             self.c_trigger_event(BUY_ORDER_CREATED_EVENT,
-                                 BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 BuyOrderCreatedEvent(
+                                     now(),
+                                     order_type,
+                                     trading_pair,
+                                     Decimal(amount),
+                                     Decimal(price),
+                                     order_id,
+                                     tracked_order.creation_timestamp,))
 
     async def execute_sell(self,
                            order_id: str,
@@ -425,8 +433,16 @@ cdef class LoopringExchange(ExchangeBase):
                            order_type: OrderType,
                            price: Optional[Decimal] = Decimal('NaN')):
         if await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price):
+            tracked_order = self.in_flight_orders[order_id]
             self.c_trigger_event(SELL_ORDER_CREATED_EVENT,
-                                 SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 SellOrderCreatedEvent(
+                                     now(),
+                                     order_type,
+                                     trading_pair,
+                                     Decimal(amount),
+                                     Decimal(price),
+                                     order_id,
+                                     tracked_order.creation_timestamp,))
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.LIMIT, object price = 0.0,
                    dict kwargs = {}):
@@ -452,7 +468,7 @@ cdef class LoopringExchange(ExchangeBase):
         cancellation_event = OrderCancelledEvent(now(), client_order_id)
 
         if in_flight_order is None:
-            self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+            self.c_trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
             return
 
         try:
@@ -465,11 +481,12 @@ cdef class LoopringExchange(ExchangeBase):
 
             if 'resultInfo' in res:
                 code = res['resultInfo']['code']
+                message = res['resultInfo']['message']
                 if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
-                    self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                    self.c_trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
                     self.c_stop_tracking_order(client_order_id)
-                elif code is not None and code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
+                elif code is not None and code != 0 and (code != 100001 or message != "order in status CANCELED can't be canceled"):
                     raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
             return True
@@ -502,7 +519,7 @@ cdef class LoopringExchange(ExchangeBase):
             return False
 
         cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
-        self.c_add_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+        self.c_add_listener(ORDER_CANCELED_EVENT, cancel_verifier)
 
         for order_id, in_flight in cancellation_queue.iteritems():
             try:
@@ -513,7 +530,7 @@ cdef class LoopringExchange(ExchangeBase):
                 cancel_verifier.cancel_one()
 
         all_completed: bool = await cancel_verifier.wait_for_completion(timeout_seconds)
-        self.c_remove_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+        self.c_remove_listener(ORDER_CANCELED_EVENT, cancel_verifier)
 
         return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
 
@@ -585,8 +602,8 @@ cdef class LoopringExchange(ExchangeBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         for order_id, in_flight_repr in saved_states.iteritems():
-            in_flight_json: Dict[Str, Any] = json.loads(in_flight_repr)
-            self._in_flight_orders[order_id] = LoopringInFlightOrder.from_json(self, in_flight_json)
+            in_flight_json: Dict[str, Any] = json.loads(in_flight_repr)
+            self._in_flight_orders[order_id] = LoopringInFlightOrder.from_json(in_flight_json)
 
     def start_tracking(self, in_flight_order):
         self._in_flight_orders[in_flight_order.client_order_id] = in_flight_order
@@ -599,14 +616,14 @@ cdef class LoopringExchange(ExchangeBase):
     # updates to orders and balances
 
     def _update_inflight_order(self, tracked_order: LoopringInFlightOrder, event: Dict[str, Any]):
-        issuable_events: List[MarketEvent] = tracked_order.update(event)
+        issuable_events: List[MarketEvent] = tracked_order.update(event, self)
 
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
                 self.stop_tracking(tracked_order.client_order_id)
-                self.c_trigger_event(ORDER_CANCELLED_EVENT,
+                self.c_trigger_event(ORDER_CANCELED_EVENT,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderFilled:
@@ -621,7 +638,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                       AddedToCostTradeFee(
                                                           flat_fees=[TokenAmount(tracked_order.fee_asset, new_fee)]
                                                       ),
-                                                      tracked_order.client_order_id))
+                                                      str(int(self._time() * 1e6))))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,
                                      OrderExpiredEvent(self._current_timestamp,
@@ -643,10 +660,8 @@ cdef class LoopringExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    tracked_order.fee_asset,
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -656,10 +671,8 @@ cdef class LoopringExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     tracked_order.fee_asset,
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                 else:
                     # check if its a cancelled order
@@ -667,7 +680,7 @@ cdef class LoopringExchange(ExchangeBase):
                     # if present in in flight orders issue cancel and stop tracking order
                     if tracked_order.is_cancelled:
                         if tracked_order.client_order_id in self._in_flight_orders:
-                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
                     else:
                         self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
                                            f"order status API.")
@@ -686,7 +699,7 @@ cdef class LoopringExchange(ExchangeBase):
                     padded_total_amount: str = data['total']
                     token_id: int = data['tokenId']
                     completed_tokens.add(token_id)
-                    padded_amount_locked: string = data['locked']
+                    padded_amount_locked: str = data['locked']
 
                     token_symbol: str = self._token_configuration.get_symbol(token_id)
                     total_amount: Decimal = self._token_configuration.unpad(padded_total_amount, token_id)
@@ -842,9 +855,9 @@ cdef class LoopringExchange(ExchangeBase):
                 print(loopring_order_request)
                 if loopring_order_request['resultInfo']['code'] == 107003:
                     if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
-                        self.logger().warning(f"marking {client_order_id} as cancelled")
+                        self.logger().warning(f"marking {client_order_id} as canceled")
                         cancellation_event = OrderCancelledEvent(now(), client_order_id)
-                        self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                        self.c_trigger_event(ORDER_CANCELED_EVENT, cancellation_event)
                         self.stop_tracking(client_order_id)
                 continue
 

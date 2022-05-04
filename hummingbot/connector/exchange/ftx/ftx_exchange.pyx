@@ -2,49 +2,53 @@ import asyncio
 import copy
 import logging
 import time
-import requests
-import simplejson
-from requests import Request
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Optional,
+)
 
 import aiohttp
-import ujson
-import pandas as pd
+import requests
+import simplejson
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
-from hummingbot.core.clock cimport Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderType,
-    OrderFilledEvent,
-    TradeType,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent, OrderCancelledEvent, MarketTransactionFailureEvent,
-    MarketOrderFailureEvent, SellOrderCreatedEvent, BuyOrderCreatedEvent)
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source import FtxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ftx.ftx_auth import FtxAuth
 from hummingbot.connector.exchange.ftx.ftx_in_flight_order import FtxInFlightOrder
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker import FtxOrderBookTracker
-from hummingbot.connector.exchange.ftx.ftx_order_status import FtxOrderStatus
 from hummingbot.connector.exchange.ftx.ftx_user_stream_tracker import FtxUserStreamTracker
-from hummingbot.connector.exchange_base import NaN
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-
 from hummingbot.connector.exchange.ftx.ftx_utils import (
     convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
+    convert_to_exchange_trading_pair
+)
+from hummingbot.connector.exchange_base import NaN
+from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -67,7 +71,7 @@ cdef class FtxExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -192,9 +196,9 @@ cdef class FtxExchange(ExchangeBase):
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             base, quote = self.split_trading_pair(tracked_order.trading_pair)
             if market_event == MarketEvent.OrderCancelled:
-                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+                self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
 
@@ -218,20 +222,6 @@ cdef class FtxExchange(ExchangeBase):
                     self.logger().warning(
                         f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
                         f"The complete update will be processed with estimated fees.")
-                    fee_asset = tracked_order.quote_asset
-                    fee = self.get_fee(
-                        base,
-                        quote,
-                        tracked_order.order_type,
-                        tracked_order.trade_type,
-                        new_amount,
-                        new_price)
-                    fee_amount = fee.fee_amount_in_quote(
-                        tracked_order.trading_pair, new_price, tracked_order.amount, self
-                    )
-                else:
-                    fee_asset = tracked_order.fee_asset
-                    fee_amount = tracked_order.fee_paid
 
                 self.logger().info(f"The market {tracked_order.trade_type.name.lower()} order "
                                    f"{tracked_order.client_order_id} has completed according to user stream.")
@@ -241,10 +231,8 @@ cdef class FtxExchange(ExchangeBase):
                                 tracked_order.client_order_id,
                                 base,
                                 quote,
-                                fee_asset,
                                 tracked_order.executed_amount_base,
                                 tracked_order.executed_amount_quote,
-                                fee_amount,
                                 tracked_order.order_type))
             # Complete the order if relevant
             if tracked_order.is_done:
@@ -343,12 +331,15 @@ cdef class FtxExchange(ExchangeBase):
             tracked_orders = list(self._in_flight_orders.values())
             for tracked_order in tracked_orders:
                 try:
-                    response = await self._api_request("GET", path_url=f"/orders/by_client_id/{tracked_order.client_order_id}")
+                    response = await self._api_request(
+                        "GET",
+                        path_url=f"/orders/by_client_id/{tracked_order.client_order_id}")
                     order = response["result"]
 
                     await self._update_inflight_order(tracked_order, order)
                 except RuntimeError as e:
-                    if "Order not found" in str(e) and tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                    if ("Order not found" in str(e)
+                            and tracked_order.creation_timestamp < (time.time() - UNRECOGNIZED_ORDER_DEBOUCE)):
                         tracked_order.set_status("FAILURE")
                         self.c_trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
@@ -358,8 +349,8 @@ cdef class FtxExchange(ExchangeBase):
                         )
                         self.c_stop_tracking_order(tracked_order.client_order_id)
                         self.logger().warning(
-                            f"Order {tracked_order.client_order_id} not found on exchange after {UNRECOGNIZED_ORDER_DEBOUCE} seconds."
-                            f"Marking as failed"
+                            f"Order {tracked_order.client_order_id} not found on exchange after "
+                            f"{UNRECOGNIZED_ORDER_DEBOUCE} seconds. Marking as failed"
                         )
                     else:
                         self.logger().error(
@@ -516,7 +507,7 @@ cdef class FtxExchange(ExchangeBase):
             trade_type,
             price,
             amount,
-            self._current_timestamp
+            creation_timestamp=self._current_timestamp
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -681,7 +672,8 @@ cdef class FtxExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
 
         except asyncio.CancelledError:
@@ -805,7 +797,8 @@ cdef class FtxExchange(ExchangeBase):
                                          trading_pair,
                                          decimal_amount,
                                          decimal_price,
-                                         order_id
+                                         order_id,
+                                         tracked_order.creation_timestamp,
                                      ))
         except asyncio.CancelledError:
             raise
@@ -845,11 +838,11 @@ cdef class FtxExchange(ExchangeBase):
         try:
             cancel_result = await self._api_request("DELETE", path_url=path_url)
 
-            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancellation"]):
-                self.logger().info(f"Requested cancellation of order {order_id}.")
+            if cancel_result["success"] or (cancel_result["error"] in ["Order already closed", "Order already queued for cancelation"]):
+                self.logger().info(f"Requested cancelation of order {order_id}.")
                 return order_id
             else:
-                self.logger().info(f"Could not request cancellation of order {order_id} as FTX returned: {cancel_result}")
+                self.logger().info(f"Could not request cancelation of order {order_id} as FTX returned: {cancel_result}")
                 return order_id
         except Exception as e:
             self.logger().network(
@@ -880,7 +873,7 @@ cdef class FtxExchange(ExchangeBase):
                         successful_cancellation.append(CancellationResult(order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 app_warning_msg="Failed to cancel order on ftx. Check API key and network connection."
             )
 

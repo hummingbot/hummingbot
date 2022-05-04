@@ -1,10 +1,7 @@
-import aiohttp
 import asyncio
+import logging
 import math
 import time
-import logging
-
-from async_timeout import timeout
 from decimal import Decimal
 from typing import (
     Any,
@@ -14,12 +11,15 @@ from typing import (
     Optional,
 )
 
-from hummingbot.connector.exchange_base import ExchangeBase
+import aiohttp
+from async_timeout import timeout
+
 from hummingbot.connector.exchange.hitbtc.hitbtc_api_order_book_data_source import HitbtcAPIOrderBookDataSource
 from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
 from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitbtcInFlightOrder
 from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
+from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitbtcUserStreamTracker
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     aiohttp_response_with_errors,
     get_new_client_order_id,
@@ -28,13 +28,15 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     str_date_to_ts,
     translate_asset,
 )
-from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitbtcUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -42,16 +44,12 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
-
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -460,7 +458,14 @@ class HitbtcExchange(ExchangeBase):
                 event_tag = MarketEvent.SellOrderCreated
                 event_cls = SellOrderCreatedEvent
             self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
+                               event_cls(
+                                   self.current_timestamp,
+                                   order_type,
+                                   trading_pair,
+                                   amount,
+                                   price,
+                                   order_id,
+                                   tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except HitbtcAPIError as e:
@@ -493,7 +498,8 @@ class HitbtcExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -534,7 +540,7 @@ class HitbtcExchange(ExchangeBase):
                     self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
         if order_was_cancelled:
-            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.logger().info(f"Successfully canceled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
@@ -654,7 +660,7 @@ class HitbtcExchange(ExchangeBase):
         tracked_order.executed_amount_quote = Decimal(order_msg["price"]) * Decimal(order_msg["cumQuantity"])
 
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.stop_tracking_order(client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, client_order_id))
@@ -735,10 +741,8 @@ class HitbtcExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -775,7 +779,7 @@ class HitbtcExchange(ExchangeBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.", exc_info=True,
+                "Unexpected error canceling orders.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )

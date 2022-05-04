@@ -1,47 +1,44 @@
-#!/usr/bin/env python
-
-import aiohttp
 import asyncio
 import logging
 import math
 import time
-import ujson
-
 from decimal import Decimal
 from typing import (
+    Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    Any,
-    AsyncIterable,
 )
 
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
-from hummingbot.connector.exchange.probit import probit_utils
+import aiohttp
+import ujson
+
+from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS, probit_utils
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
 from hummingbot.connector.exchange.probit.probit_in_flight_order import ProbitInFlightOrder
 from hummingbot.connector.exchange.probit.probit_order_book_tracker import ProbitOrderBookTracker
 from hummingbot.connector.exchange.probit.probit_user_stream_tracker import ProbitUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType
-)
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -393,7 +390,9 @@ class ProbitExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = probit_utils.get_new_client_order_id(True, trading_pair)
+        order_id = get_new_client_order_id(
+            is_buy=True, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+        )
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -408,7 +407,9 @@ class ProbitExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = probit_utils.get_new_client_order_id(False, trading_pair)
+        order_id = get_new_client_order_id(
+            is_buy=False, trading_pair=trading_pair, max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
+        )
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -496,7 +497,8 @@ class ProbitExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   tracked_order.creation_timestamp,
                                ))
         except asyncio.CancelledError:
             raise
@@ -530,7 +532,8 @@ class ProbitExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            creation_timestamp=self.current_timestamp
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -719,7 +722,7 @@ class ProbitExchange(ExchangeBase):
 
         # NOTE: In ProBit partially-filled orders will retain "filled" status when canceled.
         if tracked_order.is_cancelled or Decimal(str(order_msg["cancelled_quantity"])) > Decimal("0"):
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
@@ -795,10 +798,8 @@ class ProbitExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type,
                                            tracked_order.exchange_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)

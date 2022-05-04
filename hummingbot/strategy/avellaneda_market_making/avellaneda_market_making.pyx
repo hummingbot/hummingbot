@@ -3,16 +3,8 @@ import logging
 import os
 import time
 from decimal import Decimal
-from math import (
-    ceil,
-    floor,
-    isnan,
-)
-from typing import (
-    Dict,
-    List,
-    Tuple,
-)
+from math import ceil, floor, isnan
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,15 +12,14 @@ import pandas as pd
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderType
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState
+from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
 from hummingbot.strategy.data_types import (
     PriceSize,
     Proposal,
@@ -137,8 +128,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._start_time = start_time
         self._end_time = end_time
         self._min_spread = min_spread
-        self._latest_parameter_calculation_vol = s_decimal_zero
-        self._reserved_price = s_decimal_zero
+        self._reservation_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
         self._optimal_bid = s_decimal_zero
@@ -153,14 +143,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
-
-    @property
-    def latest_parameter_calculation_vol(self):
-        return self._latest_parameter_calculation_vol
-
-    @latest_parameter_calculation_vol.setter
-    def latest_parameter_calculation_vol(self, value):
-        self._latest_parameter_calculation_vol = value
 
     @property
     def min_spread(self):
@@ -323,12 +305,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._eta = value
 
     @property
-    def reserved_price(self):
-        return self._reserved_price
+    def reservation_price(self):
+        return self._reservation_price
 
-    @reserved_price.setter
-    def reserved_price(self, value):
-        self._reserved_price = value
+    @reservation_price.setter
+    def reservation_price(self, value):
+        self._reservation_price = value
 
     @property
     def optimal_spread(self):
@@ -470,11 +452,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     level = no_sells - lvl_sell
                     lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price) / price
-            age = "n/a"
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:]) / 1e6,
-                                   unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+
             amount_orig = self._order_amount
             if is_hanging_order:
                 amount_orig = float(order.quantity)
@@ -494,7 +473,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         markets_data = []
         markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"MidPrice"]
-        markets_columns.append('Reserved Price')
+        markets_columns.append('Reservation Price')
         markets_columns.append('Optimal Spread')
         market_books = [(self._market_info.market, self._market_info.trading_pair)]
         for market, trading_pair in market_books:
@@ -507,7 +486,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 float(bid_price),
                 float(ask_price),
                 float(ref_price),
-                round(self._reserved_price, 5),
+                round(self._reservation_price, 5),
                 round(self._optimal_spread, 5),
             ])
         return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
@@ -636,8 +615,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         proposal = None
         # Trading is allowed
         if self._create_timestamp <= self._current_timestamp:
-            # 1. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
-            self.c_calculate_reserved_price_and_optimal_spread()
+            # 1. Calculate reservation price and optimal spread from gamma, alpha, kappa and volatility
+            self.c_calculate_reservation_price_and_optimal_spread()
             # 2. Check if calculated prices make sense
             if self._optimal_bid > 0 and self._optimal_ask > 0:
                 # 3. Create base order proposals
@@ -685,12 +664,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def get_volatility(self):
         vol = Decimal(str(self._avg_vol.current_value))
-        if vol == s_decimal_zero:
-            if self._latest_parameter_calculation_vol != s_decimal_zero:
-                vol = Decimal(str(self._latest_parameter_calculation_vol))
-            else:
-                # Default value at start time if price has no activity
-                vol = Decimal(str(self.c_get_spread() / 2))
         return vol
 
     cdef c_measure_order_book_liquidity(self):
@@ -707,15 +680,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def measure_order_book_liquidity(self):
         return self.c_measure_order_book_liquidity()
 
-    cdef c_calculate_reserved_price_and_optimal_spread(self):
+    cdef c_calculate_reservation_price_and_optimal_spread(self):
         cdef:
             ExchangeBase market = self._market_info.market
 
         # Current mid price
         price = self.get_price()
 
-        # The amount of stocks owned - q - has to be in relative units, not absolute, because changing the portfolio size shouldn't change the reserved price
-        # The reserved price should concern itself only with the strategy performance, i.e. amount of stocks relative to the target
+        # The amount of stocks owned - q - has to be in relative units, not absolute, because changing the portfolio size shouldn't change the reservation price
+        # The reservation price should concern itself only with the strategy performance, i.e. amount of stocks relative to the target
         inventory = Decimal(str(self.c_calculate_inventory()))
 
         if inventory == 0:
@@ -723,13 +696,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         q_target = Decimal(str(self.c_calculate_target_inventory()))
         q = (market.get_balance(self.base_asset) - q_target) / (inventory)
-        # Volatility has to be in absolute values (prices) because in calculation of reserved price it's not multiplied by the current price, therefore
+        # Volatility has to be in absolute values (prices) because in calculation of reservation price it's not multiplied by the current price, therefore
         # it can't be a percentage. The result of the multiplication has to be an absolute price value because it's being subtracted from the current price
         vol = self.get_volatility()
-        mid_price_variance = vol ** 2
 
         # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
-        # and from the reserved price calculation we know that gamma's unit is not absolute price
+        # and from the reservation price calculation we know that gamma's unit is not absolute price
         if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0 and vol != 0:
             if self._execution_state.time_left is not None and self._execution_state.closing_time is not None:
                 # Avellaneda-Stoikov for a fixed timespan
@@ -738,15 +710,22 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # Avellaneda-Stoikov for an infinite timespan
                 # The equations in the paper for this contain a few mistakes
                 # - the units don't align with the rest of the paper
-                # - volatility cancells itself out completely
-                # - the risk factor gets partially cancelled
+                # - volatility cancels itself out completely
+                # - the risk factor gets partially canceled
                 # The proposed solution is to use the same equation as for the constrained timespan but with
                 # a fixed time left
                 time_left_fraction = 1
 
-            self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+            # Here seems to be another mistake in the paper
+            # It doesn't make sense to use mid_price_variance because its units would be absolute price units ^2, yet that side of the equation is subtracted
+            # from the actual mid price of the asset in absolute price units
+            # gamma / risk_factor gains a meaning of a fraction (percentage) of the volatility (standard deviation between ticks) to be subtraced from the
+            # current mid price
+            # This leads to normalization of the risk_factor and will guaranetee consistent behavior on all price ranges of the asset, and across assets
 
-            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+            self._reservation_price = price - (q * self._gamma * vol * time_left_fraction)
+
+            self._optimal_spread = self._gamma * vol * time_left_fraction
             self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
             min_spread = price / 100 * Decimal(str(self._min_spread))
@@ -754,8 +733,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             max_limit_bid = price - min_spread / 2
             min_limit_ask = price + min_spread / 2
 
-            self._optimal_ask = max(self._reserved_price + self._optimal_spread / 2, min_limit_ask)
-            self._optimal_bid = min(self._reserved_price - self._optimal_spread / 2, max_limit_bid)
+            self._optimal_ask = max(self._reservation_price + self._optimal_spread / 2, min_limit_ask)
+            self._optimal_bid = min(self._reservation_price - self._optimal_spread / 2, max_limit_bid)
 
             # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
             # Optimal bid and optimal ask prices will be used
@@ -763,13 +742,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.logger().info(f"q={q:.4f} | "
                                    f"vol={vol:.10f}")
                 self.logger().info(f"mid_price={price:.10f} | "
-                                   f"reserved_price={self._reserved_price:.10f} | "
+                                   f"reservation_price={self._reservation_price:.10f} | "
                                    f"optimal_spread={self._optimal_spread:.10f}")
-                self.logger().info(f"optimal_bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
-                                   f"optimal_ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}%")
+                self.logger().info(f"optimal_bid={(price-(self._reservation_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                                   f"optimal_ask={((self._reservation_price + self._optimal_spread / 2) - price) / price * 100:.4f}%")
 
-    def calculate_reserved_price_and_optimal_spread(self):
-        return self.c_calculate_reserved_price_and_optimal_spread()
+    def calculate_reservation_price_and_optimal_spread(self):
+        return self.c_calculate_reservation_price_and_optimal_spread()
 
     cdef object c_calculate_target_inventory(self):
         cdef:
@@ -1210,7 +1189,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         cdef:
             list active_orders = self.active_non_hanging_orders
         for order in active_orders:
-            if order_age(order) > self._max_order_age:
+            if order_age(order, self._current_timestamp) > self._max_order_age:
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef c_cancel_active_orders(self, object proposal):
@@ -1337,9 +1316,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         spread = Decimal(str(self.c_get_spread()))
 
         best_ask = mid_price + spread / 2
-        new_ask = self._reserved_price + self._optimal_spread / 2
+        new_ask = self._reservation_price + self._optimal_spread / 2
         best_bid = mid_price - spread / 2
-        new_bid = self._reserved_price - self._optimal_spread / 2
+        new_bid = self._reservation_price - self._optimal_spread / 2
 
         vol = self.get_volatility()
         mid_price_variance = vol ** 2
@@ -1348,7 +1327,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             df_header = pd.DataFrame([('mid_price',
                                        'best_bid',
                                        'best_ask',
-                                       'reserved_price',
+                                       'reservation_price',
                                        'optimal_spread',
                                        'optimal_bid',
                                        'optimal_ask',
@@ -1358,6 +1337,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                        'target_inv',
                                        'time_left_fraction',
                                        'mid_price std_dev',
+                                       'risk_factor',
                                        'gamma',
                                        'alpha',
                                        'kappa',
@@ -1375,12 +1355,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         df = pd.DataFrame([(mid_price,
                             best_bid,
                             best_ask,
-                            self._reserved_price,
+                            self._reservation_price,
                             self._optimal_spread,
                             self._optimal_bid,
                             self._optimal_ask,
-                            (mid_price - (self._reserved_price - self._optimal_spread / 2)) / mid_price,
-                            ((self._reserved_price + self._optimal_spread / 2) - mid_price) / mid_price,
+                            (mid_price - (self._reservation_price - self._optimal_spread / 2)) / mid_price,
+                            ((self._reservation_price + self._optimal_spread / 2) - mid_price) / mid_price,
                             market.get_balance(self.base_asset),
                             self.c_calculate_target_inventory(),
                             time_left_fraction,

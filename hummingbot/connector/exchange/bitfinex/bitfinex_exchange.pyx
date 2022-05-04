@@ -4,16 +4,13 @@ import json
 import logging
 import time
 import uuid
-
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
-from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.bitfinex import (
     AFF_CODE,
     BITFINEX_REST_AUTH_URL,
@@ -33,10 +30,13 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
     get_precision,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_websocket import BitfinexWebsocket
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -45,17 +45,13 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
-    OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType,
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.logger import HummingbotLogger
-
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -89,7 +85,7 @@ cdef class BitfinexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -688,6 +684,7 @@ cdef class BitfinexExchange(ExchangeBase):
             trade_type,
             price,
             amount,
+            creation_timestamp=self.current_timestamp
         )
 
     cdef str c_buy(self, str trading_pair, object amount,
@@ -756,7 +753,8 @@ cdef class BitfinexExchange(ExchangeBase):
                     trading_pair,
                     decimal_amount,
                     decimal_price,
-                    order_id
+                    order_id,
+                    tracked_order.creation_timestamp
                 )
             )
         except asyncio.CancelledError:
@@ -842,7 +840,8 @@ cdef class BitfinexExchange(ExchangeBase):
                                                        trading_pair,
                                                        decimal_amount,
                                                        decimal_price,
-                                                       order_id))
+                                                       order_id,
+                                                       tracked_order.creation_timestamp))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -888,18 +887,18 @@ cdef class BitfinexExchange(ExchangeBase):
                 response = _response
                 break
 
-            self.logger().info(f"Successfully cancelled order {order_id}.")
+            self.logger().info(f"Successfully canceled order {order_id}.")
             self.c_stop_tracking_order(order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, order_id))
             return order_id
 
         except IOError as e:
             if "order not found" in e.message:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Bitfinex. No cancellation needed.")
+                self.logger().info(f"The order {order_id} does not exist on Bitfinex. No cancelation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
@@ -939,6 +938,7 @@ cdef class BitfinexExchange(ExchangeBase):
         if _type not in [ContentEventType.TRADE_UPDATE]:
             return
         data = {
+            "trade_id": "",
             "type": _type,
             "order_id": 0,
             "maker_order_id": 0,
@@ -1066,7 +1066,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         AddedToCostTradeFee(
                             flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(content.get("fee"))))]
                         ),
-                        exchange_trade_id=tracked_order.exchange_order_id
+                        exchange_trade_id=str(content["trade_id"])
                     )
                 )
 
@@ -1091,10 +1091,8 @@ cdef class BitfinexExchange(ExchangeBase):
                             tracked_order.client_order_id,
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            (tracked_order.fee_asset or tracked_order.quote_asset),
                             tracked_order.executed_amount_base,
                             tracked_order.executed_amount_quote,
-                            tracked_order.fee_paid,
                             tracked_order.order_type
                         )
                     )
@@ -1125,7 +1123,7 @@ cdef class BitfinexExchange(ExchangeBase):
             cancellation_results = []
             async for _response in ws.messages(waitFor=waitFor):
                 cancelled_client_oids = [o[-1]['order_id'] for o in _response[2][4]]
-                self.logger().info(f"Succesfully cancelled orders: {cancelled_client_oids}")
+                self.logger().info(f"Succesfully canceled orders: {cancelled_client_oids}")
                 for c_oid in cancelled_client_oids:
                     cancellation_results.append(CancellationResult(c_oid, True))
                 break
@@ -1279,7 +1277,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         base_execute_amount_diff,
                         base_execute_price,
                     ),
-                    exchange_trade_id=exchange_order_id,
+                    exchange_trade_id=str(int(self._time() * 1e6)),
                 )
                 self.logger().info(f"Filled {base_execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"{order_type_description} order {client_order_id}.")
@@ -1304,11 +1302,8 @@ cdef class BitfinexExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
                                                                     order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -1318,16 +1313,13 @@ cdef class BitfinexExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
                                                                      order_type))
                 else:
-                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been canceled "
                                        f"according to order status API.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id

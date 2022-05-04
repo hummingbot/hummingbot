@@ -1,37 +1,32 @@
-#!/usr/bin/env python
 import datetime
 import math
-import numpy as np
-import pandas as pd
 import unittest
-
 from copy import deepcopy
 from decimal import Decimal
-from typing import (
-    List,
-    Tuple,
-)
+from typing import List, Tuple
+
+import numpy as np
+import pandas as pd
+
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
+    BuyOrderCompletedEvent,
     MarketEvent,
     OrderFilledEvent,
-    BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-
+from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
-from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
-from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from test.mock.mock_paper_exchange import MockPaperExchange
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -339,10 +334,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -363,10 +356,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                Decimal("0"),
                 OrderType.LIMIT
             ))
 
@@ -626,7 +617,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertAlmostEqual(1.0028041271598158, alpha, 5)
         self.assertAlmostEqual(0.00038015903945779595, kappa, 5)
 
-    def test_calculate_reserved_price_and_optimal_spread_timeframe_constrained(self):
+    def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
         self.strategy.execution_timeframe = "daily_between_times"
         self.strategy.start_time = (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30)).time()
@@ -640,15 +631,15 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("99.93581983304362835415781320"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("8.048452121090869051292856409"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("103.9600458935890628798042414"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("95.91159377249819382851138500"), self.strategy.optimal_bid, 2)
+        # Check reservation_price, optimal_ask and optimal_bid
+        self.assertAlmostEqual(Decimal("99.95404856954350080330559626"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("8.10312337812488556961420323"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("104.0056102586059435881126979"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("95.90248688048105801849849464"), self.strategy.optimal_bid, 2)
 
-    def test_calculate_reserved_price_and_optimal_spread_timeframe_infinite(self):
+    def test_calculate_reservation_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
         self.strategy.execution_timeframe = "infinite"
         self.strategy.gamma = self.risk_factor_infinite
@@ -661,13 +652,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("99.93618286107057944269726650"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("6.870924306831992724076648358"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("103.3716450144865758047355907"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.50072070765458308065894232"), self.strategy.optimal_bid, 2)
+        # Check reservation_price, optimal_ask and optimal_bid
+        self.assertAlmostEqual(Decimal("99.95896878169542000413199532"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("6.939263378124513371978331884"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("103.4286004707576766901211613"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("96.48933709263316331814282938"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
@@ -720,10 +711,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03710408601585762674091538545'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03710408601585762674091538545'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -742,10 +733,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.3716424871860017289514480476'), Decimal('0.7432849743720034579028960952'), Decimal('1.114927461558005186854344143')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.3716424871860017289514480476'), Decimal('0.7432849743720034579028960952'), Decimal('1.114927461558005186854344143')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.1170211083866360679794947748'), Decimal('0.2340422167732721359589895496'), Decimal('0.3510633251599082039384843244')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.1170211083866360679794947748'), Decimal('0.2340422167732721359589895496'), Decimal('0.3510633251599082039384843244')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -764,7 +755,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Test(1) Check order_levels default = 0
         empty_proposal = ([], [])
@@ -801,7 +792,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
                                                                            self.order_amount)
@@ -825,7 +816,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # (1) Default
         expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
@@ -918,7 +909,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Create a basic proposal.
         order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
@@ -946,7 +937,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Create a basic proposal.
         order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
@@ -975,7 +966,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Create a basic proposal.
         order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
@@ -1028,7 +1019,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Create a basic proposal.
         order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
@@ -1086,7 +1077,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Create a basic proposal.
         order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
@@ -1314,7 +1305,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
@@ -1381,7 +1372,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
@@ -1433,7 +1424,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        self.strategy.calculate_reservation_price_and_optimal_spread()
 
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 

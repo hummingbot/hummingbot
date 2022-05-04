@@ -1,13 +1,12 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/LimitOrder.cpp
+import time
+from decimal import Decimal
+from typing import List
 
+import pandas as pd
 from cpython cimport PyObject
 from libcpp.string cimport string
-
-from decimal import Decimal
-import pandas as pd
-from typing import List
-import time
 
 from hummingbot.core.event.events import LimitOrderStatus
 
@@ -39,8 +38,8 @@ cdef class LimitOrder:
             list data = []
             str order_id_txt, type_txt, spread_txt, age_txt, hang_txt
             double price, quantity
-            long age_seconds
-            long now_timestamp = int(time.time() * 1e6) if end_time_order_age == 0 else end_time_order_age
+            long long age_seconds
+            long long now_timestamp = int(time.time() * 1e6) if end_time_order_age == 0 else end_time_order_age
         sells.extend(buys)
         for order in sells:
             order_id_txt = order.client_order_id if len(order.client_order_id) <= 7 else f"...{order.client_order_id[-4:]}"
@@ -65,7 +64,7 @@ cdef class LimitOrder:
                  price: Decimal,
                  quantity: Decimal,
                  filled_quantity: Decimal = Decimal("NaN"),
-                 creation_timestamp: int = 0.0,
+                 creation_timestamp: int = 0,
                  status: LimitOrderStatus = LimitOrderStatus.UNKNOWN):
         cdef:
             string cpp_client_order_id = client_order_id.encode("utf8")
@@ -128,20 +127,20 @@ cdef class LimitOrder:
         return <object>(self._cpp_limit_order.getFilledQuantity())
 
     @property
-    def creation_timestamp(self) -> float:
+    def creation_timestamp(self) -> int:
         return self._cpp_limit_order.getCreationTimestamp()
 
     @property
     def status(self) -> LimitOrderStatus:
         return LimitOrderStatus(self._cpp_limit_order.getStatus())
 
-    cdef long c_age_til(self, long end_timestamp):
+    cdef long long c_age_til(self, long long end_timestamp):
         """
         Calculates and returns age of the order since it was created til end_timestamp in seconds
         :param end_timestamp: The end timestamp
         :return: The age of the order in seconds
         """
-        cdef long start_timestamp = 0
+        cdef long long start_timestamp = 0
         if self.creation_timestamp > 0:
             start_timestamp = self.creation_timestamp
         elif len(self.client_order_id) > 16 and self.client_order_id[-16:].isnumeric():
@@ -151,7 +150,7 @@ cdef class LimitOrder:
         else:
             return -1
 
-    cdef long c_age(self):
+    cdef long long c_age(self):
         """
         Calculates and returns age of the order since it was created til now.
         """
@@ -165,7 +164,8 @@ cdef class LimitOrder:
 
     def __repr__(self) -> str:
         return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "
-                f"'{self.quote_currency}', {self.price}, {self.quantity}, {self.filled_quantity})")
+                f"'{self.quote_currency}', {self.price}, {self.quantity}, {self.filled_quantity}, "
+                f"{self.creation_timestamp})")
 
 
 cdef LimitOrder c_create_limit_order_from_cpp_limit_order(const CPPLimitOrder cpp_limit_order):
