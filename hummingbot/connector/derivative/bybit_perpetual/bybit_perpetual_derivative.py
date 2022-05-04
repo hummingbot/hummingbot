@@ -1000,8 +1000,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(
                             self._domain)
                         self._process_account_position_event(position_msg, symbol_trading_pair_map)
-                    # Trigger balance update because Bybit doesn't have balance updates through the websocket
-                    await self._update_balances()
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
                     for order_msg in payload:
                         self._process_order_event_message(order_msg)
@@ -1042,6 +1040,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         else:
             if pos_key in self._account_positions:
                 del self._account_positions[pos_key]
+
+        # Trigger balance update because Bybit doesn't have balance updates through the websocket
+        safe_ensure_future(self._update_balances())
 
     def _process_order_event_message(self, order_msg: Dict[str, Any]):
         """
