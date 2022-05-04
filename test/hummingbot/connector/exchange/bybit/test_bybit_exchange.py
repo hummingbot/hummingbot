@@ -10,10 +10,8 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.bybit import (
-    bybit_constants as CONSTANTS,
-    bybit_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS
+from hummingbot.connector.exchange.bybit import bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
 from hummingbot.connector.exchange.bybit.bybit_exchange import BybitExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -163,7 +161,7 @@ class TestBybitExchange(unittest.TestCase):
         # self.assertIn("KC-API-KEY-VERSION", request_headers)
         # self.assertEqual("2", request_headers["KC-API-KEY-VERSION"])
         self.assertIn("api_key", request_params)
-        self.assertIn("signature", request_params)
+        self.assertIn("sign", request_params)
 
     def test_supported_order_types(self):
         supported_types = self.exchange.supported_order_types()
@@ -329,7 +327,7 @@ class TestBybitExchange(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",
@@ -716,7 +714,7 @@ class TestBybitExchange(unittest.TestCase):
                         body=json.dumps(response),
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(order_id="OID1")
+        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -730,7 +728,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order.client_order_id}."
+                f"Successfully canceled order {order.client_order_id}."
             )
         )
 
@@ -759,7 +757,7 @@ class TestBybitExchange(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(order_id="OID1")
+        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -850,7 +848,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Successfully cancelled order {order1.client_order_id}."
+                f"Successfully canceled order {order1.client_order_id}."
             )
         )
 
@@ -1121,7 +1119,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     @aioresponses()
@@ -1350,7 +1348,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertTrue(order.is_done)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Successfully cancelled order {order.client_order_id}.")
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
 
     def test_user_stream_update_for_order_partial_fill(self):

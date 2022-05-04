@@ -2,21 +2,19 @@ import asyncio
 import json
 import re
 import unittest
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from typing import Awaitable, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.connector.exchange.bybit import (
-    bybit_constants as CONSTANTS,
-    bybit_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS
+from hummingbot.connector.exchange.bybit import bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class TestBybitAPIOrderBookDataSource(unittest.TestCase):
@@ -460,19 +458,25 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
-            "topic": "trade",
             "symbol": self.ex_trading_pair,
+            "symbolName": self.ex_trading_pair,
+            "topic": "trade",
             "params": {
-                "binary": "false",
-                "symbolName": self.ex_trading_pair
+                "realtimeInterval": "24h",
+                "binary": "false"
             },
-            "data": {
-                "v": "564265886622695424",
-                "t": 1582001735462,
-                "p": "9787.5",
-                "q": "0.195009",
-                "m": True
-            }
+            "data": [
+                {
+                    "v": "929681067596857345",
+                    "t": 1625562619577,
+                    "p": "34924.15",
+                    "q": "0.00027",
+                    "m": True
+                }
+            ],
+            "f": True,
+            "sendTime": 1626249138535,
+            "shared": False
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
@@ -488,7 +492,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(trade_event["data"]["t"], msg.trade_id)
+        self.assertTrue(trade_event["data"][0]["t"], msg.trade_id)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()

@@ -2,8 +2,7 @@ import asyncio
 import hashlib
 import hmac
 from collections import OrderedDict
-
-from typing import Awaitable, Dict, Any, Mapping, Optional
+from typing import Any, Awaitable, Dict, Mapping, Optional
 from unittest import TestCase
 from unittest.mock import MagicMock
 from urllib.parse import urlencode
@@ -46,7 +45,7 @@ class BybitAuthTests(TestCase):
 
         self.assertEqual(params_expected['api_key'], request.params["api_key"])
         self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
-        self.assertEqual(params_expected['signature'], request.params["signature"])
+        self.assertEqual(params_expected['sign'], request.params["sign"])
 
     def test_add_auth_params_to_get_request_with_params(self):
         params = {
@@ -67,7 +66,7 @@ class BybitAuthTests(TestCase):
 
         self.assertEqual(params_expected['api_key'], request.params["api_key"])
         self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
-        self.assertEqual(params_expected['signature'], request.params["signature"])
+        self.assertEqual(params_expected['sign'], request.params["sign"])
         self.assertEqual(params_expected['param_z'], request.params["param_z"])
         self.assertEqual(params_expected['param_a'], request.params["param_a"])
 
@@ -85,7 +84,7 @@ class BybitAuthTests(TestCase):
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
         self.assertEqual(params_expected['api_key'], request.params["api_key"])
         self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
-        self.assertEqual(params_expected['signature'], request.params["signature"])
+        self.assertEqual(params_expected['sign'], request.params["sign"])
         self.assertEqual(params_expected['param_z'], request.params["param_z"])
         self.assertEqual(params_expected['param_a'], request.params["param_a"])
 
@@ -108,5 +107,5 @@ class BybitAuthTests(TestCase):
         }
         params.update(request_params)
         params = OrderedDict(sorted(params.items(), key=lambda t: t[0]))
-        params['signature'] = self._generate_signature(params=params)
+        params['sign'] = self._generate_signature(params=params)
         return params
