@@ -30,7 +30,6 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.base_asset = "d8ae67f2-f954-4014-98c8-64b1ac334c64"
         cls.quote_asset = "0c3a106d-bde3-4c13-a26e-3fd2394529e5"
         cls.trading_pair = "ETH-USDT"
-        cls.trading_pairs = [cls.trading_pair]
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = "com"
 
@@ -51,7 +50,6 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.data_source = LatokenAPIUserStreamDataSource(
             auth=LatokenAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider),
-            trading_pairs=self.trading_pairs,
             domain=self.domain,
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer,
@@ -98,7 +96,7 @@ class LatokenUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def _user_update_event(self):
         # Balance Update, so not the initial balance
-        return b'MESSAGE\ndestination:/user/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/v1/account\nmessage-id:9e8188c8-682c-41cd-9a14-722bf6dfd99e\ncontent-length:346\nsubscription:2\n\n{"payload":[{"id":"44d36460-46dc-4828-a17c-63b1a047b054","status":"ACCOUNT_STATUS_ACTIVE","type":"ACCOUNT_TYPE_SPOT","timestamp":1650120265819,"currency":"620f2019-33c0-423b-8a9d-cde4d7f8ef7f","available":"34.001000000000000000","blocked":"0.999000000000000000","user":"2d2a5729-e9e3-4f8b-9e3a-f1c5e147099f"}],"nonce":1,"timestamp":1650120265830}\x00'
+        return b'MESSAGE\ndestination:/user/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/v1/account\nmessage-id:9e8188c8-682c-41cd-9a14-722bf6dfd99e\ncontent-length:346\nsubscription:0\n\n{"payload":[{"id":"44d36460-46dc-4828-a17c-63b1a047b054","status":"ACCOUNT_STATUS_ACTIVE","type":"ACCOUNT_TYPE_SPOT","timestamp":1650120265819,"currency":"620f2019-33c0-423b-8a9d-cde4d7f8ef7f","available":"34.001000000000000000","blocked":"0.999000000000000000","user":"2d2a5729-e9e3-4f8b-9e3a-f1c5e147099f"}],"nonce":1,"timestamp":1650120265830}\x00'
 
     def _successfully_subscribed_event(self):
         return b'CONNECTED\nserver:vertx-stomp/3.9.6\nheart-beat:1000,1000\nsession:37a8e962-7fa7-4eab-b163-146eeafdef63\nversion:1.1\n\n\x00 '

@@ -1,11 +1,10 @@
-from hummingbot.connector.constants import MINUTE, TWELVE_HOURS
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 HBOT_ORDER_ID_PREFIX = "latoken-hbot-"
 MAX_ORDER_ID_LEN = 36
 SNAPSHOT_LIMIT_SIZE = 100
 DEFAULT_DOMAIN = "com"
-DOMAIN_TO_ENDPOINT = {DEFAULT_DOMAIN: "api.latoken"}
+DOMAIN_TO_ENDPOINT = {"com": "api.latoken"}
 
 # Base URL
 REST_URL = "https://{}.{}"
@@ -60,45 +59,39 @@ TRANSACTIONS_STREAM = '/user/{user}' + WSS_API_VERSION + '/transaction'  # Retur
 TRANSFERS_STREAM = '/user/{user}' + WSS_API_VERSION + '/transfers'  # Returns internal transfers on the platform (inter_user, ...)
 
 # Time intervals in seconds
-SECOND = 1
-HOUR = 60 * MINUTE
-LISTEN_KEY_KEEP_ALIVE_INTERVAL = float(TWELVE_HOURS)
-UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0 * SECOND
-WS_HEARTBEAT_TIME_INTERVAL = 30 * SECOND
+PER_TRADE_UPDATE_LIMIT = 10
+ONE_SECOND = 1
+ONE_MINUTE = 60 * ONE_SECOND
+ONE_HOUR = 60 * ONE_MINUTE
+ONE_DAY = 24 * ONE_HOUR
+TWELVE_HOURS = 12 * ONE_HOUR
+THIRTY_MINUTES = 30 * ONE_MINUTE
+LISTEN_KEY_KEEP_ALIVE_INTERVAL = float(THIRTY_MINUTES)
+SHORT_POLL_INTERVAL = 5.0
+UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+LONG_POLL_INTERVAL = 2.0 * ONE_MINUTE
+WS_HEARTBEAT_TIME_INTERVAL = 30
+UPDATE_TRADE_UPDATE_INTERVAL = .5
 
-GENERAL_TPS = 700
-MAX_ALLOWED_TPS = 3500
+MAX_REQUEST = 5000
+MAX_ALLOWED_TPS = 100
+
 # Websocket event types
 DIFF_EVENT_TYPE = "b"
 TRADE_EVENT_TYPE = "t"
 
-SUBSCRIPTION_ID_BOOKS = 0
-SUBSCRIPTION_ID_TRADES = 1
-SUBSCRIPTION_ID_ACCOUNT = 2
+SUBSCRIPTION_ID_ACCOUNT = 0
+SUBSCRIPTION_ID_BOOKS = 1
+SUBSCRIPTION_ID_TRADES = 2
 SUBSCRIPTION_ID_ORDERS = 3
-SUBSCRIPTION_ID_TRADE_UPDATE = 4
+SUBSCRIPTION_ID_TRADE_UPDATE = 2
 
-PUBLIC_LIMIT_ID = "PublicPoints"
-PRIVATE_LIMIT_ID = "PrivatePoints"  # includes place-orders
-PUBLIC_LINKED_LIMITS = [LinkedLimitWeightPair(PUBLIC_LIMIT_ID)]
-PRIVATE_LINKED_LIMITS = [LinkedLimitWeightPair(PRIVATE_LIMIT_ID)]
+GLOBAL_RATE_LIMIT = "global"
 
 RATE_LIMITS = [
-    RateLimit(limit_id=PUBLIC_LIMIT_ID, limit=GENERAL_TPS, time_interval=SECOND),
-    RateLimit(limit_id=PRIVATE_LIMIT_ID, limit=GENERAL_TPS, time_interval=SECOND),
-    # Public API
-    RateLimit(limit_id=TICKER_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
-    RateLimit(limit_id=CURRENCY_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
-    RateLimit(limit_id=PAIR_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
-    RateLimit(limit_id=PING_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
-    RateLimit(limit_id=BOOK_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PUBLIC_LINKED_LIMITS),
-    # Private API
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
-    RateLimit(limit_id=TRADES_FOR_PAIR_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
-    RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
-    RateLimit(limit_id=ORDER_CANCEL_PATH_URL, limit=MAX_ALLOWED_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
-    RateLimit(limit_id=GET_ORDER_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
-    RateLimit(limit_id=USER_ID_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
-    RateLimit(limit_id=FEES_PATH_URL, limit=GENERAL_TPS, time_interval=SECOND, linked_limits=PRIVATE_LINKED_LIMITS),
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=MAX_ALLOWED_TPS, time_interval=ONE_SECOND),
 ]
+# Rate Limit Type
+# REQUEST_WEIGHT = "REQUEST_WEIGHT"
+# ORDERS = "ORDERS"
+# ORDERS_24HR = "ORDERS_24HR"
