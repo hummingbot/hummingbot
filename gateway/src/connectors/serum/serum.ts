@@ -55,7 +55,6 @@ const caches = {
 
 export type Serumish = Serum;
 
-// TODO create a documentation saying how many requests we are sending through the Solana/Serum connection!!!
 /**
  * Serum is a wrapper around the Serum API.
  */
@@ -913,8 +912,7 @@ export class Serum {
         signature
       );
     } catch (exception: any) {
-      // TODO handle timeout!!!
-      if (exception.message.contains('')) {
+      if (exception.message.includes('It is unknown if it succeeded or failed.')) {
         return convertSerumOrderToOrder(
           market,
           undefined,
@@ -970,8 +968,7 @@ export class Serum {
 
       return order;
     } catch (exception: any) {
-      // TODO handle timeout!!!
-      if (exception.message.contains('')) {
+      if (exception.message.includes('It is unknown if it succeeded or failed.')) {
         order.status = OrderStatus.CANCELATION_PENDING;
 
         return order;
