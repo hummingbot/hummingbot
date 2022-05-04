@@ -24,6 +24,8 @@ import morgan from 'morgan';
 
 const swaggerUi = require('swagger-ui-express');
 
+const childProcess = require('child_process');
+
 export const gatewayApp = express();
 
 // parse body for application/json
@@ -69,6 +71,16 @@ interface ConfigUpdateRequest {
   configValue: any;
 }
 
+// watch the exit even, spawn an independent process with the same args and
+// pass the stdio from this process to it.
+process.on('exit', function () {
+  childProcess.spawn(process.argv.shift(), process.argv, {
+    cwd: process.cwd(),
+    detached: true,
+    stdio: 'inherit',
+  });
+});
+
 gatewayApp.post(
   '/config/update',
   asyncHandler(
@@ -95,6 +107,16 @@ gatewayApp.post(
       res.status(200).json({ message: 'The config has been updated' });
     }
   )
+);
+
+gatewayApp.post(
+  '/restart',
+  asyncHandler(async (_req, res) => {
+    // kill the current process and trigger the exit event
+    process.exit();
+    // this is only to satisfy the compiler, it will never be called.
+    res.status(200).json();
+  })
 );
 
 // handle any error thrown in the gateway api route
