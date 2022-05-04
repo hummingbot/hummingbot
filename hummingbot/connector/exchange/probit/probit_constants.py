@@ -2,6 +2,8 @@
 
 EXCHANGE_NAME = "probit"
 
+MAX_ORDER_ID_LEN = 36
+
 REST_URL = "https://api.probit.{}/api/exchange/"
 WSS_URL = "wss://api.probit.{}/api/exchange/v1/ws"
 

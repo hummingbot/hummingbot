@@ -52,8 +52,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _optimal_spread
         object _optimal_bid
         object _optimal_ask
-        object _latest_parameter_calculation_vol
-        object _latest_parameter_calculation_trading_intensity
         str _debug_csv_path
         object _avg_vol
         object _trading_intensity

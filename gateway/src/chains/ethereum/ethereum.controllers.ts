@@ -16,7 +16,7 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { tokenValueToString } from '../../services/base';
-import { Token } from '../../services/ethereum-base';
+import { TokenInfo } from '../../services/ethereum-base';
 
 import {
   PollRequest,
@@ -40,6 +40,7 @@ import {
   BalanceRequest,
   BalanceResponse,
 } from '../../network/network.requests';
+import { logger } from '../../services/logger';
 
 export async function nonce(
   ethereum: Ethereumish,
@@ -55,8 +56,8 @@ export async function nonce(
 export const getTokenSymbolsToTokens = (
   ethereum: Ethereumish,
   tokenSymbols: Array<string>
-): Record<string, Token> => {
-  const tokens: Record<string, Token> = {};
+): Record<string, TokenInfo> => {
+  const tokens: Record<string, TokenInfo> = {};
 
   for (let i = 0; i < tokenSymbols.length; i++) {
     const symbol = tokenSymbols[i];
@@ -373,6 +374,10 @@ export async function poll(
       }
     }
   }
+
+  logger.info(
+    `Poll ${ethereumish.chain}, txHash ${req.txHash}, status ${txStatus}.`
+  );
   return {
     network: ethereumish.chain,
     currentBlock,
@@ -403,6 +408,10 @@ export async function cancel(
 
   // call cancelTx function
   const cancelTx = await ethereumish.cancelTx(wallet, req.nonce);
+
+  logger.info(
+    `Cancelled transaction at nonce ${req.nonce}, cancel txHash ${cancelTx.hash}.`
+  );
 
   return {
     network: ethereumish.chain,

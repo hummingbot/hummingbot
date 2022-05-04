@@ -1,5 +1,6 @@
 import {
   isFloatString,
+  isFractionString,
   mkValidator,
   mkRequestValidator,
   RequestValidator,
@@ -7,6 +8,8 @@ import {
 } from '../services/validators';
 
 import {
+  validateChain,
+  validateNetwork,
   validateNonce,
   validateAddress,
   validateMaxFeePerGas,
@@ -15,10 +18,6 @@ import {
 
 export const invalidConnectorError: string =
   'The connector param is not a string.';
-
-export const invalidChainError: string = 'The chain param is not a string.';
-
-export const invalidNetworkError: string = 'The network param is not a string.';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
@@ -33,21 +32,12 @@ export const invalidSideError: string =
 export const invalidLimitPriceError: string =
   'The limitPrice param may be null or a string of a float or integer number.';
 
+export const invalidAllowedSlippageError: string =
+  'The allowedSlippage param may be null or a string of a fraction.';
+
 export const validateConnector: Validator = mkValidator(
   'connector',
   invalidConnectorError,
-  (val) => typeof val === 'string'
-);
-
-export const validateChain: Validator = mkValidator(
-  'chain',
-  invalidChainError,
-  (val) => typeof val === 'string'
-);
-
-export const validateNetwork: Validator = mkValidator(
-  'network',
-  invalidNetworkError,
   (val) => typeof val === 'string'
 );
 
@@ -82,6 +72,13 @@ export const validateLimitPrice: Validator = mkValidator(
   true
 );
 
+export const validateAllowedSlippage: Validator = mkValidator(
+  'allowedSlippage',
+  invalidAllowedSlippageError,
+  (val) => typeof val === 'string' && isFractionString(val),
+  true
+);
+
 export const validatePriceRequest: RequestValidator = mkRequestValidator([
   validateConnector,
   validateChain,
@@ -90,6 +87,7 @@ export const validatePriceRequest: RequestValidator = mkRequestValidator([
   validateBase,
   validateAmount,
   validateSide,
+  validateAllowedSlippage,
 ]);
 
 export const validateTradeRequest: RequestValidator = mkRequestValidator([
@@ -105,4 +103,11 @@ export const validateTradeRequest: RequestValidator = mkRequestValidator([
   validateNonce,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
+  validateAllowedSlippage,
+]);
+
+export const validateEstimateGasRequest: RequestValidator = mkRequestValidator([
+  validateConnector,
+  validateChain,
+  validateNetwork,
 ]);

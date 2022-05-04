@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import * as migrations from './config-migration/migrations';
+import { rootPath } from '../paths';
 
 type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
@@ -34,7 +35,7 @@ export const ConfigRootSchemaPath: string = path.join(
   'schema/configuration-root-schema.json'
 );
 const ConfigTemplatesDir: string = path.join(__dirname, '../templates/');
-const ConfigDir: string = path.join(__dirname, '../../../conf/');
+const ConfigDir: string = path.join(rootPath(), 'conf/');
 
 interface UnpackedConfigNamespace {
   namespace: ConfigurationNamespace;
@@ -361,7 +362,6 @@ export class ConfigManagerV2 {
 
   loadConfigRoot(configRootPath: string) {
     // Load the config root file.
-    console.log(configRootPath);
     const configRootFullPath: string = fs.realpathSync(configRootPath);
     const configRootTemplateFullPath: string = path.join(
       ConfigTemplatesDir,

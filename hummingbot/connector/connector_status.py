@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'altmarkets': 'yellow',
+    'altmarkets': 'green',
     'ascend_ex': 'yellow',
     'beaxy': 'green',
     'binance': 'green',
@@ -16,6 +16,8 @@ connector_status = {
     'bybit_perpetual_testnet': 'yellow',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
+    'coinflex': 'yellow',
+    'coinflex_test': 'yellow',
     'coinzoom': 'yellow',
     'crypto_com': 'yellow',
     'digifinex': "yellow",
@@ -27,6 +29,7 @@ connector_status = {
     'huobi': 'green',
     'kraken': 'yellow',
     'kucoin': 'yellow',
+    'kucoin_testnet': 'yellow',
     'k2': 'red',
     'liquid': 'yellow',
     'loopring': 'yellow',
@@ -34,11 +37,8 @@ connector_status = {
     'ndax': 'yellow',
     'ndax_testnet': 'yellow',
     'okex': 'yellow',
-    'perpetual_finance': 'yellow',
     'probit': 'yellow',
     'probit_kr': 'yellow',
-    'terra': 'yellow',
-    'uniswap_v3': 'yellow',
     'wazirx': 'yellow'
 }
 

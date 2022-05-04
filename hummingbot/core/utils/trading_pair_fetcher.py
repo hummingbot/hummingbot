@@ -8,7 +8,7 @@ from typing import (
     List
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.client.settings import AllConnectorSettings, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings
 import logging
 
 from .async_utils import safe_ensure_future
@@ -52,13 +52,18 @@ class TradingPairFetcher:
             class_name = "".join([o.capitalize() for o in exchange_name.split("_")]) + \
                          "APIOrderBookDataSource" if not conn_setting.uses_gateway_generic_connector() \
                          else conn_setting.class_name()
-            module = getattr(importlib.import_module(module_path), class_name)
+
+            # XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
+            # data source module for them.
+            try:
+                module = getattr(importlib.import_module(module_path), class_name)
+            except ModuleNotFoundError:
+                continue
             args = {}
             args = conn_setting.add_domain_parameter(args)
-            if conn_setting.type == ConnectorType.Connector:
+            if conn_setting.uses_gateway_generic_connector():
                 connector_params = conn_setting.name.split("_")
-                if len(connector_params) > 2:
-                    safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(connector_params[1], connector_params[2]), conn_setting.name))
+                safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(connector_params[1], connector_params[2]), conn_setting.name))
             else:
                 safe_ensure_future(self.call_fetch_pairs(module.fetch_trading_pairs(**args), conn_setting.name))
 

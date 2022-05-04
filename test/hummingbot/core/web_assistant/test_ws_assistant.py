@@ -16,10 +16,14 @@ from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WSAssistantTest(unittest.TestCase):
+    ev_loop: asyncio.AbstractEventLoop
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
+        for task in asyncio.all_tasks(cls.ev_loop):
+            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()
@@ -41,7 +45,10 @@ class WSAssistantTest(unittest.TestCase):
             self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout)
         )
 
-        connect_mock.assert_called_with(ws_url, ping_timeout, message_timeout)
+        connect_mock.assert_called_with(ws_url=ws_url,
+                                        ws_headers={},
+                                        ping_timeout=ping_timeout,
+                                        message_timeout=message_timeout)
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.disconnect")
     def test_disconnect(self, disconnect_mock):

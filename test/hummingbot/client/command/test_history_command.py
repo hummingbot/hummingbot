@@ -169,12 +169,12 @@ class HistoryCommandTest(unittest.TestCase):
 
         df_str_expected = (
             f"\n  Recent trades:"
-            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
-            f"\n    | Timestamp           | Exchange   | Market   | Order_type   | Side   |   Price |   Amount |   Leverage | Position   | Age   |"  # noqa: E501
-            f"\n    |---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------|"  # noqa: E501
-            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 | NIL        | n/a   |"  # noqa: E501
-            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 | NIL        | n/a   |"  # noqa: E501
-            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+-------+"  # noqa: E501
+            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+----------+"  # noqa: E501
+            f"\n    | Timestamp           | Exchange   | Market   | Order_type   | Side   |   Price |   Amount |   Leverage | Position   | Age      |"  # noqa: E501
+            f"\n    |---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+----------|"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       1 |        2 |          1 | NIL        | 00:00:00 |"  # noqa: E501
+            f"\n    | {creation_time_str} | binance    | BTC-USDT | limit        | buy    |       2 |        2 |          1 | NIL        | 00:00:00 |"  # noqa: E501
+            f"\n    +---------------------+------------+----------+--------------+--------+---------+----------+------------+------------+----------+"  # noqa: E501
         )
 
         self.assertEqual(df_str_expected, captures[0])

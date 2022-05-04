@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import express from 'express';
-import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { SolanaRoutes } from './chains/solana/solana.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
-import { logger, updateLoggerToStdout } from './services/logger';
+import { logger } from './services/logger';
 import { addHttps } from './https';
 import {
   asyncHandler,
@@ -21,15 +20,19 @@ import { AmmRoutes } from './amm/amm.routes';
 import { PangolinConfig } from './connectors/pangolin/pangolin.config';
 import { UniswapConfig } from './connectors/uniswap/uniswap.config';
 import { AvailableNetworks } from './services/config-manager-types';
+import morgan from 'morgan';
 
 const swaggerUi = require('swagger-ui-express');
 
+const childProcess = require('child_process');
+
 export const gatewayApp = express();
-let gatewayServer: Server;
-let swaggerServer: Server;
 
 // parse body for application/json
 gatewayApp.use(express.json());
+
+// logging middleware
+gatewayApp.use(morgan('combined'));
 
 // parse url for application/x-www-form-urlencoded
 gatewayApp.use(express.urlencoded({ extended: true }));
@@ -68,6 +71,16 @@ interface ConfigUpdateRequest {
   configValue: any;
 }
 
+// watch the exit even, spawn an independent process with the same args and
+// pass the stdio from this process to it.
+process.on('exit', function () {
+  childProcess.spawn(process.argv.shift(), process.argv, {
+    cwd: process.cwd(),
+    detached: true,
+    stdio: 'inherit',
+  });
+});
+
 gatewayApp.post(
   '/config/update',
   asyncHandler(
@@ -91,22 +104,19 @@ gatewayApp.post(
         req.body.configValue
       );
 
-      logger.info('Reload logger to stdout.');
-      updateLoggerToStdout();
-
-      logger.info('Reloading Ethereum routes.');
-      // EthereumRoutes.reload();
-
-      logger.info('Reloading Solana routes.');
-      SolanaRoutes.reload();
-
-      logger.info('Restarting gateway.');
-      await stopGateway();
-      await startGateway();
-
       res.status(200).json({ message: 'The config has been updated' });
     }
   )
+);
+
+gatewayApp.post(
+  '/restart',
+  asyncHandler(async (_req, res) => {
+    // kill the current process and trigger the exit event
+    process.exit();
+    // this is only to satisfy the compiler, it will never be called.
+    res.status(200).json();
+  })
 );
 
 // handle any error thrown in the gateway api route
@@ -147,7 +157,7 @@ export const startSwagger = async () => {
 
   swaggerApp.use('/', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-  swaggerServer = await swaggerApp.listen(swaggerPort);
+  await swaggerApp.listen(swaggerPort);
 };
 
 export const startGateway = async () => {
@@ -161,10 +171,10 @@ export const startGateway = async () => {
   logger.info(`⚡️ Gateway API listening on port ${port}`);
   if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-    gatewayServer = await gatewayApp.listen(port);
+    await gatewayApp.listen(port);
   } else {
     try {
-      gatewayServer = await addHttps(gatewayApp).listen(port);
+      await addHttps(gatewayApp).listen(port);
     } catch (e) {
       logger.error(
         `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
@@ -175,9 +185,4 @@ export const startGateway = async () => {
   }
 
   await startSwagger();
-};
-
-const stopGateway = async () => {
-  await swaggerServer.close();
-  return gatewayServer.close();
 };

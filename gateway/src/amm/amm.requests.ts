@@ -6,18 +6,21 @@ export interface PriceRequest extends NetworkSelectionRequest {
   base: string;
   amount: string;
   side: Side;
+  allowedSlippage?: string;
 }
 
 export interface PriceResponse {
   base: string;
   quote: string;
   amount: string;
+  rawAmount: string;
   expectedAmount: string;
   price: string;
   network: string;
   timestamp: number;
   latency: number;
   gasPrice: number;
+  gasPriceToken: string;
   gasLimit: number;
   gasCost: string;
 }
@@ -32,6 +35,7 @@ export interface TradeRequest extends NetworkSelectionRequest {
   nonce?: number;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+  allowedSlippage?: string;
 }
 
 export interface TradeResponse {
@@ -41,12 +45,23 @@ export interface TradeResponse {
   base: string;
   quote: string;
   amount: string;
+  rawAmount: string;
   expectedIn?: string;
   expectedOut?: string;
   price: string;
   gasPrice: number;
+  gasPriceToken: string;
   gasLimit: number;
   gasCost: string;
   nonce: number;
   txHash: string | undefined;
+}
+
+export interface EstimateGasResponse {
+  network: string;
+  timestamp: number;
+  gasPrice: number;
+  gasPriceToken: string;
+  gasLimit: number;
+  gasCost: string;
 }

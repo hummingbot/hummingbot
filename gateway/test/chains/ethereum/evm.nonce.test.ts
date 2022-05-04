@@ -28,6 +28,7 @@ describe('unitiated EVMNodeService', () => {
   });
 
   afterAll(async () => {
+    await nonceManager.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
 
@@ -78,14 +79,18 @@ describe('unitiated EVMNodeService', () => {
 
     const nonceManager2 = new EVMNonceManager('ethereum', 43, -5, dbPath);
 
-    await expect(nonceManager2.init(provider)).rejects.toThrow(
-      new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE(
-          'EVMNonceManager.init delay must be greater than or equal to zero.'
-        ),
-        SERVICE_UNITIALIZED_ERROR_CODE
-      )
-    );
+    try {
+      await expect(nonceManager2.init(provider)).rejects.toThrow(
+        new InitializationError(
+          SERVICE_UNITIALIZED_ERROR_MESSAGE(
+            'EVMNonceManager.init delay must be greater than or equal to zero.'
+          ),
+          SERVICE_UNITIALIZED_ERROR_CODE
+        )
+      );
+    } finally {
+      await nonceManager2.close();
+    }
   });
 });
 
@@ -94,7 +99,7 @@ describe('EVMNodeService', () => {
   let dbPath = '';
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce2.test.level'));
-    nonceManager = new EVMNonceManager('ethereum', 43, 0, dbPath);
+    nonceManager = new EVMNonceManager('ethereum', 43, 60, dbPath);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
@@ -102,6 +107,7 @@ describe('EVMNodeService', () => {
   });
 
   afterAll(async () => {
+    await nonceManager.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
   const patchGetTransactionCount = () => {
@@ -126,22 +132,22 @@ describe('EVMNodeService', () => {
     await expect(nonce).toEqual(11);
   });
 
-  it('mergeNonceFromEVMNode should update with the maximum nonce source (node)', async () => {
+  it('mergeNonceFromEVMNode should update with nonce from node (local<node)', async () => {
     patchGetTransactionCount();
 
-    await nonceManager.commitNonce(exampleAddress, 10);
+    await nonceManager.commitNonce(exampleAddress, 8);
     await nonceManager.mergeNonceFromEVMNode(exampleAddress);
     const nonce = await nonceManager.getNonce(exampleAddress);
     await expect(nonce).toEqual(11);
   });
 
-  it('mergeNonceFromEVMNode should update with the maximum nonce source (local)', async () => {
+  it('mergeNonceFromEVMNode should update with the nonce from node (local>node)', async () => {
     patchGetTransactionCount();
 
     await nonceManager.commitNonce(exampleAddress, 20);
     await nonceManager.mergeNonceFromEVMNode(exampleAddress);
     const nonce = await nonceManager.getNonce(exampleAddress);
-    await expect(nonce).toEqual(21);
+    await expect(nonce).toEqual(11);
   });
 });
 
@@ -151,13 +157,13 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   let dbPath = '';
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce3.test.level'));
-    nonceManager1 = new EVMNonceManager('ethereum', 43, 0, dbPath);
+    nonceManager1 = new EVMNonceManager('ethereum', 43, 60, dbPath);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
     await nonceManager1.init(provider1);
 
-    nonceManager2 = new EVMNonceManager('avalanche', 56, 0, dbPath);
+    nonceManager2 = new EVMNonceManager('avalanche', 56, 60, dbPath);
     const provider2 = new providers.StaticJsonRpcProvider(
       'https://avalanche.node.com'
     );
@@ -165,6 +171,8 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   });
 
   afterAll(async () => {
+    await nonceManager1.close();
+    await nonceManager2.close();
     fs.rmSync(dbPath, { force: true, recursive: true });
   });
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {

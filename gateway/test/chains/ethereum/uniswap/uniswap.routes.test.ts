@@ -5,6 +5,7 @@ import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { AmmRoutes } from '../../../../src/amm/amm.routes';
 import { patch, unpatch } from '../../../services/patch';
+import { gasCostInEthString } from '../../../../src/services/base';
 
 let app: Express;
 let ethereum: Ethereum;
@@ -99,8 +100,8 @@ const patchGasPrice = () => {
   patch(ethereum, 'gasPrice', () => 100);
 };
 
-const patchPriceSwapOut = () => {
-  patch(uniswap, 'priceSwapOut', () => {
+const patchEstimateBuyTrade = () => {
+  patch(uniswap, 'estimateBuyTrade', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -117,8 +118,8 @@ const patchPriceSwapOut = () => {
   });
 };
 
-const patchPriceSwapIn = () => {
-  patch(uniswap, 'priceSwapIn', () => {
+const patchEstimateSellTrade = () => {
+  patch(uniswap, 'estimateSellTrade', () => {
     return {
       expectedAmount: {
         toSignificant: () => 100,
@@ -151,7 +152,7 @@ describe('POST /amm/price', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapOut();
+    patchEstimateBuyTrade();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -169,7 +170,8 @@ describe('POST /amm/price', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.amount).toEqual('10000');
+        expect(res.body.amount).toEqual('10000.000000000000000000');
+        expect(res.body.rawAmount).toEqual('10000000000000000000000');
       });
   });
 
@@ -180,7 +182,7 @@ describe('POST /amm/price', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapIn();
+    patchEstimateSellTrade();
     patchGetNonce();
     patchExecuteTrade();
 
@@ -198,7 +200,8 @@ describe('POST /amm/price', () => {
       .set('Accept', 'application/json')
       .expect(200)
       .then((res: any) => {
-        expect(res.body.amount).toEqual('10000');
+        expect(res.body.amount).toEqual('10000.000000000000000000');
+        expect(res.body.rawAmount).toEqual('10000000000000000000000');
       });
   });
 
@@ -348,7 +351,7 @@ describe('POST /amm/trade', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapOut();
+    patchEstimateBuyTrade();
     patchGetNonce();
     patchExecuteTrade();
   };
@@ -420,7 +423,7 @@ describe('POST /amm/trade', () => {
     patchGetTokenBySymbol();
     patchGetTokenByAddress();
     patchGasPrice();
-    patchPriceSwapIn();
+    patchEstimateSellTrade();
     patchGetNonce();
     patchExecuteTrade();
   };
@@ -481,7 +484,7 @@ describe('POST /amm/trade', () => {
         address,
         side: 'SELL',
         nonce: 21,
-        limitPrice: '999999999999999999999',
+        limitPrice: '9',
       })
       .set('Accept', 'application/json')
       .expect(200);
@@ -527,7 +530,7 @@ describe('POST /amm/trade', () => {
       .expect(500);
   });
 
-  it('should return 500 for SELL with price smaller than limitPrice', async () => {
+  it('should return 500 for SELL with price higher than limitPrice', async () => {
     patchForSell();
     await request(app)
       .post(`/amm/trade`)
@@ -541,7 +544,7 @@ describe('POST /amm/trade', () => {
         address,
         side: 'SELL',
         nonce: 21,
-        limitPrice: '9',
+        limitPrice: '99999999999',
       })
       .set('Accept', 'application/json')
       .expect(500);
@@ -617,6 +620,45 @@ describe('POST /amm/trade', () => {
         nonce: 21,
         maxFeePerGas: '5000000000',
         maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+});
+
+describe('POST /amm/estimateGas', () => {
+  it('should return 200 for valid connector', async () => {
+    patchInit();
+    patchGasPrice();
+
+    await request(app)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'uniswap',
+      })
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.network).toEqual('kovan');
+        expect(res.body.gasPrice).toEqual(100);
+        expect(res.body.gasCost).toEqual(
+          gasCostInEthString(100, uniswap.gasLimit)
+        );
+      });
+  });
+
+  it('should return 500 for invalid connector', async () => {
+    patchInit();
+    patchGasPrice();
+
+    await request(app)
+      .post('/amm/estimateGas')
+      .send({
+        chain: 'ethereum',
+        network: 'kovan',
+        connector: 'pangolin',
       })
       .set('Accept', 'application/json')
       .expect(500);

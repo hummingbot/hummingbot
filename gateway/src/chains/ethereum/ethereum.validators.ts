@@ -7,9 +7,7 @@ import {
   Validator,
   validateToken,
   validateAmount,
-  validateTxHash,
 } from '../../services/validators';
-import { validateNetwork, validateChain } from '../../amm/amm.validators';
 
 // invalid parameter errors
 
@@ -27,6 +25,10 @@ export const invalidMaxFeePerGasError: string =
 
 export const invalidMaxPriorityFeePerGasError: string =
   'If maxPriorityFeePerGas is included it must be a string of a non-negative integer.';
+
+export const invalidChainError: string = 'The chain param is not a string.';
+
+export const invalidNetworkError: string = 'The network param is not a string.';
 
 // test if a string matches the shape of an Ethereum address
 export const isAddress = (str: string): boolean => {
@@ -74,6 +76,18 @@ export const validateMaxPriorityFeePerGas: Validator = mkValidator(
   true
 );
 
+export const validateChain: Validator = mkValidator(
+  'chain',
+  invalidChainError,
+  (val) => typeof val === 'string'
+);
+
+export const validateNetwork: Validator = mkValidator(
+  'network',
+  invalidNetworkError,
+  (val) => typeof val === 'string'
+);
+
 // request types and corresponding validators
 
 export const validateNonceRequest: RequestValidator = mkRequestValidator([
@@ -99,15 +113,6 @@ export const validateApproveRequest: RequestValidator = mkRequestValidator([
   validateNonce,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
-]);
-
-export const validatePollRequest: RequestValidator = mkRequestValidator([
-  validateTxHash,
-]);
-
-export const validateTokensRequest: RequestValidator = mkRequestValidator([
-  validateChain,
-  validateNetwork,
 ]);
 
 export const validateCancelRequest: RequestValidator = mkRequestValidator([

@@ -1,6 +1,7 @@
 from typing import (
     List,
     Tuple,
+    Optional
 )
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -15,9 +16,17 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
+from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
 
 
 def start(self):
+    def convert_decimal_string_to_list(string: Optional[str], divisor: Decimal = Decimal("1")) -> List[Decimal]:
+        '''convert order level spread string into a list of decimal divided by divisor '''
+        if string is None:
+            return []
+        string_list = list(string.split(","))
+        return [Decimal(v) / divisor for v in string_list]
+
     try:
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
@@ -52,7 +61,28 @@ def start(self):
         custom_api_update_interval = c_map.get("custom_api_update_interval").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
-
+        split_order_levels_enabled = c_map.get("split_order_levels_enabled").value
+        moving_price_band = MovingPriceBand(
+            enabled=c_map.get("moving_price_band_enabled").value,
+            price_floor_pct=c_map.get("price_floor_pct").value,
+            price_ceiling_pct=c_map.get("price_ceiling_pct").value,
+            price_band_refresh_time=c_map.get("price_band_refresh_time").value
+        )
+        bid_order_level_spreads = convert_decimal_string_to_list(
+            c_map.get("bid_order_level_spreads").value)
+        ask_order_level_spreads = convert_decimal_string_to_list(
+            c_map.get("ask_order_level_spreads").value)
+        bid_order_level_amounts = convert_decimal_string_to_list(
+            c_map.get("bid_order_level_amounts").value)
+        ask_order_level_amounts = convert_decimal_string_to_list(
+            c_map.get("ask_order_level_amounts").value)
+        if split_order_levels_enabled:
+            buy_list = [['buy', spread, amount] for spread, amount in zip(bid_order_level_spreads, bid_order_level_amounts)]
+            sell_list = [['sell', spread, amount] for spread, amount in zip(ask_order_level_spreads, ask_order_level_amounts)]
+            both_list = buy_list + sell_list
+            order_override = {
+                f'split_level_{i}': order for i, order in enumerate(both_list)
+            }
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
@@ -112,7 +142,11 @@ def start(self):
             minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
+            split_order_levels_enabled=split_order_levels_enabled,
+            bid_order_level_spreads=bid_order_level_spreads,
+            ask_order_level_spreads=ask_order_level_spreads,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
+            moving_price_band=moving_price_band
         )
     except Exception as e:
         self.notify(str(e))

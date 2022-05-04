@@ -22,7 +22,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from test.mock.mock_paper_exchange import MockPaperExchange
+from hummingbot.connector.mock.mock_paper_exchange import MockPaperExchange
 
 
 class MockPyStrategy(StrategyPyBase):
@@ -154,9 +154,7 @@ class StrategyPyBaseUnitTests(unittest.TestCase):
                 order.client_order_id if isinstance(order, LimitOrder) else order.order_id,
                 order.trading_pair.split("-")[0],
                 order.trading_pair.split("-")[1],
-                order.trading_pair.split("-")[0] if order.is_buy else order.trading_pair.split("-")[1],
                 Decimal("1") if order.is_buy else Decimal("0"),
-                Decimal("0") if order.is_buy else Decimal("1"),
                 Decimal("0") if order.is_buy else Decimal("1"),
                 OrderType.LIMIT if isinstance(order, LimitOrder) else OrderType.MARKET,
             )

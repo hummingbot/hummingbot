@@ -561,7 +561,7 @@ class BitmartExchange(ExchangeBase):
 
             # result = True is a successful cancel, False indicates cancel failed due to already cancelled or matched
             if "result" in response["data"] and not response["data"]["result"]:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order was already matched or cancelled on the exchange.")
+                raise ValueError(f"Failed to cancel order - {order_id}. Order was already matched or canceled on the exchange.")
             return order_id
         except asyncio.CancelledError:
             raise
@@ -671,7 +671,7 @@ class BitmartExchange(ExchangeBase):
             tracked_order.last_state = CONSTANTS.ORDER_STATUS[int(order_msg["state"])]
 
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.logger().info(f"Successfully canceled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
@@ -731,10 +731,8 @@ class BitmartExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -780,10 +778,8 @@ class BitmartExchange(ExchangeBase):
                                            tracked_order.client_order_id,
                                            tracked_order.base_asset,
                                            tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 

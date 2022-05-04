@@ -42,7 +42,7 @@ export function getHarmonyConfig(
       ),
     },
     nativeCurrencySymbol: ConfigManagerV2.getInstance().get(
-      chainName + '.nativeCurrencySymbol'
+      chainName + '.networks.' + network + '.nativeCurrencySymbol'
     ),
     autoGasPrice: ConfigManagerV2.getInstance().get(
       chainName + '.autoGasPrice'

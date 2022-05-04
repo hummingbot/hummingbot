@@ -1,24 +1,20 @@
-import aiohttp
 import aioprocessing
 from dataclasses import dataclass
 from decimal import Decimal
-import logging
 import os
 from pathlib import Path
-import ssl
-from typing import Optional, Any, Dict, AsyncIterable, List, Union
+from typing import Optional, Any, Dict, AsyncIterable, List
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils import detect_available_port
-from hummingbot.logger import HummingbotLogger
 
 
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "coinalpha/gateway-v2-dev"
-GATEWAY_DOCKER_TAG: str = "20220301"
+GATEWAY_DOCKER_TAG: str = "20220401-arm" if os.uname().machine in {"arm64", "aarch64"} else "20220329"
+S_DECIMAL_0: Decimal = Decimal(0)
 
 
 def is_inside_docker() -> bool:
@@ -43,6 +39,7 @@ def get_gateway_container_name() -> str:
 
     :return: Gateway container name
     """
+    from hummingbot.client.config.global_config_map import global_config_map
     instance_id_suffix: str = global_config_map["instance_id"].value[:8]
     return f"hummingbot-gateway-{instance_id_suffix}"
 
@@ -126,6 +123,7 @@ def get_gateway_paths() -> GatewayPaths:
 
 
 def get_default_gateway_port() -> int:
+    from hummingbot.client.config.global_config_map import global_config_map
     return detect_available_port(16000 + int(global_config_map.get("instance_id").value[:4], 16) % 16000)
 
 
@@ -203,279 +201,97 @@ async def docker_ipc_with_generator(method_name: str, *args, **kwargs) -> AsyncI
         raise e
 
 
-class GatewayHttpClient:
+def check_transaction_exceptions(
+        allowances: Dict[str, Decimal],
+        balances: Dict[str, Decimal],
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        gas_limit: int,
+        gas_cost: Decimal,
+        gas_asset: str,
+        swaps_count: int
+) -> List[str]:
     """
-    An HTTP client for making requests to the gateway API.
+    Check trade data for Ethereum decentralized exchanges
     """
+    exception_list = []
+    swaps_message: str = f"Total swaps: {swaps_count}"
+    gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
 
-    _ghc_logger: Optional[HummingbotLogger] = None
-    _shared_client: Optional[aiohttp.ClientSession] = None
+    # check for sufficient gas
+    if gas_asset_balance < gas_cost:
+        exception_list.append(f"Insufficient {gas_asset} balance to cover gas:"
+                              f" Balance: {gas_asset_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._ghc_logger is None:
-            cls._ghc_logger = logging.getLogger(__name__)
-        return cls._ghc_logger
+    asset_out: str = quote_asset if side is TradeType.BUY else base_asset
+    asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
 
-    @classmethod
-    def _http_client(cls, re_init: bool = False) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if cls._shared_client is None or re_init:
-            cert_path = get_gateway_paths().local_certs_path.as_posix()
-            ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
-            ssl_ctx.load_cert_chain(f"{cert_path}/client_cert.pem", f"{cert_path}/client_key.pem")
-            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
-            cls._shared_client = aiohttp.ClientSession(connector=conn)
-        return cls._shared_client
+    # check for gas limit set to low
+    gas_limit_threshold: int = 21000
+    if gas_limit < gas_limit_threshold:
+        exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
 
-    @classmethod
-    def reload_certs(cls):
-        """
-        Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
-        Certificates used to secure a HTTPS connection to the Gateway service.
-        """
-        cls._http_client(re_init=True)
+    # check for insufficient token allowance
+    if allowances[asset_out] < amount:
+        exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
 
-    async def api_request(
-            self,
-            method: str,
-            path_url: str,
-            params: Dict[str, Any] = {},
-            fail_silently: bool = False
-    ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
-        """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
-        :param params: A dictionary of required params for the end point
-        :param fail_silently: used to determine if errors will be raise or silently ignored
-        :returns A response in json format.
-        """
-        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                   f"{global_config_map['gateway_api_port'].value}"
-        url = f"{base_url}/{path_url}"
-        client = self._http_client()
+    return exception_list
 
-        parsed_response = {}
-        try:
-            if method == "get":
-                if len(params) > 0:
-                    response = await client.get(url, params=params)
-                else:
-                    response = await client.get(url)
-            elif method == "post":
-                response = await client.post(url, json=params)
-            else:
-                raise ValueError(f"Unsupported request method {method}")
-            if response.status != 200 and not fail_silently:
-                if "error" in parsed_response:
-                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response['error']}"
-                else:
-                    err_msg = f"Error on {method.upper()} {url} Error: {parsed_response}"
-                self.logger().error(err_msg)
-            parsed_response = await response.json()
-        except Exception as e:
-            if not fail_silently:
-                raise e
 
-        return parsed_response
-
-    async def ping_gateway(self) -> bool:
-        try:
-            response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
-            return response["status"] == "ok"
-        except Exception:
-            return False
-
-    async def get_gateway_status(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
-        """
-        Calls the status endpoint on Gateway to know basic info about connected networks.
-        """
-        try:
-            return await self.get_network_status(fail_silently=fail_silently)
-        except Exception as e:
-            self.logger().network(
-                "Error fetching gateway status info",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-
-    async def update_config(self, config_path: str, config_value: Any) -> Dict[str, Any]:
-        return await self.api_request("post", "config/update", {
-            "configPath": config_path,
-            "configValue": config_value,
-        })
-
-    async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
-        return await self.api_request("get", "connectors", fail_silently=fail_silently)
-
-    async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
-        return await self.api_request("get", "wallet", fail_silently=fail_silently)
-
-    async def add_wallet(self, chain: str, network: str, private_key: str) -> Dict[str, Any]:
-        return await self.api_request(
-            "post",
-            "wallet/add",
-            {"chain": chain, "network": network, "privateKey": private_key}
+async def start_gateway():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    try:
+        response = await docker_ipc(
+            "containers",
+            all=True,
+            filters={"name": get_gateway_container_name()}
         )
+        if len(response) == 0:
+            raise ValueError(f"Gateway container {get_gateway_container_name()} not found. ")
 
-    async def get_configuration(self, fail_silently: bool = False) -> Dict[str, Any]:
-        return await self.api_request("get", "network/config", fail_silently=fail_silently)
+        container_info = response[0]
+        if container_info["State"] == "running":
+            HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} already running.")
+            return
 
-    async def get_balances(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token_symbols: List[str],
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "network/balances", {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "tokenSymbols": token_symbols,
-        }, fail_silently=fail_silently)
-
-    async def get_tokens(
-            self,
-            chain: str,
-            network: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("get", "network/tokens", {
-            "chain": chain,
-            "network": network
-        }, fail_silently=fail_silently)
-
-    async def get_network_status(
-            self,
-            chain: str = None,
-            network: str = None,
-            fail_silently: bool = False
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        req_data: Dict[str, str] = {}
-        if chain is not None and network is not None:
-            req_data["chain"] = chain
-            req_data["network"] = network
-        return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)
-
-    async def approve_token(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token: str,
-            spender: str,
-            nonce: int
-    ) -> Dict[str, Any]:
-        return await self.api_request(
-            "post",
-            "evm/approve",
-            {
-                "chain": chain,
-                "network": network,
-                "address": address,
-                "token": token,
-                "spender": spender,
-                "nonce": nonce
-            }
+        await docker_ipc(
+            "start",
+            container=container_info["Id"]
         )
-
-    async def get_allowances(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token_symbols: List[str],
-            spender: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("get", "evm/allowances", {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "tokenSymbols": token_symbols,
-            "spender": spender
-        }, fail_silently=fail_silently)
-
-    async def get_price(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-            base_asset: str,
-            quote_asset: str,
-            amount: Decimal,
-            side: TradeType,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        if side not in [TradeType.BUY, TradeType.SELL]:
-            raise ValueError("Only BUY and SELL prices are supported.")
-
-        return await self.api_request("get", "amm/price", {
-            "chain": chain,
-            "network": network,
-            "connector": connector,
-            "base": base_asset,
-            "quote": quote_asset,
-            "amount": str(amount),
-            "side": side.name
-        }, fail_silently=fail_silently)
-
-    async def get_transaction_status(
-            self,
-            chain: str,
-            network: str,
-            transaction_hash: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "network/poll", {
-            "chain": chain,
-            "network": network,
-            "txHash": transaction_hash
-        }, fail_silently=fail_silently)
-
-    async def get_evm_nonce(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/nonce", {
-            "chain": chain,
-            "network": network,
-            "address": address
-        }, fail_silently=fail_silently)
-
-    async def amm_trade(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-            address: str,
-            base_asset: str,
-            quote_asset: str,
-            side: TradeType,
-            amount: Decimal,
-            price: Decimal,
-            nonce: int
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "amm/trade", {
-            "chain": chain,
-            "network": network,
-            "connector": connector,
-            "address": address,
-            "base": base_asset,
-            "quote": quote_asset,
-            "side": side.name,
-            "amount": str(amount),
-            "limitPrice": str(price),
-            "nonce": nonce
-        })
+        HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} has started.")
+    except Exception as e:
+        HummingbotApplication.main_application().notify(f"Error occurred starting Gateway container. {e}")
 
 
-gateway_http_client = GatewayHttpClient()
+async def stop_gateway():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    try:
+        response = await docker_ipc(
+            "containers",
+            all=True,
+            filters={"name": get_gateway_container_name()}
+        )
+        if len(response) == 0:
+            raise ValueError(f"Gateway container {get_gateway_container_name()} not found.")
+
+        container_info = response[0]
+        if container_info["State"] != "running":
+            HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} not running.")
+            return
+
+        await docker_ipc(
+            "stop",
+            container=container_info["Id"],
+        )
+        HummingbotApplication.main_application().notify(f"Gateway container {container_info['Id']} successfully stopped.")
+    except Exception as e:
+        HummingbotApplication.main_application().notify(f"Error occurred stopping Gateway container. {e}")
+
+
+async def restart_gateway():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    await stop_gateway()
+    await start_gateway()
+    HummingbotApplication.main_application().notify("Gateway will be ready momentarily.")

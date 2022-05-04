@@ -1,11 +1,17 @@
 import {
   InitializationError,
+  UniswapishPriceError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
 } from '../../services/error-handler';
+import { isFractionString } from '../../services/validators';
 import { UniswapConfig } from './uniswap.config';
 import routerAbi from './uniswap_v2_router_abi.json';
-import { Contract, ContractInterface } from '@ethersproject/contracts';
+import {
+  Contract,
+  ContractInterface,
+  ContractTransaction,
+} from '@ethersproject/contracts';
 import {
   Fetcher,
   Percent,
@@ -13,12 +19,15 @@ import {
   Token,
   TokenAmount,
   Trade,
+  Pair,
+  SwapParameters,
 } from '@uniswap/sdk';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { logger } from '../../services/logger';
 import { percentRegexp } from '../../services/config-manager-v2';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { ExpectedTrade, Uniswapish } from '../../services/common-interfaces';
+
 export class Uniswap implements Uniswapish {
   private static _instances: { [name: string]: Uniswap };
   private ethereum: Ethereum;
@@ -53,6 +62,12 @@ export class Uniswap implements Uniswapish {
     return Uniswap._instances[chain + network];
   }
 
+  /**
+   * Given a token's address, return the connector's native representation of
+   * the token.
+   *
+   * @param address Token address
+   */
   public getTokenByAddress(address: string): Token {
     return this.tokenList[address];
   }
@@ -79,23 +94,46 @@ export class Uniswap implements Uniswapish {
     return this._ready;
   }
 
+  /**
+   * Router address.
+   */
   public get router(): string {
     return this._router;
   }
 
-  public get ttl(): number {
-    return this._ttl;
-  }
-
+  /**
+   * Router smart contract ABI.
+   */
   public get routerAbi(): ContractInterface {
     return this._routerAbi;
   }
 
+  /**
+   * Default gas limit for swap transactions.
+   */
   public get gasLimit(): number {
     return this._gasLimit;
   }
 
-  getSlippagePercentage(): Percent {
+  /**
+   * Default time-to-live for swap transactions, in seconds.
+   */
+  public get ttl(): number {
+    return this._ttl;
+  }
+
+  /**
+   * Gets the allowed slippage percent from the optional parameter or the value
+   * in the configuration.
+   *
+   * @param allowedSlippageStr (Optional) should be of the form '1/10'.
+   */
+  public getAllowedSlippage(allowedSlippageStr?: string): Percent {
+    if (allowedSlippageStr != null && isFractionString(allowedSlippageStr)) {
+      const fractionSplit = allowedSlippageStr.split('/');
+      return new Percent(fractionSplit[0], fractionSplit[1]);
+    }
+
     const allowedSlippage = UniswapConfig.config.allowedSlippage(2);
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
@@ -104,69 +142,122 @@ export class Uniswap implements Uniswapish {
     );
   }
 
-  // get the expected amount of token out, for a given pair and a token amount in.
-  // this only considers direct routes.
-  async priceSwapIn(
-    tokenIn: Token,
-    tokenOut: Token,
-    tokenInAmount: BigNumber
-  ): Promise<ExpectedTrade | string> {
-    const tokenInAmount_ = new TokenAmount(tokenIn, tokenInAmount.toString());
-    logger.info(
-      `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
+  /**
+   * Given the amount of `baseToken` to put into a transaction, calculate the
+   * amount of `quoteToken` that can be expected from the transaction.
+   *
+   * This is typically used for calculating token sell prices.
+   *
+   * @param baseToken Token input for the transaction
+   * @param quoteToken Output from the transaction
+   * @param amount Amount of `baseToken` to put into the transaction
+   */
+  async estimateSellTrade(
+    baseToken: Token,
+    quoteToken: Token,
+    amount: BigNumber,
+    allowedSlippage?: string
+  ): Promise<ExpectedTrade> {
+    const nativeTokenAmount: TokenAmount = new TokenAmount(
+      baseToken,
+      amount.toString()
     );
-    const pair = await Fetcher.fetchPairData(
-      tokenIn,
-      tokenOut,
+    logger.info(
+      `Fetching pair data for ${baseToken.address}-${quoteToken.address}.`
+    );
+
+    const pair: Pair = await Fetcher.fetchPairData(
+      baseToken,
+      quoteToken,
       this.ethereum.provider
     );
-    const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
-      maxHops: 1,
-    });
-    if (!trades || trades.length === 0)
-      return `priceSwapIn: no trade pair found for ${tokenIn} to ${tokenOut}.`;
+    const trades: Trade[] = Trade.bestTradeExactIn(
+      [pair],
+      nativeTokenAmount,
+      quoteToken,
+      { maxHops: 1 }
+    );
+    if (!trades || trades.length === 0) {
+      throw new UniswapishPriceError(
+        `priceSwapIn: no trade pair found for ${baseToken} to ${quoteToken}.`
+      );
+    }
     logger.info(
-      `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
+      `Best trade for ${baseToken.address}-${quoteToken.address}: ` +
+        `${trades[0].executionPrice.toFixed(6)}` +
+        `${baseToken.name}.`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
 
-  async priceSwapOut(
-    tokenIn: Token,
-    tokenOut: Token,
-    tokenOutAmount: BigNumber
-  ): Promise<ExpectedTrade | string> {
-    const tokenOutAmount_ = new TokenAmount(
-      tokenOut,
-      tokenOutAmount.toString()
+  /**
+   * Given the amount of `baseToken` desired to acquire from a transaction,
+   * calculate the amount of `quoteToken` needed for the transaction.
+   *
+   * This is typically used for calculating token buy prices.
+   *
+   * @param quoteToken Token input for the transaction
+   * @param baseToken Token output from the transaction
+   * @param amount Amount of `baseToken` desired from the transaction
+   */
+  async estimateBuyTrade(
+    quoteToken: Token,
+    baseToken: Token,
+    amount: BigNumber,
+    allowedSlippage?: string
+  ): Promise<ExpectedTrade> {
+    const nativeTokenAmount: TokenAmount = new TokenAmount(
+      baseToken,
+      amount.toString()
     );
     logger.info(
-      `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
+      `Fetching pair data for ${quoteToken.address}-${baseToken.address}.`
     );
-    const pair = await Fetcher.fetchPairData(
-      tokenIn,
-      tokenOut,
+    const pair: Pair = await Fetcher.fetchPairData(
+      quoteToken,
+      baseToken,
       this.ethereum.provider
     );
-    const trades = Trade.bestTradeExactOut([pair], tokenIn, tokenOutAmount_, {
-      maxHops: 1,
-    });
-    if (!trades || trades.length === 0)
-      return `priceSwapOut: no trade pair found for ${tokenIn.address} to ${tokenOut.address}.`;
+    const trades: Trade[] = Trade.bestTradeExactOut(
+      [pair],
+      quoteToken,
+      nativeTokenAmount,
+      { maxHops: 1 }
+    );
+    if (!trades || trades.length === 0) {
+      throw new UniswapishPriceError(
+        `priceSwapOut: no trade pair found for ${quoteToken.address} to ${baseToken.address}.`
+      );
+    }
     logger.info(
-      `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
+      `Best trade for ${quoteToken.address}-${baseToken.address}: ` +
+        `${trades[0].executionPrice.invert().toFixed(6)} ` +
+        `${baseToken.name}.`
     );
 
     const expectedAmount = trades[0].maximumAmountIn(
-      this.getSlippagePercentage()
+      this.getAllowedSlippage(allowedSlippage)
     );
     return { trade: trades[0], expectedAmount };
   }
 
-  // given a wallet and a Uniswap trade, try to execute it on the Ethereum block chain.
+  /**
+   * Given a wallet and a Uniswap trade, try to execute it on blockchain.
+   *
+   * @param wallet Wallet
+   * @param trade Expected trade
+   * @param gasPrice Base gas price, for pre-EIP1559 transactions
+   * @param uniswapRouter Router smart contract address
+   * @param ttl How long the swap is valid before expiry, in seconds
+   * @param abi Router contract ABI
+   * @param gasLimit Gas limit
+   * @param nonce (Optional) EVM transaction nonce
+   * @param maxFeePerGas (Optional) Maximum total fee per gas you want to pay
+   * @param maxPriorityFeePerGas (Optional) Maximum tip per gas you want to pay
+   */
   async executeTrade(
     wallet: Wallet,
     trade: Trade,
@@ -177,22 +268,23 @@ export class Uniswap implements Uniswapish {
     gasLimit: number,
     nonce?: number,
     maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    maxPriorityFeePerGas?: BigNumber,
+    allowedSlippage?: string
   ): Promise<Transaction> {
-    const result = Router.swapCallParameters(trade, {
+    const result: SwapParameters = Router.swapCallParameters(trade, {
       ttl,
       recipient: wallet.address,
-      allowedSlippage: this.getSlippagePercentage(),
+      allowedSlippage: this.getAllowedSlippage(allowedSlippage),
     });
 
-    const contract = new Contract(uniswapRouter, abi, wallet);
-    if (!nonce) {
+    const contract: Contract = new Contract(uniswapRouter, abi, wallet);
+    if (nonce === undefined) {
       nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
     }
-    let tx;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
+    let tx: ContractTransaction;
+    if (maxFeePerGas !== undefined || maxPriorityFeePerGas !== undefined) {
       tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit,
+        gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
         maxFeePerGas,
@@ -200,8 +292,8 @@ export class Uniswap implements Uniswapish {
       });
     } else {
       tx = await contract[result.methodName](...result.args, {
-        gasPrice: gasPrice * 1e9,
-        gasLimit: gasLimit,
+        gasPrice: (gasPrice * 1e9).toFixed(0),
+        gasLimit: gasLimit.toFixed(0),
         value: result.value,
         nonce: nonce,
       });

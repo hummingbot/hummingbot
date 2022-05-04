@@ -198,7 +198,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
     def _cancel_order(self, cl_order_id):
         self.connector.cancel(self.trading_pair, cl_order_id)
         # if API_MOCK_ENABLED:
-        #     data = fixture.WS_ORDER_CANCELLED.copy()
+        #     data = fixture.WS_ORDER_CANCELED.copy()
         #     data["result"]["data"][0]["client_oid"] = cl_order_id
         #     HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
 
@@ -226,8 +226,6 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        # todo: get fee
-        # self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.event_logger.event_log]))
 
@@ -312,7 +310,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
@@ -320,7 +318,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         price = self.connector.quantize_order_price(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2, None, None,
-                                        fixture.WS_ORDER_CANCELLED)
+                                        fixture.WS_ORDER_CANCELED)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
@@ -337,12 +335,12 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(3))
         # if API_MOCK_ENABLED:
-        #     data = fixture.WS_ORDER_CANCELLED.copy()
+        #     data = fixture.WS_ORDER_CANCELED.copy()
         #     data["result"]["data"][0]["client_oid"] = buy_id
         #     data["result"]["data"][0]["order_id"] = 1
         #     HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
         #     self.ev_loop.run_until_complete(asyncio.sleep(1))
-        #     data = fixture.WS_ORDER_CANCELLED.copy()
+        #     data = fixture.WS_ORDER_CANCELED.copy()
         #     data["result"]["data"][0]["client_oid"] = sell_id
         #     data["result"]["data"][0]["order_id"] = 2
         #     HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.11)
