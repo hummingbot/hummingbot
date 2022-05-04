@@ -1,12 +1,8 @@
 import hashlib
 import hmac
-from collections import OrderedDict
 import time
-
-from typing import (
-    Any,
-    Dict, Optional
-)
+from collections import OrderedDict
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -54,7 +50,7 @@ class BybitAuth(AuthBase):
         request_params["api_key"] = self.api_key
         request_params = self.keysort(request_params)
         signature = self._generate_signature(params=request_params)
-        request_params["signature"] = signature
+        request_params["sign"] = signature
         return request_params
 
     def header_for_authentication(self) -> Dict[str, str]:
