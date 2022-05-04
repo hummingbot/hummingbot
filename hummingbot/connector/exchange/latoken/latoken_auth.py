@@ -2,7 +2,7 @@ import hashlib
 import hmac
 from collections import OrderedDict
 from time import time
-from typing import Dict, Mapping, Optional
+from typing import Any, Dict
 from urllib.parse import urlencode, urlsplit
 
 import ujson
@@ -33,15 +33,17 @@ class LatokenAuth(AuthBase):
         headers = {}
         if request.headers is not None:
             headers.update(request.headers)
-        endpoint = str(urlsplit(request.url).path)
-        signature = self._generate_signature(method=request.method.name, endpoint=endpoint, params=request_params)
+        endpoint = urlsplit(request.url).path
+        signature = self._generate_signature(method=request.method.name,
+                                             endpoint=endpoint,
+                                             params=request_params)
         headers.update(self.header_for_authentication(signature))
 
         request.headers = headers
         return request
 
     @staticmethod
-    def add_auth_to_params(params: Optional[Mapping[str, str]]) -> Optional[Mapping[str, str]]:
+    def add_auth_to_params(params: Dict[str, Any]):
         # timestamp = int(self.time_provider.time() * 1e3)
         request_params = OrderedDict(params or {})
         # request_params["timestamp"] = timestamp
@@ -49,12 +51,12 @@ class LatokenAuth(AuthBase):
         # request_params["signature"] = signature
         return request_params
 
-    def header_for_authentication(self, signature: str) -> Dict[str, str]:
+    def header_for_authentication(self, signature) -> Dict[str, str]:
         return {"X-LA-APIKEY": self.api_key,
                 "X-LA-SIGNATURE": signature,
                 "X-LA-DIGEST": 'HMAC-SHA512'}
 
-    def _generate_signature(self, method: str, endpoint: str, params: Optional[Mapping[str, str]]) -> str:
+    def _generate_signature(self, method, endpoint, params: Dict[str, Any]) -> str:
         encoded_params = urlencode(params)
         digest = hmac.new(self.secret_key.encode("utf8"),
                           (method + endpoint + encoded_params).encode('ascii'),
