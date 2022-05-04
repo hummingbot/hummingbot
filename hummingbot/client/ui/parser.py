@@ -119,7 +119,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
-    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without cancelling outstanding orders",
+    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without canceling outstanding orders",
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 

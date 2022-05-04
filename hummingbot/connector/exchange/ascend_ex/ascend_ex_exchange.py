@@ -716,7 +716,7 @@ class AscendExExchange(ExchangePyBase):
                 if non_tracked_order is None:
                     raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
                 else:
-                    self.logger().info(f"The order {order_id} was finished before being cancelled")
+                    self.logger().info(f"The order {order_id} was finished before being canceled")
             else:
                 ex_order_id = await tracked_order.get_exchange_order_id()
 

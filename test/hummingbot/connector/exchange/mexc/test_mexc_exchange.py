@@ -246,7 +246,7 @@ class MexcExchangeTests(TestCase):
         self.assertTrue(inflight_order.is_cancelled)
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"Order {inflight_order.client_order_id} "
-                                                f"has been cancelled according to order delta websocket API."))
+                                                f"has been canceled according to order delta websocket API."))
         self.assertEqual(1, len(self.exchange.event_logs))
         cancel_event = self.exchange.event_logs[0]
         self.assertEqual(OrderCancelledEvent, type(cancel_event))
@@ -284,7 +284,7 @@ class MexcExchangeTests(TestCase):
         self.assertTrue(inflight_order.is_failure)
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"Order {inflight_order.client_order_id} "
-                                                f"has been cancelled according to order delta websocket API."))
+                                                f"has been canceled according to order delta websocket API."))
         self.assertEqual(1, len(self.exchange.event_logs))
         failure_event = self.exchange.event_logs[0]
         self.assertEqual(OrderCancelledEvent, type(failure_event))

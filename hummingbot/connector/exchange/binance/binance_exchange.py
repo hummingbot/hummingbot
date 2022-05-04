@@ -436,7 +436,7 @@ class BinanceExchange(ExchangeBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Binance. Check API key and network connection."
             )
@@ -578,7 +578,7 @@ class BinanceExchange(ExchangeBase):
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                     return cancel_result
@@ -586,7 +586,7 @@ class BinanceExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
+                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
                 raise
 
     async def _status_polling_loop(self):
