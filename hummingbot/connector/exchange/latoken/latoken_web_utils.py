@@ -1,17 +1,16 @@
 # import inspect
 # from types import FrameType
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union  # , cast
+from typing import Any, Callable, Dict, Optional  # , cast
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
-from hummingbot.connector.exchange.latoken.latoken_stomper import LatokenConnectionsFactory
+from hummingbot.connector.exchange.latoken.latoken_web_assistants_factory import LatokenWebAssistantsFactory
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 # Order States for REST
 ORDER_STATE = {
@@ -60,7 +59,7 @@ def ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
 
 
 # Order States for WS
-def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled: Decimal, delta_filled: Decimal) -> Optional[OrderState]:
+def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled: Decimal, delta_filled: Decimal):
 
     order_state = None  # None is not used to update order in hbot order mgmt
     if status == "ORDER_STATUS_PLACED":
@@ -93,14 +92,34 @@ def get_order_status_ws(change_type: str, status: str, quantity: Decimal, filled
     return order_state
 
 
-def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal) -> OrderState:
+def get_order_status_rest(status: str, filled: Decimal, quantity: Decimal):
     new_state = ORDER_STATE[status]
     if new_state == OrderState.FILLED and quantity != filled:
         new_state = OrderState.PARTIALLY_FILLED
     return new_state
 
 
-def get_book_side(book: List[Dict[str, str]]) -> Tuple[Tuple[Any, Any], ...]:
+def create_full_mapping(ticker_list, currency_list, pair_list):
+    ticker_dict = {f"{ticker['baseCurrency']}/{ticker['quoteCurrency']}": ticker for ticker in ticker_list}
+    # pair_dict = {f"{pair['baseCurrency']}/{pair['quoteCurrency']}": pair for pair in pair_list}
+    currency_dict = {currency["id"]: currency for currency in currency_list}
+
+    for pt in pair_list:
+        key = f"{pt['baseCurrency']}/{pt['quoteCurrency']}"
+        is_valid = key in ticker_dict
+        pt["is_valid"] = is_valid
+        pt["id"] = ticker_dict[key] if is_valid else {"id": key}
+        base_id = pt["baseCurrency"]
+        if base_id in currency_dict:
+            pt["baseCurrency"] = currency_dict[base_id]
+        quote_id = pt["quoteCurrency"]
+        if quote_id in currency_dict:
+            pt["quoteCurrency"] = currency_dict[quote_id]
+
+    return pair_list
+
+
+def get_book_side(book):
     return tuple((row['price'], row['quantity']) for row in book)
 
 
@@ -109,24 +128,22 @@ def build_api_factory(
         time_synchronizer: Optional[TimeSynchronizer] = None,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
         time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None,) -> WebAssistantsFactory:
+        auth: Optional[AuthBase] = None,) -> LatokenWebAssistantsFactory:
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
         throttler=throttler,
         domain=domain,
     ))
-    api_factory = WebAssistantsFactory(
+    api_factory = LatokenWebAssistantsFactory(
         auth=auth,
         rest_pre_processors=[
             TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ])
-    api_factory._connections_factory = LatokenConnectionsFactory()
     return api_factory
 
 
-def build_api_factory_without_time_synchronizer_pre_processor() -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory()
-    api_factory._connections_factory = LatokenConnectionsFactory()
+def build_api_factory_without_time_synchronizer_pre_processor() -> LatokenWebAssistantsFactory:
+    api_factory = LatokenWebAssistantsFactory()
     return api_factory
 
 
@@ -135,7 +152,7 @@ def create_throttler() -> AsyncThrottler:
 
 
 async def api_request(path: str,
-                      api_factory: Optional[WebAssistantsFactory] = None,
+                      api_factory: Optional[LatokenWebAssistantsFactory] = None,
                       throttler: Optional[AsyncThrottler] = None,
                       time_synchronizer: Optional[TimeSynchronizer] = None,
                       domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -146,7 +163,7 @@ async def api_request(path: str,
                       return_err: bool = False,
                       limit_id: Optional[str] = None,
                       timeout: Optional[float] = None,
-                      headers=None) -> Union[str, Dict[str, Any]]:
+                      headers=None):
     if headers is None:
         headers = {}
 
@@ -196,6 +213,7 @@ async def get_current_server_time(
         throttler=throttler,
         domain=domain,
         method=RESTMethod.GET,
-        return_err=True
+        return_err=True,
+        limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
     )
     return response["serverTime"]

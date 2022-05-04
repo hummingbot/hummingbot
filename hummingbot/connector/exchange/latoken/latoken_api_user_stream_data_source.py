@@ -1,19 +1,19 @@
 import asyncio
 import logging
 import time
-from typing import List, Optional
+from typing import Optional
 
 import hummingbot.connector.exchange.latoken.latoken_constants as CONSTANTS
 import hummingbot.connector.exchange.latoken.latoken_stomper as stomper
 import hummingbot.connector.exchange.latoken.latoken_web_utils as web_utils
 from hummingbot.connector.exchange.latoken.latoken_auth import LatokenAuth
+from hummingbot.connector.exchange.latoken.latoken_web_assistants_factory import LatokenWebAssistantsFactory
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -25,9 +25,8 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: LatokenAuth,
-                 trading_pairs: List[str],
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 api_factory: Optional[WebAssistantsFactory] = None,
+                 api_factory: Optional[LatokenWebAssistantsFactory] = None,
                  throttler: Optional[AsyncThrottler] = None,
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__()
@@ -91,8 +90,7 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 msg_subscribe_orders = stomper.subscribe(
                     CONSTANTS.ORDERS_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_ORDERS, ack="auto")
                 msg_subscribe_trades = stomper.subscribe(
-                    CONSTANTS.TRADE_UPDATE_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_TRADE_UPDATE,
-                    ack="auto")
+                    CONSTANTS.TRADE_UPDATE_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_TRADE_UPDATE, ack="auto")
                 msg_subscribe_account = stomper.subscribe(
                     CONSTANTS.ACCOUNT_STREAM.format(**path_params), CONSTANTS.SUBSCRIPTION_ID_ACCOUNT, ack="auto")
 
@@ -126,7 +124,7 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def _get_throttler_instance(cls) -> AsyncThrottler:
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-    async def _get_listen_key(self) -> str:
+    async def _get_listen_key(self):
         try:
             data = await web_utils.api_request(
                 path=CONSTANTS.USER_ID_PATH_URL,
@@ -136,7 +134,8 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 domain=self._domain,
                 method=RESTMethod.GET,
                 is_auth_required=True,
-                return_err=False)
+                return_err=False,
+                limit_id=CONSTANTS.GLOBAL_RATE_LIMIT)
         except asyncio.CancelledError:
             raise
         except Exception as exception:
@@ -154,7 +153,8 @@ class LatokenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 domain=self._domain,
                 method=RESTMethod.GET,
                 is_auth_required=True,
-                return_err=True
+                return_err=True,
+                limit_id=CONSTANTS.GLOBAL_RATE_LIMIT
             )
 
             if "id" not in data:
