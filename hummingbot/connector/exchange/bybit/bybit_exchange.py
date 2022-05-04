@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
@@ -15,17 +14,16 @@ from hummingbot.connector.exchange.bybit.bybit_auth import BybitAuth
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, get_new_client_order_id
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
@@ -232,16 +230,14 @@ class BybitExchange(ExchangeBase):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 60.0
+                         if timestamp - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
 
         if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
+            self._poll_notifier.set()
         self._last_timestamp = timestamp
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
@@ -413,15 +409,15 @@ class BybitExchange(ExchangeBase):
         safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
-    def cancel(self, order_id: str):
+    def cancel(self, trading_pair: str, client_order_id: str):
         """
         Creates a promise to cancel an order in the exchange
         :param trading_pair: the trading pair the order to cancel operates with
         :param order_id: the client id of the order to cancel
         :return: the client id of the order to cancel
         """
-        safe_ensure_future(self._execute_cancel(order_id))
-        return order_id
+        safe_ensure_future(self._execute_cancel(client_order_id))
+        return client_order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
@@ -553,16 +549,16 @@ class BybitExchange(ExchangeBase):
             )
             self._order_tracker.process_order_update(order_update)
 
-    async def _execute_cancel(self, order_id: str) -> Dict[str, Any]:
+    async def _execute_cancel(self, client_order_id: str) -> Dict[str, Any]:
         """
         Requests the exchange to cancel an active order
-        :param order_id: the client id of the order to cancel
+        :param client_order_id: the client id of the order to cancel
         """
-        tracked_order = self._order_tracker.fetch_tracked_order(order_id)
+        tracked_order = self._order_tracker.fetch_tracked_order(client_order_id)
         if tracked_order is not None:
             try:
                 api_params = {
-                    "orderLinkId": order_id,
+                    "orderLinkId": client_order_id,
                 }
                 cancel_result = await self._api_request(
                     method=RESTMethod.DELETE,
@@ -572,10 +568,10 @@ class BybitExchange(ExchangeBase):
 
                 if cancel_result["result"].get("status") == "CANCELED":
                     order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=order_id,
+                        client_order_id=client_order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                     return cancel_result
@@ -583,7 +579,7 @@ class BybitExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(f"There was a an error when requesting cancellation of order {order_id}")
+                self.logger().network(f"There was a an error when requesting cancellation of order {client_order_id}")
                 raise
 
     async def _status_polling_loop(self):
@@ -599,11 +595,8 @@ class BybitExchange(ExchangeBase):
             try:
                 await self._poll_notifier.wait()
                 await self._update_time_synchronizer()
-                await safe_gather(
-                    self._update_balances(),
-                    self._update_order_fills_from_trades(),
-                )
-                await self._update_order_status()
+                await safe_gather(self._update_balances(),
+                                  self._update_order_status())
                 self._last_poll_timestamp = self.current_timestamp
 
                 self._poll_notifier = asyncio.Event()
@@ -769,109 +762,6 @@ class BybitExchange(ExchangeBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-    async def _update_order_fills_from_trades(self):
-        """
-        This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Bybit's user stream events are not working.
-        NOTE: It is not required to copy this functionality in other connectors.
-        This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Bybit's get order endpoint does not return trade IDs.
-        The minimum poll interval for order status is 10 seconds.
-        """
-        small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        small_interval_current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
-        long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
-
-        if (long_interval_current_tick > long_interval_last_tick
-                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = int(self._last_trades_poll_bybit_timestamp * 1e3)
-            self._last_trades_poll_bybit_timestamp = self._time_synchronizer.time()
-            order_by_exchange_id_map = {}
-            for order in self._order_tracker.all_orders.values():
-                order_by_exchange_id_map[order.exchange_order_id] = order
-
-            tasks = []
-            trading_pairs = self._order_book_tracker._trading_pairs
-            for trading_pair in trading_pairs:
-                params = {
-                    "symbol": await BybitAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
-                        trading_pair=trading_pair,
-                        domain=self._domain,
-                        api_factory=self._api_factory,
-                        throttler=self._throttler,
-                        time_synchronizer=self._time_synchronizer)
-                }
-                if self._last_poll_timestamp > 0:
-                    params["startTime"] = query_time
-                tasks.append(self._api_request(
-                    method=RESTMethod.GET,
-                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    params=params,
-                    is_auth_required=True))
-
-            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
-            results = await safe_gather(*tasks, return_exceptions=True)
-
-            for trades, trading_pair in zip(results, trading_pairs):
-
-                if isinstance(trades, Exception):
-                    self.logger().network(
-                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
-                    )
-                    continue
-                for trade in trades:
-                    exchange_order_id = str(trade["orderId"])
-                    if exchange_order_id in order_by_exchange_id_map:
-                        # This is a fill for a tracked order
-                        tracked_order = order_by_exchange_id_map[exchange_order_id]
-                        fee = TradeFeeBase.new_spot_fee(
-                            fee_schema=self.trade_fee_schema(),
-                            trade_type=tracked_order.trade_type,
-                            percent_token=trade["commissionAsset"],
-                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
-                        )
-                        trade_update = TradeUpdate(
-                            trade_id=str(trade["id"]),
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=exchange_order_id,
-                            trading_pair=trading_pair,
-                            fee=fee,
-                            fill_base_amount=Decimal(trade["qty"]),
-                            fill_quote_amount=Decimal(trade["quoteQty"]),
-                            fill_price=Decimal(trade["price"]),
-                            fill_timestamp=trade["time"] * 1e-3,
-                        )
-                        self._order_tracker.process_trade_update(trade_update)
-                    elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
-                        # This is a fill of an order registered in the DB but not tracked any more
-                        self._current_trade_fills.add(TradeFillOrderDetails(
-                            market=self.display_name,
-                            exchange_trade_id=str(trade["id"]),
-                            symbol=trading_pair))
-                        self.trigger_event(
-                            MarketEvent.OrderFilled,
-                            OrderFilledEvent(
-                                timestamp=float(trade["time"]) * 1e-3,
-                                order_id=self._exchange_order_ids.get(str(trade["orderId"]), None),
-                                trading_pair=trading_pair,
-                                trade_type=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
-                                price=Decimal(trade["price"]),
-                                amount=Decimal(trade["qty"]),
-                                trade_fee=DeductedFromReturnsTradeFee(
-                                    flat_fees=[
-                                        TokenAmount(
-                                            trade["commissionAsset"],
-                                            Decimal(trade["commission"])
-                                        )
-                                    ]
-                                ),
-                                exchange_trade_id=str(trade["id"])
-                            ))
-                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
-
     async def _update_order_status(self):
         # This is intended to be a backup measure to close straggler orders, in case Bybit's user stream events
         # are not working.
@@ -936,7 +826,6 @@ class BybitExchange(ExchangeBase):
             method=RESTMethod.GET,
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             is_auth_required=True)
-
         balances = account_info["result"]["balances"]
         for balance_entry in balances:
             asset_name = balance_entry["coin"]
