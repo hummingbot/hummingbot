@@ -78,6 +78,16 @@ const DAI_USDC_POOL = new uniV3.Pool(
 
 beforeAll(async () => {
   ethereum = Ethereum.getInstance('kovan');
+  patch(ethereum._nonceManager, 'init', () => {
+    return;
+  });
+  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
+
   await ethereum.init();
   wallet = new Wallet(
     '0000000000000000000000000000000000000000000000000000000000000002', // noqa: mock
@@ -86,6 +96,18 @@ beforeAll(async () => {
   uniswapV3 = UniswapV3.getInstance('ethereum', 'kovan');
   await uniswapV3.init();
   uniswapV3Helper = new UniswapV3Helper('kovan');
+});
+
+beforeEach(() => {
+  patch(ethereum._nonceManager, 'init', () => {
+    return;
+  });
+  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
 });
 
 afterEach(() => {

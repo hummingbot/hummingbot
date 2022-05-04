@@ -22,7 +22,30 @@ import {
 let eth: Ethereum;
 beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
+
+  patch(eth._nonceManager, 'init', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
+
   await eth.init();
+});
+
+beforeEach(() => {
+  patch(eth._nonceManager, 'init', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
+    return;
+  });
+  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
+    return Promise.resolve(12);
+  });
 });
 
 afterEach(() => unpatch());
