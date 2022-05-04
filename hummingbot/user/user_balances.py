@@ -1,12 +1,12 @@
 from decimal import Decimal
 from functools import lru_cache
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
-from hummingbot.core.utils.market_price import get_last_price
-from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs
-from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.market_price import get_last_price
 
 
 class UserBalances:
@@ -66,22 +66,24 @@ class UserBalances:
         return self._markets[exchange].get_all_balances()
 
     async def update_exchange_balance(self, exchange_name: str) -> Optional[str]:
-        if self.is_gateway_market(exchange_name) and exchange_name in self._markets:
+        is_gateway_market = self.is_gateway_market(exchange_name)
+        if is_gateway_market and exchange_name in self._markets:
             # we want to refresh gateway connectors always, since the applicable tokens change over time.
             # doing this will reinitialize and fetch balances for active trading pair
             del self._markets[exchange_name]
         if exchange_name in self._markets:
             return await self._update_balances(self._markets[exchange_name])
         else:
-            api_keys = await Security.api_keys(exchange_name)
+            api_keys = await Security.api_keys(exchange_name) if not is_gateway_market else {}
             return await self.add_exchange(exchange_name, **api_keys)
 
     # returns error message for each exchange
     async def update_exchanges(
-            self,
-            reconnect: bool = False,
-            exchanges: List[str] = []
+        self,
+        reconnect: bool = False,
+        exchanges: Optional[List[str]] = None
     ) -> Dict[str, Optional[str]]:
+        exchanges = exchanges or []
         tasks = []
         # Update user balances
         if len(exchanges) == 0:

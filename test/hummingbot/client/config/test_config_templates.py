@@ -1,5 +1,4 @@
 import unittest
-from os.path import join
 
 import ruamel.yaml
 
@@ -16,7 +15,7 @@ yaml_parser = ruamel.yaml.YAML()
 class ConfigTemplatesUnitTest(unittest.TestCase):
 
     def test_global_config_template_complete(self):
-        global_config_template_path: str = join(root_path(), "hummingbot/templates/conf_global_TEMPLATE.yml")
+        global_config_template_path = root_path() / "hummingbot" / "templates" / "conf_global_TEMPLATE.yml"
 
         with open(global_config_template_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -51,7 +50,7 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
         ]
 
         for strategy in strategies:
-            strategy_template_path: str = get_strategy_template_path(strategy)
+            strategy_template_path = get_strategy_template_path(strategy)
             strategy_config_map = get_strategy_config_map(strategy)
 
             with open(strategy_template_path, "r") as template_fd:

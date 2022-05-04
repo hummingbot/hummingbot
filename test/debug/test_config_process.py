@@ -1,22 +1,21 @@
 #!/usr/bin/env python
-from os.path import (
-    join,
-    realpath,
-)
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-import sys; sys.path.append(realpath(join(__file__, "../../bin")))
-from bin.hummingbot import main as hb_main
-from hummingbot.client.hummingbot_application import HummingbotApplication
-import unittest
 import asyncio
-import time
 import inspect
 import os
-from hummingbot.client import settings
-from hummingbot.client.config.security import Security
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
-from hummingbot.client.config.global_config_map import global_config_map
+import time
+import unittest
+from os.path import join, realpath
 from test.debug.fixture_configs import FixtureConfigs
+
+from bin.hummingbot import main as hb_main
+from hummingbot.client import settings
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys; sys.path.append(realpath(join(__file__, "../../bin")))
 
 
 async def wait_til(condition_func, timeout=10):
@@ -77,14 +76,14 @@ class ConfigProcessTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        remove_files(settings.CONF_FILE_PATH, [".yml", ".json"])
-        remove_files_extension(settings.CONF_FILE_PATH, ".temp")
+        remove_files(settings.STRATEGIES_CONF_DIR_PATH, [".yml", ".json"])
+        remove_files_extension(settings.STRATEGIES_CONF_DIR_PATH, ".temp")
         user_response("stop")
         cls.ev_loop.run_until_complete(wait_til(lambda: cls.hb.markets_recorder is None))
 
     @classmethod
     async def set_up_class(cls):
-        add_files_extension(settings.CONF_FILE_PATH, [".yml", ".json"], ".temp")
+        add_files_extension(settings.STRATEGIES_CONF_DIR_PATH, [".yml", ".json"], ".temp")
         asyncio.ensure_future(hb_main())
         cls.hb = HummingbotApplication.main_application()
         await wait_til(lambda: 'Enter "config" to create a bot' in cls.hb.app.output_field.document.text)
@@ -143,7 +142,7 @@ class ConfigProcessTest(unittest.TestCase):
     async def _test_pure_mm_basic_import_config_file(self):
         config_file_name = f"{settings.CONF_PREFIX}pure_market_making{settings.CONF_POSTFIX}_0.yml"
         # update the config file to put in some blank and invalid values.
-        with open(os.path.join(settings.CONF_FILE_PATH, config_file_name), "r+") as f:
+        with open(os.path.join(settings.STRATEGIES_CONF_DIR_PATH, config_file_name), "r+") as f:
             content = f.read()  # read everything in the file
             f.seek(0)  # rewind
             content = content.replace("bid_place_threshold: 0.01", "bid_place_threshold: ")

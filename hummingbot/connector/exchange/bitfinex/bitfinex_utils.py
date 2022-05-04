@@ -1,12 +1,10 @@
 import math
-
-from typing import Dict, List, Tuple, Optional
 from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
 
+from pydantic import Field, SecretStr
 
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
-
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 CENTRALIZED = True
 
@@ -20,20 +18,29 @@ HB_TO_EXCHANGE_CONVERSION = {v: k for k, v in EXCHANGE_TO_HB_CONVERSION.items()}
 DEFAULT_FEES = [0.1, 0.2]
 
 
-KEYS = {
-    "bitfinex_api_key":
-        ConfigVar(key="bitfinex_api_key",
-                  prompt="Enter your Bitfinex API key >>> ",
-                  required_if=using_exchange("bitfinex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "bitfinex_secret_key":
-        ConfigVar(key="bitfinex_secret_key",
-                  prompt="Enter your Bitfinex secret key >>> ",
-                  required_if=using_exchange("bitfinex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class BitfinexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bitfinex", client_data=None)
+    bitfinex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitfinex API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    bitfinex_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Bitfinex secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = BitfinexConfigMap.construct()
 
 
 # deeply merge two dictionaries

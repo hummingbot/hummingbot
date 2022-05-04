@@ -2,14 +2,14 @@ import os.path
 import random
 import re
 from decimal import Decimal
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional
 
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.settings import AllConnectorSettings, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
+from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, AllConnectorSettings
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 
 PMM_SCRIPT_ENABLED_KEY = "pmm_script_enabled"
@@ -32,13 +32,6 @@ def validate_pmm_script_file_path(file_path: str) -> Optional[bool]:
         file_path = os.path.join(settings.PMM_SCRIPTS_PATH, file_path)
     if not os.path.isfile(file_path):
         return f"{file_path} file does not exist."
-
-
-def connector_keys() -> Dict[str, ConfigVar]:
-    all_keys = {}
-    for connector_setting in AllConnectorSettings.get_connector_settings().values():
-        all_keys.update(connector_setting.config_keys)
-    return all_keys
 
 
 def validate_rate_oracle_source(value: str) -> Optional[str]:
@@ -96,32 +89,11 @@ main_config_map = {
                            "conf"
                            ],
                   type_str="list"),
-    "key_file_path":
-        ConfigVar(key="key_file_path",
-                  prompt=f"Where would you like to save your private key file? "
-                         f"(default '{DEFAULT_KEY_FILE_PATH}') >>> ",
-                  required_if=lambda: False,
-                  default=DEFAULT_KEY_FILE_PATH),
     "log_file_path":
         ConfigVar(key="log_file_path",
                   prompt=f"Where would you like to save your logs? (default '{DEFAULT_LOG_FILE_PATH}') >>> ",
                   required_if=lambda: False,
-                  default=DEFAULT_LOG_FILE_PATH),
-
-    # Required by chosen CEXes or DEXes
-    "celo_address":
-        ConfigVar(key="celo_address",
-                  prompt="Enter your Celo account address >>> ",
-                  type_str="str",
-                  required_if=lambda: False,
-                  is_connect_key=True),
-    "celo_password":
-        ConfigVar(key="celo_password",
-                  prompt="Enter your Celo account password >>> ",
-                  type_str="str",
-                  required_if=lambda: global_config_map["celo_address"].value is not None,
-                  is_secure=True,
-                  is_connect_key=True),
+                  default=str(DEFAULT_LOG_FILE_PATH)),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
                   prompt="Would you like to enable the kill switch? (Yes/No) >>> ",
@@ -315,8 +287,6 @@ main_config_map = {
                   default="psql"),
 }
 
-key_config_map = connector_keys()
-
 color_config_map = {
     # The variables below are usually not prompted during setup process
     "top-pane":
@@ -425,4 +395,4 @@ paper_trade_config_map = {
                   ),
 }
 
-global_config_map = {**key_config_map, **main_config_map, **color_config_map, **paper_trade_config_map}
+global_config_map = {**main_config_map, **color_config_map, **paper_trade_config_map}

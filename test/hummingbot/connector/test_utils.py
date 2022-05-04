@@ -1,5 +1,14 @@
+import importlib
 import unittest
+from os import DirEntry, scandir
+from os.path import exists, join
+from typing import cast
 
+from pydantic import SecretStr
+
+from hummingbot import root_path
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.utils import get_new_client_order_id
 
 
@@ -22,3 +31,34 @@ class UtilsTest(unittest.TestCase):
         id2 = get_new_client_order_id(is_buy=True, trading_pair=self.trading_pair, max_id_len=len(id0) - 2)
 
         self.assertEqual(len(id0) - 2, len(id2))
+
+    def test_connector_config_maps(self):
+        connector_exceptions = ["paper_trade", "celo"]
+
+        type_dirs = [
+            cast(DirEntry, f) for f in
+            scandir(f"{root_path() / 'hummingbot' / 'connector'}")
+            if f.is_dir()
+        ]
+        for type_dir in type_dirs:
+            connector_dirs = [
+                cast(DirEntry, f) for f in scandir(type_dir.path)
+                if f.is_dir() and exists(join(f.path, "__init__.py"))
+            ]
+            for connector_dir in connector_dirs:
+                if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
+                    continue
+                util_module_path: str = (
+                    f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
+                )
+                util_module = importlib.import_module(util_module_path)
+                connector_config = getattr(util_module, "KEYS")
+
+                self.assertIsInstance(connector_config, BaseConnectorConfigMap)
+                for el in ClientConfigAdapter(connector_config).traverse():
+                    if el.attr == "connector":
+                        self.assertEqual(el.value, connector_dir.name)
+                    elif el.client_field_data.is_secure:
+                        self.assertEqual(el.type_, SecretStr)
+                    else:
+                        self.assertEqual(el.type_, str)

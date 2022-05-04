@@ -1,6 +1,8 @@
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
 import zlib
+
+from pydantic import Field, SecretStr
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
 CENTRALIZED = True
 
@@ -11,26 +13,38 @@ EXAMPLE_PAIR = "BTC-USDT"
 DEFAULT_FEES = [0.1, 0.15]
 
 
-KEYS = {
-    "okex_api_key":
-        ConfigVar(key="okex_api_key",
-                  prompt="Enter your OKEx API key >>> ",
-                  required_if=using_exchange("okex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "okex_secret_key":
-        ConfigVar(key="okex_secret_key",
-                  prompt="Enter your OKEx secret key >>> ",
-                  required_if=using_exchange("okex"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "okex_passphrase":
-        ConfigVar(key="okex_passphrase",
-                  prompt="Enter your OKEx passphrase key >>> ",
-                  required_if=using_exchange("okex"),
-                  is_secure=True,
-                  is_connect_key=True),
-}
+class OkexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="okex", client_data=None)
+    okex_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKEx API key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    okex_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKEx secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+    okex_passphrase: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your OKEx passphrase key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
+
+
+KEYS = OkexConfigMap.construct()
 
 
 def inflate(data):

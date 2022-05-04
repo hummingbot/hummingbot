@@ -8,6 +8,7 @@ import path_util  # noqa: F401
 
 from bin.docker_connection import fork_and_start
 from hummingbot import chdir_to_data_directory, init_logging
+from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
     create_yml_files_legacy,
     read_system_configs_from_yml,
@@ -75,7 +76,8 @@ async def main_async():
 
 def main():
     chdir_to_data_directory()
-    if login_prompt():
+    secrets_manager_cls = ETHKeyFileSecretManger
+    if login_prompt(secrets_manager_cls):
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         ev_loop.run_until_complete(main_async())
 
