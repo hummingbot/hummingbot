@@ -90,7 +90,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
             finally:
                 # Make sure no background task is leaked.
                 ws and await ws.disconnect()
@@ -119,12 +119,12 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            if data.get("auth") == "fail":
-                raise IOError("Private channel authentication failed.")
-            elif isinstance(data, list):
+            if isinstance(data, list):
                 for message in data:
                     if message['e'] in ["executionReport", "outboundAccountInfo"]:
                         output.put_nowait(message)
+            elif data.get('auth') == 'fail':
+                raise IOError("Private channel authentication failed.")
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
