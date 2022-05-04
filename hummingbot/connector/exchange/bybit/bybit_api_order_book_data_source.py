@@ -270,17 +270,16 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 json_msg = await message_queue.get()
 
-                # if "result" in json_msg:
-                #     continue
                 trading_pair = await BybitAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
                     symbol=json_msg["symbol"],
                     domain=self._domain,
                     api_factory=self._api_factory,
                     throttler=self._throttler,
                     time_synchronizer=self._time_synchronizer)
-                trade_msg: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
-                    json_msg["data"], {"trading_pair": trading_pair})
-                output.put_nowait(trade_msg)
+                for trades in json_msg["data"]:
+                    trade_msg: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
+                        trades, {"trading_pair": trading_pair})
+                    output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
                 raise
@@ -306,13 +305,15 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     time_synchronizer=self._time_synchronizer)
 
                 if json_msg["f"]:
-                    order_book_message: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_websocket(
-                        json_msg["data"][0], time.time(), {"trading_pair": trading_pair})
+                    for snapshot_message in json_msg["data"]:
+                        order_book_message: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_websocket(
+                            snapshot_message, time.time(), {"trading_pair": trading_pair})
                     output.put_nowait(order_book_message)
                 else:
-                    order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
-                        json_msg["data"][0], time.time(), {"trading_pair": trading_pair})
-                    output.put_nowait(order_book_message)
+                    for diff_message in json_msg["data"]:
+                        order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
+                            diff_message, time.time(), {"trading_pair": trading_pair})
+                        output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -520,7 +521,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            print(data)
             if data.get("msg") == "Success":
                 continue
             event_type = data.get("topic")
