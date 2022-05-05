@@ -48,7 +48,7 @@ describe('unitiated EVMNodeService', () => {
   it('getNonce throws error', async () => {
     await expect(nonceManager.getNonce(exampleAddress)).rejects.toThrow(
       new InitializationError(
-        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonce'),
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonceFromMemory'),
         SERVICE_UNITIALIZED_ERROR_CODE
       )
     );

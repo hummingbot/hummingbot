@@ -40,7 +40,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await eth._nonceManager.close();
+  // await eth.nonceManager.close();
+  // await eth.txStorage.close();
   unpatch();
 });
 

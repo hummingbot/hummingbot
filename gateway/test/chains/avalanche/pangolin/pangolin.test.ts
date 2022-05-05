@@ -13,7 +13,10 @@ import {
 } from '@pangolindex/sdk';
 import { BigNumber } from 'ethers';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
+const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let pangolin: Pangolin;
 
@@ -31,37 +34,29 @@ const WAVAX = new Token(
 );
 
 beforeAll(async () => {
-  avalanche = Avalanche.getInstance('fuji');
-  patch(avalanche._nonceManager, 'init', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
 
+  avalanche = Avalanche.getInstance('fuji');
+  patchEVMNonceManager(avalanche._nonceManager);
   await avalanche.init();
+
   pangolin = Pangolin.getInstance('avalanche', 'fuji');
   await pangolin.init();
 });
 
 beforeEach(() => {
-  patch(avalanche._nonceManager, 'init', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(avalanche._nonceManager);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // await avalanche.nonceManager.close();
+  // await avalanche.txStorage.close();
+
   unpatch();
 });
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 const patchFetchPairData = () => {
   patch(Fetcher, 'fetchPairData', () => {

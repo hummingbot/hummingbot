@@ -67,4 +67,8 @@ export class EvmTxStorage {
       return;
     });
   }
+
+  async close(): Promise<void> {
+    await this.localStorage.close();
+  }
 }

@@ -12,41 +12,37 @@ import {
   OUT_OF_GAS_ERROR_MESSAGE,
   UNKNOWN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
+import { OverrideConfigs } from '../../config.util';
+import { patchEVMNonceManager } from '../../evm.nonce.mock';
 import * as transactionSuccesful from './fixtures/transaction-succesful.json';
 import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
 
+const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
+
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   eth = Ethereum.getInstance('kovan');
-
-  patch(eth._nonceManager, 'init', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
-
+  patchEVMNonceManager(eth._nonceManager);
   await eth.init();
 });
 
 beforeEach(() => {
-  patch(eth._nonceManager, 'init', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(eth._nonceManager);
 });
 
-afterEach(() => unpatch());
+afterEach(async () => {
+  // await eth.nonceManager.close();
+  // await eth.txStorage.close();
+
+  unpatch();
+});
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 const patchGetWallet = () => {
   patch(eth, 'getWallet', () => {
