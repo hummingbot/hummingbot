@@ -161,17 +161,27 @@ describe('EVMNodeService', () => {
   });
 
   it('getNextNonce should return nonces that are sequentially increasing', async () => {
-    // Prevents getTransactionCount.
-    patch(nonceManager, '#localNonceTTL', () => 300 * 1000);
-    patch(nonceManager, '#pendingNonceTTL', () => 300 * 1000);
-    nonceManager.commitNonce(exampleAddress, 1);
+    // Prevents nonce from expiring.
     patchGetTransactionCount();
+    patch(nonceManager, '_pendingNonceTTL', () => 300 * 1000);
+    nonceManager.commitNonce(exampleAddress, 1);
 
     const pendingNonce1 = await nonceManager.getNextNonce(exampleAddress);
     expect(pendingNonce1).toEqual(11);
 
     const pendingNonce2 = await nonceManager.getNextNonce(exampleAddress);
     expect(pendingNonce2).toEqual(pendingNonce1 + 1);
+  });
+
+  it('getNextNonce should reuse expired nonces', async () => {
+    // Prevents nonce from expiring.
+    patchGetTransactionCount();
+
+    const pendingNonce1 = await nonceManager.getNextNonce(exampleAddress);
+    expect(pendingNonce1).toEqual(11);
+
+    const pendingNonce2 = await nonceManager.getNextNonce(exampleAddress);
+    expect(pendingNonce2).toEqual(pendingNonce1);
   });
 });
 
