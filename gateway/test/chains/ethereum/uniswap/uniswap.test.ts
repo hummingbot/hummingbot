@@ -11,9 +11,12 @@ import {
   Trade,
   TradeType,
 } from '@uniswap/sdk';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 import { BigNumber } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 
+const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswap: Uniswap;
 
@@ -31,36 +34,29 @@ const DAI = new Token(
 );
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   ethereum = Ethereum.getInstance('kovan');
-  patch(ethereum._nonceManager, 'init', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(ethereum._nonceManager);
   await ethereum.init();
+
   uniswap = Uniswap.getInstance('ethereum', 'kovan');
   await uniswap.init();
 });
 
 beforeEach(() => {
-  patch(ethereum._nonceManager, 'init', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(ethereum._nonceManager);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // await ethereum.nonceManager.close();
+  // await ethereum.txStorage.close();
+
   unpatch();
 });
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 const patchFetchPairData = () => {
   patch(Fetcher, 'fetchPairData', () => {

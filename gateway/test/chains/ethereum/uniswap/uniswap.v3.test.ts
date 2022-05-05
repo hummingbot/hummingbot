@@ -7,7 +7,10 @@ import * as uniV3 from '@uniswap/v3-sdk';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
 import { Ethereum } from '../../../../src/chains/ethereum/ethereum';
 import { UniswapV3Helper } from '../../../../src/connectors/uniswap/uniswap.v3.helper';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
 
+const overrideConfigs = new OverrideConfigs();
 let ethereum: Ethereum;
 let uniswapV3: UniswapV3;
 let uniswapV3Helper: UniswapV3Helper;
@@ -77,42 +80,35 @@ const DAI_USDC_POOL = new uniV3.Pool(
 );
 
 beforeAll(async () => {
-  ethereum = Ethereum.getInstance('kovan');
-  patch(ethereum._nonceManager, 'init', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
 
+  ethereum = Ethereum.getInstance('kovan');
+  patchEVMNonceManager(ethereum._nonceManager);
   await ethereum.init();
+
   wallet = new Wallet(
     '0000000000000000000000000000000000000000000000000000000000000002', // noqa: mock
     ethereum.provider
   );
+
   uniswapV3 = UniswapV3.getInstance('ethereum', 'kovan');
   await uniswapV3.init();
   uniswapV3Helper = new UniswapV3Helper('kovan');
 });
 
 beforeEach(() => {
-  patch(ethereum._nonceManager, 'init', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(ethereum._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(ethereum._nonceManager);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // await ethereum.nonceManager.close();
+  // await ethereum.txStorage.close();
+
   unpatch();
 });
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 const patchFetchPairData = (noPath?: boolean) => {
   patch(uniswapV3, 'getPairs', () => {

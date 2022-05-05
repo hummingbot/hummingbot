@@ -3,19 +3,37 @@ import { patch, unpatch } from '../../../services/patch';
 import { gatewayApp } from '../../../../src/app';
 import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 import { Pangolin } from '../../../../src/connectors/pangolin/pangolin';
+import { OverrideConfigs } from '../../../config.util';
+import { patchEVMNonceManager } from '../../../evm.nonce.mock';
+
+const overrideConfigs = new OverrideConfigs();
 let avalanche: Avalanche;
 let pangolin: Pangolin;
 
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   avalanche = Avalanche.getInstance('fuji');
+  patchEVMNonceManager(avalanche._nonceManager);
   await avalanche.init();
+
   pangolin = Pangolin.getInstance('avalanche', 'fuji');
   await pangolin.init();
 });
 
-afterEach(() => {
+beforeEach(() => {
+  patchEVMNonceManager(avalanche._nonceManager);
+});
+
+afterEach(async () => {
+  // await avalanche.nonceManager.close();
+  // await avalanche.txStorage.close();
+
   unpatch();
 });
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 

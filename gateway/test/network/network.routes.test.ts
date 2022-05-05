@@ -4,37 +4,24 @@ import { patch, unpatch } from '../services/patch';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import { Harmony } from '../../src/chains/harmony/harmony';
 import { Avalanche } from '../../src/chains/avalanche/avalanche';
+import { OverrideConfigs } from '../config.util';
+import { patchEVMNonceManager } from '../evm.nonce.mock';
 
+const overrideConfigs = new OverrideConfigs();
 let eth: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
+
 beforeAll(async () => {
+  await overrideConfigs.init();
+  await overrideConfigs.updateConfigs();
+
   eth = Ethereum.getInstance('kovan');
-
-  patch(eth._nonceManager, 'init', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
-
+  patchEVMNonceManager(eth._nonceManager);
   await eth.init();
 
   avalanche = Avalanche.getInstance('fuji');
-
-  patch(avalanche._nonceManager, 'init', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
-
+  patchEVMNonceManager(avalanche._nonceManager);
   await avalanche.init();
 
   harmony = Harmony.getInstance('testnet');
@@ -42,28 +29,20 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  patch(eth._nonceManager, 'init', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
-
-  patch(avalanche._nonceManager, 'init', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(avalanche._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(eth._nonceManager);
+  patchEVMNonceManager(avalanche._nonceManager);
 });
 
-afterEach(() => unpatch());
+afterEach(async () => {
+  // await eth.nonceManager.close();
+  // await eth.txStorage.close();
+  // await avalanche.nonceManager.close();
+  // await avalanche.txStorage.close();
+
+  unpatch();
+});
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 describe('GET /network/status', () => {
   it('should return 200 when asking for harmony network status', async () => {
