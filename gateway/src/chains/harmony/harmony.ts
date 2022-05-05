@@ -5,8 +5,8 @@ import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
-// import { SushiSwapConfig } from './sushiswap/sushiswap.config';
 import { Ethereumish } from '../../services/common-interfaces';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Harmony extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Harmony };
@@ -26,8 +26,8 @@ export class Harmony extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.nonceDbPath,
-      config.transactionDbPath
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = network;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;

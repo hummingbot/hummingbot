@@ -21,8 +21,6 @@ export interface Config {
   nodeAPIKey: string;
   nativeCurrencySymbol: string;
   manualGasPrice: number;
-  nonceDbPath: string;
-  transactionDbPath: string;
 }
 
 export namespace EthereumConfig {
@@ -66,10 +64,6 @@ export function getEthereumConfig(
     ),
     manualGasPrice: ConfigManagerV2.getInstance().get(
       chainName + '.manualGasPrice'
-    ),
-    nonceDbPath: ConfigManagerV2.getInstance().get(chainName + '.nonceDbPath'),
-    transactionDbPath: ConfigManagerV2.getInstance().get(
-      chainName + '.nonceDbPath'
     ),
   };
 }

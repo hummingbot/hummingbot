@@ -14,8 +14,6 @@ interface Config {
   autoGasPrice: boolean;
   manualGasPrice: number;
   gasPricerefreshTime: number;
-  nonceDbPath: string;
-  transactionDbPath: string;
 }
 
 export function getHarmonyConfig(
@@ -50,10 +48,6 @@ export function getHarmonyConfig(
     ),
     gasPricerefreshTime: ConfigManagerV2.getInstance().get(
       chainName + '.gasPricerefreshTime'
-    ),
-    nonceDbPath: ConfigManagerV2.getInstance().get(chainName + '.nonceDbPath'),
-    transactionDbPath: ConfigManagerV2.getInstance().get(
-      chainName + '.nonceDbPath'
     ),
   };
 }

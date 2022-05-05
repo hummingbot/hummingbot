@@ -23,5 +23,3 @@ networks:
     gasPriceRefreshInterval: 60
 nodeAPIKey: ''
 manualGasPrice: 110
-nonceDbPath: 'nonce.level'
-transactionDbPath: 'transaction.level'
