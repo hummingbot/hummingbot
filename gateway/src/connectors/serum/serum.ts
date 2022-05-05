@@ -24,7 +24,8 @@ import {
   CancelOrderRequest,
   CancelOrdersRequest,
   CreateOrdersRequest,
-  Fund, FundsSettlementError,
+  Fund,
+  FundsSettlementError,
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
   GetOpenOrderRequest,
@@ -48,7 +49,6 @@ import {
   TickerNotFoundError,
   TickerSource,
 } from './serum.types';
-import {validateCreateOrderRequest} from "./serum.validators";
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
@@ -62,7 +62,7 @@ export type Serumish = Serum;
 /**
  * Serum is a wrapper around the Serum API.
  *
- * // TODO Listen the events from the serum api to automatically settle the funds (specially when filling orders)!!!
+ * // TODO Listen the events from the serum API to automatically settle the funds (specially when filling orders)!!!
  */
 export class Serum {
   private initializing: boolean = false;
@@ -192,6 +192,19 @@ export class Serum {
   }
 
   /**
+   * Place one or more orders in a single transaction.
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param orders
+   * @private
+   */
+  private async serumMarketPlaceOrders(market: SerumMarket, connection: Connection, orders: SerumOrderParams<Account>[]): Promise<string[]> {
+    throw new Error('Not implemented');
+  }
+
+  /**
    * 1 external API call.
    *
    * @param market
@@ -204,6 +217,20 @@ export class Serum {
     const result = await market.cancelOrder(connection, owner, order);
 
     return result;
+  }
+
+  /**
+   * Cancel one or more order in a single transaction.
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param owner
+   * @param orders
+   * @private
+   */
+  private async serumMarketCancelOrders(market: SerumMarket, connection: Connection, owner: Account, orders: SerumOrder[]): Promise<string[]> {
+    throw new Error('Not implemented');
   }
 
   /**
@@ -269,6 +296,23 @@ export class Serum {
     const result = await market.settleFunds(connection, owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet);
 
     return result;
+  }
+
+  /**
+   * Settle funds in a single transaction.
+   * 1 external API call.
+   *
+   * @param market
+   * @param connection
+   * @param owner
+   * @param openOrders
+   * @param baseWallet
+   * @param quoteWallet
+   * @param referrerQuoteWallet
+   * @private
+   */
+  private async serumSettleFundsSeveral(market: SerumMarket, connection: Connection, owner: Account, openOrders: OpenOrders[], baseWallet: PublicKey, quoteWallet: PublicKey, referrerQuoteWallet?: PublicKey | null): Promise<string[]> {
+    throw new Error('Not implemented');
   }
 
   /**
@@ -959,7 +1003,7 @@ export class Serum {
     candidates: CreateOrdersRequest[]
   ): Promise<IMap<string, Order>> {
     // TODO Improve to use a single transaction!!!
-    // TODO Try to do a trial and error to find the limits!!!
+    // TODO Check the maximum number of orders that we can create at once!!!
 
     const createdOrders = IMap<string, Order>().asMutable();
     for (const candidateOrder of candidates) {
@@ -977,7 +1021,6 @@ export class Serum {
    * @param target
    */
   async cancelOrder(target: CancelOrderRequest): Promise<Order> {
-    // TODO Add validation!!!
     const market = await this.getMarket(target.marketName);
 
     const owner = await this.solana.getAccount(target.ownerAddress);
@@ -1003,7 +1046,6 @@ export class Serum {
 
   /**
    * $numberOfTargets external API calls.
-   * TODO Add validation!!!
    *
    * @param targets
    */
