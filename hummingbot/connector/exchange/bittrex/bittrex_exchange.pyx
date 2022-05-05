@@ -58,7 +58,7 @@ cdef class BittrexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -437,10 +437,10 @@ cdef class BittrexExchange(ExchangeBase):
                                          tracked_order.executed_amount_quote,
                                          tracked_order.order_type))
         else:  # Order PARTIAL-CANCEL or CANCEL
-            tracked_order.last_state = "CANCELLED"
+            tracked_order.last_state = "CANCELED"
             self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
-                               f"{client_order_id} has been cancelled according to Bittrex order status API.")
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                               f"{client_order_id} has been canceled according to Bittrex order status API.")
+            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                  OrderCancelledEvent(
                                      self._current_timestamp,
                                      client_order_id
@@ -527,10 +527,10 @@ cdef class BittrexExchange(ExchangeBase):
                 self.c_stop_tracking_order(tracked_order.client_order_id)
 
             else:  # CANCEL
-                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                self.logger().info(f"The order {tracked_order.client_order_id} has been canceled "
                                    f"according to Order Delta WebSocket API.")
                 tracked_order.last_state = "cancelled"
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
                 self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -916,10 +916,10 @@ cdef class BittrexExchange(ExchangeBase):
 
             cancel_result = await self._api_request("DELETE", path_url=path_url)
             if cancel_result["status"] == "CLOSED":
-                self.logger().info(f"Successfully cancelled order {order_id}.")
-                tracked_order.last_state = "CANCELLED"
+                self.logger().info(f"Successfully canceled order {order_id}.")
+                tracked_order.last_state = "CANCELED"
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
         except asyncio.CancelledError:
@@ -929,7 +929,7 @@ cdef class BittrexExchange(ExchangeBase):
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Bittrex. No cancellation needed.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
 
@@ -969,7 +969,7 @@ cdef class BittrexExchange(ExchangeBase):
                         successful_cancellation.append(CancellationResult(order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 app_warning_msg="Failed to cancel order on Bittrex. Check API key and network connection."
             )
 

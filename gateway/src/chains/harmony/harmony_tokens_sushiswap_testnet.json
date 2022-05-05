@@ -1,0 +1,53 @@
+{
+  "name": "Sushiswap Testnet Token List",
+  "logoURI": "https://sushi.com/static/media/logo.dec926df.png",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 1
+  },
+  "keywords": [],
+  "timestamp": "2022-01-30T00:00:00+00:00",
+  "tokens": [
+    {
+      "name": "Wrapped ONE",
+      "address": "0x7a2afac38517d512E55C0bCe3b6805c10a04D60F",
+      "symbol": "WONE",
+      "decimals": 18,
+      "chainId": 1666700000,
+      "logoURI": "https://assets.coingecko.com/coins/images/4344/small/Y88JAze.png"
+    },
+    {
+      "chainId": 1666700000,
+      "address": "0x0E80905676226159cC3FF62B1876C907C91F7395",
+      "symbol": "1BUSD",
+      "name": "OneBUSD",
+      "decimals": 18,
+      "logoURI": "https://assets.coingecko.com/coins/images/9576/small/BUSD.png"
+    },
+    {
+      "chainId": 1666700000,
+      "address": "0x6c4387C4f570Aa8cAdcaFFc5E73ecb3D0F8Fc593",
+      "symbol": "WBTC",
+      "name": "Wrapped BTC",
+      "decimals": 8,
+      "logoURI": "https://assets.coingecko.com/coins/images/7598/small/wrapped_bitcoin_wbtc.png"
+    },
+    {
+      "chainId": 1666700000,
+      "address": "0x1E120B3b4aF96e7F394ECAF84375b1C661830013",
+      "symbol": "1ETH",
+      "name": "OneETH",
+      "decimals": 18,
+      "logoURI": "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+    },
+    {
+      "chainId": 1666700000,
+      "address": "0x2C6e26B2faD89bc52d043e78E3D980A08af0Ce88",
+      "symbol": "1LINK",
+      "name": "OneChainlink",
+      "decimals": 18,
+      "logoURI": "https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png"
+    }
+  ]
+}
