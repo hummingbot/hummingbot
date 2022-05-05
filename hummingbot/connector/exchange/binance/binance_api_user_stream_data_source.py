@@ -34,7 +34,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth: BinanceAuth = auth
         self._time_synchronizer = time_synchronizer
         self._current_listen_key = None
-        self._last_recv_time: float = 0
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory(
