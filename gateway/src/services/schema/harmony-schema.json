@@ -29,7 +29,9 @@
     "network": { "type": "string" },
     "autoGasPrice": { "type": "boolean" },
     "manualGasPrice": { "type": "integer" },
-    "gasPricerefreshTime": { "type": "integer" }
+    "gasPricerefreshTime": { "type": "integer" },
+    "nonceDbPath": { "type": "string" },
+    "transactionDbPath": { "type": "string" }    
   },
   "additionalProperties": false
 }

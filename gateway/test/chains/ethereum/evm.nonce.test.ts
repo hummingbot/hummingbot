@@ -24,7 +24,7 @@ describe('unitiated EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce1.test.level'));
-    nonceManager = new EVMNonceManager('ethereum', 43, 0, dbPath);
+    nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0);
   });
 
   afterAll(async () => {
@@ -77,7 +77,7 @@ describe('unitiated EVMNodeService', () => {
       'https://ethereum.node.com'
     );
 
-    const nonceManager2 = new EVMNonceManager('ethereum', 43, -5, dbPath);
+    const nonceManager2 = new EVMNonceManager('ethereum', 43, dbPath, -5);
 
     try {
       await expect(nonceManager2.init(provider)).rejects.toThrow(
@@ -99,7 +99,7 @@ describe('EVMNodeService', () => {
   let dbPath = '';
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce2.test.level'));
-    nonceManager = new EVMNonceManager('ethereum', 43, 60, dbPath);
+    nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 60);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
@@ -157,13 +157,13 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   let dbPath = '';
   beforeAll(async () => {
     dbPath = await fsp.mkdtemp(path.join(__dirname, '/evm-nonce3.test.level'));
-    nonceManager1 = new EVMNonceManager('ethereum', 43, 60, dbPath);
+    nonceManager1 = new EVMNonceManager('ethereum', 43, dbPath, 60);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
     await nonceManager1.init(provider1);
 
-    nonceManager2 = new EVMNonceManager('avalanche', 56, 60, dbPath);
+    nonceManager2 = new EVMNonceManager('avalanche', 56, dbPath, 60);
     const provider2 = new providers.StaticJsonRpcProvider(
       'https://avalanche.node.com'
     );

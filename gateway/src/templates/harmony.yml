@@ -17,3 +17,5 @@ network: 'harmony'
 autoGasPrice: true
 manualGasPrice: 30
 gasPricerefreshTime: 60
+nonceDbPath: 'nonce.level'
+transactionDbPath: 'transaction.level'

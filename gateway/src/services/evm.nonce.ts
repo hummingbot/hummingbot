@@ -118,8 +118,8 @@ export class EVMNonceManager {
   constructor(
     chainName: string,
     chainId: number,
-    localNonceTTL: number = 300,
-    dbPath: string = 'gateway.level'
+    dbPath: string,
+    localNonceTTL: number = 300
   ) {
     this.#chainName = chainName;
     this.#chainId = chainId;

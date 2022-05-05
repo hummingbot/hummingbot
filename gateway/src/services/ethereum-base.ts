@@ -55,7 +55,9 @@ export class EthereumBase {
     rpcUrl: string,
     tokenListSource: string,
     tokenListType: TokenListType,
-    gasPriceConstant: number
+    gasPriceConstant: number,
+    nonceDbPath: string,
+    transactionDbPath: string
   ) {
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
     this.chainName = chainName;
@@ -64,9 +66,9 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = new EVMNonceManager(chainName, chainId);
+    this._nonceManager = new EVMNonceManager(chainName, chainId, nonceDbPath);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
-    this._txStorage = EvmTxStorage.getInstance('transactions.level');
+    this._txStorage = EvmTxStorage.getInstance(transactionDbPath);
   }
 
   ready(): boolean {
