@@ -919,8 +919,6 @@ class TestKucoinExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1009,8 +1007,6 @@ class TestKucoinExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_cancelled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1085,8 +1081,6 @@ class TestKucoinExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_order_has_not_changed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1158,8 +1152,6 @@ class TestKucoinExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1196,8 +1188,6 @@ class TestKucoinExchange(unittest.TestCase):
         update_event.wait.side_effect = asyncio.TimeoutError
 
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",

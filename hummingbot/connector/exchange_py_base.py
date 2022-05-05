@@ -19,37 +19,24 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 
 class ExchangePyBase(ExchangeBase):
     _logger = None
 
-    # The following class vars MUST be redefined in the child class
-    # because they cannot have defaults, so we keep them commented
-    # to cause a NameError if not defined
-    #
-    # DEFAULT_DOMAIN = ""
-    # RATE_LIMITS = None
-    # SUPPORTED_ORDER_TYPES = []
-    # MAX_ORDER_ID_LEN = None
-    # HBOT_ORDER_ID_PREFIX = None
-    # SYMBOLS_PATH_URL = ""
-    # FEE_PATH_URL = ""
-    # CHECK_NETWORK_URL = ""
-    # ORDERBOOK_DS_CLASS = None
-    # USERSTREAM_DS_CLASS = None
-
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 120.0
     TRADING_RULES_INTERVAL = 30 * MINUTE
     TRADING_FEES_INTERVAL = TWELVE_HOURS
-    UPDATE_ORDERS_INTERVAL = 10.0
     TICK_INTERVAL_LIMIT = 60.0
 
     def __init__(self):
@@ -67,36 +54,22 @@ class ExchangePyBase(ExchangeBase):
         self._trading_fees_polling_task = None
 
         self._time_synchronizer = TimeSynchronizer()
-        self._throttler = AsyncThrottler(self.RATE_LIMITS)
+        self._throttler = AsyncThrottler(self.rate_limits_rules)
         self._poll_notifier = asyncio.Event()
 
         # init Auth and Api factory
-        self._auth = self.init_auth()
-        self._api_factory = self.web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+        self._auth = self.authenticator
+        self._web_assistants_factory: WebAssistantsFactory = self._create_web_assistants_factory()
 
         # init OrderBook Data Source and Tracker
-        self._orderbook_ds = self.ORDERBOOK_DS_CLASS(
-            trading_pairs=self._trading_pairs,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+        self._orderbook_ds: OrderBookTrackerDataSource = self._create_order_book_data_source()
         self._order_book_tracker = OrderBookTracker(
             data_source=self._orderbook_ds,
             trading_pairs=self._trading_pairs,
-            domain=self._domain)
+            domain=self.domain)
 
         # init UserStream Data Source and Tracker
-        self._userstream_ds = self.USERSTREAM_DS_CLASS(
-            trading_pairs=self._trading_pairs,
-            auth=self._auth,
-            domain=self._domain,
-            api_factory=self._api_factory,
-            throttler=self._throttler)
+        self._userstream_ds = self._create_user_stream_data_source()
         self._user_stream_tracker = UserStreamTracker(
             data_source=self._userstream_ds)
 
@@ -113,6 +86,63 @@ class ExchangePyBase(ExchangeBase):
     @staticmethod
     def quantize_value(value: Decimal, quantum: Decimal) -> Decimal:
         return (value // quantum) * quantum
+
+    @property
+    @abstractmethod
+    def authenticator(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def rate_limits_rules(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def domain(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def client_order_id_max_length(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def client_order_id_prefix(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def trading_rules_request_path(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def check_network_request_path(self):
+        raise NotImplementedError
+
+    @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        return self._order_book_tracker.order_books
+
+    @property
+    def in_flight_orders(self) -> Dict[str, InFlightOrder]:
+        return self._order_tracker.active_orders
+
+    @property
+    def trading_rules(self) -> Dict[str, TradingRule]:
+        return self._trading_rules
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self.in_flight_orders.values()
+        ]
+
+    def supported_order_types(self):
+        return self._supported_order_types()
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         if price.is_nan():
@@ -170,30 +200,6 @@ class ExchangePyBase(ExchangeBase):
             return s_decimal_0
         return quantized_amount
 
-    # Exchange / Trading logic
-    #
-    def supported_order_types(self):
-        return self.SUPPORTED_ORDER_TYPES
-
-    @property
-    def order_books(self) -> Dict[str, OrderBook]:
-        return self._order_book_tracker.order_books
-
-    @property
-    def in_flight_orders(self) -> Dict[str, InFlightOrder]:
-        return self._order_tracker.active_orders
-
-    @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
-
-    @property
-    def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self.in_flight_orders.values()
-        ]
-
     def get_order_book(self, trading_pair: str) -> OrderBook:
         """
         Returns the current order book for a particular market
@@ -208,7 +214,7 @@ class ExchangePyBase(ExchangeBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "symbols_mapping_initialized": self._orderbook_ds.trading_pair_symbol_map_ready(
-                domain=self._domain),
+                domain=self.domain),
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": not self._trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
@@ -236,8 +242,7 @@ class ExchangePyBase(ExchangeBase):
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
+            self._poll_notifier.set()
         self._last_timestamp = timestamp
 
     # Orders placing
@@ -261,8 +266,8 @@ class ExchangePyBase(ExchangeBase):
         order_id = get_new_client_order_id(
             is_buy=True,
             trading_pair=trading_pair,
-            hbot_order_id_prefix=self.HBOT_ORDER_ID_PREFIX,
-            max_id_len=self.MAX_ORDER_ID_LEN
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
         )
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -286,8 +291,8 @@ class ExchangePyBase(ExchangeBase):
         order_id = get_new_client_order_id(
             is_buy=False,
             trading_pair=trading_pair,
-            hbot_order_id_prefix=self.HBOT_ORDER_ID_PREFIX,
-            max_id_len=self.MAX_ORDER_ID_LEN
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
         )
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
@@ -375,6 +380,22 @@ class ExchangePyBase(ExchangeBase):
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
 
+    @abstractmethod
+    def _supported_order_types(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        raise NotImplementedError
+
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
@@ -412,8 +433,8 @@ class ExchangePyBase(ExchangeBase):
             amount=amount
         )
 
-        if order_type not in self.SUPPORTED_ORDER_TYPES:
-            self.logger().error(f"{order_type} not in SUPPORTED_ORDER_TYPES")
+        if order_type not in self.supported_order_types():
+            self.logger().error(f"{order_type} is not in the list of supported order types")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
@@ -569,9 +590,6 @@ class ExchangePyBase(ExchangeBase):
     def name(self):
         raise NotImplementedError
 
-    def init_auth(self):
-        raise NotImplementedError
-
     def _place_cancel(self):
         raise NotImplementedError
 
@@ -654,7 +672,7 @@ class ExchangePyBase(ExchangeBase):
         Checks connectivity with the exchange using the API
         """
         try:
-            await self._api_get(path_url=self.CHECK_NETWORK_URL)
+            await self._api_get(path_url=self.check_network_request_path)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -737,7 +755,7 @@ class ExchangePyBase(ExchangeBase):
             await self._time_synchronizer.update_server_time_offset_with_time_provider(
                 time_provider=self.web_utils.get_current_server_time(
                     throttler=self._throttler,
-                    domain=self._domain,
+                    domain=self.domain,
                 )
             )
         except asyncio.CancelledError:
@@ -763,7 +781,7 @@ class ExchangePyBase(ExchangeBase):
     # that call the API
     #
     async def _update_trading_rules(self):
-        exchange_info = await self._api_get(path_url=self.SYMBOLS_PATH_URL)
+        exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
@@ -795,15 +813,24 @@ class ExchangePyBase(ExchangeBase):
 
         return await self.web_utils.api_request(
             path=path_url,
-            api_factory=self._api_factory,
+            api_factory=self._web_assistants_factory,
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
+            domain=self.domain,
             params=params,
             data=data,
             method=method,
             is_auth_required=is_auth_required,
             limit_id=limit_id)
+
+    async def _status_polling_loop_fetch_updates(self):
+        """
+        Called by _status_polling_loop, which executes after each tick() is executed
+        """
+        await safe_gather(
+            self._update_balances(),
+            self._update_order_status(),
+        )
 
     # Methods tied to specific API data formats
     #
@@ -825,8 +852,4 @@ class ExchangePyBase(ExchangeBase):
 
     @abstractmethod
     def _update_balances(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    async def _status_polling_loop_fetch_updates(self):
         raise NotImplementedError
