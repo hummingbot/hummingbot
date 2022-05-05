@@ -6,16 +6,17 @@ import BN from "bn.js";
 import {Cache, CacheContainer} from 'node-ts-cache';
 import {MemoryStorage} from 'node-ts-cache-storage-memory';
 import {Solana} from '../../chains/solana/solana';
+import {logger} from './../../services/logger';
 import {getSerumConfig, SerumConfig} from './serum.config';
 import {promisesBatchSize, promisesDelayInMilliseconds, serumMarketsTTL} from "./serum.constants";
 import {
   convertArrayOfSerumOrdersToMapOfOrders,
-  convertFilledOrderToTicker,
   convertMarketBidsAndAsksToOrderBook,
   convertOrderSideToSerumSide,
   convertOrderTypeToSerumType,
   convertSerumMarketToMarket,
-  convertSerumOrderToOrder
+  convertSerumOrderToOrder,
+  convertToTicker
 } from "./serum.convertors";
 import {getRandonBN, promiseAllInBatches} from "./serum.helpers";
 import {
@@ -23,7 +24,7 @@ import {
   CancelOrderRequest,
   CancelOrdersRequest,
   CreateOrdersRequest,
-  Fund,
+  Fund, FundsSettlementError,
   GetFilledOrderRequest,
   GetFilledOrdersRequest,
   GetOpenOrderRequest,
@@ -45,18 +46,23 @@ import {
   SerumOrderParams,
   Ticker,
   TickerNotFoundError,
+  TickerSource,
 } from './serum.types';
-import {validateCreateOrder} from "./serum.validators";
+import {validateCreateOrderRequest} from "./serum.validators";
 
 const caches = {
   instances: new CacheContainer(new MemoryStorage()),
   markets: new CacheContainer(new MemoryStorage()),
+  serumFindQuoteTokenAccountsForOwner: new CacheContainer(new MemoryStorage()),
+  serumFindBaseTokenAccountsForOwner: new CacheContainer(new MemoryStorage()),
 };
 
 export type Serumish = Serum;
 
 /**
  * Serum is a wrapper around the Serum API.
+ *
+ * // TODO Listen the events from the serum api to automatically settle the funds (specially when filling orders)!!!
  */
 export class Serum {
   private initializing: boolean = false;
@@ -224,6 +230,7 @@ export class Serum {
    * @param includeUnwrappedSol
    * @private
    */
+  @Cache(caches.serumFindBaseTokenAccountsForOwner, { isCachedForever: true })
   private async serumFindBaseTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{pubkey: PublicKey; account: AccountInfo<Buffer>;}>> {
     const result = await market.findBaseTokenAccountsForOwner(connection, ownerAddress, includeUnwrappedSol);
 
@@ -239,6 +246,7 @@ export class Serum {
    * @param includeUnwrappedSol
    * @private
    */
+  @Cache(caches.serumFindQuoteTokenAccountsForOwner, { isCachedForever: true })
   private async serumFindQuoteTokenAccountsForOwner(market: SerumMarket, connection: Connection, ownerAddress: PublicKey, includeUnwrappedSol?: boolean): Promise<Array<{pubkey: PublicKey; account: AccountInfo<Buffer>;}>> {
     const result = await market.findQuoteTokenAccountsForOwner(connection, ownerAddress, includeUnwrappedSol);
 
@@ -346,7 +354,7 @@ export class Serum {
     }
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
-    await promiseAllInBatches(getMarket, names, promisesBatchSize, 10000);
+    await promiseAllInBatches(getMarket, names, promisesBatchSize, promisesDelayInMilliseconds);
 
     return markets;
   }
@@ -451,20 +459,36 @@ export class Serum {
   /**
    * 1 external API call.
    *
-   * TODO change the mechanism to retrieve ticker information, this approach is not always available!!!
-   *
    * @param marketName
    */
   async getTicker(marketName: string): Promise<Ticker> {
     const market = await this.getMarket(marketName);
 
-    const filledOrders = await this.serumMarketLoadFills(market.market, this.connection);
-    if (!filledOrders || !filledOrders.length)
+    try {
+      if (this.config.tickers.source === TickerSource.NOMIMCS) {
+        const result: { price: any, last_updated_at: any } = (await axios.get(
+          this.config.tickers.url
+          || `https://nomics.com/data/exchange-markets-ticker?convert=USD&exchange=serum_dex&interval=1d&market=${market.address}`
+        )).data.items[0];
+
+        return convertToTicker(result);
+      }
+
+      throw new TickerNotFoundError(`Ticker source (${this.config.tickers.source}) not supported, check your serum configuration file.`);
+    } catch (exception) {
       throw new TickerNotFoundError(`Ticker data is currently not available for market "${marketName}".`);
+    }
 
-    const mostRecentFilledOrder = filledOrders[0];
-
-    return convertFilledOrderToTicker(Date.now(), mostRecentFilledOrder);
+    // // The implementation below should be the preferred one, but it is not always available
+    // const market = await this.getMarket(marketName);
+    //
+    // const filledOrders = await this.serumMarketLoadFills(market.market, this.connection);
+    // if (!filledOrders || !filledOrders.length)
+    //   throw new TickerNotFoundError(`Ticker data is currently not available for market "${marketName}".`);
+    //
+    // const mostRecentFilledOrder = filledOrders[0];
+    //
+    // return convertToTicker(Date.now(), mostRecentFilledOrder);
   }
 
   /**
@@ -882,8 +906,6 @@ export class Serum {
    * @param candidate
    */
   async createOrder(candidate: CreateOrdersRequest): Promise<Order> {
-    validateCreateOrder(candidate);
-
     const market = await this.getMarket(candidate.marketName);
 
     const owner = await this.solana.getAccount(candidate.ownerAddress);
@@ -936,7 +958,8 @@ export class Serum {
   async createOrders(
     candidates: CreateOrdersRequest[]
   ): Promise<IMap<string, Order>> {
-    // TODO Improve to use a single transaction
+    // TODO Improve to use a single transaction!!!
+    // TODO Try to do a trial and error to find the limits!!!
 
     const createdOrders = IMap<string, Order>().asMutable();
     for (const candidateOrder of candidates) {
@@ -987,7 +1010,7 @@ export class Serum {
   async cancelOrders(
     targets: CancelOrdersRequest[]
   ): Promise<IMap<string, Order>> {
-    // TODO improve to use transactions in the future
+    // TODO improve to use a single transaction!!!
 
     const canceledOrders = IMap<string, Order>().asMutable();
 
@@ -1042,6 +1065,7 @@ export class Serum {
    * @param ownerAddress
    */
   async settleFundsForMarket(marketName: string, ownerAddress: string): Promise<Fund> {
+    let errors = '';
     const market = await this.getMarket(marketName);
     const owner = await this.solana.getAccount(ownerAddress);
 
@@ -1057,16 +1081,31 @@ export class Serum {
         const quote = await this.serumFindQuoteTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
         const quoteTokenAccount = quote[0].pubkey;
 
-        await this.serumSettleFunds(
-          market.market,
-          this.connection,
-          owner,
-          openOrders,
-          baseTokenAccount,
-          quoteTokenAccount,
-        );
+        try {
+          // TODO improve to use a single transaction!!!
+          await this.serumSettleFunds(
+            market.market,
+            this.connection,
+            owner,
+            openOrders,
+            baseTokenAccount,
+            quoteTokenAccount,
+          );
+        } catch (exception: any) {
+          if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+            errors += `${exception.message}\n`;
+
+            logger.warn(`${exception.message}`);
+
+            continue;
+          }
+
+          throw exception;
+        }
       }
     }
+
+    if (errors) throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}":\n${errors}`);
   }
 
   /**
