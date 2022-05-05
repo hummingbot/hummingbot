@@ -63,6 +63,7 @@ class ConnectCommandTest(unittest.TestCase):
         except asyncio.TimeoutError:  # the coroutine did not finish on time
             raise RuntimeError
 
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     @patch("hummingbot.client.config.security.Security.update_secure_config")
     @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.api_keys")
@@ -73,6 +74,7 @@ class ConnectCommandTest(unittest.TestCase):
         api_keys_mock: AsyncMock,
         connector_config_file_exists_mock: MagicMock,
         update_secure_config_mock: MagicMock,
+        _: MagicMock,
     ):
         add_exchange_mock.return_value = None
         exchange = "binance"
@@ -115,6 +117,7 @@ class ConnectCommandTest(unittest.TestCase):
         self.assertFalse(self.app.placeholder_mode)
         self.assertFalse(self.app.app.hide_input)
 
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     @patch("hummingbot.client.config.security.Security.update_secure_config")
     @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.api_keys")
@@ -125,6 +128,7 @@ class ConnectCommandTest(unittest.TestCase):
         api_keys_mock: AsyncMock,
         connector_config_file_exists_mock: MagicMock,
         _: MagicMock,
+        __: MagicMock,
     ):
         add_exchange_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         global_config_map["other_commands_timeout"].value = 0.01
@@ -136,7 +140,7 @@ class ConnectCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connect_exchange("binance"))
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connect_exchange("binance"), timeout=1000000)
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg="\nA network error prevented the connection to complete. See logs for more details."

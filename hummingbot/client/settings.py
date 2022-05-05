@@ -332,6 +332,19 @@ class AllConnectorSettings:
         return cls.get_connector_settings()[connector].config_keys
 
     @classmethod
+    def reset_connector_config_keys(cls, connector: str):
+        current_settings = cls.get_connector_settings()[connector]
+        current_keys = current_settings.config_keys
+        new_keys = (
+            current_keys if current_keys is None else current_keys.__class__.construct()
+        )
+        new_keys_settings_dict = current_settings._asdict()
+        new_keys_settings_dict.update({"config_keys": new_keys})
+        cls.get_connector_settings()[connector] = ConnectorSetting(
+            **new_keys_settings_dict
+        )
+
+    @classmethod
     def get_exchange_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange}
 

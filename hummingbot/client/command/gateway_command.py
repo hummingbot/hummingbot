@@ -3,14 +3,13 @@ import asyncio
 import itertools
 import json
 from contextlib import contextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Generator, List
 
 import aiohttp
 import pandas as pd
 
 import docker
-from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
+from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml_legacy
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
@@ -125,7 +124,7 @@ class GatewayCommand:
                         break
                     self.notify("Error: Invalid pass phase")
         else:
-            pass_phase = Security.password
+            pass_phase = Security.secrets_manager.password.get_secret_value()
         create_self_sign_certs(pass_phase)
         self.notify(f"Gateway SSL certification files are created in {cert_path}.")
         GatewayHttpClient.get_instance().reload_certs()
@@ -246,7 +245,7 @@ class GatewayCommand:
                 logs_mount_path
             ],
             host_config=host_config,
-            environment=[f"GATEWAY_PASSPHRASE={Security.password}"]
+            environment=[f"GATEWAY_PASSPHRASE={Security.secrets_manager.password.get_secret_value()}"]
         )
 
         self.notify(f"New Gateway docker container id is {container_info['Id']}.")
@@ -255,7 +254,7 @@ class GatewayCommand:
         if global_config_map.get("gateway_api_port").value != gateway_port:
             global_config_map["gateway_api_port"].value = gateway_port
             global_config_map["gateway_api_host"].value = "localhost"
-            save_to_yml(Path(GLOBAL_CONFIG_PATH), global_config_map)
+            save_to_yml_legacy(GLOBAL_CONFIG_PATH, global_config_map)
 
         GatewayHttpClient.get_instance().base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                                                     f"{global_config_map['gateway_api_port'].value}"

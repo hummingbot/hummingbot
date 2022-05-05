@@ -53,7 +53,9 @@ class ConnectCommand:
         to_connect = True
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
-            api_key_config = [c for c in connector_config.traverse() if "api_key" in c.attr]
+            api_key_config = [
+                c.printable_value for c in connector_config.traverse(secure=False) if "api_key" in c.attr
+            ]
             if api_key_config:
                 api_key = api_key_config[0]
                 prompt = (
@@ -69,6 +71,7 @@ class ConnectCommand:
                 to_connect = False
         if to_connect:
             await self.prompt_for_model_config(connector_config)
+            self.app.change_prompt(prompt=">>> ")
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
@@ -81,6 +84,7 @@ class ConnectCommand:
                 self.notify(f"\nYou are now connected to {connector_name}.")
             else:
                 self.notify(f"\nError: {err_msg}")
+                Security.remove_secure_config(connector_config)
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -124,7 +128,7 @@ class ConnectCommand:
                         keys_confirmed = "Yes"
             else:
                 api_keys = (
-                    (await Security.api_keys(option)).values()
+                    Security.api_keys(option).values()
                     if not UserBalances.instance().is_gateway_market(option)
                     else {}
                 )
@@ -156,7 +160,8 @@ class ConnectCommand:
         return err_msg
 
     async def validate_n_connect_connector(self, connector_name: str) -> Optional[str]:
-        api_keys = await Security.api_keys(connector_name)
+        await Security.wait_til_decryption_done()
+        api_keys = Security.api_keys(connector_name)
         network_timeout = float(global_config_map["other_commands_timeout"].value)
         try:
             err_msg = await asyncio.wait_for(

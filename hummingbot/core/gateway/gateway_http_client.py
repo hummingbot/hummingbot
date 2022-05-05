@@ -1,19 +1,15 @@
-import aiohttp
 import logging
 import ssl
-
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+import aiohttp
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import (
-    detect_existing_gateway_container,
-    get_gateway_paths,
-    restart_gateway
-)
+from hummingbot.core.gateway import detect_existing_gateway_container, get_gateway_paths, restart_gateway
 from hummingbot.logger import HummingbotLogger
 
 
@@ -75,7 +71,7 @@ class GatewayHttpClient:
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
-                                    password=Security.password)
+                                    password=Security.secrets_manager.password.get_secret_value())
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client

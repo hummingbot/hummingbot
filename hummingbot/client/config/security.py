@@ -10,6 +10,7 @@ from hummingbot.client.config.config_helpers import (
     get_connector_config_yml_path,
     list_connector_configs,
     load_connector_config_map_from_file,
+    reset_connector_hb_config,
     save_to_yml,
 )
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
@@ -66,6 +67,14 @@ class Security:
         cls._secure_configs[connector_name] = connector_config
 
     @classmethod
+    def remove_secure_config(cls, connector_config: ClientConfigAdapter):
+        connector_name = connector_config.connector
+        file_path = get_connector_config_yml_path(connector_name)
+        file_path.unlink(missing_ok=True)
+        reset_connector_hb_config(connector_name)
+        cls._secure_configs.pop(connector_name)
+
+    @classmethod
     def is_decryption_done(cls):
         return cls._decryption_done.is_set()
 
@@ -82,8 +91,7 @@ class Security:
         await cls._decryption_done.wait()
 
     @classmethod
-    async def api_keys(cls, connector_name: str) -> Dict[str, Optional[str]]:
-        await cls.wait_til_decryption_done()
+    def api_keys(cls, connector_name: str) -> Dict[str, Optional[str]]:
         connector_config = cls.decrypted_value(connector_name)
         keys = (
             api_keys_from_connector_config_map(connector_config)
