@@ -77,7 +77,7 @@ def login_prompt(style):
 
     err_msg = None
     if Security.new_password_required():
-        show_welcome()
+        show_welcome(style)
         password = input_dialog(
             title="Set Password",
             text="Create a password to protect your sensitive data. "
