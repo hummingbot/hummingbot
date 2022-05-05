@@ -155,12 +155,12 @@ export class EVMNonceManager {
   #initialized: boolean = false;
   #chainId: number;
   #chainName: string;
-  #localNonceTTL: number;
-  #pendingNonceTTL: number;
   #db: NonceLocalStorage;
 
-  // this should be private but then we cannot mock it
+  // These variables should be private but then we will not be able to mock it otherwise.
   public _provider: ethers.providers.Provider | null = null;
+  public _localNonceTTL: number;
+  public _pendingNonceTTL: number;
 
   constructor(
     chainName: string,
@@ -171,15 +171,15 @@ export class EVMNonceManager {
   ) {
     this.#chainName = chainName;
     this.#chainId = chainId;
-    this.#localNonceTTL = localNonceTTL;
     this.#db = new NonceLocalStorage(dbPath);
-    this.#pendingNonceTTL = pendingNonceTTL;
+    this._localNonceTTL = localNonceTTL;
+    this._pendingNonceTTL = pendingNonceTTL;
   }
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
   public async init(provider: ethers.providers.Provider): Promise<void> {
-    if (this.#localNonceTTL < 0) {
+    if (this._localNonceTTL < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
           'EVMNonceManager.init localNonceTTL must be greater than or equal to zero.'
@@ -188,7 +188,7 @@ export class EVMNonceManager {
       );
     }
 
-    if (this.#pendingNonceTTL < 0) {
+    if (this._pendingNonceTTL < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
           'EVMNonceManager.init pendingNonceTTL must be greate than or equal to zero.'
@@ -248,7 +248,7 @@ export class EVMNonceManager {
 
       this.#addressToNonce[ethAddress] = new NonceInfo(
         externalNonce,
-        now + this.#localNonceTTL
+        now + this._localNonceTTL
       );
 
       await this.#db.saveCurrentNonce(
@@ -302,7 +302,7 @@ export class EVMNonceManager {
         const now: number = new Date().getTime();
         this.#addressToNonce[ethAddress] = new NonceInfo(
           externalNonce,
-          now + this.#pendingNonceTTL
+          now + this._pendingNonceTTL
         );
         await this.#db.saveCurrentNonce(
           this.#chainName,
@@ -338,7 +338,7 @@ export class EVMNonceManager {
         for (const nonceInfo of pendingNonces) {
           if (now > nonceInfo.expiry) {
             newNonce = nonceInfo;
-            newNonce.expiry = now + this.#pendingNonceTTL;
+            newNonce.expiry = now + this._pendingNonceTTL;
             break;
           }
         }
@@ -349,14 +349,14 @@ export class EVMNonceManager {
             this.#addressToPendingNonces[ethAddress][
               this.#addressToPendingNonces[ethAddress].length - 1
             ].nonce + 1,
-            now + this.#pendingNonceTTL
+            now + this._pendingNonceTTL
           );
           this.#addressToPendingNonces[ethAddress].push(newNonce);
         }
       } else {
         newNonce = new NonceInfo(
           (await this.getNonce(ethAddress)) + 1,
-          now + this.#pendingNonceTTL
+          now + this._pendingNonceTTL
         );
         this.#addressToPendingNonces[ethAddress] = [newNonce];
       }
@@ -388,7 +388,7 @@ export class EVMNonceManager {
         if (txNonce > this.#addressToNonce[ethAddress].nonce) {
           const nonce: NonceInfo = new NonceInfo(
             txNonce,
-            now + this.#localNonceTTL
+            now + this._localNonceTTL
           );
           this.#addressToNonce[ethAddress] = nonce;
           await this.#db.saveCurrentNonce(
@@ -411,7 +411,7 @@ export class EVMNonceManager {
       }
       const nonce: NonceInfo = new NonceInfo(
         txNonce,
-        now + this.#localNonceTTL
+        now + this._localNonceTTL
       );
       this.#addressToNonce[ethAddress] = nonce;
       await this.#db.saveCurrentNonce(
