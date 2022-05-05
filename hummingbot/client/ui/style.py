@@ -57,7 +57,7 @@ def load_style(config_map=global_config_map):
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
         style["dialog.body"] = style["dialog.body"].split(' ')[0] + " " + color_terminal_primary
-        style["dialog frame.label"] = "bg:" + color_terminal_primary + style["dialog frame.label"].split(' ')[-1]
+        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(' ')[-1]
         style["text-area"] = style["text-area"].split(' ')[0] + " " + color_terminal_primary
         style["search"] = color_terminal_primary
         style["search.current"] = color_terminal_primary
@@ -177,12 +177,12 @@ default_ui_style = {
     "error":                      "#F5634A",  # noqa: E241
     "tab_button.focused":         "bg:#1CD085 #171E2B",  # noqa: E241
     "tab_button":                 "bg:#FFFFFF #000000",  # noqa: E241
-    'dialog':                     "bg:#171E2B",
-    'dialog frame.label':         "bg:#FFFFFF #000000",
-    'dialog.body':                "bg:#000000 ",
-    'dialog shadow':              "bg:#171E2B",
-    'button':                     "bg:#000000",
-    'text-area':                  "bg:#000000 #FFFFFF",
+    "dialog":                     "bg:#171E2B",
+    "dialog frame.label":         "bg:#FFFFFF #000000",
+    "dialog.body":                "bg:#000000 ",
+    "dialog shadow":              "bg:#171E2B",
+    "button":                     "bg:#000000",
+    "text-area":                  "bg:#000000 #FFFFFF",
 }
 
 
@@ -201,10 +201,10 @@ win32_code_style = {
     "error":                      "#ansired",  # noqa: E241
     "tab_button.focused":         "bg:#ansigreen #ansiblack",  # noqa: E241
     "tab_button":                 "bg:#ansiwhite #ansiblack",  # noqa: E241
-    'dialog':                     "bg:#ansigreen",
-    'dialog frame.label':         "bg:#ansiwhite #ansiblack",
-    'dialog.body':                "bg:#ansiblack ",
-    'dialog shadow':              "bg:#ansigreen",
-    'button':                     "bg:#ansigreen",
-    'text-area':                  "bg:#ansiblack #ansigreen",
+    "dialog":                     "bg:#ansigreen",
+    "dialog frame.label":         "bg:#ansiwhite #ansiblack",
+    "dialog.body":                "bg:#ansiblack ",
+    "dialog shadow":              "bg:#ansigreen",
+    "button":                     "bg:#ansigreen",
+    "text-area":                  "bg:#ansiblack #ansigreen",
 }
