@@ -34,15 +34,16 @@ beforeAll(async () => {
 beforeEach(() => {
   patchEVMNonceManager(ethereum._nonceManager);
 });
-
-afterEach(async () => {
-  // await ethereum.nonceManager.close();
-  // await ethereum.txStorage.close();
-
+afterEach(() => {
   unpatch();
 });
 
-afterAll(async () => await overrideConfigs.resetConfigs());
+afterAll(async () => {
+  // await ethereum.nonceManager.close();
+  // await ethereum.txStorage.close();
+
+  await overrideConfigs.resetConfigs();
+});
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 

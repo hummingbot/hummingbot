@@ -101,14 +101,16 @@ beforeEach(() => {
   patchEVMNonceManager(ethereum._nonceManager);
 });
 
-afterEach(async () => {
-  // await ethereum.nonceManager.close();
-  // await ethereum.txStorage.close();
-
+afterEach(() => {
   unpatch();
 });
 
-afterAll(async () => await overrideConfigs.resetConfigs());
+afterAll(async () => {
+  // await ethereum.nonceManager.close();
+  // await ethereum.txStorage.close();
+
+  await overrideConfigs.resetConfigs();
+});
 
 const patchFetchPairData = (noPath?: boolean) => {
   patch(uniswapV3, 'getPairs', () => {

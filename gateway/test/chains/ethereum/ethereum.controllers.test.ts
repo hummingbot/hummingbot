@@ -39,13 +39,16 @@ beforeEach(() => {
   patchEVMNonceManager(eth._nonceManager);
 });
 
-afterEach(async () => {
-  // await eth.nonceManager.close();
-  // await eth.txStorage.close();
+afterEach(() => {
   unpatch();
 });
 
-afterAll(async () => await overrideConfigs.resetConfigs());
+afterAll(async () => {
+  // await eth.nonceManager.close();
+  // await eth.txStorage.close();
+
+  await overrideConfigs.resetConfigs();
+});
 
 const zeroAddress =
   '0000000000000000000000000000000000000000000000000000000000000000'; // noqa: mock

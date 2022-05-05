@@ -49,14 +49,16 @@ beforeEach(() => {
   patchEVMNonceManager(avalanche._nonceManager);
 });
 
-afterEach(async () => {
-  // await avalanche.nonceManager.close();
-  // await avalanche.txStorage.close();
-
+afterEach(() => {
   unpatch();
 });
 
-afterAll(async () => await overrideConfigs.resetConfigs());
+afterAll(async () => {
+  // await avalanche.nonceManager.close();
+  // await avalanche.txStorage.close();
+
+  await overrideConfigs.resetConfigs();
+});
 
 const patchFetchPairData = () => {
   patch(Fetcher, 'fetchPairData', () => {

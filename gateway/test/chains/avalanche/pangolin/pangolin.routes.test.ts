@@ -26,14 +26,16 @@ beforeEach(() => {
   patchEVMNonceManager(avalanche._nonceManager);
 });
 
-afterEach(async () => {
-  // await avalanche.nonceManager.close();
-  // await avalanche.txStorage.close();
-
+afterEach(() => {
   unpatch();
 });
 
-afterAll(async () => await overrideConfigs.resetConfigs());
+afterAll(async () => {
+  // await avalanche.nonceManager.close();
+  // await avalanche.txStorage.close();
+
+  await overrideConfigs.resetConfigs();
+});
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
