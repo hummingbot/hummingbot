@@ -860,7 +860,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(self._is_logged(
             "ERROR",
             "Failed to cancel order O1:"
-            " Bybit Perpetual encountered a problem cancelling the order (1001 - Test error description)"))
+            " Bybit Perpetual encountered a problem canceling the order (1001 - Test error description)"))
 
     @aioresponses()
     def test_order_marked_as_cancelled_if_cancellation_status_error_is_not_found(self, post_mock):
@@ -1065,7 +1065,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         cancellation_results = asyncio.get_event_loop().run_until_complete(
             self.connector.cancel_all(timeout_seconds=0.1))
 
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error cancelling orders."))
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error canceling orders."))
         self.assertEqual(0, len(cancellation_results))
 
     def test_fee_estimation(self):
