@@ -516,7 +516,7 @@ class TestAscendExExchange(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELLED
+            initial_state=OrderState.CANCELED
         ))
         orders.append(InFlightOrder(
             client_order_id="OID3",
@@ -1607,6 +1607,6 @@ class TestAscendExExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                "The order testOrderId1 was finished before being cancelled"
+                "The order testOrderId1 was finished before being canceled"
             )
         )
