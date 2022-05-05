@@ -18,9 +18,15 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
 } from '../../../src/services/error-handler';
+import { OverrideConfigs } from '../../config.util';
+
+const overrideConfigs = new OverrideConfigs();
 
 let eth: Ethereum;
+
 beforeAll(async () => {
+  await overrideConfigs.updateConfigs();
+
   eth = Ethereum.getInstance('kovan');
 
   patch(eth._nonceManager, 'init', () => {
@@ -48,7 +54,12 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => unpatch());
+afterEach(async () => {
+  await eth._nonceManager.close();
+  unpatch();
+});
+
+afterAll(async () => await overrideConfigs.resetConfigs());
 
 const zeroAddress =
   '0000000000000000000000000000000000000000000000000000000000000000'; // noqa: mock

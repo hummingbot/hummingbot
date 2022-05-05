@@ -6,6 +6,7 @@ import { getEthereumConfig as getAvalancheConfig } from '../ethereum/ethereum.co
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from '../../connectors/pangolin/pangolin.config';
 import { Ethereumish } from '../../services/common-interfaces';
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Avalanche };
@@ -22,8 +23,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       config.network.tokenListSource,
       config.network.tokenListType,
       config.manualGasPrice,
-      config.nonceDbPath,
-      config.transactionDbPath
+      ConfigManagerV2.getInstance().get('database.nonceDbPath'),
+      ConfigManagerV2.getInstance().get('database.transactionDbPath')
     );
     this._chain = config.network.name;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;
