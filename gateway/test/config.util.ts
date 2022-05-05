@@ -45,8 +45,8 @@ export class OverrideConfigs {
     await fse.emptyDir(this.#tempNonceDbPath);
     fse.rmSync(this.#tempNonceDbPath, { force: true, recursive: true });
 
-    await fse.emptyDir(this.#tempNonceDbPath);
-    fse.rmSync(this.#tempNonceDbPath, { force: true, recursive: true });
+    await fse.emptyDir(this.#tempTransactionDbPath);
+    fse.rmSync(this.#tempTransactionDbPath, { force: true, recursive: true });
 
     ConfigManagerV2.getInstance().set('database.nonceDbPath', this.nonceDbPath);
     ConfigManagerV2.getInstance().set(
