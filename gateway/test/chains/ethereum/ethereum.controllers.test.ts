@@ -19,39 +19,24 @@ import {
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
 } from '../../../src/services/error-handler';
 import { OverrideConfigs } from '../../config.util';
+import { patchEVMNonceManager } from '../../evm.nonce.mock';
 
 const overrideConfigs = new OverrideConfigs();
-
 let eth: Ethereum;
 
 beforeAll(async () => {
+  await overrideConfigs.init();
   await overrideConfigs.updateConfigs();
 
   eth = Ethereum.getInstance('kovan');
 
-  patch(eth._nonceManager, 'init', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(eth._nonceManager);
 
   await eth.init();
 });
 
 beforeEach(() => {
-  patch(eth._nonceManager, 'init', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'mergeNonceFromEVMNode', () => {
-    return;
-  });
-  patch(eth._nonceManager, 'getNonceFromNode', (_ethAddress: string) => {
-    return Promise.resolve(12);
-  });
+  patchEVMNonceManager(eth._nonceManager);
 });
 
 afterEach(async () => {
