@@ -89,7 +89,7 @@ class SecurityTest(unittest.TestCase):
         self.assertTrue(Security.any_secure_configs())
         self.assertTrue(Security.connector_config_file_exists(self.connector))
 
-        api_keys = self.async_run_with_timeout(Security.api_keys(self.connector))
+        api_keys = Security.api_keys(self.connector)
         expected_keys = api_keys_from_connector_config_map(config_map)
 
         self.assertEqual(expected_keys, api_keys)

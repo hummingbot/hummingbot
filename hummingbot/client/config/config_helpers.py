@@ -35,7 +35,7 @@ from hummingbot.client.settings import (
     TRADE_FEES_CONFIG_PATH,
     AllConnectorSettings,
 )
-from hummingbot.connector.other.celo.celo_data_types import KEYS as CELO_KEYS
+from hummingbot.connector.other.celo import celo_data_types
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()  # legacy
@@ -525,10 +525,17 @@ def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
 
 def get_connector_hb_config(connector_name: str) -> BaseClientModel:
     if connector_name == "celo":
-        hb_config = CELO_KEYS
+        hb_config = celo_data_types.KEYS
     else:
         hb_config = AllConnectorSettings.get_connector_config_keys(connector_name)
     return hb_config
+
+
+def reset_connector_hb_config(connector_name: str):
+    if connector_name == "celo":
+        celo_data_types.KEYS = celo_data_types.KEYS.__class__.construct()
+    else:
+        AllConnectorSettings.reset_connector_config_keys(connector_name)
 
 
 def api_keys_from_connector_config_map(cm: ClientConfigAdapter) -> Dict[str, str]:

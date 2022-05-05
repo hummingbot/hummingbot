@@ -6,11 +6,11 @@ from typing import Optional, Type
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
 
+from hummingbot.client.config.conf_migration import migrate_configs
 from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.global_config_map import color_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import CONF_DIR_PATH
-from scripts.conf_migration_script import migrate
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -32,7 +32,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager]) -> Optional[Base
     err_msg = None
     secrets_manager = None
     if Security.new_password_required() and legacy_confs_exist():
-        migrate_configs(secrets_manager_cls)
+        migrate_configs_prompt(secrets_manager_cls)
     if Security.new_password_required():
         show_welcome()
         password = input_dialog(
@@ -91,7 +91,7 @@ def legacy_confs_exist() -> bool:
     return exist
 
 
-def migrate_configs(secrets_manager_cls: Type[BaseSecretsManager]):
+def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager]):
     message_dialog(
         title='Configs Migration',
         text="""
@@ -113,7 +113,32 @@ def migrate_configs(secrets_manager_cls: Type[BaseSecretsManager]):
     if password is None:
         raise ValueError("Wrong password.")
     secrets_manager = secrets_manager_cls(password)
-    migrate(secrets_manager)
+    errors = migrate_configs(secrets_manager)
+    if len(errors) != 0:
+        errors_str = "\n                    ".join(errors)
+        message_dialog(
+            title='Configs Migration Errors',
+            text=f"""
+
+
+                    CONFIGS MIGRATION ERRORS:
+
+                    {errors_str}
+
+                        """,
+            style=dialog_style).run()
+    else:
+        message_dialog(
+            title='Configs Migration Success',
+            text="""
+
+
+                            CONFIGS MIGRATION SUCCESS:
+
+                            The migration process was completed successfully.
+
+                                """,
+            style=dialog_style).run()
 
 
 def show_welcome():

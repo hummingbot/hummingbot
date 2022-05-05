@@ -74,7 +74,8 @@ class UserBalances:
         if exchange_name in self._markets:
             return await self._update_balances(self._markets[exchange_name])
         else:
-            api_keys = await Security.api_keys(exchange_name) if not is_gateway_market else {}
+            await Security.wait_til_decryption_done()
+            api_keys = Security.api_keys(exchange_name) if not is_gateway_market else {}
             return await self.add_exchange(exchange_name, **api_keys)
 
     # returns error message for each exchange
