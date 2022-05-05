@@ -4,7 +4,7 @@ import { Harmony } from '../chains/harmony/harmony';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Ethereumish } from './common-interfaces';
+import { Ethereumish, Uniswapish, UniswapLPish } from './common-interfaces';
 
 export async function getChain(chain: string, network: string) {
   let chainInstance: Ethereumish;
@@ -23,7 +23,7 @@ export async function getConnector(
   chain: string,
   network: string,
   connector: string | undefined
-) {
+): Promise<Uniswapish | UniswapLPish> {
   let connectorInstance: any;
   if (chain === 'ethereum' && connector === 'uniswap')
     connectorInstance = Uniswap.getInstance(chain, network);

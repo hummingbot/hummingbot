@@ -1,5 +1,5 @@
 import { logger } from '../../services/logger';
-import { PositionInfo } from '../../services/common-interfaces';
+import { PositionInfo, UniswapLPish } from '../../services/common-interfaces';
 import { UniswapConfig } from './uniswap.config';
 import { Token } from '@uniswap/sdk-core';
 import * as uniV3 from '@uniswap/v3-sdk';
@@ -25,7 +25,7 @@ export type Overrides = {
   maxPriorityFeePerGas?: BigNumber;
 };
 
-export class UniswapLP extends UniswapLPHelper {
+export class UniswapLP extends UniswapLPHelper implements UniswapLPish {
   private static _instances: { [name: string]: UniswapLP };
   private _gasLimit: number;
 

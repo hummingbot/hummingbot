@@ -152,6 +152,21 @@ export interface UniswapLPish {
   routerAbi: ContractInterface;
 
   /**
+   * NTF manager address.
+   */
+  nftManager: string;
+
+  /**
+   * NTF manager smart contract ABI.
+   */
+  nftAbi: ContractInterface;
+
+  /**
+   * Pool smart contract ABI.
+   */
+  poolAbi: ContractInterface;
+
+  /**
    * Default gas limit for swap transactions.
    */
   gasLimit: number;
@@ -251,7 +266,7 @@ export interface UniswapLPish {
     nonce?: number,
     maxFeePerGas?: BigNumber,
     maxPriorityFeePerGas?: BigNumber
-  ): Promise<Transaction>;
+  ): Promise<Transaction | { amount0: BigNumber; amount1: BigNumber }>;
 
   /**
    * Given a fee tier, tokens and time parameters, fetch historical pool prices.
