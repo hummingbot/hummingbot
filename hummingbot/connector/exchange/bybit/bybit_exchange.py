@@ -320,6 +320,8 @@ class BybitExchange(ExchangeBase):
 
         # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
+            self.logger().info(f"The amount ({quantized_amount}) is lower than the min order "
+                               f"size ({trading_rule.min_order_size})")
             return s_decimal_0
 
         if price == s_decimal_0:
@@ -330,6 +332,8 @@ class BybitExchange(ExchangeBase):
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
+            self.logger().info(f"The notional size (price * amount) ({notional_size}) is lower than the min notional "
+                               f"size ({trading_rule.min_notional_size}).")
             return s_decimal_0
 
         return quantized_amount
@@ -458,7 +462,7 @@ class BybitExchange(ExchangeBase):
                             order_type: OrderType,
                             price: Optional[Decimal] = Decimal("NaN")):
         """
-        Creates a an order in the exchange using the parameters to configure it
+        Creates an order in the exchange using the parameters to configure it
         :param trade_type: the side of the order (BUY of SELL)
         :param order_id: the id that should be assigned to the order (the client id)
         :param trading_pair: the token pair to operate with

@@ -71,7 +71,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         parameter
 
         :param trading_pairs: list of trading pairs to get the prices for
-        :param domain: which Bybit domain we are connecting to (the default value is 'com')
+        :param domain: which Bybit domain we are connecting to (the default value is 'bybit_main')
         :param api_factory: the instance of the web assistant factory to be used when doing requests to the server.
             If no instance is provided then a new one will be created.
         :param throttler: the instance of the throttler to use to limit request to the server. If it is not specified
@@ -97,7 +97,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Returns the mid price of all trading pairs, obtaining the information from the exchange. This functionality is
         required by the market price strategy.
-        :param domain: Domain to use for the connection with the exchange (either "com" or "us"). Default value is "com"
+        :param domain: Domain to use for the connection with the exchange (either "bybit_main" or "bybit_testnet"). Default value is "bybit_main"
         :return: Dictionary with the trading pair as key, and the mid price as value
         """
 
@@ -125,7 +125,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def trading_pair_symbol_map_ready(cls, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Checks if the mapping from exchange symbols to client trading pairs has been initialized
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used (either "bybit_main" or "bybit_testnet"). Default value is "bybit_main"
         :return: True if the mapping has been initialized, False otherwise
         """
         return domain in cls._trading_pair_symbol_map and len(cls._trading_pair_symbol_map[domain]) > 0
@@ -143,7 +143,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         In general this should not be used. Instead call the methods `exchange_symbol_associated_to_pair` and
         `trading_pair_associated_to_exchange_symbol`
 
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used (either "bybit_main" or "bybit_testnet"). Default value is "bybit_main"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
@@ -175,7 +175,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Used to translate a trading pair from the client notation to the exchange notation
 
         :param trading_pair: trading pair in client notation
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used (either "bybit_main" or "bybit_testnet"). Default value is "bybit_main"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
@@ -201,7 +201,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Used to translate a trading pair from the exchange notation to the client notation
 
         :param symbol: trading pair in exchange notation
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used (either "bybit_main" or "bybit_testnet"). Default value is "bybit_main"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
@@ -225,7 +225,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Returns a list of all known trading pairs enabled to operate with
 
-        :param domain: the domain of the exchange being used (either "com" or "us"). Default value is "com"
+        :param domain: the domain of the exchange being used (either "bybit_main" or "bybit_testnet"). Default value is "bybit_main"
         :param api_factory: the web assistant factory to use in case the symbols information has to be requested
         :param throttler: the throttler instance to use in case the symbols information has to be requested
         :param time_synchronizer: the synchronizer instance being used to keep track of the time difference with the
