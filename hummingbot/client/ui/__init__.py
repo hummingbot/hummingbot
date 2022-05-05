@@ -9,17 +9,8 @@ import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
 
-dialog_style = Style.from_dict({
-    'dialog': 'bg:#171E2B',
-    'dialog frame.label': 'bg:#ffffff #000000',
-    'dialog.body': 'bg:#000000 ' + color_config_map["terminal-primary"].default,
-    'dialog shadow': 'bg:#171E2B',
-    'button': 'bg:#000000',
-    'text-area': 'bg:#000000 #ffffff',
-})
 
-
-def show_welcome():
+def show_welcome(style):
     message_dialog(
         title='Welcome to Hummingbot',
         text="""
@@ -38,7 +29,7 @@ def show_welcome():
 
 
         """.format(version=version),
-        style=dialog_style).run()
+        style=style).run()
     message_dialog(
         title='Important Warning',
         text="""
@@ -61,7 +52,7 @@ def show_welcome():
     store this password safely, since only you have access to it and we cannot reset it.
 
         """,
-        style=dialog_style).run()
+        style=style).run()
     message_dialog(
         title='Important Warning',
         text="""
@@ -77,10 +68,10 @@ def show_welcome():
     data. Please store this password safely since there is no way to reset it.
 
         """,
-        style=dialog_style).run()
+        style=style).run()
 
 
-def login_prompt():
+def login_prompt(style):
     from hummingbot.client.config.security import Security
     import time
 
@@ -93,14 +84,14 @@ def login_prompt():
                  "This password is not shared with us nor with anyone else, so please store it securely."
                  "\n\nEnter your new password:",
             password=True,
-            style=dialog_style).run()
+            style=style).run()
         if password is None:
             return False
         re_password = input_dialog(
             title="Set Password",
             text="Please re-enter your password:",
             password=True,
-            style=dialog_style).run()
+            style=style).run()
         if re_password is None:
             return False
         if password != re_password:
@@ -115,7 +106,7 @@ def login_prompt():
             title="Welcome back to Hummingbot",
             text="Enter your password:",
             password=True,
-            style=dialog_style).run()
+            style=style).run()
         if password is None:
             return False
         if not Security.login(password):
@@ -124,6 +115,6 @@ def login_prompt():
         message_dialog(
             title='Error',
             text=err_msg,
-            style=dialog_style).run()
+            style=style).run()
         return login_prompt()
     return True
