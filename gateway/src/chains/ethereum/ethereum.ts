@@ -30,7 +30,9 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.network.nodeURL + config.nodeAPIKey,
       config.network.tokenListSource,
       config.network.tokenListType,
-      config.manualGasPrice
+      config.manualGasPrice,
+      config.nonceDbPath,
+      config.transactionDbPath
     );
     this._chain = network;
     this._nativeTokenSymbol = config.nativeCurrencySymbol;

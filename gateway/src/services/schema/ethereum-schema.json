@@ -29,6 +29,8 @@
     },
     "nodeAPIKey": { "type": "string" },
     "manualGasPrice": { "type": "integer" }
+    "nonceDbPath": { "type": "string" },
+    "transactionDbPath": { "type": "string" }
   },
   "additionalProperties": false
 }

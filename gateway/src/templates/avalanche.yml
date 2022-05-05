@@ -15,3 +15,5 @@ networks:
 
 nodeAPIKey: '3712b320394b413fb4c42fdadcebdf54'
 manualGasPrice: 100
+nonceDbPath: 'nonce.level'
+transactionDbPath: 'transaction.level'

@@ -76,8 +76,8 @@ describe('Test EVMNonceManager', () => {
     const evmNonceManager = new EVMNonceManager(
       testChain1,
       testChain1Id,
-      300,
-      dbPath
+      dbPath,
+      300
     );
 
     patch(evmNonceManager, 'mergeNonceFromEVMNode', (_ethAddress: string) => {
@@ -107,15 +107,15 @@ describe('Test EVMNonceManager', () => {
     const ethereumNonceManager = new EVMNonceManager(
       testChain1,
       testChain1Id,
-      300,
-      dbPath
+      dbPath,
+      300
     );
 
     const avalancheNonceManager = new EVMNonceManager(
       testChain2,
       testChain2Id,
-      300,
-      dbPath
+      dbPath,
+      300
     );
 
     patch(
