@@ -14,3 +14,6 @@ markets:
   url: https://raw.githubusercontent.com/project-serum/serum-ts/master/packages/serum/src/markets.json
   whitelist:
   blacklist:
+tickers:
+  source: nomics
+  url: https://nomics.com/data/exchange-markets-ticker?convert=USD&exchange=serum_dex&interval=1d&market=${marketAddress}

@@ -27,6 +27,27 @@ import {
   SerumPostSettleFundsResponse,
 } from './serum.requests';
 import {Fund, IMap, Market, MarketNotFoundError, Order, OrderBook, OrderNotFoundError, Ticker} from './serum.types';
+import {
+  validateCancelOpenOrderRequest,
+  validateCancelOpenOrdersRequest,
+  validateCancelOrderRequest,
+  validateCreateOrderRequest,
+  validateCreateOrdersRequest,
+  validateGetFilledOrderRequest,
+  validateGetFilledOrdersRequest,
+  validateGetMarketRequest,
+  validateGetMarketsRequest,
+  validateGetOpenOrderRequest,
+  validateGetOpenOrdersRequest,
+  validateGetOrderBookRequest,
+  validateGetOrderBooksRequest,
+  validateGetOrderRequest,
+  validateGetOrdersRequest,
+  validateGetTickerRequest,
+  validateGetTickersRequest,
+  validateSettleFundsRequest,
+  validateSettleFundsSeveralRequest
+} from "./serum.validators";
 
 /**
  * Get the all or the informed markets and their configurations.
@@ -43,12 +64,7 @@ export async function getMarkets(
   const response = new ResponseWrapper<SerumGetMarketsResponse>();
 
   if ('name' in request) {
-    if (!request.name) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market was informed. If you want to get a market, please inform the parameter "name".`
-      );
-    }
+    validateGetMarketRequest(request);
 
     try {
       response.body = convert<Market, SerumGetMarketsResponse>(await serum.getMarket(request.name), Types.GetMarketsResponse);
@@ -69,12 +85,7 @@ export async function getMarkets(
   }
 
   if ('names' in request) {
-    if (!request.names || !request.names.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`
-      );
-    }
+    validateGetMarketsRequest(request);
 
     try {
       response.body = convert<IMap<string, Market>, SerumGetMarketsResponse>(await serum.getMarkets(request.names), Types.GetMarketsResponse);
@@ -113,12 +124,7 @@ export async function getOrderBooks(
   const response = new ResponseWrapper<SerumGetOrderBooksResponse>();
 
   if ('marketName' in request) {
-    if (!request.marketName) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`
-      );
-    }
+    validateGetOrderBookRequest(request);
 
     try {
       response.body = convert<OrderBook, SerumGetOrderBooksResponse>(await serum.getOrderBook(request.marketName), Types.GetOrderBooksResponse);
@@ -136,12 +142,7 @@ export async function getOrderBooks(
   }
 
   if ('marketNames' in request) {
-    if (!request.marketNames || !request.marketNames.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`
-      );
-    }
+    validateGetOrderBooksRequest(request);
 
     try {
       response.body = convert<IMap<string, OrderBook>, SerumGetOrderBooksResponse>(await serum.getOrderBooks(request.marketNames), Types.GetOrderBooksResponse);
@@ -180,12 +181,7 @@ export async function getTickers(
   const response = new ResponseWrapper<SerumGetTickersResponse>();
 
   if ('marketName' in request) {
-    if (!request.marketName) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`
-      );
-    }
+    validateGetTickerRequest(request);
 
     try {
       response.body = convert<Ticker, SerumGetTickersResponse>(await serum.getTicker(request.marketName), Types.GetTickersResponse);
@@ -203,12 +199,7 @@ export async function getTickers(
   }
 
   if ('marketNames' in request) {
-    if (!request.marketNames || !request.marketNames.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`
-      );
-    }
+    validateGetTickersRequest(request);
 
     try {
       response.body = convert<IMap<string, Ticker>, SerumGetTickersResponse>(await serum.getTickers(request.marketNames), Types.GetTickersResponse);
@@ -247,6 +238,8 @@ export async function getOrders(
   const response = new ResponseWrapper<SerumGetOrdersResponse>();
 
   if ('order' in request) {
+    validateGetOrderRequest(request);
+
     try {
       response.body = convert<Order, SerumGetOrdersResponse>(await serum.getOrder(request.order), Types.GetOrdersResponse);
 
@@ -263,12 +256,7 @@ export async function getOrders(
   }
 
   if ('orders' in request) {
-    if (!request.orders || !request.orders.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No orders were informed.`
-      );
-    }
+    validateGetOrdersRequest(request);
 
     try {
       response.body = convert<IMap<string, Order>, SerumGetOrdersResponse>(await serum.getOrders(request.orders), Types.GetOrdersResponse);
@@ -307,6 +295,8 @@ export async function createOrders(
   const response = new ResponseWrapper<SerumCreateOrdersResponse>();
 
   if ('order' in request) {
+    validateCreateOrderRequest(request.order);
+
     response.body = convert<Order, SerumCreateOrdersResponse>(await serum.createOrder(request.order), Types.CreateOrdersResponse);
 
     response.status = StatusCodes.OK;
@@ -315,12 +305,7 @@ export async function createOrders(
   }
 
   if ('orders' in request) {
-    if (!request.orders || !request.orders.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No orders were informed.`
-      );
-    }
+    validateCreateOrdersRequest(request.orders);
 
     response.body = convert<IMap<string, Order>, SerumCreateOrdersResponse>(await serum.createOrders(request.orders), Types.CreateOrdersResponse);
 
@@ -350,6 +335,8 @@ export async function cancelOrders(
   const response = new ResponseWrapper<SerumCancelOrdersResponse>();
 
   if ('order' in request) {
+    validateCancelOrderRequest(request.order);
+
     response.body = convert<Order, SerumCancelOrdersResponse>(await serum.cancelOrder(request.order), Types.CancelOrdersResponse);
 
     response.status = StatusCodes.OK;
@@ -358,12 +345,7 @@ export async function cancelOrders(
   }
 
   if ('orders' in request) {
-    if (!request.orders || !request.orders.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No orders were informed.`
-      );
-    }
+    validateCancelOrderRequest(request.orders);
 
     response.body = convert<IMap<string, Order>, SerumCancelOrdersResponse>(await serum.cancelOrders(request.orders), Types.CancelOrdersResponse);
 
@@ -394,6 +376,8 @@ export async function getOpenOrders(
   const response = new ResponseWrapper<SerumGetOpenOrdersResponse>();
 
   if ('order' in request) {
+    validateGetOpenOrderRequest(request.order);
+
     try {
       response.body = convert<Order, SerumGetOpenOrdersResponse>(await serum.getOpenOrder(request.order), Types.GetOpenOrdersResponse);
 
@@ -410,12 +394,7 @@ export async function getOpenOrders(
   }
 
   if ('orders' in request) {
-    if (!request.orders || !request.orders.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No orders were informed.`
-      );
-    }
+    validateGetOpenOrdersRequest(request.orders);
 
     try {
       response.body = convert<IMap<string, Order>, SerumGetOpenOrdersResponse>(await serum.getOpenOrders(request.orders), Types.GetOpenOrdersResponse);
@@ -454,6 +433,8 @@ export async function cancelOpenOrders(
   const response = new ResponseWrapper<SerumCancelOpenOrdersResponse>();
 
   if ('order' in request) {
+    validateCancelOpenOrderRequest(request.order);
+
     response.body = convert<Order, SerumCancelOpenOrdersResponse>(await serum.cancelOrder(request.order), Types.CancelOpenOrdersResponse);
 
     response.status = StatusCodes.OK;
@@ -462,12 +443,7 @@ export async function cancelOpenOrders(
   }
 
   if ('orders' in request) {
-    if (!request.orders || !request.orders.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No orders were informed.`
-      );
-    }
+    validateCancelOpenOrdersRequest(request.orders);
 
     response.body = convert<IMap<string, Order>, SerumCancelOpenOrdersResponse>(await serum.cancelOrders(request.orders), Types.CancelOpenOrdersResponse);
 
@@ -498,6 +474,8 @@ export async function getFilledOrders(
   const response = new ResponseWrapper<SerumGetFilledOrdersResponse>();
 
   if ('order' in request) {
+    validateGetFilledOrderRequest(request.order);
+
     try {
       response.body = convert<Order, SerumGetFilledOrdersResponse>(await serum.getFilledOrder(request.order), Types.GetFilledOrdersResponse);
 
@@ -514,12 +492,7 @@ export async function getFilledOrders(
   }
 
   if ('orders' in request) {
-    if (!request.orders || !request.orders.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No orders were informed.`
-      );
-    }
+    validateGetFilledOrdersRequest(request.orders);
 
     try {
       response.body = convert<IMap<string, Order>, SerumGetFilledOrdersResponse>(await serum.getFilledOrders(request.orders), Types.GetFilledOrdersResponse);
@@ -557,15 +530,8 @@ export async function settleFunds(
 ): Promise<ResponseWrapper<SerumPostSettleFundsResponse>> {
   const response = new ResponseWrapper<SerumPostSettleFundsResponse>();
 
-  if (!request.ownerAddress) throw new HttpException(StatusCodes.BAD_REQUEST, 'The owner address is required.');
-
   if ('marketName' in request) {
-    if (!request.marketName) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market name was informed. If you want to settle funds for a market, please inform the parameter "marketName".`
-      );
-    }
+    validateSettleFundsRequest(request);
 
     try {
       response.body = convert<Fund, SerumPostSettleFundsResponse>(await serum.settleFundsForMarket(request.marketName, request.ownerAddress), Types.PostSettleFundsResponse);
@@ -583,12 +549,7 @@ export async function settleFunds(
   }
 
   if ('marketNames' in request) {
-    if (!request.marketNames || !request.marketNames.length) {
-      throw new HttpException(
-        StatusCodes.BAD_REQUEST,
-        `No market names were informed. If you want to settle the funds for all markets, please do not inform the parameter "marketNames".`
-      );
-    }
+    validateSettleFundsSeveralRequest(request);
 
     try {
       response.body = convert<IMap<string, Fund>, SerumPostSettleFundsResponse>(await serum.settleFundsForMarkets(request.marketNames, request.ownerAddress), Types.PostSettleFundsResponse);

@@ -4,6 +4,7 @@ export namespace SerumConfig {
   export interface Config {
     network: NetworkConfig;
     markets: MarketsConfig;
+    tickers: TickersConfig;
   }
 
   export interface NetworkConfig {
@@ -14,6 +15,11 @@ export namespace SerumConfig {
     url: string;
     blacklist: string[];
     whiteList: string[];
+  }
+
+  export interface TickersConfig {
+    source: string;
+    url: string;
   }
 }
 
@@ -33,5 +39,9 @@ export function getSerumConfig(network: string): SerumConfig.Config {
       blacklist: configManager.get(`${prefix}.markets.blacklist`),
       whiteList: configManager.get(`${prefix}.markets.whitelist`),
     },
+    tickers: {
+      source: configManager.get(`${prefix}.tickers.source`),
+      url: configManager.get(`${prefix}.tickers.url`),
+    }
   };
 }

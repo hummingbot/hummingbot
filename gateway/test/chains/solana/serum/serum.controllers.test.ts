@@ -185,7 +185,7 @@ describe('Full Flow', () => {
   it('getTicker ["SOL/USDT"]', async () => {
     request = {
       ...commonParameters,
-      marketName: marketName,
+      marketName: 'SRM/SOL',
     };
     response = (await getTickers(request)).body;
     console.log('tickers', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
@@ -545,7 +545,6 @@ describe('Full Flow', () => {
     console.log('get all orders', 'request:', JSON.stringify(request, null, 2), 'response', JSON.stringify(response, null, 2));
   });
 
-  // TODO handle timeout!!!
   it('settleFunds ["SOL/USDT"]', async () => {
     request = {
       ...commonParameters,

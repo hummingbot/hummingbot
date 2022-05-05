@@ -32,7 +32,8 @@ import {
   OrderBook,
   OrderSide,
   OrderStatus,
-  OrderType, PostSettleFundsResponse,
+  OrderType,
+  PostSettleFundsResponse,
   Ticker
 } from "./serum.types";
 
@@ -235,14 +236,14 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
   return result;
 }
 
-export const convertFilledOrderToTicker = (timestamp: number, fill: any): Ticker => {
+export const convertToTicker = (input: any): Ticker => {
+  const price = parseFloat(input.price);
+  const timestamp = new Date(input.last_updated_at).getTime();
+
   return {
-    price: fill.price,
-    amount: fill.size,
-    side: convertSerumSideToOrderSide(fill.side),
-    fee: fill.fee,
+    price: price,
     timestamp: timestamp,
-    ticker: fill
+    ticker: input
   };
 }
 
@@ -260,8 +261,8 @@ export const convertSerumOrderToOrder = (
     exchangeId: order?.orderId.toString() || undefined, // TODO check the possibility to retrieve the exchange id from a new order.
     marketName: market.name,
     ownerAddress: ownerAddress || candidate?.ownerAddress,
-    price: order?.price || candidate!.price,
-    amount: order?.size || candidate!.amount,
+    price: order?.price.toString() || candidate!.price,
+    amount: order?.size.toString() || candidate!.amount,
     side: order ? convertSerumSideToOrderSide(order?.side) : candidate!.side,
     status: status,
     type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!): undefined,
@@ -295,9 +296,6 @@ export const convertToGetOrderBookResponse = (input: OrderBook): GetOrderBookRes
 export const convertToGetTickerResponse = (input: Ticker): GetTickerResponse => {
   return {
     price: input.price,
-    amount: input.amount,
-    side: input.side,
-    fee: input.fee,
     timestamp: input.timestamp
   }
 }

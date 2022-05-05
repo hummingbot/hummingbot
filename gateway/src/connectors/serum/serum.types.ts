@@ -47,12 +47,18 @@ export enum OrderStatus {
   FILLED = 'FILLED',
   CREATION_PENDING = 'CREATION_PENDING',
   CANCELATION_PENDING = 'CANCELATION_PENDING',
+  UNKNOWN = 'UNKNOWN',
 }
 
 export enum OrderType {
   LIMIT = 'LIMIT',
   IOC = 'IOC',// Immediate or Cancel
   POST_ONLY = 'POST_ONLY',
+}
+
+export enum TickerSource {
+  NOMIMCS = 'nomics',
+  ALEPPH = 'aleph',
 }
 
 export interface Market {
@@ -350,3 +356,5 @@ export class MarketNotFoundError extends SerumishError {}
 export class TickerNotFoundError extends SerumishError {}
 
 export class OrderNotFoundError extends SerumishError {}
+
+export class FundsSettlementError extends SerumishError {}

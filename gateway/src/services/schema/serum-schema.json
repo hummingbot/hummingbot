@@ -29,12 +29,21 @@
           "type": "array"
         }
       }
+    },
+    "tickers": {
+      "type": "object",
+      "required": ["source", "url"],
+      "properties": {
+        "source": { "type": "string" },
+        "url": { "type": "string" }
+      }
     }
   },
   "required": [
     "network",
     "networks",
-    "markets"
+    "markets",
+    "tickers"
   ],
   "additionalProperties": false
 }
