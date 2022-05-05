@@ -4,13 +4,13 @@ import inspect
 import os
 
 from multiprocessing import Queue
-from hummingbot.script.script_base import ScriptBase
-from hummingbot.script.script_interface import set_child_queue, CallNotify
+from hummingbot.pmm_script.pmm_script_base import PMMScriptBase
+from hummingbot.pmm_script.pmm_script_interface import CallNotify, set_child_queue
 
 
-def run_script(script_file_name: str, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
+def run_pmm_script(script_file_name: str, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
     try:
-        script_class = import_script_sub_class(script_file_name)
+        script_class = import_pmm_script_sub_class(script_file_name)
         script = script_class()
         script.assign_init(parent_queue, child_queue, queue_check_interval)
         set_child_queue(child_queue)
@@ -25,12 +25,12 @@ def run_script(script_file_name: str, parent_queue: Queue, child_queue: Queue, q
         child_queue.put(CallNotify(f'{ex}'))
 
 
-def import_script_sub_class(script_file_name: str):
+def import_pmm_script_sub_class(script_file_name: str):
     name = os.path.basename(script_file_name).split(".")[0]
     spec = importlib.util.spec_from_file_location(name, script_file_name)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     for x in dir(module):
         obj = getattr(module, x)
-        if inspect.isclass(obj) and issubclass(obj, ScriptBase) and obj.__name__ != "ScriptBase":
+        if inspect.isclass(obj) and issubclass(obj, PMMScriptBase) and obj.__name__ != "PMMScriptBase":
             return obj

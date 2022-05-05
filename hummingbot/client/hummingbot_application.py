@@ -4,39 +4,39 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import List, Dict, Optional, Tuple, Deque
+from typing import Deque, Dict, List, Optional, Tuple
 
 from hummingbot.client.command import __all__ as commands
+from hummingbot.client.config.config_helpers import (
+    get_connector_class,
+    get_strategy_config_map,
+)
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
+from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab import __all__ as tab_classes
-from hummingbot.core.clock import Clock
-from hummingbot.exceptions import ArgumentParserError
-from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.application_warning import ApplicationWarning
-from hummingbot.model.sql_connection_manager import SQLConnectionManager
-from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
+from hummingbot.client.tab.data_types import CommandTab
+from hummingbot.client.ui.completer import load_completer
+from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
-from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
-from hummingbot.client.ui.completer import load_completer
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import (
-    get_strategy_config_map,
-    get_connector_class,
-)
-from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
+from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import Clock
 from hummingbot.core.gateway.status_monitor import StatusMonitor as GatewayStatusMonitor
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase
+from hummingbot.exceptions import ArgumentParserError
+from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
+from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.client.config.security import Security
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.client.settings import AllConnectorSettings, ConnectorType
-from hummingbot.client.tab.data_types import CommandTab
+from hummingbot.strategy.strategy_base import StrategyBase
 
 s_logger = None
 
@@ -90,7 +90,7 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
-        self._script_iterator = None
+        self._pmm_script_iterator = None
         self._binance_connector = None
         self._shared_client = None
 
@@ -215,7 +215,7 @@ class HummingbotApplication(*commands):
         success = True
         try:
             kill_timeout: float = self.KILL_TIMEOUT
-            self.notify("Cancelling outstanding orders...")
+            self.notify("Canceling outstanding orders...")
 
             for market_name, market in self.markets.items():
                 cancellation_results = await market.cancel_all(kill_timeout)
@@ -232,7 +232,7 @@ class HummingbotApplication(*commands):
             success = False
 
         if success:
-            self.notify("All outstanding orders cancelled.")
+            self.notify("All outstanding orders canceled.")
         return success
 
     async def run(self):
