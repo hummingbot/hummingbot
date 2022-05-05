@@ -761,8 +761,6 @@ class TestGateIoExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -833,8 +831,6 @@ class TestGateIoExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_registers_order_not_found(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -880,8 +876,6 @@ class TestGateIoExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_processes_trade_fill(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDERS_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",

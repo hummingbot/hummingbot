@@ -14,26 +14,15 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class GateIoExchange(ExchangePyBase):
     DEFAULT_DOMAIN = ""
-    RATE_LIMITS = CONSTANTS.RATE_LIMITS
-    SUPPORTED_ORDER_TYPES = [
-        OrderType.LIMIT
-    ]
-
-    HBOT_ORDER_ID_PREFIX = CONSTANTS.HBOT_ORDER_ID
-    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ID_LEN
-
-    ORDERBOOK_DS_CLASS = GateIoAPIOrderBookDataSource
-    USERSTREAM_DS_CLASS = GateIoAPIUserStreamDataSource
-
-    CHECK_NETWORK_URL = CONSTANTS.NETWORK_CHECK_PATH_URL
-    SYMBOLS_PATH_URL = CONSTANTS.SYMBOL_PATH_URL
-    FEE_PATH_URL = SYMBOLS_PATH_URL
 
     INTERVAL_TRADING_RULES = CONSTANTS.INTERVAL_TRADING_RULES
     # Using 120 seconds here as Gate.io websocket is quiet
@@ -61,7 +50,8 @@ class GateIoExchange(ExchangePyBase):
 
         super().__init__()
 
-    def init_auth(self):
+    @property
+    def authenticator(self):
         return GateIoAuth(
             api_key=self._gate_io_api_key,
             secret_key=self._gate_io_secret_key,
@@ -70,6 +60,59 @@ class GateIoExchange(ExchangePyBase):
     @property
     def name(self) -> str:
         return "gate_io"
+
+    @property
+    def rate_limits_rules(self):
+        return CONSTANTS.RATE_LIMITS
+
+    @property
+    def domain(self):
+        return self.DEFAULT_DOMAIN
+
+    @property
+    def client_order_id_max_length(self):
+        return CONSTANTS.MAX_ID_LEN
+
+    @property
+    def client_order_id_prefix(self):
+        return CONSTANTS.HBOT_ORDER_ID
+
+    @property
+    def trading_rules_request_path(self):
+        return CONSTANTS.SYMBOL_PATH_URL
+
+    @property
+    def check_network_request_path(self):
+        return CONSTANTS.NETWORK_CHECK_PATH_URL
+
+    def _supported_order_types(self):
+        return [OrderType.LIMIT]
+
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
+            auth=self._auth)
+
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        return GateIoAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )
+
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return GateIoAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            domain=self.DEFAULT_DOMAIN,
+            api_factory=self._web_assistants_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )
 
     async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> Dict[str, TradingRule]:
         """
@@ -160,16 +203,6 @@ class GateIoExchange(ExchangePyBase):
         )
         canceled = resp.get("status") == "cancelled"
         return canceled
-
-    async def _status_polling_loop_fetch_updates(self):
-        """
-        Called by _status_polling_loop, which executes after each tick() is executed
-        """
-        self.logger().debug(f"Running _status_polling_loop_fetch_updates() at {time.time()}")
-        return await safe_gather(
-            self._update_balances(),
-            self._update_order_status(),
-        )
 
     async def _update_balances(self):
         """

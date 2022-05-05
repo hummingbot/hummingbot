@@ -14,29 +14,15 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class KucoinExchange(ExchangePyBase):
-    DEFAULT_DOMAIN = CONSTANTS.DEFAULT_DOMAIN
-    RATE_LIMITS = CONSTANTS.RATE_LIMITS
-    SUPPORTED_ORDER_TYPES = [
-        OrderType.MARKET,
-        OrderType.LIMIT,
-        OrderType.LIMIT_MAKER
-    ]
-
-    HBOT_ORDER_ID_PREFIX = ""
-    MAX_ORDER_ID_LEN = CONSTANTS.MAX_ORDER_ID_LEN
-
-    ORDERBOOK_DS_CLASS = KucoinAPIOrderBookDataSource
-    USERSTREAM_DS_CLASS = KucoinAPIUserStreamDataSource
-
-    SYMBOLS_PATH_URL = CONSTANTS.SYMBOLS_PATH_URL
-    CHECK_NETWORK_URL = CONSTANTS.SERVER_TIME_PATH_URL
-    FEE_PATH_URL = CONSTANTS.FEE_PATH_URL
 
     web_utils = web_utils
 
@@ -46,7 +32,7 @@ class KucoinExchange(ExchangePyBase):
                  kucoin_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
-                 domain: str = DEFAULT_DOMAIN):
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         self.kucoin_api_key = kucoin_api_key
         self.kucoin_passphrase = kucoin_passphrase
         self.kucoin_secret_key = kucoin_secret_key
@@ -55,7 +41,8 @@ class KucoinExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         super().__init__()
 
-    def init_auth(self):
+    @property
+    def authenticator(self):
         return KucoinAuth(
             api_key=self.kucoin_api_key,
             passphrase=self.kucoin_passphrase,
@@ -65,6 +52,58 @@ class KucoinExchange(ExchangePyBase):
     @property
     def name(self) -> str:
         return "kucoin"
+
+    @property
+    def rate_limits_rules(self):
+        return CONSTANTS.RATE_LIMITS
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def client_order_id_max_length(self):
+        return CONSTANTS.MAX_ORDER_ID_LEN
+
+    @property
+    def client_order_id_prefix(self):
+        return ""
+
+    @property
+    def trading_rules_request_path(self):
+        return CONSTANTS.SYMBOLS_PATH_URL
+
+    @property
+    def check_network_request_path(self):
+        return CONSTANTS.SERVER_TIME_PATH_URL
+
+    def _supported_order_types(self):
+        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self.domain,
+            auth=self._auth)
+
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        return KucoinAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory,
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+        )
+
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return KucoinAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory,
+            throttler=self._throttler,
+        )
 
     def _get_fee(self,
                  base_currency: str,
@@ -111,7 +150,7 @@ class KucoinExchange(ExchangePyBase):
             "symbol": await KucoinAPIOrderBookDataSource.exchange_symbol_associated_to_pair(
                 trading_pair=trading_pair,
                 domain=self._domain,
-                api_factory=self._api_factory,
+                api_factory=self._web_assistants_factory,
                 throttler=self._throttler),
             "type": order_type_str,
         }
@@ -221,13 +260,6 @@ class KucoinExchange(ExchangePyBase):
                 self.logger().exception("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
-    async def _status_polling_loop_fetch_updates(self):
-        "Called by _status_polling_loop to sync with exchange"
-        return await safe_gather(
-            self._update_balances(),
-            self._update_order_status(),
-        )
-
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
@@ -258,7 +290,7 @@ class KucoinExchange(ExchangePyBase):
                     trading_pair = await KucoinAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(
                         symbol=info.get("symbol"),
                         domain=self._domain,
-                        api_factory=self._api_factory,
+                        api_factory=self._web_assistants_factory,
                         throttler=self._throttler)
                     trading_rules.append(
                         TradingRule(trading_pair=trading_pair,
@@ -277,12 +309,12 @@ class KucoinExchange(ExchangePyBase):
         trading_symbols = [await self._orderbook_ds.exchange_symbol_associated_to_pair(
             trading_pair=trading_pair,
             domain=self._domain,
-            api_factory=self._api_factory,
+            api_factory=self._web_assistants_factory,
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer) for trading_pair in self._trading_pairs]
         params = {"symbols": ",".join(trading_symbols)}
         resp = await self._api_get(
-            path_url=self.FEE_PATH_URL,
+            path_url=CONSTANTS.FEE_PATH_URL,
             params=params,
             is_auth_required=True,
         )
@@ -291,21 +323,13 @@ class KucoinExchange(ExchangePyBase):
             trading_pair = await self._orderbook_ds.trading_pair_associated_to_exchange_symbol(
                 symbol=fee_json["symbol"],
                 domain=self._domain,
-                api_factory=self._api_factory,
+                api_factory=self._web_assistants_factory,
                 throttler=self._throttler,
                 time_synchronizer=self._time_synchronizer,
             )
             self._trading_fees[trading_pair] = fee_json
 
     async def _update_order_status(self):
-        # The poll interval for order status is 10 seconds.
-        interval_expired = False
-        if (self.current_timestamp - self._last_poll_timestamp) > self.UPDATE_ORDERS_INTERVAL:
-            interval_expired = True
-
-        if not interval_expired:
-            return
-
         tracked_orders = list(self.in_flight_orders.values())
         if len(tracked_orders) <= 0:
             return
