@@ -33,14 +33,15 @@ beforeEach(() => {
   patchEVMNonceManager(harmony._nonceManager);
 });
 
-afterEach(async () => {
-  // await eth.nonceManager.close();
-  // await eth.txStorage.close();
-
+afterEach(() => {
   unpatch();
 });
 
-afterAll(async () => await overrideConfigs.resetConfigs());
+afterAll(async () => {
+  // await harmony.nonceManager.close();
+  // await harmony.txStorage.close();
+  await overrideConfigs.resetConfigs();
+});
 
 const address: string = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 

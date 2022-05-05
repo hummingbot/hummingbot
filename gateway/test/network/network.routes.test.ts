@@ -34,15 +34,17 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  unpatch();
+});
+
+afterAll(async () => {
   // await eth.nonceManager.close();
   // await eth.txStorage.close();
   // await avalanche.nonceManager.close();
   // await avalanche.txStorage.close();
 
-  unpatch();
+  await overrideConfigs.resetConfigs();
 });
-
-afterAll(async () => await overrideConfigs.resetConfigs());
 
 describe('GET /network/status', () => {
   it('should return 200 when asking for harmony network status', async () => {
