@@ -5,6 +5,7 @@ import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import {
   Fetcher,
   Pair,
+  Percent,
   Route,
   Token,
   TokenAmount,
@@ -135,5 +136,22 @@ describe('verify Pangolin estimateBuyTrade', () => {
     await expect(async () => {
       await pangolin.estimateBuyTrade(WETH, WAVAX, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
+  });
+});
+
+describe('getAllowedSlippage', () => {
+  it('return value of string when not null', () => {
+    const allowedSlippage = pangolin.getAllowedSlippage('3/100');
+    expect(allowedSlippage).toEqual(new Percent('3', '100'));
+  });
+
+  it('return value from config when string is null', () => {
+    const allowedSlippage = pangolin.getAllowedSlippage();
+    expect(allowedSlippage).toEqual(new Percent('1', '100'));
+  });
+
+  it('return value from config when string is malformed', () => {
+    const allowedSlippage = pangolin.getAllowedSlippage('yo');
+    expect(allowedSlippage).toEqual(new Percent('1', '100'));
   });
 });
