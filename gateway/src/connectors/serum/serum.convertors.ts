@@ -1,10 +1,4 @@
 import {
-  Market as SerumMarket,
-  Order as SerumOrder,
-  Orderbook as SerumOrderBook,
-  OrderParams
-} from "@project-serum/serum/lib/market";
-import {
   BasicSerumMarket,
   CancelOpenOrderResponse,
   CancelOpenOrdersResponse,
@@ -34,6 +28,10 @@ import {
   OrderStatus,
   OrderType,
   PostSettleFundsResponse,
+  SerumMarket,
+  SerumOrder,
+  SerumOrderBook,
+  SerumOrderParams,
   Ticker
 } from "./serum.types";
 
@@ -214,7 +212,7 @@ export const convertMarketBidsAndAsksToOrderBook = (
 export const convertArrayOfSerumOrdersToMapOfOrders = (
   market: Market,
   orders: SerumOrder[] | SerumOrderBook | any[],
-  address?: string,
+  ownerAddress?: string,
   status?: OrderStatus,
 ): IMap<string, Order> => {
   const result = IMap<string, Order>().asMutable();
@@ -227,7 +225,7 @@ export const convertArrayOfSerumOrdersToMapOfOrders = (
         order,
         undefined,
         undefined,
-        address,
+        ownerAddress,
         status
       )
     );
@@ -251,7 +249,7 @@ export const convertSerumOrderToOrder = (
   market: Market,
   order?: SerumOrder, // | Record<string, unknown>,
   candidate?: CreateOrdersRequest,
-  orderParameters?: OrderParams,
+  orderParameters?: SerumOrderParams<any>,
   ownerAddress?: string,
   status?: OrderStatus,
   signature?: string,
@@ -261,8 +259,8 @@ export const convertSerumOrderToOrder = (
     exchangeId: order?.orderId.toString() || undefined, // TODO check the possibility to retrieve the exchange id from a new order.
     marketName: market.name,
     ownerAddress: ownerAddress || candidate?.ownerAddress,
-    price: order?.price.toString() || candidate!.price,
-    amount: order?.size.toString() || candidate!.amount,
+    price: order?.price || candidate!.price,
+    amount: order?.size || candidate!.amount,
     side: order ? convertSerumSideToOrderSide(order?.side) : candidate!.side,
     status: status,
     type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!): undefined,

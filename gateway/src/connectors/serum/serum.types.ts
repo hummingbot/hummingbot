@@ -7,18 +7,23 @@ import {
 } from '@project-serum/serum/lib/market';
 import {PublicKey} from '@solana/web3.js';
 import BN from "bn.js";
-import {Map as ImmutableMap} from 'immutable';
+import {Map as ImmutableMap, Set as ImmutableSet} from 'immutable';
+import {Market as ExtendedMarket} from './extensions/market';
 
 export type IMap<K, V> = ImmutableMap<K, V>;
 export const IMap = ImmutableMap;
+export type ISet<V> = ImmutableSet<V>;
+export const ISet = ImmutableSet;
 
 export type SerumOrder = SOrder;
-export type SerumMarket = SMarket;
-export const SerumMarket = SMarket;
+export type SerumMarket = ExtendedMarket;
+export const SerumMarket = ExtendedMarket;
 export type SerumOrderBook = SOrderBook;
 export type SerumOrderParams<T> = SOrderParams<T>;
 export type SerumMarketOptions = SMarketOptions;
 export type SerumOpenOrders = SOpenOrders;
+
+export type OriginalSerumMarket = SMarket;
 
 interface PlainBasicSerumMarket {
   address: string;
@@ -85,9 +90,6 @@ export interface OrderBook {
 
 export interface Ticker {
   price: number;
-  amount: number;
-  side: OrderSide;
-  fee: number;
   timestamp: number;
   ticker: any;
 }
@@ -155,9 +157,6 @@ export type GetTickersRequest =
 
 export interface GetTickerResponse {
   price: number;
-  amount: number;
-  side: OrderSide;
-  fee: number;
   timestamp: number;
 }
 
