@@ -5,7 +5,7 @@ import {
   Order as SOrder,
   OrderParams as SOrderParams
 } from '@project-serum/serum/lib/market';
-import {PublicKey} from '@solana/web3.js';
+import {PublicKey, TransactionSignature} from '@solana/web3.js';
 import BN from "bn.js";
 import {Map as ImmutableMap, Set as ImmutableSet} from 'immutable';
 import {Market as ExtendedMarket} from './extensions/market';
@@ -109,7 +109,7 @@ export interface Order {
   order?: SerumOrder;
 }
 
-export type Fund = void;
+export type Fund = TransactionSignature;
 
 export interface Fee {
   maker: number;
@@ -340,7 +340,7 @@ export type PostSettleFundsRequest =
   | { marketName: string, ownerAddress: string }
   | { marketNames: string[], ownerAddress: string };
 
-export type PostSettleFundResponse = Fund;
+export type PostSettleFundResponse = Fund[];
 
 export type PostSettleFundsResponse = IMap<string, PostSettleFundResponse> | PostSettleFundResponse;
 

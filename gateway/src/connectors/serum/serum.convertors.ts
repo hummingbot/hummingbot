@@ -171,7 +171,7 @@ export const convertSingle = <O extends Output>(input: SingleInput, type: Types)
     return convertToGetFilledOrderResponse(input as Order) as O;
 
   if (type === Types.PostSettleFundsResponse)
-    return convertToPostSettleFundsResponse(input as Fund) as O;
+    return convertToPostSettleFundsResponse(input as Fund[]) as O;
 
   throw new Error(`Unsupported input type "${type}".`);
 };
@@ -261,7 +261,7 @@ export const convertSerumOrderToOrder = (
     ownerAddress: ownerAddress || candidate?.ownerAddress,
     price: order?.price || candidate!.price,
     amount: order?.size || candidate!.amount,
-    side: order ? convertSerumSideToOrderSide(order?.side) : candidate!.side,
+    side: order ? convertSerumSideToOrderSide(order.side) : candidate!.side,
     status: status,
     type: orderParameters ? convertSerumTypeToOrderType(orderParameters.orderType!): undefined,
     fillmentTimestamp: undefined,
@@ -382,7 +382,7 @@ export const convertToGetFilledOrderResponse = (input: Order): GetFilledOrderRes
   }
 }
 
-export const convertToPostSettleFundsResponse = (input: Fund): PostSettleFundsResponse => {
+export const convertToPostSettleFundsResponse = (input: Fund[]): PostSettleFundsResponse => {
   return input;
 }
 

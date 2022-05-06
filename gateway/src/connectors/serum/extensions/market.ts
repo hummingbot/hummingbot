@@ -93,6 +93,7 @@ export class Market {
     this._baseSplTokenDecimals = baseMintDecimals;
     this._quoteSplTokenDecimals = quoteMintDecimals;
     this._skipPreflight = skipPreflight;
+    // @ts-ignore
     this._commitment = commitment;
     this._programId = programId;
     this._openOrdersAccountsCache = {};
@@ -226,6 +227,7 @@ export class Market {
         cacheDurationMs,
       ),
     ]);
+    // @ts-ignore
     return this.filterForOpenOrders(bids, asks, openOrdersAccounts);
   }
 
@@ -254,6 +256,7 @@ export class Market {
       if (unwrapped !== null) {
         return [{ pubkey: ownerAddress, account: unwrapped }, ...wrapped];
       }
+      // @ts-ignore
       return wrapped;
     }
     return await this.getTokenAccountsByOwnerForMint(
@@ -288,6 +291,7 @@ export class Market {
       if (unwrapped !== null) {
         return [{ pubkey: ownerAddress, account: unwrapped }, ...wrapped];
       }
+      // @ts-ignore
       return wrapped;
     }
     return await this.getTokenAccountsByOwnerForMint(
@@ -387,7 +391,7 @@ export class Market {
 
   async placeOrders(
     connection: Connection,
-    orders: OrderParams<Account>[]
+    orders: OrderParams<Account>[],
   ): Promise<TransactionSignature[]> {
     const transactionSignatures = new Array<TransactionSignature>();
     const ownersMap = new Map<Account, {transaction: Transaction, signers: Array<Account>}>();
@@ -415,7 +419,7 @@ export class Market {
         feeDiscountPubkey,
         maxTs,
         replaceIfExists,
-      });
+      } as OrderParams);
 
       signers.push(...partial.signers)
     }
@@ -1122,38 +1126,19 @@ export class Market {
   }
 
   // TODO Add the settling of funds!!!
-  async cancelOrdersAndSettleFunds(connection: Connection, owner: Account, orders: Order[]): Promise<TransactionSignature[]> {
-    // TODO check the possibility to add signers (the original implementation it is not using them).
-    const transactionSignatures = new Array<TransactionSignature>();
-    const ownersMap = new Map<Account, {transaction: Transaction, signers: Array<Account>}>();
+  async cancelOrders(connection: Connection, owner: Account, orders: Order[]): Promise<TransactionSignature> {
+    const transaction = new Transaction();
 
     for (const order of orders) {
-      let item = ownersMap.get(owner);
-      if (!item) {
-        item = {transaction: new Transaction(), signers: []};
-        ownersMap.set(owner, item);
-      }
-
-      const transaction: Transaction = item.transaction;
-      // const signers: Array<Account> = item.signers;
-
-      /*const partial = */await this.makeCancelOrderTransactionForBatch(
+      await this.makeCancelOrderTransactionForBatch(
         transaction,
         connection,
         owner.publicKey,
         order,
       );
-
-      // signers.push(...partial.signers)
     }
 
-    const sendTransaction = async (entry: [Account, {transaction: Transaction, signers: Array<Account>}]) => {
-      transactionSignatures.push(await this._sendTransaction(connection, entry[1].transaction, [entry[0]/*, ...(entry[1].signers)*/]));
-    }
-
-    await promiseAllInBatches(sendTransaction, Array.from(ownersMap.entries()), promisesBatchSize, promisesDelayInMilliseconds);
-
-    return transactionSignatures;
+    return await this._sendTransaction(connection, transaction, [owner]);
   }
 
   async makeCancelOrderTransaction(

@@ -1,5 +1,5 @@
 import {MARKETS} from '@project-serum/serum';
-import {Account, AccountInfo, Connection, PublicKey, TransactionSignature} from '@solana/web3.js';
+import {Account, AccountInfo, Connection, PublicKey, Transaction, TransactionSignature} from '@solana/web3.js';
 import axios from 'axios';
 import BN from 'bn.js';
 import {Cache, CacheContainer} from 'node-ts-cache';
@@ -101,7 +101,7 @@ export class Serum {
    * @private
    */
   private async serumLoadMarket(connection: Connection, address: PublicKey, options: SerumMarketOptions | undefined, programId: PublicKey, layoutOverride?: any): Promise<SerumMarket> {
-    return await SerumMarket.load(connection,address, options, programId, layoutOverride);
+    return await SerumMarket.load(connection,address, <SerumMarketOptions>options, programId, layoutOverride);
   }
 
   /**
@@ -191,18 +191,18 @@ export class Serum {
     return await market.placeOrders(connection, orders);
   }
 
-  /**
-   * 1 external API call.
-   *
-   * @param market
-   * @param connection
-   * @param owner
-   * @param order
-   * @private
-   */
-  private async serumMarketCancelOrder(market: SerumMarket, connection: Connection, owner: Account, order: SerumOrder): Promise<TransactionSignature> {
-    return await market.cancelOrder(connection, owner, order);
-  }
+  // /**
+  //  * 1 external API call.
+  //  *
+  //  * @param market
+  //  * @param connection
+  //  * @param owner
+  //  * @param order
+  //  * @private
+  //  */
+  // private async serumMarketCancelOrder(market: SerumMarket, connection: Connection, owner: Account, order: SerumOrder): Promise<TransactionSignature> {
+  //   return await market.cancelOrder(connection, owner, order);
+  // }
 
   /**
    * Cancel one or more order in a single transaction.
@@ -214,8 +214,61 @@ export class Serum {
    * @param orders
    * @private
    */
-  private async serumMarketCancelOrdersAndSettleFunds(market: SerumMarket, connection: Connection, owner: Account, orders: SerumOrder[]): Promise<TransactionSignature[]> {
-    return await market.cancelOrdersAndSettleFunds(connection, owner, orders);
+  private async serumMarketCancelOrdersAndSettleFunds(market: SerumMarket, connection: Connection, owner: Account, orders: SerumOrder[]): Promise<TransactionSignature> {
+    const transaction = new Transaction();
+
+    for (const order of orders) {
+      await market.makeCancelOrderTransactionForBatch(
+        transaction,
+        connection,
+        owner.publicKey,
+        order,
+      );
+    }
+
+    const fundsSettlements: {
+      owner: Account,
+      openOrders: SerumOpenOrders,
+      baseWallet: PublicKey,
+      quoteWallet: PublicKey,
+      referrerQuoteWallet: PublicKey | null
+    }[] = [];
+
+    for (const openOrders of await this.serumFindOpenOrdersAccountsForOwner(
+      market,
+      connection,
+      owner.publicKey,
+    )) {
+      if (openOrders.baseTokenFree.gt(new BN(0)) || openOrders.quoteTokenFree.gt(new BN(0))) {
+        const base = await this.serumFindBaseTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
+        const baseWallet = base[0].pubkey;
+
+        const quote = await this.serumFindQuoteTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
+        const quoteWallet = quote[0].pubkey;
+
+        fundsSettlements.push({
+          owner,
+          openOrders,
+          baseWallet,
+          quoteWallet,
+          referrerQuoteWallet: null
+        });
+      }
+    }
+
+    try {
+      return (await this.serumSettleSeveralFunds(
+        market,
+        connection,
+        fundsSettlements
+      ))[0]; // There's only one owner.
+    } catch (exception: any) {
+      if (exception.message.includes('It is unknown if it succeeded or failed.')) {
+        throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
+      }
+
+      throw exception;
+    }
   }
 
   /**
@@ -272,7 +325,7 @@ export class Serum {
    * @private
    */
   // @ts-ignore
-  private async serumSettleFunds(market: SerumMarket, connection: Connection, owner: Account, openOrders: OpenOrders, baseWallet: PublicKey, quoteWallet: PublicKey, referrerQuoteWallet?: PublicKey | null): Promise<TransactionSignature> {
+  private async serumSettleFunds(market: SerumMarket, connection: Connection, owner: Account, openOrders: SerumOpenOrders, baseWallet: PublicKey, quoteWallet: PublicKey, referrerQuoteWallet?: PublicKey | null): Promise<TransactionSignature> {
     return await market.settleFunds(connection, owner, openOrders, baseWallet, quoteWallet, referrerQuoteWallet);
   }
 
@@ -1031,7 +1084,7 @@ export class Serum {
     const order = await this.getOpenOrder({ ...target });
 
     try {
-      order.signature = await this.serumMarketCancelOrder(market.market, this.connection, owner, order.order!);
+      order.signature = await this.serumMarketCancelOrdersAndSettleFunds(market.market, this.connection, owner, [order.order!]);
 
       order.status = OrderStatus.CANCELED;
 
@@ -1084,9 +1137,9 @@ export class Serum {
     for (const [market, marketMap] of ordersMap.entries()) {
       for (const [owner, orders] of marketMap.entries()) {
         let status: OrderStatus;
-        let signatures: TransactionSignature[]
+        let signature: TransactionSignature;
         try {
-          signatures = await this.serumMarketCancelOrdersAndSettleFunds(market.market, this.connection, owner, orders.map(order => order.order!));
+          signature = await this.serumMarketCancelOrdersAndSettleFunds(market.market, this.connection, owner, orders.map(order => order.order!));
 
           status = OrderStatus.CANCELED;
         } catch (exception: any) {
@@ -1099,7 +1152,7 @@ export class Serum {
 
         for (const order of orders) {
           order.status = status;
-          order.signature = signatures[0];
+          order.signature = signature;
         }
       }
     }
@@ -1129,8 +1182,7 @@ export class Serum {
    * @param marketName
    * @param ownerAddress
    */
-  async settleFundsForMarket(marketName: string, ownerAddress: string): Promise<Fund> {
-    let errors = '';
+  async settleFundsForMarket(marketName: string, ownerAddress: string): Promise<TransactionSignature[]> {
     const market = await this.getMarket(marketName);
     const owner = await this.solana.getAccount(ownerAddress);
 
@@ -1165,14 +1217,14 @@ export class Serum {
     }
 
     try {
-      await this.serumSettleSeveralFunds(
+      return await this.serumSettleSeveralFunds(
         market.market,
         this.connection,
         fundsSettlements
       );
     } catch (exception: any) {
       if (exception.message.includes('It is unknown if it succeeded or failed.')) {
-        throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}":\n${errors}`)
+        throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
       }
 
       throw exception;
@@ -1185,13 +1237,13 @@ export class Serum {
    * @param marketNames
    * @param ownerAddress
    */
-  async settleFundsForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, Fund>> {
-    const funds = IMap<string, Fund>().asMutable();
+  async settleFundsForMarkets(marketNames: string[], ownerAddress: string): Promise<IMap<string, Fund[]>> {
+    const funds = IMap<string, Fund[]>().asMutable();
 
     const settleFunds = async(marketName: string): Promise<void> => {
-      const fund = await this.settleFundsForMarket(marketName, ownerAddress);
+      const signatures = await this.settleFundsForMarket(marketName, ownerAddress);
 
-      funds.set(marketName, fund);
+      funds.set(marketName, signatures);
     }
 
     // The rate limits are defined here: https://docs.solana.com/cluster/rpc-endpoints
@@ -1205,7 +1257,7 @@ export class Serum {
    *
    * @param ownerAddress
    */
-  async settleAllFunds(ownerAddress: string): Promise<IMap<string, Fund>>{
+  async settleAllFunds(ownerAddress: string): Promise<IMap<string, Fund[]>>{
     const marketNames = Array.from((await this.getAllMarkets()).keys());
 
     return this.settleFundsForMarkets(marketNames, ownerAddress);
