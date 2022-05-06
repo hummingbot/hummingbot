@@ -1,5 +1,6 @@
 import binascii
 import importlib
+import logging
 import shutil
 from os import DirEntry, scandir
 from os.path import exists, join
@@ -21,15 +22,15 @@ strategies_conf_dir_path = STRATEGIES_CONF_DIR_PATH
 
 
 def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
-    print("Starting conf migration.")
+    logging.getLogger().info("Starting conf migration.")
     errors = backup_existing_dir()
     if len(errors) == 0:
         migrate_strategy_confs_paths()
         errors.extend(migrate_connector_confs(secrets_manager))
         store_password_verification(secrets_manager)
-        print("\nConf migration done.")
+        logging.getLogger().info("\nConf migration done.")
     else:
-        print("\nConf migration failed.")
+        logging.getLogger().error("\nConf migration failed.")
     return errors
 
 
@@ -48,12 +49,12 @@ def backup_existing_dir() -> List[str]:
             ]
         else:
             shutil.copytree(conf_dir_path, backup_path)
-            print(f"\nCreated a backup of your existing conf directory to {backup_path}")
+            logging.getLogger().info(f"\nCreated a backup of your existing conf directory to {backup_path}")
     return errors
 
 
 def migrate_strategy_confs_paths():
-    print("\nMigrating strategies...")
+    logging.getLogger().info("\nMigrating strategies...")
     for child in conf_dir_path.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
             with open(str(child), "r") as f:
@@ -61,11 +62,11 @@ def migrate_strategy_confs_paths():
             if "strategy" in conf and "exchange" in conf:
                 new_path = strategies_conf_dir_path / child.name
                 child.rename(new_path)
-                print(f"Migrated conf for {conf['strategy']}")
+                logging.getLogger().info(f"Migrated conf for {conf['strategy']}")
 
 
 def migrate_connector_confs(secrets_manager: BaseSecretsManager):
-    print("\nMigrating connector secure keys...")
+    logging.getLogger().info("\nMigrating connector secure keys...")
     errors = []
     Security.secrets_manager = secrets_manager
     connector_exceptions = ["paper_trade"]
@@ -125,10 +126,10 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
             errors = cm.validate_model()
         if errors:
             errors = [f"{config_keys.connector} - {e}" for e in errors]
-            print(f"The migration of {config_keys.connector} failed with errors: {errors}")
+            logging.getLogger().error(f"The migration of {config_keys.connector} failed with errors: {errors}")
         else:
             Security.update_secure_config(cm)
-            print(f"Migrated secure keys for {config_keys.connector}")
+            logging.getLogger().info(f"Migrated secure keys for {config_keys.connector}")
         for f in files_to_remove:
             f.unlink()
     return errors
