@@ -25,6 +25,8 @@ import morgan from 'morgan';
 
 const swaggerUi = require('swagger-ui-express');
 
+const childProcess = require('child_process');
+
 export const gatewayApp = express();
 
 // parse body for application/json
@@ -63,6 +65,26 @@ gatewayApp.get(
       uniswap: UniswapConfig.config.availableNetworks,
       pangolin: PangolinConfig.config.availableNetworks,
     });
+  })
+);
+
+// watch the exit even, spawn an independent process with the same args and
+// pass the stdio from this process to it.
+process.on('exit', function () {
+  childProcess.spawn(process.argv.shift(), process.argv, {
+    cwd: process.cwd(),
+    detached: true,
+    stdio: 'inherit',
+  });
+});
+
+gatewayApp.post(
+  '/restart',
+  asyncHandler(async (_req, res) => {
+    // kill the current process and trigger the exit event
+    process.exit();
+    // this is only to satisfy the compiler, it will never be called.
+    res.status(200).json();
   })
 );
 
