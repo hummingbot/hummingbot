@@ -1,11 +1,9 @@
 import asyncio
 import time
-from typing import (
-    Dict,
-    Optional,
-)
+from typing import Dict, Optional
 
 import aiohttp
+
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 
 
@@ -34,10 +32,7 @@ class WSConnection:
     ):
         self._ensure_not_connected()
         self._connection = await self._client_session.ws_connect(
-            ws_url,
-            headers=ws_headers,
-            autoping=False,
-            heartbeat=ping_timeout,
+            ws_url, headers=ws_headers, autoping=False, heartbeat=ping_timeout,
         )
         self._message_timeout = message_timeout
         self._connected = True
@@ -77,6 +72,11 @@ class WSConnection:
     async def _read_message(self) -> aiohttp.WSMessage:
         try:
             msg = await self._connection.receive(self._message_timeout)
+        except RuntimeError as e:
+            if str(e) == "Concurrent call to receive() is not allowed":
+                pass
+            else:
+                raise
         except asyncio.TimeoutError:
             raise asyncio.TimeoutError("Message receive timed out.")
         return msg
