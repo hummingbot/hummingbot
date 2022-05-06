@@ -1,5 +1,6 @@
 import {
   isFloatString,
+  isFractionString,
   mkValidator,
   mkRequestValidator,
   RequestValidator,
@@ -49,6 +50,9 @@ export const invalidTimeError: string =
 
 export const invalidDecreasePercentError: string =
   'If decreasePercent is included it must be a non-negative integer.';
+
+export const invalidAllowedSlippageError: string =
+  'The allowedSlippage param may be null or a string of a fraction.';
 
 export const validateConnector: Validator = mkValidator(
   'connector',
@@ -165,6 +169,13 @@ export const validateDecreasePercent: Validator = mkValidator(
   true
 );
 
+export const validateAllowedSlippage: Validator = mkValidator(
+  'allowedSlippage',
+  invalidAllowedSlippageError,
+  (val) => typeof val === 'string' && isFractionString(val),
+  true
+);
+
 export const validatePriceRequest: RequestValidator = mkRequestValidator([
   validateConnector,
   validateChain,
@@ -173,6 +184,7 @@ export const validatePriceRequest: RequestValidator = mkRequestValidator([
   validateBase,
   validateAmount,
   validateSide,
+  validateAllowedSlippage,
 ]);
 
 export const validateTradeRequest: RequestValidator = mkRequestValidator([
@@ -188,6 +200,7 @@ export const validateTradeRequest: RequestValidator = mkRequestValidator([
   validateNonce,
   validateMaxFeePerGas,
   validateMaxPriorityFeePerGas,
+  validateAllowedSlippage,
 ]);
 
 export const validateEstimateGasRequest: RequestValidator = mkRequestValidator([

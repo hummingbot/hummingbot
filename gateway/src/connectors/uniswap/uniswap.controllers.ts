@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js-light';
-import { BigNumber, Wallet } from 'ethers';
+import { BigNumber, Transaction, Wallet } from 'ethers';
 import { Token } from '@uniswap/sdk-core';
 import { FeeAmount } from '@uniswap/v3-sdk';
 import {
@@ -44,6 +44,7 @@ import {
   PoolPriceRequest,
   PoolPriceResponse,
 } from '../../amm/amm.requests';
+import { TransactionSignature } from '@solana/web3.js';
 
 export interface TradeInfo {
   baseToken: Tokenish;
@@ -91,7 +92,8 @@ export async function getTradeInfo(
   baseAsset: string,
   quoteAsset: string,
   baseAmount: Decimal,
-  tradeSide: string
+  tradeSide: string,
+  allowedSlippage?: string
 ): Promise<TradeInfo> {
   const baseToken: Tokenish = getFullTokenFromSymbol(
     ethereumish,
@@ -112,13 +114,15 @@ export async function getTradeInfo(
     expectedTrade = await uniswapish.estimateBuyTrade(
       quoteToken,
       baseToken,
-      requestAmount
+      requestAmount,
+      allowedSlippage
     );
   } else {
     expectedTrade = await uniswapish.estimateSellTrade(
       baseToken,
       quoteToken,
-      requestAmount
+      requestAmount,
+      allowedSlippage
     );
   }
 
@@ -144,7 +148,8 @@ export async function price(
       req.base,
       req.quote,
       new Decimal(req.amount),
-      req.side
+      req.side,
+      req.allowedSlippage
     );
   } catch (e) {
     if (e instanceof Error) {
@@ -262,7 +267,8 @@ export async function trade(
       uniswapish.gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
-      maxPriorityFeePerGasBigNumber
+      maxPriorityFeePerGasBigNumber,
+      req.allowedSlippage
     );
 
     if (tx.hash) {
@@ -491,7 +497,7 @@ export async function collectEarnedFees(
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimit: number = uniswapish.gasLimit;
 
-  const tx = await uniswapish.collectFees(
+  const tx: Transaction = <Transaction>await uniswapish.collectFees(
     wallet,
     req.tokenId,
     gasLimit,

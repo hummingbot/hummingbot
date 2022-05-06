@@ -440,7 +440,7 @@ class CoinflexExchange(ExchangeBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                "Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with CoinFLEX. Check API key and network connection."
             )
@@ -587,15 +587,15 @@ class CoinflexExchange(ExchangeBase):
                     if e.error_payload.get("errors") == CONSTANTS.ORDER_NOT_FOUND_ERROR:
                         cancel_result = e.error_payload["data"][0]
                     else:
-                        self.logger().error(f"Unhandled error cancelling order: {order_id}. Error: {e.error_payload}", exc_info=True)
+                        self.logger().error(f"Unhandled error canceling order: {order_id}. Error: {e.error_payload}", exc_info=True)
 
-                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELLED_STATES:
+                if cancel_result.get("status") in CONSTANTS.ORDER_CANCELED_STATES:
                     cancelled_timestamp = cancel_result.get("timestamp", result.get("timestamp"))
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=order_id,
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=int(cancelled_timestamp) * 1e-3 if cancelled_timestamp else self.current_timestamp,
-                        new_state=OrderState.CANCELLED,
+                        new_state=OrderState.CANCELED,
                     )
                     self._order_tracker.process_order_update(order_update)
                 else:
@@ -606,7 +606,7 @@ class CoinflexExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"There was a an error when requesting cancellation of order {order_id}")
+                self.logger().exception(f"There was a an error when requesting cancelation of order {order_id}")
                 raise
 
     async def _status_polling_loop(self):

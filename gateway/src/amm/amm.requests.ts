@@ -9,6 +9,7 @@ export interface PriceRequest extends NetworkSelectionRequest {
   base: string;
   amount: string;
   side: Side;
+  allowedSlippage?: string;
 }
 
 export interface PriceResponse {
@@ -57,6 +58,7 @@ export interface TradeRequest extends NetworkSelectionRequest {
   nonce?: number;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+  allowedSlippage?: string;
 }
 
 export interface TradeResponse {

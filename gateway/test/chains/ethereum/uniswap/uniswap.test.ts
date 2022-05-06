@@ -2,7 +2,7 @@ jest.useFakeTimers();
 import { Uniswap } from '../../../../src/connectors/uniswap/uniswap';
 import { patch, unpatch } from '../../../services/patch';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
-import { CurrencyAmount, TradeType, Token } from '@uniswap/sdk-core';
+import { CurrencyAmount, TradeType, Token, Percent } from '@uniswap/sdk-core';
 import { Pair, Route } from '@uniswap/v2-sdk';
 import { Trade } from '@uniswap/router-sdk';
 import { BigNumber, utils } from 'ethers';
@@ -123,5 +123,22 @@ describe('verify Uniswap estimateBuyTrade', () => {
     await expect(async () => {
       await uniswap.estimateBuyTrade(WETH, DAI, BigNumber.from(1));
     }).rejects.toThrow(UniswapishPriceError);
+  });
+});
+
+describe('getAllowedSlippage', () => {
+  it('return value of string when not null', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage('1/100');
+    expect(allowedSlippage).toEqual(new Percent('1', '100'));
+  });
+
+  it('return value from config when string is null', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage();
+    expect(allowedSlippage).toEqual(new Percent('2', '100'));
+  });
+
+  it('return value from config when string is malformed', () => {
+    const allowedSlippage = uniswap.getAllowedSlippage('yo');
+    expect(allowedSlippage).toEqual(new Percent('2', '100'));
   });
 });
