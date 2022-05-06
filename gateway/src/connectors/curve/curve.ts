@@ -13,6 +13,7 @@ import { getEthereumConfig } from '../../chains/ethereum/ethereum.config';
 import curve from '@curvefi/api';
 
 export class Curve {
+  public readonly types: string = 'Curve';
   private static _instances: { [name: string]: Curve };
   private _chain: string;
   private _chainId;
@@ -59,11 +60,14 @@ export class Curve {
         SERVICE_UNITIALIZED_ERROR_CODE
       );
 
-    // await curve.init(
-    //   'Infura',
-    //   { network: this._network, apiKey: config.nodeAPIKey },
-    //   { chainId: this._chainId }
-    // );
+    await curve.init(
+      'Infura',
+      {
+        network: this._network,
+        apiKey: getEthereumConfig(this._chain, this._network).nodeAPIKey,
+      },
+      { chainId: this._chainId }
+    );
 
     this._ready = true;
   }
@@ -80,21 +84,20 @@ export class Curve {
     );
   }
 
-  public ready(): boolean {
+  public get ready(): boolean {
     return this._ready;
   }
 
-  public gasLimit(): number {
+  public get gasLimit(): number {
     return this._gasLimit;
   }
 
   async price(
-    wallet: Wallet,
     tokenIn: string,
     tokenOut: string,
     tokenAmount: string
   ): Promise<any> {
-    await this.initCurve(wallet);
+    // await this.initCurve(wallet);
     const { route, output } = await curve.getBestRouteAndOutput(
       tokenIn,
       tokenOut,
@@ -105,12 +108,11 @@ export class Curve {
 
   // maxSlippage
   async executeTrade(
-    wallet: Wallet,
     tokenIn: string,
     tokenOut: string,
     tokenAmount: string
   ): Promise<any> {
-    await this.initCurve(wallet);
+    // await this.initCurve(wallet);
     await curve.routerExchange(tokenIn, tokenOut, tokenAmount); // returns transaction hash
   }
 

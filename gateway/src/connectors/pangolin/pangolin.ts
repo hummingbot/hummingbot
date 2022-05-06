@@ -87,6 +87,13 @@ export class Pangolin implements Uniswapish {
   }
 
   /**
+   * Type of this class.
+   */
+  public get types(): string {
+    return 'Pangolin';
+  }
+
+  /**
    * Router address.
    */
   public get router(): string {

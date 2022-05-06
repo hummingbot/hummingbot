@@ -4,9 +4,12 @@ import { Harmony } from '../chains/harmony/harmony';
 import { Curve } from '../connectors/curve/curve';
 import { Uniswap } from '../connectors/uniswap/uniswap';
 import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Ethereumish } from './common-interfaces';
+import { Ethereumish, Uniswapish } from './common-interfaces'; // Uniswapish
 
-export async function getChain(chain: string, network: string) {
+export async function getChain(
+  chain: string,
+  network: string
+): Promise<Ethereumish> {
   let chainInstance: Ethereumish;
   if (chain === 'ethereum') chainInstance = Ethereum.getInstance(network);
   else if (chain === 'avalanche')
@@ -23,7 +26,7 @@ export async function getConnector(
   chain: string,
   network: string,
   connector: string | undefined
-) {
+): Promise<Uniswapish | Curve> {
   let connectorInstance: any;
   if (chain === 'ethereum' && connector === 'uniswap')
     connectorInstance = Uniswap.getInstance(chain, network);

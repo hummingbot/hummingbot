@@ -95,6 +95,13 @@ export class Uniswap implements Uniswapish {
   }
 
   /**
+   * Type of this class.
+   */
+  public get types(): string {
+    return 'Uniswap';
+  }
+
+  /**
    * Router address.
    */
   public get router(): string {
