@@ -381,7 +381,7 @@ export async function poll(
             req.network,
             req.connector
           );
-          txReceipt.logs = connector.abiDecoder.decodeLogs(txReceipt.logs);
+          txReceipt.logs = connector.abiDecoder?.decodeLogs(txReceipt.logs);
         } catch (e) {
           logger.error(e);
         }

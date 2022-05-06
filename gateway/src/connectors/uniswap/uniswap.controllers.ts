@@ -44,7 +44,6 @@ import {
   PoolPriceRequest,
   PoolPriceResponse,
 } from '../../amm/amm.requests';
-import { TransactionSignature } from '@solana/web3.js';
 
 export interface TradeInfo {
   baseToken: Tokenish;

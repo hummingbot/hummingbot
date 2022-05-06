@@ -63,6 +63,11 @@ export interface Uniswapish {
   routerAbi: ContractInterface;
 
   /**
+   * Interface for decoding transaction logs
+   */
+  abiDecoder?: any;
+
+  /**
    * Default gas limit for swap transactions.
    */
   gasLimit: number;
@@ -168,6 +173,11 @@ export interface UniswapLPish {
    * Pool smart contract ABI.
    */
   poolAbi: ContractInterface;
+
+  /**
+   * Interface for decoding transaction logs
+   */
+  abiDecoder: any;
 
   /**
    * Default gas limit for swap transactions.
