@@ -88,7 +88,7 @@ cdef class KrakenExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
@@ -425,8 +425,8 @@ cdef class KrakenExchange(ExchangeBase):
                         # check if its a cancelled order
                         # if its a cancelled order, issue cancel and stop tracking order
                         if tracked_order.is_cancelled:
-                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                            self.logger().info(f"Successfully canceled order {client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                                  OrderCancelledEvent(
                                                      self._current_timestamp,
                                                      client_order_id))
@@ -533,8 +533,8 @@ cdef class KrakenExchange(ExchangeBase):
                                     # if present in in flight orders issue cancel and stop tracking order
                                     if tracked_order.is_cancelled:
                                         if tracked_order.client_order_id in self._in_flight_orders:
-                                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                            self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")
+                                            self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                                                  OrderCancelledEvent(self._current_timestamp,
                                                                                      tracked_order.client_order_id))
                                     else:
@@ -983,9 +983,9 @@ cdef class KrakenExchange(ExchangeBase):
                                                                is_auth_required=True)
 
             if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
-                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.logger().info(f"Successfully canceled order {order_id}.")
                 self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
             return {
                 "origClientOrderId": order_id
@@ -993,7 +993,7 @@ cdef class KrakenExchange(ExchangeBase):
         except KrakenInFlightOrderNotCreated:
             raise
         except Exception as e:
-            self.logger().warning(f"Error cancelling order on Kraken",
+            self.logger().warning(f"Error canceling order on Kraken",
                                   exc_info=True)
 
     cdef c_cancel(self, str trading_pair, str order_id):
@@ -1018,7 +1018,7 @@ cdef class KrakenExchange(ExchangeBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error canceling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Kraken. Check API key and network connection."
             )

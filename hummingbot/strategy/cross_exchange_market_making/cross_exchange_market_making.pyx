@@ -82,7 +82,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         Initializes a cross exchange market making strategy object.
 
         :param market_pairs: list of cross exchange market pairs
-        :param min_profitability: minimum profitability ratio threshold, for actively cancelling unprofitable orders
+        :param min_profitability: minimum profitability ratio threshold, for actively canceling unprofitable orders
         :param order_amount: override the limit order trade size, in base asset unit
         :param order_size_taker_volume_factor: maximum size limit of new limit orders, in terms of ratio of hedge-able
                                                volume on taker side
@@ -92,9 +92,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                  portfolio value on both maker and taker markets
         :param limit_order_min_expiration: amount of time after which limit order will expire to be used alongside
                                            cancel_order_threshold
-        :param cancel_order_threshold: if active order cancellation is disabled, the hedging loss ratio required for the
-                                       strategy to force an order cancellation
-        :param active_order_canceling: True if active order cancellation is enabled, False if disabled
+        :param cancel_order_threshold: if active order cancelation is disabled, the hedging loss ratio required for the
+                                       strategy to force an order cancelation
+        :param active_order_canceling: True if active order cancelation is enabled, False if disabled
         :param anti_hysteresis_duration: the minimum amount of time interval between adjusting limit order prices
         :param logging_options: bit field for what types of logging to enable in this strategy object
         :param status_report_interval: what is the time interval between outputting new network warnings
@@ -394,7 +394,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         For market pair being managed by this strategy object, do the following:
 
-         1. Check whether any of the existing orders need to be cancelled.
+         1. Check whether any of the existing orders need to be canceled.
          2. Check if new orders should be created.
 
         For each market pair, only 1 active bid offer and 1 active ask offer is allowed at a time at maximum.
@@ -600,13 +600,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         current hedging price on taker market, depth tolerance, and transient orders on the maker market captured by
         recent suggested price samples.
 
-        If the active order's price is no longer valid, the order will be cancelled.
+        If the active order's price is no longer valid, the order will be canceled.
 
-        This function is only used when active order cancellation is enabled.
+        This function is only used when active order cancelation is enabled.
 
         :param market_pair: cross exchange market pair
         :param active_order: a current active limit order in the market pair
-        :return: True if the order stays, False if the order has been cancelled and we need to re place the orders.
+        :return: True if the order stays, False if the order has been canceled and we need to re place the orders.
         """
         cdef:
             bint is_buy = active_order.is_buy
@@ -1080,16 +1080,16 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                           LimitOrder active_order,
                                           object current_hedging_price):
         """
-        Check whether a currently active limit order should be cancelled or not, according to profitability metric.
+        Check whether a currently active limit order should be canceled or not, according to profitability metric.
 
         If active order canceling is enabled (e.g. for centralized exchanges), then the min profitability config is
         used as the threshold. If it is disabled (e.g. for decentralized exchanges), then the cancel order threshold
         is used instead.
 
         :param market_pair: cross exchange market pair
-        :param active_order: the currently active order to check for cancellation
+        :param active_order: the currently active order to check for cancelation
         :param current_hedging_price: the current average hedging price on taker market for the limit order
-        :return: True if the limit order stays, False if the limit order is being cancelled.
+        :return: True if the limit order stays, False if the limit order is being canceled.
         """
         cdef:
             bint is_buy = active_order.is_buy
@@ -1132,12 +1132,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         Check whether there's enough asset balance for a currently active limit order. If there's not enough asset
         balance for the order (e.g. because the required asset has been moved), cancel the active order.
 
-        This function is only used when active order cancelled is enabled.
+        This function is only used when active order canceled is enabled.
 
         :param market_pair: cross exchange market pair
         :param active_order: current limit order
         :return: True if there's sufficient balance for the limit order, False if there isn't and the order is being
-                 cancelled.
+                 canceled.
         """
         cdef:
             bint is_buy = active_order.is_buy
