@@ -91,7 +91,7 @@ export const validateGetMarketRequest: RequestValidator = mkRequestValidator([
   mkValidator(
     '',
     (_request) => `No market was informed. If you want to get a market, please inform the parameter "name".`,
-    (request) => !request.name,
+    (request) => request.name,
     false,
     true
   )
@@ -101,7 +101,7 @@ export const validateGetMarketsRequest: RequestValidator = mkRequestValidator([
   mkValidator(
     '',
     (_request) => `No markets were informed. If you want to get all markets, please do not inform the parameter "names".`,
-    (request) => !request.names || !request.names.length,
+    (request) => request.names && request.names.length,
     false,
     true
   )
@@ -111,7 +111,7 @@ export const validateGetOrderBookRequest: RequestValidator = mkRequestValidator(
   mkValidator(
     '',
     (_request) => `No market name was informed. If you want to get an order book, please inform the parameter "marketName".`,
-    (request) => !request.marketName,
+    (request) => request.marketName,
     false,
     true
   )
@@ -121,7 +121,7 @@ export const validateGetOrderBooksRequest: RequestValidator = mkRequestValidator
   mkValidator(
     '',
     (_request) => `No market names were informed. If you want to get all order books, please do not inform the parameter "marketNames".`,
-    (request) => !request.marketNames || !request.marketNames.length,
+    (request) => request.marketNames && request.marketNames.length,
     false,
     true
   )
@@ -131,7 +131,7 @@ export const validateGetTickerRequest: RequestValidator = mkRequestValidator([
   mkValidator(
     '',
     (_request) => `No market name was informed. If you want to get a ticker, please inform the parameter "marketName".`,
-    (request) => !request.marketName,
+    (request) => request.marketName,
     false,
     true
   )
@@ -141,7 +141,7 @@ export const validateGetTickersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
     '',
     (_request) => `No market names were informed. If you want to get all tickers, please do not inform the parameter "marketNames".`,
-    (request) => !request.marketNames || !request.marketNames.length,
+    (request) => request.marketNames && request.marketNames.length,
     false,
     true
   )
@@ -161,7 +161,7 @@ export const validateGetOrdersRequest: RequestValidator = mkRequestValidator([
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),
@@ -193,7 +193,7 @@ export const validateCreateOrdersRequest: RequestValidator = mkRequestValidator(
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),
@@ -225,7 +225,7 @@ export const validateCancelOrdersRequest: RequestValidator = mkRequestValidator(
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),
@@ -254,7 +254,7 @@ export const validateGetOpenOrdersRequest: RequestValidator = mkRequestValidator
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),
@@ -283,7 +283,7 @@ export const validateCancelOpenOrdersRequest: RequestValidator = mkRequestValida
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),
@@ -312,7 +312,7 @@ export const validateGetFilledOrdersRequest: RequestValidator = mkRequestValidat
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),
@@ -339,7 +339,7 @@ export const validateSettleFundsSeveralRequest: RequestValidator = mkRequestVali
   mkValidator(
     '',
     (_request) => `No orders were informed.`,
-    (request) => !request.orders || !request.orders.length,
+    (request) => request.orders && request.orders.length,
     false,
     true
   ),

@@ -53,7 +53,7 @@ type SingleInput =
   | OrderBook
   | Ticker
   | Order
-  | Fund
+  | Fund[]
 ;
 
 type InputMap =
@@ -61,7 +61,7 @@ type InputMap =
   | IMap<string, OrderBook>
   | IMap<string, Ticker>
   | IMap<string, Order>
-  | IMap<string, Fund>
+  | IMap<string, Fund[]>
 ;
 
 type InputMapMap =

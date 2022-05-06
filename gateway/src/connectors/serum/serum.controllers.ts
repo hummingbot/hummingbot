@@ -534,7 +534,7 @@ export async function settleFunds(
     validateSettleFundsRequest(request);
 
     try {
-      response.body = convert<Fund, SerumPostSettleFundsResponse>(await serum.settleFundsForMarket(request.marketName, request.ownerAddress), Types.PostSettleFundsResponse);
+      response.body = convert<Fund[], SerumPostSettleFundsResponse>(await serum.settleFundsForMarket(request.marketName, request.ownerAddress), Types.PostSettleFundsResponse);
 
       response.status = StatusCodes.OK;
 
@@ -552,7 +552,7 @@ export async function settleFunds(
     validateSettleFundsSeveralRequest(request);
 
     try {
-      response.body = convert<IMap<string, Fund>, SerumPostSettleFundsResponse>(await serum.settleFundsForMarkets(request.marketNames, request.ownerAddress), Types.PostSettleFundsResponse);
+      response.body = convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(await serum.settleFundsForMarkets(request.marketNames, request.ownerAddress), Types.PostSettleFundsResponse);
 
       response.status = StatusCodes.OK;
 
@@ -566,7 +566,7 @@ export async function settleFunds(
     }
   }
 
-  response.body = convert<IMap<string, Fund>, SerumPostSettleFundsResponse>(await serum.settleAllFunds(request.ownerAddress), Types.PostSettleFundsResponse);
+  response.body = convert<IMap<string, Fund[]>, SerumPostSettleFundsResponse>(await serum.settleAllFunds(request.ownerAddress), Types.PostSettleFundsResponse);
 
   response.status = StatusCodes.OK;
 

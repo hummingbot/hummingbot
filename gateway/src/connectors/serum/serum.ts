@@ -240,10 +240,10 @@ export class Serum {
       owner.publicKey,
     )) {
       if (openOrders.baseTokenFree.gt(new BN(0)) || openOrders.quoteTokenFree.gt(new BN(0))) {
-        const base = await this.serumFindBaseTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
+        const base = await this.serumFindBaseTokenAccountsForOwner(market, this.connection, owner.publicKey, true);
         const baseWallet = base[0].pubkey;
 
-        const quote = await this.serumFindQuoteTokenAccountsForOwner(market.market, this.connection, owner.publicKey, true);
+        const quote = await this.serumFindQuoteTokenAccountsForOwner(market, this.connection, owner.publicKey, true);
         const quoteWallet = quote[0].pubkey;
 
         fundsSettlements.push({
@@ -264,7 +264,7 @@ export class Serum {
       ))[0]; // There's only one owner.
     } catch (exception: any) {
       if (exception.message.includes('It is unknown if it succeeded or failed.')) {
-        throw new FundsSettlementError(`Unknown state when settling the funds for the market "${marketName}": ${exception.message}`);
+        throw new FundsSettlementError(`Unknown state when settling the funds for the market: ${exception.message}`);
       }
 
       throw exception;
