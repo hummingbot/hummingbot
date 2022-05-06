@@ -496,14 +496,16 @@ export async function collectEarnedFees(
   const gasPrice: number = ethereumish.gasPrice;
   const gasLimit: number = uniswapish.gasLimit;
 
-  const tx: Transaction = <Transaction>await uniswapish.collectFees(
-    wallet,
-    req.tokenId,
-    gasLimit,
-    gasPrice,
-    req.nonce,
-    maxFeePerGasBigNumber,
-    maxPriorityFeePerGasBigNumber
+  const tx: Transaction = <Transaction>(
+    await uniswapish.collectFees(
+      wallet,
+      req.tokenId,
+      gasLimit,
+      gasPrice,
+      req.nonce,
+      maxFeePerGasBigNumber,
+      maxPriorityFeePerGasBigNumber
+    )
   );
 
   logger.info(
