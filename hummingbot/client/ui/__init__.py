@@ -10,7 +10,7 @@ with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
 
 
-def show_welcome(style):
+def show_welcome(style: Style):
     message_dialog(
         title='Welcome to Hummingbot',
         text="""
@@ -71,7 +71,7 @@ def show_welcome(style):
         style=style).run()
 
 
-def login_prompt(style):
+def login_prompt(style: Style):
     from hummingbot.client.config.security import Security
     import time
 
