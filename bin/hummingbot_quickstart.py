@@ -77,7 +77,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
 
-    if Security.login(secrets_manager):
+    if not Security.login(secrets_manager):
         logging.getLogger().error("Invalid password.")
         return
 
