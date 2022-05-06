@@ -1,4 +1,3 @@
-import argparse
 import binascii
 import importlib
 import shutil
@@ -9,11 +8,7 @@ from typing import List, cast
 import yaml
 
 from hummingbot import root_path
-from hummingbot.client.config.config_crypt import (
-    BaseSecretsManager,
-    ETHKeyFileSecretManger,
-    store_password_verification,
-)
+from hummingbot.client.config.config_crypt import BaseSecretsManager, store_password_verification
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
@@ -25,25 +20,36 @@ conf_dir_path = CONF_DIR_PATH
 strategies_conf_dir_path = STRATEGIES_CONF_DIR_PATH
 
 
-def migrate(secrets_manager: BaseSecretsManager):
+def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
     print("Starting conf migration.")
-    backup_existing_dir()
-    migrate_strategy_confs_paths()
-    migrate_connector_confs(secrets_manager)
-    store_password_verification(secrets_manager)
+    errors = backup_existing_dir()
+    if len(errors) == 0:
+        migrate_strategy_confs_paths()
+        errors.extend(migrate_connector_confs(secrets_manager))
+        store_password_verification(secrets_manager)
+        print("\nConf migration done.")
+    else:
+        print("\nConf migration failed.")
+    return errors
 
 
-def backup_existing_dir():
+def backup_existing_dir() -> List[str]:
+    errors = []
     if conf_dir_path.exists():
         backup_path = conf_dir_path.parent / "conf_backup"
         if backup_path.exists():
-            raise RuntimeError(
-                f"\nBackup path {backup_path} already exists. The migration script cannot backup you"
-                f" exiting conf files without overwriting that directory. Please remove it and"
-                f" run the script again."
-            )
-        shutil.copytree(conf_dir_path, backup_path)
-        print(f"\nCreated a backup of your existing conf directory to {backup_path}")
+            errors = [
+                (
+                    f"\nBackup path {backup_path} already exists."
+                    f"\nThe migration script cannot backup you exiting"
+                    f"\nconf files without overwriting that directory."
+                    f"\nPlease remove it and run the script again."
+                )
+            ]
+        else:
+            shutil.copytree(conf_dir_path, backup_path)
+            print(f"\nCreated a backup of your existing conf directory to {backup_path}")
+    return errors
 
 
 def migrate_strategy_confs_paths():
@@ -60,6 +66,7 @@ def migrate_strategy_confs_paths():
 
 def migrate_connector_confs(secrets_manager: BaseSecretsManager):
     print("\nMigrating connector secure keys...")
+    errors = []
     Security.secrets_manager = secrets_manager
     connector_exceptions = ["paper_trade"]
     type_dirs: List[DirEntry] = [
@@ -82,17 +89,18 @@ def migrate_connector_confs(secrets_manager: BaseSecretsManager):
                 util_module = importlib.import_module(util_module_path)
                 config_keys = getattr(util_module, "KEYS", None)
                 if config_keys is not None:
-                    _maybe_migrate_encrypted_confs(config_keys)
+                    errors.extend(_maybe_migrate_encrypted_confs(config_keys))
                 other_domains = getattr(util_module, "OTHER_DOMAINS", [])
                 for domain in other_domains:
                     config_keys = getattr(util_module, "OTHER_DOMAINS_KEYS")[domain]
                     if config_keys is not None:
-                        _maybe_migrate_encrypted_confs(config_keys)
+                        errors.extend(_maybe_migrate_encrypted_confs(config_keys))
             except ModuleNotFoundError:
                 continue
+    return errors
 
 
-def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap):
+def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[str]:
     cm = ClientConfigAdapter(config_keys)
     found_one = False
     files_to_remove = []
@@ -109,25 +117,18 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap):
                 found_one = True
             else:
                 missing_fields.append(el.attr)
+    errors = []
     if found_one:
-        errors = []
         if len(missing_fields) != 0:
-            errors = [f"missing fields: {missing_fields}"]
+            errors = [f"{config_keys.connector} - missing fields: {missing_fields}"]
         if len(errors) == 0:
             errors = cm.validate_model()
         if errors:
+            errors = [f"{config_keys.connector} - {e}" for e in errors]
             print(f"The migration of {config_keys.connector} failed with errors: {errors}")
         else:
             Security.update_secure_config(cm)
-            for f in files_to_remove:
-                f.unlink()
             print(f"Migrated secure keys for {config_keys.connector}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Migrate the HummingBot confs")
-    parser.add_argument("password", type=str, help="Required to migrate all encrypted configs.")
-    args = parser.parse_args()
-    secrets_manager_ = ETHKeyFileSecretManger(args.password)
-    migrate(secrets_manager_)
-    print("\nConf migration done.")
+        for f in files_to_remove:
+            f.unlink()
+    return errors

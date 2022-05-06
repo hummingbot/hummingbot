@@ -15,7 +15,7 @@ from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
-    from hummingbot.client.config.config_data_types import BaseClientModel
+    from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 
 # Global variables
 required_exchanges: Set[str] = set()
@@ -122,7 +122,7 @@ class ConnectorSetting(NamedTuple):
     centralised: bool
     use_ethereum_wallet: bool
     trade_fee_schema: TradeFeeSchema
-    config_keys: Optional["BaseClientModel"]
+    config_keys: Optional["BaseConnectorConfigMap"]
     is_sub_domain: bool
     parent_name: Optional[str]
     domain_parameter: Optional[str]
@@ -328,7 +328,7 @@ class AllConnectorSettings:
         return cls.all_connector_settings
 
     @classmethod
-    def get_connector_config_keys(cls, connector: str) -> Optional["BaseClientModel"]:
+    def get_connector_config_keys(cls, connector: str) -> Optional["BaseConnectorConfigMap"]:
         return cls.get_connector_settings()[connector].config_keys
 
     @classmethod
@@ -338,9 +338,14 @@ class AllConnectorSettings:
         new_keys = (
             current_keys if current_keys is None else current_keys.__class__.construct()
         )
+        cls.update_connector_config_keys(new_keys)
+
+    @classmethod
+    def update_connector_config_keys(cls, new_config_keys: "BaseConnectorConfigMap"):
+        current_settings = cls.get_connector_settings()[new_config_keys.connector]
         new_keys_settings_dict = current_settings._asdict()
-        new_keys_settings_dict.update({"config_keys": new_keys})
-        cls.get_connector_settings()[connector] = ConnectorSetting(
+        new_keys_settings_dict.update({"config_keys": new_config_keys})
+        cls.get_connector_settings()[new_config_keys.connector] = ConnectorSetting(
             **new_keys_settings_dict
         )
 

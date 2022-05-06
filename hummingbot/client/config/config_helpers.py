@@ -538,6 +538,14 @@ def reset_connector_hb_config(connector_name: str):
         AllConnectorSettings.reset_connector_config_keys(connector_name)
 
 
+def update_connector_hb_config(connector_config: ClientConfigAdapter):
+    connector_name = connector_config.connector
+    if connector_name == "celo":
+        celo_data_types.KEYS = connector_config.hb_config
+    else:
+        AllConnectorSettings.update_connector_config_keys(connector_config.hb_config)
+
+
 def api_keys_from_connector_config_map(cm: ClientConfigAdapter) -> Dict[str, str]:
     api_keys = {}
     for c in cm.traverse():

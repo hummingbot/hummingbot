@@ -51,6 +51,7 @@ class ConnectCommand:
         else:
             connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
         to_connect = True
+        previous_keys = None
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
             api_key_config = [
@@ -69,6 +70,8 @@ class ConnectCommand:
                 return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
+            else:
+                previous_keys = Security.api_keys(connector_name)
         if to_connect:
             await self.prompt_for_model_config(connector_config)
             self.app.change_prompt(prompt=">>> ")
@@ -84,7 +87,11 @@ class ConnectCommand:
                 self.notify(f"\nYou are now connected to {connector_name}.")
             else:
                 self.notify(f"\nError: {err_msg}")
-                Security.remove_secure_config(connector_config)
+                if previous_keys is not None:
+                    previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
+                    Security.update_secure_config(previous_config)
+                else:
+                    Security.remove_secure_config(connector_name)
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")

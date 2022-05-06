@@ -9,4 +9,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     secrets_manager_ = ETHKeyFileSecretManger(args.password)
     migrate_configs(secrets_manager_)
-    print("\nConf migration done.")
