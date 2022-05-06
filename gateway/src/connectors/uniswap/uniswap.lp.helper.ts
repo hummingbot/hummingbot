@@ -42,7 +42,7 @@ export class UniswapLPHelper {
   private tokenList: Record<string, Token> = {};
   private _chain: string;
   private _ready: boolean = false;
-  public abiDecoder;
+  public abiDecoder: any;
 
   constructor(chain: string, network: string) {
     this.ethereum = Ethereum.getInstance(network);
