@@ -12,6 +12,7 @@ from hummingbot.client.config.config_helpers import (
     load_connector_config_map_from_file,
     reset_connector_hb_config,
     save_to_yml,
+    update_connector_hb_config,
 )
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -64,11 +65,11 @@ class Security:
         connector_name = connector_config.connector
         file_path = get_connector_config_yml_path(connector_name)
         save_to_yml(file_path, connector_config)
+        update_connector_hb_config(connector_config)
         cls._secure_configs[connector_name] = connector_config
 
     @classmethod
-    def remove_secure_config(cls, connector_config: ClientConfigAdapter):
-        connector_name = connector_config.connector
+    def remove_secure_config(cls, connector_name: str):
         file_path = get_connector_config_yml_path(connector_name)
         file_path.unlink(missing_ok=True)
         reset_connector_hb_config(connector_name)
