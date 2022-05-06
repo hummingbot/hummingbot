@@ -35,7 +35,9 @@ DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
 TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
 CONF_DIR_PATH = root_path() / "conf"
 STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"
+STRATEGIES_CONF_DIR_PATH.mkdir(parents=True, exist_ok=True)
 CONNECTORS_CONF_DIR_PATH = CONF_DIR_PATH / "connectors"
+CONNECTORS_CONF_DIR_PATH.mkdir(parents=True, exist_ok=True)
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
